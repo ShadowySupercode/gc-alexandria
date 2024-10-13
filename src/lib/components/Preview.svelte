@@ -1,8 +1,8 @@
 <script lang="ts">
   import { parser } from "$lib/parser";
-    import { hoverTargetId } from "$lib/stores";
   import { Button, Heading, P, Textarea, Tooltip } from "flowbite-svelte";
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
+  import { createEventDispatcher } from "svelte";
 
   export let sectionClass: string = '';
   export let isSectionStart: boolean = false;
@@ -10,7 +10,10 @@
   export let depth: number = 0;
   export let allowEditing: boolean = false;
 
+  const dispatch = createEventDispatcher();
+
   let isEditing: boolean = false;
+  let hasCursor: boolean = false;
   let currentContent: string;
 
   const title = $parser.getIndexTitle(rootId);
@@ -31,20 +34,15 @@
     }
   };
 
-  const handleFocus = (e: Event) => {
-    const target = e.target as HTMLElement;
-    if (target.id === rootId) {
-      $hoverTargetId = rootId;
-      e.stopPropagation();
-    }
+  const handleMouseEnter = (e: MouseEvent) => {
+    hasCursor = true;
+    dispatch('cursorcapture', e);
+    console.debug(`${rootId} has cursor.`);
   };
 
-  const handleBlur = (e: Event) => {
-    const target = e.target as HTMLElement;
-    if (target.id === rootId) {
-      $hoverTargetId = '';
-      e.stopPropagation();
-    }
+  const handleMouseLeave = (_: MouseEvent) => {
+    hasCursor = false;
+    console.debug(`${rootId} lost cursor.`);
   };
 
   // TODO: Trigger rerender when editing state changes.
@@ -65,8 +63,8 @@
 <section
   id={rootId}
   class={`note-leather w-full flex space-x-2 ${sectionClass}`}
-  on:mouseover={handleFocus}
-  on:focus={handleFocus}
+  on:mouseenter={handleMouseEnter}
+  on:mouseleave={handleMouseLeave}
 >
   <!-- Zettel base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
@@ -80,12 +78,18 @@
       </Heading>
       <!-- Recurse on child indices and zettels -->
       {#each orderedChildren as id, index}
-        <svelte:self rootId={id} depth={depth + 1} {allowEditing} isSectionStart={index === 0} />
+        <svelte:self
+          rootId={id}
+          depth={depth + 1}
+          {allowEditing}
+          isSectionStart={index === 0}
+          on:cursorcapture={handleMouseLeave}
+        />
       {/each}
     </div>
   {/if}
   {#if allowEditing}
-    <div class={`flex flex-col space-y-2 justify-start ${$hoverTargetId === rootId ? 'visible' : 'invisible'}`}>
+    <div class={`flex flex-col space-y-2 justify-start ${hasCursor ? 'visible' : 'invisible'}`}>
       <Button class='btn-leather' size='sm' outline>
         <CaretUpSolid />
       </Button>
@@ -101,70 +105,3 @@
     </div>
   {/if}
 </section>
-
-<!-- <section class={`note-leather grid grid-cols-[1fr_auto] gap-2 ${sectionClass}`}>
-  <div class={`flex flex-col space-y-2 ${depth > 0 ? 'border-l-gray-500 border-l pl-2' : ''}`}>
-    {#if depth < 4}
-      <Heading tag={getHeadingTag(depth)} class='h-leather'>{title}</Heading>
-      {#each orderedChildren as id, index}
-        {#if childIndices.includes(id)}
-          <svelte:self rootIndexId={id} depth={depth + 1} {allowEditing} />
-        {:else if (childZettels.includes(id))}
-          <div class='note-leather grid grid-cols-[1fr_auto] gap-2'>
-            {#if isEditing.get(id)}
-              <form>
-                <Textarea class='textarea-leather' rows={5} bind:value={editorContent[id]}>
-                  <div slot='footer' class='flex justify-end'>
-                    <Button class='btn-leather' size='sm' outline on:click={() => toggleEditing(id, false)}>
-                      Cancel
-                    </Button>
-                    <Button class='btn-leather' size='sm' on:click={() => toggleEditing(id)}>
-                      Save
-                    </Button>
-                  </div>
-                </Textarea>
-              </form>
-            {:else}
-              <P class='border-l-gray-500 border-l pl-2' firstupper={index === 0}>
-                {@html $parser.getContent(id)}
-              </P>
-            {/if}
-            {#if allowEditing}
-              <div class='col-start-2 flex flex-col space-y-2 justify-start'>
-                <Button class='btn-leather' size='sm' outline>
-                  <CaretUpSolid />
-                </Button>
-                <Button class='btn-leather' size='sm' outline>
-                  <CaretDownSolid />
-                </Button>
-                <Button class='btn-leather' size='sm' outline on:click={() => toggleEditing(id)}>
-                  <EditOutline />
-                </Button>
-                <Tooltip class='tooltip-leather' type='auto' placement='top'>
-                  Edit
-                </Tooltip>
-              </div>
-            {/if}
-          </div>
-        {/if}
-      {/each}
-    {:else}
-      <P class='note-leather' firstupper>
-        {@html $parser.getContent(rootIndexId)}
-      </P>
-    {/if}
-  </div>
-  {#if allowEditing}
-    <div class='col-start-2 flex flex-col space-y-2 justify-start'>
-      <Button class='btn-leather' size='sm' outline>
-        <CaretUpSolid />
-      </Button>
-      <Button class='btn-leather' size='sm' outline>
-        <CaretDownSolid />
-      </Button>
-      <Button class='btn-leather' size='sm' outline>
-        <EditOutline />
-      </Button>
-    </div>
-  {/if}
-</section> -->
