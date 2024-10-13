@@ -37,12 +37,10 @@
   const handleMouseEnter = (e: MouseEvent) => {
     hasCursor = true;
     dispatch('cursorcapture', e);
-    console.debug(`${rootId} has cursor.`);
   };
 
   const handleMouseLeave = (_: MouseEvent) => {
     hasCursor = false;
-    console.debug(`${rootId} lost cursor.`);
   };
 
   // TODO: Trigger rerender when editing state changes.
