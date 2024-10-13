@@ -13,11 +13,14 @@
   const dispatch = createEventDispatcher();
 
   let isEditing: boolean = false;
-  let hasCursor: boolean = false;
   let currentContent: string;
+  let hasCursor: boolean = false;
+  let childHasCursor: boolean;
 
   const title = $parser.getIndexTitle(rootId);
   const orderedChildren = $parser.getOrderedChildIds(rootId);
+
+  $: buttonsVisible = hasCursor && !childHasCursor;
 
   const getHeadingTag = (depth: number) => {
     switch (depth) {
@@ -39,9 +42,19 @@
     dispatch('cursorcapture', e);
   };
 
-  const handleMouseLeave = (_: MouseEvent) => {
+  const handleMouseLeave = (e: MouseEvent) => {
     hasCursor = false;
+    dispatch('cursorrelease', e);
   };
+
+  const handleChildCursorCaptured = (e: MouseEvent) => {
+    childHasCursor = true;
+    dispatch('cursorrelase', e);
+  };
+
+  const handleChildCursorReleased = (e: MouseEvent) => {
+    childHasCursor = false;
+  }
 
   // TODO: Trigger rerender when editing state changes.
   const toggleEditing = (id: string, shouldSave: boolean = true) => {
@@ -81,13 +94,14 @@
           depth={depth + 1}
           {allowEditing}
           isSectionStart={index === 0}
-          on:cursorcapture={handleMouseLeave}
+          on:cursorcapture={handleChildCursorCaptured}
+          on:cursorrelease={handleChildCursorReleased}
         />
       {/each}
     </div>
   {/if}
   {#if allowEditing}
-    <div class={`flex flex-col space-y-2 justify-start ${hasCursor ? 'visible' : 'invisible'}`}>
+    <div class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? 'visible' : 'invisible'}`}>
       <Button class='btn-leather' size='sm' outline>
         <CaretUpSolid />
       </Button>
