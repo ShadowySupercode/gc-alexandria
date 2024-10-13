@@ -60,7 +60,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <section
   id={rootId}
-  class={`note-leather w-full flex space-x-2 ${sectionClass}`}
+  class={`note-leather w-full flex space-x-2 justify-between ${sectionClass}`}
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
 >
