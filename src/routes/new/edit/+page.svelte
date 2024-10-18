@@ -27,6 +27,7 @@
   const prepareReview = () => {
     $parser.reset();
     $parser.parse($editorText);
+    $parser.generate($ndk.activeUser?.pubkey!);
     goto('/new/compose');
   }
 </script>
@@ -64,7 +65,7 @@
           </ToolbarButton>
         </Toolbar>
         {#if rootIndexId}
-          <Preview sectionClass='m-2' {rootIndexId} />
+          <Preview sectionClass='m-2' rootId={rootIndexId} />
         {/if}
       </form>
     {/if}

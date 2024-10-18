@@ -4,6 +4,8 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
   import { createEventDispatcher } from "svelte";
 
+  // TODO: Push parser to state to be read on reload.
+
   export let sectionClass: string = '';
   export let isSectionStart: boolean = false;
   export let rootId: string;
@@ -13,7 +15,7 @@
   const dispatch = createEventDispatcher();
 
   let isEditing: boolean = false;
-  let currentContent: string;
+  let currentContent: string = $parser.getContent(rootId);
   let hasCursor: boolean = false;
   let childHasCursor: boolean;
 
@@ -56,13 +58,11 @@
     childHasCursor = false;
   }
 
-  // TODO: Trigger rerender when editing state changes.
   const toggleEditing = (id: string, shouldSave: boolean = true) => {
     const editing = isEditing;
-    currentContent = $parser.getContent(id);
 
     if (editing && shouldSave) {
-      // TODO: Save updated content.
+      $parser.updateEventContent(id, currentContent);
     }
 
     isEditing = !editing;
@@ -79,9 +79,36 @@
 >
   <!-- Zettel base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
-    <P firstupper={isSectionStart}>
-      {@html $parser.getContent(rootId)}
-    </P>
+    {#if isEditing}
+      <form class='w-full'>
+        <Textarea class='textarea-leather w-full' bind:value={currentContent}>
+          <div slot='footer' class='flex space-x-2 justify-end'>
+            <Button
+              type='reset'
+              class='btn-leather min-w-fit'
+              size='sm'
+              outline
+              on:click={() => toggleEditing(rootId, false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type='submit'
+              class='btn-leather min-w-fit'
+              size='sm'
+              solid
+              on:click={() => toggleEditing(rootId, true)}
+            >
+              Save
+            </Button>
+          </div>
+        </Textarea>
+      </form>
+    {:else}
+      <P firstupper={isSectionStart}>
+        {@html currentContent}
+      </P>
+    {/if}
   {:else}
     <div class='flex flex-col space-y-2'>
       <Heading tag={getHeadingTag(depth)} class='h-leather'>
@@ -108,7 +135,7 @@
       <Button class='btn-leather' size='sm' outline>
         <CaretDownSolid />
       </Button>
-      <Button class='btn-leather' size='sm' outline>
+      <Button class='btn-leather' size='sm' outline on:click={() => toggleEditing(rootId)}>
         <EditOutline />
       </Button>
       <Tooltip class='tooltip-leather' type='auto' placement='top'>
