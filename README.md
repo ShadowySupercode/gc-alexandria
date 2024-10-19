@@ -2,7 +2,8 @@
 
 # Alexandria
 
-Alexandria is a Nostr Knowledge Base (NKB) and a reader for long-form articles. 
+Alexandria is a Nostr Knowledge Base (NKB) and a reader for long-form articles.
+For a thorough introduction, please refer to our [project documention](https://wikistr.com/gc-alexandria*dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319).
  
 ## Features 
  
@@ -18,7 +19,7 @@ As Alexandria is targeted toward those who are trying to focus on longer, more-c
  
 ### Modular articles 
  
-The specialty of this client is the ability to display long-form articles, particularly of the modular variety: event kinds [30040 and 30041](https://next.nostrudel.ninja/#/wiki/topic/nkbip-01). It will eventually also able to display wiki pages (event kind [30818](https://next.nostrudel.ninja/#/wiki/topic/nip-54)) and normal long-form articles (event kind [30023](https://next.nostrudel.ninja/#/wiki/topic/nip-23)). 
+The specialty of this client is the ability to display long-form articles, particularly of the modular variety: event kinds [30040 and 30041](https://wikistr.com/nkbip-01). It will eventually also able to display wiki pages (event kind [30818](https://wikistr.com/nip-54)) and normal long-form articles (event kind [30023](https://wikistr.com/nip-23)). 
  
 Modular articles are often referred to as the *Nostr eBook format*, with 30040 events containing the metadata and the ordered list of the 30041 notes, which contain the formatted content. The 30040 index is used to create a sidebar containing the table of contents, and the 30041 sections can be individually selected and interacted with.
 ![Alexandria reading page](https://i.nostr.build/KEReOZ0LH6w9jrM8.png)
@@ -33,7 +34,7 @@ For an interim solution, please use the [command line program.](https://gitworks
 
 Make sure that you have [Node.js](https://nodejs.org/en/download/package-manager) installed.
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`) -- make sure to use an independent shell for this step, and not a terminal embedded in an IDE --, start a development server:
 
 ```bash
 npm run dev
