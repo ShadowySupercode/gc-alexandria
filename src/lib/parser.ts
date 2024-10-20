@@ -85,6 +85,12 @@ export default class Pharos {
   private events: Map<string, NDKEvent> = new Map<string, NDKEvent>();
 
   /**
+   * A map of event d tags to the context name assigned to each event's originating node by the
+   * Asciidoctor parser.
+   */
+  private eventToContextMap: Map<string, string> = new Map<string, string>();
+
+  /**
    * A map of node IDs to the integer event kind that will be used to represent the node.
    */
   private eventToKindMap: Map<string, number> = new Map<string, number>();
@@ -125,7 +131,12 @@ export default class Pharos {
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
-    this.html = this.asciidoctor.convert(content, options) as string | Document | undefined;
+    try {
+      this.html = this.asciidoctor.convert(content, options) as string | Document | undefined;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to parse AsciiDoc document.');
+    }
   }
 
   /**
@@ -235,12 +246,7 @@ export default class Pharos {
       throw new Error(`No event found for #d:${dTag}.`);
     }
 
-    event.content = content;
-    event.id = event.getEventHash();
-
-    this.events.set(dTag, event);
-    this.eventIds.set(dTag, event.id);
-    this.shouldUpdateEventTree = true;
+    this.updateEventByContext(dTag, content, this.eventToContextMap.get(dTag)!);
 
     return event;
   }
@@ -282,6 +288,8 @@ export default class Pharos {
 
     this.shouldUpdateEventTree = true;
   }
+
+  // TODO: Add method to update index title.
 
   /**
    * Resets the parser to its initial state, removing any parsed data.
@@ -563,6 +571,10 @@ export default class Pharos {
 
   // #region Utility Functions
 
+  /**
+   * Generates an ID for the given block that is unique within the document, and adds a mapping of
+   * the generated ID to the block's context, as determined by the Asciidoctor parser.
+   */
   private generateNodeId(block: AbstractBlock): string {
     let blockId: string | null = this.normalizeId(block.getId());
 
@@ -752,6 +764,8 @@ export default class Pharos {
     }
 
     block.setId(blockId);
+    this.eventToContextMap.set(blockId, context);
+
     return blockId;
   }
 
@@ -766,6 +780,38 @@ export default class Pharos {
       .trim()
       .replace(/\s+/g, '-')  // Replace spaces with dashes.
       .replace(/[^a-z0-9\-]/g, '');  // Remove non-alphanumeric characters except dashes.
+  }
+
+  private updateEventByContext(dTag: string, value: string, context: string) {
+    switch (context) {
+    case 'document':
+    case 'section':
+      this.updateEventTitle(dTag, value);
+      break;
+    
+    default:
+      this.updateEventBody(dTag, value);
+      break;
+    }
+  }
+
+  private updateEventTitle(dTag: string, value: string) {
+    const event = this.events.get(dTag);
+    this.events.delete(dTag);
+    this.events.set(value, event!);
+    this.rehashEvent(dTag, event!);
+  }
+
+  private updateEventBody(dTag: string, value: string) {
+    const event = this.events.get(dTag);
+    event!.content = value;
+    this.rehashEvent(dTag, event!);
+  }
+
+  private rehashEvent(dTag: string, event: NDKEvent) {
+    event.id = event.getEventHash();
+    this.eventIds.set(dTag, event.id);
+    this.shouldUpdateEventTree = true;
   }
 
   private extractAndNormalizeWikilinks(content: string): string[][] {

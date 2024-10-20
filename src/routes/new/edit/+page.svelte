@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Heading, Textarea, Toolbar, ToolbarButton, Tooltip } from "flowbite-svelte";
   import { CodeOutline, EyeSolid, PaperPlaneOutline } from "flowbite-svelte-icons";
-  import { editorText } from "$lib/stores";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { parser } from "$lib/parser";
   import { ndk } from "$lib/ndk";
@@ -12,10 +11,19 @@
   let isEditing: boolean = true;
   let rootIndexId: string;
 
+  let editorText: string;
+
   const showPreview = () => {
-    $parser ??= new Pharos($ndk);
-    $parser.reset();
-    $parser.parse($editorText);
+    try {
+      $parser ??= new Pharos($ndk);
+      $parser.reset();
+      $parser.parse(editorText);
+    } catch (e) {
+      console.error(e);
+      // TODO: Indicate error in UI.
+      return;
+    }
+
     rootIndexId = $parser.getRootIndexId();
     isEditing = false;
   };
@@ -25,8 +33,15 @@
   };
 
   const prepareReview = () => {
-    $parser.reset();
-    $parser.parse($editorText);
+    try {
+      $parser.reset();
+      $parser.parse(editorText);
+    } catch (e) {
+      console.error(e);
+      // TODO: Indicate error in UI.
+      return;
+    }
+
     $parser.generate($ndk.activeUser?.pubkey!);
     goto('/new/compose');
   }
@@ -42,7 +57,7 @@
           class='textarea-leather'
           rows=8
           placeholder='Write AsciiDoc content'
-          bind:value={$editorText}
+          bind:value={editorText}
         >
           <Toolbar slot='header' embedded>
             <ToolbarButton name='Preview' on:click={showPreview}>

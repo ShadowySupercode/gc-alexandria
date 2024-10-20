@@ -1,6 +1,6 @@
 <script lang="ts">
   import { parser } from "$lib/parser";
-  import { Button, Heading, P, Textarea, Tooltip } from "flowbite-svelte";
+  import { Button, ButtonGroup, CloseButton, Heading, Input, P, Textarea, Tooltip } from "flowbite-svelte";
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
   import { createEventDispatcher } from "svelte";
 
@@ -19,7 +19,7 @@
   let hasCursor: boolean = false;
   let childHasCursor: boolean;
 
-  const title = $parser.getIndexTitle(rootId);
+  let title = $parser.getIndexTitle(rootId);
   const orderedChildren = $parser.getOrderedChildIds(rootId);
 
   $: buttonsVisible = hasCursor && !childHasCursor;
@@ -62,6 +62,10 @@
     const editing = isEditing;
 
     if (editing && shouldSave) {
+      if (orderedChildren.length > 0) {
+
+      }
+
       $parser.updateEventContent(id, currentContent);
     }
 
@@ -73,7 +77,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <section
   id={rootId}
-  class={`note-leather w-full flex space-x-2 justify-between ${sectionClass}`}
+  class={`note-leather flex space-x-2 justify-between ${sectionClass}`}
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
 >
@@ -111,9 +115,20 @@
     {/if}
   {:else}
     <div class='flex flex-col space-y-2'>
-      <Heading tag={getHeadingTag(depth)} class='h-leather'>
-        {title}
-      </Heading>
+      {#if isEditing}
+        <ButtonGroup class='w-full'>
+          <Input type='text' class='input-leather' size='lg' bind:value={title}>
+            <CloseButton slot='right' on:click={() => toggleEditing(rootId, false)} />
+          </Input>
+          <Button class='btn-leather' color='primary' size='lg' on:click={() => toggleEditing(rootId, true)}>
+            Save
+          </Button>
+        </ButtonGroup>
+      {:else}
+        <Heading tag={getHeadingTag(depth)} class='h-leather'>
+          {title}
+        </Heading>
+      {/if}
       <!-- Recurse on child indices and zettels -->
       {#each orderedChildren as id, index}
         <svelte:self
