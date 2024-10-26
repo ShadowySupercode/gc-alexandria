@@ -252,16 +252,177 @@ export default class Pharos {
   }
 
   /**
+   * Gets the immediately preceding sibling of the event with the given d tag.
+   * @param targetDTag The d tag of the target event.
+   * @param parentDTag The d tag of the target event's parent.
+   * @param depth The depth of the target event within the parser tree.
+   * @returns A tuple containing the d tag of the previous sibling's parent and the index of the
+   * previous sibling in the parent's children.
+   */
+  getPreviousSibling(targetDTag: string, parentDTag: string, depth: number, maxDepth?: number): [string | null, number | null] {
+    // TODO: Make sure this gets leaves of a different branch.
+    // TODO: Try to merge this with getNextSibling().
+    maxDepth ??= depth;
+    // Get siblings as children of the target event's parent.
+    const siblings = this.indexToChildEventsMap.get(parentDTag);
+    if (!siblings) {
+      // If there are no siblings, something has gone wrong.  The list of siblings should always
+      // include at least the target event itself.
+      throw new Error(`No siblings found for #d:${parentDTag}.`);
+    }
+
+    const siblingsArray = Array.from(siblings);
+    const targetIndex = siblingsArray.indexOf(targetDTag);
+    if (targetIndex === -1) {
+      return [null, null];
+    }
+
+    if (targetIndex === 0) {
+      // Walk up a level and search for previous siblings
+      const grandparentDTag = this.getParent(parentDTag);
+      if (!grandparentDTag) {
+        return [null, null];
+      }
+
+      return this.getPreviousSibling(parentDTag, grandparentDTag, depth - 1, maxDepth);
+    }
+
+    // Look through previous siblings from right to left
+    for (let i = targetIndex - 1; i >= 0; i--) {
+      const siblingDTag = siblingsArray[i];
+
+      // If this sibling is a leaf node, return it and its index
+      if (!this.indexToChildEventsMap.has(siblingDTag) || depth === maxDepth) {
+        return [siblingDTag, i];
+      }
+
+      if (depth < maxDepth) {
+        // Get all children
+        const children = this.indexToChildEventsMap.get(siblingDTag);
+        if (children && children.size > 0) {
+          // Convert to array and get last child
+          const childrenArray = Array.from(children);
+          const lastChild = childrenArray[childrenArray.length - 1];
+
+          // If we are at the same depth as the original target event, then we have found the
+          // previous sibling.
+          if (depth === maxDepth) {
+            return [lastChild, childrenArray.length - 1];
+          }
+
+          // If we are above the original target's depth, recursively check the last child.
+          const [leafDTag, leafIndex] = this.getPreviousSibling(
+            lastChild,
+            siblingDTag,
+            depth + 1,
+            maxDepth
+          );
+
+          if (leafDTag) {
+            return [leafDTag, leafIndex];
+          }
+        }
+      }
+    }
+
+    return [null, null];
+  }
+
+  /**
+   * Gets the immediately following sibling of the event with the given d tag.
+   * @param targetDTag The d tag of the target event.
+   * @param parentDTag The d tag of the target event's parent.
+   * @param depth The depth of the target event within the parser tree.
+   * @param maxDepth The maximum depth to search for a sibling.
+   * @returns A tuple containing the d tag of the next sibling's parent and the index of the
+   * next sibling in the parent's children.
+   */
+  getNextSibling(targetDTag: string, parentDTag: string, depth: number, maxDepth?: number): [string | null, number | null] {
+    maxDepth ??= depth;
+    // Get siblings as children of the target event's parent.
+    const siblings = this.indexToChildEventsMap.get(parentDTag);
+    if (!siblings) {
+      // If there are no siblings, something has gone wrong.  The list of siblings should always
+      // include at least the target event itself.
+      throw new Error(`No siblings found for #d:${parentDTag}.`);
+    }
+
+    // Convert to array and find target's index
+    const siblingsArray = Array.from(siblings);
+    const targetIndex = siblingsArray.indexOf(targetDTag);
+    if (targetIndex === -1) {
+      return [null, null];
+    }
+
+    if (targetIndex === siblingsArray.length - 1) {
+      // Walk up a level and search for previous siblings
+      const grandparentDTag = this.getParent(parentDTag);
+      if (!grandparentDTag) {
+        return [null, null];
+      }
+
+      return this.getPreviousSibling(parentDTag, grandparentDTag, depth - 1, maxDepth);
+    }
+
+    // Look through next siblings from left to right
+    for (let i = targetIndex + 1; i < siblingsArray.length; i++) {
+      const siblingDTag = siblingsArray[i];
+
+      // If this sibling is a leaf node, return it and its index
+      if (!this.indexToChildEventsMap.has(siblingDTag) || depth === maxDepth) {
+        return [siblingDTag, i];
+      }
+
+      if (depth < maxDepth) {
+        // Get all children
+        const children = this.indexToChildEventsMap.get(siblingDTag);
+        if (children && children.size > 0) {
+          // Convert to array and get first child
+          const childrenArray = Array.from(children);
+          const firstChild = childrenArray[0];
+
+          // If we are at the same depth as the original target event, then we have found the
+          // next sibling.
+          if (depth === maxDepth) {
+            return [firstChild, 0];
+          }
+
+          // If we are above the original target's depth, recursively check the first child.
+          const [leafDTag, leafIndex] = this.getNextSibling(
+            firstChild,
+            siblingDTag,
+            depth + 1,
+            maxDepth
+          );
+
+          if (leafDTag) {
+            return [leafDTag, leafIndex];
+          }
+        }
+      }
+    }
+
+    return [null, null];
+  }
+
+  /**
    * Moves an event within the event tree.
    * @param dTag The d tag of the event to be moved.
    * @param oldParentDTag The d tag of the moved event's current parent.
    * @param newParentDTag The d tag of the moved event's new parent.
+   * @param index The index at which to insert the event to be moved among the children of the new
+   * parent.
    * @throws Throws an error if the parameters specify an invalid move.
    * @remarks Both the old and new parent events must be kind 30040 index events.  Moving the event
    * within the tree changes the hash of several events, so the event tree will be regenerated when
    * the consumer next invokes `getEvents()`.
    */
-  moveEvent(dTag: string, oldParentDTag: string, newParentDTag: string): void {
+  moveEvent(
+    dTag: string,
+    oldParentDTag: string,
+    newParentDTag: string,
+    index?: number
+  ): void {
     const event = this.events.get(dTag);
     if (!event) {
       throw new Error(`No event found for #d:${dTag}.`);
@@ -282,14 +443,21 @@ export default class Pharos {
       throw new Error(`Event #d:${dTag} is not a child of parent #d:${oldParentDTag}.`);
     }
 
-    // Perform the move.
+    // Remove the target event from the old parent.
     oldParentMap?.delete(dTag);
-    newParentMap?.add(dTag);
 
     this.shouldUpdateEventTree = true;
-  }
 
-  // TODO: Add method to update index title.
+    if (index == null) {
+      newParentMap?.add(dTag);
+      return;
+    }
+
+    // Add the target event to the new parent at the specified index.
+    const newParentChildren: string[] = Array.from(newParentMap || new Set());
+    newParentChildren.splice(index, 0, dTag);
+    this.indexToChildEventsMap.set(newParentDTag, new Set(newParentChildren));
+  }
 
   /**
    * Resets the parser to its initial state, removing any parsed data.
@@ -830,6 +998,30 @@ export default class Pharos {
   }
 
   // TODO: Add search-based wikilink resolution.
+
+  /**
+   * Gets the d tag of the parent of the event with the given d tag.
+   * @param dTag The d tag of the target event.
+   * @returns The d tag of the parent event, or null if the target event does not have a parent.
+   * @throws An error if the target event does not exist in the parser tree.
+   */
+  private getParent(dTag: string): string | null {
+    // Check if the event exists in the parser tree.
+    if (!this.eventIds.has(dTag)) {
+      throw new Error(`The event indicated by #d:${dTag} does not exist in the parser tree.`);
+    }
+
+    // Iterate through all the index to child mappings.
+    // This may be expensive on large trees.
+    for (const [indexId, childIds] of this.indexToChildEventsMap) {
+      // If this parent contains our target as a child, we found the parent
+      if (childIds.has(dTag)) {
+        return indexId;
+      }
+    }
+
+    return null;
+  }
 
   // #endregion
 }

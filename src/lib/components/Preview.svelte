@@ -4,25 +4,59 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
   import { createEventDispatcher } from "svelte";
 
-  // TODO: Push parser to state to be read on reload.
-
   export let sectionClass: string = '';
   export let isSectionStart: boolean = false;
   export let rootId: string;
+  export let parentId: string | null | undefined = null;
   export let depth: number = 0;
   export let allowEditing: boolean = false;
+  export let needsUpdate: boolean = false;
 
   const dispatch = createEventDispatcher();
 
-  let isEditing: boolean = false;
   let currentContent: string = $parser.getContent(rootId);
+  let title: string | undefined = $parser.getIndexTitle(rootId);
+  let orderedChildren: string[] = $parser.getOrderedChildIds(rootId);
+
+  let isEditing: boolean = false;
   let hasCursor: boolean = false;
   let childHasCursor: boolean;
 
-  let title = $parser.getIndexTitle(rootId);
-  const orderedChildren = $parser.getOrderedChildIds(rootId);
+  let hasPreviousSibling: boolean = false;
+  let hasNextSibling: boolean = false;
+
+  let subtreeNeedsUpdate: boolean = false;
+  let updateCount: number = 0;
+  let subtreeUpdateCount: number = 0;
 
   $: buttonsVisible = hasCursor && !childHasCursor;
+
+  $: {
+    if (needsUpdate) {
+      updateCount++;
+      needsUpdate = false;
+      title = $parser.getIndexTitle(rootId);
+      currentContent = $parser.getContent(rootId);
+    }
+
+    if (subtreeNeedsUpdate) {
+      subtreeUpdateCount++;
+      subtreeNeedsUpdate = false;
+      orderedChildren = $parser.getOrderedChildIds(rootId);
+    }
+  }
+
+  $: {
+    if (parentId) {
+      // Check for previous/next siblings on load
+      const previousSibling = $parser.getPreviousSibling(rootId, parentId, depth);
+      const nextSibling = $parser.getNextSibling(rootId, parentId, depth);
+      
+      // Hide arrows if no siblings exist
+      hasPreviousSibling = !!previousSibling[0];
+      hasNextSibling = !!nextSibling[0];
+    }
+  }
 
   const getHeadingTag = (depth: number) => {
     switch (depth) {
@@ -71,6 +105,28 @@
 
     isEditing = !editing;
   };
+
+  const moveUp = (rootId: string, parentId: string) => {
+    // Get the previous sibling and its index
+    const [prevSiblingId, prevIndex] = $parser.getPreviousSibling(rootId, parentId, depth);
+    
+    if (prevSiblingId && prevIndex != null) {
+      // Move the current event before the previous sibling
+      $parser.moveEvent(rootId, parentId, parentId, prevIndex);
+      needsUpdate = true;
+    }
+  };
+
+  const moveDown = (rootId: string, parentId: string) => {
+    // Get the next sibling and its index 
+    const [nextSiblingId, nextIndex] = $parser.getNextSibling(rootId, parentId, depth);
+
+    if (nextSiblingId && nextIndex != null) {
+      // Move the current event after the next sibling
+      $parser.moveEvent(rootId, parentId, parentId, nextIndex + 1);
+      needsUpdate = true;
+    }
+  };
 </script>
 
 <!-- This component is recursively structured.  The base case is single block of content. -->
@@ -83,36 +139,38 @@
 >
   <!-- Zettel base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
-    {#if isEditing}
-      <form class='w-full'>
-        <Textarea class='textarea-leather w-full' bind:value={currentContent}>
-          <div slot='footer' class='flex space-x-2 justify-end'>
-            <Button
-              type='reset'
-              class='btn-leather min-w-fit'
-              size='sm'
-              outline
-              on:click={() => toggleEditing(rootId, false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type='submit'
-              class='btn-leather min-w-fit'
-              size='sm'
-              solid
-              on:click={() => toggleEditing(rootId, true)}
-            >
-              Save
-            </Button>
-          </div>
-        </Textarea>
-      </form>
-    {:else}
-      <P firstupper={isSectionStart}>
-        {@html currentContent}
-      </P>
-    {/if}
+    {#key updateCount}
+      {#if isEditing}
+        <form class='w-full'>
+          <Textarea class='textarea-leather w-full' bind:value={currentContent}>
+            <div slot='footer' class='flex space-x-2 justify-end'>
+              <Button
+                type='reset'
+                class='btn-leather min-w-fit'
+                size='sm'
+                outline
+                on:click={() => toggleEditing(rootId, false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type='submit'
+                class='btn-leather min-w-fit'
+                size='sm'
+                solid
+                on:click={() => toggleEditing(rootId, true)}
+              >
+                Save
+              </Button>
+            </div>
+          </Textarea>
+        </form>
+      {:else}
+        <P firstupper={isSectionStart}>
+          {@html currentContent}
+        </P>
+      {/if}
+    {/key}
   {:else}
     <div class='flex flex-col space-y-2'>
       {#if isEditing}
@@ -130,26 +188,34 @@
         </Heading>
       {/if}
       <!-- Recurse on child indices and zettels -->
-      {#each orderedChildren as id, index}
-        <svelte:self
-          rootId={id}
-          depth={depth + 1}
-          {allowEditing}
-          isSectionStart={index === 0}
-          on:cursorcapture={handleChildCursorCaptured}
-          on:cursorrelease={handleChildCursorReleased}
-        />
-      {/each}
+      {#key subtreeUpdateCount}
+        {#each orderedChildren as id, index}
+          <svelte:self
+            rootId={id}
+            parentId={rootId}
+            depth={depth + 1}
+            {allowEditing}
+            isSectionStart={index === 0}
+            bind:needsUpdate={subtreeNeedsUpdate}
+            on:cursorcapture={handleChildCursorCaptured}
+            on:cursorrelease={handleChildCursorReleased}
+          />
+        {/each}
+      {/key}
     </div>
   {/if}
-  {#if allowEditing}
+  {#if allowEditing && depth > 0}
     <div class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? 'visible' : 'invisible'}`}>
-      <Button class='btn-leather' size='sm' outline>
-        <CaretUpSolid />
-      </Button>
-      <Button class='btn-leather' size='sm' outline>
-        <CaretDownSolid />
-      </Button>
+      {#if hasPreviousSibling && parentId}
+        <Button class='btn-leather' size='sm' outline on:click={() => moveUp(rootId, parentId)}>
+          <CaretUpSolid />
+        </Button>
+      {/if}
+      {#if hasNextSibling && parentId}
+        <Button class='btn-leather' size='sm' outline on:click={() => moveDown(rootId, parentId)}>
+          <CaretDownSolid />
+        </Button>
+      {/if}
       <Button class='btn-leather' size='sm' outline on:click={() => toggleEditing(rootId)}>
         <EditOutline />
       </Button>
