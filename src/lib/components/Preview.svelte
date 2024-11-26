@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { parser } from "$lib/parser";
+  import { parser, SiblingSearchDirection } from "$lib/parser";
   import { Button, ButtonGroup, CloseButton, Heading, Input, P, Textarea, Tooltip } from "flowbite-svelte";
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
   import { createEventDispatcher } from "svelte";
+
+  // TODO: Fix move between parents.
 
   export let sectionClass: string = '';
   export let isSectionStart: boolean = false;
@@ -42,15 +44,26 @@
     if (subtreeNeedsUpdate) {
       subtreeUpdateCount++;
       subtreeNeedsUpdate = false;
+
+      const prevChildCount = orderedChildren.length;
       orderedChildren = $parser.getOrderedChildIds(rootId);
+      const newChildCount = orderedChildren.length;
+
+      // If the number of children has changed, a child has been added or removed, and a child may
+      // have been moved into a different subtree.  Due to the `needsUpdate` binding in the
+      // component's recursion, setting `needsUpdate` to true will force the parent to rerender its
+      // subtree.
+      if (newChildCount !== prevChildCount) {
+        needsUpdate = true;
+      }
     }
   }
 
   $: {
-    if (parentId) {
+    if (parentId && allowEditing) {
       // Check for previous/next siblings on load
-      const previousSibling = $parser.getPreviousSibling(rootId, parentId, depth);
-      const nextSibling = $parser.getNextSibling(rootId, parentId, depth);
+      const previousSibling = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+      const nextSibling = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
       
       // Hide arrows if no siblings exist
       hasPreviousSibling = !!previousSibling[0];
@@ -108,24 +121,26 @@
 
   const moveUp = (rootId: string, parentId: string) => {
     // Get the previous sibling and its index
-    const [prevSiblingId, prevIndex] = $parser.getPreviousSibling(rootId, parentId, depth);
-    
-    if (prevSiblingId && prevIndex != null) {
-      // Move the current event before the previous sibling
-      $parser.moveEvent(rootId, parentId, parentId, prevIndex);
-      needsUpdate = true;
+    const [prevSiblingId, prevIndex] = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+    if (!prevSiblingId || prevIndex == null) {
+      return;
     }
+
+    // Move the current event before the previous sibling.
+    $parser.moveEvent(rootId, prevSiblingId, false);
+    needsUpdate = true;
   };
 
   const moveDown = (rootId: string, parentId: string) => {
     // Get the next sibling and its index 
-    const [nextSiblingId, nextIndex] = $parser.getNextSibling(rootId, parentId, depth);
-
-    if (nextSiblingId && nextIndex != null) {
-      // Move the current event after the next sibling
-      $parser.moveEvent(rootId, parentId, parentId, nextIndex + 1);
-      needsUpdate = true;
+    const [nextSiblingId, nextIndex] = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+    if (!nextSiblingId || nextIndex == null) {
+      return;
     }
+
+    // Move the current event after the next sibling
+    $parser.moveEvent(rootId, nextSiblingId, true);
+    needsUpdate = true;
   };
 </script>
 

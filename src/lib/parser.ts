@@ -277,7 +277,6 @@ export default class Pharos {
    */
   getNearestSibling(
     targetDTag: string,
-    parentDTag: string,
     depth: number,
     direction: SiblingSearchDirection
   ): [string | null, string | null] {
@@ -292,6 +291,12 @@ export default class Pharos {
       throw new Error(`The event indicated by #d:${targetDTag} does not exist at level ${depth} of the event tree.`);
     }
 
+    const parentDTag = this.getParent(targetDTag);
+
+    if (!parentDTag) {
+      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
+    }
+
     const grandparentDTag = this.getParent(parentDTag);
 
     // If the target is the first node at its level and we're searching for a previous sibling,
@@ -302,7 +307,7 @@ export default class Pharos {
         return [null, null];
       }
 
-      return this.getNearestSibling(parentDTag, grandparentDTag!, depth - 1, direction);
+      return this.getNearestSibling(parentDTag, depth - 1, direction);
     }
 
     // If the target is the last node at its level and we're searching for a next sibling,
@@ -313,7 +318,7 @@ export default class Pharos {
         return [null, null];
       }
 
-      return this.getNearestSibling(parentDTag, grandparentDTag!, depth - 1, direction);
+      return this.getNearestSibling(parentDTag, depth - 1, direction);
     }
 
     // * Base case: There is an adjacent sibling at the same depth as the target.
@@ -353,62 +358,55 @@ export default class Pharos {
 
   /**
    * Moves an event within the event tree.
-   * @param dTag The d tag of the event to be moved.
-   * @param oldParentDTag The d tag of the moved event's current parent.
-   * @param newParentDTag The d tag of the moved event's new parent.
-   * @param index The index at which to insert the event to be moved among the children of the new
-   * parent.
-   * @param insertAfter If true, the event will be inserted after the specified index, otherwise,
-   * it will be inserted immediately before the specified index.
+   * @param targetDTag The d tag of the event to be moved.
+   * @param destinationDTag The d tag another event, next to which the target will be placed.
+   * @param insertAfter If true, the target will be placed after the destination event, otherwise,
+   * it will be placed before the destination event.
    * @throws Throws an error if the parameters specify an invalid move.
-   * @remarks Both the old and new parent events must be kind 30040 index events.  Moving the event
-   * within the tree changes the hash of several events, so the event tree will be regenerated when
-   * the consumer next invokes `getEvents()`.
+   * @remarks Moving the target event within the tree changes the hash of several events, so the
+   * event tree will be regenerated when the consumer next invokes `getEvents()`.
    */
-  // TODO: Update this to work with two d tags and a direction.
-  moveEvent(
-    dTag: string,
-    oldParentDTag: string,
-    newParentDTag: string,
-    index?: number,
-    insertAfter: boolean = false
-  ): void {
-    const event = this.events.get(dTag);
-    if (!event) {
-      throw new Error(`No event found for #d:${dTag}.`);
+  moveEvent(targetDTag: string, destinationDTag: string, insertAfter: boolean = false): void {
+    const targetEvent = this.events.get(targetDTag);
+    const destinationEvent = this.events.get(destinationDTag);
+    const targetParent = this.getParent(targetDTag);
+    const destinationParent = this.getParent(destinationDTag);
+
+    if (!targetEvent) {
+      throw new Error(`No event found for #d:${targetDTag}.`);
     }
 
-    if (this.eventToKindMap.get(oldParentDTag) !== 30040) {
-      throw new Error(`Old parent event #d:${oldParentDTag} is not an index event.`);
+    if (!destinationEvent) {
+      throw new Error(`No event found for #d:${destinationDTag}.`);
     }
 
-    if (this.eventToKindMap.get(newParentDTag) !== 30040) {
-      throw new Error(`New parent event #d:${newParentDTag} is not an index event.`);
+    if (!targetParent) {
+      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
     }
 
-    const oldParentMap = this.indexToChildEventsMap.get(oldParentDTag);
-    const newParentMap = this.indexToChildEventsMap.get(newParentDTag);
-
-    if (!oldParentMap?.has(dTag)) {
-      throw new Error(`Event #d:${dTag} is not a child of parent #d:${oldParentDTag}.`);
+    if (!destinationParent) {
+      throw new Error(`The event indicated by #d:${destinationDTag} does not have a parent.`);
     }
 
-    // Remove the target event from the old parent.
-    oldParentMap?.delete(dTag);
+    // Remove the target from among the children of its current parent.
+    this.indexToChildEventsMap.get(targetParent)?.delete(targetDTag);
+
+    // If necessary, remove the target event from among the children of its destination parent.
+    this.indexToChildEventsMap.get(destinationParent)?.delete(targetDTag);
+
+    // Get the index of the destination event among the children of its parent.
+    const destinationIndex = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? [])
+      .indexOf(destinationDTag);
+
+    // Insert next to the index of the destination event, either before or after as specified by
+    // the insertAfter flag.
+    const destinationChildren = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? []);
+    insertAfter
+      ? destinationChildren.splice(destinationIndex + 1, 0, targetDTag)
+      : destinationChildren.splice(destinationIndex, 0, targetDTag);
+    this.indexToChildEventsMap.set(destinationParent, new Set(destinationChildren));
 
     this.shouldUpdateEventTree = true;
-
-    if (index == null) {
-      newParentMap?.add(dTag);
-      return;
-    }
-
-    // Add the target event to the new parent at the specified index.
-    const newParentChildren: string[] = Array.from(newParentMap || new Set());
-    newParentChildren.splice(index + Number(insertAfter), 0, dTag);
-    this.indexToChildEventsMap.set(newParentDTag, new Set(newParentChildren));
-
-    this.buildEventsByLevelMap(newParentDTag, 0);
   }
 
   /**
