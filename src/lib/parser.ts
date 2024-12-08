@@ -24,6 +24,16 @@ interface IndexMetadata {
   coverImage?: string;
 }
 
+export enum SiblingSearchDirection {
+  Previous,
+  Next
+}
+
+export enum InsertLocation {
+  Before,
+  After
+}
+
 /**
  * @classdesc Pharos is an extension of the Asciidoctor class that adds Nostr Knowledge Base (NKB) 
  * features to core Asciidoctor functionality.  Asciidoctor is used to parse an AsciiDoc document
@@ -85,6 +95,12 @@ export default class Pharos {
   private events: Map<string, NDKEvent> = new Map<string, NDKEvent>();
 
   /**
+   * A map of event d tags to the context name assigned to each event's originating node by the
+   * Asciidoctor parser.
+   */
+  private eventToContextMap: Map<string, string> = new Map<string, string>();
+
+  /**
    * A map of node IDs to the integer event kind that will be used to represent the node.
    */
   private eventToKindMap: Map<string, number> = new Map<string, number>();
@@ -98,6 +114,11 @@ export default class Pharos {
    * A map of node IDs to the Nostr event IDs of the events they generate.
    */
   private eventIds: Map<string, string> = new Map<string, string>();
+
+  /**
+   * A map of the levels of the event tree to a list of event IDs at each level.
+   */
+  private eventsByLevelMap: Map<number, string[]> = new Map<number, string[]>();
 
   /**
    * When `true`, `getEvents()` should regenerate the event tree to propagate updates.
@@ -125,7 +146,12 @@ export default class Pharos {
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
-    this.html = this.asciidoctor.convert(content, options) as string | Document | undefined;
+    try {
+      this.html = this.asciidoctor.convert(content, options) as string | Document | undefined;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to parse AsciiDoc document.');
+    }
   }
 
   /**
@@ -235,50 +261,150 @@ export default class Pharos {
       throw new Error(`No event found for #d:${dTag}.`);
     }
 
-    event.content = content;
-    event.id = event.getEventHash();
-
-    this.events.set(dTag, event);
-    this.eventIds.set(dTag, event.id);
-    this.shouldUpdateEventTree = true;
+    this.updateEventByContext(dTag, content, this.eventToContextMap.get(dTag)!);
 
     return event;
   }
 
   /**
-   * Moves an event within the event tree.
-   * @param dTag The d tag of the event to be moved.
-   * @param oldParentDTag The d tag of the moved event's current parent.
-   * @param newParentDTag The d tag of the moved event's new parent.
-   * @throws Throws an error if the parameters specify an invalid move.
-   * @remarks Both the old and new parent events must be kind 30040 index events.  Moving the event
-   * within the tree changes the hash of several events, so the event tree will be regenerated when
-   * the consumer next invokes `getEvents()`.
+   * Finds the nearest sibling of the event with the given d tag.
+   * @param targetDTag The d tag of the target event.
+   * @param parentDTag The d tag of the target event's parent.
+   * @param depth The depth of the target event within the parser tree.
+   * @param direction The direction in which to search for a sibling.
+   * @returns A tuple containing the d tag of the nearest sibling and the d tag of the nearest
+   * sibling's parent.
    */
-  moveEvent(dTag: string, oldParentDTag: string, newParentDTag: string): void {
-    const event = this.events.get(dTag);
-    if (!event) {
-      throw new Error(`No event found for #d:${dTag}.`);
+  getNearestSibling(
+    targetDTag: string,
+    depth: number,
+    direction: SiblingSearchDirection
+  ): [string | null, string | null] {
+    const eventsAtLevel = this.eventsByLevelMap.get(depth);
+    if (!eventsAtLevel) {
+      throw new Error(`No events found at level ${depth}.`);
     }
 
-    if (this.eventToKindMap.get(oldParentDTag) !== 30040) {
-      throw new Error(`Old parent event #d:${oldParentDTag} is not an index event.`);
+    const targetIndex = eventsAtLevel.indexOf(targetDTag);
+
+    if (targetIndex === -1) {
+      throw new Error(`The event indicated by #d:${targetDTag} does not exist at level ${depth} of the event tree.`);
     }
 
-    if (this.eventToKindMap.get(newParentDTag) !== 30040) {
-      throw new Error(`New parent event #d:${newParentDTag} is not an index event.`);
+    const parentDTag = this.getParent(targetDTag);
+
+    if (!parentDTag) {
+      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
     }
 
-    const oldParentMap = this.indexToChildEventsMap.get(oldParentDTag);
-    const newParentMap = this.indexToChildEventsMap.get(newParentDTag);
+    const grandparentDTag = this.getParent(parentDTag);
 
-    if (!oldParentMap?.has(dTag)) {
-      throw new Error(`Event #d:${dTag} is not a child of parent #d:${oldParentDTag}.`);
+    // If the target is the first node at its level and we're searching for a previous sibling,
+    // look among the siblings of the target's parent at the previous level.
+    if (targetIndex === 0 && direction === SiblingSearchDirection.Previous) {
+      // * Base case: The target is at the first level of the tree and has no previous sibling.
+      if (!grandparentDTag) {
+        return [null, null];
+      }
+
+      return this.getNearestSibling(parentDTag, depth - 1, direction);
     }
 
-    // Perform the move.
-    oldParentMap?.delete(dTag);
-    newParentMap?.add(dTag);
+    // If the target is the last node at its level and we're searching for a next sibling,
+    // look among the siblings of the target's parent at the previous level.
+    if (targetIndex === eventsAtLevel.length - 1 && direction === SiblingSearchDirection.Next) {
+      // * Base case: The target is at the last level of the tree and has no subsequent sibling.
+      if (!grandparentDTag) {
+        return [null, null];
+      }
+
+      return this.getNearestSibling(parentDTag, depth - 1, direction);
+    }
+
+    // * Base case: There is an adjacent sibling at the same depth as the target.
+    switch (direction) {
+    case SiblingSearchDirection.Previous:
+      return [eventsAtLevel[targetIndex - 1], parentDTag];
+    case SiblingSearchDirection.Next:
+      return [eventsAtLevel[targetIndex + 1], parentDTag];
+    }
+
+    return [null, null];
+  }
+
+  /**
+   * Gets the d tag of the parent of the event with the given d tag.
+   * @param dTag The d tag of the target event.
+   * @returns The d tag of the parent event, or null if the target event does not have a parent.
+   * @throws An error if the target event does not exist in the parser tree.
+   */
+  getParent(dTag: string): string | null {
+    // Check if the event exists in the parser tree.
+    if (!this.eventIds.has(dTag)) {
+      throw new Error(`The event indicated by #d:${dTag} does not exist in the parser tree.`);
+    }
+
+    // Iterate through all the index to child mappings.
+    // This may be expensive on large trees.
+    for (const [indexId, childIds] of this.indexToChildEventsMap) {
+      // If this parent contains our target as a child, we found the parent
+      if (childIds.has(dTag)) {
+        return indexId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Moves an event within the event tree.
+   * @param targetDTag The d tag of the event to be moved.
+   * @param destinationDTag The d tag another event, next to which the target will be placed.
+   * @param insertAfter If true, the target will be placed after the destination event, otherwise,
+   * it will be placed before the destination event.
+   * @throws Throws an error if the parameters specify an invalid move.
+   * @remarks Moving the target event within the tree changes the hash of several events, so the
+   * event tree will be regenerated when the consumer next invokes `getEvents()`.
+   */
+  moveEvent(targetDTag: string, destinationDTag: string, insertAfter: boolean = false): void {
+    const targetEvent = this.events.get(targetDTag);
+    const destinationEvent = this.events.get(destinationDTag);
+    const targetParent = this.getParent(targetDTag);
+    const destinationParent = this.getParent(destinationDTag);
+
+    if (!targetEvent) {
+      throw new Error(`No event found for #d:${targetDTag}.`);
+    }
+
+    if (!destinationEvent) {
+      throw new Error(`No event found for #d:${destinationDTag}.`);
+    }
+
+    if (!targetParent) {
+      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
+    }
+
+    if (!destinationParent) {
+      throw new Error(`The event indicated by #d:${destinationDTag} does not have a parent.`);
+    }
+
+    // Remove the target from among the children of its current parent.
+    this.indexToChildEventsMap.get(targetParent)?.delete(targetDTag);
+
+    // If necessary, remove the target event from among the children of its destination parent.
+    this.indexToChildEventsMap.get(destinationParent)?.delete(targetDTag);
+
+    // Get the index of the destination event among the children of its parent.
+    const destinationIndex = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? [])
+      .indexOf(destinationDTag);
+
+    // Insert next to the index of the destination event, either before or after as specified by
+    // the insertAfter flag.
+    const destinationChildren = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? []);
+    insertAfter
+      ? destinationChildren.splice(destinationIndex + 1, 0, targetDTag)
+      : destinationChildren.splice(destinationIndex, 0, targetDTag);
+    this.indexToChildEventsMap.set(destinationParent, new Set(destinationChildren));
 
     this.shouldUpdateEventTree = true;
   }
@@ -294,6 +420,7 @@ export default class Pharos {
     this.nodes.clear();
     this.eventToKindMap.clear();
     this.indexToChildEventsMap.clear();
+    this.eventsByLevelMap.clear();
     this.eventIds.clear();
   }
 
@@ -330,6 +457,8 @@ export default class Pharos {
         this.processBlock(block as Block);
       }
     }
+
+    this.buildEventsByLevelMap(this.rootNodeId!, 0);
   }
 
   /**
@@ -401,6 +530,35 @@ export default class Pharos {
   }
 
   //#endregion
+
+  // #region Event Tree Operations
+
+  /**
+   * Recursively walks the event tree and builds a map of the events at each level.
+   * @param parentNodeId The ID of the parent node.
+   * @param depth The depth of the parent node.
+   */
+  private buildEventsByLevelMap(parentNodeId: string, depth: number): void {
+    // If we're at the root level, clear the map so it can be freshly rebuilt.
+    if (depth === 0) {
+      this.eventsByLevelMap.clear();
+    }
+
+    const children = this.indexToChildEventsMap.get(parentNodeId);
+    if (!children) {
+      return;
+    }
+
+    const eventsAtLevel = this.eventsByLevelMap.get(depth) ?? [];
+    eventsAtLevel.push(...children);
+    this.eventsByLevelMap.set(depth, eventsAtLevel);
+
+    for (const child of children) {
+      this.buildEventsByLevelMap(child, depth + 1);
+    }
+  }
+
+  // #endregion
 
   // #region NDKEvent Generation
 
@@ -563,6 +721,10 @@ export default class Pharos {
 
   // #region Utility Functions
 
+  /**
+   * Generates an ID for the given block that is unique within the document, and adds a mapping of
+   * the generated ID to the block's context, as determined by the Asciidoctor parser.
+   */
   private generateNodeId(block: AbstractBlock): string {
     let blockId: string | null = this.normalizeId(block.getId());
 
@@ -752,6 +914,8 @@ export default class Pharos {
     }
 
     block.setId(blockId);
+    this.eventToContextMap.set(blockId, context);
+
     return blockId;
   }
 
@@ -766,6 +930,38 @@ export default class Pharos {
       .trim()
       .replace(/\s+/g, '-')  // Replace spaces with dashes.
       .replace(/[^a-z0-9\-]/g, '');  // Remove non-alphanumeric characters except dashes.
+  }
+
+  private updateEventByContext(dTag: string, value: string, context: string) {
+    switch (context) {
+    case 'document':
+    case 'section':
+      this.updateEventTitle(dTag, value);
+      break;
+    
+    default:
+      this.updateEventBody(dTag, value);
+      break;
+    }
+  }
+
+  private updateEventTitle(dTag: string, value: string) {
+    const event = this.events.get(dTag);
+    this.events.delete(dTag);
+    this.events.set(value, event!);
+    this.rehashEvent(dTag, event!);
+  }
+
+  private updateEventBody(dTag: string, value: string) {
+    const event = this.events.get(dTag);
+    event!.content = value;
+    this.rehashEvent(dTag, event!);
+  }
+
+  private rehashEvent(dTag: string, event: NDKEvent) {
+    event.id = event.getEventHash();
+    this.eventIds.set(dTag, event.id);
+    this.shouldUpdateEventTree = true;
   }
 
   private extractAndNormalizeWikilinks(content: string): string[][] {
