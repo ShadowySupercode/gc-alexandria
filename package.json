@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.1.1",
+    "@sveltejs/adapter-static": "^3.0.6",
     "@sveltejs/kit": "^2.4.3",
     "@types/he": "^1.2.3",
     "@types/markdown-it": "^13.0.7",
