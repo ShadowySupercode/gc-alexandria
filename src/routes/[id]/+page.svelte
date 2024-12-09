@@ -8,5 +8,5 @@
 </script>
 
 <main>
-	<Article {event} />
+	<Article index={event} />
 </main>
