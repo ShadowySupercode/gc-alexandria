@@ -27,7 +27,7 @@
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
-  function generateGraph(events: NDKEvent[]) {
+  function generateGraph(events: NDKEvent[]): [object[], object[]] {
     const nodes = [];
     const links = [];
     const nodeMap = new Map();
