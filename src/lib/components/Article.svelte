@@ -3,36 +3,24 @@
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { page } from '$app/stores';
   import { Button, Heading, Sidebar, SidebarGroup, SidebarItem, SidebarWrapper, Skeleton, TextPlaceholder, Tooltip } from 'flowbite-svelte';
-  import showdown from 'showdown';
   import { onMount } from 'svelte';
   import { BookOutline } from 'flowbite-svelte-icons';
-  import { zettelKinds } from '../consts';
+  import Pharos, { parser } from '$lib/parser';
+  import Preview from './Preview.svelte';
 
   export let index: NDKEvent | null | undefined;
 
+  $parser ??= new Pharos($ndk);
+
   $: activeHash = $page.url.hash;
 
-  const getEvents = async (index?: NDKEvent | null | undefined): Promise<Set<NDKEvent>> => {
-    if (index == null) {
-      // TODO: Add error handling.
+  const getContentRoot = async (index?: NDKEvent | null | undefined): Promise<string | null> => {
+    if (!index) {
+      return null;
     }
 
-    const eventIds = index!.getMatchingTags('e').map((value) => value[1]);
-    const events = await $ndk.fetchEvents(
-      {
-        // @ts-ignore
-        kinds: zettelKinds,
-        ids: eventIds,
-      },
-      { 
-        groupable: false,
-        skipVerification: false,
-        skipValidation: false
-      }
-  );
-
-    console.debug(`Fetched ${events.size} events from ${eventIds.length} references.`);
-    return events;
+    await $parser.fetch(index);
+    return $parser.getRootIndexId();
   };
 
   function normalizeHashPath(str: string): string {
@@ -104,62 +92,54 @@
       window.removeEventListener('click', hideTocOnClick);
     };
   });
-
-  const converter = new showdown.Converter();
 </script>
 
-{#await getEvents(index)}
+{#await getContentRoot(index)}
   <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60'>
     <SidebarWrapper>
       <Skeleton/>
     </SidebarWrapper>
   </Sidebar>
   <TextPlaceholder class='max-w-2xl'/>
-{:then events}
-  {#if showTocButton && !showToc}
-    <Button
-      class='btn-leather fixed top-20 left-4 h-6 w-6'
-      outline={true}
-      on:click={ev => {
-        showToc = true;
-        ev.stopPropagation();
-      }}
-    >
-      <BookOutline />
-    </Button>
-    <Tooltip>
-      Show Table of Contents
-    </Tooltip>
+{:then rootId}
+  {#if rootId}
+    {#if showTocButton && !showToc}
+      <Button
+        class='btn-leather fixed top-20 left-4 h-6 w-6'
+        outline={true}
+        on:click={ev => {
+          showToc = true;
+          ev.stopPropagation();
+        }}
+      >
+        <BookOutline />
+      </Button>
+      <Tooltip>
+        Show Table of Contents
+      </Tooltip>
+    {/if}
+    <!-- TODO: Get TOC from parser. -->
+    <!-- {#if showToc}
+      <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
+        <SidebarWrapper>
+          <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
+            {#each events as event}
+              <SidebarItem
+                class='sidebar-item-leather'
+                label={event.getMatchingTags('title')[0][1]}
+                href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
+              />
+            {/each}
+          </SidebarGroup>
+        </SidebarWrapper>
+      </Sidebar>
+    {/if} -->
+    <div class='flex flex-col space-y-4 max-w-2xl'>
+      <Preview rootId={rootId} />
+    </div>
+  {:else}
+    <!-- TODO: Display empty state. -->
   {/if}
-  {#if showToc}
-    <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
-      <SidebarWrapper>
-        <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
-          {#each events as event}
-            <SidebarItem
-              class='sidebar-item-leather'
-              label={event.getMatchingTags('title')[0][1]}
-              href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
-            />
-          {/each}
-        </SidebarGroup>
-      </SidebarWrapper>
-    </Sidebar>
-  {/if}
-  <div class='flex flex-col space-y-4 max-w-2xl'>
-    {#each events as event}
-      <div class='note-leather flex flex-col space-y-2'>
-        <Heading
-          tag='h3'
-          class='h-leather'
-          id={normalizeHashPath(event.getMatchingTags('title')[0][1])}
-        >
-          {event.getMatchingTags('title')[0][1]}
-        </Heading>
-        {@html converter.makeHtml(event.content)}
-      </div>
-    {/each}
-  </div>
 {/await}
 
 <style>
