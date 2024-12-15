@@ -20,9 +20,9 @@
 
     const d = event.getMatchingTags('d')[0][1];
     if (d != null) {
-      href = `d/${d}`;
+      href = `publication?d=${d}`;
     } else {
-      href = neventEncode(event, relays);
+      href = `publication?id=${neventEncode(event, relays)}`;
     }
   } catch (e) {
     console.warn(e);
