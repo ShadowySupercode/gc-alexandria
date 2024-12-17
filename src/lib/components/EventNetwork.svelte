@@ -7,11 +7,12 @@
 
   let svg;
   let isDarkMode = false;
-  const width = 1200;
-  const height = 600;
   const nodeRadius = 20;
   const dragRadius = 45;
   const linkDistance = 120;
+  let container: HTMLDivElement;
+  let width: number;
+  let height: number;
   interface NetworkNode {
     id: string;
     event?: NDKEvent;
@@ -309,7 +310,7 @@
     isDarkMode = document.body.classList.contains("dark");
 
     // Watch for theme changes
-    const observer = new MutationObserver((mutations) => {
+    const themeObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === "class") {
           const newIsDarkMode = document.body.classList.contains("dark");
@@ -321,22 +322,33 @@
       });
     });
 
-    observer.observe(document.documentElement, {
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        width = entry.contentRect.width;
+        height = entry.contentRect.height || width * 0.6;
+      }
+      if (svg) drawNetwork();
+    });
+
+    // Start observers
+    themeObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
-
-    return () => observer.disconnect();
+    resizeObserver.observe(container);
+    // Clean up
+    return () => {
+      themeObserver.disconnect();
+      resizeObserver.disconnect();
+    };
   });
 </script>
 
 # /lib/components/EventNetwork.svelte
-<div class="w-full">
+<div class="w-full h-[600px]" bind:this={container}>
   <svg
     bind:this={svg}
-    class="w-full border border-gray-300 dark:border-gray-700 rounded"
-    {width}
-    {height}
+    class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
   />
   <div
     class="mt-4 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow border border-gray-200 dark:border-gray-800"
