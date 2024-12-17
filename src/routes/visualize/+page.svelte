@@ -83,10 +83,6 @@
   {:else}
     <EventNetwork {events} />
 
-    <div class="mt-8 prose dark:prose-invert max-w-none">
-      <!-- Legend section with proper styling -->
-      <h2 class="h-leather">About This Visualization</h2>
-      <!-- ... rest of the content ... -->
-    </div>
+    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
   {/if}
 </div>

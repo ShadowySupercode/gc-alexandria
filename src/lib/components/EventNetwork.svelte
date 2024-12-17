@@ -5,14 +5,20 @@
 
   export let events: NDKEvent[] = [];
 
-  let svg;
+  let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
   const dragRadius = 45;
   const linkDistance = 120;
   let container: HTMLDivElement;
+
   let width: number;
   let height: number;
+
+  $: if (container) {
+    width = container.clientWidth || 800;
+    height = container.clientHeight || 600;
+  }
   interface NetworkNode {
     id: string;
     event?: NDKEvent;
@@ -24,6 +30,35 @@
     type: "Index" | "Content";
   }
 
+  interface NetworkLink {
+    source: NetworkNode;
+    target: NetworkNode;
+    isSequential: boolean;
+  }
+
+  function getNode(
+    id: string,
+    nodeMap: Map<string, NetworkNode>,
+    event?: NDKEvent,
+    index?: number,
+  ): NetworkNode | null {
+    if (!id) return null;
+
+    if (!nodeMap.has(id)) {
+      const node: NetworkNode = {
+        id,
+        event,
+        index,
+        isContainer: event?.kind === 30040,
+        title: event?.getMatchingTags("title")?.[0]?.[1] || "Untitled",
+        content: event?.content || "",
+        author: event?.pubkey || "",
+        type: event?.kind === 30040 ? "Index" : "Content",
+      };
+      nodeMap.set(id, node);
+    }
+    return nodeMap.get(id) || null;
+  }
   function getEventColor(eventId: string): string {
     const num = parseInt(eventId.slice(0, 4), 16);
     const hue = num % 360;
@@ -31,51 +66,33 @@
     const lightness = 75;
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
+  function generateGraph(events: NDKEvent[]): {
+    nodes: NetworkNode[];
+    links: NetworkLink[];
+  } {
+    const nodes: NetworkNode[] = [];
+    const links: NetworkLink[] = [];
+    const nodeMap = new Map<string, NetworkNode>();
 
-  function generateGraph(events: NDKEvent[]): [object[], object[]] {
-    const nodes = [];
-    const links = [];
-    const nodeMap = new Map();
-
-    function getNode(id: string, event?: NDKEvent, index?: number) {
-      if (!id) return null;
-
-      if (!nodeMap.has(id)) {
-        const node = {
-          id,
-          event,
-          index,
-          isContainer: event?.kind === 30040,
-          title: event?.getMatchingTags("title")?.[0]?.[1] || "Untitled",
-          content: event?.content || "",
-          author: event?.pubkey,
-          type: event?.kind === 30040 ? "Index" : "Content",
-        };
-        nodes.push(node);
-        nodeMap.set(id, node);
-      }
-      return nodeMap.get(id);
-    }
-
-    // Process index events first
     const indexEvents = events.filter((e) => e.kind === 30040);
 
     indexEvents.forEach((index) => {
       if (!index.id) return;
 
       const contentRefs = index.getMatchingTags("e");
-      const sourceNode = getNode(index.id, index);
+      const sourceNode = getNode(index.id, nodeMap, index);
       if (!sourceNode) return;
+      nodes.push(sourceNode);
 
-      // Create a linear chain of content events
       contentRefs.forEach((tag, idx) => {
         if (!tag[1]) return;
 
         const targetEvent = events.find((e) => e.id === tag[1]);
         if (!targetEvent) return;
 
-        const targetNode = getNode(tag[1], targetEvent, idx);
+        const targetNode = getNode(tag[1], nodeMap, targetEvent, idx);
         if (!targetNode) return;
+        nodes.push(targetNode);
 
         const prevNodeId =
           idx === 0 ? sourceNode.id : contentRefs[idx - 1]?.[1];
@@ -93,7 +110,6 @@
 
     return { nodes, links };
   }
-
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
@@ -102,14 +118,7 @@
     const { nodes, links } = generateGraph(events);
     if (!nodes.length) return;
 
-    const svgElement = d3
-      .select(svg)
-      .attr(
-        "class",
-        "network-leather w-full border border-gray-300 dark:border-gray-700 rounded",
-      )
-      .attr("viewBox", [0, 0, width, height]);
-
+    const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
     // Set up zoom behavior
     const zoom = d3
       .zoom()
@@ -124,19 +133,22 @@
 
     // Force simulation setup
     const simulation = d3
-      .forceSimulation(nodes)
+      .forceSimulation<NetworkNode>(nodes)
       .force(
         "link",
         d3
-          .forceLink(links)
+          .forceLink<NetworkNode, NetworkLink>(links)
           .id((d) => d.id)
           .distance(linkDistance),
       )
-      .force("charge", d3.forceManyBody().strength(-500))
+      .force("charge", d3.forceManyBody<NetworkNode>().strength(-500))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("x", d3.forceX(width / 2).strength(0.1))
-      .force("y", d3.forceY(height / 2).strength(0.1))
-      .force("collision", d3.forceCollide().radius(nodeRadius * 2.5));
+      .force("x", d3.forceX<NetworkNode>(width / 2).strength(0.1))
+      .force("y", d3.forceY<NetworkNode>(height / 2).strength(0.1))
+      .force(
+        "collision",
+        d3.forceCollide<NetworkNode>().radius(nodeRadius * 2.5),
+      );
 
     // Define arrow marker with black fill
     const marker = g
@@ -322,7 +334,7 @@
       });
     });
 
-    const resizeObserver = new ResizeObserver((entries) => {
+    let resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         width = entry.contentRect.width;
         height = entry.contentRect.height || width * 0.6;
