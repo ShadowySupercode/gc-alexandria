@@ -423,13 +423,3 @@
     </ul>
   </div>
 </div>
-
-<style>
-  :global(.network-link-leather) {
-    @apply stroke-gray-400 dark:stroke-gray-600 fill-gray-400 dark:fill-gray-600;
-  }
-
-  :global(.text-leather) {
-    @apply fill-gray-800 dark:fill-gray-300;
-  }
-</style>
