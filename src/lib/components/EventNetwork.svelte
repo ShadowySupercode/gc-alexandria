@@ -12,6 +12,16 @@
   const nodeRadius = 20;
   const dragRadius = 45;
   const linkDistance = 120;
+  interface NetworkNode {
+    id: string;
+    event?: NDKEvent;
+    index?: number;
+    isContainer: boolean;
+    title: string;
+    content: string;
+    author: string;
+    type: "Index" | "Content";
+  }
 
   function getEventColor(eventId: string): string {
     const num = parseInt(eventId.slice(0, 4), 16);
