@@ -66,6 +66,7 @@
     const lightness = 75;
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
+
   function generateGraph(events: NDKEvent[]): {
     nodes: NetworkNode[];
     links: NetworkLink[];
@@ -73,6 +74,12 @@
     const nodes: NetworkNode[] = [];
     const links: NetworkLink[] = [];
     const nodeMap = new Map<string, NetworkNode>();
+
+    // Create event lookup map - O(n) operation done once
+    const eventMap = new Map<string, NDKEvent>();
+    events.forEach((event) => {
+      if (event.id) eventMap.set(event.id, event);
+    });
 
     const indexEvents = events.filter((e) => e.kind === 30040);
 
@@ -87,7 +94,8 @@
       contentRefs.forEach((tag, idx) => {
         if (!tag[1]) return;
 
-        const targetEvent = events.find((e) => e.id === tag[1]);
+        // O(1) lookup instead of O(n) search
+        const targetEvent = eventMap.get(tag[1]);
         if (!targetEvent) return;
 
         const targetNode = getNode(tag[1], nodeMap, targetEvent, idx);
@@ -110,6 +118,7 @@
 
     return { nodes, links };
   }
+
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
