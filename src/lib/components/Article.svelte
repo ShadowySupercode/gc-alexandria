@@ -2,11 +2,12 @@
   import { ndk } from '$lib/ndk';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { page } from '$app/stores';
-  import { Button, Heading, Sidebar, SidebarGroup, SidebarItem, SidebarWrapper, Skeleton, TextPlaceholder, Tooltip } from 'flowbite-svelte';
+  import { Alert, Button, Heading, P, Sidebar, SidebarGroup, SidebarItem, SidebarWrapper, Skeleton, TextPlaceholder, Tooltip, xs } from 'flowbite-svelte';
   import { onMount } from 'svelte';
-  import { BookOutline } from 'flowbite-svelte-icons';
+  import { BookOutline, ExclamationCircleOutline } from 'flowbite-svelte-icons';
   import Pharos, { parser } from '$lib/parser';
   import Preview from './Preview.svelte';
+    import { goto, invalidateAll } from '$app/navigation';
 
   export let index: NDKEvent | null | undefined;
 
@@ -137,9 +138,30 @@
     <div class='flex flex-col space-y-4 max-w-2xl'>
       <Preview rootId={rootId} />
     </div>
-  {:else}
-    <!-- TODO: Display empty state. -->
   {/if}
+{:catch err}
+  <Alert>
+    <div class='flex items-center space-x-2'>
+      <ExclamationCircleOutline class='w-6 h-6' />
+      <span class='text-lg font-medium'>
+        Failed to load publication.
+      </span>
+    </div>
+    <P size='sm'>
+      Alexandria failed to find one or more of the events comprising this publication.
+    </P>
+    <P size='xs'>
+      {err.message}
+    </P>
+    <div class='flex space-x-2'>
+      <Button class='btn-leather' size='sm' on:click={() => invalidateAll()}>
+        Try Again
+      </Button>
+      <Button class='btn-leather' size='sm' outline on:click={() => goto('/')}>
+        Return to Home
+      </Button>
+    </div>
+  </Alert>
 {/await}
 
 <style>
