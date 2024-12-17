@@ -13,12 +13,6 @@
   const dragRadius = 45;
   const linkDistance = 120;
 
-  function updateTheme() {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle("dark");
-    if (svg) drawNetwork();
-  }
-
   function getEventColor(eventId: string): string {
     const num = parseInt(eventId.slice(0, 4), 16);
     const hue = num % 360;
