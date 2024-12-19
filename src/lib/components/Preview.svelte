@@ -148,7 +148,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <section
   id={rootId}
-  class={`note-leather flex space-x-2 justify-between ${sectionClass}`}
+  class={`note-leather flex space-x-2 justify-between text-wrap break-words ${sectionClass}`}
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
 >
@@ -157,7 +157,7 @@
     {#key updateCount}
       {#if isEditing}
         <form class='w-full'>
-          <Textarea class='textarea-leather w-full' bind:value={currentContent}>
+          <Textarea class='textarea-leather w-full whitespace-normal' bind:value={currentContent}>
             <div slot='footer' class='flex space-x-2 justify-end'>
               <Button
                 type='reset'
@@ -181,13 +181,13 @@
           </Textarea>
         </form>
       {:else}
-        <P firstupper={isSectionStart}>
+        <P class='whitespace-normal' firstupper={isSectionStart}>
           {@html currentContent}
         </P>
       {/if}
     {/key}
   {:else}
-    <div class='flex flex-col space-y-2'>
+    <div class='flex flex-col space-y-2 w-full'>
       {#if isEditing}
         <ButtonGroup class='w-full'>
           <Input type='text' class='input-leather' size='lg' bind:value={title}>
