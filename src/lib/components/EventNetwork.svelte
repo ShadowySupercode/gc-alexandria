@@ -8,13 +8,16 @@
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
-  const dragRadius = 10;
+  const dragRadiusMultiplier = 2;
   const linkDistance = 5;
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
   let width: number;
   let height: number;
+  let windowHeight: number;
+
+  $: graphHeight = windowHeight ? Math.max(windowHeight * 0.2, 400) : 400;
 
   $: if (container) {
     width = container.clientWidth || 800;
@@ -199,7 +202,7 @@
         .join("marker")
         .attr("id", "arrowhead")
         .attr("viewBox", "0 -5 20 20")
-        .attr("refX", nodeRadius + 10)
+        .attr("refX", nodeRadius * dragRadiusMultiplier)
         .attr("refY", 0)
         .attr("markerWidth", 8)
         .attr("markerHeight", 8)
@@ -309,8 +312,9 @@
       .append("div")
       .attr(
         "class",
-        "fixed hidden bg-primary-0 dark:bg-primary-1000 " +
-          "text-gray-800 dark:text-gray-300 " +
+        "tooltip-leather fixed hidden p-4 rounded shadow-lg " +
+          "bg-primary-0 dark:bg-primary-800 " +
+          "border border-gray-200 dark:border-gray-800 " +
           "p-4 rounded shadow-lg border border-gray-200 dark:border-gray-800 " +
           "transition-colors duration-200",
       )
@@ -375,6 +379,14 @@
 
   onMount(() => {
     isDarkMode = document.body.classList.contains("dark");
+    // Add window resize listener
+    const handleResize = () => {
+      windowHeight = window.innerHeight;
+    };
+
+    // Initial resize
+    windowHeight = window.innerHeight;
+    window.addEventListener("resize", handleResize);
 
     // Watch for theme changes
     const themeObserver = new MutationObserver((mutations) => {
@@ -383,7 +395,7 @@
           const newIsDarkMode = document.body.classList.contains("dark");
           if (newIsDarkMode !== isDarkMode) {
             isDarkMode = newIsDarkMode;
-            drawNetwork();
+            // drawNetwork();
           }
         }
       });
@@ -392,9 +404,12 @@
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         width = entry.contentRect.width;
-        height = entry.contentRect.height * 1 || width * 1.0;
+        height = graphHeight;
       }
-      // if (svg) drawNetwork();
+
+      // first remove all nodes and links
+      d3.select(svg).selectAll("*").remove();
+      drawNetwork();
     });
 
     // Start observers
@@ -417,47 +432,39 @@
   }
 </script>
 
-# /lib/components/EventNetwork.svelte
-<div class="w-full h-[1200px]" bind:this={container}>
-  <svg
-    bind:this={svg}
-    class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
-  />
-  <div
-    class="mt-4 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow border border-gray-200 dark:border-gray-800"
-  >
-    <h3 class="text-lg font-bold mb-2 text-gray-800 dark:text-gray-300">
-      Legend
-    </h3>
-    <ul class="list-disc pl-5 space-y-2 text-gray-800 dark:text-gray-300">
-      <li class="flex items-center">
-        <div class="relative w-6 h-6 mr-2">
-          <!-- Increased size to match network -->
+<div class="flex flex-col w-full h-screen p-4 gap-4">
+  <div class="flex-grow min-h-0" bind:this={container}>
+    <svg
+      bind:this={svg}
+      class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
+    />
+  </div>
+
+  <!-- Legend -->
+  <div class="leather-legend">
+    <h3 class="text-lg font-bold mb-2 h-leather">Legend</h3>
+    <ul class="legend-list">
+      <li class="legend-item">
+        <div class="legend-icon">
           <span
-            class="absolute inset-0 rounded-full border-2 border-black"
+            class="legend-circle"
             style="background-color: hsl(200, 70%, 75%)"
-          />
-          <span
-            class="absolute inset-0 flex items-center justify-center text-black"
-            style="font-size: 12px;">I</span
           >
+          </span>
+          <span class="legend-letter">I</span>
         </div>
         <span>Index events (kind 30040) - Each with a unique pastel color</span>
       </li>
-      <li class="flex items-center">
-        <div class="relative w-6 h-6 mr-2">
-          <span
-            class="absolute inset-0 rounded-full border-2 border-black bg-gray-700 dark:bg-gray-300"
-            style="background-color: #d6c1a8"
-          />
-          <span
-            class="absolute inset-0 flex items-center justify-center text-black"
-            style="font-size: 12px;  ">C</span
-          >
+
+      <li class="legend-item">
+        <div class="legend-icon">
+          <span class="legend-circle content"></span>
+          <span class="legend-letter">C</span>
         </div>
         <span>Content events (kind 30041) - Publication sections</span>
       </li>
-      <li class="flex items-center">
+
+      <li class="legend-item">
         <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
           <path
             d="M4 12h16M16 6l6 6-6 6"
@@ -474,4 +481,28 @@
 </div>
 
 <style>
+  .legend-list {
+    @apply list-disc pl-5 space-y-2 text-gray-800 dark:text-gray-300;
+  }
+
+  .legend-item {
+    @apply flex items-center;
+  }
+
+  .legend-icon {
+    @apply relative w-6 h-6 mr-2;
+  }
+
+  .legend-circle {
+    @apply absolute inset-0 rounded-full border-2 border-black;
+  }
+
+  .legend-circle.content {
+    @apply bg-gray-700 dark:bg-gray-300;
+    background-color: #d6c1a8;
+  }
+
+  .legend-letter {
+    @apply absolute inset-0 flex items-center justify-center text-black text-xs;
+  }
 </style>

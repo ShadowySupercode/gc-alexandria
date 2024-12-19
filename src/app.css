@@ -157,3 +157,12 @@
     @apply fill-[#d6c1a8];
   }
 }
+@layer components {
+  .leather-legend {
+    @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
+           border border-gray-200 dark:border-gray-800;
+  }
+  .tooltip-leather {
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
+  }
+}
