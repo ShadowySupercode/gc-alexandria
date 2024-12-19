@@ -172,7 +172,6 @@
                 type='submit'
                 class='btn-leather min-w-fit'
                 size='sm'
-                solid
                 on:click={() => toggleEditing(rootId, true)}
               >
                 Save

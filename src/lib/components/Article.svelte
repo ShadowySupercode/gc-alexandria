@@ -7,7 +7,7 @@
   import { BookOutline, ExclamationCircleOutline } from 'flowbite-svelte-icons';
   import Pharos, { parser } from '$lib/parser';
   import Preview from './Preview.svelte';
-    import { goto, invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
 
   export let index: NDKEvent | null | undefined;
 
@@ -101,7 +101,7 @@
       <Skeleton/>
     </SidebarWrapper>
   </Sidebar>
-  <TextPlaceholder class='max-w-2xl'/>
+  <TextPlaceholder divClass='max-w-2xl'/>
 {:then rootId}
   {#if rootId}
     {#if showTocButton && !showToc}

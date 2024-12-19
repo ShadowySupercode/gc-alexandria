@@ -92,7 +92,7 @@
     {#if user == null || readRelays == null}
       {#await getEvents()}
         {#each getSkeletonIds() as id}
-          <Skeleton size='lg' id={id} />
+          <Skeleton size='lg' />
         {/each}
       {:then events}
         {#if events.size > 0}
@@ -120,7 +120,7 @@
       {#if feedType === FeedType.Relays && readRelays != null}
         {#await getEventsFromUserRelays(readRelays)}
           {#each getSkeletonIds() as id}
-            <Skeleton size='lg' id={id} />
+            <Skeleton size='lg' />
           {/each}
         {:then events}
           {#if events.size > 0}
@@ -134,7 +134,7 @@
       {:else if feedType === FeedType.Follows && userFollows != null}
         {#await getEventsFromUserFollows(userFollows, readRelays)}
           {#each getSkeletonIds() as id}
-            <Skeleton size='lg' id={id} />
+            <Skeleton size='lg' />
           {/each}
         {:then events}
           {#if events.size > 0}
