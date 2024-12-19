@@ -8,19 +8,18 @@
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
-  const dragRadius = 45;
-  const linkDistance = 120;
+  const dragRadius = 10;
+  const linkDistance = 5;
+  const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
+
   let width: number;
   let height: number;
 
-  // Reactive statement for container dimensions
   $: if (container) {
     width = container.clientWidth || 800;
     height = container.clientHeight || 600;
   }
-
-  // Type definitions for network components
   interface NetworkNode extends d3.SimulationNodeDatum {
     id: string;
     event?: NDKEvent;
@@ -41,8 +40,6 @@
     target: NetworkNode;
     isSequential: boolean;
   }
-
-  // Create an efficient event map for O(1) lookups
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     return new Map(events.map((event) => [event.id, event]));
   }
@@ -74,7 +71,9 @@
   function getEventColor(eventId: string): string {
     const num = parseInt(eventId.slice(0, 4), 16);
     const hue = num % 360;
-    return `hsl(${hue}, 70%, 75%)`;
+    const saturation = 70;
+    const lightness = 75;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
   function generateGraph(events: NDKEvent[]): {
@@ -84,6 +83,8 @@
     const nodes: NetworkNode[] = [];
     const links: NetworkLink[] = [];
     const nodeMap = new Map<string, NetworkNode>();
+
+    // Create event lookup map - O(n) operation done once
     const eventMap = createEventMap(events);
 
     const indexEvents = events.filter((e) => e.kind === 30040);
@@ -99,7 +100,7 @@
       contentRefs.forEach((tag, idx) => {
         if (!tag[1]) return;
 
-        // Use O(1) lookup instead of O(n) find operation
+        // O(1) lookup instead of O(n) search
         const targetEvent = eventMap.get(tag[1]);
         if (!targetEvent) return;
 
@@ -123,9 +124,8 @@
 
     return { nodes, links };
   }
-
   function setupDragHandlers(
-    simulation: d3.Simulation<NetworkNode, undefined>,
+    simulation: d3.Simulation<NetworkNode, NetworkLink>,
   ) {
     // Create drag behavior with proper typing
     const dragBehavior = d3
@@ -137,7 +137,8 @@
           d: NetworkNode,
         ) => {
           // Warm up simulation when drag starts
-          if (!event.active) simulation.alphaTarget(0.3).restart();
+          if (!event.active)
+            simulation.alphaTarget(warmupClickEnergy).restart();
           // Fix node position during drag
           d.fx = d.x;
           d.fy = d.y;
@@ -167,10 +168,8 @@
           d.fy = null;
         },
       );
-
     return dragBehavior;
   }
-
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
@@ -178,22 +177,21 @@
     if (!nodes.length) return;
 
     const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
+    // Set up zoom behavior
+    let g = svgElement.append("g");
 
-    let g = svgElement.select("g");
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.4, 9])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+      });
 
-    // Only create the base group and zoom behavior if it doesn't exist
+    svgElement.call(zoom);
     if (g.empty()) {
-      const zoom = d3
-        .zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.1, 4])
-        .on("zoom", (event) => {
-          g.attr("transform", event.transform);
-        });
-
-      svgElement.call(zoom);
       g = svgElement.append("g");
 
-      // Define arrow marker only once
+      // Define arrow marker with black fill
       const marker = g
         .append("defs")
         .selectAll("marker")
@@ -210,10 +208,9 @@
       marker
         .append("path")
         .attr("d", "M -8,-5 L 0, 0 L -8, 5 Z")
-        .attr("class", "network-link-leather");
+        .attr("class", "network-link-leather"); // Black fill for arrowhead
     }
-
-    // Set up force simulation
+    // Force simulation setup
     const simulation = d3
       .forceSimulation<NetworkNode>(nodes)
       .force(
@@ -223,16 +220,17 @@
           .id((d) => d.id)
           .distance(linkDistance),
       )
-      .force("charge", d3.forceManyBody().strength(-500))
+      .force("charge", d3.forceManyBody<NetworkNode>().strength(-1000))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("x", d3.forceX(width / 2).strength(0.1))
-      .force("y", d3.forceY(height / 2).strength(0.1))
-      .force("collision", d3.forceCollide().radius(nodeRadius * 2.5));
-
-    // Create drag handler
+      .force("x", d3.forceX<NetworkNode>(width / 2).strength(0.1))
+      .force("y", d3.forceY<NetworkNode>(height / 2).strength(0.1))
+      .force(
+        "collision",
+        d3.forceCollide<NetworkNode>().radius(nodeRadius * 2.5),
+      );
     const dragHandler = setupDragHandlers(simulation);
 
-    // Update links with enter/update/exit pattern
+    // Create links
     const link = g
       .selectAll<SVGPathElement, NetworkLink>("path.link")
       .data(links, (d: NetworkLink) => `${d.source.id}-${d.target.id}`)
@@ -240,15 +238,15 @@
         (enter) =>
           enter
             .append("path")
-            .attr("class", "network-link-leather link")
+            .attr("class", "network-link-leather")
             .attr("stroke-width", 2)
-            .attr("fill", "none")
+            .attr("fill", "transparent")
             .attr("marker-end", "url(#arrowhead)"),
         (update) => update,
         (exit) => exit.remove(),
       );
 
-    // Update nodes with enter/update/exit pattern
+    // Create nodes
     const node = g
       .selectAll<SVGGElement, NetworkNode>("g.node")
       .data(nodes, (d: NetworkNode) => d.id)
@@ -259,28 +257,33 @@
             .attr("class", "node network-node-leather")
             .call(dragHandler);
 
-          // Add drag circle
+          // add drag circle
           nodeEnter
             .append("circle")
-            .attr("r", dragRadius)
+            .attr("r", nodeRadius * 2.5)
             .attr("fill", "transparent")
+            .attr("stroke", "transparent")
             .style("cursor", "move");
 
-          // Add visible node circle
+          // add visual circle, stroke based on current theme
           nodeEnter
             .append("circle")
             .attr("r", nodeRadius)
-            .attr("stroke", "#000000")
+            .attr("class", (d: NetworkNode) =>
+              !d.isContainer
+                ? "network-node-leather network-node-content"
+                : "network-node-leather",
+            )
             .attr("stroke-width", 2);
 
-          // Add text labels
+          // add text labels
           nodeEnter
             .append("text")
             .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
-            .attr("fill", "#000000")
-            .attr("font-size", "12px")
-            .attr("font-weight", "bold");
+            .attr("fill", "black")
+            .attr("font-size", "12px");
+          // .attr("font-weight", "bold");
 
           return nodeEnter;
         },
@@ -288,39 +291,88 @@
         (exit) => exit.remove(),
       );
 
-    // Update node appearances
+    // Add text labels
     node
       .select("circle:nth-child(2)")
-      .attr("fill", (d) =>
+      .attr("fill", (d: NetworkNode) =>
         !d.isContainer
           ? isDarkMode
-            ? "#342718"
-            : "#d6c1a8"
+            ? "#FFFFFF"
+            : "network-link-leather"
           : getEventColor(d.id),
       );
 
-    node.select("text").text((d) => (d.isContainer ? "I" : "C"));
+    node.select("text").text((d: NetworkNode) => (d.isContainer ? "I" : "C"));
+    // Add tooltips
+    const tooltip = d3
+      .select("body")
+      .append("div")
+      .attr(
+        "class",
+        "fixed hidden bg-primary-0 dark:bg-primary-1000 " +
+          "text-gray-800 dark:text-gray-300 " +
+          "p-4 rounded shadow-lg border border-gray-200 dark:border-gray-800 " +
+          "transition-colors duration-200",
+      )
+      .style("z-index", 1000);
 
-    // Handle simulation updates
+    node
+      .on("mouseover", function (event, d) {
+        tooltip
+          .style("display", "block")
+          .html(
+            `
+            <div class="space-y-2">
+              <div class="font-bold text-base">${d.title}</div>
+              <div class="text-gray-600 dark:text-gray-400 text-sm">
+                ${d.type} (${d.isContainer ? "30040" : "30041"})
+              </div>
+              <div class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis">
+                ID: ${d.id}
+              </div>
+              ${
+                d.content
+                  ? `
+                <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
+                  ${d.content}
+                </div>
+              `
+                  : ""
+              }
+            </div>
+          `,
+          )
+          .style("left", event.pageX - 10 + "px")
+          .style("top", event.pageY + 10 + "px");
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 10 + "px");
+      })
+      .on("mouseout", () => {
+        tooltip.style("display", "none");
+      });
+
+    // Handle simulation ticks
     simulation.on("tick", () => {
-      // Update link positions
       link.attr("d", (d) => {
         const dx = d.target.x! - d.source.x!;
         const dy = d.target.y! - d.source.y!;
         const angle = Math.atan2(dy, dx);
+
+        // Adjust start and end points to prevent overlap with nodes
         const startX = d.source.x! + nodeRadius * Math.cos(angle);
         const startY = d.source.y! + nodeRadius * Math.sin(angle);
         const endX = d.target.x! - nodeRadius * Math.cos(angle);
         const endY = d.target.y! - nodeRadius * Math.sin(angle);
+
         return `M${startX},${startY}L${endX},${endY}`;
       });
-
-      // Update node positions
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
   }
 
-  // Setup and cleanup
   onMount(() => {
     isDarkMode = document.body.classList.contains("dark");
 
@@ -337,13 +389,12 @@
       });
     });
 
-    // Watch for container size changes
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         width = entry.contentRect.width;
-        height = entry.contentRect.height || width * 0.6;
+        height = entry.contentRect.height * 1 || width * 1.0;
       }
-      if (svg) drawNetwork();
+      // if (svg) drawNetwork();
     });
 
     // Start observers
@@ -352,15 +403,13 @@
       attributeFilter: ["class"],
     });
     resizeObserver.observe(container);
-
-    // Cleanup function
+    // Clean up
     return () => {
       themeObserver.disconnect();
       resizeObserver.disconnect();
     };
   });
-
-  // Reactive redraw
+  // Reactive redaw
   $: {
     if (svg && events?.length) {
       drawNetwork();
@@ -369,7 +418,7 @@
 </script>
 
 # /lib/components/EventNetwork.svelte
-<div class="w-full h-[600px]" bind:this={container}>
+<div class="w-full h-[1200px]" bind:this={container}>
   <svg
     bind:this={svg}
     class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
@@ -423,3 +472,6 @@
     </ul>
   </div>
 </div>
+
+<style>
+</style>
