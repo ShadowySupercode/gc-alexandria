@@ -12,6 +12,7 @@ import asciidoctor, {
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
+import { indexKind, zettelKinds } from './consts';
 
 interface IndexMetadata {
   authors?: string[];
@@ -152,6 +153,28 @@ export default class Pharos {
       console.error(error);
       throw new Error('Failed to parse AsciiDoc document.');
     }
+  }
+
+  /**
+   * Fetches and parses the event tree for a publication given the event or event ID of the
+   * publication's root index.
+   * @param event The event or event ID of the publication's root index.
+   */
+  async fetch(event: NDKEvent | string): Promise<void> {
+    let content: string;
+
+    if (typeof event === 'string') {
+      const index = await this.ndk.fetchEvent({ ids: [event] });
+      if (!index) {
+        throw new Error('Failed to fetch publication.');
+      }
+
+      content = await this.getPublicationContent(index);
+    } else {
+      content = await this.getPublicationContent(event);
+    }
+
+    this.parse(content);
   }
 
   /**
@@ -556,6 +579,62 @@ export default class Pharos {
     for (const child of children) {
       this.buildEventsByLevelMap(child, depth + 1);
     }
+  }
+
+  /**
+   * Uses the NDK to crawl the event tree of a publication and return its content as a string.
+   * @param event The root index event of the publication.
+   * @returns The content of the publication as a string.
+   * @remarks This function does a depth-first crawl of the event tree using the relays specified
+   * on the NDK instance.
+   */
+  private async getPublicationContent(event: NDKEvent, depth: number = 0): Promise<string> {
+    let content: string = '';
+
+    // Format title into AsciiDoc header.
+    const title = event.getMatchingTags('title')[0][1];
+    let titleLevel = '';
+    for (let i = 0; i <= depth; i++) {
+      titleLevel += '=';
+    }
+    content += `${titleLevel} ${title}\n\n`;
+
+    // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
+    let tags = event.getMatchingTags('a');
+    if (tags.length === 0) {
+      tags = event.getMatchingTags('e');
+    }
+
+    // Base case: The event is a zettel.
+    if (zettelKinds.includes(event.kind ?? -1)) {
+      content += event.content;
+      return content;
+    }
+
+    // Recursive case: The event is an index.
+    const childEvents = await Promise.all(
+      tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
+    );
+
+    // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
+    // children of index events before processing them for content.  We won't make that change now,
+    // as it would increase complexity, but if performance suffers, we can revisit this option.
+    const childContentPromises: Promise<string>[] = [];
+    for (let i = 0; i < childEvents.length; i++) {
+      const childEvent = childEvents[i];
+      
+      if (!childEvent) {
+        console.warn(`NDK could not find event ${tags[i][1]}.`);
+        continue;
+      }
+
+      childContentPromises.push(this.getPublicationContent(childEvent, depth + 1));
+    }
+
+    const childContents = await Promise.all(childContentPromises);
+    content += childContents.join('\n\n');
+
+    return content;
   }
 
   // #endregion
