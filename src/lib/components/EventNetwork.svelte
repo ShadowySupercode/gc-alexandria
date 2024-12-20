@@ -8,8 +8,8 @@
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
-  const dragRadiusMultiplier = 2;
   const linkDistance = 5;
+  const arrowDistance = 3;
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
@@ -195,24 +195,25 @@
       g = svgElement.append("g");
 
       // Define arrow marker with black fill
-      const marker = g
-        .append("defs")
-        .selectAll("marker")
-        .data(["arrowhead"])
-        .join("marker")
-        .attr("id", "arrowhead")
-        .attr("viewBox", "0 -5 20 20")
-        .attr("refX", nodeRadius * dragRadiusMultiplier)
-        .attr("refY", 0)
-        .attr("markerWidth", 8)
-        .attr("markerHeight", 8)
-        .attr("orient", "auto");
-
-      marker
-        .append("path")
-        .attr("d", "M -8,-5 L 0, 0 L -8, 5 Z")
-        .attr("class", "network-link-leather"); // Black fill for arrowhead
     }
+    svgElement.select("defs").remove();
+    const defs = svgElement.append("defs");
+    defs
+      .append("marker")
+      .attr("id", "arrowhead")
+      .attr("markerUnits", "strokeWidth") // Added this
+      .attr("viewBox", "-10 -5 10 10")
+      .attr("refX", 0)
+      .attr("refY", 0)
+      .attr("markerWidth", 5)
+      .attr("markerHeight", 5)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M -10 -5 L 0 0 L -10 5 z")
+      .attr("class", "network-link-leather")
+      .attr("fill", "none")
+      .attr("stroke-width", 1); // Added stroke
+
     // Force simulation setup
     const simulation = d3
       .forceSimulation<NetworkNode>(nodes)
@@ -234,21 +235,30 @@
     const dragHandler = setupDragHandlers(simulation);
 
     // Create links
+    // First, make sure we're selecting and creating links correctly
     const link = g
-      .selectAll<SVGPathElement, NetworkLink>("path.link")
-      .data(links, (d: NetworkLink) => `${d.source.id}-${d.target.id}`)
+      .selectAll("path") // Changed from "path.link" to just "path"
+      .data(links)
       .join(
         (enter) =>
           enter
             .append("path")
-            .attr("class", "network-link-leather")
             .attr("stroke-width", 2)
-            .attr("fill", "transparent")
-            .attr("marker-end", "url(#arrowhead)"),
+            .attr("marker-end", "url(#arrowhead)") // This should now be applied
+            .attr("class", "network-link-leather"), // Add class if needed
         (update) => update,
         (exit) => exit.remove(),
       );
 
+    // Let's verify the links are being created
+    console.log(
+      "Number of paths created:",
+      document.querySelectorAll("path").length,
+    );
+    console.log(
+      "Paths with marker-end:",
+      document.querySelectorAll("path[marker-end]").length,
+    );
     // Create nodes
     const node = g
       .selectAll<SVGGElement, NetworkNode>("g.node")
@@ -365,17 +375,22 @@
         const dy = d.target.y! - d.source.y!;
         const angle = Math.atan2(dy, dx);
 
-        // Adjust start and end points to prevent overlap with nodes
-        const startX = d.source.x! + nodeRadius * Math.cos(angle);
-        const startY = d.source.y! + nodeRadius * Math.sin(angle);
-        const endX = d.target.x! - nodeRadius * Math.cos(angle);
-        const endY = d.target.y! - nodeRadius * Math.sin(angle);
+        // Adjust these values to fine-tune the gap
+        const sourceGap = nodeRadius;
+        const targetGap = nodeRadius + arrowDistance; // Increased gap for arrowhead
+
+        const startX = d.source.x! + sourceGap * Math.cos(angle);
+        const startY = d.source.y! + sourceGap * Math.sin(angle);
+        const endX = d.target.x! - targetGap * Math.cos(angle);
+        const endY = d.target.y! - targetGap * Math.sin(angle);
 
         return `M${startX},${startY}L${endX},${endY}`;
       });
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
   }
+  console.log("Marker definition:", document.querySelector("defs marker"));
+  console.log("Path with marker:", document.querySelector("path[marker-end]"));
 
   onMount(() => {
     isDarkMode = document.body.classList.contains("dark");
@@ -466,13 +481,7 @@
 
       <li class="legend-item">
         <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
-          <path
-            d="M4 12h16M16 6l6 6-6 6"
-            class="network-link-leather"
-            stroke-width="2"
-            stroke-linecap="round"
-            marker-end="url(#arrowhead)"
-          />
+          <path d="M4 12h16M16 6l6 6-6 6" class="network-link-leather" />
         </svg>
         <span>Arrows indicate reading/sequence order</span>
       </li>
