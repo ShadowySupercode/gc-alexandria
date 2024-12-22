@@ -8,15 +8,6 @@
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
   }
 
-  /* Button */
-  button.btn-leather.text-white {
-    @apply text-primary-0;
-  }
-
-  .btn-leather span svg {
-    @apply fill-gray-800 hover:fill-primary-400 dark:fill-gray-300 dark:hover:fill-primary-500;
-  }
-
   .btn-leather.text-xs {
     @apply w-7 h-7;
   }

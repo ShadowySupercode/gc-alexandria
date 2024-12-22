@@ -8,8 +8,8 @@
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
-  const linkDistance = 1;
-  const arrowDistance = 3;
+  const linkDistance = 10;
+  const arrowDistance = 10;
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
@@ -23,6 +23,7 @@
     width = container.clientWidth || 1000;
     height = container.clientHeight || 600;
   }
+
   interface NetworkNode extends d3.SimulationNodeDatum {
     id: string;
     event?: NDKEvent;
@@ -43,28 +44,58 @@
     target: NetworkNode;
     isSequential: boolean;
   }
+
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     return new Map(events.map((event) => [event.id, event]));
   }
-  const logGravity = (alpha: number) => {
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const gravityStrength = 0.1; // Adjustable parameter
+  function applyGlobalLogGravity(
+    node: NetworkNode,
+    centerX: number,
+    centerY: number,
+    alpha: number,
+  ) {
+    const globalGravityStrength = 0.05;
+    const dx = node.x! - centerX;
+    const dy = node.y! - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-    return function (d: NetworkNode) {
-      const dx = d.x! - centerX;
-      const dy = d.y! - centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance === 0) return;
 
-      if (distance === 0) return;
+    const force = Math.log(distance + 1) * globalGravityStrength * alpha;
+    node.vx! -= (dx / distance) * force;
+    node.vy! -= (dy / distance) * force;
+  }
 
-      // Logarithmic falloff - force gets stronger the further out you go
-      const force = Math.log(distance + 1) * gravityStrength * alpha;
+  function applyConnectedGravity(
+    node: NetworkNode,
+    links: NetworkLink[],
+    alpha: number,
+  ) {
+    const connectedGravityStrength = 0.3;
 
-      d.vx! -= (dx / distance) * force;
-      d.vy! -= (dy / distance) * force;
-    };
-  };
+    const connectedNodes = links
+      .filter(
+        (link) => link.source.id === node.id || link.target.id === node.id,
+      )
+      .map((link) => (link.source.id === node.id ? link.target : link.source));
+
+    if (connectedNodes.length === 0) return;
+
+    const cogX = d3.mean(connectedNodes, (node) => node.x);
+    const cogY = d3.mean(connectedNodes, (node) => node.y);
+
+    if (cogX === undefined || cogY === undefined) return;
+
+    const dx = node.x! - cogX;
+    const dy = node.y! - cogY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance === 0) return;
+
+    const force = distance * connectedGravityStrength * alpha;
+    node.vx! -= (dx / distance) * force;
+    node.vy! -= (dy / distance) * force;
+  }
 
   function getNode(
     id: string,
@@ -241,18 +272,9 @@
         d3
           .forceLink<NetworkNode, NetworkLink>(links)
           .id((d) => d.id)
-          .distance(linkDistance),
+          .distance(linkDistance * 0.1),
       )
-      .force("gravity", logGravity)
       .force("collide", d3.forceCollide<NetworkNode>().radius(nodeRadius * 4));
-    // .force("charge", d3.forceManyBody<NetworkNode>().strength(-1000))
-    // .force("center", d3.forceCenter(width / 2, height / 2))
-    // .force("x", d3.forceX<NetworkNode>(width / 2).strength(0.1))
-    // .force("y", d3.forceY<NetworkNode>(height / 2).strength(0.1))
-    // .force(
-    //   "collision",
-    //   d3.forceCollide<NetworkNode>().radius(nodeRadius * 2),
-    // );
     simulation.on("end", () => {
       // Get the bounds of the graph
       const bounds = g.node()?.getBBox();
@@ -297,15 +319,6 @@
         (exit) => exit.remove(),
       );
 
-    // Let's verify the links are being created
-    console.log(
-      "Number of paths created:",
-      document.querySelectorAll("path").length,
-    );
-    console.log(
-      "Paths with marker-end:",
-      document.querySelectorAll("path[marker-end]").length,
-    );
     // Create nodes
     const node = g
       .selectAll<SVGGElement, NetworkNode>("g.node")
@@ -417,13 +430,15 @@
 
     // Handle simulation ticks
     simulation.on("tick", () => {
-      logGravity(simulation.alpha())(nodes);
+      nodes.forEach((node) => {
+        applyGlobalLogGravity(node, width / 2, height / 2, simulation.alpha());
+        applyConnectedGravity(node, links, simulation.alpha());
+      });
       link.attr("d", (d) => {
         const dx = d.target.x! - d.source.x!;
         const dy = d.target.y! - d.source.y!;
         const angle = Math.atan2(dy, dx);
 
-        // Adjust these values to fine-tune the gap
         const sourceGap = nodeRadius;
         const targetGap = nodeRadius + arrowDistance; // Increased gap for arrowhead
 
