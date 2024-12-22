@@ -8,7 +8,7 @@
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
-  const linkDistance = 5;
+  const linkDistance = 1;
   const arrowDistance = 3;
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
@@ -46,6 +46,25 @@
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     return new Map(events.map((event) => [event.id, event]));
   }
+  const logGravity = (alpha: number) => {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const gravityStrength = 0.1; // Adjustable parameter
+
+    return function (d: NetworkNode) {
+      const dx = d.x! - centerX;
+      const dy = d.y! - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance === 0) return;
+
+      // Logarithmic falloff - force gets stronger the further out you go
+      const force = Math.log(distance + 1) * gravityStrength * alpha;
+
+      d.vx! -= (dx / distance) * force;
+      d.vy! -= (dy / distance) * force;
+    };
+  };
 
   function getNode(
     id: string,
@@ -185,7 +204,7 @@
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.4, 9])
+      .scaleExtent([0.1, 9])
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
       });
@@ -224,14 +243,42 @@
           .id((d) => d.id)
           .distance(linkDistance),
       )
-      .force("charge", d3.forceManyBody<NetworkNode>().strength(-1000))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("x", d3.forceX<NetworkNode>(width / 2).strength(0.1))
-      .force("y", d3.forceY<NetworkNode>(height / 2).strength(0.1))
-      .force(
-        "collision",
-        d3.forceCollide<NetworkNode>().radius(nodeRadius * 2.5),
-      );
+      .force("gravity", logGravity)
+      .force("collide", d3.forceCollide<NetworkNode>().radius(nodeRadius * 4));
+    // .force("charge", d3.forceManyBody<NetworkNode>().strength(-1000))
+    // .force("center", d3.forceCenter(width / 2, height / 2))
+    // .force("x", d3.forceX<NetworkNode>(width / 2).strength(0.1))
+    // .force("y", d3.forceY<NetworkNode>(height / 2).strength(0.1))
+    // .force(
+    //   "collision",
+    //   d3.forceCollide<NetworkNode>().radius(nodeRadius * 2),
+    // );
+    simulation.on("end", () => {
+      // Get the bounds of the graph
+      const bounds = g.node()?.getBBox();
+      if (bounds) {
+        const dx = bounds.width;
+        const dy = bounds.height;
+        const x = bounds.x;
+        const y = bounds.y;
+
+        // Calculate scale to fit
+        const scale = 1.25 / Math.max(dx / width, dy / height);
+        const translate = [
+          width / 2 - scale * (x + dx / 2),
+          height / 2 - scale * (y + dy / 2),
+        ];
+
+        // Apply the initial transform
+        svgElement
+          .transition()
+          .duration(750)
+          .call(
+            zoom.transform,
+            d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale),
+          );
+      }
+    });
     const dragHandler = setupDragHandlers(simulation);
 
     // Create links
@@ -370,6 +417,7 @@
 
     // Handle simulation ticks
     simulation.on("tick", () => {
+      logGravity(simulation.alpha())(nodes);
       link.attr("d", (d) => {
         const dx = d.target.x! - d.source.x!;
         const dy = d.target.y! - d.source.y!;
