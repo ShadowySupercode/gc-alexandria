@@ -20,7 +20,7 @@
   $: graphHeight = windowHeight ? Math.max(windowHeight * 0.2, 400) : 400;
 
   $: if (container) {
-    width = container.clientWidth || 800;
+    width = container.clientWidth || 1000;
     height = container.clientHeight || 600;
   }
   interface NetworkNode extends d3.SimulationNodeDatum {
@@ -447,14 +447,15 @@
   }
 </script>
 
-<div class="flex flex-col w-full h-screen p-4 gap-4">
-  <div class="flex-grow min-h-0" bind:this={container}>
+<div
+  class="flex flex-col w-full h-[calc(100vh-120px)] min-h-[400px] max-h-[900px] p-4 gap-4"
+>
+  <div class="h-[calc(100%-130px)] min-h-[300px]" bind:this={container}>
     <svg
       bind:this={svg}
       class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
     />
   </div>
-
   <!-- Legend -->
   <div class="leather-legend">
     <h3 class="text-lg font-bold mb-2 h-leather">Legend</h3>
