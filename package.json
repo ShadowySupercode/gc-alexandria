@@ -26,7 +26,7 @@
     "@sveltejs/adapter-auto": "3.x",
     "@sveltejs/adapter-static": "3.x",
     "@sveltejs/kit": "2.x",
-    "@sveltejs/vite-plugin-svelte": "3.x",
+    "@sveltejs/vite-plugin-svelte": "4.x",
     "@types/he": "1.2.x",
     "@types/node": "22.x",
     "autoprefixer": "10.x",

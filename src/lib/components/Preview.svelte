@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { parser, SiblingSearchDirection } from "$lib/parser";
+  import { page } from "$app/state";
+  import { pharosInstance, SiblingSearchDirection } from "$lib/parser";
   import { Button, ButtonGroup, CloseButton, Heading, Input, P, Textarea, Tooltip } from "flowbite-svelte";
   import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
   import { createEventDispatcher } from "svelte";
@@ -16,9 +17,9 @@
 
   const dispatch = createEventDispatcher();
 
-  let currentContent: string = $parser.getContent(rootId);
-  let title: string | undefined = $parser.getIndexTitle(rootId);
-  let orderedChildren: string[] = $parser.getOrderedChildIds(rootId);
+  let currentContent: string = $pharosInstance.getContent(rootId);
+  let title: string | undefined = $pharosInstance.getIndexTitle(rootId);
+  let orderedChildren: string[] = $pharosInstance.getOrderedChildIds(rootId);
 
   let isEditing: boolean = false;
   let hasCursor: boolean = false;
@@ -37,8 +38,8 @@
     if (needsUpdate) {
       updateCount++;
       needsUpdate = false;
-      title = $parser.getIndexTitle(rootId);
-      currentContent = $parser.getContent(rootId);
+      title = $pharosInstance.getIndexTitle(rootId);
+      currentContent = $pharosInstance.getContent(rootId);
     }
 
     if (subtreeNeedsUpdate) {
@@ -46,7 +47,7 @@
       subtreeNeedsUpdate = false;
 
       const prevChildCount = orderedChildren.length;
-      orderedChildren = $parser.getOrderedChildIds(rootId);
+      orderedChildren = $pharosInstance.getOrderedChildIds(rootId);
       const newChildCount = orderedChildren.length;
 
       // If the number of children has changed, a child has been added or removed, and a child may
@@ -62,8 +63,8 @@
   $: {
     if (parentId && allowEditing) {
       // Check for previous/next siblings on load
-      const previousSibling = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
-      const nextSibling = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+      const previousSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+      const nextSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
       
       // Hide arrows if no siblings exist
       hasPreviousSibling = !!previousSibling[0];
@@ -113,7 +114,7 @@
 
       }
 
-      $parser.updateEventContent(id, currentContent);
+      $pharosInstance.updateEventContent(id, currentContent);
     }
 
     isEditing = !editing;
@@ -121,25 +122,25 @@
 
   const moveUp = (rootId: string, parentId: string) => {
     // Get the previous sibling and its index
-    const [prevSiblingId, prevIndex] = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+    const [prevSiblingId, prevIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
     if (!prevSiblingId || prevIndex == null) {
       return;
     }
 
     // Move the current event before the previous sibling.
-    $parser.moveEvent(rootId, prevSiblingId, false);
+    $pharosInstance.moveEvent(rootId, prevSiblingId, false);
     needsUpdate = true;
   };
 
   const moveDown = (rootId: string, parentId: string) => {
     // Get the next sibling and its index 
-    const [nextSiblingId, nextIndex] = $parser.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+    const [nextSiblingId, nextIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
     if (!nextSiblingId || nextIndex == null) {
       return;
     }
 
     // Move the current event after the next sibling
-    $parser.moveEvent(rootId, nextSiblingId, true);
+    $pharosInstance.moveEvent(rootId, nextSiblingId, true);
     needsUpdate = true;
   };
 </script>

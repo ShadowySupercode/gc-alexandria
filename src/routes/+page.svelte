@@ -1,26 +1,41 @@
-<script lang="ts">
-  import ArticleHeader from "$lib/components/ArticleHeader.svelte";
-  import { FeedType, indexKind, standardRelays } from "$lib/consts";
-  import { ndk } from "$lib/ndk";
-  import { filterValidIndexEvents } from "$lib/utils";
-  import { NDKEvent, NDKRelaySet, type NDKUser } from "@nostr-dev-kit/ndk";
-  import { Button, Dropdown, Radio, Skeleton } from "flowbite-svelte";
-  import { ChevronDownOutline } from "flowbite-svelte-icons";
+<script lang='ts'>
+  import ArticleHeader from '$lib/components/ArticleHeader.svelte';
+  import { FeedType, indexKind, standardRelays } from '$lib/consts';
+  import { filterValidIndexEvents } from '$lib/utils';
+  import NDK, { NDKEvent, NDKRelaySet, type NDKUser } from '@nostr-dev-kit/ndk';
+  import { Button, Dropdown, Radio, Skeleton } from 'flowbite-svelte';
+  import { ChevronDownOutline } from 'flowbite-svelte-icons';
+  import type { PageData } from './$types';
+  import { setContext } from 'svelte';
+
+  let { data }: { data: PageData } = $props();
+  let ndk: NDK = data.ndk;
+
+  let user: NDKUser | null | undefined = $state(ndk.activeUser);
+  let readRelays: string[] | null | undefined = $state(user?.relayUrls);
+  let userFollows: Set<NDKUser> | null | undefined = $state(null);
+  let feedType: FeedType = $state(FeedType.Relays);
+
+  $effect(() => {
+    if (user) {
+      user.follows().then(follows => userFollows = follows);
+    }
+  });
 
   const getEvents = (): Promise<Set<NDKEvent>> =>
     // @ts-ignore
-    $ndk.fetchEvents(
+    ndk.fetchEvents(
       { kinds: [indexKind] },
       { 
         groupable: true,
         skipVerification: false,
         skipValidation: false
       },
-      NDKRelaySet.fromRelayUrls(standardRelays, $ndk)
+      NDKRelaySet.fromRelayUrls(standardRelays, ndk)
     ).then(filterValidIndexEvents);
 
   const getEventsFromUserRelays = (userRelays: string[]): Promise<Set<NDKEvent>> => {
-    return $ndk
+    return ndk
       .fetchEvents(
         // @ts-ignore
         { kinds: [indexKind] },
@@ -35,7 +50,7 @@
   }
 
   const getEventsFromUserFollows = (follows: Set<NDKUser>, userRelays?: string[]): Promise<Set<NDKEvent>> => {
-    return $ndk
+    return ndk
       .fetchEvents(
         { 
           authors: Array.from(follows ?? []).map(user => user.pubkey),
@@ -73,17 +88,6 @@
       skeletonIds.push(`skeleton-${i}`);
     }
     return skeletonIds;
-  }
-
-  let user: NDKUser | null | undefined;
-  let readRelays: string[] | null | undefined;
-  let userFollows: Set<NDKUser> | null | undefined;
-  let feedType: FeedType = FeedType.Relays;
-
-  $: {
-    user = $ndk.activeUser;
-    readRelays = user?.relayUrls;
-    user?.follows().then(follows => userFollows = follows);
   }
 </script>
 

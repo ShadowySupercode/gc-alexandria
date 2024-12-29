@@ -12,7 +12,7 @@ const config = {
     adapter: adapter({
       pages: 'build',
       assets: 'build',
-      fallback: null,  // TODO: Create a 404.html page.
+      fallback: 'index.html',
       precompress: false,
       strict: true,
     }),

@@ -2,7 +2,7 @@
   import { Heading, Textarea, Toolbar, ToolbarButton, Tooltip } from "flowbite-svelte";
   import { CodeOutline, EyeSolid, PaperPlaneOutline } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
-  import Pharos, { parser } from "$lib/parser";
+  import Pharos, { pharosInstance } from "$lib/parser";
   import { ndk } from "$lib/ndk";
   import { goto } from "$app/navigation";
 
@@ -15,16 +15,16 @@
 
   const showPreview = () => {
     try {
-      $parser ??= new Pharos($ndk);
-      $parser.reset();
-      $parser.parse(editorText);
+      $pharosInstance ??= new Pharos($ndk);
+      $pharosInstance.reset();
+      $pharosInstance.parse(editorText);
     } catch (e) {
       console.error(e);
       // TODO: Indicate error in UI.
       return;
     }
 
-    rootIndexId = $parser.getRootIndexId();
+    rootIndexId = $pharosInstance.getRootIndexId();
     isEditing = false;
   };
 
@@ -34,15 +34,15 @@
 
   const prepareReview = () => {
     try {
-      $parser.reset();
-      $parser.parse(editorText);
+      $pharosInstance.reset();
+      $pharosInstance.parse(editorText);
     } catch (e) {
       console.error(e);
       // TODO: Indicate error in UI.
       return;
     }
 
-    $parser.generate($ndk.activeUser?.pubkey!);
+    $pharosInstance.generate($ndk.activeUser?.pubkey!);
     goto('/new/compose');
   }
 </script>
@@ -55,7 +55,7 @@
         <Textarea
           id='article-content'
           class='textarea-leather'
-          rows=8
+          rows={8}
           placeholder='Write AsciiDoc content'
           bind:value={editorText}
         >

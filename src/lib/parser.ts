@@ -1,6 +1,7 @@
 import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
 import { getNdkInstance } from './ndk';
-import asciidoctor, {
+import asciidoctor from 'asciidoctor';
+import type {
   AbstractBlock,
   AbstractNode,
   Asciidoctor,
@@ -8,7 +9,7 @@ import asciidoctor, {
   Document,
   Extensions,
   Section,
-  type ProcessorOptions
+  ProcessorOptions,
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
@@ -1063,4 +1064,4 @@ export default class Pharos {
   // #endregion
 }
 
-export const parser: Writable<Pharos> = writable(new Pharos(getNdkInstance()));
+export const pharosInstance: Writable<Pharos> = writable();
