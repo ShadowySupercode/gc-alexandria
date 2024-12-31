@@ -13,15 +13,15 @@
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
-  let width: number;
-  let height: number;
+  let width: number = 1000;
+  let height: number = 600;
   let windowHeight: number;
 
   $: graphHeight = windowHeight ? Math.max(windowHeight * 0.2, 400) : 400;
 
   $: if (container) {
-    width = container.clientWidth || 1000;
-    height = container.clientHeight || 600;
+    width = container.clientWidth || width;
+    height = container.clientHeight || height;
   }
 
   interface NetworkNode extends d3.SimulationNodeDatum {
@@ -50,45 +50,60 @@
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     return new Map(events.map((event) => [event.id, event]));
   }
-function updateNodeVelocity(node: NetworkNode, deltaVx: number, deltaVy: number) {
-  if (typeof node.vx === 'number' && typeof node.vy === 'number') {
-    node.vx = node.vx - deltaVx;
-    node.vy = node.vy - deltaVy;
+  function updateNodeVelocity(
+    node: NetworkNode,
+    deltaVx: number,
+    deltaVy: number,
+  ) {
+    if (typeof node.vx === "number" && typeof node.vy === "number") {
+      node.vx = node.vx - deltaVx;
+      node.vy = node.vy - deltaVy;
+    }
   }
-}
 
-function applyGlobalLogGravity(node: NetworkNode, centerX: number, centerY: number, alpha: number) {
-  const dx = (node.x ?? 0) - centerX;
-  const dy = (node.y ?? 0) - centerY;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+  function applyGlobalLogGravity(
+    node: NetworkNode,
+    centerX: number,
+    centerY: number,
+    alpha: number,
+  ) {
+    const dx = (node.x ?? 0) - centerX;
+    const dy = (node.y ?? 0) - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-  if (distance === 0) return;
+    if (distance === 0) return;
 
-  const force = Math.log(distance + 1) * 0.05 * alpha;
-  updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
-}
+    const force = Math.log(distance + 1) * 0.05 * alpha;
+    updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
+  }
 
-function applyConnectedGravity(node: NetworkNode, links: NetworkLink[], alpha: number) {
-  const connectedNodes = links
-    .filter(link => link.source.id === node.id || link.target.id === node.id)
-    .map(link => link.source.id === node.id ? link.target : link.source);
+  function applyConnectedGravity(
+    node: NetworkNode,
+    links: NetworkLink[],
+    alpha: number,
+  ) {
+    const connectedNodes = links
+      .filter(
+        (link) => link.source.id === node.id || link.target.id === node.id,
+      )
+      .map((link) => (link.source.id === node.id ? link.target : link.source));
 
-  if (connectedNodes.length === 0) return;
+    if (connectedNodes.length === 0) return;
 
-  const cogX = d3.mean(connectedNodes, n => n.x);
-  const cogY = d3.mean(connectedNodes, n => n.y);
+    const cogX = d3.mean(connectedNodes, (n) => n.x);
+    const cogY = d3.mean(connectedNodes, (n) => n.y);
 
-  if (cogX === undefined || cogY === undefined) return;
+    if (cogX === undefined || cogY === undefined) return;
 
-  const dx = (node.x ?? 0) - cogX;
-  const dy = (node.y ?? 0) - cogY;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+    const dx = (node.x ?? 0) - cogX;
+    const dy = (node.y ?? 0) - cogY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-  if (distance === 0) return;
+    if (distance === 0) return;
 
-  const force = distance * 0.3 * alpha;
-  updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
-}
+    const force = distance * 0.3 * alpha;
+    updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
+  }
   function getNode(
     id: string,
     nodeMap: Map<string, NetworkNode>,
@@ -107,6 +122,8 @@ function applyConnectedGravity(node: NetworkNode, links: NetworkLink[], alpha: n
         content: event?.content || "",
         author: event?.pubkey || "",
         type: event?.kind === 30040 ? "Index" : "Content",
+        x: width / 2 + (Math.random() - 0.5) * 100,
+        y: height / 2 + (Math.random() - 0.5) * 100,
       };
       nodeMap.set(id, node);
     }
@@ -444,8 +461,6 @@ function applyConnectedGravity(node: NetworkNode, links: NetworkLink[], alpha: n
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
   }
-  console.log("Marker definition:", document.querySelector("defs marker"));
-  console.log("Path with marker:", document.querySelector("path[marker-end]"));
 
   onMount(() => {
     isDarkMode = document.body.classList.contains("dark");
