@@ -8,15 +8,6 @@
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
   }
 
-  /* Button */
-  button.btn-leather.text-white {
-    @apply text-primary-0;
-  }
-
-  .btn-leather span svg {
-    @apply fill-gray-800 hover:fill-primary-400 dark:fill-gray-300 dark:hover:fill-primary-500;
-  }
-
   .btn-leather.text-xs {
     @apply w-7 h-7;
   }
@@ -62,7 +53,7 @@
   div.note-leather:hover:not(:has(.note-leather:hover)),
   p.note-leather:hover:not(:has(.note-leather:hover)),
   section.note-leather:hover:not(:has(.note-leather:hover)) {
-    @apply hover:bg-primary-100 dark:hover:bg-primary-800 ;
+    @apply hover:bg-primary-100 dark:hover:bg-primary-800;
   }
 
   /* Heading */
@@ -79,11 +70,11 @@
     @apply bg-primary-0 dark:bg-primary-1000 border-b-[1px] border-gray-800 dark:border-gray-500;
   }
 
-  div.modal-leather > div > h1, 
-  div.modal-leather > div > h2, 
-  div.modal-leather > div > h3, 
-  div.modal-leather > div > h4, 
-  div.modal-leather > div > h5, 
+  div.modal-leather > div > h1,
+  div.modal-leather > div > h2,
+  div.modal-leather > div > h3,
+  div.modal-leather > div > h4,
+  div.modal-leather > div > h5,
   div.modal-leather > div > h6 {
     @apply text-gray-800 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-300;
   }
@@ -146,5 +137,23 @@
   /* Unordered list */
   .ul-leather li a {
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+  }
+  .network-link-leather {
+    @apply stroke-gray-400 fill-gray-400;
+  }
+  .network-node-leather {
+    @apply stroke-gray-800;
+  }
+  .network-node-content {
+    @apply fill-[#d6c1a8];
+  }
+}
+@layer components {
+  .leather-legend {
+    @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
+           border border-gray-200 dark:border-gray-800;
+  }
+  .tooltip-leather {
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
   }
 }

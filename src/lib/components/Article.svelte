@@ -1,15 +1,24 @@
-<script lang='ts'>
-  import { Button, Sidebar, SidebarGroup, SidebarItem, SidebarWrapper, Skeleton, TextPlaceholder, Tooltip } from 'flowbite-svelte';
-  import { onMount } from 'svelte';
-  import { BookOutline } from 'flowbite-svelte-icons';
-  import Preview from './Preview.svelte';
-  import { pharosInstance } from '$lib/parser';
-  import { page } from '$app/state';
+<script lang="ts">
+  import {
+    Button,
+    Sidebar,
+    SidebarGroup,
+    SidebarItem,
+    SidebarWrapper,
+    Skeleton,
+    TextPlaceholder,
+    Tooltip,
+  } from "flowbite-svelte";
+  import { onMount } from "svelte";
+  import { BookOutline } from "flowbite-svelte-icons";
+  import Preview from "./Preview.svelte";
+  import { pharosInstance } from "$lib/parser";
+  import { page } from "$app/state";
 
   let { rootId }: { rootId: string } = $props();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
-    console.error('Root ID does not match parser root index ID');
+    console.error("Root ID does not match parser root index ID");
   }
 
   let activeHash = $state(page.url.hash);
@@ -17,8 +26,8 @@
   function normalizeHashPath(str: string): string {
     return str
       .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]/g, '');
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]/g, "");
   }
 
   function scrollToElementWithOffset() {
@@ -32,7 +41,7 @@
 
         window.scrollTo({
           top: offsetPosition,
-          behavior: 'auto',
+          behavior: "auto",
         });
       }
     }
@@ -57,7 +66,7 @@
   const hideTocOnClick = (ev: MouseEvent) => {
     const target = ev.target as HTMLElement;
 
-    if (target.closest('.sidebar-leather') || target.closest('.btn-leather')) {
+    if (target.closest(".sidebar-leather") || target.closest(".btn-leather")) {
       return;
     }
 
@@ -70,35 +79,33 @@
     // Always check whether the TOC sidebar should be visible.
     setTocVisibilityOnResize();
 
-    window.addEventListener('hashchange', scrollToElementWithOffset);
+    window.addEventListener("hashchange", scrollToElementWithOffset);
     // Also handle the case where the user lands on the page with a hash in the URL
     scrollToElementWithOffset();
 
-    window.addEventListener('resize', setTocVisibilityOnResize);
-    window.addEventListener('click', hideTocOnClick);
+    window.addEventListener("resize", setTocVisibilityOnResize);
+    window.addEventListener("click", hideTocOnClick);
 
     return () => {
-      window.removeEventListener('hashchange', scrollToElementWithOffset);
-      window.removeEventListener('resize', setTocVisibilityOnResize);
-      window.removeEventListener('click', hideTocOnClick);
+      window.removeEventListener("hashchange", scrollToElementWithOffset);
+      window.removeEventListener("resize", setTocVisibilityOnResize);
+      window.removeEventListener("click", hideTocOnClick);
     };
   });
 </script>
 
 {#if showTocButton && !showToc}
   <Button
-    class='btn-leather fixed top-20 left-4 h-6 w-6'
+    class="btn-leather fixed top-20 left-4 h-6 w-6"
     outline={true}
-    on:click={ev => {
+    on:click={(ev) => {
       showToc = true;
       ev.stopPropagation();
     }}
   >
     <BookOutline />
   </Button>
-  <Tooltip>
-    Show Table of Contents
-  </Tooltip>
+  <Tooltip>Show Table of Contents</Tooltip>
 {/if}
 <!-- TODO: Get TOC from parser. -->
 <!-- {#if showToc}
@@ -116,7 +123,7 @@
     </SidebarWrapper>
   </Sidebar>
 {/if} -->
-<div class='flex flex-col space-y-4 max-w-2xl'>
+<div class="flex flex-col space-y-4 max-w-2xl">
   <Preview {rootId} />
 </div>
 
