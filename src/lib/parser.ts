@@ -1,6 +1,7 @@
 import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
 import { getNdkInstance } from './ndk';
-import asciidoctor, {
+import asciidoctor from 'asciidoctor';
+import type {
   AbstractBlock,
   AbstractNode,
   Asciidoctor,
@@ -8,10 +9,11 @@ import asciidoctor, {
   Document,
   Extensions,
   Section,
-  type ProcessorOptions
+  ProcessorOptions,
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
+import { indexKind, zettelKinds } from './consts';
 
 interface IndexMetadata {
   authors?: string[];
@@ -155,6 +157,28 @@ export default class Pharos {
   }
 
   /**
+   * Fetches and parses the event tree for a publication given the event or event ID of the
+   * publication's root index.
+   * @param event The event or event ID of the publication's root index.
+   */
+  async fetch(event: NDKEvent | string): Promise<void> {
+    let content: string;
+
+    if (typeof event === 'string') {
+      const index = await this.ndk.fetchEvent({ ids: [event] });
+      if (!index) {
+        throw new Error('Failed to fetch publication.');
+      }
+
+      content = await this.getPublicationContent(index);
+    } else {
+      content = await this.getPublicationContent(event);
+    }
+
+    this.parse(content);
+  }
+
+  /**
    * Generates and stores Nostr events from the parsed AsciiDoc document.  The events can be
    * modified via the parser's API and retrieved via the `getEvents()` method.
    * @param pubkey The public key (as a hex string) of the user that will sign and publish the 
@@ -236,7 +260,8 @@ export default class Pharos {
    * - Paragraph: The content is returned as a plain string.
    */
   getContent(id: string): string {
-    const block = this.nodes.get(id) as AbstractBlock;
+    const normalizedId = this.normalizeId(id);
+    const block = this.nodes.get(normalizedId!) as AbstractBlock;
 
     switch (block.getContext()) {
     case 'paragraph':
@@ -558,6 +583,62 @@ export default class Pharos {
     }
   }
 
+  /**
+   * Uses the NDK to crawl the event tree of a publication and return its content as a string.
+   * @param event The root index event of the publication.
+   * @returns The content of the publication as a string.
+   * @remarks This function does a depth-first crawl of the event tree using the relays specified
+   * on the NDK instance.
+   */
+  private async getPublicationContent(event: NDKEvent, depth: number = 0): Promise<string> {
+    let content: string = '';
+
+    // Format title into AsciiDoc header.
+    const title = event.getMatchingTags('title')[0][1];
+    let titleLevel = '';
+    for (let i = 0; i <= depth; i++) {
+      titleLevel += '=';
+    }
+    content += `${titleLevel} ${title}\n\n`;
+
+    // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
+    let tags = event.getMatchingTags('a');
+    if (tags.length === 0) {
+      tags = event.getMatchingTags('e');
+    }
+
+    // Base case: The event is a zettel.
+    if (zettelKinds.includes(event.kind ?? -1)) {
+      content += event.content;
+      return content;
+    }
+
+    // Recursive case: The event is an index.
+    const childEvents = await Promise.all(
+      tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
+    );
+
+    // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
+    // children of index events before processing them for content.  We won't make that change now,
+    // as it would increase complexity, but if performance suffers, we can revisit this option.
+    const childContentPromises: Promise<string>[] = [];
+    for (let i = 0; i < childEvents.length; i++) {
+      const childEvent = childEvents[i];
+      
+      if (!childEvent) {
+        console.warn(`NDK could not find event ${tags[i][1]}.`);
+        continue;
+      }
+
+      childContentPromises.push(this.getPublicationContent(childEvent, depth + 1));
+    }
+
+    const childContents = await Promise.all(childContentPromises);
+    content += childContents.join('\n\n');
+
+    return content;
+  }
+
   // #endregion
 
   // #region NDKEvent Generation
@@ -626,6 +707,7 @@ export default class Pharos {
    */
   private generateIndexEvent(nodeId: string, pubkey: string): NDKEvent {
     const title = (this.nodes.get(nodeId)! as AbstractBlock).getTitle();
+    // TODO: Use a tags as per NIP-62.
     const childTags = Array.from(this.indexToChildEventsMap.get(nodeId)!)
       .map(id => ['#e', this.eventIds.get(id)!]);
 
@@ -746,169 +828,169 @@ export default class Pharos {
     switch (context) {
     case 'admonition':
       blockNumber = this.contextCounters.get('admonition') ?? 0;
-      blockId = `${documentId}_admonition_${blockNumber++}`;
+      blockId = `${documentId}-admonition-${blockNumber++}`;
       this.contextCounters.set('admonition', blockNumber);
       break;
 
     case 'audio':
       blockNumber = this.contextCounters.get('audio') ?? 0;
-      blockId = `${documentId}_audio_${blockNumber++}`;
+      blockId = `${documentId}-audio-${blockNumber++}`;
       this.contextCounters.set('audio', blockNumber);
       break;
 
     case 'colist':
       blockNumber = this.contextCounters.get('colist') ?? 0;
-      blockId = `${documentId}_colist_${blockNumber++}`;
+      blockId = `${documentId}-colist-${blockNumber++}`;
       this.contextCounters.set('colist', blockNumber);
       break;
 
     case 'dlist':
       blockNumber = this.contextCounters.get('dlist') ?? 0;
-      blockId = `${documentId}_dlist_${blockNumber++}`;
+      blockId = `${documentId}-dlist-${blockNumber++}`;
       this.contextCounters.set('dlist', blockNumber);
       break;
 
     case 'document':
       blockNumber = this.contextCounters.get('document') ?? 0;
-      blockId = `${documentId}_document_${blockNumber++}`;
+      blockId = `${documentId}-document-${blockNumber++}`;
       this.contextCounters.set('document', blockNumber);
       break;
 
     case 'example':
       blockNumber = this.contextCounters.get('example') ?? 0;
-      blockId = `${documentId}_example_${blockNumber++}`;
+      blockId = `${documentId}-example-${blockNumber++}`;
       this.contextCounters.set('example', blockNumber);
       break;
 
     case 'floating_title':
       blockNumber = this.contextCounters.get('floating_title') ?? 0;
-      blockId = `${documentId}_floating_title_${blockNumber++}`;
+      blockId = `${documentId}-floating-title-${blockNumber++}`;
       this.contextCounters.set('floating_title', blockNumber);
       break;
 
     case 'image':
       blockNumber = this.contextCounters.get('image') ?? 0;
-      blockId = `${documentId}_image_${blockNumber++}`;
+      blockId = `${documentId}-image-${blockNumber++}`;
       this.contextCounters.set('image', blockNumber);
       break;
 
     case 'list_item':
       blockNumber = this.contextCounters.get('list_item') ?? 0;
-      blockId = `${documentId}_list_item_${blockNumber++}`;
+      blockId = `${documentId}-list-item-${blockNumber++}`;
       this.contextCounters.set('list_item', blockNumber);
       break;
 
     case 'listing':
       blockNumber = this.contextCounters.get('listing') ?? 0;
-      blockId = `${documentId}_listing_${blockNumber++}`;
+      blockId = `${documentId}-listing-${blockNumber++}`;
       this.contextCounters.set('listing', blockNumber);
       break;
 
     case 'literal':
       blockNumber = this.contextCounters.get('literal') ?? 0;
-      blockId = `${documentId}_literal_${blockNumber++}`;
+      blockId = `${documentId}-literal-${blockNumber++}`;
       this.contextCounters.set('literal', blockNumber);
       break;
 
     case 'olist':
       blockNumber = this.contextCounters.get('olist') ?? 0;
-      blockId = `${documentId}_olist_${blockNumber++}`;
+      blockId = `${documentId}-olist-${blockNumber++}`;
       this.contextCounters.set('olist', blockNumber);
       break;
 
     case 'open':
       blockNumber = this.contextCounters.get('open') ?? 0;
-      blockId = `${documentId}_open_${blockNumber++}`;
+      blockId = `${documentId}-open-${blockNumber++}`;
       this.contextCounters.set('open', blockNumber);
       break;
 
     case 'page_break':
       blockNumber = this.contextCounters.get('page_break') ?? 0;
-      blockId = `${documentId}_page_break_${blockNumber++}`;
+      blockId = `${documentId}-page-break-${blockNumber++}`;
       this.contextCounters.set('page_break', blockNumber);
       break;
 
     case 'paragraph':
       blockNumber = this.contextCounters.get('paragraph') ?? 0;
-      blockId = `${documentId}_paragraph_${blockNumber++}`;
+      blockId = `${documentId}-paragraph-${blockNumber++}`;
       this.contextCounters.set('paragraph', blockNumber);
       break;
 
     case 'pass':
       blockNumber = this.contextCounters.get('pass') ?? 0;
-      blockId = `${documentId}_pass_${blockNumber++}`;
+      blockId = `${documentId}-pass-${blockNumber++}`;
       this.contextCounters.set('pass', blockNumber);
       break;
 
     case 'preamble':
       blockNumber = this.contextCounters.get('preamble') ?? 0;
-      blockId = `${documentId}_preamble_${blockNumber++}`;
+      blockId = `${documentId}-preamble-${blockNumber++}`;
       this.contextCounters.set('preamble', blockNumber);
       break;
 
     case 'quote':
       blockNumber = this.contextCounters.get('quote') ?? 0;
-      blockId = `${documentId}_quote_${blockNumber++}`;
+      blockId = `${documentId}-quote-${blockNumber++}`;
       this.contextCounters.set('quote', blockNumber);
       break;
 
     case 'section':
       blockNumber = this.contextCounters.get('section') ?? 0;
-      blockId = `${documentId}_section_${blockNumber++}`;
+      blockId = `${documentId}-section-${blockNumber++}`;
       this.contextCounters.set('section', blockNumber);
       break;
 
     case 'sidebar':
       blockNumber = this.contextCounters.get('sidebar') ?? 0;
-      blockId = `${documentId}_sidebar_${blockNumber++}`;
+      blockId = `${documentId}-sidebar-${blockNumber++}`;
       this.contextCounters.set('sidebar', blockNumber);
       break;
 
     case 'table':
       blockNumber = this.contextCounters.get('table') ?? 0;
-      blockId = `${documentId}_table_${blockNumber++}`;
+      blockId = `${documentId}-table-${blockNumber++}`;
       this.contextCounters.set('table', blockNumber);
       break;
 
     case 'table_cell':
       blockNumber = this.contextCounters.get('table_cell') ?? 0;
-      blockId = `${documentId}_table_cell_${blockNumber++}`;
+      blockId = `${documentId}-table-cell-${blockNumber++}`;
       this.contextCounters.set('table_cell', blockNumber);
       break;
 
     case 'thematic_break':
       blockNumber = this.contextCounters.get('thematic_break') ?? 0;
-      blockId = `${documentId}_thematic_break_${blockNumber++}`;
+      blockId = `${documentId}-thematic-break-${blockNumber++}`;
       this.contextCounters.set('thematic_break', blockNumber);
       break;
 
     case 'toc':
       blockNumber = this.contextCounters.get('toc') ?? 0;
-      blockId = `${documentId}_toc_${blockNumber++}`;
+      blockId = `${documentId}-toc-${blockNumber++}`;
       this.contextCounters.set('toc', blockNumber);
       break;
 
     case 'ulist':
       blockNumber = this.contextCounters.get('ulist') ?? 0;
-      blockId = `${documentId}_ulist_${blockNumber++}`;
+      blockId = `${documentId}-ulist-${blockNumber++}`;
       this.contextCounters.set('ulist', blockNumber);
       break;
 
     case 'verse':
       blockNumber = this.contextCounters.get('verse') ?? 0;
-      blockId = `${documentId}_verse_${blockNumber++}`;
+      blockId = `${documentId}-verse-${blockNumber++}`;
       this.contextCounters.set('verse', blockNumber);
       break;
 
     case 'video':
       blockNumber = this.contextCounters.get('video') ?? 0;
-      blockId = `${documentId}_video_${blockNumber++}`;
+      blockId = `${documentId}-video-${blockNumber++}`;
       this.contextCounters.set('video', blockNumber);
       break;
 
     default:
       blockNumber = this.contextCounters.get('block') ?? 0;
-      blockId = `${documentId}_block_${blockNumber++}`;
+      blockId = `${documentId}-block-${blockNumber++}`;
       this.contextCounters.set('block', blockNumber);
       break;
     }
@@ -984,4 +1066,4 @@ export default class Pharos {
   // #endregion
 }
 
-export const parser: Writable<Pharos> = writable(new Pharos(getNdkInstance()));
+export const pharosInstance: Writable<Pharos> = writable();

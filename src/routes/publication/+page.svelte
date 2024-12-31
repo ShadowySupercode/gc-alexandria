@@ -1,42 +1,18 @@
-<script lang="ts">
-  import { page } from '$app/stores';
+<script lang='ts'>
   import Article from '$lib/components/Article.svelte';
-  import { ndk } from '$lib/ndk';
-  import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { TextPlaceholder } from 'flowbite-svelte';
+  import type { PageData } from './$types';
+  import { onDestroy } from 'svelte';
 
-  const id = $page.url.searchParams.get('id');
-  const dTag = $page.url.searchParams.get('d');
+  let { data }: { data: PageData } = $props();
 
-  let event: NDKEvent | null | undefined;
-
-  if (id) {
-    $ndk.fetchEvent(id)
-      .then(ev => {
-        event = ev;
-      })
-      .catch(err => {
-        console.error(err);
-        // TODO: Redirect to 404 page.
-      });
-  } else if (dTag) {
-    $ndk.fetchEvent({ '#d': [dTag] })
-      .then(ev => {
-        event = ev;
-      })
-      .catch(err => {
-        console.error(err);
-        // TODO: Redirect to 404 page.
-      });
-  } else {
-    // TODO: Redirect to 400 page.
-  }
+  onDestroy(() => data.parser.reset());
 </script>
 
 <main>
-  {#await event}
+  {#await data.waitable}
     <TextPlaceholder size='xxl' />
-  {:then ev}
-    <Article index={ev} />
+  {:then}
+    <Article rootId={data.parser.getRootIndexId()} />
   {/await}
 </main>
