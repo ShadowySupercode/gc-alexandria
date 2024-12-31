@@ -37,6 +37,8 @@
     y?: number;
     fx?: number | null;
     fy?: number | null;
+    vx?: number;
+    vy?: number;
   }
 
   interface NetworkLink extends d3.SimulationLinkDatum<NetworkNode> {
@@ -48,55 +50,45 @@
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     return new Map(events.map((event) => [event.id, event]));
   }
-  function applyGlobalLogGravity(
-    node: NetworkNode,
-    centerX: number,
-    centerY: number,
-    alpha: number,
-  ) {
-    const globalGravityStrength = 0.05;
-    const dx = node.x! - centerX;
-    const dy = node.y! - centerY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance === 0) return;
-
-    const force = Math.log(distance + 1) * globalGravityStrength * alpha;
-    node.vx! -= (dx / distance) * force;
-    node.vy! -= (dy / distance) * force;
+function updateNodeVelocity(node: NetworkNode, deltaVx: number, deltaVy: number) {
+  if (typeof node.vx === 'number' && typeof node.vy === 'number') {
+    node.vx = node.vx - deltaVx;
+    node.vy = node.vy - deltaVy;
   }
+}
 
-  function applyConnectedGravity(
-    node: NetworkNode,
-    links: NetworkLink[],
-    alpha: number,
-  ) {
-    const connectedGravityStrength = 0.3;
+function applyGlobalLogGravity(node: NetworkNode, centerX: number, centerY: number, alpha: number) {
+  const dx = (node.x ?? 0) - centerX;
+  const dy = (node.y ?? 0) - centerY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
 
-    const connectedNodes = links
-      .filter(
-        (link) => link.source.id === node.id || link.target.id === node.id,
-      )
-      .map((link) => (link.source.id === node.id ? link.target : link.source));
+  if (distance === 0) return;
 
-    if (connectedNodes.length === 0) return;
+  const force = Math.log(distance + 1) * 0.05 * alpha;
+  updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
+}
 
-    const cogX = d3.mean(connectedNodes, (node) => node.x);
-    const cogY = d3.mean(connectedNodes, (node) => node.y);
+function applyConnectedGravity(node: NetworkNode, links: NetworkLink[], alpha: number) {
+  const connectedNodes = links
+    .filter(link => link.source.id === node.id || link.target.id === node.id)
+    .map(link => link.source.id === node.id ? link.target : link.source);
 
-    if (cogX === undefined || cogY === undefined) return;
+  if (connectedNodes.length === 0) return;
 
-    const dx = node.x! - cogX;
-    const dy = node.y! - cogY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+  const cogX = d3.mean(connectedNodes, n => n.x);
+  const cogY = d3.mean(connectedNodes, n => n.y);
 
-    if (distance === 0) return;
+  if (cogX === undefined || cogY === undefined) return;
 
-    const force = distance * connectedGravityStrength * alpha;
-    node.vx! -= (dx / distance) * force;
-    node.vy! -= (dy / distance) * force;
-  }
+  const dx = (node.x ?? 0) - cogX;
+  const dy = (node.y ?? 0) - cogY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
 
+  if (distance === 0) return;
+
+  const force = distance * 0.3 * alpha;
+  updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
+}
   function getNode(
     id: string,
     nodeMap: Map<string, NetworkNode>,
