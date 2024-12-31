@@ -4,7 +4,11 @@ declare global {
   namespace App {
     // interface Error {}
     // interface Locals {}
-    // interface PageData {}
+    interface PageData {
+      ndk?: NDK;
+      parser?: Pharos;
+      waitable?: Promise<any>;
+    }
     // interface Platform {}
   }
 }

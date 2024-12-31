@@ -1,33 +1,33 @@
 <script lang="ts">
-  import { ndk } from '$lib/ndk';
-  import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { page } from '$app/stores';
-  import { Button, Heading, Sidebar, SidebarGroup, SidebarItem, SidebarWrapper, Skeleton, TextPlaceholder, Tooltip } from 'flowbite-svelte';
-  import { onMount } from 'svelte';
-  import { BookOutline } from 'flowbite-svelte-icons';
-  import Pharos, { parser } from '$lib/parser';
-  import Preview from './Preview.svelte';
+  import {
+    Button,
+    Sidebar,
+    SidebarGroup,
+    SidebarItem,
+    SidebarWrapper,
+    Skeleton,
+    TextPlaceholder,
+    Tooltip,
+  } from "flowbite-svelte";
+  import { onMount } from "svelte";
+  import { BookOutline } from "flowbite-svelte-icons";
+  import Preview from "./Preview.svelte";
+  import { pharosInstance } from "$lib/parser";
+  import { page } from "$app/state";
 
-  export let index: NDKEvent | null | undefined;
+  let { rootId }: { rootId: string } = $props();
 
-  $parser ??= new Pharos($ndk);
+  if (rootId !== $pharosInstance.getRootIndexId()) {
+    console.error("Root ID does not match parser root index ID");
+  }
 
-  $: activeHash = $page.url.hash;
-
-  const getContentRoot = async (index?: NDKEvent | null | undefined): Promise<string | null> => {
-    if (!index) {
-      return null;
-    }
-
-    await $parser.fetch(index);
-    return $parser.getRootIndexId();
-  };
+  let activeHash = $state(page.url.hash);
 
   function normalizeHashPath(str: string): string {
     return str
       .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]/g, '');
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]/g, "");
   }
 
   function scrollToElementWithOffset() {
@@ -41,7 +41,7 @@
 
         window.scrollTo({
           top: offsetPosition,
-          behavior: 'auto',
+          behavior: "auto",
         });
       }
     }
@@ -66,7 +66,7 @@
   const hideTocOnClick = (ev: MouseEvent) => {
     const target = ev.target as HTMLElement;
 
-    if (target.closest('.sidebar-leather') || target.closest('.btn-leather')) {
+    if (target.closest(".sidebar-leather") || target.closest(".btn-leather")) {
       return;
     }
 
@@ -79,68 +79,53 @@
     // Always check whether the TOC sidebar should be visible.
     setTocVisibilityOnResize();
 
-    window.addEventListener('hashchange', scrollToElementWithOffset);
+    window.addEventListener("hashchange", scrollToElementWithOffset);
     // Also handle the case where the user lands on the page with a hash in the URL
     scrollToElementWithOffset();
 
-    window.addEventListener('resize', setTocVisibilityOnResize);
-    window.addEventListener('click', hideTocOnClick);
+    window.addEventListener("resize", setTocVisibilityOnResize);
+    window.addEventListener("click", hideTocOnClick);
 
     return () => {
-      window.removeEventListener('hashchange', scrollToElementWithOffset);
-      window.removeEventListener('resize', setTocVisibilityOnResize);
-      window.removeEventListener('click', hideTocOnClick);
+      window.removeEventListener("hashchange", scrollToElementWithOffset);
+      window.removeEventListener("resize", setTocVisibilityOnResize);
+      window.removeEventListener("click", hideTocOnClick);
     };
   });
 </script>
 
-{#await getContentRoot(index)}
-  <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60'>
+{#if showTocButton && !showToc}
+  <Button
+    class="btn-leather fixed top-20 left-4 h-6 w-6"
+    outline={true}
+    on:click={(ev) => {
+      showToc = true;
+      ev.stopPropagation();
+    }}
+  >
+    <BookOutline />
+  </Button>
+  <Tooltip>Show Table of Contents</Tooltip>
+{/if}
+<!-- TODO: Get TOC from parser. -->
+<!-- {#if showToc}
+  <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
     <SidebarWrapper>
-      <Skeleton/>
+      <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
+        {#each events as event}
+          <SidebarItem
+            class='sidebar-item-leather'
+            label={event.getMatchingTags('title')[0][1]}
+            href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
+          />
+        {/each}
+      </SidebarGroup>
     </SidebarWrapper>
   </Sidebar>
-  <TextPlaceholder class='max-w-2xl'/>
-{:then rootId}
-  {#if rootId}
-    {#if showTocButton && !showToc}
-      <Button
-        class='btn-leather fixed top-20 left-4 h-6 w-6'
-        outline={true}
-        on:click={ev => {
-          showToc = true;
-          ev.stopPropagation();
-        }}
-      >
-        <BookOutline />
-      </Button>
-      <Tooltip>
-        Show Table of Contents
-      </Tooltip>
-    {/if}
-    <!-- TODO: Get TOC from parser. -->
-    <!-- {#if showToc}
-      <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
-        <SidebarWrapper>
-          <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
-            {#each events as event}
-              <SidebarItem
-                class='sidebar-item-leather'
-                label={event.getMatchingTags('title')[0][1]}
-                href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
-              />
-            {/each}
-          </SidebarGroup>
-        </SidebarWrapper>
-      </Sidebar>
-    {/if} -->
-    <div class='flex flex-col space-y-4 max-w-2xl'>
-      <Preview rootId={rootId} />
-    </div>
-  {:else}
-    <!-- TODO: Display empty state. -->
-  {/if}
-{/await}
+{/if} -->
+<div class="flex flex-col space-y-4 max-w-2xl">
+  <Preview {rootId} />
+</div>
 
 <style>
   :global(.sidebar-group-leather) {
