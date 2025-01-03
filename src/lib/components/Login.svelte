@@ -12,6 +12,9 @@
     const signer = new NDKNip07Signer();
     const user = await signer.user();
     
+    // Michael J 01/03/2025 - This updates the shared NDK instance in its store, which is global
+    // in scope.  Since this app is not server-side rendered, this is safe.  If we implement
+    // server-side rendering, we should migrate this shared state to Svelte's context API.
     user.ndk = $ndkInstance;
     $ndkInstance.signer = signer;
     $ndkInstance.activeUser = user;
