@@ -60,12 +60,12 @@
       >
         Extension Sign-In
       </Button>
-      <Button
+      <!-- <Button
         color='alternative'
         on:click={signInWithBunker}
       >
         Bunker Sign-In
-      </Button>
+      </Button> -->
     </div>
   </Popover>
 {/if}
