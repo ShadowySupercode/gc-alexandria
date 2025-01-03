@@ -1,11 +1,10 @@
 <script lang="ts">
   import { DarkMode, Navbar, NavLi, NavUl, NavHamburger, NavBrand } from 'flowbite-svelte';
-    import Login from './Login.svelte';
+  import Login from './Login.svelte';
 
-  let className: string;
-  export { className as class };
+  let { class: className = '' } = $props();
 
-  let leftMenuOpen: boolean = false;
+  let leftMenuOpen = $state(false);
 </script>
 
 <Navbar class={`Navbar navbar-leather ${className}`}>
