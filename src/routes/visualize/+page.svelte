@@ -4,6 +4,8 @@
   import { ndk } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
+  import EventLimitControl from "$lib/components/EventLimitControl.svelte";
+  import { networkFetchLimit } from "$lib/state";
 
   let events: NDKEvent[] = [];
   let loading = true;
@@ -16,7 +18,7 @@
 
       // Fetch both index and content events
       const indexEvents = await $ndk.fetchEvents(
-        { kinds: [30040] },
+        { kinds: [30040], limit: $networkFetchLimit },
         {
           groupable: true,
           skipVerification: false,
@@ -58,6 +60,10 @@
     }
   }
 
+  function handleLimitUpdate() {
+    fetchEvents();
+  }
+
   onMount(() => {
     fetchEvents();
   });
@@ -65,6 +71,12 @@
 
 <div class="leather w-full p-4">
   <h1 class="h-leather text-2xl font-bold mb-4">Publication Network</h1>
+  {#if !loading && !error}
+    <span class="text-sm text-gray-600 dark:text-gray-400">
+      Showing {events.length} events from {$networkFetchLimit} headers
+    </span>
+    <EventLimitControl on:update={handleLimitUpdate} />
+  {/if}
 
   {#if loading}
     <div class="flex justify-center items-center h-64">
@@ -104,7 +116,6 @@
     </div>
   {:else}
     <EventNetwork {events} />
-
-    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
+    <div class="mt-8 prose dark:prose-invert max-w-none" />
   {/if}
 </div>
