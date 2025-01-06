@@ -2,19 +2,17 @@
   import ArticleHeader from '$lib/components/ArticleHeader.svelte';
   import { FeedType, indexKind, standardRelays } from '$lib/consts';
   import { filterValidIndexEvents } from '$lib/utils';
-  import NDK, { NDKEvent, NDKRelaySet, type NDKUser } from '@nostr-dev-kit/ndk';
+  import { NDKEvent, NDKRelaySet, type NDKUser } from '@nostr-dev-kit/ndk';
   import { Button, Dropdown, Radio, Skeleton } from 'flowbite-svelte';
   import { ChevronDownOutline } from 'flowbite-svelte-icons';
-  import type { PageData } from './$types';
-  import { setContext } from 'svelte';
+  import { ndkInstance } from '$lib/ndk';
 
-  let { data }: { data: PageData } = $props();
-  let ndk: NDK = data.ndk;
-
-  let user: NDKUser | null | undefined = $state(ndk.activeUser);
+  let user: NDKUser | null | undefined = $state($ndkInstance.activeUser);
   let readRelays: string[] | null | undefined = $state(user?.relayUrls);
   let userFollows: Set<NDKUser> | null | undefined = $state(null);
   let feedType: FeedType = $state(FeedType.Relays);
+  let eventsInView: NDKEvent[] = $state([]);
+  let cutoffTimestamp: number = $state(new Date().getTime());
 
   $effect(() => {
     if (user) {
@@ -22,20 +20,32 @@
     }
   });
 
-  const getEvents = (): Promise<Set<NDKEvent>> =>
-    // @ts-ignore
-    ndk.fetchEvents(
-      { kinds: [indexKind] },
-      { 
-        groupable: true,
-        skipVerification: false,
-        skipValidation: false
-      },
-      NDKRelaySet.fromRelayUrls(standardRelays, ndk)
-    ).then(filterValidIndexEvents);
+  const getEvents = async (): Promise<NDKEvent[]> => 
+    $ndkInstance
+      .fetchEvents(
+        { 
+          kinds: [indexKind],
+          limit: 16,
+          until: cutoffTimestamp
+        },
+        { 
+          groupable: true,
+          skipVerification: false,
+          skipValidation: false
+        },
+        NDKRelaySet.fromRelayUrls(user?.relayUrls ?? standardRelays, $ndkInstance)
+      )
+      .then(filterValidIndexEvents)
+      .then(filteredEvents => Array.from(filteredEvents).sort((a, b) => b.created_at! - a.created_at!))
+      .then(sortedEvents => {
+        cutoffTimestamp = sortedEvents[sortedEvents.length - 1].created_at!;
+        eventsInView = [...eventsInView, ...sortedEvents];
+        return sortedEvents;
+      });
 
+  // TODO: Use the user's inbox relays.
   const getEventsFromUserRelays = (userRelays: string[]): Promise<Set<NDKEvent>> => {
-    return ndk
+    return $ndkInstance
       .fetchEvents(
         // @ts-ignore
         { kinds: [indexKind] },
@@ -49,8 +59,9 @@
       .then(filterValidIndexEvents);
   }
 
+  // TODO: Remove this function.
   const getEventsFromUserFollows = (follows: Set<NDKUser>, userRelays?: string[]): Promise<Set<NDKEvent>> => {
-    return ndk
+    return $ndkInstance
       .fetchEvents(
         { 
           authors: Array.from(follows ?? []).map(user => user.pubkey),
@@ -66,6 +77,7 @@
       .then(filterValidIndexEvents);
   }
 
+  // TODO: Remove feed type switching.  We will use relays only for now.
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
     switch (feedType) {
     case FeedType.Relays:
@@ -99,8 +111,8 @@
           <Skeleton size='lg' />
         {/each}
       {:then events}
-        {#if events.size > 0}
-          {#each Array.from(events) as event}
+        {#if events.length > 0}
+          {#each events as event}
             <ArticleHeader {event} />
           {/each}
         {:else}
@@ -152,4 +164,5 @@
       {/if}
     {/if}
   {/key}
+  <!-- TODO: Add a "show more" button. -->
 </div>
