@@ -3,24 +3,18 @@
   import { FeedType, indexKind, standardRelays } from '$lib/consts';
   import { filterValidIndexEvents } from '$lib/utils';
   import { NDKEvent, NDKRelaySet, type NDKUser } from '@nostr-dev-kit/ndk';
-  import { Button, Dropdown, Radio, Skeleton } from 'flowbite-svelte';
+  import { Button, Dropdown, P, Radio, Skeleton, Spinner } from 'flowbite-svelte';
   import { ChevronDownOutline } from 'flowbite-svelte-icons';
-  import { inboxRelays, ndkInstance } from '$lib/ndk';
+  import { inboxRelays, ndkInstance, ndkSignedIn } from '$lib/ndk';
 
   let user: NDKUser | null | undefined = $state($ndkInstance.activeUser);
-  let readRelays: string[] | null | undefined = $state(user?.relayUrls);
-  let userFollows: Set<NDKUser> | null | undefined = $state(null);
   let feedType: FeedType = $state(FeedType.StandardRelays);
   let eventsInView: NDKEvent[] = $state([]);
   let cutoffTimestamp: number = $state(new Date().getTime());
+  let loadingMore: boolean = $state(false);
+  let endOfFeed: boolean = $state(false);
 
-  $effect(() => {
-    if (user) {
-      user.follows().then(follows => userFollows = follows);
-    }
-  });
-
-  const getEvents = async (before: number = cutoffTimestamp, relays: string[] = standardRelays): Promise<NDKEvent[]> => 
+  const getEvents = async (before: number | undefined = undefined, relays: string[] = standardRelays): Promise<void> => 
     $ndkInstance
       .fetchEvents(
         { 
@@ -38,14 +32,23 @@
       .then(filterValidIndexEvents)
       .then(filteredEvents => Array.from(filteredEvents).sort((a, b) => b.created_at! - a.created_at!))
       .then(sortedEvents => {
-        cutoffTimestamp = sortedEvents[sortedEvents.length - 1].created_at!;
-        eventsInView = [...eventsInView, ...sortedEvents];
-        return sortedEvents;
+        endOfFeed =
+          sortedEvents.length < 16
+          && sortedEvents[sortedEvents.length - 1].id === eventsInView[eventsInView.length - 1].id;
+
+        if (!endOfFeed) {
+          cutoffTimestamp = sortedEvents[sortedEvents.length - 1].created_at!;
+          const allEvents = Array.from(new Set([...eventsInView, ...sortedEvents]));
+          const uniqueIds = new Set(allEvents.map(event => event.id));
+          eventsInView = Array.from(uniqueIds)
+            .map(id => allEvents.find(event => event.id === id))
+            .filter(event => event != null) as NDKEvent[];
+        }
       });
 
   // TODO: Use the user's inbox relays.
-  const getEventsFromUserRelays = (): Promise<NDKEvent[]> =>
-      getEvents(cutoffTimestamp, $inboxRelays);
+  const getEventsFromUserRelays = (before: number = cutoffTimestamp): Promise<void> =>
+      getEvents(before, $inboxRelays);
 
   // TODO: Remove feed type switching.  We will use relays only for now.
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
@@ -71,18 +74,28 @@
     }
     return skeletonIds;
   }
+
+  async function loadMorePublications() {
+    loadingMore = true;
+    if (user != null) {
+      await getEventsFromUserRelays(cutoffTimestamp);
+    } else {
+      await getEvents(cutoffTimestamp);
+    }
+    loadingMore = false;
+  }
 </script>
 
 <div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
-  {#key user}
-    {#if user == null || readRelays == null}
+  {#key $ndkSignedIn}
+    {#if user == null}
       {#await getEvents()}
         {#each getSkeletonIds() as id}
           <Skeleton size='lg' />
         {/each}
-      {:then events}
-        {#if events.length > 0}
-          {#each events as event}
+      {:then}
+        {#if eventsInView.length > 0}
+          {#each eventsInView as event}
             <ArticleHeader {event} />
           {/each}
         {:else}
@@ -108,9 +121,9 @@
           {#each getSkeletonIds() as id}
             <Skeleton size='lg' />
           {/each}
-        {:then events}
-          {#if events.length > 0}
-            {#each events as event}
+        {:then}
+          {#if eventsInView.length > 0}
+            {#each eventsInView as event}
               <ArticleHeader {event} />
             {/each}
           {:else}
@@ -122,9 +135,9 @@
           {#each getSkeletonIds() as id}
             <Skeleton size='lg' />
           {/each}
-        {:then events}
-          {#if events.length > 0}
-            {#each events as event}
+        {:then}
+          {#if eventsInView.length > 0}
+            {#each eventsInView as event}
               <ArticleHeader {event} />
             {/each}
           {:else}
@@ -134,5 +147,24 @@
       {/if}
     {/if}
   {/key}
-  <!-- TODO: Add a "show more" button. -->
+  {#if !loadingMore && !endOfFeed}
+    <div class='flex justify-center mt-4 mb-8'>
+      <Button outline class="w-full" onclick={async () => {
+        await loadMorePublications();
+      }}>
+        Show more publications
+      </Button>
+    </div>
+  {:else if loadingMore}
+    <div class='flex justify-center mt-4 mb-8'>
+      <Button outline disabled class="w-full">
+        <Spinner class='mr-3 text-gray-300' size='4' />
+        Loading...
+      </Button>
+    </div>
+  {:else}
+    <div class='flex justify-center mt-4 mb-8'>
+      <P class='text-sm text-gray-600'>You've reached the end of the feed.</P>
+    </div>
+  {/if}
 </div>
