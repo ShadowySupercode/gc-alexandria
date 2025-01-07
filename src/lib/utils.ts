@@ -97,7 +97,10 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
       (event.content != null && event.content.length > 0)
       || event.getMatchingTags('title').length === 0
       || event.getMatchingTags('d').length === 0
-      || event.getMatchingTags('e').length === 0
+      || (
+        event.getMatchingTags('a').length === 0
+        && event.getMatchingTags('e').length === 0
+      )
     ) {
       events.delete(event);
     }
