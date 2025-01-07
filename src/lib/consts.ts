@@ -4,6 +4,6 @@ export const zettelKinds = [ 30041 ];
 export const standardRelays = [ "wss://thecitadel.nostr1.com", "wss://relay.noswhere.com" ];
 
 export enum FeedType {
-  Relays,
-  Follows,
+  StandardRelays,
+  UserRelays,
 }

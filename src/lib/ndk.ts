@@ -5,8 +5,8 @@ export const ndkInstance: Writable<NDK> = writable();
 
 export const ndkSignedIn: Writable<boolean> = writable(false);
 
-export const inboxRelays: Writable<Set<NDKRelay>> = writable(new Set());
-export const outboxRelays: Writable<Set<NDKRelay>> = writable(new Set());
+export const inboxRelays: Writable<string[]> = writable([]);
+export const outboxRelays: Writable<string[]> = writable([]);
 
 /**
  * Signs in with a NIP-07 browser extension, and determines the user's preferred inbox and outbox
@@ -24,8 +24,8 @@ export async function signInWithExtension(): Promise<NDKUserProfile | null> {
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
     const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
 
-    inboxRelays.set(inboxes);
-    outboxRelays.set(outboxes);
+    inboxRelays.set(Array.from(inboxes).map(relay => relay.url));
+    outboxRelays.set(Array.from(outboxes).map(relay => relay.url));
 
     ndk.signer = signer;
     ndk.activeUser = user;

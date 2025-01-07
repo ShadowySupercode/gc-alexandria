@@ -5,12 +5,12 @@
   import { NDKEvent, NDKRelaySet, type NDKUser } from '@nostr-dev-kit/ndk';
   import { Button, Dropdown, Radio, Skeleton } from 'flowbite-svelte';
   import { ChevronDownOutline } from 'flowbite-svelte-icons';
-  import { ndkInstance } from '$lib/ndk';
+  import { inboxRelays, ndkInstance } from '$lib/ndk';
 
   let user: NDKUser | null | undefined = $state($ndkInstance.activeUser);
   let readRelays: string[] | null | undefined = $state(user?.relayUrls);
   let userFollows: Set<NDKUser> | null | undefined = $state(null);
-  let feedType: FeedType = $state(FeedType.Relays);
+  let feedType: FeedType = $state(FeedType.StandardRelays);
   let eventsInView: NDKEvent[] = $state([]);
   let cutoffTimestamp: number = $state(new Date().getTime());
 
@@ -20,20 +20,20 @@
     }
   });
 
-  const getEvents = async (): Promise<NDKEvent[]> => 
+  const getEvents = async (before: number = cutoffTimestamp, relays: string[] = standardRelays): Promise<NDKEvent[]> => 
     $ndkInstance
       .fetchEvents(
         { 
           kinds: [indexKind],
           limit: 16,
-          until: cutoffTimestamp
+          until: before,
         },
         { 
           groupable: true,
           skipVerification: false,
           skipValidation: false
         },
-        NDKRelaySet.fromRelayUrls(user?.relayUrls ?? standardRelays, $ndkInstance)
+        NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
       )
       .then(filterValidIndexEvents)
       .then(filteredEvents => Array.from(filteredEvents).sort((a, b) => b.created_at! - a.created_at!))
@@ -44,46 +44,16 @@
       });
 
   // TODO: Use the user's inbox relays.
-  const getEventsFromUserRelays = (userRelays: string[]): Promise<Set<NDKEvent>> => {
-    return $ndkInstance
-      .fetchEvents(
-        // @ts-ignore
-        { kinds: [indexKind] },
-        { 
-          closeOnEose: true,
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
-      )
-      .then(filterValidIndexEvents);
-  }
-
-  // TODO: Remove this function.
-  const getEventsFromUserFollows = (follows: Set<NDKUser>, userRelays?: string[]): Promise<Set<NDKEvent>> => {
-    return $ndkInstance
-      .fetchEvents(
-        { 
-          authors: Array.from(follows ?? []).map(user => user.pubkey),
-          // @ts-ignore
-          kinds: [indexKind]
-        },
-        { 
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false
-        },
-      )
-      .then(filterValidIndexEvents);
-  }
+  const getEventsFromUserRelays = (): Promise<NDKEvent[]> =>
+      getEvents(cutoffTimestamp, $inboxRelays);
 
   // TODO: Remove feed type switching.  We will use relays only for now.
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
     switch (feedType) {
-    case FeedType.Relays:
-      return 'Relays';
-    case FeedType.Follows:
-      return 'Follows';
+    case FeedType.StandardRelays:
+      return `Alexandria's Relays`;
+    case FeedType.UserRelays:
+      return `Your Relays`;
     default:
       return '';
     }
@@ -126,35 +96,35 @@
         </Button>
         <Dropdown class='w-fit p-2 space-y-2 text-sm'>
           <li>
-            <Radio name='relays' bind:group={feedType} value={FeedType.Relays}>Relays</Radio>
+            <Radio name='relays' bind:group={feedType} value={FeedType.StandardRelays}>Alexandria's Relays</Radio>
           </li>
           <li>
-            <Radio name='follows' bind:group={feedType} value={FeedType.Follows}>Follows</Radio>
+            <Radio name='follows' bind:group={feedType} value={FeedType.UserRelays}>Your Relays</Radio>
           </li>
         </Dropdown>
       </div>
-      {#if feedType === FeedType.Relays && readRelays != null}
-        {#await getEventsFromUserRelays(readRelays)}
+      {#if feedType === FeedType.StandardRelays}
+        {#await getEvents()}
           {#each getSkeletonIds() as id}
             <Skeleton size='lg' />
           {/each}
         {:then events}
-          {#if events.size > 0}
-            {#each Array.from(events) as event}
+          {#if events.length > 0}
+            {#each events as event}
               <ArticleHeader {event} />
             {/each}
           {:else}
             <p class='text-center'>No articles found.</p>
           {/if}
         {/await}
-      {:else if feedType === FeedType.Follows && userFollows != null}
-        {#await getEventsFromUserFollows(userFollows, readRelays)}
+      {:else if feedType === FeedType.UserRelays}
+        {#await getEventsFromUserRelays()}
           {#each getSkeletonIds() as id}
             <Skeleton size='lg' />
           {/each}
         {:then events}
-          {#if events.size > 0}
-            {#each Array.from(events) as event}
+          {#if events.length > 0}
+            {#each events as event}
               <ArticleHeader {event} />
             {/each}
           {:else}
