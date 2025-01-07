@@ -14,37 +14,46 @@
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
 
-  const getEvents = async (before: number | undefined = undefined, relays: string[] = standardRelays): Promise<void> => 
-    $ndkInstance
-      .fetchEvents(
-        { 
-          kinds: [indexKind],
-          limit: 16,
-          until: before,
-        },
-        { 
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false
-        },
-        NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
-      )
-      .then(filterValidIndexEvents)
-      .then(filteredEvents => Array.from(filteredEvents).sort((a, b) => b.created_at! - a.created_at!))
-      .then(sortedEvents => {
-        endOfFeed =
-          sortedEvents.length < 16
-          && sortedEvents[sortedEvents.length - 1].id === eventsInView[eventsInView.length - 1].id;
+  async function getEvents(
+    before: number | undefined = undefined,
+    relays: string[] = standardRelays
+  ): Promise<void> {
+    let eventSet = await $ndkInstance.fetchEvents(
+      { 
+        kinds: [indexKind],
+        limit: 16,
+        until: before,
+      },
+      { 
+        groupable: true,
+        skipVerification: false,
+        skipValidation: false
+      },
+      NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
+    );
+    eventSet = filterValidIndexEvents(eventSet);
+    
+    let eventArray = Array.from(eventSet);
+    eventArray.sort((a, b) => b.created_at! - a.created_at!);
 
-        if (!endOfFeed) {
-          cutoffTimestamp = sortedEvents[sortedEvents.length - 1].created_at!;
-          const allEvents = Array.from(new Set([...eventsInView, ...sortedEvents]));
-          const uniqueIds = new Set(allEvents.map(event => event.id));
-          eventsInView = Array.from(uniqueIds)
-            .map(id => allEvents.find(event => event.id === id))
-            .filter(event => event != null) as NDKEvent[];
-        }
-      });
+    if (!eventArray) {
+      return;
+    }
+
+    endOfFeed = eventArray[eventArray.length - 1].id === eventsInView[eventsInView?.length - 1]?.id;
+    
+    if (endOfFeed) {
+      return;
+    }
+
+    cutoffTimestamp = eventArray[eventArray.length - 1].created_at!;
+    const eventMap = new Map([...eventsInView, ...eventArray].map(event => [event.id, event]));
+    const allEvents = Array.from(eventMap.values());
+    const uniqueIds = new Set(allEvents.map(event => event.id));
+    eventsInView = Array.from(uniqueIds)
+      .map(id => eventMap.get(id))
+      .filter(event => event != null) as NDKEvent[];
+  }
 
   // TODO: Use the user's inbox relays.
   const getEventsFromUserRelays = (before: number = cutoffTimestamp): Promise<void> =>
@@ -87,8 +96,35 @@
 </script>
 
 <div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
-  {#key $ndkSignedIn}
-    {#if user == null}
+  {#if user == null}
+    {#await getEvents()}
+      {#each getSkeletonIds() as id}
+        <Skeleton size='lg' />
+      {/each}
+    {:then}
+      {#if eventsInView.length > 0}
+        {#each eventsInView as event}
+          <ArticleHeader {event} />
+        {/each}
+      {:else}
+        <p class='text-center'>No articles found.</p>
+      {/if}
+    {/await}
+  {:else}
+    <div class='leather w-full flex justify-end'>
+      <Button>
+        {`Showing articles from: ${getFeedTypeFriendlyName(feedType)}`}<ChevronDownOutline class='w-6 h-6' />
+      </Button>
+      <Dropdown class='w-fit p-2 space-y-2 text-sm'>
+        <li>
+          <Radio name='relays' bind:group={feedType} value={FeedType.StandardRelays}>Alexandria's Relays</Radio>
+        </li>
+        <li>
+          <Radio name='follows' bind:group={feedType} value={FeedType.UserRelays}>Your Relays</Radio>
+        </li>
+      </Dropdown>
+    </div>
+    {#if feedType === FeedType.StandardRelays}
       {#await getEvents()}
         {#each getSkeletonIds() as id}
           <Skeleton size='lg' />
@@ -102,51 +138,22 @@
           <p class='text-center'>No articles found.</p>
         {/if}
       {/await}
-    {:else}
-      <div class='leather w-full flex justify-end'>
-        <Button>
-          {`Showing articles from: ${getFeedTypeFriendlyName(feedType)}`}<ChevronDownOutline class='w-6 h-6' />
-        </Button>
-        <Dropdown class='w-fit p-2 space-y-2 text-sm'>
-          <li>
-            <Radio name='relays' bind:group={feedType} value={FeedType.StandardRelays}>Alexandria's Relays</Radio>
-          </li>
-          <li>
-            <Radio name='follows' bind:group={feedType} value={FeedType.UserRelays}>Your Relays</Radio>
-          </li>
-        </Dropdown>
-      </div>
-      {#if feedType === FeedType.StandardRelays}
-        {#await getEvents()}
-          {#each getSkeletonIds() as id}
-            <Skeleton size='lg' />
+    {:else if feedType === FeedType.UserRelays}
+      {#await getEventsFromUserRelays()}
+        {#each getSkeletonIds() as id}
+          <Skeleton size='lg' />
+        {/each}
+      {:then}
+        {#if eventsInView.length > 0}
+          {#each eventsInView as event}
+            <ArticleHeader {event} />
           {/each}
-        {:then}
-          {#if eventsInView.length > 0}
-            {#each eventsInView as event}
-              <ArticleHeader {event} />
-            {/each}
-          {:else}
-            <p class='text-center'>No articles found.</p>
-          {/if}
-        {/await}
-      {:else if feedType === FeedType.UserRelays}
-        {#await getEventsFromUserRelays()}
-          {#each getSkeletonIds() as id}
-            <Skeleton size='lg' />
-          {/each}
-        {:then}
-          {#if eventsInView.length > 0}
-            {#each eventsInView as event}
-              <ArticleHeader {event} />
-            {/each}
-          {:else}
-            <p class='text-center'>No articles found.</p>
-          {/if}
-        {/await}
-      {/if}
+        {:else}
+          <p class='text-center'>No articles found.</p>
+        {/if}
+      {/await}
     {/if}
-  {/key}
+  {/if}
   {#if !loadingMore && !endOfFeed}
     <div class='flex justify-center mt-4 mb-8'>
       <Button outline class="w-full" onclick={async () => {
