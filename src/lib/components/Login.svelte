@@ -28,14 +28,16 @@
     src={pfp}
     alt={username}
   />
-  <Popover
-    class='popover-leather w-fit'
-    placement='bottom'
-    target='avatar'
-  >
-    <h3 class='text-lg font-bold'>{username}</h3>
-    <h4 class='text-base'>@{tag}</h4>
-</Popover>
+  {#key username || tag}
+    <Popover
+      class='popover-leather w-fit'
+      placement='bottom'
+      target='avatar'
+    >
+      <h3 class='text-lg font-bold'>{username}</h3>
+      <h4 class='text-base'>@{tag}</h4>
+    </Popover>
+  {/key}
 {:else}
   <Avatar rounded class='h-6 w-6 m-4 cursor-pointer' id='avatar' />
   <Popover
