@@ -33,7 +33,7 @@ export async function signInWithExtension(): Promise<NDKUserProfile | null> {
     ndkSignedIn.set(true);
     ndkInstance.set(ndk);
 
-    return user.profile ?? null;
+    return user.fetchProfile();
   } catch (e) {
     throw new Error(`Failed to sign in with NIP-07 extension: ${e}`);
   }
