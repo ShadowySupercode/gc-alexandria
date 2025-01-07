@@ -10,9 +10,12 @@
   let user: NDKUser | null | undefined = $state($ndkInstance.activeUser);
   let feedType: FeedType = $state(FeedType.StandardRelays);
   let eventsInView: NDKEvent[] = $state([]);
-  let cutoffTimestamp: number = $state(new Date().getTime());
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
+
+  let cutoffTimestamp: number = $derived(
+    eventsInView?.at(eventsInView.length - 1)?.created_at ?? new Date().getTime()
+  );
 
   async function getEvents(
     before: number | undefined = undefined,
@@ -34,19 +37,18 @@
     eventSet = filterValidIndexEvents(eventSet);
     
     let eventArray = Array.from(eventSet);
-    eventArray.sort((a, b) => b.created_at! - a.created_at!);
+    eventArray?.sort((a, b) => b.created_at! - a.created_at!);
 
     if (!eventArray) {
       return;
     }
 
-    endOfFeed = eventArray[eventArray.length - 1].id === eventsInView[eventsInView?.length - 1]?.id;
-    
+    endOfFeed = eventArray?.at(eventArray.length - 1)?.id === eventsInView?.at(eventsInView.length - 1)?.id;
+
     if (endOfFeed) {
       return;
     }
 
-    cutoffTimestamp = eventArray[eventArray.length - 1].created_at!;
     const eventMap = new Map([...eventsInView, ...eventArray].map(event => [event.id, event]));
     const allEvents = Array.from(eventMap.values());
     const uniqueIds = new Set(allEvents.map(event => event.id));
@@ -56,8 +58,9 @@
   }
 
   // TODO: Use the user's inbox relays.
-  const getEventsFromUserRelays = (before: number = cutoffTimestamp): Promise<void> =>
-      getEvents(before, $inboxRelays);
+  async function getEventsFromUserRelays(before: number = cutoffTimestamp): Promise<void> {
+    await getEvents(before, $inboxRelays);
+  }
 
   // TODO: Remove feed type switching.  We will use relays only for now.
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
@@ -96,7 +99,7 @@
 </script>
 
 <div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
-  {#if user == null}
+  {#if !$ndkSignedIn}
     {#await getEvents()}
       {#each getSkeletonIds() as id}
         <Skeleton size='lg' />
