@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { page } from "$app/stores";
   import { neventEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { standardRelays } from "../consts";
   import { Card, Button, Modal, Tooltip } from "flowbite-svelte";
   import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from "flowbite-svelte-icons";
-  import { ndk } from "../ndk";
+  import { ndkInstance } from "../ndk";
 
   export let event: NDKEvent;
 
@@ -14,7 +13,7 @@
   let href: string;
 
   $: try {
-    const relays = $ndk.activeUser?.relayUrls ?? standardRelays;
+    const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
     title = event.getMatchingTags('title')[0][1];
     author = event.getMatchingTags('author')[0][1];
 

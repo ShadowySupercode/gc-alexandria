@@ -1,33 +1,30 @@
 <script lang='ts'>
   import { Avatar, Button, Popover } from 'flowbite-svelte';
   import { NDKNip07Signer, type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { signedIn, ndk } from '$lib/ndk';
+  import { ndkInstance, ndkSignedIn } from '$lib/ndk';
 
-  let profile: NDKUserProfile | null = null;
-  let pfp: string | undefined = undefined;
-  let username: string | undefined = undefined;
-  let tag: string | undefined = undefined;
-
-  $: {
-    pfp = profile?.image;
-    username = profile?.name;
-    tag = profile?.name;
-  }
+  let profile = $state<NDKUserProfile | null>(null);
+  let pfp = $derived(profile?.image);
+  let username = $derived(profile?.name);
+  let tag = $derived(profile?.name);
 
   const signInWithExtension = async () => {
     const signer = new NDKNip07Signer();
     const user = await signer.user();
     
-    user.ndk = $ndk;
-    $ndk.signer = signer;
-    $ndk.activeUser = user;
+    // Michael J 01/03/2025 - This updates the shared NDK instance in its store, which is global
+    // in scope.  Since this app is not server-side rendered, this is safe.  If we implement
+    // server-side rendering, we should migrate this shared state to Svelte's context API.
+    user.ndk = $ndkInstance;
+    $ndkInstance.signer = signer;
+    $ndkInstance.activeUser = user;
 
-    await $ndk.connect();
-    profile = await $ndk.activeUser?.fetchProfile();
+    await $ndkInstance.connect();
+    profile = await $ndkInstance.activeUser?.fetchProfile();
 
     console.debug('NDK signed in with extension and reconnected.');
 
-    $signedIn = true;
+    $ndkSignedIn = true;
   };
 
   const signInWithBunker = () => {
@@ -35,7 +32,7 @@
   };
 </script>
 
-{#if $signedIn}
+{#if $ndkSignedIn}
   <Avatar
     rounded
     class='h-6 w-6 m-4 cursor-pointer'
@@ -63,12 +60,12 @@
       >
         Extension Sign-In
       </Button>
-      <Button
+      <!-- <Button
         color='alternative'
         on:click={signInWithBunker}
       >
         Bunker Sign-In
-      </Button>
+      </Button> -->
     </div>
   </Popover>
 {/if}
