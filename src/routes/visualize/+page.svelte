@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import EventNetwork from "$lib/components/EventNetwork.svelte";
-  import { ndk } from "$lib/ndk";
+  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
@@ -38,7 +38,7 @@
       });
 
       // Fetch the referenced content events
-      const contentEvents = await $ndk.fetchEvents(
+      const contentEvents = await $ndkInstance.fetchEvents(
         {
           kinds: [30041],
           ids: Array.from(contentEventIds),
@@ -54,7 +54,7 @@
       events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
     } catch (e) {
       console.error("Error fetching events:", e);
-      error = e.message;
+      error = e instanceof Error ? e.message : String(e);
     } finally {
       loading = false;
     }
