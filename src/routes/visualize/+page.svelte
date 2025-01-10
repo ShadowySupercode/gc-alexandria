@@ -17,7 +17,7 @@
       error = null;
 
       // Fetch both index and content events
-      const indexEvents = await $ndk.fetchEvents(
+      const indexEvents = await $ndkInstance.fetchEvents(
         { kinds: [30040], limit: $networkFetchLimit },
         {
           groupable: true,
