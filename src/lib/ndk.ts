@@ -1,5 +1,6 @@
 import NDK, { NDKNip07Signer, NDKRelay, NDKUser, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
+import { loginStorageKey } from './consts';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -7,6 +8,35 @@ export const ndkSignedIn: Writable<boolean> = writable(false);
 
 export const inboxRelays: Writable<string[]> = writable([]);
 export const outboxRelays: Writable<string[]> = writable([]);
+
+/**
+ * Gets the user's pubkey from local storage, if it exists.
+ * @returns The user's pubkey, or null if there is no logged-in user.
+ * @remarks Local storage is used in place of cookies to persist the user's login across browser
+ * sessions.
+ */
+export function getPersistedLogin(): string | null {
+  const pubkey = localStorage.getItem(loginStorageKey);
+  return pubkey;
+}
+
+/**
+ * Writes the user's pubkey to local storage.
+ * @param user The user to persist.
+ * @remarks Use this function when the user logs in.  Currently, only one pubkey is stored at a
+ * time.
+ */
+export function persistLogin(user: NDKUser): void {
+  localStorage.setItem(loginStorageKey, user.pubkey);
+}
+
+/**
+ * Clears the user's pubkey from local storage.
+ * @remarks Use this function when the user logs out.
+ */
+export function clearLogin(): void {
+  localStorage.removeItem(loginStorageKey);
+}
 
 /**
  * Signs in with a NIP-07 browser extension, and determines the user's preferred inbox and outbox
