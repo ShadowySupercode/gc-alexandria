@@ -1,7 +1,7 @@
 <script lang='ts'>
   import { Avatar, Button, Popover } from 'flowbite-svelte';
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { ndkSignedIn, signInWithExtension } from '$lib/ndk';
+  import { ndkSignedIn, loginWithExtension } from '$lib/ndk';
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
@@ -12,7 +12,7 @@
 
   async function handleSignInClick() {
     try {
-      profile = await signInWithExtension();
+      profile = await loginWithExtension();
     } catch (e) {
       console.error(e);
       signInFailed = true;

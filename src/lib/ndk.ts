@@ -1,6 +1,6 @@
 import NDK, { NDKNip07Signer, NDKRelay, NDKUser, type NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { loginStorageKey } from './consts';
+import { loginStorageKey, standardRelays } from './consts';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -39,17 +39,35 @@ export function clearLogin(): void {
 }
 
 /**
+ * Initializes an instance of NDK, and connects it to the standard relays.
+ * @returns The initialized NDK instance.
+ */
+export function initNdk(): NDK {
+  const ndk = new NDK({
+    autoConnectUserRelays: true,
+    enableOutboxModel: true,
+    explicitRelayUrls: standardRelays,
+  });
+  ndk.connect().then(() => console.debug("ndk connected"));
+  return ndk;
+}
+
+/**
  * Signs in with a NIP-07 browser extension, and determines the user's preferred inbox and outbox
  * relays.
  * @returns The user's profile, if it is available.
  * @throws If sign-in fails.  This may because there is no accessible NIP-07 extension, or because
  * NDK is unable to fetch the user's profile or relay lists.
  */
-export async function signInWithExtension(): Promise<NDKUserProfile | null> {
+export async function loginWithExtension(pubkey: string): Promise<NDKUserProfile | null> {
   try {
     const ndk = get(ndkInstance);
     const signer = new NDKNip07Signer();
     const signerUser = await signer.user();
+
+    if (signerUser.pubkey !== pubkey) {
+      throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
+    }
 
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
     const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
