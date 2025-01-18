@@ -59,13 +59,13 @@ export function initNdk(): NDK {
  * @throws If sign-in fails.  This may because there is no accessible NIP-07 extension, or because
  * NDK is unable to fetch the user's profile or relay lists.
  */
-export async function loginWithExtension(pubkey: string): Promise<NDKUserProfile | null> {
+export async function loginWithExtension(pubkey?: string): Promise<NDKUserProfile | null> {
   try {
     const ndk = get(ndkInstance);
     const signer = new NDKNip07Signer();
     const signerUser = await signer.user();
 
-    if (signerUser.pubkey !== pubkey) {
+    if (pubkey && signerUser.pubkey !== pubkey) {
       throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
     }
 
