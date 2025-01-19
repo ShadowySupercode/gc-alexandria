@@ -1,7 +1,7 @@
 <script lang='ts'>
   import { Avatar, Button, Popover } from 'flowbite-svelte';
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { ndkSignedIn, loginWithExtension } from '$lib/ndk';
+  import { ndkSignedIn, loginWithExtension, persistLogin } from '$lib/ndk';
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
@@ -12,7 +12,13 @@
 
   async function handleSignInClick() {
     try {
-      profile = await loginWithExtension();
+      const user = await loginWithExtension();
+      if (!user) {
+        throw new Error('The NIP-07 extension did not return a user.');
+      }
+
+      profile = await user.fetchProfile();
+      persistLogin(user);
     } catch (e) {
       console.error(e);
       signInFailed = true;
