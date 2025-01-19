@@ -52,7 +52,7 @@
     const naddr = neventEncode(event, relays);
 
     console.debug(naddr);
-    navigator.clipboard.writeText(`njump.me/${naddr}`);
+    navigator.clipboard.writeText(`https://njump.me/${naddr}`);
 
     shareLinkCopied = true;
   }
