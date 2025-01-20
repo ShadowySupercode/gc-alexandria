@@ -1,4 +1,4 @@
-import NDK, { NDKNip07Signer, NDKRelay, NDKUser, type NDKUserProfile } from '@nostr-dev-kit/ndk';
+import NDK, { NDKNip07Signer, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
 import { loginStorageKey, standardRelays } from './consts';
 

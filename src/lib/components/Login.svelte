@@ -1,7 +1,9 @@
 <script lang='ts'>
-  import { Avatar, Button, Popover } from 'flowbite-svelte';
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { ndkSignedIn, loginWithExtension, persistLogin } from '$lib/ndk';
+  import { loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
+  import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
+  import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
+  import { onMount } from 'svelte';
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
@@ -30,6 +32,12 @@
     logout($ndkInstance.activeUser!);
     profile = null;
   }
+
+  onMount(async () => {
+    if ($ndkSignedIn) {
+      profile = await $ndkInstance.activeUser?.fetchProfile() ?? null;
+    }
+  });
 </script>
 
 {#if $ndkSignedIn}
@@ -45,8 +53,27 @@
       placement='bottom'
       target='avatar'
     >
-      <h3 class='text-lg font-bold'>{username}</h3>
-      <h4 class='text-base'>@{tag}</h4>
+      <div class='flex flex-row justify-between space-x-4'>
+        <div class='flex flex-col'>
+          <h3 class='text-lg font-bold'>{username}</h3>
+          <h4 class='text-base'>@{tag}</h4>
+        </div>
+        <div class='flex flex-col justify-center'>
+          <Button
+            id='sign-out-button'
+            class='btn-leather !p-2'
+            pill
+            outline
+            color='alternative'
+            onclick={handleSignOutClick}
+          >
+            <ArrowRightToBracketOutline class='icon-leather w-4 h-4' />
+            <Tooltip class='min-w-fit' triggeredBy='#sign-out-button' placement='bottom'>
+              <span>Sign out</span>
+            </Tooltip>
+          </Button>
+        </div>
+      </div>
     </Popover>
   {/key}
 {:else}
