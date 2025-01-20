@@ -61,15 +61,19 @@
         <div class='flex flex-col justify-center'>
           <Button
             id='sign-out-button'
-            class='btn-leather !p-2'
+            class='btn-leather !p-2 hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500'
             pill
             outline
             color='alternative'
             onclick={handleSignOutClick}
           >
-            <ArrowRightToBracketOutline class='icon-leather w-4 h-4' />
-            <Tooltip class='min-w-fit' triggeredBy='#sign-out-button' placement='bottom'>
-              <span>Sign out</span>
+            <ArrowRightToBracketOutline class='w-4 h-4 !fill-none dark:!fill-none' />
+            <Tooltip
+              class='tooltip-leather w-fit whitespace-nowrap'
+              triggeredBy='#sign-out-button'
+              placement='bottom'
+            >
+              Sign out
             </Tooltip>
           </Button>
         </div>
