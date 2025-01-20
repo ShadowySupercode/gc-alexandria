@@ -25,6 +25,11 @@
       // TODO: Show an error message to the user.
     }
   }
+
+  async function handleSignOutClick() {
+    logout($ndkInstance.activeUser!);
+    profile = null;
+  }
 </script>
 
 {#if $ndkSignedIn}

@@ -39,6 +39,55 @@ export function clearLogin(): void {
 }
 
 /**
+ * Constructs a key use to designate a user's relay lists in local storage.
+ * @param user The user for whom to construct the key.
+ * @param type The type of relay list to designate.
+ * @returns The constructed key.
+ */
+function getRelayStorageKey(user: NDKUser, type: 'inbox' | 'outbox'): string {
+  return `${loginStorageKey}/${user.pubkey}/${type}`;
+}
+
+/**
+ * Stores the user's relay lists in local storage.
+ * @param user The user for whom to store the relay lists.
+ * @param inboxes The user's inbox relays.
+ * @param outboxes The user's outbox relays.
+ */
+function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKRelay>): void {
+  localStorage.setItem(
+    getRelayStorageKey(user, 'inbox'),
+    JSON.stringify(Array.from(inboxes).map(relay => relay.url))
+  );
+  localStorage.setItem(
+    getRelayStorageKey(user, 'outbox'), 
+    JSON.stringify(Array.from(outboxes).map(relay => relay.url))
+  );
+}
+
+/**
+ * Retrieves the user's relay lists from local storage.
+ * @param user The user for whom to retrieve the relay lists.
+ * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.  Either set may be
+ * empty if no relay lists were stored for the user.
+ */
+function getPersistedRelays(user: NDKUser): [Set<NDKRelay>, Set<NDKRelay>] {
+  const inboxes = new Set<NDKRelay>(
+    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
+  );
+  const outboxes = new Set<NDKRelay>(
+    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
+  );
+
+  return [inboxes, outboxes];
+}
+
+export function clearPersistedRelays(user: NDKUser): void {
+  localStorage.removeItem(getRelayStorageKey(user, 'inbox'));
+  localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
+}
+
+/**
  * Initializes an instance of NDK, and connects it to the standard relays.
  * @returns The initialized NDK instance.
  */
@@ -69,11 +118,18 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
       throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
     }
 
+    const [persistedInboxes, persistedOutboxes] = getPersistedRelays(signerUser);
+    for (const relay of persistedInboxes) {
+      ndk.addExplicitRelay(relay);
+    }
+
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
     const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
 
-    inboxRelays.set(Array.from(inboxes).map(relay => relay.url));
-    outboxRelays.set(Array.from(outboxes).map(relay => relay.url));
+    inboxRelays.set(Array.from(inboxes ?? persistedInboxes).map(relay => relay.url));
+    outboxRelays.set(Array.from(outboxes ?? persistedOutboxes).map(relay => relay.url));
+
+    persistRelays(signerUser, inboxes, outboxes);
 
     ndk.signer = signer;
     ndk.activeUser = user;
@@ -85,6 +141,16 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
   } catch (e) {
     throw new Error(`Failed to sign in with NIP-07 extension: ${e}`);
   }
+}
+
+/**
+ * Handles logging out a user.
+ * @param user The user to log out.
+ */
+export function logout(user: NDKUser): void {
+  clearLogin();
+  clearPersistedRelays(user);
+  ndkSignedIn.set(false);
 }
 
 /**
