@@ -1,7 +1,9 @@
 <script lang='ts'>
-  import { Avatar, Button, Popover } from 'flowbite-svelte';
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { ndkSignedIn, signInWithExtension } from '$lib/ndk';
+  import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
+  import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
+  import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
+  import { onMount } from 'svelte';
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
@@ -10,14 +12,36 @@
 
   let signInFailed = $state<boolean>(false);
 
+  $effect(() => {
+    if ($ndkSignedIn) {
+      $ndkInstance
+        .getUser({ pubkey: $activePubkey ?? undefined })
+        ?.fetchProfile()
+        .then(userProfile => {
+          profile = userProfile;
+        });
+    }
+  });
+
   async function handleSignInClick() {
     try {
-      profile = await signInWithExtension();
+      const user = await loginWithExtension();
+      if (!user) {
+        throw new Error('The NIP-07 extension did not return a user.');
+      }
+
+      profile = await user.fetchProfile();
+      persistLogin(user);
     } catch (e) {
       console.error(e);
       signInFailed = true;
       // TODO: Show an error message to the user.
     }
+  }
+
+  async function handleSignOutClick() {
+    logout($ndkInstance.activeUser!);
+    profile = null;
   }
 </script>
 
@@ -34,8 +58,31 @@
       placement='bottom'
       target='avatar'
     >
-      <h3 class='text-lg font-bold'>{username}</h3>
-      <h4 class='text-base'>@{tag}</h4>
+      <div class='flex flex-row justify-between space-x-4'>
+        <div class='flex flex-col'>
+          <h3 class='text-lg font-bold'>{username}</h3>
+          <h4 class='text-base'>@{tag}</h4>
+        </div>
+        <div class='flex flex-col justify-center'>
+          <Button
+            id='sign-out-button'
+            class='btn-leather !p-2 hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500'
+            pill
+            outline
+            color='alternative'
+            onclick={handleSignOutClick}
+          >
+            <ArrowRightToBracketOutline class='w-4 h-4 !fill-none dark:!fill-none' />
+            <Tooltip
+              class='tooltip-leather w-fit whitespace-nowrap'
+              triggeredBy='#sign-out-button'
+              placement='bottom'
+            >
+              Sign out
+            </Tooltip>
+          </Button>
+        </div>
+      </div>
     </Popover>
   {/key}
 {:else}

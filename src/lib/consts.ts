@@ -7,3 +7,5 @@ export enum FeedType {
   StandardRelays,
   UserRelays,
 }
+
+export const loginStorageKey = 'alexandria/login/pubkey';
