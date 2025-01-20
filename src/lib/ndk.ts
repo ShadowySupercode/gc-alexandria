@@ -6,6 +6,8 @@ export const ndkInstance: Writable<NDK> = writable();
 
 export const ndkSignedIn: Writable<boolean> = writable(false);
 
+export const activePubkey: Writable<string | null> = writable(null);
+
 export const inboxRelays: Writable<string[]> = writable([]);
 export const outboxRelays: Writable<string[]> = writable([]);
 
@@ -118,6 +120,8 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
       throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
     }
 
+    activePubkey.set(signerUser.pubkey);
+
     const [persistedInboxes, persistedOutboxes] = getPersistedRelays(signerUser);
     for (const relay of persistedInboxes) {
       ndk.addExplicitRelay(relay);
@@ -150,6 +154,7 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
 export function logout(user: NDKUser): void {
   clearLogin();
   clearPersistedRelays(user);
+  activePubkey.set(null);
   ndkSignedIn.set(false);
 }
 

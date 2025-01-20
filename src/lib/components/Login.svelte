@@ -1,6 +1,6 @@
 <script lang='ts'>
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
+  import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
   import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
   import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
   import { onMount } from 'svelte';
@@ -11,6 +11,17 @@
   let tag = $derived(profile?.name);
 
   let signInFailed = $state<boolean>(false);
+
+  $effect(() => {
+    if ($ndkSignedIn) {
+      $ndkInstance
+        .getUser({ pubkey: $activePubkey ?? undefined })
+        ?.fetchProfile()
+        .then(userProfile => {
+          profile = userProfile;
+        });
+    }
+  });
 
   async function handleSignInClick() {
     try {
@@ -32,12 +43,6 @@
     logout($ndkInstance.activeUser!);
     profile = null;
   }
-
-  onMount(async () => {
-    if ($ndkSignedIn) {
-      profile = await $ndkInstance.activeUser?.fetchProfile() ?? null;
-    }
-  });
 </script>
 
 {#if $ndkSignedIn}
