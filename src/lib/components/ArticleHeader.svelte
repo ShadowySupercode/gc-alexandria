@@ -4,7 +4,8 @@
   import { standardRelays } from "../consts";
   import { Card, Button, Modal, Tooltip } from "flowbite-svelte";
   import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from "flowbite-svelte-icons";
-  import { ndkInstance } from "../ndk";
+  import { naddrEncode, type AddressPointer } from 'nostr-tools/nip19';
+  import { ndkInstance } from "$lib/ndk";
 
   export let event: NDKEvent;
 
@@ -31,9 +32,9 @@
   function copyEventId() {
     console.debug("copyEventID");
     const relays: string[] = standardRelays;
-    const naddr = neventEncode(event, relays);
+    const nevent = neventEncode(event, relays);
 
-    navigator.clipboard.writeText(naddr);
+    navigator.clipboard.writeText(nevent);
 
     eventIdCopied = true;
   }
@@ -41,21 +42,33 @@
   let jsonModalOpen: boolean = false;
   function viewJson() {
     console.debug("viewJSON");
-    const relays: string[] = standardRelays;
-    const naddr = neventEncode(event, relays);
     jsonModalOpen = true;
   }
 
   let shareLinkCopied: boolean = false;
   function shareNjump() {
-    const relays: string[] = standardRelays;
-    const naddr = neventEncode(event, relays);
+        const relays: string[] = standardRelays;
+        const dTag : string | undefined = event.dTag;
+  
+        if (typeof dTag === 'string') {
+          const opts: AddressPointer = {
+          identifier: dTag,
+          pubkey: event.pubkey,
+          kind: 30040,
+          relays
+        };
+        const naddr = naddrEncode(opts);
+        console.debug(naddr);
+        navigator.clipboard.writeText(`https://njump.me/${naddr}`);
+        shareLinkCopied = true;
+        }
+  
+        else {
+            console.log('dTag is undefined');
+          }
+            
+}
 
-    console.debug(naddr);
-    navigator.clipboard.writeText(`njump.me/${naddr}`);
-
-    shareLinkCopied = true;
-  }
 </script>
 
 {#if title != null && href != null}
