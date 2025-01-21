@@ -54,6 +54,12 @@
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 p-2 rounded;
   }
 
+  div.note-leather p a,
+  p.note-leather p a,
+  section.note-leather p a {
+    @apply underline hover:text-primary-500 dark:hover:text-primary-400;
+  }
+
   div.note-leather:hover:not(:has(.note-leather:hover)),
   p.note-leather:hover:not(:has(.note-leather:hover)),
   section.note-leather:hover:not(:has(.note-leather:hover)) {
