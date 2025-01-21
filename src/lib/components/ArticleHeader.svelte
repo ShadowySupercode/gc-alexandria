@@ -47,27 +47,26 @@
 
   let shareLinkCopied: boolean = false;
   function shareNjump() {
-        const relays: string[] = standardRelays;
-        const dTag : string | undefined = event.dTag;
-  
-        if (typeof dTag === 'string') {
-          const opts: AddressPointer = {
-          identifier: dTag,
-          pubkey: event.pubkey,
-          kind: 30040,
-          relays
-        };
-        const naddr = naddrEncode(opts);
-        console.debug(naddr);
-        navigator.clipboard.writeText(`https://njump.me/${naddr}`);
-        shareLinkCopied = true;
-        }
-  
-        else {
-            console.log('dTag is undefined');
-          }
-            
-}
+    const relays: string[] = standardRelays;
+    const dTag : string | undefined = event.dTag;
+
+    if (typeof dTag === 'string') {
+      const opts: AddressPointer = {
+      identifier: dTag,
+      pubkey: event.pubkey,
+      kind: 30040,
+      relays
+    };
+    const naddr = naddrEncode(opts);
+      console.debug(naddr);
+      navigator.clipboard.writeText(`https://njump.me/${naddr}`);
+      shareLinkCopied = true;
+    }
+    
+    else {
+      console.log('dTag is undefined');
+    }
+  }
 
 </script>
 
