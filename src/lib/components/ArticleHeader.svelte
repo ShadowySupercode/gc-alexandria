@@ -7,28 +7,32 @@
   import { Card, Button, Modal, Tooltip } from 'flowbite-svelte';
   import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from 'flowbite-svelte-icons';
 
-  export let event: NDKEvent;
+  const { event } = $props<{ event: NDKEvent }>();
 
-  let title: string;
-  let author: string;
-  let href: string;
+  let title: string = $state('');
+  let author: string = $state('');
+  let href: string = $state('');
+  let eventIdCopied: boolean = $state(false);
+  let jsonModalOpen: boolean = $state(false);
+  let shareLinkCopied: boolean = $state(false);
 
-  $: try {
-    const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
-    title = event.getMatchingTags('title')[0][1];
-    author = event.getMatchingTags('author')[0][1];
+  $effect(() => {
+    try {
+      const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
+      title = event.getMatchingTags('title')[0][1];
+      author = event.getMatchingTags('author')[0][1];
 
-    const d = event.getMatchingTags('d')[0][1];
-    if (d != null) {
-      href = `publication?d=${d}`;
-    } else {
-      href = `publication?id=${neventEncode(event, relays)}`;
+      const d = event.getMatchingTags('d')[0][1];
+      if (d != null) {
+        href = `publication?d=${d}`;
+      } else {
+        href = `publication?id=${neventEncode(event, relays)}`;
+      }
+    } catch (e) {
+      console.warn(e);
     }
-  } catch (e) {
-    console.warn(e);
-  }
+  });
 
-  let eventIdCopied: boolean = false;
   function copyEventId() {
     console.debug("copyEventID");
     const relays: string[] = standardRelays;
@@ -39,13 +43,11 @@
     eventIdCopied = true;
   }
 
-  let jsonModalOpen: boolean = false;
   function viewJson() {
     console.debug("viewJSON");
     jsonModalOpen = true;
   }
 
-  let shareLinkCopied: boolean = false;
   function shareNjump() {
     const relays: string[] = standardRelays;
     const dTag : string | undefined = event.dTag;
