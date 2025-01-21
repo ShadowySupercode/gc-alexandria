@@ -61,7 +61,6 @@
   }
 
   /* AsciiDoc content */
-
   .note-leather p a {
     @apply underline hover:text-primary-500 dark:hover:text-primary-400;
   }
@@ -142,6 +141,11 @@
 
   a.sidebar-item-leather {
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
+  }
+
+  /* Skeleton */
+  div.skeleton-leather div {
+    @apply bg-gray-400 dark:bg-gray-600;
   }
 
   /* Textarea */
