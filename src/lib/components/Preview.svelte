@@ -1,19 +1,33 @@
-<script lang="ts">
-  import { page } from "$app/state";
-  import { pharosInstance, SiblingSearchDirection } from "$lib/parser";
-  import { Button, ButtonGroup, CloseButton, Heading, Input, P, Textarea, Tooltip } from "flowbite-svelte";
-  import { CaretDownSolid, CaretUpSolid, EditOutline } from "flowbite-svelte-icons";
-  import { createEventDispatcher } from "svelte";
+<script lang='ts'>
+  import { pharosInstance, SiblingSearchDirection } from '$lib/parser';
+  import { Button, ButtonGroup, CloseButton, Heading, Input, P, Textarea, Tooltip } from 'flowbite-svelte';
+  import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
+  import Self from './Preview.svelte';
+  import { createEventDispatcher } from 'svelte';
 
   // TODO: Fix move between parents.
 
-  export let sectionClass: string = '';
-  export let isSectionStart: boolean = false;
-  export let rootId: string;
-  export let parentId: string | null | undefined = null;
-  export let depth: number = 0;
-  export let allowEditing: boolean = false;
-  export let needsUpdate: boolean = false;
+  let {
+    allowEditing,
+    depth,
+    isSectionStart,
+    needsUpdate = $bindable<boolean>(),
+    oncursorcapture, 
+    oncursorrelease,
+    parentId,
+    rootId,
+    sectionClass,
+  } = $props<{
+    allowEditing?: boolean;
+    depth?: number;
+    isSectionStart?: boolean;
+    needsUpdate?: boolean;
+    oncursorcapture?: (e: MouseEvent) => void;
+    oncursorrelease?: (e: MouseEvent) => void;
+    parentId?: string | null | undefined;
+    rootId: string;
+    sectionClass?: string;
+  }>();
 
   const dispatch = createEventDispatcher();
 
@@ -21,20 +35,20 @@
   let title: string | undefined = $pharosInstance.getIndexTitle(rootId);
   let orderedChildren: string[] = $pharosInstance.getOrderedChildIds(rootId);
 
-  let isEditing: boolean = false;
-  let hasCursor: boolean = false;
-  let childHasCursor: boolean;
+  let isEditing: boolean = $state(false);
+  let hasCursor: boolean = $state(false);
+  let childHasCursor: boolean = $state(false);
 
-  let hasPreviousSibling: boolean = false;
-  let hasNextSibling: boolean = false;
+  let hasPreviousSibling: boolean = $state(false);
+  let hasNextSibling: boolean = $state(false);
 
-  let subtreeNeedsUpdate: boolean = false;
-  let updateCount: number = 0;
-  let subtreeUpdateCount: number = 0;
+  let subtreeNeedsUpdate: boolean = $state(false);
+  let updateCount: number = $state(0);
+  let subtreeUpdateCount: number = $state(0);
 
-  $: buttonsVisible = hasCursor && !childHasCursor;
+  let buttonsVisible: boolean = $derived(hasCursor && !childHasCursor);
 
-  $: {
+  $effect(() => {
     if (needsUpdate) {
       updateCount++;
       needsUpdate = false;
@@ -58,9 +72,9 @@
         needsUpdate = true;
       }
     }
-  }
+  });
 
-  $: {
+  $effect(() => {
     if (parentId && allowEditing) {
       // Check for previous/next siblings on load
       const previousSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
@@ -70,7 +84,7 @@
       hasPreviousSibling = !!previousSibling[0];
       hasNextSibling = !!nextSibling[0];
     }
-  }
+  });
 
   const getHeadingTag = (depth: number) => {
     switch (depth) {
@@ -89,17 +103,17 @@
 
   const handleMouseEnter = (e: MouseEvent) => {
     hasCursor = true;
-    dispatch('cursorcapture', e);
+    oncursorcapture(e);
   };
 
   const handleMouseLeave = (e: MouseEvent) => {
     hasCursor = false;
-    dispatch('cursorrelease', e);
+    oncursorrelease(e);
   };
 
   const handleChildCursorCaptured = (e: MouseEvent) => {
     childHasCursor = true;
-    dispatch('cursorrelase', e);
+    oncursorrelease(e);
   };
 
   const handleChildCursorReleased = (e: MouseEvent) => {
@@ -146,12 +160,12 @@
 </script>
 
 <!-- This component is recursively structured.  The base case is single block of content. -->
-<!-- svelte-ignore a11y-no-static-element-interactions -->
 <section
   id={rootId}
   class={`note-leather flex space-x-2 justify-between text-wrap break-words ${sectionClass}`}
-  on:mouseenter={handleMouseEnter}
-  on:mouseleave={handleMouseLeave}
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
+  aria-label='Publication section'
 >
   <!-- Zettel base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
@@ -205,15 +219,16 @@
       <!-- Recurse on child indices and zettels -->
       {#key subtreeUpdateCount}
         {#each orderedChildren as id, index}
-          <svelte:self
+          <Self
             rootId={id}
             parentId={rootId}
             depth={depth + 1}
             {allowEditing}
+            {sectionClass}
             isSectionStart={index === 0}
             bind:needsUpdate={subtreeNeedsUpdate}
-            on:cursorcapture={handleChildCursorCaptured}
-            on:cursorrelease={handleChildCursorReleased}
+            oncursorcapture={handleChildCursorCaptured}
+            oncursorrelease={handleChildCursorReleased}
           />
         {/each}
       {/key}
