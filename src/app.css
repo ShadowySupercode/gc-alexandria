@@ -54,16 +54,40 @@
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 p-2 rounded;
   }
 
-  div.note-leather p a,
-  p.note-leather p a,
-  section.note-leather p a {
-    @apply underline hover:text-primary-500 dark:hover:text-primary-400;
-  }
-
   div.note-leather:hover:not(:has(.note-leather:hover)),
   p.note-leather:hover:not(:has(.note-leather:hover)),
   section.note-leather:hover:not(:has(.note-leather:hover)) {
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
+  }
+
+  /* AsciiDoc content */
+
+  .note-leather p a {
+    @apply underline hover:text-primary-500 dark:hover:text-primary-400;
+  }
+
+  .note-leather section p {
+    @apply w-full;
+  }
+
+  .note-leather section p table {
+    @apply w-full table-fixed space-x-2 space-y-2;
+  }
+
+  .note-leather section p table td {
+    @apply p-2;
+  }
+
+  .note-leather section p table td .content:has(> .imageblock) {
+    @apply flex flex-col items-center;
+  }
+
+  .note-leather section p table td .literalblock {
+    @apply my-2 p-2 border rounded border-gray-500 dark:border-gray-500 text-wrap break-words;
+  }
+
+  .note-leather section p table td .literalblock pre {
+    @apply text-wrap break-words;
   }
 
   /* Heading */
