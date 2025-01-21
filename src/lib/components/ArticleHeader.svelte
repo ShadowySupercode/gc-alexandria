@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { neventEncode } from "$lib/utils";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { standardRelays } from "../consts";
-  import { Card, Button, Modal, Tooltip } from "flowbite-svelte";
-  import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from "flowbite-svelte-icons";
+  import { ndkInstance } from '$lib/ndk';
+  import { neventEncode } from '$lib/utils';
+  import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { naddrEncode, type AddressPointer } from 'nostr-tools/nip19';
-  import { ndkInstance } from "$lib/ndk";
+  import { standardRelays } from '../consts';
+  import { Card, Button, Modal, Tooltip } from 'flowbite-svelte';
+  import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from 'flowbite-svelte-icons';
 
   export let event: NDKEvent;
 
