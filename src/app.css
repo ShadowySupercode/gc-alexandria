@@ -82,10 +82,10 @@
   }
 
   .note-leather section p table td .literalblock {
-    @apply my-2 p-2 border rounded border-gray-500 dark:border-gray-500 text-wrap break-words;
+    @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
   }
 
-  .note-leather section p table td .literalblock pre {
+  .note-leather .literalblock pre {
     @apply text-wrap break-words;
   }
 
