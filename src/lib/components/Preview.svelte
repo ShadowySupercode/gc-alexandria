@@ -185,7 +185,7 @@
                 class='btn-leather min-w-fit'
                 size='sm'
                 outline
-                on:click={() => toggleEditing(rootId, false)}
+                onclick={() => toggleEditing(rootId, false)}
               >
                 Cancel
               </Button>
@@ -193,7 +193,7 @@
                 type='submit'
                 class='btn-leather min-w-fit'
                 size='sm'
-                on:click={() => toggleEditing(rootId, true)}
+                onclick={() => toggleEditing(rootId, true)}
               >
                 Save
               </Button>
@@ -211,9 +211,9 @@
       {#if isEditing}
         <ButtonGroup class='w-full'>
           <Input type='text' class='input-leather' size='lg' bind:value={title}>
-            <CloseButton slot='right' on:click={() => toggleEditing(rootId, false)} />
+            <CloseButton slot='right' onclick={() => toggleEditing(rootId, false)} />
           </Input>
-          <Button class='btn-leather' color='primary' size='lg' on:click={() => toggleEditing(rootId, true)}>
+          <Button class='btn-leather' color='primary' size='lg' onclick={() => toggleEditing(rootId, true)}>
             Save
           </Button>
         </ButtonGroup>
@@ -243,16 +243,16 @@
   {#if allowEditing && depth > 0}
     <div class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? 'visible' : 'invisible'}`}>
       {#if hasPreviousSibling && parentId}
-        <Button class='btn-leather' size='sm' outline on:click={() => moveUp(rootId, parentId)}>
+        <Button class='btn-leather' size='sm' outline onclick={() => moveUp(rootId, parentId)}>
           <CaretUpSolid />
         </Button>
       {/if}
       {#if hasNextSibling && parentId}
-        <Button class='btn-leather' size='sm' outline on:click={() => moveDown(rootId, parentId)}>
+        <Button class='btn-leather' size='sm' outline onclick={() => moveDown(rootId, parentId)}>
           <CaretDownSolid />
         </Button>
       {/if}
-      <Button class='btn-leather' size='sm' outline on:click={() => toggleEditing(rootId)}>
+      <Button class='btn-leather' size='sm' outline onclick={() => toggleEditing(rootId)}>
         <EditOutline />
       </Button>
       <Tooltip class='tooltip-leather' type='auto' placement='top'>
