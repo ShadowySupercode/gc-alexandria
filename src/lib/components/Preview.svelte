@@ -103,17 +103,23 @@
 
   const handleMouseEnter = (e: MouseEvent) => {
     hasCursor = true;
-    oncursorcapture(e);
+    if (oncursorcapture) {
+      oncursorcapture(e);
+    }
   };
 
   const handleMouseLeave = (e: MouseEvent) => {
     hasCursor = false;
-    oncursorrelease(e);
+    if (oncursorrelease) {
+      oncursorrelease(e);
+    }
   };
 
   const handleChildCursorCaptured = (e: MouseEvent) => {
     childHasCursor = true;
-    oncursorrelease(e);
+    if (oncursorcapture) {
+      oncursorcapture(e);
+    }
   };
 
   const handleChildCursorReleased = (e: MouseEvent) => {
