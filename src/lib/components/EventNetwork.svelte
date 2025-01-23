@@ -9,7 +9,6 @@
   levelsToRender.subscribe((value) => {
     levels = value;
   });
-  console.log(levels);
   export let events: NDKEvent[] = [];
   let feedType: FeedType = FeedType.StandardRelays;
 
@@ -613,7 +612,6 @@
       .on("click", function (event, d) {
         event.stopPropagation();
         console.log("Clicked node", d);
-        console.log({ node });
 
         if (selectedNode === d) {
           selectedNode = null;
