@@ -5,6 +5,8 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
+  import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
+
   import { networkFetchLimit } from "$lib/state";
 
   let events: NDKEvent[] = [];
@@ -32,8 +34,9 @@
       // Get all the content event IDs referenced by the index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
-        event.getMatchingTags("e").forEach((tag) => {
-          contentEventIds.add(tag[1]);
+        event.getMatchingTags("a").forEach((tag) => {
+          let eventId = tag[3];
+          contentEventIds.add(eventId);
         });
       });
 
@@ -76,6 +79,7 @@
       Showing {events.length} events from {$networkFetchLimit} headers
     </span>
     <EventLimitControl on:update={handleLimitUpdate} />
+    <EventRenderLevelLimit on:update={handleLimitUpdate} />
   {/if}
 
   {#if loading}

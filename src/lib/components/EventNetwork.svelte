@@ -2,15 +2,23 @@
   import { onMount } from "svelte";
   import * as d3 from "d3";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-
+  import { nip19 } from "nostr-tools";
+  import { FeedType, standardRelays } from "$lib/consts";
+  import { levelsToRender } from "$lib/state";
+  let levels;
+  levelsToRender.subscribe((value) => {
+    levels = value;
+  });
+  console.log(levels);
   export let events: NDKEvent[] = [];
+  let feedType: FeedType = FeedType.StandardRelays;
 
   let svg: SVGSVGElement;
   let isDarkMode = false;
   const nodeRadius = 20;
   const linkDistance = 10;
   const arrowDistance = 10;
-  const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
+  const warmupClickEnergy = 0.01; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
   let width: number = 1000;
@@ -27,18 +35,16 @@
   interface NetworkNode extends d3.SimulationNodeDatum {
     id: string;
     event?: NDKEvent;
-    index?: number;
+    level: number;
     isContainer: boolean;
     title: string;
     content: string;
     author: string;
     type: "Index" | "Content";
+    naddr?: string;
+    nevent?: string;
     x?: number;
     y?: number;
-    fx?: number | null;
-    fy?: number | null;
-    vx?: number;
-    vy?: number;
   }
 
   interface NetworkLink extends d3.SimulationLinkDatum<NetworkNode> {
@@ -46,10 +52,198 @@
     target: NetworkNode;
     isSequential: boolean;
   }
+  interface GraphData {
+    nodes: NetworkNode[];
+    links: NetworkLink[];
+  }
+  interface GraphState {
+    nodeMap: Map<string, NetworkNode>;
+    links: NetworkLink[];
+    eventMap: Map<string, NDKEvent>;
+    referencedIds: Set<string>;
+  }
+  function initializeGraphState(events: NDKEvent[]): GraphState {
+    const nodeMap = new Map<string, NetworkNode>();
+    const eventMap = createEventMap(events);
+
+    // Create initial nodes
+    events.forEach((event) => {
+      if (!event.id) return;
+      const node: NetworkNode = createNetworkNode(event, feedType, 0, 0);
+      nodeMap.set(event.id, node);
+    });
+
+    // Build referenced IDs set
+    const referencedIds = new Set<string>();
+    events.forEach((event) => {
+      event.getMatchingTags("a").forEach((tag) => {
+        const id = extractEventIdFromATag(tag);
+        if (id) referencedIds.add(id);
+      });
+    });
+
+    return {
+      nodeMap,
+      links: [],
+      eventMap,
+      referencedIds,
+    };
+  }
+
+  function processSequence(
+    sequence: NetworkNode[],
+    indexEvent: NDKEvent,
+    level: number,
+    state: GraphState,
+    maxLevel: number,
+  ): void {
+    if (level >= maxLevel || sequence.length === 0) return;
+
+    // Set levels for sequence nodes
+    sequence.forEach((node) => {
+      node.level = level + 1;
+    });
+
+    // Create initial link from index to first content
+    const indexNode = state.nodeMap.get(indexEvent.id);
+    if (indexNode && sequence[0]) {
+      state.links.push({
+        source: indexNode,
+        target: sequence[0],
+        isSequential: true,
+      });
+    }
+
+    // Create sequential links
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const currentNode = sequence[i];
+      const nextNode = sequence[i + 1];
+
+      state.links.push({
+        source: currentNode,
+        target: nextNode,
+        isSequential: true,
+      });
+
+      processNestedIndex(currentNode, level + 1, state, maxLevel);
+    }
+
+    // Process final node if it's an index
+    const lastNode = sequence[sequence.length - 1];
+    if (lastNode?.isContainer) {
+      processNestedIndex(lastNode, level + 1, state, maxLevel);
+    }
+  }
+
+  function processNestedIndex(
+    node: NetworkNode,
+    level: number,
+    state: GraphState,
+    maxLevel: number,
+  ): void {
+    if (!node.isContainer || level >= maxLevel) return;
+
+    const nestedEvent = state.eventMap.get(node.id);
+    if (nestedEvent) {
+      processIndexEvent(nestedEvent, level, state, maxLevel);
+    }
+  }
+  function processIndexEvent(
+    indexEvent: NDKEvent,
+    level: number,
+    state: GraphState,
+    maxLevel: number,
+  ): void {
+    if (level >= maxLevel) return;
+
+    const sequence = indexEvent
+      .getMatchingTags("a")
+      .map((tag) => extractEventIdFromATag(tag))
+      .filter((id): id is string => id !== null)
+      .map((id) => state.nodeMap.get(id))
+      .filter((node): node is NetworkNode => node !== undefined);
+
+    processSequence(sequence, indexEvent, level, state, maxLevel);
+  }
+  /**
+   * Creates a NetworkNode from an NDKEvent, including naddr generation
+   * @param event The NDK event to convert into a network node
+   * @param index Optional index position
+   * @returns NetworkNode with generated naddr if applicable
+   */
+  export function createNetworkNode(
+    event: NDKEvent,
+    feedType: FeedType,
+    index?: number,
+    level?: number,
+  ): NetworkNode {
+    let relays = standardRelays;
+    const isContainer = event.kind === 30040;
+
+    const node: NetworkNode = {
+      id: event.id,
+      event,
+      index,
+      isContainer,
+      level: level || 0,
+      title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
+      content: event.content || "",
+      author: event.pubkey || "",
+      kind: event.kind,
+      type: event?.kind === 30040 ? "Index" : "Content",
+    };
+
+    // Generate naddr for replaceable events
+    if (event.kind && event.pubkey) {
+      try {
+        // Get the 'd' tag value if it exists
+        const dTag = event.getMatchingTags("d")?.[0]?.[1] || "";
+
+        // Create TLV data structure for naddr
+        const data = {
+          pubkey: event.pubkey, // TLV type 2: author
+          identifier: dTag, // TLV type 0: special (identifier/'d' tag)
+          kind: event.kind, // TLV type 3: kind
+          relays: relays, // TLV type 1: relays (optional)
+        };
+
+        node.naddr = nip19.naddrEncode(data);
+      } catch (error) {
+        console.warn("Failed to generate naddr for node:", error);
+      }
+      try {
+        const nevent = nip19.neventEncode({
+          id: event.id,
+          relays: relays,
+          kind: event.kind,
+        });
+        node.nevent = nevent;
+      } catch (error) {
+        console.warn("Failed to decode naddr for node:", error);
+      }
+    }
+
+    return node;
+  }
 
   function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
-    return new Map(events.map((event) => [event.id, event]));
+    const eventMap = new Map<string, NDKEvent>();
+
+    // First pass: Map all events by their ID
+    events.forEach((event) => {
+      if (event.id) {
+        eventMap.set(event.id, event);
+      }
+    });
+
+    return eventMap;
   }
+
+  function extractEventIdFromATag(tag: string[]): string | null {
+    // Extract event ID from the fourth position in 'a' tag
+    return tag[3] || null;
+  }
+
   function updateNodeVelocity(
     node: NetworkNode,
     deltaVx: number,
@@ -113,18 +307,7 @@
     if (!id) return null;
 
     if (!nodeMap.has(id)) {
-      const node: NetworkNode = {
-        id,
-        event,
-        index,
-        isContainer: event?.kind === 30040,
-        title: event?.getMatchingTags("title")?.[0]?.[1] || "Untitled",
-        content: event?.content || "",
-        author: event?.pubkey || "",
-        type: event?.kind === 30040 ? "Index" : "Content",
-        x: width / 2 + (Math.random() - 0.5) * 100,
-        y: height / 2 + (Math.random() - 0.5) * 100,
-      };
+      const node: NetworkNode = createNetworkNode(event, feedType, index, 0);
       nodeMap.set(id, node);
     }
     return nodeMap.get(id) || null;
@@ -138,53 +321,22 @@
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
-  function generateGraph(events: NDKEvent[]): {
-    nodes: NetworkNode[];
-    links: NetworkLink[];
-  } {
-    const nodes: NetworkNode[] = [];
-    const links: NetworkLink[] = [];
-    const nodeMap = new Map<string, NetworkNode>();
+  // Generate the complete graph structure
+  function generateGraph(
+    events: NDKEvent[],
+    maxLevel: number = level,
+  ): GraphData {
+    const state = initializeGraphState(events);
 
-    // Create event lookup map - O(n) operation done once
-    const eventMap = createEventMap(events);
+    // Process root indices
+    events
+      .filter((e) => e.kind === 30040 && e.id && !state.referencedIds.has(e.id))
+      .forEach((rootIndex) => processIndexEvent(rootIndex, 0, state, maxLevel));
 
-    const indexEvents = events.filter((e) => e.kind === 30040);
-
-    indexEvents.forEach((index) => {
-      if (!index.id) return;
-
-      const contentRefs = index.getMatchingTags("e");
-      const sourceNode = getNode(index.id, nodeMap, index);
-      if (!sourceNode) return;
-      nodes.push(sourceNode);
-
-      contentRefs.forEach((tag, idx) => {
-        if (!tag[1]) return;
-
-        // O(1) lookup instead of O(n) search
-        const targetEvent = eventMap.get(tag[1]);
-        if (!targetEvent) return;
-
-        const targetNode = getNode(tag[1], nodeMap, targetEvent, idx);
-        if (!targetNode) return;
-        nodes.push(targetNode);
-
-        const prevNodeId =
-          idx === 0 ? sourceNode.id : contentRefs[idx - 1]?.[1];
-        const prevNode = nodeMap.get(prevNodeId);
-
-        if (prevNode && targetNode) {
-          links.push({
-            source: prevNode,
-            target: targetNode,
-            isSequential: true,
-          });
-        }
-      });
-    });
-
-    return { nodes, links };
+    return {
+      nodes: Array.from(state.nodeMap.values()),
+      links: state.links,
+    };
   }
   function setupDragHandlers(
     simulation: d3.Simulation<NetworkNode, NetworkLink>,
@@ -235,7 +387,7 @@
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
-    const { nodes, links } = generateGraph(events);
+    const { nodes, links } = generateGraph(events, levels);
     if (!nodes.length) return;
 
     const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
@@ -294,20 +446,20 @@
         const y = bounds.y;
 
         // Calculate scale to fit
-        const scale = 1.25 / Math.max(dx / width, dy / height);
-        const translate = [
-          width / 2 - scale * (x + dx / 2),
-          height / 2 - scale * (y + dy / 2),
-        ];
+        // const scale = 1.25 / Math.max(dx / width, dy / height);
+        // const translate = [
+        //   width / 2 - scale * (x + dx / 2),
+        //   height / 2 - scale * (y + dy / 2),
+        // ];
 
         // Apply the initial transform
-        svgElement
-          .transition()
-          .duration(750)
-          .call(
-            zoom.transform,
-            d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale),
-          );
+        // svgElement
+        //   .transition()
+        //   .duration(750)
+        //   .call(
+        //     zoom.transform,
+        //     d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale),
+        //   );
       }
     });
     const dragHandler = setupDragHandlers(simulation);
@@ -385,8 +537,9 @@
       );
 
     node.select("text").text((d: NetworkNode) => (d.isContainer ? "I" : "C"));
+    let selectedNode: NetworkNode | null = null;
     // Add tooltips
-    const tooltip = d3
+    const tooltipDiv = d3
       .select("body")
       .append("div")
       .attr(
@@ -399,42 +552,77 @@
       )
       .style("z-index", 1000);
 
+    const renderTooltip = (d: NetworkNode, pageX: number, pageY: number) => {
+      tooltipDiv
+        .html(
+          `
+    <div class="space-y-2">
+      <div class="font-bold text-base">${d.title}</div>
+      <div class="text-gray-600 dark:text-gray-400 text-sm">
+        ${d.type} (${d.isContainer ? "30040" : "30041"})
+      </div>
+      <div class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis">
+        ID:
+        ${d.id}
+        ${d.naddr}
+        ${d.nevent}
+
+      </div>
+      ${
+        d.content
+          ? `
+        <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
+          ${d.content}
+        </div>
+      `
+          : ""
+      }
+      ${
+        selectedNode === d
+          ? `
+        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Click node again to dismiss
+        </div>
+      `
+          : ""
+      }
+    </div>
+  `,
+        )
+        .style("left", `${pageX + 10}px`)
+        .style("top", `${pageY - 10}px`);
+    };
     node
       .on("mouseover", function (event, d) {
-        tooltip
-          .style("display", "block")
-          .html(
-            `
-            <div class="space-y-2">
-              <div class="font-bold text-base">${d.title}</div>
-              <div class="text-gray-600 dark:text-gray-400 text-sm">
-                ${d.type} (${d.isContainer ? "30040" : "30041"})
-              </div>
-              <div class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis">
-                ID: ${d.id}
-              </div>
-              ${
-                d.content
-                  ? `
-                <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
-                  ${d.content}
-                </div>
-              `
-                  : ""
-              }
-            </div>
-          `,
-          )
-          .style("left", event.pageX - 10 + "px")
-          .style("top", event.pageY + 10 + "px");
+        if (!selectedNode) {
+          tooltipDiv.style("display", "block");
+          renderTooltip(d, event.pageX, event.pageY);
+        }
       })
-      .on("mousemove", function (event) {
-        tooltip
-          .style("left", event.pageX + 10 + "px")
-          .style("top", event.pageY - 10 + "px");
+      .on("mousemove", function (event, d) {
+        if (!selectedNode) {
+          tooltipDiv.style("display", "block");
+          renderTooltip(d, event.pageX, event.pageY);
+        }
       })
       .on("mouseout", () => {
-        tooltip.style("display", "none");
+        if (!selectedNode) {
+          tooltipDiv.style("display", "none");
+        }
+      })
+      .on("click", function (event, d) {
+        event.stopPropagation();
+        console.log("Clicked node", d);
+        console.log({ node });
+
+        if (selectedNode === d) {
+          selectedNode = null;
+          tooltipDiv.style("display", "none");
+        } else {
+          selectedNode = d;
+          tooltipDiv.style("display", "block");
+          renderTooltip(d, event.pageX, event.pageY);
+        }
       });
 
     // Handle simulation ticks
