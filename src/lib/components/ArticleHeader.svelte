@@ -82,7 +82,7 @@
       <a href="/{href}" class='flex flex-col space-y-2'>
         <h2 class='text-lg font-bold'>{title}</h2>
         <h3 class='text-base font-normal'>by {author}</h3>
-        {#if version != null && version != '1' && version != '1.0'}
+        {#if version != '' && version != '1' && version != '1.0'}
         <h3 class='text-base font-normal'>version: {version}</h3>
         {/if}
       </a>
