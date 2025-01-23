@@ -17,10 +17,15 @@
   $: try {
     const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
     title = event.getMatchingTags('title')[0][1];
-    author = event.getMatchingTags('author')[0][1];
-    
-    if (event.getMatchingTags('version')[0][1] != null){
+    if (event.getMatchingTags('author')[0][1] != ''){
+      author = event.getMatchingTags('author')[0][1];
+    } else {
+      author = 'unknown';
+    }
+    if (event.getMatchingTags('version')[0][1] != ''){
       version = event.getMatchingTags('version')[0][1];
+    } else {
+      version = '1';
     }
 
     const d = event.getMatchingTags('d')[0][1];
@@ -82,7 +87,7 @@
       <a href="/{href}" class='flex flex-col space-y-2'>
         <h2 class='text-lg font-bold'>{title}</h2>
         <h3 class='text-base font-normal'>by {author}</h3>
-        {#if version != '' && version != '1' && version != '1.0'}
+        {#if version != '1'}
         <h3 class='text-base font-normal'>version: {version}</h3>
         {/if}
       </a>
