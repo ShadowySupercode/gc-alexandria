@@ -17,7 +17,7 @@
   const nodeRadius = 20;
   const linkDistance = 10;
   const arrowDistance = 10;
-  const warmupClickEnergy = 0.01; // Energy to restart simulation on drag
+  const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
   let container: HTMLDivElement;
 
   let width: number = 1000;
