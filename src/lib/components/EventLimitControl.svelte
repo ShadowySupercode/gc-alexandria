@@ -33,9 +33,6 @@
   <label for="event-limit" class="text-sm font-medium"
     >Number of root events:
   </label>
-  <label for="event-limit" class="text-sm font-medium"
-    >Number of root events:
-  </label>
   <input
     type="number"
     id="event-limit"
