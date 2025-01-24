@@ -22,9 +22,8 @@
     } else {
       author = 'unknown';
     }
-    if (event.getMatchingTags('version')[0][1] != ''){
-      version = event.getMatchingTags('version')[0][1];
-    } else {
+    let version = event.getMatchingTags('version')[0][1];
+    if (version == null || version == '') {
       version = '1';
     }
 
