@@ -86,7 +86,7 @@
         <h2 class='text-lg font-bold'>{title}</h2>
         <h3 class='text-base font-normal'>by {author}</h3>
         {#if version != '1'}
-        <h3 class='text-base font-normal'>version: {version}</h3>
+          <h3 class='text-base font-normal'>version: {version}</h3>
         {/if}
       </a>
       <div class='w-full flex space-x-2 justify-end'>
