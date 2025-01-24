@@ -17,9 +17,8 @@
   $: try {
     const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
     title = event.getMatchingTags('title')[0][1];
-    if (event.getMatchingTags('author')[0][1] != ''){
-      author = event.getMatchingTags('author')[0][1];
-    } else {
+    let author = event.getMatchingTags('author')[0][1];
+    if (author == null || author == '') {
       author = 'unknown';
     }
     let version = event.getMatchingTags('version')[0][1];
