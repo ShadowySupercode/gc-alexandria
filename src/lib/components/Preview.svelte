@@ -83,21 +83,6 @@
     }
   });
 
-  const getHeadingTag = (depth: number) => {
-    switch (depth) {
-    case 0:
-      return "h2";
-    case 1:
-      return "h3";
-    case 2:
-      return "h4";
-    case 3:
-      return "h5";
-    case 4:
-      return "h6";
-    }
-  };
-
   const handleMouseEnter = (e: MouseEvent) => {
     hasCursor = true;
     if (oncursorcapture) {
