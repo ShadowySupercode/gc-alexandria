@@ -11,6 +11,7 @@
 
   let title: string = $state('');
   let author: string = $state('');
+  let version: string = $state('');
   let href: string = $state('');
   let eventIdCopied: boolean = $state(false);
   let jsonModalOpen: boolean = $state(false);
@@ -20,14 +21,14 @@
     try {
       const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
       title = event.getMatchingTags('title')[0][1];
-    let author = event.getMatchingTags('author')[0][1];
-    if (author == null || author == '') {
-      author = 'unknown';
-    }
-    let version = event.getMatchingTags('version')[0][1];
-    if (version == null || version == '') {
-      version = '1';
-    }
+      let author = event.getMatchingTags('author')[0][1];
+      if (author == null || author == '') {
+        author = 'unknown';
+      }
+      let version = event.getMatchingTags('version')[0][1];
+      if (version == null || version == '') {
+        version = '1';
+      }
 
       const d = event.getMatchingTags('d')[0][1];
       if (d != null) {
