@@ -29,11 +29,9 @@
     sectionClass?: string;
   }>();
 
-  const dispatch = createEventDispatcher();
-
-  let currentContent: string = $pharosInstance.getContent(rootId);
-  let title: string | undefined = $pharosInstance.getIndexTitle(rootId);
-  let orderedChildren: string[] = $pharosInstance.getOrderedChildIds(rootId);
+  let currentContent: string = $state($pharosInstance.getContent(rootId));
+  let title: string | undefined = $state($pharosInstance.getIndexTitle(rootId));
+  let orderedChildren: string[] = $state($pharosInstance.getOrderedChildIds(rootId));
 
   let isEditing: boolean = $state(false);
   let hasCursor: boolean = $state(false);
