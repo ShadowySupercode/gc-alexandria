@@ -1,42 +1,46 @@
 <script lang="ts">
-  import { neventEncode } from "$lib/utils";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { standardRelays } from "../consts";
-  import { Card, Button, Modal, Tooltip } from "flowbite-svelte";
-  import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from "flowbite-svelte-icons";
+  import { ndkInstance } from '$lib/ndk';
+  import { neventEncode } from '$lib/utils';
+  import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { naddrEncode, type AddressPointer } from 'nostr-tools/nip19';
-  import { ndkInstance } from "$lib/ndk";
+  import { standardRelays } from '../consts';
+  import { Card, Button, Modal, Tooltip } from 'flowbite-svelte';
+  import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from 'flowbite-svelte-icons';
 
-  export let event: NDKEvent;
+  const { event } = $props<{ event: NDKEvent }>();
 
-  let title: string;
-  let author: string;
-  let version: string;
-  let href: string;
+  let title: string = $state('');
+  let author: string = $state('');
+  let version: string = $state('');
+  let href: string = $state('');
+  let eventIdCopied: boolean = $state(false);
+  let jsonModalOpen: boolean = $state(false);
+  let shareLinkCopied: boolean = $state(false);
 
-  $: try {
-    const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
-    title = event.getMatchingTags('title')[0][1];
-    let author = event.getMatchingTags('author')[0][1];
-    if (author == null || author == '') {
-      author = 'unknown';
+  $effect(() => {
+    try {
+      const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
+      title = event.getMatchingTags('title')[0][1];
+      let author = event.getMatchingTags('author')[0][1];
+      if (author == null || author == '') {
+        author = 'unknown';
+      }
+      let version = event.getMatchingTags('version')[0][1];
+      if (version == null || version == '') {
+        version = '1';
+      }
+
+      const d = event.getMatchingTags('d')[0][1];
+      if (d != null) {
+        href = `publication?d=${d}`;
+      } else {
+        href = `publication?id=${neventEncode(event, relays)}`;
+      }
+    } catch (e) {
+      console.warn(e);
     }
-    let version = event.getMatchingTags('version')[0][1];
-    if (version == null || version == '') {
-      version = '1';
-    }
+  });
 
-    const d = event.getMatchingTags('d')[0][1];
-    if (d != null) {
-      href = `publication?d=${d}`;
-    } else {
-      href = `publication?id=${neventEncode(event, relays)}`;
-    }
-  } catch (e) {
-    console.warn(e);
-  }
-
-  let eventIdCopied: boolean = false;
   function copyEventId() {
     console.debug("copyEventID");
     const relays: string[] = standardRelays;
@@ -47,35 +51,32 @@
     eventIdCopied = true;
   }
 
-  let jsonModalOpen: boolean = false;
   function viewJson() {
     console.debug("viewJSON");
     jsonModalOpen = true;
   }
 
-  let shareLinkCopied: boolean = false;
   function shareNjump() {
-        const relays: string[] = standardRelays;
-        const dTag : string | undefined = event.dTag;
-  
-        if (typeof dTag === 'string') {
-          const opts: AddressPointer = {
-          identifier: dTag,
-          pubkey: event.pubkey,
-          kind: 30040,
-          relays
-        };
-        const naddr = naddrEncode(opts);
-        console.debug(naddr);
-        navigator.clipboard.writeText(`https://njump.me/${naddr}`);
-        shareLinkCopied = true;
-        }
-  
-        else {
-            console.log('dTag is undefined');
-          }
-            
-}
+    const relays: string[] = standardRelays;
+    const dTag : string | undefined = event.dTag;
+
+    if (typeof dTag === 'string') {
+      const opts: AddressPointer = {
+      identifier: dTag,
+      pubkey: event.pubkey,
+      kind: 30040,
+      relays
+    };
+    const naddr = naddrEncode(opts);
+      console.debug(naddr);
+      navigator.clipboard.writeText(`https://njump.me/${naddr}`);
+      shareLinkCopied = true;
+    }
+    
+    else {
+      console.log('dTag is undefined');
+    }
+  }
 
 </script>
 
