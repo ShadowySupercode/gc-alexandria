@@ -81,6 +81,31 @@
     @apply flex flex-col items-center;
   }
 
+  .note-leather .imageblock {
+    @apply flex flex-col space-y-2;
+  }
+
+  .note-leather .imageblock .content {
+    @apply flex justify-center;
+  }
+  .note-leather .imageblock .title {
+    @apply text-center;
+  }
+
+  .note-leather .imageblock.left .content {
+    @apply justify-start;
+  }
+  .note-leather .imageblock.left .title {  
+    @apply text-left;
+  }
+
+  .note-leather .imageblock.right .content {
+    @apply justify-end;
+  }
+  .note-leather .imageblock.right .title {
+    @apply text-right;
+  }
+
   .note-leather section p table td .literalblock {
     @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
   }
