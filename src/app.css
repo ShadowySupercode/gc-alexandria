@@ -94,8 +94,33 @@
   h2.h-leather,
   h3.h-leather,
   h4.h-leather,
-  h5.h-leather {
+  h5.h-leather,
+  h6.h-leather {
     @apply text-gray-800 dark:text-gray-300;
+  }
+
+  h1.h-leather {
+    @apply text-4xl font-bold;
+  }
+
+  h2.h-leather {
+    @apply text-3xl font-bold;
+  }
+
+  h3.h-leather {
+    @apply text-2xl font-bold;
+  }
+
+  h4.h-leather {
+    @apply text-xl font-bold;
+  }
+
+  h5.h-leather {
+    @apply text-lg font-semibold;
+  }
+
+  h6.h-leather {
+    @apply text-base font-semibold;
   }
 
   /* Modal */
