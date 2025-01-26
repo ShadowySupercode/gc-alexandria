@@ -1,7 +1,9 @@
 import { error } from '@sveltejs/kit';
-import type { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKRelay, NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
 import type { PageLoad } from './$types';
-import { pharosInstance } from '$lib/parser';
+import { get } from 'svelte/store';
+import { inboxRelays, ndkInstance } from '$lib/ndk';
+import { standardRelays } from '$lib/consts';
 
 export const load: PageLoad = async ({ url, parent }) => {
   const id = url.searchParams.get('id');
@@ -9,8 +11,15 @@ export const load: PageLoad = async ({ url, parent }) => {
 
   const { ndk, parser } = await parent();
 
-  let eventPromise: Promise<NDKEvent | null>;
+  const relaysToUse = get(inboxRelays).length > 0
+    ? get(inboxRelays)
+    : standardRelays;
+  const inboxRelaySet = new NDKRelaySet(
+    new Set(relaysToUse.map((relay) => new NDKRelay(relay))),
+    get(ndkInstance),
+  );
 
+  let eventPromise: Promise<NDKEvent | null>;
   let indexEvent: NDKEvent | null;
 
   if (id) {
@@ -22,7 +31,12 @@ export const load: PageLoad = async ({ url, parent }) => {
         error(404, `Failed to fetch publication root event for ID: ${id}\n${err}`);
       });
   } else if (dTag) {
-    eventPromise = ndk.fetchEvent({ '#d': [dTag] })
+    eventPromise = ndk
+      .fetchEvent(
+        { '#d': [dTag] },
+        { closeOnEose: true },
+        inboxRelaySet,
+      )
       .then((ev: NDKEvent | null) => {
         return ev;
       })
