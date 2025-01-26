@@ -8,7 +8,7 @@
 
   let {
     allowEditing,
-    depth,
+    depth = 0,
     isSectionStart,
     needsUpdate = $bindable<boolean>(),
     oncursorcapture, 
