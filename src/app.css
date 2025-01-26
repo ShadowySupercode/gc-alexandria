@@ -89,6 +89,10 @@
     @apply text-wrap break-words;
   }
 
+  .note-leather .listingblock pre {
+    @apply overflow-x-auto;
+  }
+
   /* Heading */
   h1.h-leather,
   h2.h-leather,
