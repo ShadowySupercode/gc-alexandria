@@ -16,6 +16,7 @@
     parentId,
     rootId,
     sectionClass,
+    publicationType,
   } = $props<{
     allowEditing?: boolean;
     depth?: number;
@@ -26,6 +27,7 @@
     parentId?: string | null | undefined;
     rootId: string;
     sectionClass?: string;
+    publicationType?: string;
   }>();
 
   let currentContent: string = $state($pharosInstance.getContent(rootId));
@@ -236,6 +238,7 @@
           <Self
             rootId={id}
             parentId={rootId}
+            publicationType={publicationType}
             depth={depth + 1}
             {allowEditing}
             {sectionClass}
