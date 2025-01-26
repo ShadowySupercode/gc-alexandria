@@ -83,32 +83,32 @@
     }
   });
 
-  const handleMouseEnter = (e: MouseEvent) => {
+  function handleMouseEnter(e: MouseEvent) {
     hasCursor = true;
     if (oncursorcapture) {
       oncursorcapture(e);
     }
-  };
+  }
 
-  const handleMouseLeave = (e: MouseEvent) => {
+  function handleMouseLeave(e: MouseEvent) {
     hasCursor = false;
     if (oncursorrelease) {
       oncursorrelease(e);
     }
-  };
+  }
 
-  const handleChildCursorCaptured = (e: MouseEvent) => {
+  function handleChildCursorCaptured(e: MouseEvent) {
     childHasCursor = true;
     if (oncursorcapture) {
       oncursorcapture(e);
     }
-  };
+  }
 
-  const handleChildCursorReleased = (e: MouseEvent) => {
+  function handleChildCursorReleased(e: MouseEvent) {
     childHasCursor = false;
   }
 
-  const toggleEditing = (id: string, shouldSave: boolean = true) => {
+  function toggleEditing(id: string, shouldSave: boolean = true) {
     const editing = isEditing;
 
     if (editing && shouldSave) {
@@ -120,9 +120,9 @@
     }
 
     isEditing = !editing;
-  };
+  }
 
-  const moveUp = (rootId: string, parentId: string) => {
+  function moveUp(rootId: string, parentId: string) {
     // Get the previous sibling and its index
     const [prevSiblingId, prevIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
     if (!prevSiblingId || prevIndex == null) {
@@ -134,7 +134,7 @@
     needsUpdate = true;
   };
 
-  const moveDown = (rootId: string, parentId: string) => {
+  function moveDown(rootId: string, parentId: string) {
     // Get the next sibling and its index 
     const [nextSiblingId, nextIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
     if (!nextSiblingId || nextIndex == null) {
@@ -144,7 +144,7 @@
     // Move the current event after the next sibling
     $pharosInstance.moveEvent(rootId, nextSiblingId, true);
     needsUpdate = true;
-  };
+  }
 </script>
 
 {#snippet sectionHeading(title: string, depth: number)}
