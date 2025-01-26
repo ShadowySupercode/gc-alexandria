@@ -20,7 +20,14 @@
     try {
       const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
       title = event.getMatchingTags('title')[0][1];
-      author = event.getMatchingTags('author')[0][1];
+    let author = event.getMatchingTags('author')[0][1];
+    if (author == null || author == '') {
+      author = 'unknown';
+    }
+    let version = event.getMatchingTags('version')[0][1];
+    if (version == null || version == '') {
+      version = '1';
+    }
 
       const d = event.getMatchingTags('d')[0][1];
       if (d != null) {
@@ -78,6 +85,9 @@
       <a href="/{href}" class='flex flex-col space-y-2'>
         <h2 class='text-lg font-bold'>{title}</h2>
         <h3 class='text-base font-normal'>by {author}</h3>
+        {#if version != '1'}
+          <h3 class='text-base font-normal'>version: {version}</h3>
+        {/if}
       </a>
       <div class='w-full flex space-x-2 justify-end'>
         <Button class='btn-leather' size='xs' on:click={shareNjump}><ShareNodesOutline /></Button>
