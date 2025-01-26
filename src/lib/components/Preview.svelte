@@ -177,6 +177,18 @@
   {/if}
 {/snippet}
 
+{#snippet contentParagraph(content: string, publicationType: string)}
+  {#if publicationType === 'book'}
+    <P class='whitespace-normal' firstupper={isSectionStart}>
+      {@html content}
+    </P>
+  {:else}
+    <P class='whitespace-normal' firstupper={false}>
+      {@html content}
+    </P>
+  {/if}
+{/snippet}
+
 <!-- This component is recursively structured.  The base case is single block of content. -->
 <section
   id={rootId}
@@ -213,9 +225,7 @@
           </Textarea>
         </form>
       {:else}
-        <P class='whitespace-normal' firstupper={isSectionStart}>
-          {@html currentContent}
-        </P>
+        {@render contentParagraph(currentContent, publicationType)}
       {/if}
     {/key}
   {:else}
