@@ -1,13 +1,18 @@
 <script lang='ts'>
-  import { FeedType, standardRelays } from '$lib/consts';
+  import { FeedType, feedTypeStorageKey, standardRelays } from '$lib/consts';
   import { Button, Dropdown, Radio } from 'flowbite-svelte';
   import { ChevronDownOutline } from 'flowbite-svelte-icons';
-  import { inboxRelays, ndkInstance, ndkSignedIn } from '$lib/ndk';
+  import { inboxRelays, ndkSignedIn } from '$lib/ndk';
   import PublicationFeed from '$lib/components/PublicationFeed.svelte';
 
-  let feedType: FeedType = $state(FeedType.StandardRelays);
+  let feedType: FeedType = $state(
+    localStorage.getItem(feedTypeStorageKey) as FeedType ?? FeedType.StandardRelays
+  );
 
-  // TODO: Remove feed type switching.  We will use relays only for now.
+  $effect(() => {
+    localStorage.setItem(feedTypeStorageKey, feedType);
+  });
+
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
     switch (feedType) {
     case FeedType.StandardRelays:
