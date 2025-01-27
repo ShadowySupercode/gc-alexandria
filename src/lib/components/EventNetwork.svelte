@@ -31,7 +31,7 @@
     id: string;
     event?: NDKEvent;
     level: number;
-    isContainer: boolean;
+    kind: number;
     title: string;
     content: string;
     author: string;
@@ -47,16 +47,19 @@
     target: NetworkNode;
     isSequential: boolean;
   }
+
   interface GraphData {
     nodes: NetworkNode[];
     links: NetworkLink[];
   }
+
   interface GraphState {
     nodeMap: Map<string, NetworkNode>;
     links: NetworkLink[];
     eventMap: Map<string, NDKEvent>;
     referencedIds: Set<string>;
   }
+
   function initializeGraphState(events: NDKEvent[]): GraphState {
     const nodeMap = new Map<string, NetworkNode>();
     const eventMap = createEventMap(events);
@@ -160,6 +163,7 @@
 
     processSequence(sequence, indexEvent, level, state, maxLevel);
   }
+
   /**
    * Creates a NetworkNode from an NDKEvent, including naddr generation
    * @param event The NDK event to convert into a network node
@@ -178,7 +182,6 @@
     const node: NetworkNode = {
       id: event.id,
       event,
-      index,
       isContainer,
       level: level || 0,
       title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
@@ -293,20 +296,6 @@
     const force = distance * 0.3 * alpha;
     updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
   }
-  function getNode(
-    id: string,
-    nodeMap: Map<string, NetworkNode>,
-    event?: NDKEvent,
-    index?: number,
-  ): NetworkNode | null {
-    if (!id) return null;
-
-    if (!nodeMap.has(id)) {
-      const node: NetworkNode = createNetworkNode(event, feedType, index, 0);
-      nodeMap.set(id, node);
-    }
-    return nodeMap.get(id) || null;
-  }
 
   function getEventColor(eventId: string): string {
     const num = parseInt(eventId.slice(0, 4), 16);
@@ -319,7 +308,7 @@
   // Generate the complete graph structure
   function generateGraph(
     events: NDKEvent[],
-    maxLevel: number = level,
+    maxLevel: number = $levelsToRender,
   ): GraphData {
     const state = initializeGraphState(events);
 
@@ -379,6 +368,7 @@
       );
     return dragBehavior;
   }
+
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
@@ -441,6 +431,7 @@
         const y = bounds.y;
 
         // Calculate scale to fit
+        //
         // const scale = 1.25 / Math.max(dx / width, dy / height);
         // const translate = [
         //   width / 2 - scale * (x + dx / 2),
@@ -587,6 +578,8 @@
         .style("left", `${pageX + 10}px`)
         .style("top", `${pageY - 10}px`);
     };
+
+    // Add event listeners
     node
       .on("mouseover", function (event, d) {
         if (!selectedNode) {
