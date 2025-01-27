@@ -73,11 +73,11 @@ function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKR
  * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.  Either set may be
  * empty if no relay lists were stored for the user.
  */
-function getPersistedRelays(user: NDKUser): [Set<NDKRelay>, Set<NDKRelay>] {
-  const inboxes = new Set<NDKRelay>(
+function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
+  const inboxes = new Set<string>(
     JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
   );
-  const outboxes = new Set<NDKRelay>(
+  const outboxes = new Set<string>(
     JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
   );
 
@@ -104,7 +104,7 @@ export function initNdk(): NDK {
     autoConnectUserRelays: true,
     enableOutboxModel: true,
     explicitRelayUrls: startingInboxes != null
-      ? Array.from(startingInboxes.values()).map(relay => relay.url)
+      ? Array.from(startingInboxes.values())
       : standardRelays,
   });
   ndk.connect().then(() => console.debug("ndk connected"));
