@@ -3,7 +3,6 @@
   import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
   import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
   import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
-  import { onMount } from 'svelte';
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
