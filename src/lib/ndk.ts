@@ -90,14 +90,22 @@ export function clearPersistedRelays(user: NDKUser): void {
 }
 
 /**
- * Initializes an instance of NDK, and connects it to the standard relays.
+ * Initializes an instance of NDK, and connects it to the logged-in user's preferred relay set
+ * (if available), or to Alexandria's standard relay set.
  * @returns The initialized NDK instance.
  */
 export function initNdk(): NDK {
+  const startingPubkey = getPersistedLogin();
+  const [startingInboxes, _] = startingPubkey != null
+    ? getPersistedRelays(new NDKUser({ pubkey: startingPubkey }))
+    : [null, null];
+
   const ndk = new NDK({
     autoConnectUserRelays: true,
     enableOutboxModel: true,
-    explicitRelayUrls: standardRelays,
+    explicitRelayUrls: startingInboxes != null
+      ? Array.from(startingInboxes.values()).map(relay => relay.url)
+      : standardRelays,
   });
   ndk.connect().then(() => console.debug("ndk connected"));
   return ndk;
