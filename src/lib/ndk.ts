@@ -146,8 +146,8 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
     ndk.signer = signer;
     ndk.activeUser = user;
 
-    ndkSignedIn.set(true);
     ndkInstance.set(ndk);
+    ndkSignedIn.set(true);
 
     return user;
   } catch (e) {
