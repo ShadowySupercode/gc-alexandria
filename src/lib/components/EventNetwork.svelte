@@ -10,11 +10,18 @@
 
   let svg: SVGSVGElement;
   let isDarkMode = false;
+  let container: HTMLDivElement;
+
+  let selectedNode: NetworkNode | null = null;
+  let tooltipVisible = false;
+  let tooltipX = 0;
+  let tooltipY = 0;
+  let tooltipNode: NetworkNode | null = null;
+
   const nodeRadius = 20;
   const linkDistance = 10;
   const arrowDistance = 10;
   const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
-  let container: HTMLDivElement;
 
   let width: number = 1000;
   let height: number = 600;
@@ -163,7 +170,6 @@
 
     processSequence(sequence, indexEvent, level, state, maxLevel);
   }
-
   /**
    * Creates a NetworkNode from an NDKEvent, including naddr generation
    * @param event The NDK event to convert into a network node
@@ -525,77 +531,29 @@
     node.select("text").text((d: NetworkNode) => (d.isContainer ? "I" : "C"));
     let selectedNode: NetworkNode | null = null;
     // Add tooltips
-    const tooltipDiv = d3
-      .select("body")
-      .append("div")
-      .attr(
-        "class",
-        "tooltip-leather fixed hidden p-4 rounded shadow-lg " +
-          "bg-primary-0 dark:bg-primary-800 " +
-          "border border-gray-200 dark:border-gray-800 " +
-          "p-4 rounded shadow-lg border border-gray-200 dark:border-gray-800 " +
-          "transition-colors duration-200",
-      )
-      .style("z-index", 1000);
 
-    const renderTooltip = (d: NetworkNode, pageX: number, pageY: number) => {
-      tooltipDiv
-        .html(
-          `
-    <div class="space-y-2">
-      <div class="font-bold text-base">${d.title}</div>
-      <div class="text-gray-600 dark:text-gray-400 text-sm">
-        ${d.type} (${d.isContainer ? "30040" : "30041"})
-      </div>
-      <div class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis">
-        ID:
-        ${d.id}
-        ${d.naddr}
-        ${d.nevent}
-
-      </div>
-      ${
-        d.content
-          ? `
-        <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
-          ${d.content}
-        </div>
-      `
-          : ""
-      }
-      ${
-        selectedNode === d
-          ? `
-        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Click node again to dismiss
-        </div>
-      `
-          : ""
-      }
-    </div>
-  `,
-        )
-        .style("left", `${pageX + 10}px`)
-        .style("top", `${pageY - 10}px`);
-    };
+    const renderTooltip = (d: NetworkNode, pageX: number, pageY: number) => {};
 
     // Add event listeners
     node
       .on("mouseover", function (event, d) {
         if (!selectedNode) {
-          tooltipDiv.style("display", "block");
-          renderTooltip(d, event.pageX, event.pageY);
+          tooltipVisible = true;
+          tooltipNode = d;
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
         }
       })
       .on("mousemove", function (event, d) {
         if (!selectedNode) {
-          tooltipDiv.style("display", "block");
-          renderTooltip(d, event.pageX, event.pageY);
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
         }
       })
       .on("mouseout", () => {
         if (!selectedNode) {
-          tooltipDiv.style("display", "none");
+          tooltipVisible = false;
+          tooltipNode = null;
         }
       })
       .on("click", function (event, d) {
@@ -604,11 +562,16 @@
 
         if (selectedNode === d) {
           selectedNode = null;
-          tooltipDiv.style("display", "none");
+          tooltipVisible = false;
+          tooltipNode = d;
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
         } else {
           selectedNode = d;
-          tooltipDiv.style("display", "block");
-          renderTooltip(d, event.pageX, event.pageY);
+          tooltipVisible = true;
+          tooltipNode = d;
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
         }
       });
 
@@ -682,6 +645,7 @@
     return () => {
       themeObserver.disconnect();
       resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
     };
   });
   // Reactive redaw
@@ -692,16 +656,39 @@
   }
 </script>
 
-<div
-  class="flex flex-col w-full h-[calc(100vh-120px)] min-h-[400px] max-h-[900px] p-4 gap-4"
->
-  <div class="h-[calc(100%-130px)] min-h-[300px]" bind:this={container}>
-    <svg
-      bind:this={svg}
-      class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
-    />
+{#snippet tooltipContent(node)}
+  <div class="space-y-2">
+    <div class="font-bold text-base">{node.title}</div>
+    <div class="text-gray-600 dark:text-gray-400 text-sm">
+      {node.type} ({node.isContainer ? "30040" : "30041"})
+    </div>
+    <div
+      class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis"
+    >
+      ID: {node.id}
+      {#if node.naddr}
+        <div>{node.naddr}</div>
+      {/if}
+      {#if node.nevent}
+        <div>{node.nevent}</div>
+      {/if}
+    </div>
+    {#if node.content}
+      <div
+        class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40"
+      >
+        {node.content}
+      </div>
+    {/if}
+    {#if selectedNode === node}
+      <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        Click node again to dismiss
+      </div>
+    {/if}
   </div>
-  <!-- Legend -->
+{/snippet}
+
+{#snippet legend()}
   <div class="leather-legend">
     <h3 class="text-lg font-bold mb-2 h-leather">Legend</h3>
     <ul class="legend-list">
@@ -716,7 +703,6 @@
         </div>
         <span>Index events (kind 30040) - Each with a unique pastel color</span>
       </li>
-
       <li class="legend-item">
         <div class="legend-icon">
           <span class="legend-circle content"></span>
@@ -724,7 +710,6 @@
         </div>
         <span>Content events (kind 30041) - Publication sections</span>
       </li>
-
       <li class="legend-item">
         <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
           <path d="M4 12h16M16 6l6 6-6 6" class="network-link-leather" />
@@ -733,6 +718,29 @@
       </li>
     </ul>
   </div>
+{/snippet}
+
+<div
+  class="flex flex-col w-full h-[calc(100vh-120px)] min-h-[400px] max-h-[900px] p-4 gap-4"
+>
+  <div class="h-[calc(100%-130px)] min-h-[300px]" bind:this={container}>
+    <svg
+      bind:this={svg}
+      class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
+    />
+  </div>
+  <!-- Tooltip -->
+  {#if tooltipVisible && tooltipNode}
+    <div
+      class="tooltip-leather fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-800
+             border border-gray-200 dark:border-gray-800 transition-colors duration-200"
+      style="left: {tooltipX + 10}px; top: {tooltipY - 10}px; z-index: 1000;"
+    >
+      {@render tooltipContent(tooltipNode)}
+    </div>
+  {/if}
+
+  {@render legend()}
 </div>
 
 <style>
