@@ -5,10 +5,6 @@
   import { nip19 } from "nostr-tools";
   import { FeedType, standardRelays } from "$lib/consts";
   import { levelsToRender } from "$lib/state";
-  let levels;
-  levelsToRender.subscribe((value) => {
-    levels = value;
-  });
   export let events: NDKEvent[] = [];
   let feedType: FeedType = FeedType.StandardRelays;
 
@@ -386,7 +382,7 @@
   function drawNetwork() {
     if (!svg || !events?.length) return;
 
-    const { nodes, links } = generateGraph(events, levels);
+    const { nodes, links } = generateGraph(events, $levelsToRender);
     if (!nodes.length) return;
 
     const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
