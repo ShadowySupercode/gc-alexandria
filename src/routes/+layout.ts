@@ -1,10 +1,17 @@
+import { feedTypeStorageKey } from '$lib/consts';
+import { FeedType } from '$lib/consts';
 import { getPersistedLogin, initNdk, loginWithExtension, ndkInstance } from '$lib/ndk';
 import Pharos, { pharosInstance } from '$lib/parser';
+import { feedType } from '$lib/stores';
 import type { LayoutLoad } from './$types';
 
 export const ssr = false;
 
 export const load: LayoutLoad = () => {
+  const initialFeedType = localStorage.getItem(feedTypeStorageKey) as FeedType
+    ?? FeedType.StandardRelays;
+  feedType.set(initialFeedType);
+
   const ndk = initNdk();
   ndkInstance.set(ndk);
 

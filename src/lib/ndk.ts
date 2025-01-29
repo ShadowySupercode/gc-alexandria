@@ -1,6 +1,7 @@
-import NDK, { NDKNip07Signer, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { loginStorageKey, standardRelays } from './consts';
+import { FeedType, feedTypeStorageKey, loginStorageKey, standardRelays } from './consts';
+import { feedType } from './stores';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -87,6 +88,26 @@ function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
 export function clearPersistedRelays(user: NDKUser): void {
   localStorage.removeItem(getRelayStorageKey(user, 'inbox'));
   localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
+}
+
+export function getActiveRelays(ndk: NDK): NDKRelaySet {
+  return get(feedType) === FeedType.UserRelays
+    ? new NDKRelaySet(
+        new Set(get(inboxRelays).map(relay => new NDKRelay(
+          relay,
+          NDKRelayAuthPolicies.signIn({ ndk }),
+          ndk,
+        ))),
+        ndk
+      )
+    : new NDKRelaySet(
+        new Set(standardRelays.map(relay => new NDKRelay(
+          relay,
+          NDKRelayAuthPolicies.signIn({ ndk }),
+          ndk,
+        ))),
+        ndk
+      );
 }
 
 /**
