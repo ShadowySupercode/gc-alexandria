@@ -80,7 +80,7 @@
         {/if}
       </a>
       <div class='w-full flex space-x-2 justify-end'>
-        <Button class='btn-leather' size='xs' on:click={shareNjump}><ShareNodesOutline /></Button>
+        <Button class='btn-leather' size='xs' onclick={shareNjump}><ShareNodesOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => shareLinkCopied = false}>
           {#if shareLinkCopied}
             <ClipboardCheckOutline />
@@ -88,7 +88,7 @@
             Share via NJump
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline on:click={copyEventId}><ClipboardCleanOutline /></Button>
+        <Button class='btn-leather' size='xs' outline onclick={copyEventId}><ClipboardCleanOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => eventIdCopied = false}>
           {#if eventIdCopied}
             <ClipboardCheckOutline />
@@ -96,7 +96,7 @@
             Copy event ID
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline on:click={viewJson}><CodeOutline /></Button>
+        <Button class='btn-leather' size='xs' outline onclick={viewJson}><CodeOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top'>View JSON</Tooltip>
       </div>
     </div>
