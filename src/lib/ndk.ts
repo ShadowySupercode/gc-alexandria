@@ -107,6 +107,9 @@ export function initNdk(): NDK {
       ? Array.from(startingInboxes.values())
       : standardRelays,
   });
+
+  // TODO: Should we prompt the user to confirm authentication?
+  ndk.relayAuthDefaultPolicy = NDKRelayAuthPolicies.signIn({ ndk });
   ndk.connect().then(() => console.debug("ndk connected"));
   return ndk;
 }
@@ -191,14 +194,14 @@ async function getUserPreferredRelays(
     relayList.tags.forEach(tag => {
       switch (tag[0]) {
         case 'r':
-          inboxRelays.add(new NDKRelay(tag[1]));
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
         case 'w':
-          outboxRelays.add(new NDKRelay(tag[1]));
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
         default:
-          inboxRelays.add(new NDKRelay(tag[1]));
-          outboxRelays.add(new NDKRelay(tag[1]));
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
       }
     });
