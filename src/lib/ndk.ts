@@ -204,29 +204,34 @@ async function getUserPreferredRelays(
     authors: [user.pubkey],
   });
 
-  if (relayLists.size === 0) {
-    throw new Error(`No relay lists found for the given user: ${user.pubkey}`);
-  }
-
   const inboxRelays = new Set<NDKRelay>();
   const outboxRelays = new Set<NDKRelay>();
 
-  relayLists.forEach(relayList => {
-    relayList.tags.forEach(tag => {
-      switch (tag[0]) {
-        case 'r':
-          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-          break;
-        case 'w':
-          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-          break;
-        default:
-          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-          break;
-      }
+  if (relayLists.size === 0) {
+    const relayMap = await window.nostr?.getRelays?.();
+    Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
+      const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+      if (relayType.read) inboxRelays.add(relay);
+      if (relayType.write) outboxRelays.add(relay);
     });
-  });
+  } else {
+    relayLists?.forEach(relayList => {
+      relayList.tags.forEach(tag => {
+        switch (tag[0]) {
+          case 'r':
+            inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+            break;
+          case 'w':
+            outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+            break;
+          default:
+            inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+            outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+            break;
+        }
+      });
+    });
+  }
 
   return [inboxRelays, outboxRelays];
 }
