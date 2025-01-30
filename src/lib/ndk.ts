@@ -148,8 +148,9 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
     const signer = new NDKNip07Signer();
     const signerUser = await signer.user();
 
+    // TODO: Handle changing pubkeys.
     if (pubkey && signerUser.pubkey !== pubkey) {
-      throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
+      console.debug('Switching pubkeys from last login.');
     }
 
     activePubkey.set(signerUser.pubkey);
