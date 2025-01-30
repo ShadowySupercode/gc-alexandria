@@ -2,12 +2,13 @@
   import { onMount } from "svelte";
   import * as d3 from "d3";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { FeedType } from "$lib/consts";
   import { levelsToRender } from "$lib/state";
-  import { generateGraph } from "./EventNetwork/graphUtils";
-  import { getEventColor } from "./EventNetwork/nodeUtils";
-  import { setupDragHandlers, applyGlobalLogGravity, applyConnectedGravity } from "./EventNetwork/simulationUtils";
-  import type { NetworkNode } from "./EventNetwork/types";
+  import { FeedType } from "$lib/consts";
+  import type { NetworkNode, NetworkLink } from "./types";
+  import { generateGraph, getEventColor } from "./graphUtils";
+  import { createSimulation, setupDragHandlers, applyGlobalLogGravity, applyConnectedGravity } from "./forceUtils";
+  import Legend from "./Legend.svelte";
+  import NodeTooltip from "./NodeTooltip.svelte";
 
   export let events: NDKEvent[] = [];
   let feedType: FeedType = FeedType.StandardRelays;
@@ -25,7 +26,6 @@
   const nodeRadius = 20;
   const linkDistance = 10;
   const arrowDistance = 10;
-  const warmupClickEnergy = 0.9; // Energy to restart simulation on drag
 
   let width: number = 1000;
   let height: number = 600;
@@ -45,7 +45,6 @@
     if (!nodes.length) return;
 
     const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
-    // Set up zoom behavior
     let g = svgElement.append("g");
 
     const zoom = d3
@@ -59,6 +58,8 @@
     if (g.empty()) {
       g = svgElement.append("g");
     }
+
+    // Set up arrow marker
     svgElement.select("defs").remove();
     const defs = svgElement.append("defs");
     defs
@@ -77,29 +78,9 @@
       .attr("fill", "none")
       .attr("stroke-width", 1);
 
-    // Force simulation setup
-    const simulation = d3
-      .forceSimulation<NetworkNode>(nodes)
-      .force(
-        "link",
-        d3
-          .forceLink<NetworkNode, NetworkLink>(links)
-          .id((d) => d.id)
-          .distance(linkDistance * 0.1),
-      )
-      .force("collide", d3.forceCollide<NetworkNode>().radius(nodeRadius * 4));
-
-    simulation.on("end", () => {
-      const bounds = g.node()?.getBBox();
-      if (bounds) {
-        const dx = bounds.width;
-        const dy = bounds.height;
-        const x = bounds.x;
-        const y = bounds.y;
-      }
-    });
-
-    const dragHandler = setupDragHandlers(simulation, warmupClickEnergy);
+    // Create simulation
+    const simulation = createSimulation(nodes, links, nodeRadius, linkDistance);
+    const dragHandler = setupDragHandlers(simulation);
 
     // Create links
     const link = g
@@ -127,6 +108,7 @@
             .attr("class", "node network-node-leather")
             .call(dragHandler);
 
+          // Drag circle
           nodeEnter
             .append("circle")
             .attr("r", nodeRadius * 2.5)
@@ -134,6 +116,7 @@
             .attr("stroke", "transparent")
             .style("cursor", "move");
 
+          // Visual circle
           nodeEnter
             .append("circle")
             .attr("r", nodeRadius)
@@ -144,6 +127,7 @@
             )
             .attr("stroke-width", 2);
 
+          // Text labels
           nodeEnter
             .append("text")
             .attr("dy", "0.35em")
@@ -157,6 +141,7 @@
         (exit) => exit.remove(),
       );
 
+    // Update node colors
     node
       .select("circle:nth-child(2)")
       .attr("fill", (d: NetworkNode) =>
@@ -169,7 +154,7 @@
 
     node.select("text").text((d: NetworkNode) => (d.isContainer ? "I" : "C"));
 
-    // Add event listeners
+    // Handle tooltips and selection
     node
       .on("mouseover", function (event, d) {
         if (!selectedNode) {
@@ -193,8 +178,6 @@
       })
       .on("click", function (event, d) {
         event.stopPropagation();
-        console.log("Clicked node", d);
-
         if (selectedNode === d) {
           selectedNode = null;
           tooltipVisible = false;
@@ -216,6 +199,8 @@
         applyGlobalLogGravity(node, width / 2, height / 2, simulation.alpha());
         applyConnectedGravity(node, links, simulation.alpha());
       });
+
+      // Update link positions
       link.attr("d", (d) => {
         const dx = d.target.x! - d.source.x!;
         const dy = d.target.y! - d.source.y!;
@@ -231,18 +216,19 @@
 
         return `M${startX},${startY}L${endX},${endY}`;
       });
+
+      // Update node positions
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
   }
 
   onMount(() => {
     isDarkMode = document.body.classList.contains("dark");
-    // Add window resize listener
+    
+    // Handle window resizing
     const handleResize = () => {
       windowHeight = window.innerHeight;
     };
-
-    // Initial resize
     windowHeight = window.innerHeight;
     window.addEventListener("resize", handleResize);
 
@@ -263,19 +249,16 @@
         width = entry.contentRect.width;
         height = graphHeight;
       }
-
-      // first remove all nodes and links
       d3.select(svg).selectAll("*").remove();
       drawNetwork();
     });
 
-    // Start observers
     themeObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
     resizeObserver.observe(container);
-    // Clean up
+    
     return () => {
       themeObserver.disconnect();
       resizeObserver.disconnect();
@@ -291,70 +274,6 @@
   }
 </script>
 
-{#snippet tooltipContent(node)}
-  <div class="space-y-2">
-    <div class="font-bold text-base">{node.title}</div>
-    <div class="text-gray-600 dark:text-gray-400 text-sm">
-      {node.type} ({node.isContainer ? "30040" : "30041"})
-    </div>
-    <div
-      class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis"
-    >
-      ID: {node.id}
-      {#if node.naddr}
-        <div>{node.naddr}</div>
-      {/if}
-      {#if node.nevent}
-        <div>{node.nevent}</div>
-      {/if}
-    </div>
-    {#if node.content}
-      <div
-        class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40"
-      >
-        {node.content}
-      </div>
-    {/if}
-    {#if selectedNode === node}
-      <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        Click node again to dismiss
-      </div>
-    {/if}
-  </div>
-{/snippet}
-
-{#snippet legend()}
-  <div class="leather-legend">
-    <h3 class="text-lg font-bold mb-2 h-leather">Legend</h3>
-    <ul class="legend-list">
-      <li class="legend-item">
-        <div class="legend-icon">
-          <span
-            class="legend-circle"
-            style="background-color: hsl(200, 70%, 75%)"
-          >
-          </span>
-          <span class="legend-letter">I</span>
-        </div>
-        <span>Index events (kind 30040) - Each with a unique pastel color</span>
-      </li>
-      <li class="legend-item">
-        <div class="legend-icon">
-          <span class="legend-circle content"></span>
-          <span class="legend-letter">C</span>
-        </div>
-        <span>Content events (kind 30041) - Publication sections</span>
-      </li>
-      <li class="legend-item">
-        <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
-          <path d="M4 12h16M16 6l6 6-6 6" class="network-link-leather" />
-        </svg>
-        <span>Arrows indicate reading/sequence order</span>
-      </li>
-    </ul>
-  </div>
-{/snippet}
-
 <div
   class="flex flex-col w-full h-[calc(100vh-120px)] min-h-[400px] max-h-[900px] p-4 gap-4"
 >
@@ -364,43 +283,15 @@
       class="w-full h-full border border-gray-300 dark:border-gray-700 rounded"
     />
   </div>
-  <!-- Tooltip -->
+
   {#if tooltipVisible && tooltipNode}
-    <div
-      class="tooltip-leather fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-800
-             border border-gray-200 dark:border-gray-800 transition-colors duration-200"
-      style="left: {tooltipX + 10}px; top: {tooltipY - 10}px; z-index: 1000;"
-    >
-      {@render tooltipContent(tooltipNode)}
-    </div>
+    <NodeTooltip
+      node={tooltipNode}
+      selected={tooltipNode === selectedNode}
+      x={tooltipX}
+      y={tooltipY}
+    />
   {/if}
 
-  {@render legend()}
+  <Legend />
 </div>
-
-<style>
-  .legend-list {
-    @apply list-disc pl-5 space-y-2 text-gray-800 dark:text-gray-300;
-  }
-
-  .legend-item {
-    @apply flex items-center;
-  }
-
-  .legend-icon {
-    @apply relative w-6 h-6 mr-2;
-  }
-
-  .legend-circle {
-    @apply absolute inset-0 rounded-full border-2 border-black;
-  }
-
-  .legend-circle.content {
-    @apply bg-gray-700 dark:bg-gray-300;
-    background-color: #d6c1a8;
-  }
-
-  .legend-letter {
-    @apply absolute inset-0 flex items-center justify-center text-black text-xs;
-  }
-</style>
