@@ -1,6 +1,6 @@
-import NDK, { NDKEvent, NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
+import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { FeedType, feedTypeStorageKey, loginStorageKey, standardRelays } from './consts';
+import { bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
 import { feedType } from './stores';
 
 export const ndkInstance: Writable<NDK> = writable();
@@ -198,17 +198,26 @@ export function logout(user: NDKUser): void {
  */
 async function getUserPreferredRelays(
   ndk: NDK,
-  user: NDKUser
+  user: NDKUser,
+  bootstraps: readonly string[] = bootstrapRelays
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayLists = await ndk.fetchEvents({
-    kinds: [10002],
-    authors: [user.pubkey],
-  });
+  const relayList = await ndk.fetchEvent(
+    {
+      kinds: [10002],
+      authors: [user.pubkey],
+    },
+    { 
+      groupable: false,
+      skipVerification: false,
+      skipValidation: false,
+    },
+    NDKRelaySet.fromRelayUrls(bootstraps, ndk),
+  );
 
   const inboxRelays = new Set<NDKRelay>();
   const outboxRelays = new Set<NDKRelay>();
 
-  if (relayLists.size === 0) {
+  if (relayList == null) {
     const relayMap = await window.nostr?.getRelays?.();
     Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
       const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
@@ -216,21 +225,19 @@ async function getUserPreferredRelays(
       if (relayType.write) outboxRelays.add(relay);
     });
   } else {
-    relayLists?.forEach(relayList => {
-      relayList.tags.forEach(tag => {
-        switch (tag[0]) {
-          case 'r':
-            inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-            break;
-          case 'w':
-            outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-            break;
-          default:
-            inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-            outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-            break;
-        }
-      });
+    relayList.tags.forEach(tag => {
+      switch (tag[0]) {
+        case 'r':
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          break;
+        case 'w':
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          break;
+        default:
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          break;
+      }
     });
   }
 
