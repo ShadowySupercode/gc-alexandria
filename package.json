@@ -13,14 +13,18 @@
     "format": "prettier --plugin-search-dir . --write ."
   },
   "dependencies": {
+    "@langchain/anthropic": "^0.1.1",
+    "@langchain/community": "^0.0.24",
     "@nostr-dev-kit/ndk": "2.10.x",
     "@nostr-dev-kit/ndk-cache-dexie": "2.5.x",
     "@popperjs/core": "2.11.x",
     "@tailwindcss/forms": "0.5.x",
     "@tailwindcss/typography": "0.5.x",
+    "@xenova/transformers": "^2.15.1",
     "asciidoctor": "3.0.x",
     "d3": "^7.9.0",
     "he": "1.2.x",
+    "langchain": "^0.1.13",
     "nostr-tools": "2.10.x"
   },
   "devDependencies": {
