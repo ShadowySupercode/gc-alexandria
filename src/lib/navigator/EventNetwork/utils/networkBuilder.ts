@@ -1,7 +1,51 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type { NetworkNode, NetworkLink, GraphData, GraphState } from "./types";
-import { createNetworkNode } from "./nodeUtils";
-import { FeedType } from "$lib/consts";
+import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
+import { nip19 } from "nostr-tools";
+import { standardRelays } from "$lib/consts";
+
+/**
+ * Creates a NetworkNode from an NDKEvent
+ */
+export function createNetworkNode(
+    event: NDKEvent,
+    level: number = 0
+): NetworkNode {
+    const isContainer = event.kind === 30040;
+
+    const node: NetworkNode = {
+        id: event.id,
+        event,
+        isContainer,
+        level,
+        title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
+        content: event.content || "",
+        author: event.pubkey || "",
+        kind: event.kind,
+        type: event?.kind === 30040 ? "Index" : "Content",
+    };
+
+    if (event.kind && event.pubkey) {
+        try {
+            const dTag = event.getMatchingTags("d")?.[0]?.[1] || "";
+            node.naddr = nip19.naddrEncode({
+                pubkey: event.pubkey,
+                identifier: dTag,
+                kind: event.kind,
+                relays: standardRelays,
+            });
+
+            node.nevent = nip19.neventEncode({
+                id: event.id,
+                relays: standardRelays,
+                kind: event.kind,
+            });
+        } catch (error) {
+            console.warn("Failed to generate identifiers for node:", error);
+        }
+    }
+
+    return node;
+}
 
 export function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
     const eventMap = new Map<string, NDKEvent>();
@@ -17,6 +61,17 @@ export function extractEventIdFromATag(tag: string[]): string | null {
     return tag[3] || null;
 }
 
+/**
+ * Generates a color for an event based on its ID
+ */
+export function getEventColor(eventId: string): string {
+    const num = parseInt(eventId.slice(0, 4), 16);
+    const hue = num % 360;
+    const saturation = 70;
+    const lightness = 75;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
 export function initializeGraphState(events: NDKEvent[]): GraphState {
     const nodeMap = new Map<string, NetworkNode>();
     const eventMap = createEventMap(events);
@@ -24,7 +79,7 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
     // Create initial nodes
     events.forEach((event) => {
         if (!event.id) return;
-        const node: NetworkNode = createNetworkNode(event, FeedType.StandardRelays, 0, 0);
+        const node = createNetworkNode(event);
         nodeMap.set(event.id, node);
     });
 
