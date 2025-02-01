@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import EventNetwork from "$lib/components/EventNetwork.svelte";
+  import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";

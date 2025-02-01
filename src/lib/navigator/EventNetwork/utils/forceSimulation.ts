@@ -1,7 +1,14 @@
-import type { NetworkNode, NetworkLink } from "./types";
+/**
+ * D3 force simulation utilities for the event network
+ */
+
+import type { NetworkNode, NetworkLink } from "../types";
 import type { Simulation } from "d3";
 import * as d3 from "d3";
 
+/**
+ * Updates a node's velocity
+ */
 export function updateNodeVelocity(
     node: NetworkNode,
     deltaVx: number,
@@ -13,6 +20,9 @@ export function updateNodeVelocity(
     }
 }
 
+/**
+ * Applies a logarithmic gravity force to a node
+ */
 export function applyGlobalLogGravity(
     node: NetworkNode,
     centerX: number,
@@ -29,6 +39,9 @@ export function applyGlobalLogGravity(
     updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
 }
 
+/**
+ * Applies gravity between connected nodes
+ */
 export function applyConnectedGravity(
     node: NetworkNode,
     links: NetworkLink[],
@@ -57,6 +70,9 @@ export function applyConnectedGravity(
     updateNodeVelocity(node, (dx / distance) * force, (dy / distance) * force);
 }
 
+/**
+ * Sets up drag behavior for nodes
+ */
 export function setupDragHandlers(
     simulation: Simulation<NetworkNode, NetworkLink>,
     warmupClickEnergy: number = 0.9
@@ -98,6 +114,9 @@ export function setupDragHandlers(
         );
 }
 
+/**
+ * Creates a D3 force simulation for the network
+ */
 export function createSimulation(
     nodes: NetworkNode[],
     links: NetworkLink[],

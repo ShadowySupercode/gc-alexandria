@@ -1,5 +1,4 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type * as d3 from "d3";
 
 export interface NetworkNode extends d3.SimulationNodeDatum {
     id: string;
@@ -14,10 +13,6 @@ export interface NetworkNode extends d3.SimulationNodeDatum {
     nevent?: string;
     x?: number;
     y?: number;
-    vx?: number;
-    vy?: number;
-    fx?: number | null;
-    fy?: number | null;
     isContainer?: boolean;
 }
 
