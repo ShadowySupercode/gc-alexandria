@@ -1,15 +1,23 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import EventNetwork from "$lib/components/EventNetwork.svelte";
+  import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
+  import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
+
   import { networkFetchLimit } from "$lib/state";
+  import { fly } from "svelte/transition";
+  import { quintOut } from "svelte/easing";
+  import { CogSolid } from "flowbite-svelte-icons";
+  import { Button, Tooltip } from "flowbite-svelte";
 
   let events: NDKEvent[] = [];
   let loading = true;
   let error: string | null = null;
+  // panel visibility
+  let showSettings = false;
 
   async function fetchEvents() {
     try {
@@ -32,8 +40,9 @@
       // Get all the content event IDs referenced by the index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
-        event.getMatchingTags("e").forEach((tag) => {
-          contentEventIds.add(tag[1]);
+        event.getMatchingTags("a").forEach((tag) => {
+          let eventId = tag[3];
+          contentEventIds.add(eventId);
         });
       });
 
@@ -69,15 +78,45 @@
   });
 </script>
 
-<div class="leather w-full p-4">
+<div class="leather w-full p-4 relative">
   <h1 class="h-leather text-2xl font-bold mb-4">Publication Network</h1>
-  {#if !loading && !error}
-    <span class="text-sm text-gray-600 dark:text-gray-400">
-      Showing {events.length} events from {$networkFetchLimit} headers
-    </span>
-    <EventLimitControl on:update={handleLimitUpdate} />
-  {/if}
+  <!-- Settings Toggle Button -->
 
+  <!-- Settings Button - Using Flowbite Components -->
+  {#if !loading && !error}
+    <Button
+      class="btn-leather fixed right-4 top-24 z-40 rounded-lg min-w-[150px]"
+      size="sm"
+      on:click={() => (showSettings = !showSettings)}
+    >
+      <CogSolid class="mr-2 h-5 w-5" />
+      Settings
+    </Button>
+
+    <!-- Settings Panel -->
+    {#if showSettings}
+      <div
+        class="fixed right-0 top-[140px] h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-30
+               overflow-y-auto max-h-[calc(100vh-96px)] rounded-l-lg border-l border-t border-b
+               border-gray-200 dark:border-gray-700"
+        transition:fly={{ duration: 300, x: 320, opacity: 1, easing: quintOut }}
+      >
+        <div class="card space-y-4">
+          <h2 class="text-xl font-bold mb-4 h-leather">
+            Visualization Settings
+          </h2>
+
+          <div class="space-y-4">
+            <span class="text-sm text-gray-600 dark:text-gray-400">
+              Showing {events.length} events from {$networkFetchLimit} headers
+            </span>
+            <EventLimitControl on:update={handleLimitUpdate} />
+            <EventRenderLevelLimit on:update={handleLimitUpdate} />
+          </div>
+        </div>
+      </div>
+    {/if}
+  {/if}
   {#if loading}
     <div class="flex justify-center items-center h-64">
       <div role="status">

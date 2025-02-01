@@ -12,3 +12,4 @@ export const userPublickey: Writable<string> = writable(
   (browser && localStorage.getItem("wikinostr_loggedInPublicKey")) || "",
 );
 export const networkFetchLimit: Writable<number> = writable(5);
+export const levelsToRender: Writable<number> = writable(3);
