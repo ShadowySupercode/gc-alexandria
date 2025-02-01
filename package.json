@@ -13,7 +13,7 @@
     "format": "prettier --plugin-search-dir . --write ."
   },
   "dependencies": {
-    "@nostr-dev-kit/ndk": "2.10.x",
+    "@nostr-dev-kit/ndk": "2.11.x",
     "@nostr-dev-kit/ndk-cache-dexie": "2.5.x",
     "@popperjs/core": "2.11.x",
     "@tailwindcss/forms": "0.5.x",

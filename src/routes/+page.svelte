@@ -1,13 +1,15 @@
 <script lang='ts'>
-  import { FeedType, standardRelays } from '$lib/consts';
+  import { FeedType, feedTypeStorageKey, standardRelays } from '$lib/consts';
   import { Button, Dropdown, Radio } from 'flowbite-svelte';
   import { ChevronDownOutline } from 'flowbite-svelte-icons';
-  import { inboxRelays, ndkInstance, ndkSignedIn } from '$lib/ndk';
+  import { inboxRelays, ndkSignedIn } from '$lib/ndk';
   import PublicationFeed from '$lib/components/PublicationFeed.svelte';
+  import { feedType } from '$lib/stores';
 
-  let feedType: FeedType = $state(FeedType.StandardRelays);
+  $effect(() => {
+    localStorage.setItem(feedTypeStorageKey, $feedType);
+  });
 
-  // TODO: Remove feed type switching.  We will use relays only for now.
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
     switch (feedType) {
     case FeedType.StandardRelays:
@@ -26,20 +28,20 @@
   {:else}
     <div class='leather w-full flex justify-end'>
       <Button>
-        {`Showing articles from: ${getFeedTypeFriendlyName(feedType)}`}<ChevronDownOutline class='w-6 h-6' />
+        {`Showing articles from: ${getFeedTypeFriendlyName($feedType)}`}<ChevronDownOutline class='w-6 h-6' />
       </Button>
       <Dropdown class='w-fit p-2 space-y-2 text-sm'>
         <li>
-          <Radio name='relays' bind:group={feedType} value={FeedType.StandardRelays}>Alexandria's Relays</Radio>
+          <Radio name='relays' bind:group={$feedType} value={FeedType.StandardRelays}>Alexandria's Relays</Radio>
         </li>
         <li>
-          <Radio name='follows' bind:group={feedType} value={FeedType.UserRelays}>Your Relays</Radio>
+          <Radio name='follows' bind:group={$feedType} value={FeedType.UserRelays}>Your Relays</Radio>
         </li>
       </Dropdown>
     </div>
-    {#if feedType === FeedType.StandardRelays}
+    {#if $feedType === FeedType.StandardRelays}
       <PublicationFeed relays={standardRelays} />
-    {:else if feedType === FeedType.UserRelays}
+    {:else if $feedType === FeedType.UserRelays}
       <PublicationFeed relays={$inboxRelays} />
     {/if}
   {/if}

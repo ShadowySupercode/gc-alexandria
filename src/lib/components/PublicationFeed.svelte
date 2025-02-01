@@ -27,9 +27,9 @@
         until: before,
       },
       { 
-        groupable: true,
+        groupable: false,
         skipVerification: false,
-        skipValidation: false
+        skipValidation: false,
       },
       NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
     );

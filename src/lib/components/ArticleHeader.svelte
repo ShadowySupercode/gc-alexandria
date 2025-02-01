@@ -9,37 +9,26 @@
 
   const { event } = $props<{ event: NDKEvent }>();
 
-  let title: string = $state('');
-  let author: string = $state('');
-  let version: string = $state('');
-  let href: string = $state('');
+  const relays = $derived.by(() => {
+    return $ndkInstance.activeUser?.relayUrls ?? standardRelays;
+  });
+
+  const href = $derived.by(() => {
+    const d = event.getMatchingTags('d')[0]?.[1];
+    if (d != null) {
+      return `publication?d=${d}`;
+    } else {
+      return `publication?id=${neventEncode(event, relays)}`;
+    }
+  });
+
+  let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
+  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
+  let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
+
   let eventIdCopied: boolean = $state(false);
   let jsonModalOpen: boolean = $state(false);
   let shareLinkCopied: boolean = $state(false);
-
-  $effect(() => {
-    try {
-      const relays = $ndkInstance.activeUser?.relayUrls ?? standardRelays;
-      title = event.getMatchingTags('title')[0][1];
-      author = event.getMatchingTags('author')[0][1];
-      if (author == null || author == '') {
-        author = 'unknown';
-      }
-      version = event.getMatchingTags('version')[0][1];
-      if (version == null || version == '') {
-        version = '1';
-      }
-
-      const d = event.getMatchingTags('d')[0][1];
-      if (d != null) {
-        href = `publication?d=${d}`;
-      } else {
-        href = `publication?id=${neventEncode(event, relays)}`;
-      }
-    } catch (e) {
-      console.warn(e);
-    }
-  });
 
   function copyEventId() {
     console.debug("copyEventID");
@@ -91,7 +80,7 @@
         {/if}
       </a>
       <div class='w-full flex space-x-2 justify-end'>
-        <Button class='btn-leather' size='xs' on:click={shareNjump}><ShareNodesOutline /></Button>
+        <Button class='btn-leather' size='xs' onclick={shareNjump}><ShareNodesOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => shareLinkCopied = false}>
           {#if shareLinkCopied}
             <ClipboardCheckOutline />
@@ -99,7 +88,7 @@
             Share via NJump
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline on:click={copyEventId}><ClipboardCleanOutline /></Button>
+        <Button class='btn-leather' size='xs' outline onclick={copyEventId}><ClipboardCleanOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => eventIdCopied = false}>
           {#if eventIdCopied}
             <ClipboardCheckOutline />
@@ -107,7 +96,7 @@
             Copy event ID
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline on:click={viewJson}><CodeOutline /></Button>
+        <Button class='btn-leather' size='xs' outline onclick={viewJson}><CodeOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top'>View JSON</Tooltip>
       </div>
     </div>
