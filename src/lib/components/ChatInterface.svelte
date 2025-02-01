@@ -9,32 +9,30 @@
   import { quintOut } from "svelte/easing";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
-  // Props
-  export let events: NDKEvent[] = [];
+  // Props using Svelte 5 syntax
+  let { events = [] } = $props<{ events?: NDKEvent[] }>();
 
   // State Management
-  let vectorStore = null;
-  let messages: Array<{ role: string; content: string }> = [];
-  let userInput = "";
-  let isLoading = false;
-  let chatAnthropic: ChatAnthropic | null = null;
-  let initializationError = null;
-  let tempApiKey = "";
-
-  // Compute visibility based on advanced mode and API key
-  $: isVisible = $advancedMode;
-  $: showApiForm = isVisible && !$apiKey;
-  $: showChat = isVisible && $apiKey;
+  let vectorStore = $state(null);
+  let messages = $state<Array<{ role: string; content: string }>>([]);
+  let userInput = $state("");
+  let isLoading = $state(false);
+  let chatAnthropic = $state<ChatAnthropic | null>(null);
+  let initializationError = $state(null);
 
   // Initialize chat when API key is available
-  $: if ($apiKey && !chatAnthropic) {
-    initializeChat();
-  }
+  $effect(() => {
+    if ($apiKey && !chatAnthropic) {
+      initializeChat();
+    }
+  });
 
   // Initialize RAG when chat becomes visible
-  $: if (showChat && !vectorStore && !initializationError) {
-    initializeRag();
-  }
+  $effect(() => {
+    if (!vectorStore && !initializationError && events.length > 0) {
+      initializeRag();
+    }
+  });
 
   function initializeChat() {
     chatAnthropic = new ChatAnthropic({
@@ -43,16 +41,17 @@
     });
   }
 
-  function saveApiKey() {
-    if (!tempApiKey.startsWith("sk-")) {
-      alert("Invalid API key format");
-      return;
-    }
-    $apiKey = tempApiKey;
-    tempApiKey = "";
+  function resetApiKey() {
+    $apiKey = "";
+    chatAnthropic = null;
+    vectorStore = null;
+    messages = [];
+    userInput = "";
   }
 
   async function initializeRag() {
+    if (!events.length) return;
+    
     try {
       isLoading = true;
       const { store, diagnostics } = await createFaissRag(events);
@@ -147,96 +146,70 @@ RESPONSE GUIDELINES
   }
 </script>
 
-{#if isVisible}
-  <div
-    class="fixed right-0 top-[64px] h-[calc(100vh-64px)] w-96 bg-white dark:bg-gray-800 shadow-lg z-40 border-l border-gray-200 dark:border-gray-700"
-    transition:fly={{ duration: 300, x: 384, opacity: 1, easing: quintOut }}
-  >
-    <div class="flex flex-col h-full">
-      <!-- Header -->
-      <div class="p-4 border-b dark:border-gray-700">
+<div
+  class="fixed right-0 top-[64px] h-[calc(100vh-64px)] w-96 bg-white dark:bg-gray-800 shadow-lg z-40 border-l border-gray-200 dark:border-gray-700"
+  transition:fly={{ duration: 300, x: 384, opacity: 1, easing: quintOut }}
+>
+  <div class="flex flex-col h-full">
+    <!-- Header -->
+    <div class="p-4 border-b dark:border-gray-700">
+      <div class="flex justify-between items-center mb-2">
         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
           Article Assistant
         </h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Using article context for intelligent responses
-        </p>
+        <Button
+          color="red"
+          size="xs"
+          on:click={resetApiKey}
+          class="ml-2"
+        >
+          Reset API Key
+        </Button>
       </div>
+      <p class="text-sm text-gray-600 dark:text-gray-400">
+        Using{#if events.length > 0} article context for{/if} intelligent responses
+      </p>
+    </div>
 
-      <!-- Content Container -->
-      <div class="relative flex-grow">
-        {#if showApiForm}
-          <!-- API Key Form -->
-          <div 
-            class="absolute inset-0 p-4"
-            in:fly={{ duration: 300, x: 384 }}
-            out:fly={{ duration: 300, x: 384 }}
+    <!-- Content Container -->
+    <div class="relative flex-grow">
+      <!-- Messages -->
+      <div class="flex-grow overflow-y-auto p-4 space-y-4">
+        {#each messages as message}
+          <div
+            class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role === 'user'
+              ? 'bg-blue-100 dark:bg-blue-900 ml-auto text-gray-800 dark:text-gray-200'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}"
           >
-            <div class="space-y-4">
-              <Label for="apiKey" class="mb-2">API Key</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                bind:value={tempApiKey}
-                class="mb-4"
-                placeholder="Enter your API key"
-              />
-              <Button on:click={saveApiKey} class="w-full">Save API Key</Button>
-              <p class="text-sm text-red-500 mt-2">
-                Warning: Entering your API key here may pose security risks. Never share
-                your key or use it on untrusted sites.
-              </p>
-            </div>
+            <pre class="whitespace-pre-wrap font-sans">{message.content}</pre>
+          </div>
+        {/each}
+
+        {#if isLoading}
+          <div class="flex justify-center">
+            <Spinner />
           </div>
         {/if}
-        
-        {#if showChat}
-          <!-- Chat Interface -->
-          <div
-            class="absolute inset-0 flex flex-col"
-            in:fly={{ duration: 300, x: 384 }}
-            out:fly={{ duration: 300, x: 384 }}
-          >
-          <!-- Messages -->
-          <div class="flex-grow overflow-y-auto p-4 space-y-4">
-            {#each messages as message}
-              <div
-                class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role === 'user'
-                  ? 'bg-blue-100 dark:bg-blue-900 ml-auto text-gray-800 dark:text-gray-200'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}"
-              >
-                <pre class="whitespace-pre-wrap font-sans">{message.content}</pre>
-              </div>
-            {/each}
+      </div>
 
-            {#if isLoading}
-              <div class="flex justify-center">
-                <Spinner />
-              </div>
-            {/if}
-          </div>
-
-          <!-- Input -->
-          <div class="p-4 border-t dark:border-gray-700">
-            <form class="flex space-x-2" on:submit|preventDefault={sendMessage}>
-              <input
-                type="text"
-                bind:value={userInput}
-                placeholder="Ask about this article..."
-                class="flex-grow p-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                disabled={isLoading}
-              />
-              <Button type="submit" disabled={isLoading || !userInput.trim()}>
-                Send
-              </Button>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </div>
+      <!-- Input -->
+      <div class="p-4 border-t dark:border-gray-700">
+        <form class="flex space-x-2" on:submit|preventDefault={sendMessage}>
+          <input
+            type="text"
+            bind:value={userInput}
+            placeholder="Ask a question..."
+            class="flex-grow p-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            disabled={isLoading}
+          />
+          <Button type="submit" disabled={isLoading || !userInput.trim()}>
+            Send
+          </Button>
+        </form>
+      </div>
     </div>
   </div>
-{/if}
+</div>
 
 <style>
   .message {
