@@ -1,136 +1,88 @@
 <!-- ChatInterface.svelte -->
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ChatAnthropic } from "@langchain/anthropic";
-  import { apiKey, advancedMode } from "$lib/stores/apiKey";
-  import { createFaissRag, searchRag } from "$lib/utils/ragUtils";
-  import { Button, Input, Label, Spinner } from "flowbite-svelte";
+  import { apiKey } from "$lib/stores/apiKey";
+  import { Button, Spinner } from "flowbite-svelte";
   import { fly } from "svelte/transition";
   import { quintOut } from "svelte/easing";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-
-  // Props using Svelte 5 syntax
-  let { events = [] } = $props<{ events?: NDKEvent[] }>();
+  import { sendLLMMessage } from "$lib/utils/llm";
 
   // State Management
-  let vectorStore = $state(null);
-  let messages = $state<Array<{ role: string; content: string }>>([]);
-  let userInput = $state("");
-  let isLoading = $state(false);
-  let chatAnthropic = $state<ChatAnthropic | null>(null);
-  let initializationError = $state(null);
+  let messages = [];
+  let userInput = "";
+  let isLoading = false;
+  let isInitialized = false;
 
-  // Initialize chat when API key is available
-  $effect(() => {
-    if ($apiKey && !chatAnthropic) {
-      initializeChat();
-    }
-  });
-
-  // Initialize RAG when chat becomes visible
-  $effect(() => {
-    if (!vectorStore && !initializationError && events.length > 0) {
-      initializeRag();
-    }
-  });
+  $: if ($apiKey && !isInitialized) {
+    initializeChat();
+  }
 
   function initializeChat() {
-    chatAnthropic = new ChatAnthropic({
-      anthropicApiKey: $apiKey,
-      modelName: "claude-3-sonnet-20240229",
-    });
+    try {
+      messages = [
+        {
+          role: "assistant",
+          content: "Hello! How can I help you today?",
+        }
+      ];
+      
+      isInitialized = true;
+    } catch (error) {
+      console.error("Failed to initialize chat:", error);
+      messages = [
+        {
+          role: "assistant",
+          content: "There was an error initializing the chat. Please check your API key and try again.",
+        }
+      ];
+    }
   }
 
   function resetApiKey() {
     $apiKey = "";
-    chatAnthropic = null;
-    vectorStore = null;
     messages = [];
     userInput = "";
-  }
-
-  async function initializeRag() {
-    if (!events.length) return;
-    
-    try {
-      isLoading = true;
-      const { store, diagnostics } = await createFaissRag(events);
-      vectorStore = store;
-
-      messages = [
-        ...messages,
-        {
-          role: "assistant",
-          content: `I'm ready to help you with questions about this article. I've processed ${diagnostics.processedEvents} sections of content.`,
-        },
-      ];
-    } catch (error) {
-      console.error("RAG Initialization Error:", error);
-      initializationError = error;
-      messages = [
-        ...messages,
-        {
-          role: "assistant",
-          content: "Hi! What would you like to learn about today?",
-        },
-      ];
-    } finally {
-      isLoading = false;
-    }
+    isInitialized = false;
   }
 
   async function sendMessage() {
-    if (!userInput.trim() || !chatAnthropic) return;
+    if (!userInput.trim() || !$apiKey) return;
 
     try {
       isLoading = true;
-      messages = [...messages, { role: "user", content: userInput }];
       const currentInput = userInput;
+      messages = [...messages, { role: "user", content: currentInput }];
       userInput = "";
 
-      let systemMessage = "You are a helpful assistant.";
-
-      if (vectorStore) {
-        try {
-          const { results } = await searchRag(vectorStore, currentInput);
-
-          if (results?.length > 0) {
-            const contextSections = results.map((doc, index) => {
-              const relevanceMarker = index === 0 ? "MOST RELEVANT" : "RELATED";
-              return `${relevanceMarker} SECTION\nTitle: ${doc.metadata.title}\nContent: ${doc.pageContent}`;
-            });
-
-            systemMessage = `ROLE AND OBJECTIVE
-You are a knowledgeable assistant helping users understand a Nostr article.
-
-AVAILABLE CONTENT SECTIONS
-${contextSections.join("\n\n")}
-
-RESPONSE GUIDELINES
-1. Base your responses on the provided content sections
-2. Focus on the most relevant section first
-3. Draw connections between related sections when appropriate
-4. If asked about topics not covered in these sections:
-   - Clearly indicate the topic isn't covered in the current article
-   - Suggest focusing on the available content instead`;
-          }
-        } catch (error) {
-          console.error("RAG search error:", error);
-        }
-      }
-
-      const response = await chatAnthropic.call([
-        { role: "system", content: systemMessage },
-        { role: "user", content: currentInput },
-      ]);
-
-      messages = [
-        ...messages,
+      // Convert messages to LangChain format
+      const langChainMessages = [
         {
-          role: "assistant",
-          content: response?.content || "No response content",
+          type: 'system',
+          content: 'You are a helpful AI assistant.'
         },
+        ...messages.map(msg => ({
+          type: msg.role === 'user' ? 'human' : 'ai',
+          content: msg.content
+        }))
       ];
+
+      console.log('Sending messages:', langChainMessages);
+
+      // Send messages to LLM
+      const response = await sendLLMMessage(langChainMessages);
+      console.log('Received response:', response);
+
+      if (response && response.content) {
+        messages = [
+          ...messages,
+          {
+            role: "assistant",
+            content: response.content,
+          }
+        ];
+      } else {
+        throw new Error('Empty or invalid response from LLM');
+      }
     } catch (error) {
       console.error("Chat error:", error);
       messages = [
@@ -138,10 +90,17 @@ RESPONSE GUIDELINES
         {
           role: "assistant",
           content: "I encountered an error processing your request. Please try again.",
-        },
+        }
       ];
     } finally {
       isLoading = false;
+    }
+  }
+
+  function handleKeyPress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
     }
   }
 </script>
@@ -155,7 +114,7 @@ RESPONSE GUIDELINES
     <div class="p-4 border-b dark:border-gray-700">
       <div class="flex justify-between items-center mb-2">
         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
-          Article Assistant
+          Chat Assistant
         </h2>
         <Button
           color="red"
@@ -166,47 +125,42 @@ RESPONSE GUIDELINES
           Reset API Key
         </Button>
       </div>
-      <p class="text-sm text-gray-600 dark:text-gray-400">
-        Using{#if events.length > 0} article context for{/if} intelligent responses
-      </p>
     </div>
 
-    <!-- Content Container -->
-    <div class="relative flex-grow">
-      <!-- Messages -->
-      <div class="flex-grow overflow-y-auto p-4 space-y-4">
-        {#each messages as message}
-          <div
-            class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role === 'user'
-              ? 'bg-blue-100 dark:bg-blue-900 ml-auto text-gray-800 dark:text-gray-200'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}"
-          >
-            <pre class="whitespace-pre-wrap font-sans">{message.content}</pre>
-          </div>
-        {/each}
+    <!-- Messages -->
+    <div class="flex-grow overflow-y-auto p-4 space-y-4">
+      {#each messages as message}
+        <div
+          class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role === 'user'
+            ? 'bg-blue-100 dark:bg-blue-900 ml-auto text-gray-800 dark:text-gray-200'
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}"
+        >
+          <pre class="whitespace-pre-wrap font-sans">{message.content}</pre>
+        </div>
+      {/each}
 
-        {#if isLoading}
-          <div class="flex justify-center">
-            <Spinner />
-          </div>
-        {/if}
-      </div>
+      {#if isLoading}
+        <div class="flex justify-center">
+          <Spinner />
+        </div>
+      {/if}
+    </div>
 
-      <!-- Input -->
-      <div class="p-4 border-t dark:border-gray-700">
-        <form class="flex space-x-2" on:submit|preventDefault={sendMessage}>
-          <input
-            type="text"
-            bind:value={userInput}
-            placeholder="Ask a question..."
-            class="flex-grow p-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            disabled={isLoading}
-          />
-          <Button type="submit" disabled={isLoading || !userInput.trim()}>
-            Send
-          </Button>
-        </form>
-      </div>
+    <!-- Input -->
+    <div class="p-4 border-t dark:border-gray-700">
+      <form class="flex space-x-2" on:submit|preventDefault={sendMessage}>
+        <input
+          type="text"
+          bind:value={userInput}
+          on:keydown={handleKeyPress}
+          placeholder="Type your message..."
+          class="flex-grow p-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+          disabled={isLoading || !$apiKey}
+        />
+        <Button type="submit" disabled={isLoading || !$apiKey || !userInput.trim()}>
+          Send
+        </Button>
+      </form>
     </div>
   </div>
 </div>

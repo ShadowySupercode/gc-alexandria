@@ -1,3 +1,4 @@
+<!-- ApiKeyEntry.svelte -->
 <script lang="ts">
   import { apiKey } from "$lib/stores/apiKey";
   import { Button, Input, Label } from "flowbite-svelte";
@@ -7,8 +8,8 @@
   let tempApiKey = "";
 
   function saveApiKey() {
-    if (!tempApiKey.startsWith("sk-")) {
-      alert("Invalid API key format. Key must start with 'sk-'.");
+    if (!tempApiKey.startsWith("sk-ant-")) {
+      alert("Invalid API key format. Key must start with 'sk-ant-'");
       return;
     }
 
@@ -24,13 +25,13 @@
   <div class="card">
     <h2 class="text-xl font-bold mb-4">API Key Required</h2>
     <div class="space-y-4">
-      <Label for="apiKey" class="mb-2">API Key</Label>
+      <Label for="api-key-input" class="mb-2">API Key</Label>
       <Input
-        id="apiKey"
+        id="api-key-input"
         type="password"
         bind:value={tempApiKey}
         class="mb-4"
-        placeholder="Enter your API key"
+        placeholder="Enter your API key (starts with sk-ant-)"
       />
       <Button
         on:click={saveApiKey}
