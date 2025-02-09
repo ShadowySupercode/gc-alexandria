@@ -3,7 +3,7 @@
   import { CodeOutline, EyeSolid, PaperPlaneOutline } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { pharosInstance } from "$lib/parser";
-  import { ndk } from "$lib/ndk";
+  import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
 
   // TODO: Prompt user to sign in before editing.
@@ -15,7 +15,7 @@
 
   const showPreview = () => {
     try {
-      $pharosInstance ??= new Pharos($ndk);
+      $pharosInstance ??= new Pharos($ndkInstance);
       $pharosInstance.reset();
       $pharosInstance.parse(editorText);
     } catch (e) {
@@ -42,7 +42,7 @@
       return;
     }
 
-    $pharosInstance.generate($ndk.activeUser?.pubkey!);
+    $pharosInstance.generate($ndkInstance.activeUser?.pubkey!);
     goto('/new/compose');
   }
 </script>
