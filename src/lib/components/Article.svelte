@@ -15,13 +15,17 @@
   import { pharosInstance } from "$lib/parser";
   import { page } from "$app/state";
 
-  let { rootId }: { rootId: string } = $props();
+  let { rootId, publicationType } = $props<{ rootId: string, publicationType: string }>();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
     console.error("Root ID does not match parser root index ID");
   }
 
+  const tocBreakpoint = 1140;
+
   let activeHash = $state(page.url.hash);
+  let showToc: boolean = $state(true);
+  let showTocButton: boolean = $state(false);
 
   function normalizeHashPath(str: string): string {
     return str
@@ -47,23 +51,19 @@
     }
   }
 
-  let showToc: boolean = true;
-  let showTocButton: boolean = false;
-  const tocBreakpoint = 1140;
-
   /**
    * Hides the table of contents sidebar when the window shrinks below a certain size.  This
    * prevents the sidebar from occluding the article content.
    */
-  const setTocVisibilityOnResize = () => {
+  function setTocVisibilityOnResize() {
     showToc = window.innerWidth >= tocBreakpoint;
     showTocButton = window.innerWidth < tocBreakpoint;
-  };
+  }
 
   /**
    * Hides the table of contents sidebar when the user clicks outside of it.
    */
-  const hideTocOnClick = (ev: MouseEvent) => {
+  function hideTocOnClick(ev: MouseEvent) {
     const target = ev.target as HTMLElement;
 
     if (target.closest(".sidebar-leather") || target.closest(".btn-leather")) {
@@ -73,7 +73,7 @@
     if (showToc) {
       showToc = false;
     }
-  };
+  }
 
   onMount(() => {
     // Always check whether the TOC sidebar should be visible.
@@ -124,7 +124,7 @@
   </Sidebar>
 {/if} -->
 <div class="flex flex-col space-y-4 max-w-2xl">
-  <Preview {rootId} />
+  <Preview {rootId} {publicationType} />
 </div>
 
 <style>

@@ -1,5 +1,4 @@
 import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
-import { getNdkInstance } from './ndk';
 import asciidoctor from 'asciidoctor';
 import type {
   AbstractBlock,
@@ -13,7 +12,7 @@ import type {
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
-import { indexKind, zettelKinds } from './consts';
+import { zettelKinds } from './consts';
 
 interface IndexMetadata {
   authors?: string[];
