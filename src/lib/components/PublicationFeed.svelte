@@ -27,9 +27,9 @@
         until: before,
       },
       { 
-        groupable: true,
+        groupable: false,
         skipVerification: false,
-        skipValidation: false
+        skipValidation: false,
       },
       NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
     );
@@ -83,7 +83,7 @@
 <div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
   {#if eventsInView.length === 0}
     {#each getSkeletonIds() as id}
-      <Skeleton size='lg' />
+      <Skeleton divClass='skeleton-leather w-full' size='lg' />
     {/each}
   {:else if eventsInView.length > 0}
     {#each eventsInView as event}

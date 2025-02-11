@@ -1,6 +1,7 @@
-import NDK, { NDKNip07Signer, NDKRelay, NDKUser } from '@nostr-dev-kit/ndk';
+import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { loginStorageKey, standardRelays } from './consts';
+import { bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
+import { feedType } from './stores';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -73,11 +74,11 @@ function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKR
  * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.  Either set may be
  * empty if no relay lists were stored for the user.
  */
-function getPersistedRelays(user: NDKUser): [Set<NDKRelay>, Set<NDKRelay>] {
-  const inboxes = new Set<NDKRelay>(
+function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
+  const inboxes = new Set<string>(
     JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
   );
-  const outboxes = new Set<NDKRelay>(
+  const outboxes = new Set<string>(
     JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
   );
 
@@ -89,16 +90,47 @@ export function clearPersistedRelays(user: NDKUser): void {
   localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
 }
 
+export function getActiveRelays(ndk: NDK): NDKRelaySet {
+  return get(feedType) === FeedType.UserRelays
+    ? new NDKRelaySet(
+        new Set(get(inboxRelays).map(relay => new NDKRelay(
+          relay,
+          NDKRelayAuthPolicies.signIn({ ndk }),
+          ndk,
+        ))),
+        ndk
+      )
+    : new NDKRelaySet(
+        new Set(standardRelays.map(relay => new NDKRelay(
+          relay,
+          NDKRelayAuthPolicies.signIn({ ndk }),
+          ndk,
+        ))),
+        ndk
+      );
+}
+
 /**
- * Initializes an instance of NDK, and connects it to the standard relays.
+ * Initializes an instance of NDK, and connects it to the logged-in user's preferred relay set
+ * (if available), or to Alexandria's standard relay set.
  * @returns The initialized NDK instance.
  */
 export function initNdk(): NDK {
+  const startingPubkey = getPersistedLogin();
+  const [startingInboxes, _] = startingPubkey != null
+    ? getPersistedRelays(new NDKUser({ pubkey: startingPubkey }))
+    : [null, null];
+
   const ndk = new NDK({
     autoConnectUserRelays: true,
     enableOutboxModel: true,
-    explicitRelayUrls: standardRelays,
+    explicitRelayUrls: startingInboxes != null
+      ? Array.from(startingInboxes.values())
+      : standardRelays,
   });
+
+  // TODO: Should we prompt the user to confirm authentication?
+  ndk.relayAuthDefaultPolicy = NDKRelayAuthPolicies.signIn({ ndk });
   ndk.connect().then(() => console.debug("ndk connected"));
   return ndk;
 }
@@ -116,8 +148,9 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
     const signer = new NDKNip07Signer();
     const signerUser = await signer.user();
 
+    // TODO: Handle changing pubkeys.
     if (pubkey && signerUser.pubkey !== pubkey) {
-      throw new Error(`The NIP-07 signer is not using the given pubkey: ${signerUser.pubkey}`);
+      console.debug('Switching pubkeys from last login.');
     }
 
     activePubkey.set(signerUser.pubkey);
@@ -138,8 +171,8 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
     ndk.signer = signer;
     ndk.activeUser = user;
 
-    ndkSignedIn.set(true);
     ndkInstance.set(ndk);
+    ndkSignedIn.set(true);
 
     return user;
   } catch (e) {
@@ -165,36 +198,48 @@ export function logout(user: NDKUser): void {
  */
 async function getUserPreferredRelays(
   ndk: NDK,
-  user: NDKUser
+  user: NDKUser,
+  bootstraps: readonly string[] = bootstrapRelays
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayLists = await ndk.fetchEvents({
-    kinds: [10002],
-    authors: [user.pubkey],
-  });
-
-  if (relayLists.size === 0) {
-    throw new Error(`No relay lists found for the given user: ${user.pubkey}`);
-  }
+  const relayList = await ndk.fetchEvent(
+    {
+      kinds: [10002],
+      authors: [user.pubkey],
+    },
+    { 
+      groupable: false,
+      skipVerification: false,
+      skipValidation: false,
+    },
+    NDKRelaySet.fromRelayUrls(bootstraps, ndk),
+  );
 
   const inboxRelays = new Set<NDKRelay>();
   const outboxRelays = new Set<NDKRelay>();
 
-  relayLists.forEach(relayList => {
+  if (relayList == null) {
+    const relayMap = await window.nostr?.getRelays?.();
+    Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
+      const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+      if (relayType.read) inboxRelays.add(relay);
+      if (relayType.write) outboxRelays.add(relay);
+    });
+  } else {
     relayList.tags.forEach(tag => {
       switch (tag[0]) {
         case 'r':
-          inboxRelays.add(new NDKRelay(tag[1]));
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
         case 'w':
-          outboxRelays.add(new NDKRelay(tag[1]));
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
         default:
-          inboxRelays.add(new NDKRelay(tag[1]));
-          outboxRelays.add(new NDKRelay(tag[1]));
+          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
           break;
       }
     });
-  });
+  }
 
   return [inboxRelays, outboxRelays];
 }

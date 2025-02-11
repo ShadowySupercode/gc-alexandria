@@ -12,8 +12,8 @@
 
 <main>
   {#await data.waitable}
-    <TextPlaceholder size="xxl" />
+    <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
-    <Article rootId={data.parser.getRootIndexId()} />
+    <Article rootId={data.parser.getRootIndexId()} publicationType={data.publicationType} />
   {/await}
 </main>
