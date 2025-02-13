@@ -25,6 +25,10 @@ const config = {
           900: '#231a10',
           1000: '#110d08',
         },
+      },
+      listStyleType: {
+        'upper-alpha': 'upper-alpha', // Uppercase letters
+        'lower-alpha': 'lower-alpha', // Lowercase letters
       }
     },
   },
