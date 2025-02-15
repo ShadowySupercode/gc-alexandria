@@ -172,7 +172,7 @@
 
   /* Navbar */
   nav.navbar-leather {
-    @apply bg-primary-0 dark:bg-primary-1000;
+    @apply bg-primary-0 dark:bg-primary-1000 z-10;
   }
 
   nav.navbar-leather svg {

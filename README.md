@@ -54,3 +54,17 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+## Docker
+
+To run docker type:
+```bash
+docker build . -t gc-alexandria
+docker run --rm --name=gc-alexandria -p 4174:80 gc-alexandria
+
+```
+Notes: 
+Dockerized Alexandria starts at port 4174 instead of 4173 in the example. Change the port if you like it.
+<br>Internet page used as guide: https://www.sveltesociety.dev/recipes/publishing-and-deploying/dockerize-a-svelte-app
+
+
