@@ -9,3 +9,7 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 package-lock.json
+
+# tests
+/tests/e2e/html-report/*.html
+/tests/e2e/test-results/*.last-run.json

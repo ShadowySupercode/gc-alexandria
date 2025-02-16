@@ -43,6 +43,10 @@
   }
 
   /* Content */
+  main {
+    @apply max-w-full;
+  }
+
   main.main-leather,
   article.article-leather {
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;

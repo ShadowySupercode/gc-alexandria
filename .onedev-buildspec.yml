@@ -1,0 +1,16 @@
+version: 38
+jobs:
+- name: Github Push
+  steps:
+  - !PushRepository
+    name: gc-alexandria
+    remoteUrl: https://github.com/ShadowySupercode/gc-alexandria
+    passwordSecret: github_access_token
+    force: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger {}
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400

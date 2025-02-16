@@ -50,10 +50,14 @@
     </NavBrand>
   </div>
 
-  <NavUl class="ul-leather flex-row justify-end">
-    <NavLi href="/about">About</NavLi>
+  <div class="flex md:order-2">
+    <Login />
+    <NavHamburger class="btn-leather" />
+  </div>
+  <NavUl class="ul-leather">
     <NavLi href="/new/edit">New Note</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
+    <NavLi href="/about">About</NavLi>
     <NavLi>
       <DarkMode btnClass="btn-leather p-0" />
     </NavLi>
