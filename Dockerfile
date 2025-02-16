@@ -1,4 +1,4 @@
-FROM node:22.13.1-alpine AS build
+FROM node:23-alpine AS build
 
 WORKDIR /app
 
@@ -9,5 +9,5 @@ COPY . ./
 RUN npm run build
 
 EXPOSE 80
-FROM nginx:1.19-alpine
+FROM nginx:1.27.4
 COPY --from=build /app/build /usr/share/nginx/html
