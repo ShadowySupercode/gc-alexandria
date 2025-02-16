@@ -72,7 +72,7 @@ Dockerized Alexandria starts at port 4174 instead of 4173 in the example. Change
 To run the Vitest suite we've built, install the program locally and run the tests.
 
 ```bash
-npm run test example.test.js
+npm run test
 ```
 
 For the Playwright end-to-end (e2e) tests:
