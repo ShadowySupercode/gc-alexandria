@@ -67,4 +67,16 @@ Notes:
 Dockerized Alexandria starts at port 4174 instead of 4173 in the example. Change the port if you like it.
 <br>Internet page used as guide: https://www.sveltesociety.dev/recipes/publishing-and-deploying/dockerize-a-svelte-app
 
+## Testing
 
+To run the Vitest suite we've built, install the program locally and run the tests.
+
+```bash
+npm run test
+```
+
+For the Playwright end-to-end (e2e) tests:
+
+```bash
+npx playwright test
+```

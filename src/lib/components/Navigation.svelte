@@ -18,10 +18,10 @@
     <NavHamburger class='btn-leather' />
   </div>
   <NavUl class='ul-leather'>
-    <NavLi href='/about'>About</NavLi>
     <NavLi href='/new/edit'>New Note</NavLi>
     <NavLi href='/visualize'>Visualize</NavLi>
-    <NavLi>
+    <NavLi href='/about'>About</NavLi>
+  <NavLi>
       <DarkMode btnClass='btn-leather p-0'/>
     </NavLi>
   </NavUl>
