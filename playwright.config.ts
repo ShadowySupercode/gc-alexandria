@@ -12,7 +12,7 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e/',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -22,7 +22,10 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: './tests/e2e/html-report' }]
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -76,4 +79,28 @@ export default defineConfig({
   //   url: 'http://127.0.0.1:3000',
   //   reuseExistingServer: !process.env.CI,
   // },
+
+  // Glob patterns or regular expressions to ignore test files.
+  // testIgnore: '*test-assets',
+
+  // Glob patterns or regular expressions that match test files.
+  testMatch: '*.pw.spec.ts',
+
+  // Folder for test artifacts such as screenshots, videos, traces, etc.
+  outputDir: './tests/e2e/test-results',
+
+  // path to the global setup files.
+  // globalSetup: require.resolve('./global-setup'),
+
+  // path to the global teardown files.
+  // globalTeardown: require.resolve('./global-teardown'),
+
+  // Each test is given 30 seconds.
+  timeout: 30000,
+
+  expect: {
+    // Maximum time expect() should wait for the condition to be met.
+    timeout: 5000,
+  },
+
 });
