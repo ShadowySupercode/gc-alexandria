@@ -8,7 +8,7 @@
   import { sendLLMMessage } from "$lib/utils/llm";
 
   // State Management
-  let messages = [];
+  let messages: ChatInterfaceMessage[] = $state([]);
   let userInput = "";
   let isLoading = false;
   let isInitialized = false;
