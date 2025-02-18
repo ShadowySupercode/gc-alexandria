@@ -9,32 +9,32 @@
 
   // State Management
   let messages: ChatInterfaceMessage[] = $state([]);
-  let userInput = "";
-  let isLoading = false;
-  let isInitialized = false;
+  let userInput = $state("");
+  let isLoading = $state(false);
+  let isInitialized = $state(false);
 
-  $: if ($apiKey && !isInitialized) {
-    initializeChat();
-  }
+  $effect(() => {
+    if ($apiKey && !isInitialized) {
+      initializeChat();
+    }
+  });
 
   function initializeChat() {
     try {
-      messages = [
-        {
-          role: "assistant",
-          content: "Hello! How can I help you today?",
-        }
-      ];
+      messages = [];  // Clear the array first
+      messages.push({
+        role: "assistant",
+        content: "Hello! How can I help you today?",
+      });
       
       isInitialized = true;
     } catch (error) {
       console.error("Failed to initialize chat:", error);
-      messages = [
-        {
-          role: "assistant",
-          content: "There was an error initializing the chat. Please check your API key and try again.",
-        }
-      ];
+      messages = [];  // Clear the array first
+      messages.push({
+        role: "assistant",
+        content: "There was an error initializing the chat. Please check your API key and try again.",
+      });
     }
   }
 
@@ -51,54 +51,48 @@
     try {
       isLoading = true;
       const currentInput = userInput;
-      messages = messages.push({ role: "user", content: currentInput });
+      messages.push({ role: "user", content: currentInput });
       userInput = "";
 
       // Convert messages to LangChain format
       const langChainMessages = [
         {
-          type: 'system',
-          content: 'You are a helpful AI assistant.'
+          type: "system",
+          content: "You are a helpful AI assistant.",
         },
-        ...messages.map(msg => ({
-          type: msg.role === 'user' ? 'human' : 'ai',
-          content: msg.content
-        }))
+        ...messages.map((msg) => ({
+          type: msg.role === "user" ? "human" : "ai",
+          content: msg.content,
+        })),
       ];
 
-      console.log('Sending messages:', langChainMessages);
+      console.log("Sending messages:", langChainMessages);
 
       // Send messages to LLM
       const response = await sendLLMMessage(langChainMessages);
-      console.log('Received response:', response);
+      console.log("Received response:", response);
 
       if (response && response.content) {
-        messages = [
-          ...messages,
-          {
-            role: "assistant",
-            content: response.content,
-          }
-        ];
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
       } else {
-        throw new Error('Empty or invalid response from LLM');
+        throw new Error("Empty or invalid response from LLM");
       }
     } catch (error) {
       console.error("Chat error:", error);
-      messages = [
-        ...messages,
-        {
-          role: "assistant",
-          content: "I encountered an error processing your request. Please try again.",
-        }
-      ];
+      messages.push({
+        role: "assistant",
+        content: "I encountered an error processing your request. Please try again.",
+      });
     } finally {
       isLoading = false;
     }
   }
 
   function handleKeyPress(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
     }
@@ -116,12 +110,7 @@
         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
           Chat Assistant
         </h2>
-        <Button
-          color="red"
-          size="xs"
-          on:click={resetApiKey}
-          class="ml-2"
-        >
+        <Button color="red" size="xs" on:click={resetApiKey} class="ml-2">
           Reset API Key
         </Button>
       </div>
@@ -131,7 +120,8 @@
     <div class="flex-grow overflow-y-auto p-4 space-y-4">
       {#each messages as message}
         <div
-          class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role === 'user'
+          class="message {message.role} p-3 rounded-lg w-fit max-w-[85%] {message.role ===
+          'user'
             ? 'bg-blue-100 dark:bg-blue-900 ml-auto text-gray-800 dark:text-gray-200'
             : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}"
         >
@@ -148,7 +138,7 @@
 
     <!-- Input -->
     <div class="p-4 border-t dark:border-gray-700">
-      <form class="flex space-x-2" on:submit|preventDefault={sendMessage}>
+      <div class="flex space-x-2">
         <input
           type="text"
           bind:value={userInput}
@@ -157,10 +147,17 @@
           class="flex-grow p-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
           disabled={isLoading || !$apiKey}
         />
-        <Button type="submit" disabled={isLoading || !$apiKey || !userInput.trim()}>
+        <Button
+          color="primary"
+          disabled={isLoading || !$apiKey || !userInput.trim()}
+          on:click={() => sendMessage()}
+        >
+          {#if isLoading}
+            <Spinner class="mr-2" size="4" color="white" />
+          {/if}
           Send
         </Button>
-      </form>
+      </div>
     </div>
   </div>
 </div>

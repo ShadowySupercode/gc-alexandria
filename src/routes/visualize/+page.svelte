@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
   import { ndkInstance } from "$lib/ndk";
+  import { get } from 'svelte/store';
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
@@ -13,58 +14,95 @@
   import { CogSolid } from "flowbite-svelte-icons";
   import { Button, Tooltip } from "flowbite-svelte";
 
-  let events: NDKEvent[] = [];
-  let loading = true;
-  let error: string | null = null;
+  let events: NDKEvent[] = $state([]);
+  let loading = $state(true);
+  let error: string | null = $state(null);
   // panel visibility
-  let showSettings = false;
+  let showSettings = $state(false);
 
   async function fetchEvents() {
     try {
+      console.log("Starting fetchEvents");
       loading = true;
       error = null;
 
+      const ndk = get(ndkInstance);
+      console.log("NDK instance:", ndk);
+      if (!ndk) {
+        throw new Error("NDK instance not initialized");
+      }
+
       // Fetch both index and content events
-      const indexEvents = await $ndkInstance.fetchEvents(
-        { kinds: [30040], limit: $networkFetchLimit },
+      console.log("Fetching index events...");
+      const indexEvents = await ndk.fetchEvents(
+        { kinds: [30040], limit: get(networkFetchLimit) },
         {
           groupable: true,
           skipVerification: false,
           skipValidation: false,
         },
       );
+      console.log("Received index events:", indexEvents);
 
       // Filter valid index events according to NIP-62
       const validIndexEvents = filterValidIndexEvents(indexEvents);
+      console.log("Filtered valid index events:", validIndexEvents);
 
       // Get all the content event IDs referenced by the index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
         event.getMatchingTags("a").forEach((tag) => {
           let eventId = tag[3];
-          contentEventIds.add(eventId);
+          if (eventId && eventId.length > 0) {  // Filter out empty IDs
+            contentEventIds.add(eventId);
+          }
         });
       });
+      console.log("Content event IDs:", contentEventIds);
 
-      // Fetch the referenced content events
-      const contentEvents = await $ndkInstance.fetchEvents(
-        {
-          kinds: [30041],
-          ids: Array.from(contentEventIds),
-        },
-        {
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
-      );
+      // Batch content event fetching
+      const batchSize = 20;
+      const contentEventIdsArray = Array.from(contentEventIds);
+      const contentEvents = new Set();
+      
+      for (let i = 0; i < contentEventIdsArray.length; i += batchSize) {
+        console.log(`Fetching content events batch ${i/batchSize + 1}/${Math.ceil(contentEventIdsArray.length/batchSize)}`);
+        const batchIds = contentEventIdsArray.slice(i, i + batchSize);
+        try {
+          const batchEvents = await Promise.race([
+            ndk.fetchEvents(
+              {
+                kinds: [30041],
+                ids: batchIds,
+              },
+              {
+                groupable: true,
+                skipVerification: false,
+                skipValidation: false,
+              }
+            ),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 10000)
+            )
+          ]);
+          
+          batchEvents.forEach(event => contentEvents.add(event));
+        } catch (error) {
+          console.warn(`Failed to fetch batch ${i/batchSize + 1}:`, error);
+          continue;
+        }
+      }
+
+      console.log("Received content events:", contentEvents);
 
       // Combine both sets of events
       events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      console.log("Combined events:", events);
     } catch (e) {
       console.error("Error fetching events:", e);
       error = e instanceof Error ? e.message : String(e);
     } finally {
+      console.log("Setting loading to false");
       loading = false;
     }
   }
@@ -73,8 +111,18 @@
     fetchEvents();
   }
 
-  onMount(() => {
-    fetchEvents();
+  // Subscribe to NDK instance changes
+  $effect(() => {
+    console.log("Effect running, checking NDK...");
+    const ndk = get(ndkInstance);
+    console.log("NDK in effect:", ndk);
+    
+    if (ndk) {
+      console.log("NDK exists, calling fetchEvents");
+      fetchEvents();
+    } else {
+      console.log("No NDK instance yet");
+    }
   });
 </script>
 
