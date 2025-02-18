@@ -83,21 +83,116 @@
         @apply ps-5 my-2;
     }
 
+    .audioblock .title,
+    .imageblock .title,
+    .literalblock .title,
+    .tableblock .title,
+    .videoblock .title,
+    .olist .title,
+    .ulist .title {
+        @apply my-2;
+    }
+
     .note-leather li p {
         @apply inline;
     }
 
     /* blockquote */
-    .note-leather .quoteblock {
+    .note-leather .quoteblock,
+    .note-leather .verseblock {
         @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
     }
 
     .note-leather .quoteblock .attribution {
-        @apply mt-3 italic;
+        @apply mt-3 italic clear-both;
     }
 
     .note-leather .quoteblock cite {
         @apply text-sm;
     }
 
+    /* admonition */
+    .note-leather .admonitionblock .title {
+        @apply font-semibold;
+    }
+
+
+    .note-leather .admonitionblock table {
+        @apply w-full border-collapse;
+    }
+
+    .note-leather .admonitionblock tr {
+        @apply flex flex-col;
+    }
+
+    .note-leather .admonitionblock {
+        @apply rounded overflow-hidden border;
+    }
+
+    .note-leather .admonitionblock .icon,
+    .note-leather .admonitionblock .content {
+        @apply p-4;
+    }
+
+    .note-leather .admonitionblock .content {
+        @apply pt-0;
+    }
+
+
+    .note-leather .admonitionblock.tip {
+        @apply rounded-lg overflow-hidden border border-success-100 dark:border-success-800;
+    }
+
+    .note-leather .admonitionblock.tip .icon,
+    .note-leather .admonitionblock.tip .content {
+        @apply bg-success-100 dark:bg-success-800;
+    }
+
+    .note-leather .admonitionblock.note {
+        @apply rounded-lg overflow-hidden border border-info-100 dark:border-info-800;
+    }
+
+    .note-leather .admonitionblock.note .icon,
+    .note-leather .admonitionblock.note .content {
+        @apply bg-info-100 dark:bg-info-800;
+    }
+
+    .note-leather .admonitionblock.important {
+        @apply rounded-lg overflow-hidden border border-primary-200 dark:border-primary-700;
+    }
+
+    .note-leather .admonitionblock.important .icon,
+    .note-leather .admonitionblock.important .content {
+        @apply bg-primary-200 dark:bg-primary-700;
+    }
+
+    .note-leather .admonitionblock.caution {
+        @apply rounded-lg overflow-hidden border border-warning-200 dark:border-warning-700;
+    }
+
+    .note-leather .admonitionblock.caution .icon,
+    .note-leather .admonitionblock.caution .content {
+        @apply bg-warning-200 dark:bg-warning-700;
+    }
+
+    .note-leather .admonitionblock.warning {
+        @apply rounded-lg overflow-hidden border border-danger-200 dark:border-danger-800;
+    }
+
+    .note-leather .admonitionblock.warning .icon,
+    .note-leather .admonitionblock.warning .content {
+        @apply bg-danger-200 dark:bg-danger-800;
+    }
+
+
+
+    /* video */
+    .videoblock .content {
+        @apply w-full aspect-video;
+    }
+
+    .videoblock .content iframe,
+    .videoblock .content video {
+        @apply w-full h-full;
+    }
 }
