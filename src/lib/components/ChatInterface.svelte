@@ -51,7 +51,7 @@
     try {
       isLoading = true;
       const currentInput = userInput;
-      messages = [...messages, { role: "user", content: currentInput }];
+      messages = messages.push({ role: "user", content: currentInput });
       userInput = "";
 
       // Convert messages to LangChain format
