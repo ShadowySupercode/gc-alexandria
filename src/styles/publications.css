@@ -97,17 +97,21 @@
         @apply inline;
     }
 
-    /* blockquote */
+    /* blockquote; prose and poetry quotes */
     .note-leather .quoteblock,
     .note-leather .verseblock {
         @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
     }
 
-    .note-leather .quoteblock .attribution {
+    .note-leather .verseblock pre.content {
+        @apply text-base font-sans;
+    }
+
+    .note-leather .attribution {
         @apply mt-3 italic clear-both;
     }
 
-    .note-leather .quoteblock cite {
+    .note-leather cite {
         @apply text-sm;
     }
 
@@ -115,7 +119,6 @@
     .note-leather .admonitionblock .title {
         @apply font-semibold;
     }
-
 
     .note-leather .admonitionblock table {
         @apply w-full border-collapse;
@@ -138,9 +141,8 @@
         @apply pt-0;
     }
 
-
     .note-leather .admonitionblock.tip {
-        @apply rounded-lg overflow-hidden border border-success-100 dark:border-success-800;
+        @apply rounded overflow-hidden border border-success-100 dark:border-success-800;
     }
 
     .note-leather .admonitionblock.tip .icon,
@@ -149,7 +151,7 @@
     }
 
     .note-leather .admonitionblock.note {
-        @apply rounded-lg overflow-hidden border border-info-100 dark:border-info-800;
+        @apply rounded overflow-hidden border border-info-100 dark:border-info-700;
     }
 
     .note-leather .admonitionblock.note .icon,
@@ -158,7 +160,7 @@
     }
 
     .note-leather .admonitionblock.important {
-        @apply rounded-lg overflow-hidden border border-primary-200 dark:border-primary-700;
+        @apply rounded overflow-hidden border border-primary-200 dark:border-primary-700;
     }
 
     .note-leather .admonitionblock.important .icon,
@@ -167,7 +169,7 @@
     }
 
     .note-leather .admonitionblock.caution {
-        @apply rounded-lg overflow-hidden border border-warning-200 dark:border-warning-700;
+        @apply rounded overflow-hidden border border-warning-200 dark:border-warning-700;
     }
 
     .note-leather .admonitionblock.caution .icon,
@@ -176,7 +178,7 @@
     }
 
     .note-leather .admonitionblock.warning {
-        @apply rounded-lg overflow-hidden border border-danger-200 dark:border-danger-800;
+        @apply rounded overflow-hidden border border-danger-200 dark:border-danger-800;
     }
 
     .note-leather .admonitionblock.warning .icon,
@@ -184,7 +186,22 @@
         @apply bg-danger-200 dark:bg-danger-800;
     }
 
+    /* listingblock, literalblock */
+    .note-leather .listingblock,
+    .note-leather .literalblock {
+        @apply p-4 rounded  bg-highlight dark:bg-primary-900;
+    }
 
+    .note-leather .sidebarblock .title,
+    .note-leather .listingblock .title,
+    .note-leather .literalblock .title {
+        @apply font-semibold mb-1;
+    }
+
+    /* sidebar */
+    .note-leather .sidebarblock {
+        @apply p-4 rounded bg-info-100 dark:bg-info-800;
+    }
 
     /* video */
     .videoblock .content {

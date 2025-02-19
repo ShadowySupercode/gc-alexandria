@@ -11,6 +11,7 @@ const config = {
   theme: {
     extend: {
       colors: {
+        highlight: '#f9f6f1',
         primary: {
           0: '#efe6dc',
           50: '#decdb9',

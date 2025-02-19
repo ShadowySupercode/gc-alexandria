@@ -29,7 +29,8 @@
 
   /* Card */
   div.card-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 border-gray-200 has-[:hover]:border-primary-800 dark:border-gray-800 dark:has-[:hover]:border-primary-500;
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:border-primary-500;
   }
 
   div.card-leather h1,
