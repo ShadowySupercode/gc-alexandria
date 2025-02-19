@@ -13,7 +13,7 @@ If you would like to suggest a feature or report a bug, or submit a patch for re
 
 Make sure that you have [Node.js](https://nodejs.org/en/download/package-manager) installed.
 
-Once you've cloned this repo, installed dependencies with:
+Once you've cloned this repo, install dependencies with:
 
 ```bash
 npm install
@@ -31,7 +31,7 @@ npm run dev -- --open
 
 ## Building
 
-To create a production version of your app, including the static site:
+To build a production version of your app, as a static site:
 ```bash
 npm run build
 ```
@@ -41,7 +41,7 @@ You can preview the production build with:
 npm run preview
 ```
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+> We have configured Alexandria to use the static adapter. To deploy your app with a different adapter, you will need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
 
 ## Docker
 
