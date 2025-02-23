@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import './styles/base.css';
+@import './styles/publications.css';
 
 @layer components {
   /* General */
@@ -30,7 +29,8 @@
 
   /* Card */
   div.card-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 border-gray-200 has-[:hover]:border-primary-800 dark:border-gray-800 dark:has-[:hover]:border-primary-500;
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:border-primary-500;
   }
 
   div.card-leather h1,
@@ -62,64 +62,6 @@
   p.note-leather:hover:not(:has(.note-leather:hover)),
   section.note-leather:hover:not(:has(.note-leather:hover)) {
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
-  }
-
-  /* AsciiDoc content */
-  .note-leather p a {
-    @apply underline hover:text-primary-500 dark:hover:text-primary-400;
-  }
-
-  .note-leather section p {
-    @apply w-full;
-  }
-
-  .note-leather section p table {
-    @apply w-full table-fixed space-x-2 space-y-2;
-  }
-
-  .note-leather section p table td {
-    @apply p-2;
-  }
-
-  .note-leather section p table td .content:has(> .imageblock) {
-    @apply flex flex-col items-center;
-  }
-
-  .note-leather .imageblock {
-    @apply flex flex-col space-y-2;
-  }
-
-  .note-leather .imageblock .content {
-    @apply flex justify-center;
-  }
-  .note-leather .imageblock .title {
-    @apply text-center;
-  }
-
-  .note-leather .imageblock.left .content {
-    @apply justify-start;
-  }
-  .note-leather .imageblock.left .title {  
-    @apply text-left;
-  }
-
-  .note-leather .imageblock.right .content {
-    @apply justify-end;
-  }
-  .note-leather .imageblock.right .title {
-    @apply text-right;
-  }
-
-  .note-leather section p table td .literalblock {
-    @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
-  }
-
-  .note-leather .literalblock pre {
-    @apply text-wrap break-words;
-  }
-
-  .note-leather .listingblock pre {
-    @apply overflow-x-auto;
   }
 
   /* Heading */
@@ -248,6 +190,7 @@
     @apply fill-[#d6c1a8];
   }
 }
+
 @layer components {
   .leather-legend {
     @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
