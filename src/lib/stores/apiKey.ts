@@ -1,19 +1,25 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-// Initialize from localStorage if available
-const storedKey = browser ? window.localStorage.getItem('anthropic_api_key') : null;
+// Load saved values from localStorage if available
+const storedKey = browser ? localStorage.getItem('anthropic_api_key') : null;
+const storedAdvancedMode = browser ? localStorage.getItem('advanced_mode') === 'true' : false;
 
+// Create the stores
 export const apiKey = writable<string>(storedKey || '');
-export const advancedMode = writable<boolean>(false);
+export const advancedMode = writable<boolean>(storedAdvancedMode);
 
-// Subscribe to changes and update localStorage
+// Save to localStorage when values change
 if (browser) {
-    apiKey.subscribe((value) => {
+    apiKey.subscribe(value => {
         if (value) {
-            window.localStorage.setItem('anthropic_api_key', value);
+            localStorage.setItem('anthropic_api_key', value);
         } else {
-            window.localStorage.removeItem('anthropic_api_key');
+            localStorage.removeItem('anthropic_api_key');
         }
+    });
+
+    advancedMode.subscribe(value => {
+        localStorage.setItem('advanced_mode', value.toString());
     });
 }

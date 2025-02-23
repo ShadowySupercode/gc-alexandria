@@ -6,22 +6,12 @@
     NavUl,
     NavHamburger,
     NavBrand,
-    Toggle,
+    Toggle
   } from "flowbite-svelte";
   import { apiKey, advancedMode } from "$lib/stores/apiKey";
   import Login from "./Login.svelte";
-  import ApiKeyEntry from "./ApiKeyEntry.svelte";
 
   let { class: className = "" } = $props();
-  let isDrawerOpen = $state(false);
-
-  $effect(() => {
-    if (!$advancedMode) {
-      isDrawerOpen = false;
-    } else if (!$apiKey) {
-      isDrawerOpen = true;
-    }
-  });
 </script>
 
 <Navbar class={`Navbar navbar-leather ${className}`}>
@@ -40,13 +30,9 @@
     </NavLi>
   </NavUl>
 
-  <div class="flex md:order-2 items-center ml-4">
-    <Toggle bind:checked={$advancedMode} class="mr-3">Advanced</Toggle>
+  <div class="flex md:order-2 items-center space-x-2">
+    <Toggle bind:checked={$advancedMode} class="mr-3">Chat</Toggle>
     <Login />
     <NavHamburger class="btn-leather" />
   </div>
 </Navbar>
-
-{#if isDrawerOpen}
-  <ApiKeyEntry />
-{/if}

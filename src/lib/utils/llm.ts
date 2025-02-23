@@ -1,34 +1,26 @@
-import type { BaseMessage } from '@langchain/core/messages';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKey';
 
-export type LLMProvider = 'anthropic' | 'openai' | 'google';
+export type LLMProvider = 'anthropic';
 
-export async function sendLLMMessage(messages: BaseMessage[], provider: LLMProvider = 'anthropic') {
+export type Message = {
+    role: 'user' | 'assistant';
+    content: string;
+};
+
+export async function sendLLMMessage(messages: Message[], provider: LLMProvider = 'anthropic') {
     const key = get(apiKey);
     
     if (!key) {
         throw new Error('No API key provided');
     }
 
-    console.log('Sending to LLM API:', messages);
-
-    const response = await fetch('/api/llm', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': key,
-            'x-llm-provider': provider
-        },
-        body: JSON.stringify({ messages })
-    });
-
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to communicate with LLM: ${error}`);
+    try {
+        // This is a placeholder for future provider implementations
+        // Currently we're using the AnthropicClient directly in the ChatInterface
+        throw new Error('LLM providers not yet implemented in utils');
+    } catch (error) {
+        console.error('Chat error:', error);
+        throw error;
     }
-
-    const result = await response.json();
-    console.log('Received from LLM API:', result);
-    return result;
 }
