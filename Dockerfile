@@ -2,10 +2,10 @@ FROM node:23-alpine AS build
 
 WORKDIR /app
 
+COPY . ./
 COPY package.json ./
 COPY package-lock.json ./
 RUN npm install
-COPY . ./
 RUN npm run build
 
 EXPOSE 80
