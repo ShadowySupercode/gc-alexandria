@@ -54,7 +54,7 @@ docker build . -t gc-alexandria
 
 To run the container, in detached mode (-d):
 ```bash
-docker run -d --rm --name=gc-alexandria -p 4174:80 gc-alexandria -d
+docker run -d --rm --name=gc-alexandria -p 4174:80 gc-alexandria
 ```
 
 The container is then viewable on your [local machine](http://localhost:4174).
