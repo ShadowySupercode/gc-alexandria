@@ -31,17 +31,17 @@ npm run dev -- --open
 
 ## Building
 
+> We have configured Alexandria to use the static adapter. To deploy your app with a different adapter, you will need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
 To build a production version of your app, as a static site:
 ```bash
 npm run build
 ```
 
-You can preview the production build with:
+You can preview the (non-static) production build with:
 ```bash
 npm run preview
 ```
-
-> We have configured Alexandria to use the static adapter. To deploy your app with a different adapter, you will need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
 
 ## Docker
 
