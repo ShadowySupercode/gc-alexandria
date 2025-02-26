@@ -24,10 +24,10 @@ COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
 # [Optional] Tests & build.
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV ALEX_HOST=127.0.0.1
 ENV ALEX_PORT=3040
-ENV ALEX_ORIGIN=https://alexandria.gitcitadel.eu
+ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
 RUN bun test
 RUN bun run build
 
