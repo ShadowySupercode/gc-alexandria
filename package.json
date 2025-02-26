@@ -23,7 +23,8 @@
     "d3": "^7.9.0",
     "he": "1.2.x",
     "nostr-tools": "2.10.x",
-    "playwright": "^1.50.1"
+    "playwright": "^1.50.1",
+    "svelte-adapter-bun": "0.5.x"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
