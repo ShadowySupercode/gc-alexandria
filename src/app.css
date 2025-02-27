@@ -1,5 +1,6 @@
 @import './styles/base.css';
 @import './styles/publications.css';
+@import './styles/visualize.css';
 
 @layer components {
   /* General */
