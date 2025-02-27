@@ -189,7 +189,7 @@
     /* listingblock, literalblock */
     .note-leather .listingblock,
     .note-leather .literalblock {
-        @apply p-4 rounded  bg-highlight dark:bg-primary-900;
+        @apply p-4 rounded  bg-highlight dark:bg-primary-700;
     }
 
     .note-leather .sidebarblock .title,
