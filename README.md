@@ -72,6 +72,22 @@ CONTAINER ID   IMAGE           COMMAND                  CREATED         STATUS  
 1d83d736322f   gc-alexandria   "/docker-entrypoint.…"   2 minutes ago   Up 2 minutes   0.0.0.0:4174->80/tcp, [::]:4174->80/tcp   gc-alexandria
 ```
 
+## Docker + Bun
+
+This application is configured to use the Bun runtime.  A Docker container is provided to handle builds and deployments.
+
+To build the app for development:
+```bash
+docker build -t next-alexandria -f Dockerfile.dev .
+```
+
+To run the development build:
+```bash
+docker run -d -p 3040:3040 next-alexandria
+```
+
+<!-- TODO: Add a production build and deployment. -->
+
 ## Testing
 
 *These tests are under development, but will run. They will later be added to the container.*

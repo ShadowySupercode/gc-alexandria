@@ -2,20 +2,18 @@
 # Based on the Bun Docker guide: https://bun.sh/guides/ecosystem/docker.
 
 # Use the official Bun image
-FROM oven/bun:1 AS base
+FROM oven/bun:1.2-alpine AS base
 WORKDIR /usr/src/app
 
-# Install dependencies into temp directory.
+# TODO: This expects the lockfile to already exist.
+# It doesn't, so build it, and ensure it gets cached.
+
+# Install dependencies into a temp directory.
 # This will cache them and speed up future builds.
 FROM base AS install
 RUN mkdir -p /temp/dev
-COPY package.json bun.lock /temp/dev/
-RUN cd /temp/dev && bun install --frozen-lockfile
-
-# Install with --production (exclude devDependencies)
-RUN mkdir -p /temp/prod
-COPY package.json bun.lock /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile --production
+COPY package.json /temp/dev/
+RUN cd /temp/dev && bun install
 
 # Copy node_modules from temp directory.
 # Then copy all (non-ignored) project files into the image.
@@ -23,21 +21,19 @@ FROM base AS prerelease
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
-# [Optional] Tests & build.
+# Run tests and build.
 ENV NODE_ENV=development
 ENV ALEX_HOST=127.0.0.1
 ENV ALEX_PORT=3040
 ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
-RUN bun test
+# RUN bun test # Uncomment when tests are ready.
 RUN bun run build
 
 # Copy production dependencies and source code into final image.
 FROM base AS release
-COPY --from=install /temp/prod/node_modules node_modules
-COPY --from=prerelease /usr/src/app/index.ts .
-COPY --from=prerelease /usr/src/app/package.json .
+COPY --from=prerelease /usr/src/app/build .
 
 # Run the app.
 USER bun
 EXPOSE 3040/tcp
-ENTRYPOINT [ "bun", "run", "index.ts" ]
+ENTRYPOINT [ "bun", "run", "start" ]
