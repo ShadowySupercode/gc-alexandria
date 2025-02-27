@@ -71,7 +71,7 @@
 
 {#if title != null && href != null}
   <Card class='ArticleBox card-leather w-lg'>
-    <div class='flex flex-col space-y-4'>
+    <div class='flex flex-col space-y-8'>
       <a href="/{href}" class='flex flex-col space-y-2'>
         <h2 class='text-lg font-bold'>{title}</h2>
         <h3 class='text-base font-normal'>by {author}</h3>
@@ -80,7 +80,7 @@
         {/if}
       </a>
       <div class='w-full flex space-x-2 justify-end'>
-        <Button class='btn-leather' size='xs' onclick={shareNjump}><ShareNodesOutline /></Button>
+        <Button class='btn-leather' size='sm' onclick={shareNjump}><ShareNodesOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => shareLinkCopied = false}>
           {#if shareLinkCopied}
             <ClipboardCheckOutline />
@@ -88,7 +88,7 @@
             Share via NJump
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline onclick={copyEventId}><ClipboardCleanOutline /></Button>
+        <Button class='btn-leather' size='sm' outline onclick={copyEventId}><ClipboardCleanOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => eventIdCopied = false}>
           {#if eventIdCopied}
             <ClipboardCheckOutline />
@@ -96,7 +96,7 @@
             Copy event ID
           {/if}
         </Tooltip>
-        <Button class='btn-leather' size='xs' outline onclick={viewJson}><CodeOutline /></Button>
+        <Button class='btn-leather' size='sm' outline onclick={viewJson}><CodeOutline /></Button>
         <Tooltip class='tooltip-leather' type='auto' placement='top'>View JSON</Tooltip>
       </div>
     </div>

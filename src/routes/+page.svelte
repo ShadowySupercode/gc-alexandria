@@ -22,7 +22,7 @@
   };
 </script>
 
-<div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
+<main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
   {#if !$ndkSignedIn}
     <PublicationFeed relays={standardRelays} />
   {:else}
@@ -45,4 +45,4 @@
       <PublicationFeed relays={$inboxRelays} />
     {/if}
   {/if}
-</div>
+</main>

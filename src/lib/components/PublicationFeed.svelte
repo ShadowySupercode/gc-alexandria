@@ -80,7 +80,7 @@
   });
 </script>
 
-<div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
+<div class='leather flex flex-col space-y-4'>
   {#if eventsInView.length === 0}
     {#each getSkeletonIds() as id}
       <Skeleton divClass='skeleton-leather w-full' size='lg' />
