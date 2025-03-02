@@ -18,19 +18,23 @@ RUN cd /temp/dev && bun install
 # Copy node_modules from temp directory.
 # Then copy all (non-ignored) project files into the image.
 FROM base AS prerelease
+ENV NODE_ENV=development
+ENV ALEX_HOST=0.0.0.0
+ENV ALEX_PORT=3040
+ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
 # Run tests and build.
-ENV NODE_ENV=development
-ENV ALEX_HOST=127.0.0.1
-ENV ALEX_PORT=3040
-ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
 # RUN bun test # Uncomment when tests are ready.
 RUN bun run build
 
 # Copy production dependencies and source code into final image.
 FROM base AS release
+ENV NODE_ENV=development
+ENV ALEX_HOST=0.0.0.0
+ENV ALEX_PORT=3040
+ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
 COPY --from=prerelease /usr/src/app/build .
 
 # Run the app.
