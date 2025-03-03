@@ -5,9 +5,6 @@
 FROM oven/bun:1.2-alpine AS base
 WORKDIR /usr/src/app
 
-# TODO: This expects the lockfile to already exist.
-# It doesn't, so build it, and ensure it gets cached.
-
 # Install dependencies into a temp directory.
 # This will cache them and speed up future builds.
 FROM base AS install
@@ -15,29 +12,31 @@ RUN mkdir -p /temp/dev
 COPY package.json /temp/dev/
 RUN cd /temp/dev && bun install
 
+RUN mkdir -p /temp/prod
+COPY package.json /temp/prod/
+RUN cp /temp/dev/bun.lock /temp/prod/
+RUN cd /temp/prod && bun install --frozen-lockfile --production
+
 # Copy node_modules from temp directory.
 # Then copy all (non-ignored) project files into the image.
 FROM base AS prerelease
-ENV NODE_ENV=development
-ENV ALEX_HOST=0.0.0.0
-ENV ALEX_PORT=3040
-ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
+ENV NODE_ENV=production
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
 # Run tests and build.
-# RUN bun test # Uncomment when tests are ready.
-RUN bun run build
+# RUN bun --bun run test # Uncomment when tests are ready.
+RUN bun --bun run build
 
 # Copy production dependencies and source code into final image.
 FROM base AS release
-ENV NODE_ENV=development
-ENV ALEX_HOST=0.0.0.0
-ENV ALEX_PORT=3040
-ENV ALEX_ORIGIN=https://next-alexandria.gitcitadel.eu
+ENV HOST=0.0.0.0
+ENV ORIGIN=http://localhost:3040
+
+COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/build .
 
 # Run the app.
 USER bun
-EXPOSE 3040/tcp
+EXPOSE 3000/tcp
 ENTRYPOINT [ "bun", "run", "start" ]
