@@ -8,11 +8,10 @@ const config = {
   preprocess: [vitePreprocess()],
 
   kit: {
-    // Static adapter
+    // Bun adapter
     adapter: adapter({
       out: "build",
       assets: true,
-      envPrefix: "ALEX_",
       development: false,
       precompress: false,
     }),
