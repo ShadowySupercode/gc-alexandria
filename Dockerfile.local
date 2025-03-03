@@ -12,11 +12,6 @@ RUN mkdir -p /temp/dev
 COPY package.json /temp/dev/
 RUN cd /temp/dev && bun install
 
-RUN mkdir -p /temp/prod
-COPY package.json /temp/prod/
-RUN cp /temp/dev/bun.lock /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile --production
-
 # Copy node_modules from temp directory.
 # Then copy all (non-ignored) project files into the image.
 FROM base AS prerelease
@@ -32,8 +27,6 @@ RUN bun --bun run build
 FROM base AS release
 ENV HOST=0.0.0.0
 ENV ORIGIN=http://localhost:3040
-
-COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/build .
 
 # Run the app.
