@@ -9,7 +9,7 @@ WORKDIR /app
 COPY --from=build /app/src/build/ ./build/
 COPY --from=build /app/src/import_map.json .
 
-ENV ORIGIN=https://next-alexandria.gitcitadel.eu
+ENV ORIGIN=https://$HOST
 
 EXPOSE 3000
 CMD [ "deno", "run", "--allow-env", "--allow-read", "--allow-net", "--import-map=import_map.json", "./build/index.js" ]
