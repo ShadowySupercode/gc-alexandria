@@ -7,11 +7,30 @@ interface PublicationTreeNode {
   children?: PublicationTreeNode[];
 }
 
-// TODO: Add an iterator over the leaves of the tree.
-export class PublicationTree {
+export class PublicationTree implements Iterable<NDKEvent> {
+  /**
+   * The root node of the tree.
+   */
   private root: PublicationTreeNode;
+
+  /**
+   * A map of addresses in the tree to their corresponding nodes.
+   */
   private nodes: Map<string, PublicationTreeNode>;
+
+  /**
+   * A map of addresses in the tree to their corresponding events.
+   */
   private events: Map<string, NDKEvent>;
+
+  /**
+   * The address of the last-visited node.  Used for iteration and progressive retrieval.
+   */
+  private bookmark?: string;
+
+  /**
+   * The NDK instance used to fetch events.
+   */
   private ndk: NDK;
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
@@ -68,6 +87,16 @@ export class PublicationTree {
     }
 
     return event;
+  }
+
+  [Symbol.iterator](): Iterator<NDKEvent> {
+    return this;
+  }
+
+  next(): IteratorResult<NDKEvent> {
+    // TODO: Implement iteration from the bookmark over subsequent leaves.
+
+    return { done: true, value: null };
   }
 
   // #region Private Methods
