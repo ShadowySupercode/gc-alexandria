@@ -7,7 +7,7 @@ interface PublicationTreeNode {
   children?: PublicationTreeNode[];
 }
 
-export class PublicationTree implements Iterable<NDKEvent> {
+export class PublicationTree implements AsyncIterable<NDKEvent> {
   /**
    * The root node of the tree.
    */
@@ -22,6 +22,11 @@ export class PublicationTree implements Iterable<NDKEvent> {
    * A map of addresses in the tree to their corresponding events.
    */
   private events: Map<string, NDKEvent>;
+
+  /**
+   * An ordered list of the addresses of the leaves of the tree.
+   */
+  private leaves: string[] = [];
 
   /**
    * The address of the last-visited node.  Used for iteration and progressive retrieval.
@@ -89,12 +94,33 @@ export class PublicationTree implements Iterable<NDKEvent> {
     return event;
   }
 
-  [Symbol.iterator](): Iterator<NDKEvent> {
+  /**
+   * Sets a start point for iteration over the leaves of the tree.
+   * @param address The address of the event to bookmark.
+   */
+  setBookmark(address: string) {
+    this.bookmark = address;
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<NDKEvent> {
     return this;
   }
 
-  next(): IteratorResult<NDKEvent> {
-    // TODO: Implement iteration from the bookmark over subsequent leaves.
+  async next(): Promise<IteratorResult<NDKEvent>> {
+    // If no bookmark is set, start at the first leaf.  Retrieve that first leaf if necessary.
+    if (!this.bookmark) {
+      this.bookmark = this.leaves.at(0);
+      if (this.bookmark) {
+        const bookmarkEvent = await this.getEvent(this.bookmark);
+        return { done: false, value: bookmarkEvent! };
+      }
+
+      const firstLeafEvent = await this.depthFirstRetrieve();
+      this.bookmark = this.getAddressFromEvent(firstLeafEvent!);
+      return { done: false, value: firstLeafEvent! };
+    }
+
+    // TODO: Invoke a funciton to retrieve the next sibling of the bookmark.
 
     return { done: true, value: null };
   }
@@ -104,11 +130,12 @@ export class PublicationTree implements Iterable<NDKEvent> {
   /**
    * Traverses the publication tree in a depth-first manner to retrieve an event, filling in
    * missing nodes during the traversal.
-   * @param address The address of the event to retrieve.
+   * @param address The address of the event to retrieve. If no address is provided, the function
+   * will return the first leaf in the tree.
    * @returns The event, or null if the event is not found.
    */
-  private async depthFirstRetrieve(address: string): Promise<NDKEvent | null> {
-    if (this.nodes.has(address)) {
+  private async depthFirstRetrieve(address?: string): Promise<NDKEvent | null> {
+    if (address && this.nodes.has(address)) {
       return this.events.get(address)!;
     }
 
@@ -118,7 +145,7 @@ export class PublicationTree implements Iterable<NDKEvent> {
       const currentAddress = stack.pop();
 
       // Stop immediately if the target of the search is found.
-      if (currentAddress === address) {
+      if (address != null && currentAddress === address) {
         return this.events.get(address)!;
       }
 
@@ -152,6 +179,18 @@ export class PublicationTree implements Iterable<NDKEvent> {
         this.addEvent(childEvent, currentEvent!);
       }
 
+      // If the current event has no children, it is a leaf.
+      if (childEvents.size === 0) {
+        this.leaves.push(currentAddress!);
+
+        // Return the first leaf if no address was provided.
+        if (address == null) {
+          return currentEvent!;
+        }
+
+        continue;
+      }
+
       // Push the popped address's children onto the stack for the next iteration.
       while (currentChildAddresses.length > 0) {
         stack.push(currentChildAddresses.pop()!);
@@ -159,6 +198,44 @@ export class PublicationTree implements Iterable<NDKEvent> {
     }
 
     return null;
+  }
+
+  private async getNextSibling(address: string): Promise<NDKEvent | null> {
+    if (!this.leaves.includes(address)) {
+      throw new Error(
+        `PublicationTree: Address ${address} is not a leaf. Cannot retrieve next sibling.`
+      );
+    }
+
+    let currentNode = this.nodes.get(address);
+    if (!currentNode) {
+      return null;
+    }
+
+    let parent = currentNode.parent;
+    if (!parent) {
+      throw new Error(
+        `PublicationTree: Address ${address} has no parent. Cannot retrieve next sibling.`
+      );
+    }
+
+    // TODO: Handle the case where the current node is the last leaf.
+
+    let nextSibling: PublicationTreeNode | null = null;
+    do {
+      const siblings: PublicationTreeNode[] = parent!.children!;
+      const currentIndex = siblings.findIndex(sibling => sibling.address === currentNode!.address);
+      nextSibling = siblings.at(currentIndex + 1) ?? null;
+
+      // If the next sibling has children, it is not a leaf.
+      if ((nextSibling?.children?.length ?? 0) > 0) {
+        currentNode = nextSibling!.children!.at(0)!;
+        parent = currentNode.parent;
+        nextSibling = null;
+      }
+    } while (nextSibling == null);
+
+    return this.getEvent(nextSibling!.address);
   }
 
   private getAddressFromEvent(event: NDKEvent): string {
