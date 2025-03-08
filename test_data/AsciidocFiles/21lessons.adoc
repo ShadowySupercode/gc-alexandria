@@ -4,8 +4,10 @@
 
 [.text-center]
 *21 Lessons, by Gigi*
+
 [.text-center]
 What I've Learned from Falling Down the Bitcoin Rabbit Hole
+
 [.text-center]
 Independently published 18. Dezember 2019.
 
@@ -89,7 +91,6 @@ ____
 audio::https://21lessons.com/assets/audio/21lessons/0-01.m4a[Audio. Read by Guy Swan]
 
 .Table of Contents
-
 * Title Page
 * License
 * Preface
@@ -172,9 +173,7 @@ image::https://21lessons.com/assets/images/bitcoin-orange-pill.jpg[red pill, 300
 :figure-caption!:
 
 [quote]
-___
-The mouse looked at her rather inquisitively, and seemed to her to wink with one of its little eyes, but it said nothing.
-___
+"The mouse looked at her rather inquisitively, and seemed to her to wink with one of its little eyes, but it said nothing."
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-00.m4a[Audio. Read by Guy Swan]
@@ -184,7 +183,6 @@ Looking at Bitcoin superficially, one might conclude that it is slow, wasteful, 
 Bitcoin has a way of taking your assumptions and turning them on their heads. After a while, just when you were about to get comfortable again, Bitcoin will smash through the wall like a bull in a china shop and shatter your assumptions once more.
 
 .Blind monks examining the Bitcoin bull
-
 image::https://21lessons.com/assets/images/blind-monks.jpg[Blind monks examining the Bitcoin bull, 300, align="center"]
 
 Bitcoin is a child of many disciplines. Like blind monks examining an elephant, everyone who approaches this novel technology does so from a different angle. And everyone will come to different conclusions about the nature of the beast.
@@ -207,10 +205,7 @@ I hope that you will find the world of Bitcoin as educational, fascinating and e
 :figure-caption!:
 
 [quote]
-____
-
-I wonder if I've been changed in the night. Let me think. Was I the same when I got up this morning? I almost think I can remember feeling a little different. But if I'm not the same, the next question is 'Who in the world am I?' Ah, that's the great puzzle!
-____
+"I wonder if I've been changed in the night. Let me think. Was I the same when I got up this morning? I almost think I can remember feeling a little different. But if I'm not the same, the next question is 'Who in the world am I?' Ah, that's the great puzzle!"
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-01.m4a[Audio. Read by Guy Swan]
@@ -268,10 +263,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
-
 That's quite enough — I hope I sha'n't grow any more...
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-02.m4a[Audio. Read by Guy Swan]
@@ -301,9 +293,7 @@ Paradoxically, it does so by a mechanism of copying. Transactions are broadcast,
 :figure-caption!:
 
 [quote]
-____
 Next came an angry voice—the rabbit's—"Pat, Pat! where are you?"
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-03.m4a[Audio. Read by Guy Swan]
@@ -337,10 +327,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
-
 "Who are you?" said the caterpillar.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-04.m4a[Audio. Read by Guy Swan]
@@ -367,10 +354,7 @@ It seems like the advancement of technology keeps forcing us to take these philo
 :figure-caption!:
 
 [quote]
-____
-
 "Their heads are gone," the soldiers shouted in reply...
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-05.m4a[Audio. Read by Guy Swan]
@@ -404,10 +388,7 @@ Like gold in ancient times, Bitcoin might be considered a gift from the gods. Un
 :figure-caption!:
 
 [quote]
-____
-
 "I beg your pardon?" said the mouse, frowning, but very politely, "did you speak?"
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-06.m4a[Audio. Read by Guy Swan]
@@ -455,9 +436,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 Down, down, down. Would the fall never come to an end?
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/1-07.m4a[Audio. Read by Guy Swan]
@@ -496,9 +475,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-___
 A large rose tree stood near the entrance of the garden: the roses on it were white, but there were three gardeners at it, busily painting them red. This Alice thought a very curious thing...
-___
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-00.m4a[Audio. Read by Guy Swan]
@@ -529,9 +506,7 @@ After seven lessons examined through the lens of philosophy, let’s use the len
 :figure-caption!:
 
 [quote]
-____
 And what an ignorant little girl she'll think me for asking! No, it'll never do to ask: perhaps I shall see it written up somewhere.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-08.m4a[Audio. Read by Guy Swan]
@@ -552,8 +527,7 @@ These are just two of the https://twitter.com/search?q=bitcoin%20AND%20I%20AND%2
 We all read about various financial crises in the news, wonder about how these big bailouts work and are puzzled over the fact that no one ever seems to be held accountable for damages which are in the trillions. I am still puzzled, but at least I am starting to get a glimpse of what is going on in the world of finance. Some people even go as far as to attribute the general ignorance on these topics to systemic, willful ignorance. While history, physics, biology, math, and languages are all part of our education, the world of money and finance surprisingly is only explored superficially, if at all. I wonder if people would still be willing to accrue as much debt as they currently do if everyone would be educated in personal finance and the workings of money and debt. Then I wonder how many layers of aluminum make an effective tinfoil hat. Probably three.
 
 [quote, Robert Kiyosaki]
-
-“Those crashes, these bailouts, are not accidents. And neither is it an accident that there is no financial education in school. […] It’s premeditated. Just as prior to the Civil War it was illegal to educate a slave, we are not allowed to learn about money in school.”
+"Those crashes, these bailouts, are not accidents. And neither is it an accident that there is no financial education in school. […] It’s premeditated. Just as prior to the Civil War it was illegal to educate a slave, we are not allowed to learn about money in school."
 
 Like in The Wizard of Oz, we are told to pay no attention to the man behind the curtain. Unlike in The Wizard of Oz, we now have https://external-preview.redd.it/8d03MWWOf2HIyKrT8ThBGO4WFv-u25JaYqhbEO9b1Sk.jpg?width=683&amp;auto=webp&amp;s=dc5922d84717c6a94527bafc0189fd4ca02a24bb[real wizardry]: a censorship-resistant, open, borderless network of value-transfer. There is no curtain, and the magic is https://github.com/bitcoin/bitcoin[visible to anyone]. Bitcoin taught me to look behind the curtain and face my financial ignorance.
 
@@ -570,20 +544,15 @@ Like in The Wizard of Oz, we are told to pay no attention to the man behind the 
 :figure-caption!:
 
 [quote]
-____
 My dear, here we must run as fast as we can, just to stay in place. And if you wish to go anywhere you must run twice as fast as that.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-09.m4a[Audio. Read by Guy Swan]
 
 Trying to understand monetary inflation, and how a non-inflationary system like Bitcoin might change how we do things, was the starting point of my venture into economics. I knew that inflation was the rate at which new money was created, but I didn’t know too much beyond that. While some economists argue that inflation is a good thing, others argue that “hard” money which can’t be inflated easily — as we had in the days of the gold standard  —  is essential for a healthy economy. Bitcoin, having a fixed supply of 21 million, agrees with the latter camp. Usually, the effects of inflation are not immediately obvious. Depending on the inflation rate (as well as other factors) the time between cause and effect can be several years. Not only that, but inflation affects different groups of people more than others. As Henry Hazlitt points out in _Economics in One Lesson_: “The art of economics consists in looking not merely at the immediate but at the longer effects of any act or policy; it consists in tracing the consequences of that policy not merely for one group but for all groups.” One of my personal lightbulb moments was the realization that issuing new currency  —  printing more money  —  is a _completely_ different economic activity than all the other economic activities. While real goods and real services produce real value for real people, printing money effectively does the opposite: it takes away value from everyone who holds the currency which is being inflated.
 
-[quote]
+[quote, Henry Hazlitt]
 “Mere inflation  —  that is, the mere issuance of more money, with the consequence of higher wages and prices  —  may look like the creation of more demand. But in terms of the actual production and exchange of real things it is not.”
-
-[quote]
-https://mises.org/library/economics-one-lesson[Henry Hazlitt]
 
 The destructive force of inflation becomes obvious as soon as a little inflation turns into _a lot_. If money https://en.wikipedia.org/wiki/Hyperinflation[hyperinflates], things get ugly real quick. As the inflating currency falls apart, it will fail to store value over time and people will rush to get their hands on any goods which might do. Another consequence of hyperinflation is that all the money which people have saved over the course of their life will effectively vanish. The paper money in your wallet will still be there, of course. But it will be exactly that: worthless paper.
 
@@ -591,11 +560,8 @@ image::https://21lessons.com/assets/images/children-playing-with-money.png[Hyper
 
 Money declines in value with so-called “mild” inflation as well. It just happens slowly enough that most people don’t notice the diminishing of their purchasing power. And once the printing presses are running, currency can be easily inflated, and what used to be mild inflation might turn into a strong cup of inflation by the push of a button. As Friedrich Hayek pointed out in one of his essays, mild inflation usually leads to outright inflation.
 
-[quote]
-"”Mild” steady inflation cannot help  —  it can lead only to outright inflation.”
-
-[quote]
-https://books.google.com/books?id=zZu3AAAAIAAJ&amp;dq=%22only+while+it+accelerates%22&amp;focus=searchwithinvolume&amp;q=%22steady+inflation+cannot+help%22[Friedrich Hayek]
+[quote, Friedrich Hayek]
+"'Mild' steady inflation cannot help  —  it can lead only to outright inflation."
 
 Inflation is particularly devious since it favors those who are closer to the printing presses. It takes time for the newly created money to circulate and prices to adjust, so if you are able to get your hands on more money before everyone else’s devaluates you are ahead of the inflationary curve. This is also why inflation can be seen as a hidden tax because in the end governments profit from it while everyone else ends up paying the price.
 
@@ -638,10 +604,9 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 It was the white rabbit, trotting slowly back again, and looking anxiously about it as it went, as if it had lost something...
-____
 
+.Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-10.m4a[Audio. Read by Guy Swan]
 
 Value is somewhat paradoxical, and there are https://en.wikipedia.org/wiki/Theory_of_value_%28economics%29[multiple theories] which try to explain why we value certain things over other things. People have been aware of this paradox for thousands of years. As Plato wrote in his dialogue with Euthydemus, we value some things because they are rare, and not merely based on their necessity for our survival.
@@ -666,9 +631,7 @@ This https://en.wikipedia.org/wiki/Paradox_of_value[paradox of value] shows some
 :figure-caption!:
 
 [quote]
-____
 "In my youth," said the sage, as he shook his gray locks, "I kept all my limbs very supple, By the use of this ointment, five shillings the box— Allow me to sell you a couple." 
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-11.m4a[Audio. Read by Guy Swan]
@@ -676,7 +639,7 @@ audio::https://21lessons.com/assets/audio/21lessons/2-11.m4a[Audio. Read by Guy 
 What is money? We use it every day, yet this question is surprisingly difficult to answer. We are dependent on it in ways big and small, and if we have too little of it our lives become very difficult. Yet, we seldom think about the thing which supposedly makes the world go round. Bitcoin forced me to answer this question over and over again: What the hell is money? In our “modern” world, most people will probably think of pieces of paper when they talk about money, even though most of our money is just a number in a bank account. We are already using zeros and ones as our money, so how is Bitcoin different? Bitcoin is different because at its core it is a very different _type_ of money than the money we currently use. To understand this, we will have to take a closer look at what money is, how it came to be, and why gold and silver was used for most of commercial history.
 
 [quote, Satoshi Nakamoto]
-“In this sense, it’s more typical of a precious metal. Instead of the supply changing to keep the value the same, the supply is predetermined and the value changes.”
+"In this sense, it’s more typical of a precious metal. Instead of the supply changing to keep the value the same, the supply is predetermined and the value changes."
 
 Seashells, gold, silver, paper, bitcoin. In the end, *money is whatever people use as money*, no matter its shape and form, or lack thereof. Money, as an invention, is ingenious. A world without money is insanely complicated: How many fish will buy me new shoes? How many cows will buy me a house? What if I don’t need anything right now but I need to get rid of my soon-to-be rotten apples? You don’t need a lot of imagination to realize that a barter economy is maddeningly inefficient. The great thing about money is that it can be exchanged for _anything else_  —  that’s quite the invention! As http://unenumerated.blogspot.com/[Nick Szabo] brilliantly summarizes in _https://nakamotoinstitute.org/shelling-out/[Shelling Out: The Origins of Money]_, we humans have used all kinds of things as money: beads made of rare materials like ivory, shells, or special bones, various kinds of jewelry, and later on rare metals like silver and gold. Being the lazy creatures we are, we don’t think too much about things which just work. Money, for most of us, works just fine. Like with our cars or our computers, most of us are only forced to think about the inner workings of these things if they break down. People who saw their life-savings vanish because of hyperinflation know the value of hard money, just like people who saw their friends and family vanish because of the atrocities of Nazi Germany or Soviet Russia know the value of privacy. The thing about money is that it is all-encompassing. Money is half of every transaction, which imbues the ones who are in charge with creating money with enormous power.
 
@@ -703,9 +666,7 @@ Bitcoin peacefully removes this power, since it does away with money creation an
 :figure-caption!:
 
 [quote]
-____
 They would not remember the simple rules their friends had given them, such as, that, if you get into the fire, it will burn you, and that, if you cut your finger very deeply with a knife, it generally bleeds, and she had never forgotten that, if you drink a bottle marked "poison," it is almost certain to disagree with you, sooner or later.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-12.m4a[Audio. Read by Guy Swan]
@@ -766,20 +727,15 @@ By the way, there is another interesting lesson on today’s bank notes, hidden 
 :figure-caption!:
 
 [quote]
-____
 Alas! it was too late: she went on growing and growing, and very soon had to kneel down: in another minute there was not room even for this, and she tried the effect of lying down, with one elbow against the door, and the other arm curled round her head. Still she went on growing, and as a last resource she put one arm out of the window, and one foot up the chimney, and said to herself "now I can do no more—what will become of me?"
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-13.m4a[Audio. Read by Guy Swan]
 
 Value and money aren’t trivial topics, especially in today’s times. The process of money creation in our banking system is equally non-trivial, and I can’t shake the feeling that this is deliberately so. What I have previously only encountered in academia and legal texts seems to be common practice in the financial world as well: nothing is explained in simple terms, not because it is truly complex, but because the truth is hidden behind layers and layers of jargon and _apparent_ complexity. “Expansionary monetary policy, quantitative easing, fiscal stimulus to the economy.” The audience nods along in agreement, hypnotized by the fancy words. Fractional reserve banking and quantitative easing are two of those fancy words, obfuscating what is really happening by masking it as complex and difficult to understand. If you would explain them to a five-year-old, the insanity of both will become apparent quickly. Godfrey Bloom, addressing the European Parliament during a https://www.youtube.com/watch?v=hYzX3YZoMrs[joint debate], said it way better than I ever could:
 
-[quote]
+[quote, Godfrey Bloom]
 “[…] you do not really understand the concept of banking. All the banks are broke. Bank Santander, Deutsche Bank, Royal Bank of Scotland  —  they’re all broke! And why are they broke? It isn’t an act of God. It isn’t some sort of tsunami. They’re broke because we have a system called ‘fractional reserve banking’ which means that banks can lend money that they don’t actually have! It’s a criminal scandal and it’s been going on for too long. […] We have counterfeiting  —  sometimes called quantitative easing  —  but counterfeiting by any other name. The artificial printing of money which, if any ordinary person did, they’d go to prison for a very long time […] and until we start sending bankers  —  and I include central bankers and politicians  —  to prison for this outrage it will continue.”
-
-[quote]
-https://www.youtube.com/watch?v=hYzX3YZoMrs[Godfrey Bloom]
 
 Let me repeat the most important part: banks can lend money that they don’t actually have. Thanks to fractional reserve banking, a bank only has to keep a small _fraction_ of every dollar it gets. It’s somewhere between 0 and 10%, usually at the lower end, which makes things even worse. Let’s use a concrete example to better understand this crazy idea: A fraction of 10% will do the trick and we should be able to do all the calculations in our head. Win-win. So, if you take $100 to a bank  —  because you don’t want to store it under your mattress  —  they only have to keep the agreed upon _fraction_ of it. In our example that would be $10, because 10% of $100 is $10. Easy, right? So what do banks do with the rest of the money? What happens to your $90? They do what banks do, they lend it to other people. The result is a https://en.wikipedia.org/wiki/Money_multiplier[money multiplier] effect, which increases the money supply in the economy enormously. Your initial deposit of $100 will soon turn into $190. By lending a 90% fraction of the newly created $90, there will soon be $271 in the economy. And $343.90 after that. The money supply is recursively increasing, since banks are literally lending money they don’t have. Without a single Abracadabra, banks magically transform $100 into one thousand dollars or more. Turns out 10x is easy. It only takes a couple of lending rounds.
 
@@ -801,9 +757,7 @@ Don’t get me wrong: There is nothing wrong with lending. There is nothing wron
 :figure-caption!:
 
 [quote]
-____
 "The first thing I've got to do," said Alice to herself, as she wandered about in the wood, "is to grow to my right size, and the second thing is to find my way into that lovely garden. I think that will be the best plan."
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/2-14.m4a[Audio. Read by Guy Swan]
@@ -854,9 +808,7 @@ As bitcoin approaches infinite stock to flow ratio it will be the soundest money
 :figure-caption!:
 
 [quote]
-___
 "Now, I'll manage better this time" she said to herself, and began by taking the little golden key, and unlocking the door that led into the garden.
-___
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-00.m4a[Audio. Read by Guy Swan]
@@ -887,9 +839,7 @@ Once more, strap in and enjoy the ride. Like all exponential technologies, we ar
 :figure-caption!:
 
 [quote]
-____
 Let me see: four times five is twelve, and four times six is thirteen, and four times seven is fourteen—oh dear! I shall never get to twenty at this rate!
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-15.m4a[Audio. Read by Guy Swan]
@@ -955,9 +905,7 @@ Bitcoin is built upon our best understanding of reality. While there are still m
 :figure-caption!:
 
 [quote]
-____
 "Now for the evidence," said the King, "and then the sentence."
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-16.m4a[Audio. Read by Guy Swan]
@@ -989,7 +937,9 @@ image::https://21lessons.com/assets/images/stealthy-hardware-trojan.png[Stealthy
 Sounds scary? Well, even if you would be able to build everything from scratch, you would still have to trust the underlying mathematics. You would have to trust that https://en.bitcoin.it/wiki/Secp256k1[secp256k1] is an elliptic curve without backdoors. Yes, malicious backdoors can be inserted in the mathematical foundations of cryptographic functions and arguably this https://en.wikipedia.org/wiki/Dual_EC_DRBG[has already happened] at least once. There are good reasons to be paranoid, and the fact that everything from your hardware, to your software, to the elliptic curves used can have https://en.wikipedia.org/wiki/Elliptic-curve_cryptography#Backdoors[backdoors] are some of them.
 
 [quote]
-“Don’t trust. Verify.” </blockquote> The above examples should illustrate that _trustless_ computing is utopic. Bitcoin is probably the one system which comes closest to this utopia, but still, it is _trust-minimized_  — aiming to remove trust wherever possible. Arguably, the chain-of-trust is neverending, since you will also have to trust that computation requires energy, that P does not equal NP, and that you are actually in base reality and not imprisoned in a simulation by malicious actors. Developers are working on tools and procedures to minimize any remaining trust even further. For example, Bitcoin developers created https://gitian.org/[Gitian], which is a software distribution method to create deterministic builds. The idea is that if multiple developers are able to reproduce identical binaries, the chance of malicious tampering is reduced. Fancy backdoors aren’t the only attack vector. Simple blackmail or extortion are real threats as well. As in the main protocol, decentralization is used to minimize trust. Various efforts are being made to improve upon the chicken-and-egg problem of https://www.gnu.org/software/guix/manual/en/html_node/Bootstrapping.html[bootstrapping] which Ken Thompson’s hack so brilliantly pointed out. One such effort is https://www.gnu.org/software/guix/[Guix] (pronounced _geeks_), which uses functionally declared package management leading to bit-for-bit reproducible builds by design. The result is that you don’t have to trust any software-providing servers anymore since you can verify that the served binary was not tampered with by rebuilding it from scratch. Recently, a https://github.com/bitcoin/bitcoin/pull/15277[pull-request] was merged to integrate Guix into the Bitcoin build process.
+“Don’t trust. Verify.”
+
+The above examples should illustrate that _trustless_ computing is utopic. Bitcoin is probably the one system which comes closest to this utopia, but still, it is _trust-minimized_  — aiming to remove trust wherever possible. Arguably, the chain-of-trust is neverending, since you will also have to trust that computation requires energy, that P does not equal NP, and that you are actually in base reality and not imprisoned in a simulation by malicious actors. Developers are working on tools and procedures to minimize any remaining trust even further. For example, Bitcoin developers created https://gitian.org/[Gitian], which is a software distribution method to create deterministic builds. The idea is that if multiple developers are able to reproduce identical binaries, the chance of malicious tampering is reduced. Fancy backdoors aren’t the only attack vector. Simple blackmail or extortion are real threats as well. As in the main protocol, decentralization is used to minimize trust. Various efforts are being made to improve upon the chicken-and-egg problem of https://www.gnu.org/software/guix/manual/en/html_node/Bootstrapping.html[bootstrapping] which Ken Thompson’s hack so brilliantly pointed out. One such effort is https://www.gnu.org/software/guix/[Guix] (pronounced _geeks_), which uses functionally declared package management leading to bit-for-bit reproducible builds by design. The result is that you don’t have to trust any software-providing servers anymore since you can verify that the served binary was not tampered with by rebuilding it from scratch. Recently, a https://github.com/bitcoin/bitcoin/pull/15277[pull-request] was merged to integrate Guix into the Bitcoin build process.
 
 image::https://21lessons.com/assets/images/guix-bootstrap-dependencies.png[Which came first, the chicken or the egg?, 300, align="center"]
 
@@ -1010,9 +960,7 @@ Luckily, Bitcoin doesn’t rely on a single algorithm or piece of hardware. One 
 :figure-caption!:
 
 [quote]
-____
 "Dear, dear! I shall be too late!"
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-17.m4a[Audio. Read by Guy Swan]
@@ -1058,9 +1006,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 "Dear, dear! I shall be too late!"
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-17.m4a[Audio. Read by Guy Swan]
@@ -1106,9 +1052,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 So the boat wound slowly along, beneath the bright summer-day, with its merry crew and its music of voices and laughter...
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-18.m4a[Audio. Read by Guy Swan]
@@ -1148,9 +1092,7 @@ Openness is paramount to security and inherent in open source and the free softw
 :figure-caption!:
 
 [quote]
-____
 The players all played at once without waiting for turns, and quarrelled all the while at the tops of their voices, and in a very few minutes the Queen was in a furious passion, and went stamping about and shouting "off with his head!" or "off with her head!" about once in a minute.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-19.m4a[Audio. Read by Guy Swan]
@@ -1165,7 +1107,6 @@ Whatever his real identity might be, Satoshi was successful in hiding it. He set
 “Encryption works. Properly implemented strong crypto systems are one of the few things that you can rely on.”
 
 Satoshi wasn’t the first pseudonymous or anonymous inventor, and he won’t be the last. Some have directly imitated this pseudonymous publication style, like Tom Elvis Yedusor of https://github.com/mimblewimble/docs/wiki/MimbleWimble-Origin[MimbleWimble] fame, while others have published advanced mathematical proofs while remaining completely https://oeis.org/A180632/a180632.pdf[anonymous]. It is a strange new world we are living in. A world where identity is optional, contributions are accepted based on merit, and people can collaborate and transact freely. It will take some adjustment to get comfortable with these new paradigms, but I strongly believe that all of this has the potential to change the world for the better. We should all remember that privacy is a http://www.un.org/en/universal-declaration-human-rights/[fundamental human right]. And as long as people exercise and defend these rights the battle for privacy is far from over. Bitcoin taught me that privacy is not dead.
- 
 
 '''
 
@@ -1198,9 +1139,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 I see you're trying to invent something.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-20.m4a[Audio. Read by Guy Swan]
@@ -1226,7 +1165,6 @@ To make sure that his innovation transcends fantasy and becomes reality, Satoshi
 
 In today’s world of endless promises and doubtful execution, an exercise in dedicated building was desperately needed. Be deliberate, convince yourself that you can actually solve the problems, and implement the solutions. We should all aim to be a bit more cypherpunk. Bitcoin taught me that cypherpunks write code.
  
-
 '''
 
 *Through the Looking-Glass 🔍*
@@ -1250,9 +1188,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-____
 I know something interesting is sure to happen...
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/3-21.m4a[Audio. Read by Guy Swan]
@@ -1283,7 +1219,6 @@ Bitcoin’s first node went online in 2009 after Satoshi mined the https://en.bi
 image::https://21lessons.com/assets/images/lnd-growth-lopp-black.png[Lightning Network, January 2018 vs December 2018. Source: Jameson Lopp, 300, align="center"]
 
 To me, having lived through the meteoric rise of the web, the parallels between the internet and Bitcoin are obvious. Both are networks, both are exponential technologies, and both enable new possibilities, new industries, new ways of life. Just like electricity was the best metaphor to understand where the internet is heading, the internet might be the best metaphor to understand where Bitcoin is heading. Or, in the words of Andreas Antonopoulos, Bitcoin is https://theinternetofmoney.info/[_The Internet of Money_]. These metaphors are a great reminder that while history doesn’t repeat itself, it often rhymes. Exponential technologies are hard to grasp and often underestimated. Even though I have a great interest in such technologies, I am constantly surprised by the pace of progress and innovation. Watching the Bitcoin ecosystem grow is like watching the rise of the internet in fast-forward. It is exhilarating. My quest of trying to make sense of Bitcoin has led me down the pathways of history in more ways than one. Understanding ancient societal structures, past monies, and how communication networks evolved were all part of the journey. From the handaxe to the smartphone, technology has undoubtedly changed our world many times over. Networked technologies are especially transformational: writing, roads, electricity, the internet. All of them changed the world. Bitcoin has changed mine and will continue to change the minds and hearts of those who dare to use it. Bitcoin taught me that understanding the past is essential to understanding its future. A future which is just beginning.
- 
 
 '''
 
@@ -1321,9 +1256,7 @@ Follow-up articles that expand upon ideas discussed in this lesson:
 :figure-caption!:
 
 [quote]
-___
 "Begin at the beginning," the King said, very gravely, "and go on till you come to the end: then stop."
-___
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/4-00.m4a[Audio. Read by Guy Swan]
@@ -1355,20 +1288,20 @@ In any case, my journey continues. I plan to venture further down into the depth
 == Acknowledgements
 
 [quote]
-"Thank you," said Alice
+"Thank you," said Alice.
 
 Thanks to the countless authors and content producers who influenced my thinking on Bitcoin and the topics it touches. There are too many to list them all, but I’ll do my best to name a few.
 
 * Thanks to https://twitter.com/arjunblj[Arjun Balaji] for https://twitter.com/arjunblj/status/1050073234719293440[the tweet] which motivated me to write this.
-*Thanks to https://twitter.com/martybent[Marty Bent] for providing endless food for thought and entertainment. If you are not subscribed to http://eepurl.com/cROArD[Marty’s Ƀent] and https://talesfromthecrypt.libsyn.com/[Tales From The Crypt], you are missing out. Cheers https://twitter.com/matt_odell[Matt] and Marty for guiding us through the rabbit hole.
-*Thanks to https://twitter.com/bitstein[Michael Goldstein] and https://twitter.com/pierre_rochard[Pierre Rochard] for curating and providing the greatest Bitcoin literature via the http://nakamotoinstitute.org[Nakamoto Institute]. And thank you for creating the https://noded.org/[Noded Podcast] which influenced my philosophical views on Bitcoin substantially.
-*Thanks to https://twitter.com/whatbitcoindid[Peter McCormack] for his https://twitter.com/PeterMcCormack/status/1073196778705559553[honest tweets] and the https://www.whatbitcoindid.com/podcast[What Bitcoin Did] podcast, which keeps providing great insights from many areas of the space.
-*Thanks to https://twitter.com/aantonop[Andreas M. Antonopoulos] for all the https://antonopoulos.com/[educational material] he has put out over the years.
-*Thanks to https://twitter.com/saifedean[Saifedean Ammous] for his convictions, savage tweets, and writing The Bitcoin Standard
-*Thanks to https://twitter.com/francispouliot_[Francis Pouliot] for sharing his excitement about finding out about the https://twitter.com/francispouliot_/status/1106028072799744002[timechain].
-*Thanks to https://twitter.com/jnnksbrt[Jannik], https://twitter.com/bquittem[Brandon], https://twitter.com/matt_odell[Matt], https://twitter.com/CamiloJdL[Camilo], https://twitter.com/dnlggr[Daniel], https://twitter.com/michael_rogger[Michael], and https://twitter.com/dinemuatta[Raphael] for providing feedback to early drafts of some lessons. Special thanks to https://twitter.com/jnnksbrt[Jannik] who proofread multiple drafts multiple times.
-*Thanks to https://twitter.com/dhruvbansal[Dhruv Bansal] and https://twitter.com/matt_odell[Matt Odell] for taking the time to discuss some of these ideas with me.
-*Thanks to https://twitter.com/TheCryptoconomy[Guy Swann] for producing an audio version of 21lessons.com.
+* Thanks to https://twitter.com/martybent[Marty Bent] for providing endless food for thought and entertainment. If you are not subscribed to http://eepurl.com/cROArD[Marty’s Ƀent] and https://talesfromthecrypt.libsyn.com/[Tales From The Crypt], you are missing out. Cheers https://twitter.com/matt_odell[Matt] and Marty for guiding us through the rabbit hole.
+* Thanks to https://twitter.com/bitstein[Michael Goldstein] and https://twitter.com/pierre_rochard[Pierre Rochard] for curating and providing the greatest Bitcoin literature via the http://nakamotoinstitute.org[Nakamoto Institute]. And thank you for creating the https://noded.org/[Noded Podcast] which influenced my philosophical views on Bitcoin substantially.
+* Thanks to https://twitter.com/whatbitcoindid[Peter McCormack] for his https://twitter.com/PeterMcCormack/status/1073196778705559553[honest tweets] and the https://www.whatbitcoindid.com/podcast[What Bitcoin Did] podcast, which keeps providing great insights from many areas of the space.
+* Thanks to https://twitter.com/aantonop[Andreas M. Antonopoulos] for all the https://antonopoulos.com/[educational material] he has put out over the years.
+* Thanks to https://twitter.com/saifedean[Saifedean Ammous] for his convictions, savage tweets, and writing The Bitcoin Standard
+* Thanks to https://twitter.com/francispouliot_[Francis Pouliot] for sharing his excitement about finding out about the https://twitter.com/francispouliot_/status/1106028072799744002[timechain].
+* Thanks to https://twitter.com/jnnksbrt[Jannik], https://twitter.com/bquittem[Brandon], https://twitter.com/matt_odell[Matt], https://twitter.com/CamiloJdL[Camilo], https://twitter.com/dnlggr[Daniel], https://twitter.com/michael_rogger[Michael], and https://twitter.com/dinemuatta[Raphael] for providing feedback to early drafts of some lessons. Special thanks to https://twitter.com/jnnksbrt[Jannik] who proofread multiple drafts multiple times.
+* Thanks to https://twitter.com/dhruvbansal[Dhruv Bansal] and https://twitter.com/matt_odell[Matt Odell] for taking the time to discuss some of these ideas with me.
+* Thanks to https://twitter.com/TheCryptoconomy[Guy Swann] for producing an audio version of 21lessons.com.
 
 Last but not least, thanks to all the bitcoin maximalists, shitcoin minimalists, shills, bots, and shitposters which reside in the beautiful garden that is Bitcoin twitter. And finally, thank _you_ for reading this. I hope you enjoyed it as much as I did enjoy writing it.
 
@@ -1379,10 +1312,7 @@ Feel free to reach out to me https://twitter.com/dergigi[on X] or https://njump.
 ...for reading, for being here, for trying to understand.
 
 [quote]
-____
-
 "It seems very pretty," she said when she had finished it, "but it’s rather hard to understand!"
-____
 
 Thank you for reading 21 Lessons. If you enjoyed the book, please https://amzn.to/2VXmQgp[buy a copy], https://amzn.to/2VXmQgp[leave a review], or share it with your friends. You can also https://dergigi.shop[buy a signed copy]. If you have any suggestions for improvements, please reach out to me https://dergigi.com/contact/[here]. https://amzn.to/2Wa4qJo[Buy the book!] (...or https://dergigi.com/support/[support me] directly)
 
@@ -1395,10 +1325,7 @@ Thank you. 🙏🧡
 == Translations بيتكوين
 
 [quote]
-____
-
 These words were followed by a very long silence, broken only by an occasional exclamation of "hjckrrh!"
-____
 
 .Print
 * 🇺🇸 https://amzn.to/2Wa4qJo[English: 21 Lessons] - What I’ve Learned from Falling Down the Bitcoin Rabbit Hole (https://amzn.to/2Wa4qJo[Paperback], https://amzn.to/3bvM49P[Kindle])
@@ -1424,7 +1351,7 @@ ____
 * 🇩🇰 https://github.com/Shop21DK/21-Lektioner[Danish: 21 Lektioner] - Hvad jeg lærte af at falde ned i Bitcoin-kaninhullet (https://github.com/Shop21DK/21-Lektioner/blob/master/21%20Lektioner%20-%20latest%20version.pdf[PDF])
 
 .Audio versions
-See https://21lessons.com/audio[/audio] for audiobooks, audio versions, commentary, and podcast episodes.
+See https://21lessons.com/audio[audio] for audiobooks, audio versions, commentary, and podcast episodes.
 
 .Online versions
 * 🇮🇹 The https://gabridome.github.io/21-lezioni/[Italian version] of the website is available thanks to https://twitter.com/gabridome[gabridome]
@@ -1457,10 +1384,7 @@ See https://21lessons.com/audio[/audio] for audiobooks, audio versions, commenta
 == Readings and Commentary
 
 [quote]
-____
-
 She waited for some time without hearing anything more: at last came a rumbling of little cart-wheels, and the sound of a good many voices all talking together.
-____
 
 .Audio. Read by Guy Swan
 audio::https://21lessons.com/assets/audio/21lessons/21-lessons.m4a[Audio. Read by Guy Swan]
