@@ -178,7 +178,7 @@
 {/snippet}
 
 {#snippet contentParagraph(content: string, publicationType: string)}
-  {#if publicationType === 'book'}
+  {#if publicationType === 'novel'}
     <P class='whitespace-normal' firstupper={isSectionStart}>
       {@html content}
     </P>
