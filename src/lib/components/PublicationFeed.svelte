@@ -90,7 +90,7 @@
       <ArticleHeader {event} />
     {/each}
   {:else}
-    <p class='text-center'>No articles found.</p>
+    <p class='text-center'>No publications found.</p>
   {/if}
   {#if !loadingMore && !endOfFeed}
     <div class='flex justify-center mt-4 mb-8'>
