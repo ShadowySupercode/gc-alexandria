@@ -3,11 +3,15 @@
   import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
   import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
   import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
+  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
   let username = $derived(profile?.name);
   let tag = $derived(profile?.name);
+  let npub = $state<string | undefined >(undefined);
+
+  const externalProfileDestination = 'https://nostree.me/'
 
   let signInFailed = $state<boolean>(false);
 
@@ -19,6 +23,7 @@
         .then(userProfile => {
           profile = userProfile;
         });
+      npub = $ndkInstance.activeUser?.npub;
     }
   });
 
@@ -42,6 +47,11 @@
     logout($ndkInstance.activeUser!);
     profile = null;
   }
+
+  function shortenNpub(long: string|undefined) {
+    if (!long) return '';
+    return long.slice(0, 8) + '…' + long.slice(-4);
+  }
 </script>
 
 {#if $ndkSignedIn}
@@ -61,6 +71,8 @@
         <div class='flex flex-col'>
           <h3 class='text-lg font-bold'>{username}</h3>
           <h4 class='text-base'>@{tag}</h4>
+          <CopyToClipboard displayText={shortenNpub(npub)} copyText={npub} />
+          <a class='text-indigo-600 underline' href='{externalProfileDestination}{npub}' target='_blank'>View profile</a>
         </div>
         <div class='flex flex-col justify-center'>
           <Button
