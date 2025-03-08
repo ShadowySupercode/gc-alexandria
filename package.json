@@ -22,12 +22,12 @@
     "asciidoctor": "3.0.x",
     "d3": "^7.9.0",
     "he": "1.2.x",
-    "nostr-tools": "2.10.x",
-    "playwright": "^1.50.1"
+    "nostr-tools": "2.10.x"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
     "@sveltejs/adapter-auto": "3.x",
+    "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/adapter-static": "3.x",
     "@sveltejs/kit": "2.x",
     "@sveltejs/vite-plugin-svelte": "4.x",
@@ -38,6 +38,7 @@
     "flowbite": "2.x",
     "flowbite-svelte": "0.x",
     "flowbite-svelte-icons": "2.x",
+    "playwright": "^1.50.1",
     "postcss": "8.x",
     "postcss-load-config": "6.x",
     "prettier": "3.x",
