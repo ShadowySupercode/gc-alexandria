@@ -249,4 +249,36 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   }
 
   // #endregion
+
+  // #region Iteration Cursor
+
+  // TODO: Flesh out this class.
+  Cursor = class {
+    private tree: PublicationTree;
+    private currentNode: PublicationTreeNode | null | undefined;
+
+    constructor(tree: PublicationTree, currentNode: PublicationTreeNode | null = null) {
+      this.tree = tree;
+      
+      if (!currentNode) {
+        this.currentNode = this.tree.bookmark
+          ? this.tree.nodes.get(this.tree.bookmark)
+          : null;
+      }
+    }
+
+    firstChild(): PublicationTreeNode | null {
+
+    }
+
+    nextSibling(): PublicationTreeNode | null {
+
+    }
+
+    parent(): PublicationTreeNode | null {
+
+    }
+  };
+
+  // #endregion
 }
