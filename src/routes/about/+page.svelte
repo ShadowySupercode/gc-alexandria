@@ -27,16 +27,16 @@
     <p><img src="/screenshots/ToC_icon.png" alt="ToC icon" class='image-border'></p>
     <p><img src="/screenshots/TableOfContents.png" alt="Table of contents example" class='image-border'></p>
 
-    <Heading tag='h3' class='h-leather mb-2'>Typical use cases</Heading>
+    <Heading tag='h2' class='h-leather mb-2'>Typical use cases</Heading>
 
-    <Heading tag='h4' class='h-leather mb-3'>For e-books</Heading>
+    <Heading tag='h3' class='h-leather mb-2'>For e-books</Heading>
     <p>The most common use for Alexandria is for e-books: both those users have written themselves and those uploaded to Nostr from other sources. The first minor version of the app, Gutenberg, is focused on displaying and producing these publications.</p>
 
     <p>An example of a book is <a  href="https://next-alexandria.gitcitadel.eu/publication?d=jane-eyre-an-autobiography-by-charlotte-bront%C3%83-v-third-edition" class='underline'>Jane Eyre</a></p>
 
     <p><img src="/screenshots/JaneEyre.png" alt="Jane Eyre, by Charlotte Brontë" class='image-border'></p>
 
-    <Heading tag='h5' class='h-leather mb-3'>For scientific papers</Heading>
+    <Heading tag='h3' class='h-leather mb-2'>For scientific papers</Heading>
     <p>Alexandria will also display research papers with Asciimath and LaTeX embedding, and the normal advanced formatting options available for Asciidoc. In addition, we will be implementing special citation events, which will serve as an alternative or addition to the normal footnotes.</p>
 
     <p>Correctly displaying such papers, integrating citations, and allowing them to be reviewed (with kind 1111 comments), and annotated (with highlights) by users, is the focus of the second minor version, Euler.</p>
@@ -47,7 +47,7 @@
 
     <p><img src="/screenshots/ResearchPaper.png" alt="Research paper" class='image-border'></p>
 
-    <Heading tag='h6' class='h-leather mb-3'>For documentation</Heading>
+    <Heading tag='h3' class='h-leather mb-2'>For documentation</Heading>
     <p>Our own team uses the app to document the app, to display our blog entries, as well as to store copies of our most interesting technical specifications.</p>
 
     <p><img src="/screenshots/Documentation.png" alt="Documentation" class='image-border'></p>
