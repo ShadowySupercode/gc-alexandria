@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Article from "$lib/components/Article.svelte";
+  import Article from "$lib/components/Publication.svelte";
   import { TextPlaceholder } from "flowbite-svelte";
   import type { PageData } from "./$types";
   import { onDestroy } from "svelte";

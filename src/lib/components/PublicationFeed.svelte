@@ -4,7 +4,7 @@
   import { filterValidIndexEvents } from '$lib/utils';
   import { NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
   import { Button, P, Skeleton, Spinner } from 'flowbite-svelte';
-  import ArticleHeader from './ArticleHeader.svelte';
+  import ArticleHeader from './PublicationHeader.svelte';
   import { onMount } from 'svelte';
 
   let { relays } = $props<{ relays: string[] }>();
