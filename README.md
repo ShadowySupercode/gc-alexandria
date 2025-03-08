@@ -2,8 +2,8 @@
 
 # Alexandria
 
-Alexandria is a reader and writer for curated publications.
-For a thorough introduction, please refer to our [project documention](https://next-alexandria.gitcitadel.eu/publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria.
+Alexandria is a reader and writer for curated publications, including e-books.
+For a thorough introduction, please refer to our [project documention](https://next-alexandria.gitcitadel.eu/publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria, or to the Alexandria [About page](https://next-alexandria.gitcitadel.eu/about).
 
 ## Issues and Patches
 
