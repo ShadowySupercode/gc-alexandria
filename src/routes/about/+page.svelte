@@ -48,7 +48,7 @@
     <p><img src="/screenshots/ResearchPaper.png" alt="Research paper" class='image-border'></p>
 
     <Heading tag='h3' class='h-leather mb-2'>For documentation</Heading>
-    <p>Our own team uses the app to document the app, to display our blog entries, as well as to store copies of our most interesting technical specifications.</p>
+    <p>Our own team uses Alexandria to document the app, to display our blog entries, as well as to store copies of our most interesting technical specifications.</p>
 
     <p><img src="/screenshots/Documentation.png" alt="Documentation" class='image-border'></p>
 
