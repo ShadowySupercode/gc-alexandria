@@ -13,36 +13,50 @@ You can also contact us [on Nostr](https://njump.me/nprofile1qqsggm4l0xs23qfjwnk
 
 ## Developing
 
-Make sure that you have [Node.js](https://nodejs.org/en/download/package-manager) installed.
+Make sure that you have [Node.js](https://nodejs.org/en/download/package-manager) (v22 or above) or [Deno](https://docs.deno.com/runtime/getting_started/installation/) (v2) installed.
 
-Once you've cloned this repo, install dependencies with:
-
+Once you've cloned this repo, install dependencies with NPM:
 ```bash
 npm install
 ```
 
-then start a development server:
+or with Deno:
+```bash
+deno install
+```
+
+then start a development server with Node:
 ```bash
 npm run dev
 ```
 
-or start the server and open the app in a new browser tab:
+or with Deno:
 ```bash
-npm run dev -- --open
+deno task dev
 ```
 
 ## Building
 
-> We have configured Alexandria to use the static adapter. To deploy your app with a different adapter, you will need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+Alexandria is configured to run on a Node server.  The [Node adapter](https://svelte.dev/docs/kit/adapter-node) works on Deno as well.
 
-To build a production version of your app, as a static site:
+To build a production version of your app with Node, use:
 ```bash
 npm run build
+```
+
+or with Deno:
+```bash
+deno task build
 ```
 
 You can preview the (non-static) production build with:
 ```bash
 npm run preview
+```
+
+or with Deno:
+```bash
+deno task preview
 ```
 
 ## Docker
@@ -72,6 +86,20 @@ which should return something like:
 ```bash
 CONTAINER ID   IMAGE           COMMAND                  CREATED         STATUS         PORTS                                     NAMES
 1d83d736322f   gc-alexandria   "/docker-entrypoint.…"   2 minutes ago   Up 2 minutes   0.0.0.0:4174->80/tcp, [::]:4174->80/tcp   gc-alexandria
+```
+
+## Docker + Deno
+
+This application is configured to use the Deno runtime.  A Docker container is provided to handle builds and deployments.
+
+To build the app for local development:
+```bash
+docker build -t local-alexandria -f Dockerfile.local .
+```
+
+To run the local development build:
+```bash
+docker run -d -p 3000:3000 local-alexandria
 ```
 
 ## Testing
