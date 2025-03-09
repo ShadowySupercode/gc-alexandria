@@ -2,12 +2,14 @@
 
 # Alexandria
 
-Alexandria is a reader and writer for curated publications.
-For a thorough introduction, please refer to our [project documention](https://next-alexandria.gitcitadel.eu/publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria.
+Alexandria is a reader and writer for curated publications, including e-books.
+For a thorough introduction, please refer to our [project documention](https://next-alexandria.gitcitadel.eu/publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria, or to the Alexandria [About page](https://next-alexandria.gitcitadel.eu/about).
 
 ## Issues and Patches
 
 If you would like to suggest a feature or report a bug, or submit a patch for review, please use the [Nostr git interface](https://gitcitadel.com/r/naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqyt8wumn8ghj7ur4wfcxcetjv4kxz7fwvdhk6tcqpfqkcetcv9hxgunfvyamcf5z) on our homepage.
+
+You can also contact us [on Nostr](https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg), directly.
 
 ## Developing
 

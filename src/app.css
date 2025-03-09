@@ -28,6 +28,11 @@
     @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
   }
 
+  /* Images */
+  .image-border {
+    @apply border border-primary-700;
+  }
+
   /* Card */
   div.card-leather {
     @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;

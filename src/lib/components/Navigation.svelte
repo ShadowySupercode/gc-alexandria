@@ -18,7 +18,7 @@
     <NavHamburger class='btn-leather' />
   </div>
   <NavUl class='ul-leather'>
-    <NavLi href='/new/edit'>New Note</NavLi>
+    <NavLi href='/new/edit'>Publish</NavLi>
     <NavLi href='/visualize'>Visualize</NavLi>
     <NavLi href='/about'>About</NavLi>
   <NavLi>
