@@ -20,8 +20,8 @@
 
     <p>There is also the ability to view the publications as a diagram, if you click on "Visualize", and to publish a note (coming soon).</p>
 
-    <p>If you click on a card (which represents a 30040 index event), the associated reading view opens to the publication, and the app pulls all of the section/content events (30041s) listed in the index, in the predefined order, and displays them as a single document.</p>
-
+    <p>If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s), in the order in which they are indexed, and displays them as a single document.</p>
+    
     <p>Each 30041 section is also a level in the table of contents, which can be accessed from the floating icon top-left in the reading view. This allows for navigation within the publication. (This functionality has been temporarily disabled.)</p>
 
     <p><img src="/screenshots/ToC_icon.png" alt="ToC icon" class='image-border'></p>
