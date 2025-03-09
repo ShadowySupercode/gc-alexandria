@@ -18,7 +18,7 @@
     <p><img src="/screenshots/LandingPage.png" alt="Landing page" class='image-border'></p>
     <p><img src="/screenshots/YourRelays.png" alt="Relay selection" class='image-border'></p>
 
-    <p>There is also the ability to view the publications as a diagram, if you click on "Visualize", and to publish a note (coming soon).</p>
+    <p>There is also the ability to view the publications as a diagram, if you click on "Visualize", and to publish an e-book or other document (coming soon).</p>
 
     <p>If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s), in the order in which they are indexed, and displays them as a single document.</p>
     
