@@ -13,7 +13,7 @@
 
     <Heading tag='h2' class='h-leather mb-2'>Overview</Heading>
   
-    <p>Alexandria opens up to the <a  href="https://next-alexandria.gitcitadel.eu/" class='underline'>landing page</a>, where the user can: login (top-right), select whether to only view the publications hosted on the <a href="https://theforest.nostr1.com/" class='underline'>theforest community relay</a> or add in their own relays, and scroll/search the publications.</p>
+    <p>Alexandria opens up to the <a  href="https://next-alexandria.gitcitadel.eu/" class='underline'>landing page</a>, where the user can: login (top-right), select whether to only view the publications hosted on the <a href="https://thecitadel.nostr1.com/" class='underline'>thecitadel document relay</a> or add in their own relays, and scroll/search the publications.</p>
 
     <p><img src="/screenshots/LandingPage.png" alt="Landing page" class='image-border'></p>
     <p><img src="/screenshots/YourRelays.png" alt="Relay selection" class='image-border'></p>
