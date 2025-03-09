@@ -252,7 +252,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
   // #region Iteration Cursor
 
-  // TODO: Flesh out this class.
   Cursor = class {
     private tree: PublicationTree;
     private currentNode: PublicationTreeNode | null | undefined;
@@ -267,16 +266,58 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       }
     }
 
-    firstChild(): PublicationTreeNode | null {
+    moveToFirstChild(): boolean {
+      if (!this.currentNode) {
+        throw new Error("Cursor: Current node is null or undefined.");
+      }
 
+      const hasChildren = (this.currentNode.children?.length ?? 0) > 0;
+      const isLeaf = this.tree.leaves.includes(this.currentNode.address);
+
+      if (!hasChildren && isLeaf) {
+        return false;
+      }
+
+      if (!hasChildren && !isLeaf) {
+        // TODO: Fetch any missing children, then return the first child.
+      }
+
+      this.currentNode = this.currentNode.children?.at(0);
+      return true;
     }
 
-    nextSibling(): PublicationTreeNode | null {
+    moveToNextSibling(): boolean {
+      if (!this.currentNode) {
+        throw new Error("Cursor: Current node is null or undefined.");
+      }
 
+      const parent = this.currentNode.parent;
+      const siblings = parent?.children;
+      const currentIndex = siblings?.findIndex(sibling =>
+        sibling.address === this.currentNode!.address
+      );
+
+      const nextSibling = siblings?.at(currentIndex! + 1);
+      if (!nextSibling) {
+        return false;
+      }
+
+      this.currentNode = nextSibling;
+      return true;
     }
 
-    parent(): PublicationTreeNode | null {
+    moveToParent(): boolean {
+      if (!this.currentNode) {
+        throw new Error("Cursor: Current node is null or undefined.");
+      }
 
+      const parent = this.currentNode.parent;
+      if (!parent) {
+        return false;
+      }
+
+      this.currentNode = parent;
+      return true;
     }
   };
 
