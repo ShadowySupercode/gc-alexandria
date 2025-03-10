@@ -1,8 +1,15 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
-import type { Lazy } from "./lazy";
+import { Lazy } from "./lazy";
+
+enum PublicationTreeNodeType {
+  Root,
+  Branch,
+  Leaf,
+}
 
 interface PublicationTreeNode {
+  type: PublicationTreeNodeType;
   address: string;
   parent?: PublicationTreeNode;
   children?: Array<Lazy<PublicationTreeNode>>;
@@ -18,6 +25,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * A map of addresses in the tree to their corresponding nodes.
    */
   private nodes: Map<string, PublicationTreeNode>;
+
+  /**
+   * A map of addresses in the tree to their corresponding lazy-loaded nodes. When a lazy node is
+   * retrieved, it is added to the {@link PublicationTree.nodes} map.
+   */
+  private lazyNodes: Map<string, Lazy<PublicationTreeNode>> = new Map();
 
   /**
    * A map of addresses in the tree to their corresponding events.
@@ -40,8 +53,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   private ndk: NDK;
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
-    const rootAddress = this.getAddressFromEvent(rootEvent);
+    const rootAddress = rootEvent.tagAddress();
     this.root = {
+      type: PublicationTreeNodeType.Root,
       address: rootAddress,
       children: [],
     };
@@ -64,8 +78,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
   addEvent(event: NDKEvent, parentEvent: NDKEvent) {
-    const address = this.getAddressFromEvent(event);
-    const parentAddress = this.getAddressFromEvent(parentEvent);
+    const address = event.tagAddress();
+    const parentAddress = parentEvent.tagAddress();
     const parentNode = this.nodes.get(parentAddress);
 
     if (!parentNode) {
@@ -74,16 +88,64 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
-    // TODO: Determine node type.
     const node = {
+      type: this.getNodeType(event),
       address,
       parent: parentNode,
       children: [],
     };
-    // TODO: Define a resolver for the lazy node.
-    parentNode.children!.push(node);
+    parentNode.children!.push(new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
     this.nodes.set(address, node);
     this.events.set(address, event);
+  }
+
+  /**
+   * Lazily adds an event to the publication tree by address if the full event is not already
+   * loaded into memory.
+   * @param address The address of the event to add.
+   * @param parentEvent The parent event of the event to add.
+   * @description The parent event must already be in the tree. Use
+   * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
+   */
+  addEventByAddress(address: string, parentEvent: NDKEvent) {
+    const parentAddress = parentEvent.tagAddress();
+    const parentNode = this.nodes.get(parentAddress);
+
+    if (!parentNode) {
+      throw new Error(
+        `PublicationTree: Parent node with address ${parentAddress} not found.`
+      );
+    }
+
+    const lazyNode = new Lazy<PublicationTreeNode>(async () => {
+      const [kind, pubkey, dTag] = address.split(':');
+      const event = await this.ndk.fetchEvent({
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        '#d': [dTag],
+      });
+
+      if (!event) {
+        throw new Error(
+          `PublicationTree: Event with address ${address} not found.`
+        );
+      }
+
+      const node: PublicationTreeNode = {
+        type: this.getNodeType(event),
+        address,
+        parent: parentNode,
+        children: [],
+      };
+
+      this.nodes.set(address, node);
+      this.events.set(address, event);
+
+      return node;
+    });
+
+    parentNode.children!.push(lazyNode);
+    this.lazyNodes.set(address, lazyNode);
   }
 
   /**
@@ -122,7 +184,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       }
 
       const firstLeafEvent = await this.depthFirstRetrieve();
-      this.bookmark = this.getAddressFromEvent(firstLeafEvent!);
+      this.bookmark = firstLeafEvent!.tagAddress();
       return { done: false, value: firstLeafEvent! };
     }
 
@@ -161,32 +223,16 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         .filter(tag => tag[0] === 'a')
         .map(tag => tag[1]);
 
-      const kinds = new Set<number>();
-      const pubkeys = new Set<string>();
-      const dTags = new Set<string>();
       for (const childAddress of currentChildAddresses) {
         if (this.nodes.has(childAddress)) {
           continue;
         }
-        
-        const [kind, pubkey, dTag] = childAddress.split(':');
-        kinds.add(parseInt(kind));
-        pubkeys.add(pubkey);
-        dTags.add(dTag);
-      }
 
-      const childEvents = await this.ndk.fetchEvents({
-        kinds: Array.from(kinds),
-        authors: Array.from(pubkeys),
-        '#d': Array.from(dTags),
-      });
-
-      for (const childEvent of childEvents) {
-        this.addEvent(childEvent, currentEvent!);
+        this.addEventByAddress(childAddress, currentEvent!);
       }
 
       // If the current event has no children, it is a leaf.
-      if (childEvents.size === 0) {
+      if (currentChildAddresses.length === 0) {
         this.leaves.push(currentAddress!);
 
         // Return the first leaf if no address was provided.
@@ -244,14 +290,24 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     return this.getEvent(nextSibling!.address);
   }
 
-  private getAddressFromEvent(event: NDKEvent): string {
-    if (event.kind! < 30000 || event.kind! >= 40000) {
+  private getNodeType(event: NDKEvent): PublicationTreeNodeType {
+    const address = event.tagAddress();
+    const node = this.nodes.get(address);
+    if (!node) {
       throw new Error(
-        "PublicationTree: Invalid event kind. Event kind must be in the range 30000-39999"
+        `PublicationTree: Event with address ${address} not found in the tree.`
       );
     }
 
-    return `${event.kind}:${event.pubkey}:${event.dTag}`;
+    if (!node.parent) {
+      return PublicationTreeNodeType.Root;
+    }
+
+    if (event.tags.some(tag => tag[0] === 'a')) {
+      return PublicationTreeNodeType.Branch;
+    }
+
+    return PublicationTreeNodeType.Leaf;
   }
 
   // #endregion
