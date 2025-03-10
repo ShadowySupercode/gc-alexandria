@@ -1,10 +1,11 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import type { Lazy } from "./lazy";
 
 interface PublicationTreeNode {
   address: string;
   parent?: PublicationTreeNode;
-  children?: PublicationTreeNode[];
+  children?: Array<Lazy<PublicationTreeNode>>;
 }
 
 export class PublicationTree implements AsyncIterable<NDKEvent> {
@@ -40,7 +41,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = this.getAddressFromEvent(rootEvent);
-    this.root = { address: rootAddress, children: [] };
+    this.root = {
+      address: rootAddress,
+      children: [],
+    };
 
     this.nodes = new Map<string, PublicationTreeNode>();
     this.nodes.set(rootAddress, this.root);
@@ -70,11 +74,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
+    // TODO: Determine node type.
     const node = {
       address,
       parent: parentNode,
       children: [],
     };
+    // TODO: Define a resolver for the lazy node.
     parentNode.children!.push(node);
     this.nodes.set(address, node);
     this.events.set(address, event);
@@ -223,13 +229,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
     let nextSibling: PublicationTreeNode | null = null;
     do {
-      const siblings: PublicationTreeNode[] = parent!.children!;
-      const currentIndex = siblings.findIndex(sibling => sibling.address === currentNode!.address);
-      nextSibling = siblings.at(currentIndex + 1) ?? null;
+      const siblings: Lazy<PublicationTreeNode>[] = parent!.children!;
+      const currentIndex = siblings.findIndex(async sibling => (await sibling.value()).address === currentNode!.address);
+      nextSibling = (await siblings.at(currentIndex + 1)?.value()) ?? null;
 
       // If the next sibling has children, it is not a leaf.
       if ((nextSibling?.children?.length ?? 0) > 0) {
-        currentNode = nextSibling!.children!.at(0)!;
+        currentNode = (await nextSibling!.children!.at(0)!.value())!;
         parent = currentNode.parent;
         nextSibling = null;
       }
@@ -266,7 +272,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       }
     }
 
-    moveToFirstChild(): boolean {
+    async moveToFirstChild(): Promise<boolean> {
       if (!this.currentNode) {
         throw new Error("Cursor: Current node is null or undefined.");
       }
@@ -282,22 +288,22 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         // TODO: Fetch any missing children, then return the first child.
       }
 
-      this.currentNode = this.currentNode.children?.at(0);
+      this.currentNode = (await this.currentNode.children?.at(0)?.value())!;
       return true;
     }
 
-    moveToNextSibling(): boolean {
+    async moveToNextSibling(): Promise<boolean> {
       if (!this.currentNode) {
         throw new Error("Cursor: Current node is null or undefined.");
       }
 
       const parent = this.currentNode.parent;
       const siblings = parent?.children;
-      const currentIndex = siblings?.findIndex(sibling =>
-        sibling.address === this.currentNode!.address
+      const currentIndex = siblings?.findIndex(async sibling =>
+        (await sibling.value()).address === this.currentNode!.address
       );
 
-      const nextSibling = siblings?.at(currentIndex! + 1);
+      const nextSibling = (await siblings?.at(currentIndex! + 1)?.value()) ?? null;
       if (!nextSibling) {
         return false;
       }
