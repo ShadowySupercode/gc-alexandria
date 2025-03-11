@@ -19,48 +19,48 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   /**
    * The root node of the tree.
    */
-  private root: PublicationTreeNode;
+  #root: PublicationTreeNode;
 
   /**
    * A map of addresses in the tree to their corresponding nodes.
    */
-  private nodes: Map<string, PublicationTreeNode>;
+  #nodes: Map<string, PublicationTreeNode>;
 
   /**
    * A map of addresses in the tree to their corresponding events.
    */
-  private events: Map<string, NDKEvent>;
+  #events: Map<string, NDKEvent>;
 
   /**
    * An ordered list of the addresses of the leaves of the tree.
    */
-  private leaves: string[] = [];
+  #leaves: string[] = [];
 
   /**
    * The address of the last-visited node.  Used for iteration and progressive retrieval.
    */
-  private bookmark?: string;
+  #bookmark?: string;
 
   /**
    * The NDK instance used to fetch events.
    */
-  private ndk: NDK;
+  #ndk: NDK;
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
-    this.root = {
+    this.#root = {
       type: PublicationTreeNodeType.Root,
       address: rootAddress,
       children: [],
     };
 
-    this.nodes = new Map<string, PublicationTreeNode>();
-    this.nodes.set(rootAddress, this.root);
+    this.#nodes = new Map<string, PublicationTreeNode>();
+    this.#nodes.set(rootAddress, this.#root);
 
-    this.events = new Map<string, NDKEvent>();
-    this.events.set(rootAddress, rootEvent);
+    this.#events = new Map<string, NDKEvent>();
+    this.#events.set(rootAddress, rootEvent);
 
-    this.ndk = ndk;
+    this.#ndk = ndk;
   }
 
   /**
@@ -74,7 +74,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   addEvent(event: NDKEvent, parentEvent: NDKEvent) {
     const address = event.tagAddress();
     const parentAddress = parentEvent.tagAddress();
-    const parentNode = this.nodes.get(parentAddress);
+    const parentNode = this.#nodes.get(parentAddress);
 
     if (!parentNode) {
       throw new Error(
@@ -83,14 +83,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     }
 
     const node = {
-      type: this.getNodeType(event),
+      type: this.#getNodeType(event),
       address,
       parent: parentNode,
       children: [],
     };
     parentNode.children!.push(new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
-    this.nodes.set(address, node);
-    this.events.set(address, event);
+    this.#nodes.set(address, node);
+    this.#events.set(address, event);
   }
 
   /**
@@ -103,7 +103,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    */
   addEventByAddress(address: string, parentEvent: NDKEvent) {
     const parentAddress = parentEvent.tagAddress();
-    const parentNode = this.nodes.get(parentAddress);
+    const parentNode = this.#nodes.get(parentAddress);
 
     if (!parentNode) {
       throw new Error(
@@ -112,7 +112,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     }
 
     parentNode.children!.push(
-      new Lazy<PublicationTreeNode>(() => this.resolveNode(address, parentNode))
+      new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode))
     );
   }
 
@@ -122,9 +122,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @returns The event, or null if the event is not found.
    */
   async getEvent(address: string): Promise<NDKEvent | null> {
-    let event = this.events.get(address) ?? null;
+    let event = this.#events.get(address) ?? null;
     if (!event) {
-      event = await this.depthFirstRetrieve(address);
+      event = await this.#depthFirstRetrieve(address);
     }
 
     return event;
@@ -135,12 +135,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @param address The address of the event to bookmark.
    */
   setBookmark(address: string) {
-    this.bookmark = address;
+    this.#bookmark = address;
     this.#cursor.tryMoveTo(address);
   }
 
   [Symbol.asyncIterator](): AsyncIterator<NDKEvent> {
-    this.#cursor.tryMoveTo(this.bookmark);
+    this.#cursor.tryMoveTo(this.#bookmark);
     return this;
   }
 
@@ -176,29 +176,29 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * will return the first leaf in the tree.
    * @returns The event, or null if the event is not found.
    */
-  private async depthFirstRetrieve(address?: string): Promise<NDKEvent | null> {
-    if (address && this.nodes.has(address)) {
-      return this.events.get(address)!;
+  async #depthFirstRetrieve(address?: string): Promise<NDKEvent | null> {
+    if (address && this.#nodes.has(address)) {
+      return this.#events.get(address)!;
     }
 
-    const stack: string[] = [this.root.address];
+    const stack: string[] = [this.#root.address];
     let currentEvent: NDKEvent | null | undefined;
     while (stack.length > 0) {
       const currentAddress = stack.pop();
 
       // Stop immediately if the target of the search is found.
       if (address != null && currentAddress === address) {
-        return this.events.get(address)!;
+        return this.#events.get(address)!;
       }
 
       // Augment the tree with the children of the current event.
-      const currentChildAddresses = this.events
+      const currentChildAddresses = this.#events
         .get(currentAddress!)!.tags
         .filter(tag => tag[0] === 'a')
         .map(tag => tag[1]);
 
       for (const childAddress of currentChildAddresses) {
-        if (this.nodes.has(childAddress)) {
+        if (this.#nodes.has(childAddress)) {
           continue;
         }
 
@@ -207,7 +207,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
       // If the current event has no children, it is a leaf.
       if (currentChildAddresses.length === 0) {
-        this.leaves.push(currentAddress!);
+        this.#leaves.push(currentAddress!);
 
         // Return the first leaf if no address was provided.
         if (address == null) {
@@ -226,12 +226,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     return null;
   }
 
-  private async resolveNode(
+  async #resolveNode(
     address: string,
     parentNode: PublicationTreeNode
   ): Promise<PublicationTreeNode> {
     const [kind, pubkey, dTag] = address.split(':');
-    const event = await this.ndk.fetchEvent({
+    const event = await this.#ndk.fetchEvent({
       kinds: [parseInt(kind)],
       authors: [pubkey],
       '#d': [dTag],
@@ -245,23 +245,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
     const childAddresses = event.tags.filter(tag => tag[0] === 'a').map(tag => tag[1]);
     const node: PublicationTreeNode = {
-      type: this.getNodeType(event),
+      type: this.#getNodeType(event),
       address,
       parent: parentNode,
       children: childAddresses.map(
-        address => new Lazy<PublicationTreeNode>(() => this.resolveNode(address, node))
+        address => new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, node))
       ),
     };
 
-    this.nodes.set(address, node);
-    this.events.set(address, event);
+    this.#nodes.set(address, node);
+    this.#events.set(address, event);
 
     return node;
   }
 
-  private getNodeType(event: NDKEvent): PublicationTreeNodeType {
+  #getNodeType(event: NDKEvent): PublicationTreeNodeType {
     const address = event.tagAddress();
-    const node = this.nodes.get(address);
+    const node = this.#nodes.get(address);
     if (!node) {
       throw new Error(
         `PublicationTree: Event with address ${address} not found in the tree.`
@@ -294,10 +294,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
     async tryMoveTo(address?: string) {
       if (!address) {
-        const startEvent = await this.#tree.depthFirstRetrieve();
-        this.target = this.#tree.nodes.get(startEvent!.tagAddress());
+        const startEvent = await this.#tree.#depthFirstRetrieve();
+        this.target = this.#tree.#nodes.get(startEvent!.tagAddress());
       } else {
-        this.target = this.#tree.nodes.get(address);
+        this.target = this.#tree.#nodes.get(address);
       }
 
       if (!this.target) {
