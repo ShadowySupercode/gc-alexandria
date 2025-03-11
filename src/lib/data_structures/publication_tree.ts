@@ -27,12 +27,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   private nodes: Map<string, PublicationTreeNode>;
 
   /**
-   * A map of addresses in the tree to their corresponding lazy-loaded nodes. When a lazy node is
-   * retrieved, it is added to the {@link PublicationTree.nodes} map.
-   */
-  private lazyNodes: Map<string, Lazy<PublicationTreeNode>> = new Map();
-
-  /**
    * A map of addresses in the tree to their corresponding events.
    */
   private events: Map<string, NDKEvent>;
@@ -117,35 +111,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
-    const lazyNode = new Lazy<PublicationTreeNode>(async () => {
-      const [kind, pubkey, dTag] = address.split(':');
-      const event = await this.ndk.fetchEvent({
-        kinds: [parseInt(kind)],
-        authors: [pubkey],
-        '#d': [dTag],
-      });
-
-      if (!event) {
-        throw new Error(
-          `PublicationTree: Event with address ${address} not found.`
-        );
-      }
-
-      const node: PublicationTreeNode = {
-        type: this.getNodeType(event),
-        address,
-        parent: parentNode,
-        children: [],
-      };
-
-      this.nodes.set(address, node);
-      this.events.set(address, event);
-
-      return node;
-    });
-
-    parentNode.children!.push(lazyNode);
-    this.lazyNodes.set(address, lazyNode);
+    parentNode.children!.push(
+      new Lazy<PublicationTreeNode>(() => this.resolveNode(address, parentNode))
+    );
   }
 
   /**
@@ -168,29 +136,35 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    */
   setBookmark(address: string) {
     this.bookmark = address;
+    this.#cursor.tryMoveTo(address);
   }
 
   [Symbol.asyncIterator](): AsyncIterator<NDKEvent> {
+    this.#cursor.tryMoveTo(this.bookmark);
     return this;
   }
 
   async next(): Promise<IteratorResult<NDKEvent>> {
-    // If no bookmark is set, start at the first leaf.  Retrieve that first leaf if necessary.
-    if (!this.bookmark) {
-      this.bookmark = this.leaves.at(0);
-      if (this.bookmark) {
-        const bookmarkEvent = await this.getEvent(this.bookmark);
-        return { done: false, value: bookmarkEvent! };
+    while (this.#cursor.target?.type !== PublicationTreeNodeType.Leaf) {
+      if (await this.#cursor.tryMoveToFirstChild()) {
+        continue;
       }
 
-      const firstLeafEvent = await this.depthFirstRetrieve();
-      this.bookmark = firstLeafEvent!.tagAddress();
-      return { done: false, value: firstLeafEvent! };
+      if (await this.#cursor.tryMoveToNextSibling()) {
+        continue;
+      }
+
+      if (await this.#cursor.tryMoveToParent()) {
+        continue;
+      }
+
+      if (this.#cursor.target?.type === PublicationTreeNodeType.Root) {
+        return { done: true, value: null };
+      }
     }
 
-    // TODO: Invoke a funciton to retrieve the next sibling of the bookmark.
-
-    return { done: true, value: null };
+    const event = await this.getEvent(this.#cursor.target!.address);
+    return { done: false, value: event! };
   }
 
   // #region Private Methods
@@ -252,42 +226,37 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     return null;
   }
 
-  private async getNextSibling(address: string): Promise<NDKEvent | null> {
-    if (!this.leaves.includes(address)) {
+  private async resolveNode(
+    address: string,
+    parentNode: PublicationTreeNode
+  ): Promise<PublicationTreeNode> {
+    const [kind, pubkey, dTag] = address.split(':');
+    const event = await this.ndk.fetchEvent({
+      kinds: [parseInt(kind)],
+      authors: [pubkey],
+      '#d': [dTag],
+    });
+
+    if (!event) {
       throw new Error(
-        `PublicationTree: Address ${address} is not a leaf. Cannot retrieve next sibling.`
+        `PublicationTree: Event with address ${address} not found.`
       );
     }
 
-    let currentNode = this.nodes.get(address);
-    if (!currentNode) {
-      return null;
-    }
+    const childAddresses = event.tags.filter(tag => tag[0] === 'a').map(tag => tag[1]);
+    const node: PublicationTreeNode = {
+      type: this.getNodeType(event),
+      address,
+      parent: parentNode,
+      children: childAddresses.map(
+        address => new Lazy<PublicationTreeNode>(() => this.resolveNode(address, node))
+      ),
+    };
 
-    let parent = currentNode.parent;
-    if (!parent) {
-      throw new Error(
-        `PublicationTree: Address ${address} has no parent. Cannot retrieve next sibling.`
-      );
-    }
+    this.nodes.set(address, node);
+    this.events.set(address, event);
 
-    // TODO: Handle the case where the current node is the last leaf.
-
-    let nextSibling: PublicationTreeNode | null = null;
-    do {
-      const siblings: Lazy<PublicationTreeNode>[] = parent!.children!;
-      const currentIndex = siblings.findIndex(async sibling => (await sibling.value()).address === currentNode!.address);
-      nextSibling = (await siblings.at(currentIndex + 1)?.value()) ?? null;
-
-      // If the next sibling has children, it is not a leaf.
-      if ((nextSibling?.children?.length ?? 0) > 0) {
-        currentNode = (await nextSibling!.children!.at(0)!.value())!;
-        parent = currentNode.parent;
-        nextSibling = null;
-      }
-    } while (nextSibling == null);
-
-    return this.getEvent(nextSibling!.address);
+    return node;
   }
 
   private getNodeType(event: NDKEvent): PublicationTreeNodeType {
@@ -314,49 +283,52 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
   // #region Iteration Cursor
 
-  Cursor = class {
-    private tree: PublicationTree;
-    private currentNode: PublicationTreeNode | null | undefined;
+  #cursor = new class {
+    target: PublicationTreeNode | null | undefined;
 
-    constructor(tree: PublicationTree, currentNode: PublicationTreeNode | null = null) {
-      this.tree = tree;
-      
-      if (!currentNode) {
-        this.currentNode = this.tree.bookmark
-          ? this.tree.nodes.get(this.tree.bookmark)
-          : null;
-      }
+    #tree: PublicationTree;
+
+    constructor(tree: PublicationTree) {
+      this.#tree = tree;
     }
 
-    async moveToFirstChild(): Promise<boolean> {
-      if (!this.currentNode) {
-        throw new Error("Cursor: Current node is null or undefined.");
+    async tryMoveTo(address?: string) {
+      if (!address) {
+        const startEvent = await this.#tree.depthFirstRetrieve();
+        this.target = this.#tree.nodes.get(startEvent!.tagAddress());
+      } else {
+        this.target = this.#tree.nodes.get(address);
       }
 
-      const hasChildren = (this.currentNode.children?.length ?? 0) > 0;
-      const isLeaf = this.tree.leaves.includes(this.currentNode.address);
-
-      if (!hasChildren && isLeaf) {
+      if (!this.target) {
         return false;
       }
 
-      if (!hasChildren && !isLeaf) {
-        // TODO: Fetch any missing children, then return the first child.
-      }
-
-      this.currentNode = (await this.currentNode.children?.at(0)?.value())!;
       return true;
     }
 
-    async moveToNextSibling(): Promise<boolean> {
-      if (!this.currentNode) {
-        throw new Error("Cursor: Current node is null or undefined.");
+    async tryMoveToFirstChild(): Promise<boolean> {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
       }
 
-      const parent = this.currentNode.parent;
+      if (this.target.type === PublicationTreeNodeType.Leaf) {
+        return false;
+      }
+      
+      this.target = (await this.target.children?.at(0)?.value())!;
+      return true;
+    }
+
+    async tryMoveToNextSibling(): Promise<boolean> {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
+      }
+
+      const parent = this.target.parent;
       const siblings = parent?.children;
       const currentIndex = siblings?.findIndex(async sibling =>
-        (await sibling.value()).address === this.currentNode!.address
+        (await sibling.value()).address === this.target!.address
       );
 
       const nextSibling = (await siblings?.at(currentIndex! + 1)?.value()) ?? null;
@@ -364,24 +336,24 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         return false;
       }
 
-      this.currentNode = nextSibling;
+      this.target = nextSibling;
       return true;
     }
 
-    moveToParent(): boolean {
-      if (!this.currentNode) {
-        throw new Error("Cursor: Current node is null or undefined.");
+    tryMoveToParent(): boolean {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
       }
 
-      const parent = this.currentNode.parent;
+      const parent = this.target.parent;
       if (!parent) {
         return false;
       }
 
-      this.currentNode = parent;
+      this.target = parent;
       return true;
     }
-  };
+  }(this);
 
   // #endregion
 }
