@@ -139,6 +139,84 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     this.#cursor.tryMoveTo(address);
   }
 
+  // #region Iteration Cursor
+
+  #cursor = new class {
+    target: PublicationTreeNode | null | undefined;
+
+    #tree: PublicationTree;
+
+    constructor(tree: PublicationTree) {
+      this.#tree = tree;
+    }
+
+    async tryMoveTo(address?: string) {
+      if (!address) {
+        const startEvent = await this.#tree.#depthFirstRetrieve();
+        this.target = this.#tree.#nodes.get(startEvent!.tagAddress());
+      } else {
+        this.target = this.#tree.#nodes.get(address);
+      }
+
+      if (!this.target) {
+        return false;
+      }
+
+      return true;
+    }
+
+    async tryMoveToFirstChild(): Promise<boolean> {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
+      }
+
+      if (this.target.type === PublicationTreeNodeType.Leaf) {
+        return false;
+      }
+      
+      this.target = (await this.target.children?.at(0)?.value())!;
+      return true;
+    }
+
+    async tryMoveToNextSibling(): Promise<boolean> {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
+      }
+
+      const parent = this.target.parent;
+      const siblings = parent?.children;
+      const currentIndex = siblings?.findIndex(async sibling =>
+        (await sibling.value()).address === this.target!.address
+      );
+
+      const nextSibling = (await siblings?.at(currentIndex! + 1)?.value()) ?? null;
+      if (!nextSibling) {
+        return false;
+      }
+
+      this.target = nextSibling;
+      return true;
+    }
+
+    tryMoveToParent(): boolean {
+      if (!this.target) {
+        throw new Error("Cursor: Target node is null or undefined.");
+      }
+
+      const parent = this.target.parent;
+      if (!parent) {
+        return false;
+      }
+
+      this.target = parent;
+      return true;
+    }
+  }(this);
+
+  // #endregion
+
+  // #region Async Iterator Implementation
+
   [Symbol.asyncIterator](): AsyncIterator<NDKEvent> {
     this.#cursor.tryMoveTo(this.#bookmark);
     return this;
@@ -166,6 +244,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     const event = await this.getEvent(this.#cursor.target!.address);
     return { done: false, value: event! };
   }
+
+  // #endregion
 
   // #region Private Methods
 
@@ -278,82 +358,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
     return PublicationTreeNodeType.Leaf;
   }
-
-  // #endregion
-
-  // #region Iteration Cursor
-
-  #cursor = new class {
-    target: PublicationTreeNode | null | undefined;
-
-    #tree: PublicationTree;
-
-    constructor(tree: PublicationTree) {
-      this.#tree = tree;
-    }
-
-    async tryMoveTo(address?: string) {
-      if (!address) {
-        const startEvent = await this.#tree.#depthFirstRetrieve();
-        this.target = this.#tree.#nodes.get(startEvent!.tagAddress());
-      } else {
-        this.target = this.#tree.#nodes.get(address);
-      }
-
-      if (!this.target) {
-        return false;
-      }
-
-      return true;
-    }
-
-    async tryMoveToFirstChild(): Promise<boolean> {
-      if (!this.target) {
-        throw new Error("Cursor: Target node is null or undefined.");
-      }
-
-      if (this.target.type === PublicationTreeNodeType.Leaf) {
-        return false;
-      }
-      
-      this.target = (await this.target.children?.at(0)?.value())!;
-      return true;
-    }
-
-    async tryMoveToNextSibling(): Promise<boolean> {
-      if (!this.target) {
-        throw new Error("Cursor: Target node is null or undefined.");
-      }
-
-      const parent = this.target.parent;
-      const siblings = parent?.children;
-      const currentIndex = siblings?.findIndex(async sibling =>
-        (await sibling.value()).address === this.target!.address
-      );
-
-      const nextSibling = (await siblings?.at(currentIndex! + 1)?.value()) ?? null;
-      if (!nextSibling) {
-        return false;
-      }
-
-      this.target = nextSibling;
-      return true;
-    }
-
-    tryMoveToParent(): boolean {
-      if (!this.target) {
-        throw new Error("Cursor: Target node is null or undefined.");
-      }
-
-      const parent = this.target.parent;
-      if (!parent) {
-        return false;
-      }
-
-      this.target = parent;
-      return true;
-    }
-  }(this);
 
   // #endregion
 }
