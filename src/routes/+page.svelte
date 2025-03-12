@@ -22,13 +22,13 @@
   };
 </script>
 
-<div class='leather flex flex-col flex-grow-0 space-y-4 overflow-y-auto w-max p-2'>
+<main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
   {#if !$ndkSignedIn}
     <PublicationFeed relays={standardRelays} />
   {:else}
     <div class='leather w-full flex justify-end'>
       <Button>
-        {`Showing articles from: ${getFeedTypeFriendlyName($feedType)}`}<ChevronDownOutline class='w-6 h-6' />
+        {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}<ChevronDownOutline class='w-6 h-6' />
       </Button>
       <Dropdown class='w-fit p-2 space-y-2 text-sm'>
         <li>
@@ -45,4 +45,4 @@
       <PublicationFeed relays={$inboxRelays} />
     {/if}
   {/if}
-</div>
+</main>

@@ -1,5 +1,6 @@
 @import './styles/base.css';
 @import './styles/publications.css';
+@import './styles/visualize.css';
 
 @layer components {
   /* General */
@@ -25,6 +26,11 @@
 
   div[role='tooltip'] button.btn-leather {
     @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
+  }
+
+  /* Images */
+  .image-border {
+    @apply border border-primary-700;
   }
 
   /* Card */
