@@ -27,6 +27,9 @@
   let summary: string = $derived(event.getMatchingTags('summary')[0]?.[1] ?? null);
   let type: string = $derived(event.getMatchingTags('type')[0]?.[1] ?? null);
   let language: string = $derived(event.getMatchingTags('l')[0]?.[1] ?? null);
+  let source: string = $derived(event.getMatchingTags('source')[0]?.[1] ?? null);
+  let publisher: string = $derived(event.getMatchingTags('published_by')[0]?.[1] ?? null);
+  let identifier: string = $derived(event.getMatchingTags('i')[0]?.[1] ?? null);
 
   let isOpen = $state(false);
 
@@ -180,12 +183,21 @@
       <h4 class='text-base font-normal mt-2'>Index author: <InlineProfile pubkey={event.pubkey} /></h4>
     </div>
 
-    <div class="flex flex-col pb-4">
+    <div class="flex flex-col pb-4 space-y-1">
+      {#if source !== null}
+        <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank">{source}</a></h5>
+      {/if}
       {#if type !== null}
         <h5 class="text-sm">Publication type: {type}</h5>
       {/if}
       {#if language !== null}
         <h5 class="text-sm">Language: {language}</h5>
+      {/if}
+      {#if publisher !== null}
+        <h5 class="text-sm">Published by: {publisher}</h5>
+      {/if}
+      {#if identifier !== null}
+        <h5 class="text-sm">{identifier}</h5>
       {/if}
 
     </div>
