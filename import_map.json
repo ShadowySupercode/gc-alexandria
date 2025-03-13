@@ -1,0 +1,18 @@
+{
+  "imports": {
+    "he": "npm:he@1.2.x",
+    "@nostr-dev-kit/ndk": "npm:@nostr-dev-kit/ndk@2.11.x",
+    "@nostr-dev-kit/ndk-cache-dexie": "npm:@nostr-dev-kit/ndk-cache-dexie@2.5.x",
+    "@popperjs/core": "npm:@popperjs/core@2.11.x",
+    "@tailwindcss/forms": "npm:@tailwindcss/forms@0.5.x",
+    "@tailwindcss/typography": "npm:@tailwindcss/typography@0.5.x",
+    "asciidoctor": "npm:asciidoctor@3.0.x",
+    "d3": "npm:d3@7.9.x",
+    "nostr-tools": "npm:nostr-tools@2.10.x",
+    "tailwind-merge": "npm:tailwind-merge@2.5.x",
+    "svelte": "npm:svelte@5.0.x",
+    "flowbite": "npm:flowbite@2.2.x",
+    "flowbite-svelte": "npm:flowbite-svelte@0.44.x",
+    "flowbite-svelte-icons": "npm:flowbite-svelte-icons@2.0.x"
+  }
+} 

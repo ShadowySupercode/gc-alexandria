@@ -28,7 +28,7 @@
   {:else}
     <div class='leather w-full flex justify-end'>
       <Button>
-        {`Showing articles from: ${getFeedTypeFriendlyName($feedType)}`}<ChevronDownOutline class='w-6 h-6' />
+        {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}<ChevronDownOutline class='w-6 h-6' />
       </Button>
       <Dropdown class='w-fit p-2 space-y-2 text-sm'>
         <li>

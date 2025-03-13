@@ -13,3 +13,8 @@ package-lock.json
 # tests
 /tests/e2e/html-report/*.html
 /tests/e2e/test-results/*.last-run.json
+
+# Deno
+/.deno/
+/deno_dir/
+/import_map.lock.json

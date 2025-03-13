@@ -4,7 +4,7 @@
   import { filterValidIndexEvents } from '$lib/utils';
   import { NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
   import { Button, P, Skeleton, Spinner } from 'flowbite-svelte';
-  import ArticleHeader from './ArticleHeader.svelte';
+  import ArticleHeader from './PublicationHeader.svelte';
   import { onMount } from 'svelte';
 
   let { relays } = $props<{ relays: string[] }>();
@@ -90,7 +90,7 @@
       <ArticleHeader {event} />
     {/each}
   {:else}
-    <p class='text-center'>No articles found.</p>
+    <p class='text-center'>No publications found.</p>
   {/if}
   {#if !loadingMore && !endOfFeed}
     <div class='flex justify-center mt-4 mb-8'>
