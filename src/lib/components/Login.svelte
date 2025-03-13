@@ -2,16 +2,13 @@
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
   import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
   import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
-  import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
-  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import Profile from "$components/util/Profile.svelte";
 
   let profile = $state<NDKUserProfile | null>(null);
   let pfp = $derived(profile?.image);
   let username = $derived(profile?.name);
   let tag = $derived(profile?.name);
   let npub = $state<string | undefined >(undefined);
-
-  const externalProfileDestination = 'https://nostree.me/'
 
   let signInFailed = $state<boolean>(false);
 
@@ -43,78 +40,31 @@
     }
   }
 
-  async function handleSignOutClick() {
-    logout($ndkInstance.activeUser!);
-    profile = null;
-  }
-
-  function shortenNpub(long: string|undefined) {
-    if (!long) return '';
-    return long.slice(0, 8) + '…' + long.slice(-4);
-  }
 </script>
 
-{#if $ndkSignedIn}
-  <Avatar
-    rounded
-    class='h-6 w-6 m-4 cursor-pointer'
-    src={pfp}
-    alt={username}
-  />
-  {#key username || tag}
+<div class="m-4">
+  {#if $ndkSignedIn}
+    <Profile pubkey={$activePubkey} isNav={true} />
+  {:else}
+    <Avatar rounded class='h-6 w-6 cursor-pointer' id='avatar' />
     <Popover
       class='popover-leather w-fit'
       placement='bottom'
       target='avatar'
     >
-      <div class='flex flex-row justify-between space-x-4'>
-        <div class='flex flex-col'>
-          <h3 class='text-lg font-bold'>{username}</h3>
-          <h4 class='text-base'>@{tag}</h4>
-          <CopyToClipboard displayText={shortenNpub(npub)} copyText={npub} />
-          <a class='text-indigo-600 underline' href='{externalProfileDestination}{npub}' target='_blank'>View profile</a>
-        </div>
-        <div class='flex flex-col justify-center'>
-          <Button
-            id='sign-out-button'
-            class='btn-leather !p-2 hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500'
-            pill
-            outline
-            color='alternative'
-            onclick={handleSignOutClick}
-          >
-            <ArrowRightToBracketOutline class='w-4 h-4 !fill-none dark:!fill-none' />
-            <Tooltip
-              class='tooltip-leather w-fit whitespace-nowrap'
-              triggeredBy='#sign-out-button'
-              placement='bottom'
-            >
-              Sign out
-            </Tooltip>
-          </Button>
-        </div>
+      <div class='w-full flex space-x-2'>
+        <Button
+          onclick={handleSignInClick}
+        >
+          Extension Sign-In
+        </Button>
+        <!-- <Button
+          color='alternative'
+          on:click={signInWithBunker}
+        >
+          Bunker Sign-In
+        </Button> -->
       </div>
     </Popover>
-  {/key}
-{:else}
-  <Avatar rounded class='h-6 w-6 m-4 cursor-pointer' id='avatar' />
-  <Popover
-    class='popover-leather w-fit'
-    placement='bottom'
-    target='avatar'
-  >
-    <div class='w-full flex space-x-2'>
-      <Button
-        onclick={handleSignInClick}
-      >
-        Extension Sign-In
-      </Button>
-      <!-- <Button
-        color='alternative'
-        on:click={signInWithBunker}
-      >
-        Bunker Sign-In
-      </Button> -->
-    </div>
-  </Popover>
-{/if}
+  {/if}
+</div>

@@ -3,9 +3,9 @@
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
   import { ndkInstance } from '$lib/ndk';
 
-  let { pubkey } = $props();
+  let { pubkey, title = null } = $props();
 
-  const externalProfileDestination = 'https://nostree.me/'
+  const externalProfileDestination = 'https://njump.me/'
   let loading = $state(true);
   let npub = $state('');
 
@@ -43,7 +43,7 @@
           class='h-6 w-6 mx-1 cursor-pointer inline'
           src={pfp}
           alt={username} />
-  <a class='text-indigo-600 underline' href='{externalProfileDestination}{npub}' target='_blank'>{username}</a>
+  <a class='underline' href='{externalProfileDestination}{npub}' title={title ?? username} target='_blank'>{username}</a>
 {:else}
   <span>Not found</span>
 {/if}

@@ -106,7 +106,7 @@
 
   /* Modal */
   div.modal-leather > div {
-    @apply bg-primary-0 dark:bg-primary-1000 border-b-[1px] border-gray-800 dark:border-gray-500;
+    @apply bg-primary-0 dark:bg-primary-1000 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
   div.modal-leather > div > h1,
