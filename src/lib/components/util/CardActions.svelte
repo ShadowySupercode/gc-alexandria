@@ -111,6 +111,11 @@
       <div class='flex flex-col text-nowrap'>
         <ul class="space-y-2">
           <li>
+            <a href="" role="button" class='btn-leather' onclick={viewDetails}>
+              <EyeOutline class="inline mr-2"  /> View details
+            </a>
+          </li>
+          <li>
             <a role="button" class='btn-leather' onclick={shareNjump}>
               {#if shareLinkCopied}
                 <ClipboardCheckOutline class="inline mr-2" /> Copied!
@@ -131,11 +136,6 @@
           <li>
             <a href="" role="button" class='btn-leather' onclick={viewJson}>
               <CodeOutline class="inline mr-2"  /> View JSON
-            </a>
-          </li>
-          <li>
-            <a href="" role="button" class='btn-leather' onclick={viewDetails}>
-              <EyeOutline class="inline mr-2"  /> View details
             </a>
           </li>
         </ul>
