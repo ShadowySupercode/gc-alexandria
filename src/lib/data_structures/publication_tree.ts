@@ -131,6 +131,28 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   }
 
   /**
+   * Retrieves the events in the hierarchy of the event with the given address.
+   * @param address The address of the event for which to retrieve the hierarchy.
+   * @returns Returns an array of events in the addressed event's hierarchy, beginning with the
+   * root and ending with the addressed event.
+   */
+  async getHierarchy(address: string): Promise<NDKEvent[] | null> {
+    let node = this.#nodes.get(address);
+    if (!node) {
+      return null;
+    }
+
+    const hierarchy: NDKEvent[] = [this.#events.get(address)!];
+    
+    while (node.parent) {
+      hierarchy.push(this.#events.get(node.parent.address)!);
+      node = node.parent;
+    }
+
+    return hierarchy.reverse();
+  }
+
+  /**
    * Sets a start point for iteration over the leaves of the tree.
    * @param address The address of the event to bookmark.
    */
