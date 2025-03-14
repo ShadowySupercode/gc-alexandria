@@ -1,8 +1,9 @@
 <script lang='ts'>
   import { pharosInstance, SiblingSearchDirection } from '$lib/parser';
-  import { Button, ButtonGroup, CloseButton, Input, P, Textarea, Tooltip } from 'flowbite-svelte';
+  import { Button, ButtonGroup, CloseButton, Input, Textarea, Tooltip } from 'flowbite-svelte';
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
+  import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
 
   // TODO: Fix move between parents.
 
@@ -149,46 +150,6 @@
   }
 </script>
 
-{#snippet sectionHeading(title: string, depth: number)}
-  {#if depth === 0}
-    <h1 class='h-leather'>
-      {title}
-    </h1>
-  {:else if depth === 1}
-    <h2 class='h-leather'>
-      {title}
-    </h2>
-  {:else if depth === 2}
-    <h3 class='h-leather'>
-      {title}
-    </h3>
-  {:else if depth === 3}
-    <h4 class='h-leather'>
-      {title}
-    </h4>
-  {:else if depth === 4}
-    <h5 class='h-leather'>
-      {title}
-    </h5>
-  {:else}
-    <h6 class='h-leather'>
-      {title}
-    </h6>
-  {/if}
-{/snippet}
-
-{#snippet contentParagraph(content: string, publicationType: string)}
-  {#if publicationType === 'novel'}
-    <P class='whitespace-normal' firstupper={isSectionStart}>
-      {@html content}
-    </P>
-  {:else}
-    <P class='whitespace-normal' firstupper={false}>
-      {@html content}
-    </P>
-  {/if}
-{/snippet}
-
 <!-- This component is recursively structured.  The base case is single block of content. -->
 <section
   id={rootId}
@@ -225,7 +186,7 @@
           </Textarea>
         </form>
       {:else}
-        {@render contentParagraph(currentContent, publicationType)}
+        {@render contentParagraph(currentContent, publicationType, isSectionStart)}
       {/if}
     {/key}
   {:else}
