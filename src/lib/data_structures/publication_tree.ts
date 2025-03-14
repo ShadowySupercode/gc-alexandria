@@ -136,7 +136,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @returns Returns an array of events in the addressed event's hierarchy, beginning with the
    * root and ending with the addressed event.
    */
-  async getHierarchy(address: string): Promise<NDKEvent[]> {
+  getHierarchy(address: string): NDKEvent[] {
     let node = this.#nodes.get(address);
     if (!node) {
       throw new Error(`PublicationTree: Node with address ${address} not found.`);
