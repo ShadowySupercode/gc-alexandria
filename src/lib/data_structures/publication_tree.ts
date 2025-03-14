@@ -223,7 +223,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   }
 
   async next(): Promise<IteratorResult<NDKEvent>> {
-    while (this.#cursor.target?.type !== PublicationTreeNodeType.Leaf) {
+    do {
       if (await this.#cursor.tryMoveToFirstChild()) {
         continue;
       }
@@ -232,14 +232,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         continue;
       }
 
-      if (await this.#cursor.tryMoveToParent()) {
+      if (this.#cursor.tryMoveToParent()) {
         continue;
       }
 
       if (this.#cursor.target?.type === PublicationTreeNodeType.Root) {
         return { done: true, value: null };
       }
-    }
+    } while (this.#cursor.target?.type !== PublicationTreeNodeType.Leaf);
 
     const event = await this.getEvent(this.#cursor.target!.address);
     return { done: false, value: event! };
