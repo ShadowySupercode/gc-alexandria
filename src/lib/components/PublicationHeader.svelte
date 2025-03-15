@@ -33,9 +33,9 @@
 
 {#if title != null && href != null}
   <Card class='ArticleBox card-leather w-lg flex flex-row space-x-2'>
-    {#if image != null}
-    <div class="col justify-center align-middle">
-      <Img src={image} class="rounded max-h-36 max-w-36"/>
+    {#if image}
+    <div class="flex col justify-center align-middle max-h-36 max-w-24 overflow-hidden">
+      <Img src={image} class="rounded w-full h-full object-cover"/>
     </div>
     {/if}
     <div class='col flex flex-row flex-grow space-x-4'>
