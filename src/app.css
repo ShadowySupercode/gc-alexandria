@@ -48,6 +48,10 @@
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
 
+  div.card-leather .font-thin {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-200;
+  }
+
   /* Content */
   main {
     @apply max-w-full;
