@@ -36,7 +36,7 @@
   /* Card */
   div.card-leather {
     @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:border-primary-500;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
 
   div.card-leather h1,
@@ -46,6 +46,10 @@
   div.card-leather h5,
   div.card-leather h6 {
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+  }
+
+  div.card-leather .font-thin {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-200;
   }
 
   /* Content */
@@ -106,7 +110,7 @@
 
   /* Modal */
   div.modal-leather > div {
-    @apply bg-primary-0 dark:bg-primary-1000 border-b-[1px] border-gray-800 dark:border-gray-500;
+    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
   div.modal-leather > div > h1,
@@ -119,7 +123,7 @@
   }
 
   div.modal-leather button {
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-1000 dark:hover:bg-primary-1000 text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
 
   /* Navbar */

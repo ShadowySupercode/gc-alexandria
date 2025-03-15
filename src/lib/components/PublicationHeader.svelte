@@ -2,10 +2,11 @@
   import { ndkInstance } from '$lib/ndk';
   import { neventEncode } from '$lib/utils';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { naddrEncode, type AddressPointer } from 'nostr-tools/nip19';
   import { standardRelays } from '../consts';
-  import { Card, Button, Modal, Tooltip } from 'flowbite-svelte';
-  import { ClipboardCheckOutline, ClipboardCleanOutline, CodeOutline, ShareNodesOutline } from 'flowbite-svelte-icons';
+  import { Card, Img } from "flowbite-svelte";
+  import CardActions from "$components/util/CardActions.svelte";
+  import Profile from "$components/util/Profile.svelte";
+  import InlineProfile from "$components/util/InlineProfile.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -25,83 +26,41 @@
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
-
-  let eventIdCopied: boolean = $state(false);
-  let jsonModalOpen: boolean = $state(false);
-  let shareLinkCopied: boolean = $state(false);
-
-  function copyEventId() {
-    console.debug("copyEventID");
-    const relays: string[] = standardRelays;
-    const nevent = neventEncode(event, relays);
-
-    navigator.clipboard.writeText(nevent);
-
-    eventIdCopied = true;
-  }
-
-  function viewJson() {
-    console.debug("viewJSON");
-    jsonModalOpen = true;
-  }
-
-  function shareNjump() {
-    const relays: string[] = standardRelays;
-    const dTag : string | undefined = event.dTag;
-
-    if (typeof dTag === 'string') {
-      const opts: AddressPointer = {
-      identifier: dTag,
-      pubkey: event.pubkey,
-      kind: 30040,
-      relays
-    };
-    const naddr = naddrEncode(opts);
-      console.debug(naddr);
-      navigator.clipboard.writeText(`https://njump.me/${naddr}`);
-      shareLinkCopied = true;
-    }
-    
-    else {
-      console.log('dTag is undefined');
-    }
-  }
+  let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
+  let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
 
 </script>
 
 {#if title != null && href != null}
-  <Card class='ArticleBox card-leather w-lg'>
-    <div class='flex flex-col space-y-8'>
-      <a href="/{href}" class='flex flex-col space-y-2'>
-        <h2 class='text-lg font-bold'>{title}</h2>
-        <h3 class='text-base font-normal'>by {author}</h3>
-        {#if version != '1'}
-          <h3 class='text-base font-normal'>version: {version}</h3>
-        {/if}
-      </a>
-      <div class='w-full flex space-x-2 justify-end'>
-        <Button class='btn-leather' size='sm' onclick={shareNjump}><ShareNodesOutline /></Button>
-        <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => shareLinkCopied = false}>
-          {#if shareLinkCopied}
-            <ClipboardCheckOutline />
-          {:else}
-            Share via NJump
+  <Card class='ArticleBox card-leather w-lg flex flex-row space-x-2'>
+    {#if image}
+    <div class="flex col justify-center align-middle max-h-36 max-w-24 overflow-hidden">
+      <Img src={image} class="rounded w-full h-full object-cover"/>
+    </div>
+    {/if}
+    <div class='col flex flex-row flex-grow space-x-4'>
+      <div class="flex flex-col flex-grow">
+        <a href="/{href}" class='flex flex-col space-y-2'>
+          <h2 class='text-lg font-bold line-clamp-2' title="{title}">{title}</h2>
+          <h3 class='text-base font-normal'>
+            by
+            {#if authorPubkey != null}
+              <InlineProfile pubkey={authorPubkey} title={author} />
+            {:else}
+              {author}
+            {/if}
+          </h3>
+          {#if version != '1'}
+            <h3 class='text-base font-thin'>version: {version}</h3>
           {/if}
-        </Tooltip>
-        <Button class='btn-leather' size='sm' outline onclick={copyEventId}><ClipboardCleanOutline /></Button>
-        <Tooltip class='tooltip-leather' type='auto' placement='top' on:show={() => eventIdCopied = false}>
-          {#if eventIdCopied}
-            <ClipboardCheckOutline />
-          {:else}
-            Copy event ID
-          {/if}
-        </Tooltip>
-        <Button class='btn-leather' size='sm' outline onclick={viewJson}><CodeOutline /></Button>
-        <Tooltip class='tooltip-leather' type='auto' placement='top'>View JSON</Tooltip>
+        </a>
+      </div>
+      <div class="flex flex-col justify-between items-center">
+        <CardActions event={event} />
+        <div class="group mt-16">
+          <Profile pubkey={event.pubkey} />
+        </div>
       </div>
     </div>
-    <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='sm'>
-      <code>{JSON.stringify(event.rawEvent())}</code>
-    </Modal>
   </Card>
 {/if}
