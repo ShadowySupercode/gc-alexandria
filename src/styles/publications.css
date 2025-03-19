@@ -229,4 +229,28 @@
     .audioblock .content audio {
         @apply w-full;
     }
+
+    /* Discrete headers */
+    h3.discrete,
+    h4.discrete,
+    h5.discrete,
+    h6.discrete {
+        @apply text-gray-800 dark:text-gray-300;
+    }
+
+    h3.discrete {
+        @apply text-2xl font-bold;
+    }
+
+    h4.discrete {
+        @apply text-xl font-bold;
+    }
+
+    h5.discrete {
+        @apply text-lg font-semibold;
+    }
+
+    h6.discrete {
+        @apply text-base font-semibold;
+    }
 }
