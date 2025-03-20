@@ -24,7 +24,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   /**
    * A map of addresses in the tree to their corresponding nodes.
    */
-  #nodes: Map<string, PublicationTreeNode>;
+  #nodes: Map<string, Lazy<PublicationTreeNode>>;
 
   /**
    * A map of addresses in the tree to their corresponding events.
@@ -54,8 +54,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       children: [],
     };
 
-    this.#nodes = new Map<string, PublicationTreeNode>();
-    this.#nodes.set(rootAddress, this.#root);
+    this.#nodes = new Map<string, Lazy<PublicationTreeNode>>();
+    this.#nodes.set(rootAddress, new Lazy<PublicationTreeNode>(() => Promise.resolve(this.#root)));
 
     this.#events = new Map<string, NDKEvent>();
     this.#events.set(rootAddress, rootEvent);
@@ -71,10 +71,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @description The parent event must already be in the tree. Use
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
-  addEvent(event: NDKEvent, parentEvent: NDKEvent) {
+  async addEvent(event: NDKEvent, parentEvent: NDKEvent) {
     const address = event.tagAddress();
     const parentAddress = parentEvent.tagAddress();
-    const parentNode = this.#nodes.get(parentAddress);
+    const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
       throw new Error(
@@ -82,14 +82,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
-    const node = {
-      type: this.#getNodeType(event),
+    const node: PublicationTreeNode = {
+      type: await this.#getNodeType(event),
       address,
       parent: parentNode,
       children: [],
     };
     parentNode.children!.push(new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
-    this.#nodes.set(address, node);
+    this.#nodes.set(address, new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
     this.#events.set(address, event);
   }
 
@@ -101,9 +101,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @description The parent event must already be in the tree. Use
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
-  addEventByAddress(address: string, parentEvent: NDKEvent) {
+  async addEventByAddress(address: string, parentEvent: NDKEvent) {
     const parentAddress = parentEvent.tagAddress();
-    const parentNode = this.#nodes.get(parentAddress);
+    const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
       throw new Error(
@@ -111,9 +111,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
-    parentNode.children!.push(
-      new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode))
-    );
+    await this.#addNode(address, parentNode);
   }
 
   /**
@@ -136,8 +134,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
    * @returns Returns an array of events in the addressed event's hierarchy, beginning with the
    * root and ending with the addressed event.
    */
-  getHierarchy(address: string): NDKEvent[] {
-    let node = this.#nodes.get(address);
+  async getHierarchy(address: string): Promise<NDKEvent[]> {
+    let node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(`PublicationTree: Node with address ${address} not found.`);
     }
@@ -175,9 +173,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     async tryMoveTo(address?: string) {
       if (!address) {
         const startEvent = await this.#tree.#depthFirstRetrieve();
-        this.target = this.#tree.#nodes.get(startEvent!.tagAddress());
+        this.target = await this.#tree.#nodes.get(startEvent!.tagAddress())?.value();
       } else {
-        this.target = this.#tree.#nodes.get(address);
+        this.target = await this.#tree.#nodes.get(address)?.value();
       }
 
       if (!this.target) {
@@ -240,11 +238,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   // #region Async Iterator Implementation
 
   [Symbol.asyncIterator](): AsyncIterator<NDKEvent> {
-    this.#cursor.tryMoveTo(this.#bookmark);
     return this;
   }
 
   async next(): Promise<IteratorResult<NDKEvent>> {
+    if (!this.#cursor.target) {
+      await this.#cursor.tryMoveTo(this.#bookmark);
+    }
+
     do {
       if (await this.#cursor.tryMoveToFirstChild()) {
         continue;
@@ -284,33 +285,31 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     }
 
     const stack: string[] = [this.#root.address];
-    let currentEvent: NDKEvent | null | undefined;
+    let currentNode: PublicationTreeNode | null | undefined = this.#root;
+    let currentEvent: NDKEvent | null | undefined = this.#events.get(this.#root.address)!;
     while (stack.length > 0) {
       const currentAddress = stack.pop();
+      currentNode = await this.#nodes.get(currentAddress!)?.value();
+      if (!currentNode) {
+        throw new Error(`PublicationTree: Node with address ${currentAddress} not found.`);
+      }
+
+      currentEvent = this.#events.get(currentAddress!);
+      if (!currentEvent) {
+        throw new Error(`PublicationTree: Event with address ${currentAddress} not found.`);
+      }
 
       // Stop immediately if the target of the search is found.
       if (address != null && currentAddress === address) {
-        return this.#events.get(address)!;
+        return currentEvent;
       }
 
-      // Augment the tree with the children of the current event.
-      const currentChildAddresses = this.#events
-        .get(currentAddress!)!.tags
+      const currentChildAddresses = currentEvent.tags
         .filter(tag => tag[0] === 'a')
         .map(tag => tag[1]);
 
-      for (const childAddress of currentChildAddresses) {
-        if (this.#nodes.has(childAddress)) {
-          continue;
-        }
-
-        this.addEventByAddress(childAddress, currentEvent!);
-      }
-
       // If the current event has no children, it is a leaf.
       if (currentChildAddresses.length === 0) {
-        this.#leaves.push(currentAddress!);
-
         // Return the first leaf if no address was provided.
         if (address == null) {
           return currentEvent!;
@@ -319,15 +318,40 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         continue;
       }
 
+      // Augment the tree with the children of the current event.
+      for (const childAddress of currentChildAddresses) {
+        if (this.#nodes.has(childAddress)) {
+          continue;
+        }
+
+        await this.#addNode(childAddress, currentNode!);
+      }
+
       // Push the popped address's children onto the stack for the next iteration.
       while (currentChildAddresses.length > 0) {
-        stack.push(currentChildAddresses.pop()!);
+        const nextAddress = currentChildAddresses.pop()!;
+        stack.push(nextAddress);
       }
     }
 
     return null;
   }
 
+  async #addNode(address: string, parentNode: PublicationTreeNode): Promise<void> {
+    const lazyNode = new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode));
+    parentNode.children!.push(lazyNode);
+    this.#nodes.set(address, lazyNode);
+  }
+
+  /**
+   * Resolves a node address into an event, and creates new nodes for its children.
+   * 
+   * This method is intended for use as a {@link Lazy} resolver.
+   * 
+   * @param address The address of the node to resolve.
+   * @param parentNode The parent node of the node to resolve.
+   * @returns The resolved node.
+   */
   async #resolveNode(
     address: string,
     parentNode: PublicationTreeNode
@@ -345,36 +369,30 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       );
     }
 
+    this.#events.set(address, event);
+
     const childAddresses = event.tags.filter(tag => tag[0] === 'a').map(tag => tag[1]);
+    
     const node: PublicationTreeNode = {
-      type: this.#getNodeType(event),
+      type: await this.#getNodeType(event),
       address,
       parent: parentNode,
-      children: childAddresses.map(
-        address => new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, node))
-      ),
+      children: [],
     };
 
-    this.#nodes.set(address, node);
-    this.#events.set(address, event);
+    for (const address of childAddresses) {
+      this.addEventByAddress(address, event);
+    }
 
     return node;
   }
 
-  #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    const address = event.tagAddress();
-    const node = this.#nodes.get(address);
-    if (!node) {
-      throw new Error(
-        `PublicationTree: Event with address ${address} not found in the tree.`
-      );
-    }
-
-    if (!node.parent) {
+  async #getNodeType(event: NDKEvent): Promise<PublicationTreeNodeType> {
+    if (event.tagAddress() === this.#root.address) {
       return PublicationTreeNodeType.Root;
     }
 
-    if (event.tags.some(tag => tag[0] === 'a')) {
+    if (event.kind === 30040 && event.tags.some(tag => tag[0] === 'a')) {
       return PublicationTreeNodeType.Branch;
     }
 
