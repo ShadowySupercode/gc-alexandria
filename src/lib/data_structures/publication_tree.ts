@@ -1,6 +1,6 @@
 import type NDK from "@nostr-dev-kit/ndk";
-import type { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
-import { Lazy } from "./lazy";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import { Lazy } from "./lazy.ts";
 
 enum PublicationTreeNodeType {
   Root,
@@ -337,7 +337,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     return null;
   }
 
-  async #addNode(address: string, parentNode: PublicationTreeNode): Promise<void> {
+  #addNode(address: string, parentNode: PublicationTreeNode) {
     const lazyNode = new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode));
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
