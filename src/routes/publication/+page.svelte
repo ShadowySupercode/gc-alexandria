@@ -3,13 +3,18 @@
   import { TextPlaceholder } from "flowbite-svelte";
   import type { PageData } from "./$types";
   import { onDestroy } from "svelte";
+  import ArticleNav from "$components/util/ArticleNav.svelte";
 
   let { data }: { data: PageData } = $props();
 
   onDestroy(() => data.parser.reset());
 </script>
 
-<main>
+{#key data}
+  <ArticleNav publicationType={data.publicationType} rootId={data.parser.getRootIndexId()}  />
+{/key}
+
+<main class={data.publicationType}>
   {#await data.waitable}
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
