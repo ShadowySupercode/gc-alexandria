@@ -1,6 +1,7 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Lazy } from "./lazy.ts";
+import { findIndexAsync as _findIndexAsync } from '../utils.ts';
 
 enum PublicationTreeNodeType {
   Root,
