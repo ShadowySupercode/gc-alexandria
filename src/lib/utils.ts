@@ -109,3 +109,38 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
   console.debug(`Filtered index events: ${events.size} events remaining.`);
   return events;
 }
+
+/**
+ * Async version of Array.findIndex() that runs sequentially.
+ * Returns the index of the first element that satisfies the provided testing function.
+ * @param array The array to search
+ * @param predicate The async testing function
+ * @returns A promise that resolves to the index of the first matching element, or -1 if none found
+ */
+export async function findIndexAsync<T>(
+  array: T[],
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+): Promise<number> {
+  for (let i = 0; i < array.length; i++) {
+    if (await predicate(array[i], i, array)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Extend Array prototype with findIndexAsync
+declare global {
+  interface Array<T> {
+    findIndexAsync(
+      predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+    ): Promise<number>;
+  }
+}
+
+Array.prototype.findIndexAsync = function<T>(
+  this: T[],
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+): Promise<number> {
+  return findIndexAsync(this, predicate);
+};

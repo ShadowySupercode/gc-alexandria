@@ -205,11 +205,19 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
 
       const parent = this.target.parent;
       const siblings = parent?.children;
-      const currentIndex = siblings?.findIndex(async sibling =>
-        (await sibling.value()).address === this.target!.address
+      if (!siblings) {
+        return false;
+      }
+
+      const currentIndex = await siblings.findIndexAsync(
+        async (sibling: Lazy<PublicationTreeNode>) => (await sibling.value()).address === this.target!.address
       );
 
-      const nextSibling = (await siblings?.at(currentIndex! + 1)?.value()) ?? null;
+      if (currentIndex === -1) {
+        return false;
+      }
+
+      const nextSibling = (await siblings.at(currentIndex + 1)?.value()) ?? null;
       if (!nextSibling) {
         return false;
       }
