@@ -130,6 +130,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   }
 
   /**
+   * Retrieves the addresses of the loaded children, if any, of the node with the given address.
+   * @param address The address of the parent node.
+   * @returns An array of addresses of any loaded child nodes.
+   */
+  async getChildAddresses(address: string): Promise<string[]> {
+    const node = await this.#nodes.get(address)?.value();
+    if (!node) {
+      throw new Error(`PublicationTree: Node with address ${address} not found.`);
+    }
+
+    return Promise.all(
+      node.children?.map(async child =>
+        (await child.value()).address
+      ) ?? []
+    );
+  }
+  /**
    * Retrieves the events in the hierarchy of the event with the given address.
    * @param address The address of the event for which to retrieve the hierarchy.
    * @returns Returns an array of events in the addressed event's hierarchy, beginning with the
