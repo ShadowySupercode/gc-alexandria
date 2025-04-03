@@ -90,7 +90,7 @@
     .videoblock .title,
     .olist .title,
     .ulist .title {
-        @apply my-2;
+        @apply my-2 font-thin text-lg;
     }
 
     .note-leather li p {
@@ -115,6 +115,10 @@
         @apply text-sm;
     }
 
+    .leading-normal.first-letter\:text-7xl .quoteblock {
+        min-height: 108px;
+    }
+
     /* admonition */
     .note-leather .admonitionblock .title {
         @apply font-semibold;
@@ -126,6 +130,10 @@
 
     .note-leather .admonitionblock tr {
         @apply flex flex-col;
+    }
+
+    .note-leather .admonitionblock p:has(code) {
+        @apply my-3;
     }
 
     .note-leather .admonitionblock {
@@ -211,5 +219,14 @@
     .videoblock .content iframe,
     .videoblock .content video {
         @apply w-full h-full;
+    }
+
+    /* audio */
+    .audioblock .content {
+        @apply my-3;
+    }
+
+    .audioblock .content audio {
+        @apply w-full;
     }
 }

@@ -5,15 +5,15 @@
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-4 max-w-2xl w-full mt-4 mb-4'>
     <Heading tag='h1' class='h-leather mb-2'>About</Heading>
-    <p>Alexandria is a reader and writer for <a href="https://github.com/nostr-protocol/nips/pull/1600" class='underline'>curated publications</a> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <a href="https://wikistr.com/gitcitadel-project" class='underline'>GitCitadel project team</a>.</p>
+    <p>Alexandria is a reader and writer for <a href="https://github.com/nostr-protocol/nips/pull/1600" class='underline' target="_blank">curated publications</a> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <a href="https://wikistr.com/gitcitadel-project" class='underline' target="_blank">GitCitadel project team</a>.</p>
 
-    <p>Please submit support issues on the <a href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5emfw33kjarpv3jkcs83wav" class='underline'>project repo page</a> and follow us on <a href="https://github.com/ShadowySupercode/gitcitadel" class='underline'>GitHub</a> and <a href="https://geyser.fund/project/gitcitadel" class='underline'>Geyserfund</a>.</p>
+    <p>Please submit support issues on the <a href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5emfw33kjarpv3jkcs83wav" class='underline' target="_blank">project repo page</a> and follow us on <a href="https://github.com/ShadowySupercode/gitcitadel" class='underline' target="_blank">GitHub</a> and <a href="https://geyser.fund/project/gitcitadel" class='underline' target="_blank">Geyserfund</a>.</p>
 
-    <p>We are easiest to contact over our Nostr address <a  href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" class='underline'>npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz</a>.</p>
+    <p>We are easiest to contact over our Nostr address <a  href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" class='underline' title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">npub1s3h…75wz</a>.</p>
 
     <Heading tag='h2' class='h-leather mb-2'>Overview</Heading>
   
-    <p>Alexandria opens up to the <a  href="https://next-alexandria.gitcitadel.eu/" class='underline'>landing page</a>, where the user can: login (top-right), select whether to only view the publications hosted on the <a href="https://thecitadel.nostr1.com/" class='underline'>thecitadel document relay</a> or add in their own relays, and scroll/search the publications.</p>
+    <p>Alexandria opens up to the <a  href="https://next-alexandria.gitcitadel.eu/" class='underline'>landing page</a>, where the user can: login (top-right), select whether to only view the publications hosted on the <a href="https://thecitadel.nostr1.com/" class='underline' target="_blank">thecitadel document relay</a> or add in their own relays, and scroll/search the publications.</p>
 
     <p><img src="/screenshots/LandingPage.png" alt="Landing page" class='image-border'></p>
     <p><img src="/screenshots/YourRelays.png" alt="Relay selection" class='image-border'></p>
