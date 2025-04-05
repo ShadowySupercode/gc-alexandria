@@ -114,32 +114,32 @@
       <div class='flex flex-col text-nowrap'>
         <ul class="space-y-2">
           <li>
-            <a href="" role="button" class='btn-leather' onclick={viewDetails}>
+            <button type="button" class='btn-leather' onclick={viewDetails}>
               <EyeOutline class="inline mr-2"  /> View details
-            </a>
+            </button>
           </li>
           <li>
-            <a role="button" class='btn-leather' onclick={shareNjump}>
+            <button type="button" class='btn-leather' onclick={shareNjump}>
               {#if shareLinkCopied}
                 <ClipboardCheckOutline class="inline mr-2" /> Copied!
               {:else}
                 <ShareNodesOutline class="inline mr-2" /> Share via NJump
               {/if}
-            </a>
+            </button>
           </li>
           <li>
-            <a role="button" class='btn-leather' onclick={copyEventId}>
+            <button type="button" class='btn-leather' onclick={copyEventId}>
               {#if eventIdCopied}
                 <ClipboardCheckOutline class="inline mr-2" /> Copied!
               {:else}
                 <ClipboardCleanOutline class="inline mr-2" /> Copy event ID
               {/if}
-            </a>
+            </button>
           </li>
           <li>
-            <a href="" role="button" class='btn-leather' onclick={viewJson}>
+            <button type="button" class='btn-leather' onclick={viewJson}>
               <CodeOutline class="inline mr-2"  /> View JSON
-            </a>
+            </button>
           </li>
         </ul>
       </div>
@@ -157,7 +157,7 @@
     <div class="flex flex-row space-x-4">
       {#if image}
       <div class="flex col">
-        <img class="max-w-48" src={image} />
+        <img class="max-w-48" src={image} alt="Publication cover image for {title}" />
       </div>
       {/if}
       <div class="flex flex-col col space-y-5  justify-center  align-middle">

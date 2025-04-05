@@ -50,7 +50,7 @@
     <Popover
       class='popover-leather w-fit'
       placement='bottom'
-      target='avatar'
+      triggeredBy='#avatar'
     >
       <div class='w-full flex space-x-2'>
         <Button
