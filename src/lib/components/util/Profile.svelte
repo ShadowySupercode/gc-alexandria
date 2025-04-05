@@ -46,10 +46,12 @@ function shortenNpub(long: string|undefined) {
       class='h-6 w-6 cursor-pointer'
       src={pfp}
       alt={username}
+      id="profile-avatar"
     />
     {#key username || tag}
       <Popover
-        target="avatar"
+        placement="bottom"
+        triggeredBy="#profile-avatar"
         class='popover-leather w-[180px]'
         trigger='hover'
       >
@@ -70,15 +72,13 @@ function shortenNpub(long: string|undefined) {
               </li>
               {#if isNav}
                 <li>
-                  <a
-                    href=""
+                  <button
                     id='sign-out-button'
                     class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
                     onclick={handleSignOutClick}
-                    role="button"
                   >
                     <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
-                  </a>
+                  </button>
                 </li>
               {:else}
                 <!-- li>
