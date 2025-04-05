@@ -24,7 +24,7 @@
         Try Again
       </Button>
       <Button class='btn-leather !w-fit' size='sm' outline onclick={() => goto('/')}>
-        Return to Home
+        Return home
       </Button>
     </div>
   </Alert>

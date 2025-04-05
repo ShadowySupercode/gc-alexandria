@@ -5,7 +5,6 @@
   import { standardRelays } from '../consts';
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
-  import Profile from "$components/util/Profile.svelte";
   import InlineProfile from "$components/util/InlineProfile.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
@@ -55,11 +54,8 @@
           {/if}
         </a>
       </div>
-      <div class="flex flex-col justify-between items-center">
+      <div class="flex flex-col justify-start items-center">
         <CardActions event={event} />
-        <div class="group mt-16">
-          <Profile pubkey={event.pubkey} />
-        </div>
       </div>
     </div>
   </Card>
