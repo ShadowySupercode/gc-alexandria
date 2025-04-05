@@ -20,11 +20,11 @@
       {page.error?.message}
     </P>
     <div class='flex space-x-2'>
-      <Button class='btn-leather w-fit' size='sm' onclick={() => invalidateAll()}>
+      <Button class='btn-leather min-w-[120px] text-center' size='sm' onclick={() => invalidateAll()}>
         Try Again
       </Button>
-      <Button class='btn-leather w-fit' size='sm' outline onclick={() => goto('/')}>
-        Return to Home
+      <Button class='btn-leather min-w-[120px] text-center' size='sm' outline onclick={() => goto('/')}>
+        Return home
       </Button>
     </div>
   </Alert>
