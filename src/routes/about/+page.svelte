@@ -2,14 +2,14 @@
   import { Heading } from "flowbite-svelte";
   
   // Get the git tag version from environment variables
-  const gitTagVersion = import.meta.env.GIT_TAG || 'development';
+  const appVersion = import.meta.env.APP_VERSION || 'development';
 </script>
 
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-4 max-w-2xl w-full mt-4 mb-4'>
     <div class="flex justify-between items-center">
       <Heading tag='h1' class='h-leather mb-2'>About</Heading>
-      <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Version: {gitTagVersion}</span>
+      <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap">Version: {appVersion}</span>
     </div>
     <p>Alexandria is a reader and writer for <a href="https://github.com/nostr-protocol/nips/pull/1600" class='underline' target="_blank">curated publications</a> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <a href="https://wikistr.com/gitcitadel-project" class='underline' target="_blank">GitCitadel project team</a>.</p>
 
