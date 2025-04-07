@@ -6,7 +6,6 @@ import { execSync } from "child_process";
 function getAppVersionString() {
   // if running in ci context, we can assume the package has been properly versioned
   if (process.env.ALEXANDIRA_IS_CI_BUILD) {
-      console.info("Running in CI context, using package version");
       return process.env.npm_package_version;
   }
 
