@@ -55,7 +55,11 @@
 
   /* Content */
   main {
-    @apply max-w-full;
+    @apply max-w-full flex;
+  }
+
+  main.blog {
+    max-height: calc(100vh - 130px);
   }
 
   main.main-leather,
@@ -69,9 +73,9 @@
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 p-2 rounded;
   }
 
-  div.note-leather:hover:not(:has(.note-leather:hover)),
-  p.note-leather:hover:not(:has(.note-leather:hover)),
-  section.note-leather:hover:not(:has(.note-leather:hover)) {
+  .edit div.note-leather:hover:not(:has(.note-leather:hover)),
+  .edit p.note-leather:hover:not(:has(.note-leather:hover)),
+  section.edit.note-leather:hover:not(:has(.note-leather:hover)) {
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
   }
 
@@ -128,6 +132,10 @@
   }
 
   /* Navbar */
+  nav.Navbar.navbar-main {
+    @apply z-30;
+  }
+
   nav.navbar-leather {
     @apply bg-primary-0 dark:bg-primary-1000 z-10;
   }

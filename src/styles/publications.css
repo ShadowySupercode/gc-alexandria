@@ -229,4 +229,33 @@
     .audioblock .content audio {
         @apply w-full;
     }
+
+    .coverImage {
+        @apply max-h-[230px] overflow-hidden;
+    }
+
+    .coverImage.depth-0 {
+        @apply max-h-[460px] overflow-hidden;
+    }
+
+    .coverImage img {
+        @apply object-contain w-full;
+    }
+
+    .coverImage.depth-0 img {
+        @apply m-auto w-auto;
+    }
+
+    /** blog */
+    @screen lg {
+        @media (hover: hover) {
+            .blog .discreet:not(:hover) .coverImage img {
+                @apply filter grayscale sepia brightness-75 opacity-50 transition duration-500 ease-in-out saturate-200 hue-rotate-20;
+            }
+
+            .blog .discreet:not(:hover) .h-leather {
+                @apply filter grayscale sepia brightness-75 opacity-50 transition duration-500 ease-in-out saturate-200 hue-rotate-20;
+            }
+        }
+    }
 }
