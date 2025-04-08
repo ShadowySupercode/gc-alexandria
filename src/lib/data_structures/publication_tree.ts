@@ -89,8 +89,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
       parent: parentNode,
       children: [],
     };
-    parentNode.children!.push(new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
-    this.#nodes.set(address, new Lazy<PublicationTreeNode>(() => Promise.resolve(node)));
+    const lazyNode = new Lazy<PublicationTreeNode>(() => Promise.resolve(node));
+    parentNode.children!.push(lazyNode);
+    this.#nodes.set(address, lazyNode);
     this.#events.set(address, event);
   }
 
