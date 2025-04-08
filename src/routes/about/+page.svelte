@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import { Heading, Img, Hr, P, A } from "flowbite-svelte";
+  import { Heading, Img, P, A } from "flowbite-svelte";
 </script>
 
 <div class='w-full flex justify-center'>
@@ -49,7 +49,6 @@
     <Heading tag='h2' class='h-leather mt-4 mb-2'>Typical use cases</Heading>
 
       <Heading tag='h3' class='h-leather mb-3'>For e-books</Heading>
-      <Hr class="my-3 border" />
       
       <P class="mb-3">
         The most common use for Alexandria is for e-books: both those users have written themselves and those uploaded to Nostr from other sources. The first minor version of the app, Gutenberg, is focused on displaying and producing these publications.
@@ -64,8 +63,7 @@
       </div>
     
       <Heading tag='h3' class='h-leather mb-3'>For scientific papers</Heading>
-      <Hr class="my-3 border" />
-      
+
       <P class="mb-3">
         Alexandria will also display research papers with Asciimath and LaTeX embedding, and the normal advanced formatting options available for Asciidoc. In addition, we will be implementing special citation events, which will serve as an alternative or addition to the normal footnotes.
       </P>
@@ -87,8 +85,7 @@
       </div>
     
       <Heading tag='h3' class='h-leather mb-3'>For documentation</Heading>
-      <Hr class="my-3 border" />
-      
+
       <P class="mb-3">
         Our own team uses Alexandria to document the app, to display our <A href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</A>, as well as to store copies of our most interesting <A href="/publication?d=gitcitadel-project-documentation-by-stella-v-1">technical specifications</A>.
       </P>
