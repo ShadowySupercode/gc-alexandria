@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ndkInstance } from '$lib/ndk';
-  import { neventEncode } from '$lib/utils';
+  import { naddrEncode } from '$lib/utils';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { standardRelays } from '../consts';
   import { Card, Img } from "flowbite-svelte";
@@ -16,11 +16,12 @@
   const href = $derived.by(() => {
     const d = event.getMatchingTags('d')[0]?.[1];
     if (d != null) {
-      return `publication?d=${d}`;
+        return `publication?d=${d}`;
     } else {
-      return `publication?id=${neventEncode(event, relays)}`;
+        return `publication?id=${naddrEncode(event, relays)}`;
     }
-  });
+  }
+);
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
