@@ -1,11 +1,11 @@
 import { error } from '@sveltejs/kit';
-import { NDKRelay, NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
+import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { PageLoad } from './$types';
-import { get } from 'svelte/store';
-import { getActiveRelays, inboxRelays, ndkInstance } from '$lib/ndk';
-import { standardRelays } from '$lib/consts';
+import { getActiveRelays } from '$lib/ndk.ts';
+import { setContext } from 'svelte';
+import { PublicationTree } from '$lib/data_structures/publication_tree.ts';
 
-export const load: PageLoad = async ({ url, parent }) => {
+export const load: PageLoad = async ({ url, parent }: { url: URL; parent: () => Promise<any> }) => {
   const id = url.searchParams.get('id');
   const dTag = url.searchParams.get('d');
 
@@ -40,6 +40,8 @@ export const load: PageLoad = async ({ url, parent }) => {
   indexEvent = await eventPromise as NDKEvent;
   const publicationType = indexEvent?.getMatchingTags('type')[0]?.[1];
   const fetchPromise = parser.fetch(indexEvent);
+
+  setContext('publicationTree', new PublicationTree(indexEvent, ndk));
 
   return {
     waitable: fetchPromise,

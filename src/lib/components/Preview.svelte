@@ -1,8 +1,9 @@
 <script lang='ts'>
   import { pharosInstance, SiblingSearchDirection } from '$lib/parser';
-  import { Button, ButtonGroup, CloseButton, Input, P, Textarea, Tooltip } from 'flowbite-svelte';
+  import { Button, ButtonGroup, CloseButton, Input, Textarea, Tooltip } from 'flowbite-svelte';
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
+  import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
 
   // TODO: Fix move between parents.
 
@@ -206,7 +207,7 @@
           </Textarea>
         </form>
       {:else}
-        {@render contentParagraph(currentContent, publicationType)}
+        {@render contentParagraph(currentContent, publicationType, isSectionStart)}
       {/if}
     {/key}
   {:else}
