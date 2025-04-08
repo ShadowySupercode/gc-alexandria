@@ -7,11 +7,11 @@
     <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
     
     <P class="mb-3">
-        Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <A href="https://wikistr.com/gitcitadel-project" target="_blank">GitCitadel project team</A>.
+        Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
       </P>
 
       <P class="mb-3">
-        Please submit support issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5emfw33kjarpv3jkcs83wav" target="_blank">project repo page</A> and follow us on <A href="https://github.com/ShadowySupercode/gitcitadel" target="_blank">GitHub</A> and <A href="https://geyser.fund/project/gitcitadel" target="_blank">Geyserfund</A>.
+        Please submit support issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page</A> and follow us on <A href="https://github.com/ShadowySupercode/gitcitadel" target="_blank">GitHub</A> and <A href="https://geyser.fund/project/gitcitadel" target="_blank">Geyserfund</A>.
       </P>
 
       <P>
@@ -49,7 +49,7 @@
     <Heading tag='h2' class='h-leather mt-4 mb-2'>Typical use cases</Heading>
 
       <Heading tag='h3' class='h-leather mb-3'>For e-books</Heading>
-      <Hr class="my-3" />
+      <Hr class="my-3 border" />
       
       <P class="mb-3">
         The most common use for Alexandria is for e-books: both those users have written themselves and those uploaded to Nostr from other sources. The first minor version of the app, Gutenberg, is focused on displaying and producing these publications.
@@ -64,7 +64,7 @@
       </div>
     
       <Heading tag='h3' class='h-leather mb-3'>For scientific papers</Heading>
-      <Hr class="my-3" />
+      <Hr class="my-3 border" />
       
       <P class="mb-3">
         Alexandria will also display research papers with Asciimath and LaTeX embedding, and the normal advanced formatting options available for Asciidoc. In addition, we will be implementing special citation events, which will serve as an alternative or addition to the normal footnotes.
@@ -87,7 +87,7 @@
       </div>
     
       <Heading tag='h3' class='h-leather mb-3'>For documentation</Heading>
-      <Hr class="my-3" />
+      <Hr class="my-3 border" />
       
       <P class="mb-3">
         Our own team uses Alexandria to document the app, to display our <A href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</A>, as well as to store copies of our most interesting <A href="/publication?d=gitcitadel-project-documentation-by-stella-v-1">technical specifications</A>.
