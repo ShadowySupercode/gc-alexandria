@@ -274,6 +274,21 @@ export default class Pharos {
   }
 
   /**
+   * Checks if the node with the given ID is a floating title (discrete header).
+   * @param id The ID of the node to check.
+   * @returns True if the node is a floating title, false otherwise.
+   */
+  isFloatingTitle(id: string): boolean {
+    const normalizedId = this.normalizeId(id);
+    if (!normalizedId || !this.nodes.has(normalizedId)) {
+      return false;
+    }
+    
+    const context = this.eventToContextMap.get(normalizedId);
+    return context === 'floating_title';
+  }
+
+  /**
    * Updates the `content` field of a Nostr event in-place.
    * @param dTag The d tag of the event to update.
    * @param content The new content to assign to the event.

@@ -150,6 +150,27 @@
   }
 </script>
 
+{#snippet sectionHeading(title: string, depth: number)}
+  {@const headingLevel = Math.min(depth + 1, 6)}
+  {@const className = $pharosInstance.isFloatingTitle(rootId) ? 'discrete' : 'h-leather'}
+  
+  <svelte:element this={`h${headingLevel}`} class={className}>
+    {title}
+  </svelte:element>
+{/snippet}
+
+{#snippet contentParagraph(content: string, publicationType: string)}
+  {#if publicationType === 'novel'}
+    <P class='whitespace-normal' firstupper={isSectionStart}>
+      {@html content}
+    </P>
+  {:else}
+    <P class='whitespace-normal' firstupper={false}>
+      {@html content}
+    </P>
+  {/if}
+{/snippet}
+
 <!-- This component is recursively structured.  The base case is single block of content. -->
 <section
   id={rootId}
