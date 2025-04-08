@@ -230,7 +230,6 @@
         @apply w-full;
     }
 
-<<<<<<< HEAD
     .coverImage {
         @apply max-h-[230px] overflow-hidden;
     }
@@ -258,7 +257,8 @@
                 @apply filter grayscale sepia brightness-75 opacity-50 transition duration-500 ease-in-out saturate-200 hue-rotate-20;
             }
         }
-=======
+    }
+
     /* Discrete headers */
     h3.discrete,
     h4.discrete,
@@ -281,6 +281,5 @@
 
     h6.discrete {
         @apply text-base font-semibold;
->>>>>>> 279fb7ce5912d50a1400636fa27aafab315df0b4
     }
 }
