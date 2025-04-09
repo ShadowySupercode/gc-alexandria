@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
-  import { onMount } from "svelte";
+  import { onMount, createEventDispatcher } from "svelte";
   
   let { node, selected = false, x, y } = $props<{
     node: NetworkNode;
@@ -8,6 +8,8 @@
     x: number;
     y: number;
   }>();
+  
+  const dispatch = createEventDispatcher();
   
   let tooltipElement: HTMLDivElement;
   let tooltipX = $state(x + 10);
@@ -23,6 +25,16 @@
     return "Unknown";
   }
   
+  function getSummaryTag(node: NetworkNode): string | null {
+    if (node.event) {
+      const summaryTags = node.event.getMatchingTags("summary");
+      if (summaryTags.length > 0) {
+        return summaryTags[0][1];
+      }
+    }
+    return null;
+  }
+  
   function getDTag(node: NetworkNode): string {
     if (node.event) {
       const dTags = node.event.getMatchingTags("d");
@@ -36,6 +48,10 @@
   function truncateContent(content: string, maxLength: number = 200): string {
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + "...";
+  }
+  
+  function closeTooltip() {
+    dispatch('close');
   }
   
   // Ensure tooltip is fully visible on screen
@@ -72,9 +88,18 @@
   bind:this={tooltipElement}
   class="tooltip-leather fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-800
          border border-gray-200 dark:border-gray-800 transition-colors duration-200"
-  style="left: {tooltipX}px; top: {tooltipY}px; z-index: 1000;"
+  style="left: {tooltipX}px; top: {tooltipY}px; z-index: 1000; max-width: 400px;"
 >
-  <div class="space-y-2">
+  <button 
+    class="absolute top-2 left-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+    onclick={closeTooltip}
+    aria-label="Close"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+    </svg>
+  </button>
+  <div class="space-y-2 pl-6">
     <div class="font-bold text-base">
       <a href="/publication?id={node.id}" class="text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500">
         {node.title}
@@ -86,6 +111,12 @@
     <div class="text-gray-600 dark:text-gray-400 text-sm">
       Author: {getAuthorTag(node)}
     </div>
+
+    {#if node.isContainer && getSummaryTag(node)}
+      <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
+        <span class="font-semibold">Summary:</span> {truncateContent(getSummaryTag(node) || "", 200)}
+      </div>
+    {/if}
 
     {#if node.content}
       <div

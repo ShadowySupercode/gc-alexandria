@@ -155,6 +155,6 @@
     </div>
   {:else}
     <EventNetwork {events} />
-    <div class="mt-8 prose dark:prose-invert max-w-none" />
+    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
   {/if}
 </div>

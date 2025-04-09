@@ -304,6 +304,11 @@
       updateGraph();
     }
   });
+  
+  function handleTooltipClose() {
+    tooltipVisible = false;
+    selectedNodeId = null;
+  }
 </script>
 
 <div
@@ -322,6 +327,7 @@
       selected={tooltipNode.id === selectedNodeId}
       x={tooltipX}
       y={tooltipY}
+      on:close={handleTooltipClose}
     />
   {/if}
 
