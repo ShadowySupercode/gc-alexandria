@@ -60,10 +60,10 @@
           bind:value={editorText}
         >
           <Toolbar slot='header' embedded>
-            <ToolbarButton name='Preview' on:click={showPreview}>
+            <ToolbarButton name='Preview' onclick={showPreview}>
               <EyeSolid class='w-6 h-6' />
             </ToolbarButton>
-            <ToolbarButton name='Review' slot='end' on:click={prepareReview}>
+            <ToolbarButton name='Review' slot='end' onclick={prepareReview}>
               <PaperPlaneOutline class='w=6 h-6 rotate-90' />
             </ToolbarButton>
           </Toolbar>
@@ -72,10 +72,10 @@
     {:else}
       <form class='border border-gray-400 dark:border-gray-600 rounded-lg flex flex-col space-y-2 h-fit'>
         <Toolbar class='toolbar-leather rounded-b-none bg-gray-200 dark:bg-gray-800'>
-          <ToolbarButton name='Edit' on:click={hidePreview}>
+          <ToolbarButton name='Edit' onclick={hidePreview}>
             <CodeOutline class='w-6 h-6' />
           </ToolbarButton>
-          <ToolbarButton name='Review' slot='end' on:click={prepareReview}>
+          <ToolbarButton name='Review' slot='end' onclick={prepareReview}>
             <PaperPlaneOutline class='w=6 h-6 rotate-90' />
           </ToolbarButton>
         </Toolbar>

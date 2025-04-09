@@ -87,7 +87,7 @@
     <Button
       class="btn-leather fixed right-4 top-24 z-40 rounded-lg min-w-[150px]"
       size="sm"
-      on:click={() => (showSettings = !showSettings)}
+      onclick={() => (showSettings = !showSettings)}
     >
       <CogSolid class="mr-2 h-5 w-5" />
       Settings
@@ -148,13 +148,13 @@
       <button
         type="button"
         class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mt-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
-        on:click={fetchEvents}
+        onclick={fetchEvents}
       >
         Retry
       </button>
     </div>
   {:else}
     <EventNetwork {events} />
-    <div class="mt-8 prose dark:prose-invert max-w-none" />
+    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
   {/if}
 </div>

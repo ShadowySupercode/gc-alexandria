@@ -98,7 +98,7 @@
   <Button
     class="btn-leather fixed top-20 left-4 h-6 w-6"
     outline={true}
-    on:click={(ev) => {
+    onclick={(ev: MouseEvent) => {
       showToc = true;
       ev.stopPropagation();
     }}

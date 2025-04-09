@@ -60,7 +60,7 @@
         </Button>
         <!-- <Button
           color='alternative'
-          on:click={signInWithBunker}
+          onclick={signInWithBunker}
         >
           Bunker Sign-In
         </Button> -->

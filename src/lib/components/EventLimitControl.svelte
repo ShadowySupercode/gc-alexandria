@@ -40,11 +40,11 @@
     max="50"
     class="w-20 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1"
     bind:value={inputValue}
-    on:input={handleInput}
-    on:keydown={handleKeyDown}
+    oninput={handleInput}
+    onkeydown={handleKeyDown}
   />
   <button
-    on:click={handleUpdate}
+    onclick={handleUpdate}
     class="px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
   >
     Update
