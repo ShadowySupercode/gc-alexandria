@@ -102,5 +102,6 @@ export const load: PageLoad = async ({ url, parent }: { url: URL; parent: () => 
   return {
     waitable: fetchPromise,
     publicationType,
+    publicationRootEvent: indexEvent,
   };
 };
