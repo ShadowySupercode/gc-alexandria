@@ -12,7 +12,7 @@ import type {
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
-import { zettelKinds } from './consts';
+import { zettelKinds } from './consts.ts';
 
 interface IndexMetadata {
   authors?: string[];
@@ -65,6 +65,8 @@ export default class Pharos {
    */
 
   private asciidoctor: Asciidoctor;
+
+  private pharosExtensions: Extensions.Registry;
 
   private ndk: NDK;
 
@@ -130,25 +132,26 @@ export default class Pharos {
 
   constructor(ndk: NDK) {
     this.asciidoctor = asciidoctor();
+    this.pharosExtensions = this.asciidoctor.Extensions.create();
 
     this.ndk = ndk;
 
     const pharos = this;
-    this.asciidoctor.Extensions.register(function () {
-      const registry = this;
-      registry.treeProcessor(function () {
-        const dsl = this;
-        dsl.process(function (document) {
-          const treeProcessor = this;
-          pharos.treeProcessor(treeProcessor, document);
-        });
-      })
+    this.pharosExtensions.treeProcessor(function () {
+      const dsl = this;
+      dsl.process(function (document) {
+        const treeProcessor = this;
+        pharos.treeProcessor(treeProcessor, document);
+      });
     });
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
     try {
-      this.html = this.asciidoctor.convert(content, options) as string | Document | undefined;
+      this.html = this.asciidoctor.convert(content, {
+        'extension_registry': this.pharosExtensions,
+        ...options,
+      }) as string | Document | undefined;
     } catch (error) {
       console.error(error);
       throw new Error('Failed to parse AsciiDoc document.');
@@ -268,6 +271,21 @@ export default class Pharos {
     }
 
     return block.convert();
+  }
+
+  /**
+   * Checks if the node with the given ID is a floating title (discrete header).
+   * @param id The ID of the node to check.
+   * @returns True if the node is a floating title, false otherwise.
+   */
+  isFloatingTitle(id: string): boolean {
+    const normalizedId = this.normalizeId(id);
+    if (!normalizedId || !this.nodes.has(normalizedId)) {
+      return false;
+    }
+    
+    const context = this.eventToContextMap.get(normalizedId);
+    return context === 'floating_title';
   }
 
   /**

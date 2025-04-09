@@ -1,62 +1,105 @@
 <script lang='ts'>
-  import { Heading } from "flowbite-svelte";
+  import { Heading, Img, P, A } from "flowbite-svelte";
   
   // Get the git tag version from environment variables
   const gitTagVersion = import.meta.env.GIT_TAG || 'development';
 </script>
 
 <div class='w-full flex justify-center'>
-  <main class='main-leather flex flex-col space-y-4 max-w-2xl w-full mt-4 mb-4'>
+  <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
     <div class="flex justify-between items-center">
-      <Heading tag='h1' class='h-leather mb-2'>About</Heading>
+      <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
       <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Version: {gitTagVersion}</span>
     </div>
-    <p>Alexandria is a reader and writer for <a href="https://github.com/nostr-protocol/nips/pull/1600" class='underline' target="_blank">curated publications</a> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <a href="https://wikistr.com/gitcitadel-project" class='underline' target="_blank">GitCitadel project team</a>.</p>
-
-    <p>Please submit support issues on the <a href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5emfw33kjarpv3jkcs83wav" class='underline' target="_blank">project repo page</a> and follow us on <a href="https://github.com/ShadowySupercode/gitcitadel" class='underline' target="_blank">GitHub</a> and <a href="https://geyser.fund/project/gitcitadel" class='underline' target="_blank">Geyserfund</a>.</p>
-
-    <p>We are easiest to contact over our Nostr address <a  href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" class='underline' title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">npub1s3h…75wz</a>.</p>
-
-    <Heading tag='h2' class='h-leather mb-2'>Overview</Heading>
-  
-    <p>Alexandria opens up to the <a  href="https://next-alexandria.gitcitadel.eu/" class='underline'>landing page</a>, where the user can: login (top-right), select whether to only view the publications hosted on the <a href="https://thecitadel.nostr1.com/" class='underline' target="_blank">thecitadel document relay</a> or add in their own relays, and scroll/search the publications.</p>
-
-    <p><img src="/screenshots/LandingPage.png" alt="Landing page" class='image-border'></p>
-    <p><img src="/screenshots/YourRelays.png" alt="Relay selection" class='image-border'></p>
-
-    <p>There is also the ability to view the publications as a diagram, if you click on "Visualize", and to publish an e-book or other document (coming soon).</p>
-
-    <p>If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s), in the order in which they are indexed, and displays them as a single document.</p>
     
-    <p>Each 30041 section is also a level in the table of contents, which can be accessed from the floating icon top-left in the reading view. This allows for navigation within the publication. (This functionality has been temporarily disabled.)</p>
+    <P class="mb-3">
+        Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
+      </P>
 
-    <p><img src="/screenshots/ToC_icon.png" alt="ToC icon" class='image-border'></p>
-    <p><img src="/screenshots/TableOfContents.png" alt="Table of contents example" class='image-border'></p>
+      <P class="mb-3">
+        Please submit support issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page</A> and follow us on <A href="https://github.com/ShadowySupercode/gitcitadel" target="_blank">GitHub</A> and <A href="https://geyser.fund/project/gitcitadel" target="_blank">Geyserfund</A>.
+      </P>
 
-    <Heading tag='h2' class='h-leather mb-2'>Typical use cases</Heading>
+      <P>
+        We are easiest to contact over our Nostr address <A href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">npub1s3h…75wz</A>.
+      </P>
+    
+    <Heading tag='h2' class='h-leather mt-4 mb-2'>Overview</Heading>
+    
+      <P class="mb-4">
+        Alexandria opens up to the <A href="./">landing page</A>, where the user can: login (top-right), select whether to only view the publications hosted on the <A href="https://thecitadel.nostr1.com/" target="_blank">thecitadel document relay</A> or add in their own relays, and scroll/search the publications.
+      </P>
 
-    <Heading tag='h3' class='h-leather mb-2'>For e-books</Heading>
-    <p>The most common use for Alexandria is for e-books: both those users have written themselves and those uploaded to Nostr from other sources. The first minor version of the app, Gutenberg, is focused on displaying and producing these publications.</p>
+      <div class="flex flex-col items-center space-y-4 my-4">
+        <Img src="/screenshots/LandingPage.png" alt="Landing page" class='image-border rounded-lg' width="400" />
+        <Img src="/screenshots/YourRelays.png" alt="Relay selection" class='image-border rounded-lg' width="400" />
+      </div>
 
-    <p>An example of a book is <a  href="https://next-alexandria.gitcitadel.eu/publication?d=jane-eyre-an-autobiography-by-charlotte-bront%C3%83-v-third-edition" class='underline'>Jane Eyre</a></p>
+      <P class="mb-3">
+        There is also the ability to view the publications as a diagram, if you click on "Visualize", and to publish an e-book or other document (coming soon).
+      </P>
 
-    <p><img src="/screenshots/JaneEyre.png" alt="Jane Eyre, by Charlotte Brontë" class='image-border'></p>
+      <P class="mb-3">
+        If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s), in the order in which they are indexed, and displays them as a single document.
+      </P>
+      
+      <P class="mb-3">
+        Each 30041 section is also a level in the table of contents, which can be accessed from the floating icon top-left in the reading view. This allows for navigation within the publication. (This functionality has been temporarily disabled.)
+      </P>
 
-    <Heading tag='h3' class='h-leather mb-2'>For scientific papers</Heading>
-    <p>Alexandria will also display research papers with Asciimath and LaTeX embedding, and the normal advanced formatting options available for Asciidoc. In addition, we will be implementing special citation events, which will serve as an alternative or addition to the normal footnotes.</p>
+      <div class="flex flex-col items-center space-y-4 my-4">
+        <Img src="/screenshots/ToC_icon.png" alt="ToC icon" class='image-border rounded-lg' width="400" />
+        <Img src="/screenshots/TableOfContents.png" alt="Table of contents example" class='image-border rounded-lg' width="400" />
+      </div>
+    
+    <Heading tag='h2' class='h-leather mt-4 mb-2'>Typical use cases</Heading>
 
-    <p>Correctly displaying such papers, integrating citations, and allowing them to be reviewed (with kind 1111 comments), and annotated (with highlights) by users, is the focus of the second minor version, Euler.</p>
+      <Heading tag='h3' class='h-leather mb-3'>For e-books</Heading>
+      
+      <P class="mb-3">
+        The most common use for Alexandria is for e-books: both those users have written themselves and those uploaded to Nostr from other sources. The first minor version of the app, Gutenberg, is focused on displaying and producing these publications.
+      </P>
 
-    <p>Euler will also pioneer the HTTP-based (rather than websocket-based) e-paper compatible version of the web app.</p>
+      <P class="mb-3">
+        An example of a book is <A href="/publication?d=jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition">Jane Eyre</A>
+      </P>
 
-    <p>An example of a research paper is <a  href="https://next-alexandria.gitcitadel.eu/publication?d=less-partnering-less-children-or-both-by-j.i.s.-hellstrand-v-1" class='underline'>Less Partnering, Less Children, or Both?</a></p>
+      <div class="flex justify-center my-4">
+        <Img src="/screenshots/JaneEyre.png" alt="Jane Eyre, by Charlotte Brontë" class='image-border rounded-lg' width="400" />
+      </div>
+    
+      <Heading tag='h3' class='h-leather mb-3'>For scientific papers</Heading>
 
-    <p><img src="/screenshots/ResearchPaper.png" alt="Research paper" class='image-border'></p>
+      <P class="mb-3">
+        Alexandria will also display research papers with Asciimath and LaTeX embedding, and the normal advanced formatting options available for Asciidoc. In addition, we will be implementing special citation events, which will serve as an alternative or addition to the normal footnotes.
+      </P>
 
-    <Heading tag='h3' class='h-leather mb-2'>For documentation</Heading>
-    <p>Our own team uses Alexandria to document the app, to display our blog entries, as well as to store copies of our most interesting technical specifications.</p>
+      <P class="mb-3">
+        Correctly displaying such papers, integrating citations, and allowing them to be reviewed (with kind 1111 comments), and annotated (with highlights) by users, is the focus of the second minor version, Euler.
+      </P>
 
-    <p><img src="/screenshots/Documentation.png" alt="Documentation" class='image-border'></p>
+      <P class="mb-3">
+        Euler will also pioneer the HTTP-based (rather than websocket-based) e-paper compatible version of the web app.
+      </P>
 
-  </main>
+      <P class="mb-3">
+        An example of a research paper is <A href="/publication?d=less-partnering-less-children-or-both-by-j.i.s.-hellstrand-v-1">Less Partnering, Less Children, or Both?</A>
+      </P>
+
+      <div class="flex justify-center my-4">
+        <Img src="/screenshots/ResearchPaper.png" alt="Research paper" class='image-border rounded-lg' width="400" />
+      </div>
+    
+      <Heading tag='h3' class='h-leather mb-3'>For documentation</Heading>
+
+      <P class="mb-3">
+        Our own team uses Alexandria to document the app, to display our <A href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</A>, as well as to store copies of our most interesting <A href="/publication?d=gitcitadel-project-documentation-by-stella-v-1">technical specifications</A>.
+      </P>
+
+      <div class="flex justify-center my-4">
+        <Img src="/screenshots/Documentation.png" alt="Documentation" class='image-border rounded-lg' width="400" />
+      </div>
+    
+    </main>
 </div>
+

@@ -82,13 +82,11 @@ function shortenNpub(long: string|undefined) {
                 </li>
               {:else}
                 <!-- li>
-                  <a
-                    href=""
+                  <button
                     class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                    role="button"
                   >
                     <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                  </a>
+                  </button>
                 </li -->
               {/if}
             </ul>

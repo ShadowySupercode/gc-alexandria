@@ -9,8 +9,7 @@
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays } from "$lib/consts";
-  import { neventEncode } from "$lib/utils";
-  import { type AddressPointer, naddrEncode } from "nostr-tools/nip19";
+  import { neventEncode, naddrEncode } from "$lib/utils";
   import InlineProfile from "$components/util/InlineProfile.svelte";
 
   let { event } = $props();
@@ -45,16 +44,9 @@
 
   function shareNjump() {
     const relays: string[] = standardRelays;
-    const dTag : string | undefined = event.dTag;
-
-    if (typeof dTag === 'string') {
-      const opts: AddressPointer = {
-        identifier: dTag,
-        pubkey: event.pubkey,
-        kind: 30040,
-        relays
-      };
-      const naddr = naddrEncode(opts);
+    
+    try {
+      const naddr = naddrEncode(event, relays);
       console.debug(naddr);
       navigator.clipboard.writeText(`https://njump.me/${naddr}`);
       shareLinkCopied = true;
@@ -62,9 +54,8 @@
         shareLinkCopied = false;
       }, 4000);
     }
-
-    else {
-      console.log('dTag is undefined');
+    catch (e) {
+      console.error('Failed to encode naddr:', e);
     }
   }
 
@@ -114,12 +105,12 @@
       <div class='flex flex-col text-nowrap'>
         <ul class="space-y-2">
           <li>
-            <button type="button" class='btn-leather' onclick={viewDetails}>
+            <button class='btn-leather w-full text-left' onclick={viewDetails}>
               <EyeOutline class="inline mr-2"  /> View details
             </button>
           </li>
           <li>
-            <button type="button" class='btn-leather' onclick={shareNjump}>
+            <button class='btn-leather w-full text-left' onclick={shareNjump}>
               {#if shareLinkCopied}
                 <ClipboardCheckOutline class="inline mr-2" /> Copied!
               {:else}
@@ -128,7 +119,7 @@
             </button>
           </li>
           <li>
-            <button type="button" class='btn-leather' onclick={copyEventId}>
+            <button class='btn-leather w-full text-left' onclick={copyEventId}>
               {#if eventIdCopied}
                 <ClipboardCheckOutline class="inline mr-2" /> Copied!
               {:else}
@@ -137,7 +128,7 @@
             </button>
           </li>
           <li>
-            <button type="button" class='btn-leather' onclick={viewJson}>
+            <button class='btn-leather w-full text-left' onclick={viewJson}>
               <CodeOutline class="inline mr-2"  /> View JSON
             </button>
           </li>
@@ -149,7 +140,7 @@
   <!-- Event JSON -->
   <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='sm'>
     <div class="overflow-auto bg-highlight dark:bg-primary-900 text-sm rounded p-1">
-      <code>{JSON.stringify(event.rawEvent())}</code>
+      <pre><code>{JSON.stringify(event.rawEvent(), null, 2)}</code></pre>
     </div>
   </Modal>
   <!-- Event details -->
@@ -157,7 +148,7 @@
     <div class="flex flex-row space-x-4">
       {#if image}
       <div class="flex col">
-        <img class="max-w-48" src={image} alt="Publication cover image for {title}" />
+        <img class="max-w-48" src={image} alt="Publication cover" />
       </div>
       {/if}
       <div class="flex flex-col col space-y-5  justify-center  align-middle">
