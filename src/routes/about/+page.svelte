@@ -2,14 +2,14 @@
   import { Heading, Img, P, A } from "flowbite-svelte";
   
   // Get the git tag version from environment variables
-  const gitTagVersion = import.meta.env.GIT_TAG || 'development';
+  const appVersion = import.meta.env.APP_VERSION || 'development';
 </script>
 
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
     <div class="flex justify-between items-center">
-      <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
-      <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">Version: {gitTagVersion}</span>
+      <Heading tag='h1' class='h-leather mb-2'>About</Heading>
+      <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap">Version: {appVersion}</span>
     </div>
     
     <P class="mb-3">
