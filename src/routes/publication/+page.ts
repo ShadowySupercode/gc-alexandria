@@ -88,8 +88,6 @@ export const load: PageLoad = async ({ url, parent }: { url: URL; parent: () => 
   const publicationType = indexEvent?.getMatchingTags('type')[0]?.[1];
   const fetchPromise = parser.fetch(indexEvent);
 
-  setContext('publicationTree', new PublicationTree(indexEvent, ndk));
-
   return {
     waitable: fetchPromise,
     publicationType,
