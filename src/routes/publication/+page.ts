@@ -3,15 +3,13 @@ import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { PageLoad } from './$types';
 import { nip19 } from 'nostr-tools';
 import { getActiveRelays } from '$lib/ndk.ts';
-import { setContext } from 'svelte';
-import { PublicationTree } from '$lib/data_structures/publication_tree.ts';
 
 /**
  * Decodes an naddr identifier and returns a filter object
  */
 function decodeNaddr(id: string) {
   try {
-    if (!id.startsWith('naddr1')) return {};
+    if (!id.startsWith('naddr')) return {};
     
     const decoded = nip19.decode(id);
     if (decoded.type !== 'naddr') return {};
@@ -24,7 +22,7 @@ function decodeNaddr(id: string) {
     };
   } catch (e) {
     console.error('Failed to decode naddr:', e);
-    return {};
+    return null;
   }
 }
 
@@ -33,6 +31,21 @@ function decodeNaddr(id: string) {
  */
 async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
   const filter = decodeNaddr(id);
+  
+  // Handle the case where filter is null (decoding error)
+  if (filter === null) {
+    // If we can't decode the naddr, try using the raw ID
+    try {
+      const event = await ndk.fetchEvent(id);
+      if (!event) {
+        throw new Error(`Event not found for ID: ${id}`);
+      }
+      return event;
+    } catch (err) {
+      throw error(404, `Failed to fetch publication root event.\n${err}`);
+    }
+  }
+  
   const hasFilter = Object.keys(filter).length > 0;
   
   try {
@@ -43,10 +56,9 @@ async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
     if (!event) {
       throw new Error(`Event not found for ID: ${id}`);
     }
-    
     return event;
   } catch (err) {
-    throw error(404, `Failed to fetch publication root event for ID: ${id}\n${err}`);
+    throw error(404, `Failed to fetch publication root event.\n${err}`);
   }
 }
 
@@ -64,10 +76,9 @@ async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
     if (!event) {
       throw new Error(`Event not found for d tag: ${dTag}`);
     }
-    
     return event;
   } catch (err) {
-    throw error(404, `Failed to fetch publication root event for d tag: ${dTag}\n${err}`);
+    throw error(404, `Failed to fetch publication root event.\n${err}`);
   }
 }
 
