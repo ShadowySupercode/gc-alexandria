@@ -8,6 +8,7 @@
   import { createSimulation, setupDragHandlers, applyGlobalLogGravity, applyConnectedGravity } from "./utils/forceSimulation";
   import Legend from "./Legend.svelte";
   import NodeTooltip from "./NodeTooltip.svelte";
+  import type { NetworkNode, NetworkLink } from "./types";
 
   let { events = [] } = $props<{ events?: NDKEvent[] }>();
 
@@ -90,14 +91,14 @@
   function updateGraph() {
     if (!svg || !events?.length || !svgGroup) return;
 
-    const { nodes, links } = generateGraph(events, currentLevels);
+    const { nodes, links } = generateGraph(events, Number(currentLevels));
     if (!nodes.length) return;
 
     // Stop any existing simulation
     if (simulation) simulation.stop();
 
     // Create new simulation
-    simulation = createSimulation(nodes, links, nodeRadius, linkDistance);
+    simulation = createSimulation(nodes, links, Number(nodeRadius), Number(linkDistance));
     const dragHandler = setupDragHandlers(simulation);
 
     // Update links
@@ -326,10 +327,3 @@
 
   <Legend />
 </div>
-
-<style>
-  .tooltip {
-    max-width: 300px;
-    word-wrap: break-word;
-  }
-</style>
