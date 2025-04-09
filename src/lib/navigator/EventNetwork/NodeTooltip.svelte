@@ -5,6 +5,26 @@
   export let selected: boolean = false;
   export let x: number;
   export let y: number;
+  
+  function getAuthorTag(node: NetworkNode): string {
+    if (node.event) {
+      const authorTags = node.event.getMatchingTags("author");
+      if (authorTags.length > 0) {
+        return authorTags[0][1];
+      }
+    }
+    return "Unknown";
+  }
+  
+  function getDTag(node: NetworkNode): string {
+    if (node.event) {
+      const dTags = node.event.getMatchingTags("d");
+      if (dTags.length > 0) {
+        return dTags[0][1];
+      }
+    }
+    return "View Publication";
+  }
 </script>
 
 <div
@@ -17,16 +37,13 @@
     <div class="text-gray-600 dark:text-gray-400 text-sm">
       {node.type} ({node.isContainer ? "30040" : "30041"})
     </div>
-    <div
-      class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis"
-    >
-      ID: {node.id}
-      {#if node.naddr}
-        <div>{node.naddr}</div>
-      {/if}
-      {#if node.nevent}
-        <div>{node.nevent}</div>
-      {/if}
+    <div class="text-gray-600 dark:text-gray-400 text-sm">
+      Author: {getAuthorTag(node)}
+    </div>
+    <div class="text-gray-600 dark:text-gray-400 text-sm">
+      <a href="/publication?id={node.id}" class="text-blue-500 hover:underline">
+        {getDTag(node)}
+      </a>
     </div>
     {#if node.content}
       <div
