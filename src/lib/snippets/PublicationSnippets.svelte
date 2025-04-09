@@ -5,31 +5,12 @@
 </script>
 
 {#snippet sectionHeading(title: string, depth: number)}
-  {#if depth === 0}
-    <h1 class='h-leather'>
-      {title}
-    </h1>
-  {:else if depth === 1}
-    <h2 class='h-leather'>
-      {title}
-    </h2>
-  {:else if depth === 2}
-    <h3 class='h-leather'>
-      {title}
-    </h3>
-  {:else if depth === 3}
-    <h4 class='h-leather'>
-      {title}
-    </h4>
-  {:else if depth === 4}
-    <h5 class='h-leather'>
-      {title}
-    </h5>
-  {:else}
-    <h6 class='h-leather'>
-      {title}
-    </h6>
-  {/if}
+  {@const headingLevel = Math.min(depth + 1, 6)}
+
+  <!-- TODO: Handle floating titles. -->
+  <svelte:element this={`h${headingLevel}`} class='h-leather'>
+    {title}
+  </svelte:element>
 {/snippet}
 
 {#snippet contentParagraph(content: string, publicationType: string, isSectionStart: boolean)}
