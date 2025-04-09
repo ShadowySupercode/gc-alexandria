@@ -10,6 +10,20 @@ export function neventEncode(event: NDKEvent, relays: string[]) {
   });
 }
 
+export function naddrEncode(event: NDKEvent, relays: string[]) {
+  const dTag = event.getMatchingTags('d')[0]?.[1];
+  if (!dTag) {
+    throw new Error('Event does not have a d tag');
+  }
+  
+  return nip19.naddrEncode({
+    identifier: dTag,
+    pubkey: event.pubkey,
+    kind: event.kind || 0,
+    relays,
+  });
+}
+
 export function formatDate(unixtimestamp: number) {
   const months = [
     "Jan",

@@ -70,25 +70,21 @@ function shortenNpub(long: string|undefined) {
               </li>
               {#if isNav}
                 <li>
-                  <a
-                    href=""
+                  <button
                     id='sign-out-button'
                     class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
                     onclick={handleSignOutClick}
-                    role="button"
                   >
                     <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
-                  </a>
+                  </button>
                 </li>
               {:else}
                 <!-- li>
-                  <a
-                    href=""
+                  <button
                     class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                    role="button"
                   >
                     <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                  </a>
+                  </button>
                 </li -->
               {/if}
             </ul>
