@@ -49,7 +49,7 @@
       // Fetch the referenced content events
       const contentEvents = await $ndkInstance.fetchEvents(
         {
-          kinds: [30041],
+          kinds: [30041, 30818],
           ids: Array.from(contentEventIds),
         },
         {

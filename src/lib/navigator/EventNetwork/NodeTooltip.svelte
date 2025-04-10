@@ -15,7 +15,7 @@
   <div class="space-y-2">
     <div class="font-bold text-base">{node.title}</div>
     <div class="text-gray-600 dark:text-gray-400 text-sm">
-      {node.type} ({node.isContainer ? "30040" : "30041"})
+      {node.type} ({node.kind})
     </div>
     <div
       class="text-gray-600 dark:text-gray-400 text-sm overflow-hidden text-ellipsis"
