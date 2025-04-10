@@ -7,7 +7,7 @@
     <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
     
     <P class="mb-3">
-        Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), and will eventually also support long-form articles (Markdown) and wiki pages (Asciidoc). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
+        Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form articles (Markdown). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
       </P>
 
       <P class="mb-3">
@@ -34,11 +34,11 @@
       </P>
 
       <P class="mb-3">
-        If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s), in the order in which they are indexed, and displays them as a single document.
+        If you click on a card, which represents a 30040 index event, the associated reading view opens to the publication. The app then pulls all of the content events (30041s and 30818s for wiki pages), in the order in which they are indexed, and displays them as a single document.
       </P>
       
       <P class="mb-3">
-        Each 30041 section is also a level in the table of contents, which can be accessed from the floating icon top-left in the reading view. This allows for navigation within the publication. (This functionality has been temporarily disabled.)
+        Each content section (30041 or 30818) is also a level in the table of contents, which can be accessed from the floating icon top-left in the reading view. This allows for navigation within the publication. (This functionality has been temporarily disabled.)
       </P>
 
       <div class="flex flex-col items-center space-y-4 my-4">
@@ -93,6 +93,16 @@
       <div class="flex justify-center my-4">
         <Img src="/screenshots/Documentation.png" alt="Documentation" class='image-border rounded-lg' width="400" />
       </div>
+      
+      <Heading tag='h3' class='h-leather mb-3'>For wiki pages</Heading>
+
+      <P class="mb-3">
+        Alexandria now supports wiki pages (kind 30818), allowing for collaborative knowledge bases and documentation. Wiki pages use the same Asciidoc format as other publications but are specifically designed for interconnected, evolving content.
+      </P>
+
+      <P class="mb-3">
+        Wiki pages can be linked to from other publications and can contain links to other wiki pages, creating a web of knowledge that can be navigated and explored.
+      </P>
     
     </main>
 </div>

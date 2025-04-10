@@ -18,7 +18,7 @@
         <span class="legend-circle content"></span>
         <span class="legend-letter">C</span>
       </div>
-      <span>Content events (kind 30041) - Publication sections</span>
+      <span>Content events (kinds 30041, 30818) - Publication sections</span>
     </li>
     <li class="legend-item">
       <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
