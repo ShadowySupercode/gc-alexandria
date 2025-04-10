@@ -1,10 +1,19 @@
 <script lang='ts'>
   import { Heading, Img, P, A } from "flowbite-svelte";
+  
+  // Get the git tag version from environment variables
+  const appVersion = import.meta.env.APP_VERSION || 'development';
+  const isVersionKnown = appVersion !== 'development';
 </script>
 
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
-    <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
+    <div class="flex justify-between items-center">
+      <Heading tag='h1' class='h-leather mb-2'>About</Heading>
+      {#if isVersionKnown}
+        <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap">Version: {appVersion}</span>
+      {/if}
+    </div>
     
     <P class="mb-3">
         Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form articles (Markdown). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
