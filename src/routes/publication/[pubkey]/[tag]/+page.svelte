@@ -1,8 +1,8 @@
-<script lang="ts">
-  import Article from "$lib/components/Publication.svelte";
-  import { TextPlaceholder } from "flowbite-svelte";
-  import type { PageData } from "./$types";
-  import { onDestroy } from "svelte";
+<script lang='ts'>
+  import Article from '$lib/components/Publication.svelte';
+  import { TextPlaceholder } from 'flowbite-svelte';
+  import type { PageData } from './$types';
+  import { onDestroy } from 'svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -19,4 +19,4 @@
       indexEvent={data.indexEvent} 
     />
   {/await}
-</main>
+</main> 
