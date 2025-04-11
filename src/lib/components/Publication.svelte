@@ -23,13 +23,15 @@
     indexEvent: NDKEvent
   }>();
   
-  // Get publication metadata for OpenGraph tags
-  let title = $derived($pharosInstance.getIndexTitle(rootId) || 'Alexandria Publication');
-  let currentUrl = page.url.href;
+  // Get publication metadata for OpenGraph tags from NDK
+  let title = $derived(indexEvent?.getMatchingTags('title')[0]?.[1] || 'Alexandria');
   
   // Get image and summary from the event tags if available
   let image = $derived(indexEvent?.getMatchingTags('image')[0]?.[1] || null);
-  let summary = $derived(indexEvent?.getMatchingTags('summary')[0]?.[1] || `Alexandria Publication: ${title}`);
+  let summary = $derived(indexEvent?.getMatchingTags('summary')[0]?.[1] || title);
+  
+  // Use current URL for OpenGraph
+  let canonicalUrl = $derived(page.url.href);
   
   // Debug: Log the event and its tags
   console.log('indexEvent:', indexEvent);
@@ -121,7 +123,7 @@
   <!-- OpenGraph meta tags -->
   <meta property="og:title" content="{title}" />
   <meta property="og:description" content="{summary}" />
-  <meta property="og:url" content="{currentUrl}" />
+  <meta property="og:url" content="{canonicalUrl}" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="Alexandria" />
   {#if image}

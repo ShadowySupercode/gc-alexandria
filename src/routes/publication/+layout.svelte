@@ -24,7 +24,7 @@
 
   let title = $derived.by(async () => {
     const titleTag = (await indexEvent)?.getMatchingTags('title')[0]?.[1];
-    return titleTag || 'Alexandria Publication';
+    return titleTag || 'Alexandria';
   });
   let image = $derived.by(async () => {
     const imageTag = (await indexEvent)?.getMatchingTags('image')[0]?.[1];
@@ -33,7 +33,7 @@
   let summary = $derived.by(async () => {
     const summaryTag = (await indexEvent)?.getMatchingTags('summary')[0]?.[1];
     const titleTag = await title;
-    return summaryTag || `Alexandria Publication ${titleTag}`;
+    return summaryTag || titleTag;
   });
 </script>
 
