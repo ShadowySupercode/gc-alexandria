@@ -9,7 +9,7 @@
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays } from "$lib/consts";
-  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { encodeNostrId } from "$lib/utils";
   import InlineProfile from "$components/util/InlineProfile.svelte";
 
   let { event } = $props();
@@ -46,7 +46,7 @@
     const relays: string[] = standardRelays;
     
     try {
-      const naddr = naddrEncode(event, relays);
+      const naddr = encodeNostrId(event, relays, 'naddr');
       console.debug(naddr);
       navigator.clipboard.writeText(`https://njump.me/${naddr}`);
       shareLinkCopied = true;
@@ -62,7 +62,7 @@
   function copyEventId() {
     console.debug("copyEventID");
     const relays: string[] = standardRelays;
-    const nevent = neventEncode(event, relays);
+    const nevent = encodeNostrId(event, relays, 'nevent');
 
     navigator.clipboard.writeText(nevent);
 

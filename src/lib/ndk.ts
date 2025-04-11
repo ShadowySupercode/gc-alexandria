@@ -1,6 +1,7 @@
 import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
+import { browser } from '$app/environment';
+import { additionalLargeRelays, bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
 import { feedType } from './stores';
 
 export const ndkInstance: Writable<NDK> = writable();
@@ -19,8 +20,15 @@ export const outboxRelays: Writable<string[]> = writable([]);
  * sessions.
  */
 export function getPersistedLogin(): string | null {
-  const pubkey = localStorage.getItem(loginStorageKey);
-  return pubkey;
+  if (!browser) return null;
+  
+  try {
+    const pubkey = localStorage.getItem(loginStorageKey);
+    return pubkey;
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+    return null;
+  }
 }
 
 /**
@@ -30,7 +38,13 @@ export function getPersistedLogin(): string | null {
  * time.
  */
 export function persistLogin(user: NDKUser): void {
-  localStorage.setItem(loginStorageKey, user.pubkey);
+  if (!browser) return;
+  
+  try {
+    localStorage.setItem(loginStorageKey, user.pubkey);
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+  }
 }
 
 /**
@@ -38,7 +52,13 @@ export function persistLogin(user: NDKUser): void {
  * @remarks Use this function when the user logs out.
  */
 export function clearLogin(): void {
-  localStorage.removeItem(loginStorageKey);
+  if (!browser) return;
+  
+  try {
+    localStorage.removeItem(loginStorageKey);
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+  }
 }
 
 /**
@@ -58,14 +78,20 @@ function getRelayStorageKey(user: NDKUser, type: 'inbox' | 'outbox'): string {
  * @param outboxes The user's outbox relays.
  */
 function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKRelay>): void {
-  localStorage.setItem(
-    getRelayStorageKey(user, 'inbox'),
-    JSON.stringify(Array.from(inboxes).map(relay => relay.url))
-  );
-  localStorage.setItem(
-    getRelayStorageKey(user, 'outbox'), 
-    JSON.stringify(Array.from(outboxes).map(relay => relay.url))
-  );
+  if (!browser) return;
+  
+  try {
+    localStorage.setItem(
+      getRelayStorageKey(user, 'inbox'),
+      JSON.stringify(Array.from(inboxes).map(relay => relay.url))
+    );
+    localStorage.setItem(
+      getRelayStorageKey(user, 'outbox'), 
+      JSON.stringify(Array.from(outboxes).map(relay => relay.url))
+    );
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+  }
 }
 
 /**
@@ -75,19 +101,32 @@ function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKR
  * empty if no relay lists were stored for the user.
  */
 function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
-  const inboxes = new Set<string>(
-    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
-  );
-  const outboxes = new Set<string>(
-    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
-  );
+  if (!browser) return [new Set<string>(), new Set<string>()];
+  
+  try {
+    const inboxes = new Set<string>(
+      JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
+    );
+    const outboxes = new Set<string>(
+      JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
+    );
 
-  return [inboxes, outboxes];
+    return [inboxes, outboxes];
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+    return [new Set<string>(), new Set<string>()];
+  }
 }
 
 export function clearPersistedRelays(user: NDKUser): void {
-  localStorage.removeItem(getRelayStorageKey(user, 'inbox'));
-  localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
+  if (!browser) return;
+  
+  try {
+    localStorage.removeItem(getRelayStorageKey(user, 'inbox'));
+    localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
+  } catch (e) {
+    console.warn('Failed to access localStorage:', e);
+  }
 }
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
@@ -108,6 +147,28 @@ export function getActiveRelays(ndk: NDK): NDKRelaySet {
         ))),
         ndk
       );
+}
+
+/**
+ * Returns a relay set that includes the user's relays, standard relays, and additional large relays.
+ * This is useful for fetching events that might be on any relay.
+ * @param ndk The NDK instance
+ * @returns A relay set containing user relays, standard relays, and additional large relays
+ */
+export function getAllRelays(ndk: NDK): NDKRelaySet {
+  const userRelays = get(ndkSignedIn) ? get(inboxRelays) : [];
+  
+  // Combine user relays, standard relays, and additional large relays, removing duplicates
+  const allRelayUrls = [...new Set([...userRelays, ...standardRelays, ...additionalLargeRelays])];
+  
+  return new NDKRelaySet(
+    new Set(allRelayUrls.map(relay => new NDKRelay(
+      relay,
+      NDKRelayAuthPolicies.signIn({ ndk }),
+      ndk,
+    ))),
+    ndk
+  );
 }
 
 /**
@@ -218,12 +279,18 @@ async function getUserPreferredRelays(
   const outboxRelays = new Set<NDKRelay>();
 
   if (relayList == null) {
-    const relayMap = await window.nostr?.getRelays?.();
-    Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
-      const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
-      if (relayType.read) inboxRelays.add(relay);
-      if (relayType.write) outboxRelays.add(relay);
-    });
+    if (browser && window.nostr?.getRelays) {
+      try {
+        const relayMap = await window.nostr.getRelays();
+        Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
+          const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+          if (relayType.read) inboxRelays.add(relay);
+          if (relayType.write) outboxRelays.add(relay);
+        });
+      } catch (e) {
+        console.warn('Failed to access window.nostr:', e);
+      }
+    }
   } else {
     relayList.tags.forEach(tag => {
       switch (tag[0]) {

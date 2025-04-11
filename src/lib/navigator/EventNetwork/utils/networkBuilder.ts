@@ -1,7 +1,8 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
-import { nip19 } from "nostr-tools";
 import { standardRelays } from "$lib/consts";
+import { encodeNostrId } from "$lib/utils";
+import { nip19 } from "nostr-tools";
 
 /**
  * Creates a NetworkNode from an NDKEvent
@@ -20,25 +21,14 @@ export function createNetworkNode(
         title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
         content: event.content || "",
         author: event.pubkey || "",
-        kind: event.kind,
+        kind: event.kind || 0,
         type: event?.kind === 30040 ? "Index" : "Content",
     };
 
     if (event.kind && event.pubkey) {
         try {
-            const dTag = event.getMatchingTags("d")?.[0]?.[1] || "";
-            node.naddr = nip19.naddrEncode({
-                pubkey: event.pubkey,
-                identifier: dTag,
-                kind: event.kind,
-                relays: standardRelays,
-            });
-
-            node.nevent = nip19.neventEncode({
-                id: event.id,
-                relays: standardRelays,
-                kind: event.kind,
-            });
+            node.naddr = encodeNostrId(event, standardRelays, 'naddr');
+            node.nevent = encodeNostrId(event, standardRelays, 'nevent');
         } catch (error) {
             console.warn("Failed to generate identifiers for node:", error);
         }

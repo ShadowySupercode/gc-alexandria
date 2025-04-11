@@ -1,27 +1,43 @@
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
+/**
+ * Encodes a Nostr event into a specified format (nevent or naddr)
+ * @param event The NDKEvent to encode
+ * @param relays The relays to include in the encoded ID
+ * @param format The format to encode to ('nevent' or 'naddr')
+ * @returns The encoded ID string
+ */
+export function encodeNostrId(event: NDKEvent, relays: string[], format: 'nevent' | 'naddr' = 'nevent'): string {
+  if (format === 'naddr') {
+    const dTag = event.getMatchingTags('d')[0]?.[1];
+    if (!dTag) {
+      throw new Error('Event does not have a d tag');
+    }
+    
+    return nip19.naddrEncode({
+      identifier: dTag,
+      pubkey: event.pubkey,
+      kind: event.kind || 0,
+      relays,
+    });
+  } else {
+    return nip19.neventEncode({
+      id: event.id,
+      kind: event.kind,
+      relays,
+      author: event.pubkey,
+    });
+  }
+}
+
+// Legacy functions for backward compatibility
 export function neventEncode(event: NDKEvent, relays: string[]) {
-  return nip19.neventEncode({
-    id: event.id,
-    kind: event.kind,
-    relays,
-    author: event.pubkey,
-  });
+  return encodeNostrId(event, relays, 'nevent');
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = event.getMatchingTags('d')[0]?.[1];
-  if (!dTag) {
-    throw new Error('Event does not have a d tag');
-  }
-  
-  return nip19.naddrEncode({
-    identifier: dTag,
-    pubkey: event.pubkey,
-    kind: event.kind || 0,
-    relays,
-  });
+  return encodeNostrId(event, relays, 'naddr');
 }
 
 export function formatDate(unixtimestamp: number) {
@@ -158,3 +174,49 @@ Array.prototype.findIndexAsync = function<T>(
 ): Promise<number> {
   return findIndexAsync(this, predicate);
 };
+
+/**
+ * Decodes various Nostr ID formats (hex ID, nevent, naddr) and returns an appropriate filter.
+ * @param id The ID to decode (hex ID, nevent, or naddr)
+ * @returns An NDKFilter object that can be used with ndk.fetchEvent, or null if decoding fails
+ */
+export function decodeNostrId(id: string): NDKFilter | null {
+  try {
+    // Check if it's a bech32-encoded ID (nevent or naddr)
+    if (id.startsWith('nevent') || id.startsWith('naddr') || id.startsWith('note')) {
+      const decoded = nip19.decode(id);
+      
+      // Handle different types of bech32 encodings
+      if (decoded.type === 'naddr') {
+        const data = decoded.data;
+        return {
+          kinds: [data.kind],
+          authors: [data.pubkey],
+          '#d': [data.identifier]
+        };
+      } else if (decoded.type === 'nevent') {
+        const data = decoded.data;
+        return {
+          ids: [data.id],
+          ...(data.author ? { authors: [data.author] } : {})
+        };
+      } else if (decoded.type === 'note') {
+        // Simple note ID
+        return { ids: [decoded.data] };
+      }
+    }
+    
+    // If it's not a bech32 ID or we couldn't decode it properly,
+    // assume it's a hex ID
+    if (/^[0-9a-f]{64}$/.test(id)) {
+      return { ids: [id] };
+    }
+    
+    // If we get here, we couldn't decode the ID
+    console.warn(`Could not decode Nostr ID: ${id}`);
+    return null;
+  } catch (e) {
+    console.error('Failed to decode Nostr ID:', e);
+    return null;
+  }
+}

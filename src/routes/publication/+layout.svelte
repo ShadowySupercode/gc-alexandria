@@ -10,11 +10,18 @@
   // to a server-side load function.  We should respect the user's relay selection when loading,
   // so moving this server-side would require us to provide the user's relay list to the server.
   let indexEvent = $derived.by(async () => {
-    const event = await ndk.fetchEvent({
+    if (!pubkey) return null;
+    
+    const filter: any = {
       kinds: [indexKind],
       authors: [pubkey],
-      '#d': [tag],
-    });
+    };
+    
+    if (tag) {
+      filter['#d'] = [tag];
+    }
+    
+    const event = await ndk.fetchEvent(filter);
     return event;
   });
 
@@ -42,7 +49,7 @@
     <!-- OpenGraph meta tags -->
     <meta property="og:title" content="{title}" />
     <meta property="og:description" content="{summary}" />
-    <meta property="og:url" content="{url}" />
+    <meta property="og:url" content="{url.toString()}" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="Alexandria" />
     {#if image}

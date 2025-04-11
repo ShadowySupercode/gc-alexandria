@@ -19,4 +19,4 @@
       indexEvent={data.indexEvent} 
     />
   {/await}
-</main> 
+</main>
