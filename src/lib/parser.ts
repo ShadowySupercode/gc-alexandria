@@ -150,6 +150,7 @@ export default class Pharos {
     try {
       this.html = this.asciidoctor.convert(content, {
         'extension_registry': this.pharosExtensions,
+        'doctype': 'book',
         ...options,
       }) as string | Document | undefined;
     } catch (error) {
