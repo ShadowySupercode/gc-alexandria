@@ -3,6 +3,7 @@ import { get, writable, type Writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { additionalLargeRelays, bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
 import { feedType } from './stores';
+import { fetchEventSafely } from './utils';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -262,7 +263,8 @@ async function getUserPreferredRelays(
   user: NDKUser,
   bootstraps: readonly string[] = bootstrapRelays
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayList = await ndk.fetchEvent(
+  const relayList = await fetchEventSafely(
+    ndk,
     {
       kinds: [10002],
       authors: [user.pubkey],
@@ -292,7 +294,7 @@ async function getUserPreferredRelays(
       }
     }
   } else {
-    relayList.tags.forEach(tag => {
+    relayList.tags.forEach((tag: string[]) => {
       switch (tag[0]) {
         case 'r':
           inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));

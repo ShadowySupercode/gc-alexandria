@@ -220,3 +220,56 @@ export function decodeNostrId(id: string): NDKFilter | null {
     return null;
   }
 }
+
+/**
+ * A utility function to safely fetch events from NDK.
+ * This function handles different types of filters and ensures that undefined values
+ * are properly handled to avoid TypeScript errors.
+ * 
+ * @param ndk The NDK instance to use for fetching
+ * @param filter The filter to use (string ID, NDKFilter object, or array of filters)
+ * @param options Optional fetch options
+ * @param relaySet Optional relay set to use for fetching
+ * @returns The fetched event, or null if not found
+ */
+export async function fetchEventSafely(
+  ndk: any,
+  filter: string | Record<string, any> | Array<Record<string, any>>,
+  options?: any,
+  relaySet?: any
+): Promise<any> {
+  try {
+    // If filter is a string or already properly formatted, pass it directly
+    if (typeof filter === 'string' || Array.isArray(filter)) {
+      return await ndk.fetchEvent(filter, options, relaySet);
+    }
+    
+    // If filter is an object, create a clean copy without undefined values
+    const cleanFilter: Record<string, any> = {};
+    
+    // Copy all properties except those with undefined values
+    for (const [key, value] of Object.entries(filter)) {
+      // Handle tag properties (starting with #)
+      if (key.startsWith('#')) {
+        // Only add tag arrays if they contain defined values
+        if (Array.isArray(value)) {
+          const definedValues = value.filter(v => v !== undefined);
+          if (definedValues.length > 0) {
+            cleanFilter[key] = definedValues;
+          }
+        } else if (value !== undefined) {
+          cleanFilter[key] = [value];
+        }
+      } 
+      // Handle regular properties
+      else if (value !== undefined) {
+        cleanFilter[key] = value;
+      }
+    }
+    
+    return await ndk.fetchEvent(cleanFilter, options, relaySet);
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    return null;
+  }
+}

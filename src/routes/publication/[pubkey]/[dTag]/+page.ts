@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { PageLoad } from './$types';
 import { getAllRelays } from '$lib/ndk.ts';
-import { decodeNostrId } from '$lib/utils';
+import { decodeNostrId, fetchEventSafely} from '$lib/utils';
 import { indexKind, zettelKinds, wikiKind } from '$lib/consts';
 
 /**

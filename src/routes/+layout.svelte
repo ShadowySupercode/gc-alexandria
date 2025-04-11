@@ -3,10 +3,11 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
 
-  // Compute viewport height.
-  $: displayHeight = window.innerHeight;
+  let displayHeight;
 
   onMount(() => {
+    // Compute viewport height only after component is mounted in the browser
+    displayHeight = window.innerHeight;
     document.body.style.height = `${displayHeight}px`;
   });
 </script>

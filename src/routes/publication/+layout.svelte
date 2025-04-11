@@ -1,6 +1,7 @@
 <script lang='ts'>
     import { indexKind } from '$lib/consts';
   import type { LayoutProps } from './$types';
+  import { fetchEventSafely } from '$lib/utils';
   
   let { data, children }: LayoutProps = $props();
 
@@ -12,16 +13,12 @@
   let indexEvent = $derived.by(async () => {
     if (!pubkey) return null;
     
-    const filter: any = {
+    const event = await fetchEventSafely(ndk, {
       kinds: [indexKind],
       authors: [pubkey],
-    };
+      '#d': [tag],
+    });
     
-    if (tag) {
-      filter['#d'] = [tag];
-    }
-    
-    const event = await ndk.fetchEvent(filter);
     return event;
   });
 

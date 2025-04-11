@@ -4,7 +4,7 @@
   import { Alert, P, Button } from 'flowbite-svelte';
   import { ExclamationCircleOutline } from 'flowbite-svelte-icons';
   import { ndkInstance } from '$lib/ndk';
-  import { decodeNostrId } from '$lib/utils';
+  import { decodeNostrId, fetchEventSafely } from '$lib/utils';
   import { get } from 'svelte/store';
   
   import { page } from '$app/stores';
@@ -49,18 +49,18 @@
       let indexEvent;
       if (dTag) {
         console.log(`Fetching event with d tag: ${dTag}`);
-        indexEvent = await ndk.fetchEvent({ '#d': [dTag] });
+        indexEvent = await fetchEventSafely(ndk, { '#d': [dTag] });
       } else if (id) {
         console.log(`Attempting to decode ID: ${id}`);
         const filter = decodeNostrId(id);
         
         if (filter) {
           console.log(`Fetching event with filter:`, filter);
-          indexEvent = await ndk.fetchEvent(filter);
+          indexEvent = await fetchEventSafely(ndk, filter);
         } else {
           console.warn(`Could not decode ID: ${id}, trying raw ID`);
           // If we can't decode the ID, try using it directly
-          indexEvent = await ndk.fetchEvent(id);
+          indexEvent = await fetchEventSafely(ndk, id);
         }
       }
       
