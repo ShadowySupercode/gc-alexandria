@@ -10,11 +10,11 @@
   <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
     <div class="flex justify-between items-center">
       <Heading tag='h1' class='h-leather mb-2'>About the Library of Alexandria</Heading>
-    <Img src="/screenshots/old_books.jpg" alt="Alexandria icon" />
       {#if isVersionKnown}
         <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap">Version: {appVersion}</span>
       {/if}
     </div>
+    <Img src="/screenshots/old_books.jpg" alt="Alexandria icon" />
 
     <P class="mb-3">
         Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form articles (Markdown). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
