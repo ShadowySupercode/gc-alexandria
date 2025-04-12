@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
+import type { Load } from '@sveltejs/kit';
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
-import type { PageLoad } from './$types';
 import { nip19 } from 'nostr-tools';
 import { getActiveRelays } from '$lib/ndk.ts';
 
@@ -82,7 +82,7 @@ async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
   }
 }
 
-export const load: PageLoad = async ({ url, parent }: { url: URL; parent: () => Promise<any> }) => {
+export const load: Load = async ({ url, parent }: { url: URL; parent: () => Promise<any> }) => {
   const id = url.searchParams.get('id');
   const dTag = url.searchParams.get('d');
   const { ndk, parser } = await parent();
@@ -102,5 +102,6 @@ export const load: PageLoad = async ({ url, parent }: { url: URL; parent: () => 
   return {
     waitable: fetchPromise,
     publicationType,
+    indexEvent,
   };
 };
