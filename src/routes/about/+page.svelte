@@ -4,8 +4,9 @@
 
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
-    <Heading tag='h1' class='h-leather text-left mb-4'>About</Heading>
-    
+    <Heading tag='h1' class='h-leather text-left mb-4'>About the Library of Alexandria</Heading>
+    <Img src="/screenshots/old_books.jpg" alt="Alexandria icon" />
+
     <P class="mb-3">
         Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form articles (Markdown). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
       </P>
