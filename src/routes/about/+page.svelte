@@ -20,14 +20,6 @@
         Alexandria is a reader and writer for <A href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1">curated publications</A> (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form articles (Markdown). It is produced by the <A href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1">GitCitadel project team</A>.
       </P>
 
-      <P class="mb-3">
-        Please submit support issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page</A> and follow us on <A href="https://github.com/ShadowySupercode/gitcitadel" target="_blank">GitHub</A> and <A href="https://geyser.fund/project/gitcitadel" target="_blank">Geyserfund</A>.
-      </P>
-
-      <P>
-        We are easiest to contact over our Nostr address <A href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">npub1s3h…75wz</A>.
-      </P>
-    
     <Heading tag='h2' class='h-leather mt-4 mb-2'>Overview</Heading>
     
       <P class="mb-4">
