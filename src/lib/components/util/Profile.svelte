@@ -46,10 +46,12 @@ function shortenNpub(long: string|undefined) {
       class='h-6 w-6 cursor-pointer'
       src={pfp}
       alt={username}
+      id="profile-avatar"
     />
     {#key username || tag}
       <Popover
-        target="avatar"
+        placement="bottom"
+        triggeredBy="#profile-avatar"
         class='popover-leather w-[180px]'
         trigger='hover'
       >

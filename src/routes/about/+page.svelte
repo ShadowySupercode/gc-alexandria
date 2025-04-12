@@ -1,10 +1,19 @@
 <script lang='ts'>
   import { Heading, Img, P, A } from "flowbite-svelte";
+  
+  // Get the git tag version from environment variables
+  const appVersion = import.meta.env.APP_VERSION || 'development';
+  const isVersionKnown = appVersion !== 'development';
 </script>
 
 <div class='w-full flex justify-center'>
   <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
-    <Heading tag='h1' class='h-leather text-left mb-4'>About the Library of Alexandria</Heading>
+    <div class="flex justify-between items-center">
+      <Heading tag='h1' class='h-leather mb-2'>About the Library of Alexandria</Heading>
+      {#if isVersionKnown}
+        <span class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap">Version: {appVersion}</span>
+      {/if}
+    </div>
     <Img src="/screenshots/old_books.jpg" alt="Alexandria icon" />
 
     <P class="mb-3">
