@@ -1,6 +1,8 @@
-@import './styles/base.css';
-@import './styles/publications.css';
-@import './styles/visualize.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
 
 @layer components {
   /* General */
