@@ -115,30 +115,6 @@
   });
 </script>
 
-<svelte:head>
-  <!-- Basic meta tags -->
-  <title>{title}</title>
-  <meta name="description" content="{summary}" />
-  
-  <!-- OpenGraph meta tags -->
-  <meta property="og:title" content="{title}" />
-  <meta property="og:description" content="{summary}" />
-  <meta property="og:url" content="{canonicalUrl}" />
-  <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="Alexandria" />
-  {#if image}
-  <meta property="og:image" content="{image}" />
-  {/if}
-  
-  <!-- Twitter Card meta tags -->
-  <meta name="twitter:card" content="{image ? 'summary_large_image' : 'summary'}" />
-  <meta name="twitter:title" content="{title}" />
-  <meta name="twitter:description" content="{summary}" />
-  {#if image}
-  <meta name="twitter:image" content="{image}" />
-  {/if}
-</svelte:head>
-
 {#if showTocButton && !showToc}
   <Button
     class="btn-leather fixed top-20 left-4 h-6 w-6"

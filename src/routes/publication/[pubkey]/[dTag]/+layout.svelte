@@ -1,37 +1,20 @@
 <script lang='ts'>
-    import { indexKind } from '$lib/consts';
   import type { LayoutProps } from './$types';
-  import { fetchEventSafely } from '$lib/utils';
   
   let { data, children }: LayoutProps = $props();
 
-  const { ndk, url, pubkey, tag } = data;
-
-  // Michael J 11 April 2025 - For best performance, we should explore moving this initial fetch
-  // to a server-side load function.  We should respect the user's relay selection when loading,
-  // so moving this server-side would require us to provide the user's relay list to the server.
-  let indexEvent = $derived.by(async () => {
-    if (!pubkey) return null;
-    
-    const event = await fetchEventSafely(ndk, {
-      kinds: [indexKind],
-      authors: [pubkey],
-      '#d': [tag],
-    });
-    
-    return event;
-  });
+  const { event, url } = data;
 
   let title = $derived.by(async () => {
-    const titleTag = (await indexEvent)?.getMatchingTags('title')[0]?.[1];
+    const titleTag = event?.getMatchingTags('title')[0]?.[1];
     return titleTag || 'Alexandria';
   });
   let image = $derived.by(async () => {
-    const imageTag = (await indexEvent)?.getMatchingTags('image')[0]?.[1];
+    const imageTag = event?.getMatchingTags('image')[0]?.[1];
     return imageTag || null;
   });
   let summary = $derived.by(async () => {
-    const summaryTag = (await indexEvent)?.getMatchingTags('summary')[0]?.[1];
+    const summaryTag = event?.getMatchingTags('summary')[0]?.[1];
     const titleTag = await title;
     return summaryTag || titleTag;
   });

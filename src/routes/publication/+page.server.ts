@@ -1,15 +1,13 @@
 import type { PageServerLoad } from './$types';
+import { redirect } from "@sveltejs/kit";
 
-// This file just passes the query parameters to the client
-// to avoid server-side localStorage errors
-export const load: PageServerLoad = async ({ url }) => {
-  const id = url.searchParams.get('id');
-  const dTag = url.searchParams.get('d');
+export const csr = false;
 
-  console.log('Publication page server load', { id, dTag });
+export const load: PageServerLoad = async ({ parent, url }) => {
+  const { pubkey, dTag } = await parent();
 
-  return {
-    id,
-    dTag
-  };
+  // Handle redirects from old query-param based URLs.
+  if (pubkey && dTag) {
+    redirect(301, `/publication/${pubkey}/${dTag}`);
+  }
 };

@@ -6,8 +6,6 @@ import { feedType } from '$lib/stores';
 import type { LayoutLoad } from './$types';
 import { browser } from '$app/environment';
 
-export const ssr = false;
-
 export const load: LayoutLoad = () => {
   // Initialize with default values
   let initialFeedType = FeedType.StandardRelays;
