@@ -3,8 +3,16 @@
   import { TextPlaceholder } from "flowbite-svelte";
   import type { PageData } from "./$types";
   import { onDestroy } from "svelte";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
-  let { data }: { data: PageData } = $props();
+  // Extend the PageData type with the properties we need
+  interface ExtendedPageData extends PageData {
+    waitable: Promise<any>;
+    publicationType: string;
+    indexEvent: NDKEvent;
+  }
+
+  let { data } = $props<{ data: ExtendedPageData }>();
 
   onDestroy(() => data.parser.reset());
 </script>
@@ -13,6 +21,10 @@
   {#await data.waitable}
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
-    <Article rootId={data.parser.getRootIndexId()} publicationType={data.publicationType} />
+  <Article 
+      rootId={data.parser.getRootIndexId()} 
+      publicationType={data.publicationType} 
+      indexEvent={data.indexEvent} 
+    />
   {/await}
 </main>

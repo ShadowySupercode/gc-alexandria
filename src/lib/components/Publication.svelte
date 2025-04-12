@@ -14,8 +14,28 @@
   import Preview from "./Preview.svelte";
   import { pharosInstance } from "$lib/parser";
   import { page } from "$app/state";
+  import { ndkInstance } from "$lib/ndk";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
-  let { rootId, publicationType } = $props<{ rootId: string, publicationType: string }>();
+  let { rootId, publicationType, indexEvent } = $props<{ 
+    rootId: string, 
+    publicationType: string,
+    indexEvent: NDKEvent
+  }>();
+  
+  // Get publication metadata for OpenGraph tags
+  let title = $derived($pharosInstance.getIndexTitle(rootId) || 'Alexandria Publication');
+  let currentUrl = page.url.href;
+  
+  // Get image and summary from the event tags if available
+  // If image unavailable, use the Alexandria default pic.
+  let image = $derived(indexEvent?.getMatchingTags('image')[0]?.[1] || '/screenshots/old_books.jpg');
+  let summary = $derived(indexEvent?.getMatchingTags('summary')[0]?.[1] || ``);
+  
+  // Debug: Log the event and its tags
+  console.log('indexEvent:', indexEvent);
+  console.log('image tag:', indexEvent?.getMatchingTags('image'));
+  console.log('summary tag:', indexEvent?.getMatchingTags('summary'));
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
     console.error("Root ID does not match parser root index ID");
@@ -93,6 +113,30 @@
     };
   });
 </script>
+
+<svelte:head>
+  <!-- Basic meta tags -->
+  <title>{title}</title>
+  <meta name="description" content="{summary}" />
+  
+  <!-- OpenGraph meta tags -->
+  <meta property="og:title" content="{title}" />
+  <meta property="og:description" content="{summary}" />
+  <meta property="og:url" content="{currentUrl}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Alexandria" />
+  {#if image}
+  <meta property="og:image" content="{image}" />
+  {/if}
+  
+  <!-- Twitter Card meta tags -->
+  <meta name="twitter:card" content="{image ? 'summary_large_image' : 'summary'}" />
+  <meta name="twitter:title" content="{title}" />
+  <meta name="twitter:description" content="{summary}" />
+  {#if image}
+  <meta name="twitter:image" content="{image}" />
+  {/if}
+</svelte:head>
 
 {#if showTocButton && !showToc}
   <Button
