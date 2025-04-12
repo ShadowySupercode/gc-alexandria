@@ -79,44 +79,45 @@
 </script>
 
 <div class="leather w-full p-4 relative">
-  <h1 class="h-leather text-2xl font-bold mb-4">Publication Network</h1>
-  <!-- Settings Toggle Button -->
-
-  <!-- Settings Button - Using Flowbite Components -->
-  {#if !loading && !error}
-    <Button
-      class="btn-leather fixed right-4 top-24 z-40 rounded-lg min-w-[150px]"
-      size="sm"
-      on:click={() => (showSettings = !showSettings)}
-    >
-      <CogSolid class="mr-2 h-5 w-5" />
-      Settings
-    </Button>
-
-    <!-- Settings Panel -->
-    {#if showSettings}
-      <div
-        class="fixed right-0 top-[140px] h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-30
-               overflow-y-auto max-h-[calc(100vh-96px)] rounded-l-lg border-l border-t border-b
-               border-gray-200 dark:border-gray-700"
-        transition:fly={{ duration: 300, x: 320, opacity: 1, easing: quintOut }}
+  <div class="flex items-center gap-4 mb-4">
+    <h1 class="h-leather text-2xl font-bold">Publication Network</h1>
+    
+    <!-- Settings Button - Using Flowbite Components -->
+    {#if !loading && !error}
+      <Button
+        class="btn-leather z-10 rounded-lg min-w-[120px]"
+        on:click={() => (showSettings = !showSettings)}
       >
-        <div class="card space-y-4">
-          <h2 class="text-xl font-bold mb-4 h-leather">
-            Visualization Settings
-          </h2>
+        <CogSolid class="mr-2 h-5 w-5" />
+        Settings
+      </Button>
+    {/if}
+  </div>
 
-          <div class="space-y-4">
-            <span class="text-sm text-gray-600 dark:text-gray-400">
-              Showing {events.length} events from {$networkFetchLimit} headers
-            </span>
-            <EventLimitControl on:update={handleLimitUpdate} />
-            <EventRenderLevelLimit on:update={handleLimitUpdate} />
-          </div>
+  {#if !loading && !error && showSettings}
+    <!-- Settings Panel -->
+    <div
+      class="absolute left-[220px] top-14 h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-10
+             overflow-y-auto max-h-[calc(100vh-96px)] rounded-lg border
+             border-gray-200 dark:border-gray-700"
+      transition:fly={{ duration: 300, y: -10, opacity: 1, easing: quintOut }}
+    >
+      <div class="card space-y-4">
+        <h2 class="text-xl font-bold mb-4 h-leather">
+          Visualization Settings
+        </h2>
+
+        <div class="space-y-4">
+          <span class="text-sm text-gray-600 dark:text-gray-400">
+            Showing {events.length} events from {$networkFetchLimit} headers
+          </span>
+          <EventLimitControl on:update={handleLimitUpdate} />
+          <EventRenderLevelLimit on:update={handleLimitUpdate} />
         </div>
       </div>
-    {/if}
+    </div>
   {/if}
+  
   {#if loading}
     <div class="flex justify-center items-center h-64">
       <div role="status">
@@ -155,6 +156,6 @@
     </div>
   {:else}
     <EventNetwork {events} />
-    <div class="mt-8 prose dark:prose-invert max-w-none" />
+    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
   {/if}
 </div>

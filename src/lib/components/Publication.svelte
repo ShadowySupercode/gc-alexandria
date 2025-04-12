@@ -14,8 +14,14 @@
   import Preview from "./Preview.svelte";
   import { pharosInstance } from "$lib/parser";
   import { page } from "$app/state";
+  import { ndkInstance } from "$lib/ndk";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
-  let { rootId, publicationType } = $props<{ rootId: string, publicationType: string }>();
+  let { rootId, publicationType, indexEvent } = $props<{ 
+    rootId: string, 
+    publicationType: string,
+    indexEvent: NDKEvent
+  }>();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
     console.error("Root ID does not match parser root index ID");
@@ -93,6 +99,7 @@
     };
   });
 </script>
+
 
 {#if showTocButton && !showToc}
   <Button
