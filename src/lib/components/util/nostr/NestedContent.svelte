@@ -1,7 +1,7 @@
 <script lang='ts'>
   import { P, Img } from 'flowbite-svelte';
   import InlineProfile from '../InlineProfile.svelte';
-  import { parseContent, processContentSegments, extractPubkeyFromNpub } from './utils';
+  import { parseContent, processContentSegments, extractPubkeyFromNpub, decodeNevent } from './utils';
   import { parseMarkdown } from '../markdown';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import type { ProfileData } from './types';
@@ -202,10 +202,39 @@
               {/if}
             </div>
           {:else}
-            <div class="text-center py-2">
-              <a href="https://njump.me/{segment.nevent}" target="_blank" class="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">
-                View on Nostr
-              </a>
+            <!-- Try to fetch the event if it's not in the cache -->
+            <div class="event-content whitespace-pre-wrap break-words overflow-hidden">
+              <div class="flex items-center justify-center py-3">
+                <div class="animate-pulse flex space-x-2">
+                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                </div>
+              </div>
+              <p class="text-center text-sm text-gray-500">
+                Loading event content...
+              </p>
+              <script>
+                // Attempt to fetch the event using NDK
+                if (ndkInstance) {
+                  const fetchEvent = async () => {
+                    try {
+                      const { eventId } = decodeNevent(segment.nevent);
+                      if (eventId) {
+                        const event = await ndkInstance.fetchEvent(eventId);
+                        if (event) {
+                          eventCache.set(segment.nevent, event);
+                          // Force a re-render
+                          segments = [...segments];
+                        }
+                      }
+                    } catch (e) {
+                      console.error('Error fetching event:', e);
+                    }
+                  };
+                  fetchEvent();
+                }
+              </script>
             </div>
           {/if}
         </div>
