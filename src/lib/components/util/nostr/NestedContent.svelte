@@ -154,31 +154,7 @@
 </script>
 
 <div class="whitespace-pre-wrap break-words overflow-hidden">
-  <!-- Direct URL and image rendering for better visibility -->
-  {#if parsedContent.urls.length > 0 || parsedContent.images.length > 0}
-    <div class="mb-2">
-      <!-- Render image URLs as images -->
-      {#if parsedContent.images.length > 0}
-        <div class="mt-2 mb-3 flex flex-wrap gap-2">
-          {#each parsedContent.images as imageUrl}
-            <a href={imageUrl} target="_blank" class="max-w-full overflow-hidden">
-              <Img src={imageUrl} alt="Embedded image" class="rounded-lg max-h-64 object-cover" />
-            </a>
-          {/each}
-        </div>
-      {/if}
-      
-      <!-- Render non-image URLs as links -->
-      {#each parsedContent.urls.filter(url => !parsedContent.images.includes(url)) as url}
-        <a href={url} target="_blank" class="inline-flex items-center px-3 py-1 my-1 mr-2 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700">
-          <span class="truncate max-w-[300px]">{url}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
-      {/each}
-    </div>
-  {/if}
+  <!-- We'll render all content inline in the segments below, so we don't need this section anymore -->
   
   <P>
     {#each segments as segment}
@@ -243,6 +219,14 @@
         <a href="https://njump.me/{segment.note}" target="_blank" class="note-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View note on Nostr">
           Note: {segment.note.substring(0, 16)}...
         </a>
+      {:else if segment.type === 'url' && segment.isImage}
+        <!-- For image URLs, display as embedded image on a new line -->
+        <div class="my-2 block">
+          <a href={cleanUrl(segment.url)} target="_blank" class="max-w-full overflow-hidden block">
+            <Img src={cleanUrl(segment.url)} alt="Embedded image" class="rounded-lg max-h-64 object-cover" />
+          </a>
+        </div>
+        {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && isVideoUrl(segment.url)}
         <!-- For video URLs, display as embedded video -->
         <div class="video-container my-2 rounded-lg overflow-hidden">
@@ -331,29 +315,19 @@
           </a>
         </div>
         {void renderedUrls.add(normalizeUrl(segment.url))}
-      {:else if segment.type === 'url' && !renderedUrls.has(normalizeUrl(segment.url))}
+      {:else if segment.type === 'url'}
         <!-- Fallback for URLs without OpenGraph data - styled nicely -->
-        <a href={cleanUrl(segment.url)} target="_blank" class="url-reference inline-flex items-center px-3 py-1 my-1 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700 max-w-full overflow-hidden">
-          <span class="truncate max-w-[300px]">{segment.url}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
+        <div class="my-1 inline-block">
+          <a href={cleanUrl(segment.url)} target="_blank" class="url-reference inline-flex items-center px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700 max-w-full overflow-hidden">
+            <span class="truncate max-w-[300px]">{segment.url}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {/if}
     {/each}
   </P>
   
-  {#if parsedContent.images.length > 0}
-    <div class="mt-3 flex flex-wrap gap-2">
-      {#each parsedContent.images as imageUrl}
-        {#if !renderedUrls.has(normalizeUrl(imageUrl))}
-          <div class="max-w-full overflow-hidden">
-            <Img src={imageUrl} alt="Embedded image" class="rounded-lg max-h-64 object-cover" />
-            {void renderedUrls.add(normalizeUrl(imageUrl))}
-          </div>
-        {/if}
-      {/each}
-    </div>
-  {/if}
 </div>

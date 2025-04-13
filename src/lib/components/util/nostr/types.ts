@@ -16,7 +16,7 @@ export type ContentSegment =
   | { type: 'nevent', nevent: string }
   | { type: 'naddr', naddr: string }
   | { type: 'note', note: string }
-  | { type: 'url', url: string, ogData?: OpenGraphData, isVideo?: boolean, isYouTube?: boolean };
+  | { type: 'url', url: string, ogData?: OpenGraphData, isVideo?: boolean, isYouTube?: boolean, isImage?: boolean };
 
 // Type for parsed content
 export interface ParsedContent {

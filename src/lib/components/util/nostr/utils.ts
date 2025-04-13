@@ -275,7 +275,8 @@ export function processContentSegments(
     type: 'npub' | 'nprofile' | 'nevent' | 'naddr' | 'note' | 'url', 
     value: string, 
     pubkey?: string,
-    ogData?: OpenGraphData
+    ogData?: OpenGraphData,
+    isImage?: boolean
   };
   const references: Reference[] = [];
   
@@ -406,12 +407,16 @@ export function processContentSegments(
       // Check if we have OpenGraph data for this URL in the cache
       const ogData = openGraphCache.get(url);
       
+      // Check if it's an image URL
+      const isImage = url.match(/\.(jpg|jpeg|png|gif|webp)$/i) !== null;
+      
       references.push({
         start: urlIndex,
         end: urlIndex + url.length,
         type: 'url',
         value: url,
-        ogData
+        ogData,
+        isImage
       });
       
       // Look for the next occurrence of this URL
@@ -469,12 +474,16 @@ export function processContentSegments(
       // Check if it's a YouTube URL
       const isYouTube = ref.value.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i) !== null;
       
+      // Check if it's an image URL
+      const isImage = ref.value.match(/\.(jpg|jpeg|png|gif|webp)$/i) !== null;
+      
       segments.push({
         type: 'url',
         url: ref.value,
         ogData: ref.ogData,
         isVideo,
-        isYouTube
+        isYouTube,
+        isImage
       });
     } else {
       // Fallback for references without proper handling
