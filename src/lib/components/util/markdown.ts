@@ -171,6 +171,9 @@ function processInlineMarkdown(text: string): string {
   // Links
   text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">$1</a>');
   
+  // Hashtags - make them lighter in color than hyperlinks
+  text = text.replace(/(^|\s)#(\w+)/g, '$1<span class="text-primary-300 dark:text-primary-300">#$2</span>');
+  
   // Bold (** or *)
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');

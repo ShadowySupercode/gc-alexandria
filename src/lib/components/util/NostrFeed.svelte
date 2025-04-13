@@ -9,6 +9,7 @@
   // Import our utility modules
   import { parseContent, processContentSegments, isBoost, extractRepostedContent, formatDate, extractPubkeyFromNpub } from './nostr/utils';
   import { parseMarkdown } from './markdown';
+  import { nip19 } from 'nostr-tools';
   import { fetchNotes, fetchEvents } from './nostr/eventFetcher';
   import { fetchProfile, fetchProfilesByPubkeys, collectReferencesFromNotes } from './nostr/profileFetcher';
   import type { ProfileData } from './nostr/types';
@@ -17,6 +18,24 @@
   // For JSON modal
   let jsonModalOpen = $state(false);
   let currentNoteJson = $state('');
+  
+  // Function to generate a Njump URL for an event
+  function getNjumpUrl(note: NDKEvent): string {
+    try {
+      // Create a nevent identifier for the note
+      const nevent = nip19.neventEncode({
+        id: note.id,
+        author: note.pubkey,
+        kind: note.kind,
+        relays: [relayUrl, ...standardRelays]
+      });
+      return `https://njump.me/${nevent}`;
+    } catch (e) {
+      console.error('Error generating Njump URL:', e);
+      // Fallback to a basic URL if encoding fails
+      return `https://njump.me/note1${note.id}`;
+    }
+  }
 
   let { pubkey, relayUrl, limit = 10 } = $props<{ 
     pubkey: string;
@@ -127,17 +146,45 @@
           <InlineProfile pubkey={note.pubkey} />
           <span class="text-sm text-gray-500 ml-auto">{formatDate(note.created_at)}</span>
         </div>
-        <div class="flex justify-end mb-2">
+        <div class="flex justify-end space-x-3 mb-2">
+          <!-- View on Njump icon -->
+          <a 
+            href={getNjumpUrl(note)} 
+            target="_blank"
+            class="text-primary-400 hover:text-primary-500 dark:hover:text-primary-300"
+            title="View on Njump"
+            aria-label="View on Njump"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+          
+          <!-- View Details icon -->
           <button 
-            class="text-xs text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
+            class="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
             onclick={() => {
+              // Create a clean object with just the relevant properties
+              const cleanNote = {
+                id: note.id,
+                pubkey: note.pubkey,
+                created_at: note.created_at,
+                kind: note.kind,
+                tags: note.tags,
+                content: note.content,
+                sig: note.sig
+              };
               // Create a pretty-printed JSON string
-              currentNoteJson = JSON.stringify(note, null, 2);
+              currentNoteJson = JSON.stringify(cleanNote, null, 2);
               // Open the modal to display the JSON
               jsonModalOpen = true;
             }}
+            title="View JSON Details"
+            aria-label="View JSON Details"
           >
-            View Details
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
           </button>
         </div>
         {#if isBoost(note)}
