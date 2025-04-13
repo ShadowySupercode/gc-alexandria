@@ -22,10 +22,8 @@ export function createRelaySet(ndkInstance: any, relayUrl: string) {
     "wss://nostr.land",
     "wss://nostr.einundzwanzig.space",
     "wss://relay.primal.net",
-    "wss://relay.nostr.bg",
     "wss://eden.nostr.land",
     "wss://purplepag.es",
-    "wss://relay.current.fyi",
     "wss://nostr21.com"
   ];
   
