@@ -141,7 +141,7 @@
     <P class="text-center">No notes found.</P>
   {:else}
     {#each notes as note}
-      <div class="note-card p-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div class="note-card p-4 rounded-lg border-2 border-primary-200 dark:border-primary-700 shadow-sm bg-gray-50 dark:bg-gray-800 overflow-hidden">
         <div class="flex items-start space-x-2 mb-2">
           <InlineProfile pubkey={note.pubkey} />
           <span class="text-sm text-gray-500 ml-auto">{formatDate(note.created_at)}</span>

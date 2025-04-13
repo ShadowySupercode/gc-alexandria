@@ -176,7 +176,7 @@
         </a>
       {:else if segment.type === 'nevent'}
         <!-- For nevents, display differently based on nesting level -->
-        <div class="nevent-reference border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2 bg-gray-50 dark:bg-gray-800">
+        <div class="nevent-reference border-2 border-primary-200 dark:border-primary-700 rounded-lg p-3 my-4 bg-gray-50 dark:bg-gray-800 shadow-sm">
           {#if nestingLevel >= 6}
             <div class="text-center py-2">
               <a href="https://njump.me/{segment.nevent}" target="_blank" class="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">
@@ -258,7 +258,7 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && isVideoUrl(segment.url)}
         <!-- For video URLs, display as embedded video -->
-        <div class="video-container my-2 rounded-lg overflow-hidden">
+        <div class="video-container my-2 overflow-hidden">
           <video controls class="w-full max-h-96 rounded-lg">
             <source src={cleanUrl(segment.url)} type="video/mp4">
             <track kind="captions" src="" label="Captions" default={false}>
@@ -273,7 +273,7 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && isAudioUrl(segment.url) && !renderedUrls.has(normalizeUrl(segment.url))}
         <!-- For audio URLs, display as embedded audio player -->
-        <div class="audio-container my-2 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700">
+        <div class="audio-container my-2 rounded-lg p-2 bg-gray-50 dark:bg-gray-800 overflow-hidden">
           <div class="font-medium mb-2">
             {segment.ogData?.title || segment.url.split('/').pop() || 'Audio'}
           </div>
@@ -291,7 +291,7 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && isYouTubeUrl(segment.url) && !renderedUrls.has(normalizeUrl(segment.url))}
         <!-- For YouTube URLs, display as embedded iframe -->
-        <div class="youtube-container my-2 rounded-lg overflow-hidden">
+        <div class="youtube-container my-2 overflow-hidden">
           {#if segment.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i)}
             {@const match = segment.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i)}
             {@const videoId = match ? match[1] : ''}
@@ -319,7 +319,7 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && segment.ogData && !renderedUrls.has(normalizeUrl(segment.url))}
         <!-- For URLs with OpenGraph data, display as card -->
-        <div class="url-card border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2 bg-gray-50 dark:bg-gray-800 flex flex-col">
+        <div class="url-card my-2 rounded-lg p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex flex-col">
           <a href={segment.url} target="_blank" class="no-underline hover:no-underline">
             <div class="flex flex-col md:flex-row gap-3">
               {#if segment.ogData.image}
