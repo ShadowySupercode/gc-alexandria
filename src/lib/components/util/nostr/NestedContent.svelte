@@ -2,6 +2,7 @@
   import { P, Img } from 'flowbite-svelte';
   import InlineProfile from '../InlineProfile.svelte';
   import { parseContent, processContentSegments, extractPubkeyFromNpub } from './utils';
+  import { parseMarkdown } from '../markdown';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import type { ProfileData } from './types';
   import NestedContent from './NestedContent.svelte';
@@ -182,7 +183,7 @@
   <P>
     {#each segments as segment}
       {#if segment.type === 'text'}
-        {segment.content}
+        {@html parseMarkdown(segment.content)}
       {:else if segment.type === 'npub'}
         <!-- For npubs, always display with InlineProfile if possible -->
         <a href="https://njump.me/{segment.npub}" target="_blank" class="npub-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View profile on Nostr">

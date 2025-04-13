@@ -8,6 +8,7 @@
   
   // Import our utility modules
   import { parseContent, processContentSegments, isBoost, extractRepostedContent, formatDate, extractPubkeyFromNpub } from './nostr/utils';
+  import { parseMarkdown } from './markdown';
   import { fetchNotes, fetchEvents } from './nostr/eventFetcher';
   import { fetchProfile, fetchProfilesByPubkeys, collectReferencesFromNotes } from './nostr/profileFetcher';
   import type { ProfileData } from './nostr/types';
