@@ -63,12 +63,14 @@
   }
   
   
+  // Log the content for debugging
+  console.log("NestedContent received content:", content);
+  
   // Parse the content
   const parsedContent = parseContent(content);
   
-  // Add debug logging to see what URLs are being extracted
-  console.log('Content:', content);
-  console.log('Parsed URLs:', parsedContent.urls);
+  // Log the parsed content
+  console.log("Parsed content:", parsedContent);
   
   // Ensure video URLs in the content are detected and added to parsedContent.urls
   const videoUrlRegex = /https?:\/\/\S+\.(mp4|webm|ogg|mov)(?:\?\S*)?/gi;
@@ -76,20 +78,28 @@
   const contentToSearch = content || '';
   while ((match = videoUrlRegex.exec(contentToSearch)) !== null) {
     const videoUrl = match[0].replace(/[.:;,!?]+$/, ''); // Clean the URL
-    console.log('Found video URL:', videoUrl);
     
     // Check if this URL or a similar one is already in parsedContent.urls
     const normalizedVideoUrl = normalizeUrl(videoUrl);
     const exists = parsedContent.urls.some(url => normalizeUrl(url) === normalizedVideoUrl);
     
     if (!exists) {
-      console.log('Adding video URL to parsed URLs:', videoUrl);
       parsedContent.urls.push(videoUrl);
     }
   }
   
-  // After adding any missing video URLs, log the final list
-  console.log('Final parsed URLs:', parsedContent.urls);
+  // Manually check for specific URLs that might be missed
+  const specificUrlCheck = /https?:\/\/[^\s<>'"]+/gi;
+  let specificMatch;
+  while ((specificMatch = specificUrlCheck.exec(contentToSearch)) !== null) {
+    const url = specificMatch[0].replace(/[.:;,!?]+$/, ''); // Clean the URL
+    
+    // Check if this URL is already in the urls array
+    if (!parsedContent.urls.includes(url)) {
+      console.log("Adding manually detected URL:", url);
+      parsedContent.urls.push(url);
+    }
+  }
   
   // Store for segments and OpenGraph cache updates
   let segments = $state(processContentSegments(
@@ -108,8 +118,6 @@
   // Update segments when OpenGraph cache changes
   $effect(() => {
     if (ogCacheVersion > 0) {
-      console.log('OpenGraph cache updated, version:', ogCacheVersion);
-      
       // Create a new array to trigger reactivity
       const updatedSegments = processContentSegments(
         parsedContent.text, 
@@ -125,68 +133,52 @@
       segments = updatedSegments;
     }
   });
-  
-  // Debug: Log the segments to see what's being created
-  $effect(() => {
-    console.log('Processed segments:', segments);
-  });
-  
-  // Debug: Check if any video URLs are in the segments
-  $effect(() => {
-    const videoSegments = segments.filter(segment => 
-      segment.type === 'url' && segment.url && isVideoUrl(segment.url)
-    );
-    console.log('Video segments:', videoSegments);
-  });
 
-  // Fetch OpenGraph data for URLs
-  onMount(async () => {
-    // Only fetch OpenGraph data for URLs that aren't already in the cache
-    const urlsToFetch = parsedContent.urls.filter(url => !openGraphCache.has(url));
-    
-    if (urlsToFetch.length > 0) {
-      console.log(`Fetching OpenGraph data for ${urlsToFetch.length} URLs:`, urlsToFetch);
-      let cacheUpdated = false;
-      
-      // Fetch OpenGraph data for each URL
-      for (const url of urlsToFetch) {
-        try {
-          console.log(`Fetching OpenGraph data for URL: ${url}`);
-          const ogData = await fetchOpenGraphData(url);
-          console.log(`Received OpenGraph data for ${url}:`, ogData);
-          
+  // Pre-populate OpenGraph data for URLs
+  onMount(() => {
+    // Process all URLs in the content
+    for (const url of parsedContent.urls) {
+      if (!openGraphCache.has(url)) {
+        // Create basic data for the URL without fetching
+        fetchOpenGraphData(url).then(ogData => {
           if (ogData) {
             openGraphCache.set(url, ogData);
-            cacheUpdated = true;
-            console.log(`Added OpenGraph data to cache for ${url}`);
+            // Increment cache version to trigger the effect
+            ogCacheVersion++;
           }
-        } catch (error) {
-          console.error(`Error fetching OpenGraph data for ${url}:`, error);
-        }
-      }
-      
-      // Increment cache version to trigger the effect
-      if (cacheUpdated) {
-        console.log('Cache updated, incrementing version');
-        ogCacheVersion++;
-        
-        // Force update segments with the latest OpenGraph data
-        segments = processContentSegments(
-          parsedContent.text, 
-          parsedContent.npubs, 
-          parsedContent.nprofiles,
-          parsedContent.nevents,
-          parsedContent.naddrs,
-          parsedContent.notes,
-          parsedContent.urls
-        );
-        console.log('Segments updated with OpenGraph data:', segments);
+        });
       }
     }
   });
 </script>
 
 <div class="whitespace-pre-wrap break-words overflow-hidden">
+  <!-- Direct URL and image rendering for better visibility -->
+  {#if parsedContent.urls.length > 0 || parsedContent.images.length > 0}
+    <div class="mb-2">
+      <!-- Render image URLs as images -->
+      {#if parsedContent.images.length > 0}
+        <div class="mt-2 mb-3 flex flex-wrap gap-2">
+          {#each parsedContent.images as imageUrl}
+            <a href={imageUrl} target="_blank" class="max-w-full overflow-hidden">
+              <Img src={imageUrl} alt="Embedded image" class="rounded-lg max-h-64 object-cover" />
+            </a>
+          {/each}
+        </div>
+      {/if}
+      
+      <!-- Render non-image URLs as links -->
+      {#each parsedContent.urls.filter(url => !parsedContent.images.includes(url)) as url}
+        <a href={url} target="_blank" class="inline-flex items-center px-3 py-1 my-1 mr-2 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700">
+          <span class="truncate max-w-[300px]">{url}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      {/each}
+    </div>
+  {/if}
+  
   <P>
     {#each segments as segment}
       {#if segment.type === 'text'}
@@ -313,7 +305,6 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && segment.ogData && !renderedUrls.has(normalizeUrl(segment.url))}
         <!-- For URLs with OpenGraph data, display as card -->
-        {console.log('Rendering URL with OpenGraph data:', segment.url, segment.ogData)}
         <div class="url-card border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2 bg-gray-50 dark:bg-gray-800 flex flex-col">
           <a href={segment.url} target="_blank" class="no-underline hover:no-underline">
             <div class="flex flex-col md:flex-row gap-3">
@@ -341,8 +332,8 @@
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url' && !renderedUrls.has(normalizeUrl(segment.url))}
         <!-- Fallback for URLs without OpenGraph data - styled nicely -->
-        <a href={cleanUrl(segment.url)} target="_blank" class="url-reference inline-flex items-center px-3 py-1 my-1 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700">
-          <span class="truncate">{segment.url}</span>
+        <a href={cleanUrl(segment.url)} target="_blank" class="url-reference inline-flex items-center px-3 py-1 my-1 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700 max-w-full overflow-hidden">
+          <span class="truncate max-w-[300px]">{segment.url}</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>

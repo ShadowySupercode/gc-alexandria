@@ -98,30 +98,29 @@ export function parseContent(content: string): ParsedContent {
   const notes: string[] = [];
   const urls: string[] = [];
   
+  // Log the content for debugging
+  console.log("Parsing content:", content);
+  
   // Extract image URLs
   const imageRegex = /(https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
   let match;
   while ((match = imageRegex.exec(content)) !== null) {
-    images.push(match[1]);
+    images.push(match[0]);
   }
-  
-  // We've removed nostr.build specific handling to focus on standard image formats
   
   // Extract video URLs
   const videoRegex = /(https?:\/\/\S+\.(?:mp4|webm|ogg|mov)(?:\?\S*)?)/gi;
   let videoMatch;
   while ((videoMatch = videoRegex.exec(content)) !== null) {
-    urls.push(videoMatch[1]);
+    urls.push(videoMatch[0]);
   }
-  
-  // Removed nostr.build specific video handling
   
   // Check for YouTube URLs
   const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/gi;
   let youtubeMatch;
   while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
-    if (!urls.includes(youtubeMatch[1])) {
-      urls.push(youtubeMatch[1]);
+    if (!urls.includes(youtubeMatch[0])) {
+      urls.push(youtubeMatch[0]);
     }
   }
   
@@ -130,7 +129,7 @@ export function parseContent(content: string): ParsedContent {
   const urlRegex = /(https?:\/\/[^\s<>'"]+(?:\?[^\s<>'"]*)?)/gi;
   let urlMatch;
   while ((urlMatch = urlRegex.exec(content)) !== null) {
-    const url = urlMatch[1];
+    const url = urlMatch[0];
     // Clean up the URL if it has trailing punctuation
     let cleanUrl = url;
     // Remove trailing punctuation that might be part of the text but not the URL
@@ -145,7 +144,7 @@ export function parseContent(content: string): ParsedContent {
   }
   
   // Special handling for URLs that might be part of text without proper spacing
-  // This is particularly useful for URLs like https://next-alexandria.gitcitadel.eu/publication?id=the-life-of-a-gitcitadel-work-ticket-by-michael-j-v-1
+  // This is particularly useful for URLs like https://geyser.fund/project/gitcitadel/posts/view/4305
   const specialUrlRegex = /https?:\/\/[^\s<>'"]+\.[a-z]{2,}(?:\/[^\s<>'"]*)?(?:\?[^\s<>'"]*)?/gi;
   let specialUrlMatch;
   while ((specialUrlMatch = specialUrlRegex.exec(content)) !== null) {
@@ -156,14 +155,19 @@ export function parseContent(content: string): ParsedContent {
     }
   }
   
+  // Log the detected URLs for debugging
+  console.log("Detected URLs:", urls);
+  
   // Extract npub references - both nostr: protocol and direct npub mentions
   const npubRegex = /(?:nostr:)?(npub[a-z0-9]+)/gi;
   let npubMatch;
   while ((npubMatch = npubRegex.exec(content)) !== null) {
-    const npub = npubMatch[1];
+    // Use the captured group if available, otherwise use the full match
+    const npub = npubMatch[1] || npubMatch[0];
     // Only add if it's a valid Nostr identifier (not just the word "npub" or "npubs")
     if (isValidNostrIdentifier(npub)) {
       npubs.push(npub);
+      console.log(`Detected npub: ${npub}`);
     }
   }
   
@@ -171,7 +175,8 @@ export function parseContent(content: string): ParsedContent {
   const nprofileRegex = /(?:nostr:)?(nprofile[a-z0-9]+)/gi;
   let nprofileMatch;
   while ((nprofileMatch = nprofileRegex.exec(content)) !== null) {
-    const nprofile = nprofileMatch[1];
+    // Use the captured group if available, otherwise use the full match
+    const nprofile = nprofileMatch[1] || nprofileMatch[0];
     // Only add if it's a valid Nostr identifier
     if (isValidNostrIdentifier(nprofile)) {
       nprofiles.push(nprofile);
@@ -183,7 +188,8 @@ export function parseContent(content: string): ParsedContent {
   const neventRegex = /(?:nostr:)?(nevent[a-z0-9]+)/gi;
   let neventMatch;
   while ((neventMatch = neventRegex.exec(content)) !== null) {
-    const nevent = neventMatch[1];
+    // Use the captured group if available, otherwise use the full match
+    const nevent = neventMatch[1] || neventMatch[0];
     // Only add if it's a valid Nostr identifier
     if (isValidNostrIdentifier(nevent)) {
       nevents.push(nevent);
@@ -195,7 +201,8 @@ export function parseContent(content: string): ParsedContent {
   const naddrRegex = /(?:nostr:)?(naddr[a-z0-9]+)/gi;
   let naddrMatch;
   while ((naddrMatch = naddrRegex.exec(content)) !== null) {
-    const naddr = naddrMatch[1];
+    // Use the captured group if available, otherwise use the full match
+    const naddr = naddrMatch[1] || naddrMatch[0];
     // Only add if it's a valid Nostr identifier
     if (isValidNostrIdentifier(naddr)) {
       naddrs.push(naddr);
@@ -207,7 +214,8 @@ export function parseContent(content: string): ParsedContent {
   const noteRegex = /(?:nostr:)?(note[a-z0-9]+)/gi;
   let noteMatch;
   while ((noteMatch = noteRegex.exec(content)) !== null) {
-    const note = noteMatch[1];
+    // Use the captured group if available, otherwise use the full match
+    const note = noteMatch[1] || noteMatch[0];
     // Only add if it's a valid Nostr identifier
     if (isValidNostrIdentifier(note)) {
       notes.push(note);
@@ -242,6 +250,23 @@ export function processContentSegments(
   urls: string[] = []
 ): ContentSegment[] {
   console.log(`Processing text with ${npubs.length} npubs, ${nprofiles.length} nprofiles, ${nevents.length} nevents, ${naddrs.length} naddrs, ${notes.length} notes, and ${urls.length} urls`);
+  console.log("Text to process:", text);
+  
+  // Special case: Check for URLs directly in the text that might not have been detected
+  const directUrlRegex = /https?:\/\/[^\s<>'"]+/gi;
+  let directUrlMatch;
+  const directlyFoundUrls: string[] = [];
+  
+  while ((directUrlMatch = directUrlRegex.exec(text)) !== null) {
+    const url = directUrlMatch[0];
+    if (!urls.includes(url)) {
+      console.log("Found URL directly in text:", url);
+      directlyFoundUrls.push(url);
+    }
+  }
+  
+  // Add any directly found URLs to the urls array
+  urls = [...urls, ...directlyFoundUrls];
   
   // Create a map of positions to references
   type Reference = { 
@@ -485,13 +510,26 @@ export function extractRepostedContent(note: NDKEvent): RepostedContent | null {
   try {
     // Kind 6 events store the reposted event in the content field as JSON
     const repostedEvent = JSON.parse(note.content);
+    
+    // Check if the reposted event has content and pubkey
+    if (!repostedEvent.content && !repostedEvent.pubkey) {
+      console.warn('Reposted event is missing content and pubkey:', repostedEvent);
+      return {
+        content: 'This reposted content could not be displayed.',
+        pubkey: note.pubkey // Use the original note's pubkey as a fallback
+      };
+    }
+    
     return {
       content: repostedEvent.content || '',
-      pubkey: repostedEvent.pubkey || ''
+      pubkey: repostedEvent.pubkey || note.pubkey // Use the original note's pubkey as a fallback
     };
   } catch (e) {
     console.error('Failed to parse reposted content:', e);
-    return null;
+    return {
+      content: 'This reposted content could not be displayed.',
+      pubkey: note.pubkey // Use the original note's pubkey as a fallback
+    };
   }
 }
 
@@ -505,125 +543,26 @@ export function formatDate(timestamp: number | undefined): string {
 // Function to fetch OpenGraph data for a URL
 export async function fetchOpenGraphData(url: string): Promise<OpenGraphData | null> {
   try {
-    // Try multiple proxy services in case one fails
-    const proxyServices = [
-      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-      `https://cors-anywhere.herokuapp.com/${url}`,
-      `https://crossorigin.me/${url}`
-    ];
+    // Extract domain and path for display
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname;
+    const path = urlObj.pathname;
     
-    console.log(`Attempting to fetch OpenGraph data for: ${url}`);
-    
-    let response = null;
-    let proxyUsed = '';
-    
-    // Try each proxy service until one works
-    for (const proxyUrl of proxyServices) {
-      try {
-        console.log(`Trying proxy: ${proxyUrl}`);
-        const fetchResponse = await fetch(proxyUrl, { 
-          method: 'GET',
-          headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml',
-            'User-Agent': 'Mozilla/5.0 (compatible; NostrClient/1.0)'
-          }
-        });
-        
-        if (fetchResponse.ok) {
-          response = fetchResponse;
-          proxyUsed = proxyUrl;
-          console.log(`Successfully fetched with proxy: ${proxyUrl}`);
-          break;
-        } else {
-          console.warn(`Proxy ${proxyUrl} failed with status: ${fetchResponse.status}`);
-        }
-      } catch (proxyError) {
-        console.warn(`Error with proxy ${proxyUrl}:`, proxyError);
-        // Continue to the next proxy
-      }
-    }
-    
-    if (!response) {
-      console.error(`All proxies failed for ${url}`);
-      
-      // Create a basic OpenGraph data object with just the URL
-      // This ensures we at least have something to display
-      const fallbackOgData: OpenGraphData = { 
-        url,
-        title: new URL(url).hostname,
-        description: `Visit ${url}`
-      };
-      
-      console.log(`Created fallback OpenGraph data for ${url}:`, fallbackOgData);
-      return fallbackOgData;
-    }
-    
-    let data;
-    let htmlContent;
-    
-    // Handle different proxy response formats
-    if (proxyUsed.includes('allorigins')) {
-      data = await response.json();
-      htmlContent = data.contents;
-    } else {
-      // For other proxies that return HTML directly
-      htmlContent = await response.text();
-    }
-    
-    if (!htmlContent) {
-      console.error(`No HTML content returned for ${url}`);
-      return null;
-    }
-    
-    // Parse the HTML content
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
-    
-    // Extract OpenGraph data
-    const ogData: OpenGraphData = { url };
-    
-    // Get title (try og:title first, then regular title)
-    const ogTitle = doc.querySelector('meta[property="og:title"]');
-    if (ogTitle && ogTitle.getAttribute('content')) {
-      ogData.title = ogTitle.getAttribute('content') || undefined;
-    } else {
-      const titleTag = doc.querySelector('title');
-      if (titleTag && titleTag.textContent) {
-        ogData.title = titleTag.textContent;
-      }
-    }
-    
-    // Get description
-    const ogDescription = doc.querySelector('meta[property="og:description"]');
-    if (ogDescription && ogDescription.getAttribute('content')) {
-      ogData.description = ogDescription.getAttribute('content') || undefined;
-    } else {
-      const metaDescription = doc.querySelector('meta[name="description"]');
-      if (metaDescription && metaDescription.getAttribute('content')) {
-        ogData.description = metaDescription.getAttribute('content') || undefined;
-      }
-    }
-    
-    // Get image
-    const ogImage = doc.querySelector('meta[property="og:image"]');
-    if (ogImage && ogImage.getAttribute('content')) {
-      ogData.image = ogImage.getAttribute('content') || undefined;
-    }
-    
-    console.log(`Extracted OpenGraph data for ${url}:`, ogData);
-    return ogData;
-  } catch (error) {
-    console.error(`Error fetching OpenGraph data for ${url}:`, error);
-    
-    // Create a basic OpenGraph data object with just the URL as a fallback
-    const fallbackOgData: OpenGraphData = { 
+    // Create a basic OpenGraph data object without trying to fetch metadata
+    // This avoids CORS issues completely
+    return {
       url,
-      title: new URL(url).hostname,
+      title: domain + (path !== '/' ? path : ''),
       description: `Visit ${url}`
     };
-    
-    console.log(`Created fallback OpenGraph data after error for ${url}:`, fallbackOgData);
-    return fallbackOgData;
+  } catch (error) {
+    console.error(`Error creating basic data for URL ${url}:`, error);
+    // Return a minimal object if there's any error
+    return {
+      url,
+      title: url,
+      description: `Visit this link`
+    };
   }
 }
 

@@ -2,7 +2,7 @@
   import { ndkInstance } from '$lib/ndk';
   import { onMount } from 'svelte';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { P, Spinner, Img } from 'flowbite-svelte';
+  import { P, Spinner, Img, Modal, Button } from 'flowbite-svelte';
   import InlineProfile from './InlineProfile.svelte';
   import { standardRelays } from '$lib/consts';
   
@@ -12,6 +12,10 @@
   import { fetchProfile, fetchProfilesByPubkeys, collectReferencesFromNotes } from './nostr/profileFetcher';
   import type { ProfileData } from './nostr/types';
   import NestedContent from './nostr/NestedContent.svelte';
+  
+  // For JSON modal
+  let jsonModalOpen = $state(false);
+  let currentNoteJson = $state('');
 
   let { pubkey, relayUrl, limit = 10 } = $props<{ 
     pubkey: string;
@@ -122,7 +126,19 @@
           <InlineProfile pubkey={note.pubkey} />
           <span class="text-sm text-gray-500 ml-auto">{formatDate(note.created_at)}</span>
         </div>
-        
+        <div class="flex justify-end mb-2">
+          <button 
+            class="text-xs text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
+            onclick={() => {
+              // Create a pretty-printed JSON string
+              currentNoteJson = JSON.stringify(note, null, 2);
+              // Open the modal to display the JSON
+              jsonModalOpen = true;
+            }}
+          >
+            View Details
+          </button>
+        </div>
         {#if isBoost(note)}
           {#if extractRepostedContent(note)}
             <div class="reposted-content mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -157,3 +173,16 @@
     {/each}
   {/if}
 </div>
+
+<!-- JSON Details Modal -->
+<Modal bind:open={jsonModalOpen} size="lg" autoclose>
+  <div class="p-4">
+    <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Event Details</h3>
+    <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto max-h-[70vh]">
+      <pre class="whitespace-pre-wrap break-words text-sm">{currentNoteJson}</pre>
+    </div>
+  </div>
+  <svelte:fragment slot="footer">
+    <Button color="alternative" onclick={() => jsonModalOpen = false}>Close</Button>
+  </svelte:fragment>
+</Modal>
