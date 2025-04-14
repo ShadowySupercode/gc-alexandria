@@ -138,8 +138,8 @@
   </Popover>
   {/if}
   <!-- Event JSON -->
-  <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='sm'>
-    <div class="overflow-auto bg-highlight dark:bg-primary-900 text-sm rounded p-1">
+  <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='lg'>
+    <div class="overflow-auto bg-highlight dark:bg-primary-900 text-sm rounded p-1" style="max-height: 70vh;">
       <pre><code>{JSON.stringify(event.rawEvent(), null, 2)}</code></pre>
     </div>
   </Modal>
