@@ -13,7 +13,8 @@ declare global {
       parser?: Pharos;
       waitable?: Promise<any>;
       publicationType?: string;
-      publicationRootEvent?: NDKEvent;
+      indexEvent?: NDKEvent;
+      url?: URL;
     }
     // interface Platform {}
   }

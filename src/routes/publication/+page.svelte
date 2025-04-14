@@ -1,28 +1,19 @@
 <script lang="ts">
   import Article from "$lib/components/Publication.svelte";
   import { TextPlaceholder } from "flowbite-svelte";
-  import type { PageData } from "./$types";
+  import type { PageProps } from "./$types";
   import { onDestroy, setContext } from "svelte";
   import { PublicationTree } from "$lib/data_structures/publication_tree";
-  import { page } from "$app/stores";
 
-  // Extend the PageData type with the properties we need
-  interface ExtendedPageData extends PageData {
-    waitable: Promise<any>;
-    publicationType: string;
-    indexEvent: NDKEvent;
-    parser: any;
-  }
+  let { data }: PageProps = $props();
 
-  const publicationTree = new PublicationTree(data.publicationRootEvent, data.ndk);
+  const publicationTree = new PublicationTree(data.indexEvent, data.ndk);
 
   setContext('publicationTree', publicationTree);
 
-  let { data } = $props<{ data: ExtendedPageData }>();
-
   // Get publication metadata for OpenGraph tags
   let title = $derived(data.indexEvent?.getMatchingTags('title')[0]?.[1] || data.parser?.getIndexTitle(data.parser?.getRootIndexId()) || 'Alexandria Publication');
-  let currentUrl = $page.url.href;
+  let currentUrl = data.url?.href ?? '';
   
   // Get image and summary from the event tags if available
   // If image unavailable, use the Alexandria default pic.
