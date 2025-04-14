@@ -16,6 +16,7 @@
   import { page } from "$app/state";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import PublicationSection from "./PublicationSection.svelte";
 
   let { rootId, publicationType, indexEvent } = $props<{ 
     rootId: string, 
@@ -131,7 +132,8 @@
   </Sidebar>
 {/if} -->
 <div class="flex flex-col space-y-4 max-w-2xl">
-  <Preview {rootId} {publicationType} />
+  <!-- TODO: Pass in the correct address for each section. -->
+  <PublicationSection rootAddress={rootId} address={''} />
 </div>
 
 <style>
