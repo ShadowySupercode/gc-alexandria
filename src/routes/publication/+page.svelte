@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Article from "$lib/components/Publication.svelte";
+  import Publication from "$lib/components/Publication.svelte";
   import { TextPlaceholder } from "flowbite-svelte";
   import type { PageProps } from "./$types";
   import { onDestroy, setContext } from "svelte";
@@ -47,7 +47,7 @@
   {#await data.waitable}
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
-  <Article 
+    <Publication 
       rootId={data.parser.getRootIndexId()} 
       publicationType={data.publicationType} 
       indexEvent={data.indexEvent} 
