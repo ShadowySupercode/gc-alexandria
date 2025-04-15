@@ -161,6 +161,7 @@
       pubkey="846ebf79a0a8813274ec9727490621ad423f16a3e474d7fd66e6a98bfe4e39a4"
       relayUrl="wss://theforest.nostr1.com"
       limit={20}
+      disableFallback={true}
     />
       
   </main>

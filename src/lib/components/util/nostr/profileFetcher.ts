@@ -6,12 +6,24 @@ import type { NDKEvent } from '@nostr-dev-kit/ndk';
 export async function fetchProfile(
   ndkInstance: any,
   pubkey: string,
-  profileCache: Map<string, ProfileData>
+  profileCache: Map<string, ProfileData>,
+  useSingleRelayOnly: boolean = false,
+  relayUrl?: string
 ): Promise<Map<string, ProfileData>> {
   try {
     console.log(`Fetching profile for pubkey: ${pubkey}`);
     const user = ndkInstance.getUser({ pubkey });
-    const profile = await user.fetchProfile();
+    
+    let profile;
+    if (useSingleRelayOnly && relayUrl) {
+      // If we're using a single relay only, create a relay set with just that relay
+      const { NDKRelaySet } = await import('@nostr-dev-kit/ndk');
+      const relaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndkInstance);
+      profile = await user.fetchProfile({ relaySet });
+    } else {
+      // Otherwise use the default behavior
+      profile = await user.fetchProfile();
+    }
     
     // Create a new Map to avoid mutating the original
     const updatedProfileCache = new Map(profileCache);
@@ -41,15 +53,51 @@ export async function fetchProfile(
 export async function fetchProfilesByPubkeys(
   ndkInstance: any,
   pubkeys: string[],
-  profileCache: Map<string, ProfileData>
+  profileCache: Map<string, ProfileData>,
+  useSingleRelayOnly: boolean = false,
+  relayUrl?: string
 ): Promise<Map<string, ProfileData>> {
   console.log(`Batch fetching profiles for ${pubkeys.length} pubkeys`);
   
   let updatedProfileCache = new Map(profileCache);
   
-  for (const pubkey of pubkeys) {
-    if (!updatedProfileCache.has(pubkey)) {
-      updatedProfileCache = await fetchProfile(ndkInstance, pubkey, updatedProfileCache);
+  // Process pubkeys in batches to avoid overwhelming the relays
+  const batchSize = 5;
+  const batches = [];
+  
+  // Split pubkeys into batches
+  for (let i = 0; i < pubkeys.length; i += batchSize) {
+    batches.push(pubkeys.slice(i, i + batchSize));
+  }
+  
+  console.log(`Split ${pubkeys.length} pubkeys into ${batches.length} batches of up to ${batchSize} pubkeys each`);
+  
+  // Process each batch sequentially
+  for (const batch of batches) {
+    const batchPromises = batch.map(async (pubkey) => {
+      if (!updatedProfileCache.has(pubkey)) {
+        try {
+          const result = await fetchProfile(ndkInstance, pubkey, updatedProfileCache, useSingleRelayOnly, relayUrl);
+          // We don't update updatedProfileCache here because it would cause race conditions
+          // Instead, we return the result to be merged later
+          return { pubkey, result };
+        } catch (e) {
+          console.error(`Error fetching profile for ${pubkey}:`, e);
+          return { pubkey, result: updatedProfileCache }; // Return the unchanged cache on error
+        }
+      }
+      return { pubkey, result: updatedProfileCache }; // Return the unchanged cache if already cached
+    });
+    
+    // Wait for all profiles in this batch to be fetched
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Merge the results into the cache
+    for (const { pubkey, result } of batchResults) {
+      // If the result has an entry for this pubkey, add it to our cache
+      if (result.has(pubkey)) {
+        updatedProfileCache.set(pubkey, result.get(pubkey)!);
+      }
     }
   }
   

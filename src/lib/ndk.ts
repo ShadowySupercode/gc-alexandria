@@ -218,12 +218,32 @@ async function getUserPreferredRelays(
   const outboxRelays = new Set<NDKRelay>();
 
   if (relayList == null) {
-    const relayMap = await window.nostr?.getRelays?.();
-    Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
-      const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
-      if (relayType.read) inboxRelays.add(relay);
-      if (relayType.write) outboxRelays.add(relay);
-    });
+    try {
+      const relayMap = await window.nostr?.getRelays?.();
+      if (relayMap) {
+        Object.entries(relayMap).forEach(([url, relayType]) => {
+          const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+          if (relayType.read) inboxRelays.add(relay);
+          if (relayType.write) outboxRelays.add(relay);
+        });
+      } else {
+        console.warn('No relays returned from getRelays(), using standard relays');
+        // Add standard relays as fallbacks
+        standardRelays.forEach(url => {
+          const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+          inboxRelays.add(relay);
+          outboxRelays.add(relay);
+        });
+      }
+    } catch (e) {
+      console.error('Error getting relays from extension:', e);
+      // Add standard relays as fallbacks
+      standardRelays.forEach(url => {
+        const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+        inboxRelays.add(relay);
+        outboxRelays.add(relay);
+      });
+    }
   } else {
     relayList.tags.forEach(tag => {
       switch (tag[0]) {

@@ -1,9 +1,9 @@
 <script lang='ts'>
   import { Avatar } from 'flowbite-svelte';
-  import { type NDKUserProfile } from "@nostr-dev-kit/ndk";
+  import { type NDKUserProfile, NDKRelaySet } from "@nostr-dev-kit/ndk";
   import { ndkInstance } from '$lib/ndk';
 
-  let { pubkey, title = null } = $props();
+  let { pubkey, title = null, disableFallback = false, relayUrl = null } = $props();
 
   const externalProfileDestination = 'https://njump.me/'
   let loading = $state(true);
@@ -16,11 +16,12 @@
 
   async function fetchUserData(pubkey: string) {
     let user;
-      user = $ndkInstance
-        .getUser({ pubkey: pubkey ?? undefined });
+    user = $ndkInstance
+      .getUser({ pubkey: pubkey ?? undefined });
 
     npub = user.npub;
 
+    // Use the default behavior for now, as we can't directly specify a relay set for fetchProfile
     user.fetchProfile()
       .then(userProfile => {
         profile = userProfile;

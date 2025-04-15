@@ -7,12 +7,14 @@
   import type { ProfileData } from './types';
   import NestedContent from './NestedContent.svelte';
 
-  let { content, nestingLevel = 1, eventCache, profileCache, ndkInstance } = $props<{
+  let { content, nestingLevel = 1, eventCache, profileCache, ndkInstance, disableFallback = false, relayUrl = null } = $props<{
     content: string;
     nestingLevel?: number;
     eventCache: Map<string, NDKEvent>;
     profileCache: Map<string, ProfileData>;
     ndkInstance: any;
+    disableFallback?: boolean;
+    relayUrl?: string | null;
   }>();
 
   import { onMount } from 'svelte';
@@ -151,6 +153,41 @@
       }
     }
   });
+
+  // Function to fetch an event
+  async function fetchNestedEvent(nevent: string, authorPubkey?: string) {
+    try {
+      const { eventId } = decodeNevent(nevent);
+      if (!eventId) return;
+
+      let event;
+      
+      if (disableFallback && relayUrl) {
+        // If we're using a single relay only, create a relay set with just that relay
+        const { NDKRelaySet } = await import('@nostr-dev-kit/ndk');
+        const relaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndkInstance);
+        event = await ndkInstance.fetchEvent(
+          eventId,
+          {
+            skipVerification: false,
+            skipValidation: false
+          },
+          relaySet
+        );
+      } else {
+        // Otherwise use the default behavior
+        event = await ndkInstance.fetchEvent(eventId);
+      }
+      
+      if (event) {
+        eventCache.set(nevent, event);
+        // Force a re-render
+        segments = [...segments];
+      }
+    } catch (e) {
+      console.error('Error fetching event:', e);
+    }
+  }
 </script>
 
 <div class="whitespace-pre-wrap break-words overflow-hidden">
@@ -164,7 +201,7 @@
         <!-- For npubs, always display with InlineProfile if possible -->
         <a href="https://njump.me/{segment.npub}" target="_blank" class="npub-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View profile on Nostr">
           {#if extractPubkeyFromNpub(segment.npub)}
-            <InlineProfile pubkey={extractPubkeyFromNpub(segment.npub)} />
+            <InlineProfile pubkey={extractPubkeyFromNpub(segment.npub)} disableFallback={disableFallback} relayUrl={relayUrl} />
           {:else}
             @{segment.npub.substring(0, 16)}...
           {/if}
@@ -172,7 +209,7 @@
       {:else if segment.type === 'nprofile' && segment.pubkey}
         <!-- For nprofiles, always display with InlineProfile -->
         <a href="https://njump.me/{segment.nprofile}" target="_blank" class="nprofile-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View profile on Nostr">
-          <InlineProfile pubkey={segment.pubkey} />
+          <InlineProfile pubkey={segment.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
         </a>
       {:else if segment.type === 'nevent'}
         <!-- For nevents, display differently based on nesting level -->
@@ -187,17 +224,19 @@
             {@const event = eventCache.get(segment.nevent)}
             {#if event && event.pubkey}
               <div class="event-author font-semibold mb-1">
-                <InlineProfile pubkey={event.pubkey} />
+                <InlineProfile pubkey={event.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
               </div>
             {/if}
             <div class="event-content whitespace-pre-wrap break-words overflow-hidden max-h-[500px] overflow-y-auto mb-2">
               {#if event?.content}
                 <NestedContent 
                   content={event.content} 
-                  nestingLevel={nestingLevel} 
+                  nestingLevel={nestingLevel + 1} 
                   eventCache={eventCache} 
                   profileCache={profileCache}
                   ndkInstance={ndkInstance}
+                  disableFallback={disableFallback}
+                  relayUrl={relayUrl}
                 />
               {/if}
             </div>
@@ -214,28 +253,10 @@
               <p class="text-center text-sm text-gray-500">
                 Loading event content...
               </p>
-              <script>
-                // Attempt to fetch the event using NDK
-                if (ndkInstance) {
-                  const fetchEvent = async () => {
-                    try {
-                      const { eventId } = decodeNevent(segment.nevent);
-                      if (eventId) {
-                        const event = await ndkInstance.fetchEvent(eventId);
-                        if (event) {
-                          eventCache.set(segment.nevent, event);
-                          // Force a re-render
-                          segments = [...segments];
-                        }
-                      }
-                    } catch (e) {
-                      console.error('Error fetching event:', e);
-                    }
-                  };
-                  fetchEvent();
-                }
-              </script>
             </div>
+            {#if ndkInstance}
+              {void fetchNestedEvent(segment.nevent)}
+            {/if}
           {/if}
         </div>
       {:else if segment.type === 'naddr'}
@@ -358,5 +379,4 @@
       {/if}
     {/each}
   </P>
-  
 </div>

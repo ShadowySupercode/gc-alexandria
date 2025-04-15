@@ -27,7 +27,7 @@
         id: note.id,
         author: note.pubkey,
         kind: note.kind,
-        relays: [relayUrl, ...standardRelays]
+        relays: disableFallback ? [relayUrl] : [relayUrl, ...standardRelays]
       });
       return `https://njump.me/${nevent}`;
     } catch (e) {
@@ -37,11 +37,12 @@
     }
   }
 
-  let { pubkey, relayUrl, limit = 10 } = $props<{ 
-    pubkey: string;
-    relayUrl: string;
-    limit?: number;
-  }>();
+let { pubkey, relayUrl, limit = 10, disableFallback = false } = $props<{ 
+  pubkey: string;
+  relayUrl: string;
+  limit?: number;
+  disableFallback?: boolean;
+}>();
 
   let notes: NDKEvent[] = $state([]);
   let loading: boolean = $state(true);
@@ -53,7 +54,7 @@
   
   // Function to fetch a profile and update the cache
   async function fetchProfileAndUpdateCache(pubkey: string): Promise<void> {
-    profileCache = await fetchProfile($ndkInstance, pubkey, profileCache);
+    profileCache = await fetchProfile($ndkInstance, pubkey, profileCache, disableFallback, relayUrl);
   }
   
   // Main function to load notes and related data
@@ -66,24 +67,26 @@
       
       // Try to fetch notes from the specified relay
       try {
-        notes = await fetchNotes($ndkInstance, pubkey, relayUrl, limit);
+        notes = await fetchNotes($ndkInstance, pubkey, relayUrl, limit, disableFallback);
         console.log(`Fetched ${notes.length} notes from ${relayUrl}:`, notes);
       } catch (relayError) {
         console.error(`Error fetching from primary relay ${relayUrl}:`, relayError);
         
-        // If the primary relay fails, try the standard relays
-        console.log("Trying standard relays as fallback...");
-        for (const standardRelay of standardRelays) {
-          if (standardRelay !== relayUrl) {
-            try {
-              console.log(`Trying fallback relay: ${standardRelay}`);
-              notes = await fetchNotes($ndkInstance, pubkey, standardRelay, limit);
-              console.log(`Fetched ${notes.length} notes from fallback relay ${standardRelay}:`, notes);
-              if (notes.length > 0) {
-                break; // Stop trying more relays if we got some notes
+        // If the primary relay fails and fallbacks are not disabled, try the standard relays
+        if (!disableFallback) {
+          console.log("Trying standard relays as fallback...");
+          for (const standardRelay of standardRelays) {
+            if (standardRelay !== relayUrl) {
+              try {
+                console.log(`Trying fallback relay: ${standardRelay}`);
+                notes = await fetchNotes($ndkInstance, pubkey, standardRelay, limit, false);
+                console.log(`Fetched ${notes.length} notes from fallback relay ${standardRelay}:`, notes);
+                if (notes.length > 0) {
+                  break; // Stop trying more relays if we got some notes
+                }
+              } catch (fallbackError) {
+                console.error(`Error fetching from fallback relay ${standardRelay}:`, fallbackError);
               }
-            } catch (fallbackError) {
-              console.error(`Error fetching from fallback relay ${standardRelay}:`, fallbackError);
             }
           }
         }
@@ -95,32 +98,43 @@
         return;
       }
       
-      // Collect all referenced pubkeys and nevents
-      const { pubkeys, nevents } = collectReferencesFromNotes(notes);
-      
-      // Fetch profiles for all pubkeys
-      profileCache = await fetchProfilesByPubkeys(
-        $ndkInstance, 
-        Array.from(pubkeys), 
-        profileCache
-      );
-      
-      // Fetch content for all nevents
-      if (nevents.size > 0) {
-        eventCache = await fetchEvents(
-          $ndkInstance,
-          Array.from(nevents),
-          relayUrl,
-          eventCache,
+      try {
+        // Collect all referenced pubkeys and nevents
+        const { pubkeys, nevents } = collectReferencesFromNotes(notes);
+        
+        // Fetch profiles for all pubkeys
+        profileCache = await fetchProfilesByPubkeys(
+          $ndkInstance, 
+          Array.from(pubkeys), 
           profileCache,
-          fetchProfileAndUpdateCache
+          disableFallback,
+          relayUrl
         );
+        
+        // Fetch content for all nevents
+        if (nevents.size > 0) {
+          eventCache = await fetchEvents(
+            $ndkInstance,
+            Array.from(nevents),
+            relayUrl,
+            eventCache,
+            profileCache,
+            fetchProfileAndUpdateCache,
+            disableFallback,
+            pubkey // Pass the author's pubkey for fetching their preferred relays
+          );
+        }
+      } catch (e) {
+        console.error('Error processing notes:', e);
+        // Even if there's an error processing notes, we still want to display the notes we have
+        // So we don't set an error message here, just log it
       }
       
     } catch (e) {
       console.error('Error loading data:', e);
       error = `Failed to load data: ${e}`;
     } finally {
+      // Always set loading to false, even if there was an error
       loading = false;
     }
   }
@@ -143,7 +157,7 @@
     {#each notes as note}
       <div class="note-card p-4 rounded-lg border-2 border-primary-200 dark:border-primary-700 shadow-sm bg-gray-50 dark:bg-gray-800 overflow-hidden">
         <div class="flex items-start space-x-2 mb-2">
-          <InlineProfile pubkey={note.pubkey} />
+          <InlineProfile pubkey={note.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
           <span class="text-sm text-gray-500 ml-auto">{formatDate(note.created_at)}</span>
         </div>
         <div class="flex justify-end space-x-3 mb-2">
@@ -187,11 +201,42 @@
             </svg>
           </button>
         </div>
+        
+        <!-- Display title, image, and description/summary tags -->
+        {#if note.tags}
+          {@const titleTag = note.tags.find(tag => tag[0] === 'title')}
+          {@const imageTag = note.tags.find(tag => tag[0] === 'image')}
+          {@const descriptionTag = note.tags.find(tag => tag[0] === 'description')}
+          {@const summaryTag = note.tags.find(tag => tag[0] === 'summary')}
+          
+          {#if titleTag || imageTag || descriptionTag || summaryTag}
+            <div class="note-header mb-4">
+              {#if titleTag}
+                <h3 class="text-xl font-bold mb-2">{titleTag[1]}</h3>
+              {/if}
+              
+              {#if descriptionTag || summaryTag}
+                <p class="text-gray-600 dark:text-gray-300 mb-2">
+                  {descriptionTag ? descriptionTag[1] : summaryTag ? summaryTag[1] : ''}
+                </p>
+              {/if}
+              
+              {#if imageTag}
+                <div class="mb-3">
+                  <img src={imageTag[1]} alt="Note image" class="rounded-lg max-h-64 object-cover" />
+                </div>
+              {/if}
+              
+              <hr class="border-gray-200 dark:border-gray-700 my-3" />
+            </div>
+          {/if}
+        {/if}
+        
         {#if isBoost(note)}
           {#if extractRepostedContent(note)}
             <div class="reposted-content mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div class="flex items-start space-x-2 mb-2">
-                <InlineProfile pubkey={extractRepostedContent(note)?.pubkey || ''} />
+                <InlineProfile pubkey={extractRepostedContent(note)?.pubkey || ''} disableFallback={disableFallback} relayUrl={relayUrl} />
               </div>
               {#if extractRepostedContent(note)}
                 <!-- Use NestedContent component for reposted content with nesting level 2 -->
@@ -201,6 +246,8 @@
                   eventCache={eventCache} 
                   profileCache={profileCache}
                   ndkInstance={$ndkInstance}
+                  disableFallback={disableFallback}
+                  relayUrl={relayUrl}
                 />
               {/if}
             </div>
@@ -214,6 +261,8 @@
               eventCache={eventCache} 
               profileCache={profileCache}
               ndkInstance={$ndkInstance}
+              disableFallback={disableFallback}
+              relayUrl={relayUrl}
             />
           {/if}
         {/if}
