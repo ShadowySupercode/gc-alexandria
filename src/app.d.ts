@@ -9,8 +9,6 @@ declare global {
     // interface Error {}
     // interface Locals {}
     interface PageData {
-      ndk?: NDK;
-      parser?: Pharos;
       waitable?: Promise<any>;
       publicationType?: string;
       indexEvent?: NDKEvent;
