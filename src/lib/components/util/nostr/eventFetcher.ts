@@ -173,7 +173,7 @@ export async function fetchNotes(
     // Fetch events from the specified author
     const eventSet = await ndkInstance.fetchEvents(
       {
-        kinds: [1, 6], // kind 1 notes and kind 6 reposts
+        kinds: [1, 6, 20, 21, 22, 9802, 1621, 31922, 31923, 30023, 1111, 1621], // Include additional kinds: 20, 30023, 1111, 1621
         authors: [pubkey],
         limit: limit,
       },
