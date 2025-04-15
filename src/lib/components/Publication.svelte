@@ -9,24 +9,63 @@
     TextPlaceholder,
     Tooltip,
   } from "flowbite-svelte";
-  import { onMount } from "svelte";
+  import { getContext, onMount } from "svelte";
   import { BookOutline } from "flowbite-svelte-icons";
-  import Preview from "./Preview.svelte";
-  import { pharosInstance } from "$lib/parser";
   import { page } from "$app/state";
-  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
+  import type { PublicationTree } from "$lib/data_structures/publication_tree";
 
-  let { rootId, publicationType, indexEvent } = $props<{ 
-    rootId: string, 
+  let { rootAddress, publicationType, indexEvent } = $props<{ 
+    rootAddress: string, 
     publicationType: string,
     indexEvent: NDKEvent
   }>();
 
-  if (rootId !== $pharosInstance.getRootIndexId()) {
-    console.error("Root ID does not match parser root index ID");
+  const publicationTree = getContext('publicationTree') as PublicationTree;
+
+  // #region Loading
+
+  // TODO: Test load handling.
+
+  let leaves = $state<NDKEvent[]>([]);
+  let isLoading = $state<boolean>(false);
+  let lastElementRef = $state<HTMLElement | null>(null);
+
+  let observer: IntersectionObserver;
+
+  async function loadMore(count: number) {
+    isLoading = true;
+
+    for (let i = 0; i < count; i++) {
+      const nextItem = await publicationTree.next();
+      if (nextItem.done) {
+        break;
+      }
+      leaves.push(nextItem.value);
+    }
+
+    isLoading = false;
   }
+
+  function setLastElementRef(el: HTMLElement, i: number) {
+    if (i === leaves.length - 1) {
+      lastElementRef = el;
+    }
+  }
+
+  $effect(() => {
+    if (!lastElementRef) {
+      return;
+    }
+
+    observer.observe(lastElementRef!);
+    return () => observer.unobserve(lastElementRef!);
+  });
+
+  // #endregion
+
+  // #region ToC
 
   const tocBreakpoint = 1140;
 
@@ -82,21 +121,33 @@
     }
   }
 
+  // #endregion
+
   onMount(() => {
     // Always check whether the TOC sidebar should be visible.
     setTocVisibilityOnResize();
-
     window.addEventListener("hashchange", scrollToElementWithOffset);
     // Also handle the case where the user lands on the page with a hash in the URL
     scrollToElementWithOffset();
-
     window.addEventListener("resize", setTocVisibilityOnResize);
     window.addEventListener("click", hideTocOnClick);
+
+    // Set up the intersection observer.
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !isLoading) {
+          loadMore(8);
+        }
+      });
+    }, { threshold: 0.5 });
+    loadMore(16);
 
     return () => {
       window.removeEventListener("hashchange", scrollToElementWithOffset);
       window.removeEventListener("resize", setTocVisibilityOnResize);
       window.removeEventListener("click", hideTocOnClick);
+
+      observer.disconnect();
     };
   });
 </script>
@@ -115,7 +166,7 @@
   </Button>
   <Tooltip>Show Table of Contents</Tooltip>
 {/if}
-<!-- TODO: Get TOC from parser. -->
+<!-- TODO: Use loader to build ToC. -->
 <!-- {#if showToc}
   <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
     <SidebarWrapper>
@@ -132,8 +183,13 @@
   </Sidebar>
 {/if} -->
 <div class="flex flex-col space-y-4 max-w-2xl">
-  <!-- TODO: Pass in the correct address for each section. -->
-  <PublicationSection rootAddress={rootId} address={''} />
+  {#each leaves as leaf, i}
+    <PublicationSection
+      rootAddress={rootAddress}
+      address={leaf.tagAddress()}
+      ref={(el) => setLastElementRef(el, i)}
+    />
+  {/each}
 </div>
 
 <style>

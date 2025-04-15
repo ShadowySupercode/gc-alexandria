@@ -18,7 +18,7 @@
   // Get image and summary from the event tags if available
   // If image unavailable, use the Alexandria default pic.
   let image = $derived(data.indexEvent?.getMatchingTags('image')[0]?.[1] || '/screenshots/old_books.jpg');
-  let summary = $derived(data.indexEvent?.getMatchingTags('summary')[0]?.[1] || 'Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.');
+  let summary = $derived(data.indexEvent?.getMatchingTags('summary')[0]?.[1] || 'Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.');  
 
   onDestroy(() => data.parser.reset());
 </script>
@@ -48,9 +48,9 @@
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
     <Publication 
-      rootId={data.parser.getRootIndexId()} 
+      rootAddress={data.indexEvent.tagAddress()} 
       publicationType={data.publicationType} 
-      indexEvent={data.indexEvent} 
+      indexEvent={data.indexEvent}
     />
   {/await}
 </main>
