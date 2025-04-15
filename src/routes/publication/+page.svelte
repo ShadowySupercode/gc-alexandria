@@ -4,12 +4,14 @@
   import type { PageProps } from "./$types";
   import { onDestroy, setContext } from "svelte";
   import { PublicationTree } from "$lib/data_structures/publication_tree";
+  import Processor from "asciidoctor";
 
   let { data }: PageProps = $props();
 
   const publicationTree = new PublicationTree(data.indexEvent, data.ndk);
 
   setContext('publicationTree', publicationTree);
+  setContext('asciidoctor', Processor());
 
   // Get publication metadata for OpenGraph tags
   let title = $derived(data.indexEvent?.getMatchingTags('title')[0]?.[1] || data.parser?.getIndexTitle(data.parser?.getRootIndexId()) || 'Alexandria Publication');

@@ -39,8 +39,9 @@
 
     for (let i = 0; i < count; i++) {
       const nextItem = await publicationTree.next();
-      if (nextItem.done) {
-        break;
+      if (leaves.includes(nextItem.value) || nextItem.done) {
+        isLoading = false;
+        return;
       }
       leaves.push(nextItem.value);
     }
@@ -136,11 +137,11 @@
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting && !isLoading) {
-          loadMore(8);
+          loadMore(4);
         }
       });
     }, { threshold: 0.5 });
-    loadMore(16);
+    loadMore(8);
 
     return () => {
       window.removeEventListener("hashchange", scrollToElementWithOffset);
@@ -186,6 +187,7 @@
   {#each leaves as leaf, i}
     <PublicationSection
       rootAddress={rootAddress}
+      leaves={leaves}
       address={leaf.tagAddress()}
       ref={(el) => setLastElementRef(el, i)}
     />
