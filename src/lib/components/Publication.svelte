@@ -39,19 +39,19 @@
   }
 </script>
 
+{#if $publicationColumnVisibility.details}
+  <div class="flex flex-col space-y-4 max-w-xl flex-grow-1 p-2 bg-highlight">
+    <Details event={indexEvent} />
+  </div>
+{/if}
 
-{#if showTocButton && !showToc}
-  <Button
-    class="btn-leather fixed top-20 left-4 h-6 w-6"
-    outline={true}
-    on:click={(ev) => {
-      showToc = true;
-      ev.stopPropagation();
-    }}
-  >
-    <BookOutline />
-  </Button>
-  <Tooltip>Show Table of Contents</Tooltip>
+{#if isDefaultVisible()}
+  <div class="flex flex-col space-y-4 overflow-auto 
+          {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
+          {currentBlog !== null ? 'discreet' : ''}
+  ">
+    <Preview {rootId} {publicationType} index={0} onBlogUpdate={loadBlog} />
+  </div>
 {/if}
 
 {#if currentBlog !== null && $publicationColumnVisibility.inner }
@@ -60,6 +60,12 @@
     <Preview rootId={currentBlog} {publicationType} index={0} />
   </div>
   {/key}
+{/if}
+
+{#if $publicationColumnVisibility.social }
+  <div class="flex flex-col space-y-4 max-w-xl overflow-auto flex-grow-1 bg-highlight">
+      <p>Social column</p>
+  </div>
 {/if}
 
 <style>
