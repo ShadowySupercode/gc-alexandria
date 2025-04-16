@@ -106,7 +106,7 @@
         <ul class="space-y-2">
           <li>
             <button class='btn-leather w-full text-left' onclick={viewDetails}>
-              <EyeOutline class="inline mr-2"  /> View details
+              <EyeOutline class="inline mr-2"  /> View event details
             </button>
           </li>
           <li>

@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import { Heading, Img, P, A, Li} from "flowbite-svelte";
+  import { Heading, Img, P, A } from "flowbite-svelte";
   import NostrFeed from "$lib/components/util/NostrFeed.svelte";
   
   // Get the git tag version from environment variables

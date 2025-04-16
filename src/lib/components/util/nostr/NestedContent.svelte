@@ -1,13 +1,14 @@
 <script lang='ts'>
+  import { ndkInstance as globalNdkInstance } from '$lib/ndk';
   import { P, Img } from 'flowbite-svelte';
   import InlineProfile from '../InlineProfile.svelte';
   import { parseContent, processContentSegments, extractPubkeyFromNpub, decodeNevent } from './utils';
   import { parseMarkdown } from '../markdown';
-  import type { NDKEvent } from '@nostr-dev-kit/ndk';
+  import { NDKEvent } from '@nostr-dev-kit/ndk';
   import type { ProfileData } from './types';
   import NestedContent from './NestedContent.svelte';
 
-  let { content, nestingLevel = 1, eventCache, profileCache, ndkInstance, disableFallback = false, relayUrl = null } = $props<{
+  let { content, nestingLevel = 1, eventCache, profileCache, ndkInstance = globalNdkInstance, disableFallback = false, relayUrl = null } = $props<{
     content: string;
     nestingLevel?: number;
     eventCache: Map<string, NDKEvent>;
@@ -64,7 +65,6 @@
   function isYouTubeUrl(url: string): boolean {
     return url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)/i) !== null;
   }
-  
   
   // Log the content for debugging
   console.log("NestedContent received content:", content);
@@ -154,46 +154,107 @@
     }
   });
 
-  // Function to fetch an event
+  // Track loading state for each nevent
+  const loadingState = $state(new Map<string, 'loading' | 'error' | 'success'>());
+  
+  // Function to fetch an event with timeout
   async function fetchNestedEvent(nevent: string, authorPubkey?: string) {
+    // Set loading state
+    loadingState.set(nevent, 'loading');
+    
     try {
       const { eventId } = decodeNevent(nevent);
-      if (!eventId) return;
+      if (!eventId) {
+        loadingState.set(nevent, 'error');
+        return;
+      }
 
       let event;
       
-      if (disableFallback && relayUrl) {
-        // If we're using a single relay only, create a relay set with just that relay
-        const { NDKRelaySet } = await import('@nostr-dev-kit/ndk');
-        const relaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndkInstance);
-        event = await ndkInstance.fetchEvent(
-          eventId,
-          {
-            skipVerification: false,
-            skipValidation: false
-          },
-          relaySet
-        );
-      } else {
-        // Otherwise use the default behavior
-        event = await ndkInstance.fetchEvent(eventId);
-      }
+      // Create a promise that will resolve with the event or reject after timeout
+      const fetchWithTimeout = async () => {
+        return new Promise(async (resolve, reject) => {
+          // Set a timeout of 10 seconds
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Fetch event timeout'));
+          }, 10000);
+          
+          try {
+            let result;
+            if (disableFallback && relayUrl) {
+              // If we're using a single relay only, create a relay set with just that relay
+              const { NDKRelaySet } = await import('@nostr-dev-kit/ndk');
+              const relaySet = NDKRelaySet.fromRelayUrls([relayUrl], ndkInstance);
+              result = await ndkInstance.fetchEvent(
+                eventId,
+                {
+                  skipVerification: false,
+                  skipValidation: false
+                },
+                relaySet
+              );
+            } else {
+              // Otherwise use the default behavior
+              result = await ndkInstance.fetchEvent(eventId);
+            }
+            
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
+      };
+      
+      // Try to fetch the event with timeout
+      event = await fetchWithTimeout();
       
       if (event) {
         eventCache.set(nevent, event);
+        loadingState.set(nevent, 'success');
         // Force a re-render
         segments = [...segments];
+      } else {
+        loadingState.set(nevent, 'error');
       }
     } catch (e) {
       console.error('Error fetching event:', e);
+      loadingState.set(nevent, 'error');
     }
   }
 </script>
 
-<div class="whitespace-pre-wrap break-words overflow-hidden">
+<style>
+  /* Add proper styling for lists */
+  :global(ul) {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  :global(ol) {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  :global(li) {
+    margin-bottom: 0.25rem;
+  }
+  
+  :global(ul ul), :global(ol ol), :global(ul ol), :global(ol ul) {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+</style>
+
+<div class="break-words overflow-hidden">
   <!-- We'll render all content inline in the segments below, so we don't need this section anymore -->
   
-  <P>
+  <P class="whitespace-pre-wrap">
     {#each segments as segment}
       {#if segment.type === 'text'}
         {@html parseMarkdown(segment.content)}
@@ -207,8 +268,8 @@
           {/if}
         </a>
       {:else if segment.type === 'nprofile' && segment.pubkey}
-        <!-- For nprofiles, always display with InlineProfile -->
-        <a href="https://njump.me/{segment.nprofile}" target="_blank" class="nprofile-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View profile on Nostr">
+        <!-- For nprofiles, always display with InlineProfile (inline) -->
+        <a href="https://njump.me/{segment.nprofile}" target="_blank" class="nprofile-reference underline hover:text-primary-400 dark:hover:text-primary-500 inline-flex items-center" title="View profile on Nostr">
           <InlineProfile pubkey={segment.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
         </a>
       {:else if segment.type === 'nevent'}
@@ -223,8 +284,31 @@
           {:else if eventCache.has(segment.nevent)}
             {@const event = eventCache.get(segment.nevent)}
             {#if event && event.pubkey}
-              <div class="event-author font-semibold mb-1">
-                <InlineProfile pubkey={event.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
+              <div class="flex items-start justify-between mb-2">
+                <div class="event-author font-semibold">
+                  <InlineProfile pubkey={event.pubkey} disableFallback={disableFallback} relayUrl={relayUrl} />
+                </div>
+                
+                <!-- View Event Details button for embedded events -->
+                <button 
+                  class="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
+                  onclick={() => {
+                    // Dispatch event to parent component
+                    const customEvent = new CustomEvent('viewEventDetails', {
+                      detail: {
+                        event: event
+                      },
+                      bubbles: true
+                    });
+                    document.dispatchEvent(customEvent);
+                  }}
+                  title="View Event Details"
+                  aria-label="View Event Details"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                  </svg>
+                </button>
               </div>
             {/if}
             <div class="event-content whitespace-pre-wrap break-words overflow-hidden max-h-[500px] overflow-y-auto mb-2">
@@ -243,27 +327,42 @@
           {:else}
             <!-- Try to fetch the event if it's not in the cache -->
             <div class="event-content whitespace-pre-wrap break-words overflow-hidden">
-              <div class="flex items-center justify-center py-3">
-                <div class="animate-pulse flex space-x-2">
-                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
-                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
-                  <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+              {#if loadingState.get(segment.nevent) === 'error'}
+                <!-- Show error message -->
+                <div class="flex items-center justify-center py-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              </div>
-              <p class="text-center text-sm text-gray-500">
-                Loading event content...
-              </p>
+                <p class="text-center text-sm text-red-500">
+                  Failed to load event. <a href="https://njump.me/{segment.nevent}" target="_blank" class="underline">View on Nostr</a>
+                </p>
+              {:else}
+                <!-- Show loading animation -->
+                <div class="flex items-center justify-center py-3">
+                  <div class="animate-pulse flex space-x-2">
+                    <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                    <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                    <div class="h-2 w-2 bg-primary-400 rounded-full"></div>
+                  </div>
+                </div>
+                <p class="text-center text-sm text-gray-500">
+                  Loading event content...
+                </p>
+              {/if}
             </div>
-            {#if ndkInstance}
+            {#if ndkInstance && loadingState.get(segment.nevent) !== 'error'}
               {void fetchNestedEvent(segment.nevent)}
             {/if}
           {/if}
         </div>
       {:else if segment.type === 'naddr'}
-        <!-- For naddrs, display a link to the address -->
-        <a href="https://njump.me/{segment.naddr}" target="_blank" class="naddr-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View address on Nostr">
-          Address: {segment.naddr.substring(0, 16)}...
-        </a>
+        <!-- For naddrs, display a link to the address on a new line -->
+        <div class="block my-2">
+          <a href="https://njump.me/{segment.naddr}" target="_blank" class="naddr-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View address on Nostr">
+            Address: {segment.naddr.substring(0, 16)}...
+          </a>
+        </div>
       {:else if segment.type === 'note'}
         <!-- For notes, display a link to the note -->
         <a href="https://njump.me/{segment.note}" target="_blank" class="note-reference underline hover:text-primary-400 dark:hover:text-primary-500" title="View note on Nostr">
@@ -366,15 +465,10 @@
         </div>
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {:else if segment.type === 'url'}
-        <!-- Fallback for URLs without OpenGraph data - styled nicely -->
-        <div class="my-1 inline-block">
-          <a href={cleanUrl(segment.url)} target="_blank" class="url-reference inline-flex items-center px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-200 dark:border-gray-700 max-w-full overflow-hidden">
-            <span class="truncate max-w-[300px]">{segment.url}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
+        <!-- Fallback for URLs without OpenGraph data - display as normal inline hyperlink -->
+        <a href={cleanUrl(segment.url)} target="_blank" class="url-reference text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 underline">
+          {segment.url}
+        </a>
         {void renderedUrls.add(normalizeUrl(segment.url))}
       {/if}
     {/each}
