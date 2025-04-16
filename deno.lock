@@ -2862,6 +2862,22 @@
     }
   },
   "workspace": {
+    "dependencies": [
+      "npm:@nostr-dev-kit/ndk-cache-dexie@2.5",
+      "npm:@nostr-dev-kit/ndk@2.11",
+      "npm:@popperjs/core@2.11",
+      "npm:@tailwindcss/forms@0.5",
+      "npm:@tailwindcss/typography@0.5",
+      "npm:asciidoctor@3.0",
+      "npm:d3@7.9",
+      "npm:flowbite-svelte-icons@2.0",
+      "npm:flowbite-svelte@0.44",
+      "npm:flowbite@2.2",
+      "npm:he@1.2",
+      "npm:nostr-tools@2.10",
+      "npm:svelte@5.0",
+      "npm:tailwind-merge@2.5"
+    ],
     "packageJson": {
       "dependencies": [
         "npm:@nostr-dev-kit/ndk-cache-dexie@2.5",

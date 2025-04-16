@@ -2,10 +2,16 @@
   import Preview from "./Preview.svelte";
   import { pharosInstance } from "$lib/parser";
   import { page } from "$app/state";
+  import { ndkInstance } from "$lib/ndk";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
 
-  let { rootId, publicationType } = $props<{ rootId: string, publicationType: string }>();
+  let { rootId, publicationType, indexEvent } = $props<{ 
+    rootId: string, 
+    publicationType: string,
+    indexEvent: NDKEvent
+  }>();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
     console.error("Root ID does not match parser root index ID");
@@ -33,19 +39,19 @@
   }
 </script>
 
-{#if $publicationColumnVisibility.details}
-  <div class="flex flex-col space-y-4 max-w-2xl overflow-auto flex-shrink flex-grow-1">
-<!--    <Details {event} />-->
-  </div>
-{/if}
 
-{#if isDefaultVisible()}
-  <div class="flex flex-col space-y-4 overflow-auto flex-grow-1
-          {publicationType === 'blog' ? 'max-w-xl' : 'max-w-2xl' }
-          {currentBlog !== null ? 'discreet' : ''}
-  ">
-    <Preview {rootId} {publicationType} index={0} onBlogUpdate={loadBlog} />
-  </div>
+{#if showTocButton && !showToc}
+  <Button
+    class="btn-leather fixed top-20 left-4 h-6 w-6"
+    outline={true}
+    on:click={(ev) => {
+      showToc = true;
+      ev.stopPropagation();
+    }}
+  >
+    <BookOutline />
+  </Button>
+  <Tooltip>Show Table of Contents</Tooltip>
 {/if}
 
 {#if currentBlog !== null && $publicationColumnVisibility.inner }

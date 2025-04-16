@@ -18,10 +18,10 @@
   }
 </script>
 
-<a role="button" class='btn-leather text-nowrap' onclick={copyToClipboard}>
+<button class='btn-leather text-nowrap' onclick={copyToClipboard}>
   {#if copied}
     <ClipboardCheckOutline class="!fill-none dark:!fill-none inline mr-1" /> Copied!
   {:else}
     <ClipboardCleanOutline class="!fill-none dark:!fill-none inline mr-1" /> {displayText}
   {/if}
-</a>
+</button>
