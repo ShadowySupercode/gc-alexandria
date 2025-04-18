@@ -349,7 +349,15 @@
 <!-- Login Modal -->
 <LoginModal 
   show={showLoginModal} 
-  onClose={() => showLoginModal = false} 
+  onClose={() => showLoginModal = false}
+  onLoginSuccess={() => {
+    // Restore saved form data
+    if (savedFormData.subject) subject = savedFormData.subject;
+    if (savedFormData.content) content = savedFormData.content;
+    
+    // Submit the issue
+    submitIssue();
+  }}
 />
 
 <style>

@@ -1,9 +1,20 @@
 <script lang="ts">
   import { Button } from "flowbite-svelte";
   import Login from './Login.svelte';
+  import { ndkSignedIn } from '$lib/ndk';
   
-  export let show = false;
-  export let onClose = () => {};
+  const { show = false, onClose = () => {}, onLoginSuccess = () => {} } = $props<{
+    show?: boolean;
+    onClose?: (event: MouseEvent) => void;
+    onLoginSuccess?: () => void;
+  }>();
+
+  $effect(() => {
+    if ($ndkSignedIn && show) {
+      onLoginSuccess();
+      onClose(new MouseEvent('click'));
+    }
+  });
 </script>
 
 {#if show}
@@ -15,7 +26,7 @@
           <h3 class="text-xl font-medium text-gray-900">Login Required</h3>
           <button 
             class="ml-auto bg-transparent border-0 text-gray-400 float-right text-3xl leading-none font-semibold outline-none focus:outline-none"
-            on:click={onClose}
+            onclick={onClose}
           >
             <span class="bg-transparent text-gray-500 h-6 w-6 text-2xl block outline-none focus:outline-none">×</span>
           </button>
