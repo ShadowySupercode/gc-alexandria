@@ -1,3 +1,9 @@
+<!--
+  Visualization Page
+  
+  This page displays a network visualization of Nostr publications,
+  showing the relationships between index events and their content.
+-->
 <script lang="ts">
   import { onMount } from "svelte";
   import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
@@ -6,50 +12,83 @@
   import { filterValidIndexEvents } from "$lib/utils";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
   import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
-
   import { networkFetchLimit } from "$lib/state";
   import { fly } from "svelte/transition";
   import { quintOut } from "svelte/easing";
   import { CogSolid } from "flowbite-svelte-icons";
-  import { Button, Tooltip } from "flowbite-svelte";
+  import { Button } from "flowbite-svelte";
+  
+  // Configuration
+  const DEBUG = false; // Set to true to enable debug logging
+  const INDEX_EVENT_KIND = 30040;
+  const CONTENT_EVENT_KINDS = [30041, 30818];
+  
+  /**
+   * Debug logging function that only logs when DEBUG is true
+   */
+  function debug(...args: any[]) {
+    if (DEBUG) {
+      console.log("[VisualizePage]", ...args);
+    }
+  }
 
+  // State
   let events: NDKEvent[] = [];
   let loading = true;
   let error: string | null = null;
-  // panel visibility
   let showSettings = false;
 
+  /**
+   * Fetches events from the Nostr network
+   * 
+   * This function fetches index events and their referenced content events,
+   * filters them according to NIP-62, and combines them for visualization.
+   */
   async function fetchEvents() {
+    debug("Fetching events with limit:", $networkFetchLimit);
     try {
       loading = true;
       error = null;
 
-      // Fetch both index and content events
+      // Step 1: Fetch index events
+      debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
       const indexEvents = await $ndkInstance.fetchEvents(
-        { kinds: [30040], limit: $networkFetchLimit },
+        { 
+          kinds: [INDEX_EVENT_KIND], 
+          limit: $networkFetchLimit 
+        },
         {
           groupable: true,
           skipVerification: false,
           skipValidation: false,
         },
       );
+      debug("Fetched index events:", indexEvents.size);
 
-      // Filter valid index events according to NIP-62
+      // Step 2: Filter valid index events according to NIP-62
       const validIndexEvents = filterValidIndexEvents(indexEvents);
+      debug("Valid index events after filtering:", validIndexEvents.size);
 
-      // Get all the content event IDs referenced by the index events
+      // Step 3: Extract content event IDs from index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
-        event.getMatchingTags("a").forEach((tag) => {
-          let eventId = tag[3];
-          contentEventIds.add(eventId);
+        const aTags = event.getMatchingTags("a");
+        debug(`Event ${event.id} has ${aTags.length} a-tags`);
+        
+        aTags.forEach((tag) => {
+          const eventId = tag[3];
+          if (eventId) {
+            contentEventIds.add(eventId);
+          }
         });
       });
+      debug("Content event IDs to fetch:", contentEventIds.size);
 
-      // Fetch the referenced content events
+      // Step 4: Fetch the referenced content events
+      debug(`Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(', ')})`);
       const contentEvents = await $ndkInstance.fetchEvents(
         {
-          kinds: [30041, 30818],
+          kinds: CONTENT_EVENT_KINDS,
           ids: Array.from(contentEventIds),
         },
         {
@@ -58,9 +97,11 @@
           skipValidation: false,
         },
       );
+      debug("Fetched content events:", contentEvents.size);
 
-      // Combine both sets of events
+      // Step 5: Combine both sets of events
       events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      debug("Total events for visualization:", events.length);
     } catch (e) {
       console.error("Error fetching events:", e);
       error = e instanceof Error ? e.message : String(e);
@@ -69,23 +110,29 @@
     }
   }
 
+  /**
+   * Handles updates to visualization settings
+   */
   function handleLimitUpdate() {
     fetchEvents();
   }
 
+  // Fetch events when component mounts
   onMount(() => {
+    debug("Component mounted");
     fetchEvents();
   });
 </script>
 
 <div class="leather w-full p-4 relative">
-  <div class="flex items-center gap-4 mb-4">
+  <!-- Header with title and settings button -->
+  <div class="flex items-center mb-4">
     <h1 class="h-leather text-2xl font-bold">Publication Network</h1>
     
-    <!-- Settings Button - Using Flowbite Components -->
+    <!-- Settings Button -->
     {#if !loading && !error}
       <Button
-        class="btn-leather z-10 rounded-lg min-w-[120px]"
+        class="btn-leather z-10 rounded-lg min-w-[120px] ml-3"
         on:click={() => (showSettings = !showSettings)}
       >
         <CogSolid class="mr-2 h-5 w-5" />
@@ -94,10 +141,10 @@
     {/if}
   </div>
 
+  <!-- Settings Panel (shown when settings button is clicked) -->
   {#if !loading && !error && showSettings}
-    <!-- Settings Panel -->
     <div
-      class="absolute left-[220px] top-14 h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-10
+      class="absolute left-0 top-14 h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-10
              overflow-y-auto max-h-[calc(100vh-96px)] rounded-lg border
              border-gray-200 dark:border-gray-700"
       transition:fly={{ duration: 300, y: -10, opacity: 1, easing: quintOut }}
@@ -118,6 +165,7 @@
     </div>
   {/if}
   
+  <!-- Loading spinner -->
   {#if loading}
     <div class="flex justify-center items-center h-64">
       <div role="status">
@@ -140,12 +188,14 @@
         <span class="sr-only">Loading...</span>
       </div>
     </div>
+  <!-- Error message -->
   {:else if error}
     <div
       class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400"
       role="alert"
     >
-      <p>Error loading network: {error}</p>
+      <p class="font-bold mb-2">Error loading network:</p>
+      <p class="mb-3">{error}</p>
       <button
         type="button"
         class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mt-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
@@ -154,8 +204,11 @@
         Retry
       </button>
     </div>
+  <!-- Network visualization -->
   {:else}
-    <EventNetwork {events} />
-    <div class="mt-8 prose dark:prose-invert max-w-none"></div>
+    <div class="relative">
+      <!-- Event network visualization -->
+      <EventNetwork {events} />
+    </div>
   {/if}
 </div>
