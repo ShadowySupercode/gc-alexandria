@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import { Heading, P, A, Button, Label, Textarea, Input } from "flowbite-svelte";
+  import { Heading, P, A, Button, Label, Textarea, Input, Tabs, TabItem, Modal } from 'flowbite-svelte';
   import { ndkSignedIn, ndkInstance, activePubkey } from '$lib/ndk';
   import { standardRelays } from '$lib/consts';
   import { onMount } from 'svelte';
@@ -15,6 +15,14 @@
     submittedEvent = null;
   }
   
+  function clearForm() {
+    subject = '';
+    content = '';
+    submissionError = '';
+    isExpanded = false;
+    activeTab = 'write';
+  }
+  
   let subject = '';
   let content = '';
   let isSubmitting = false;
@@ -25,6 +33,8 @@
   let issueLink = '';
   let successfulRelays: string[] = [];
   let isExpanded = false;
+  let activeTab = 'write';
+  let showConfirmDialog = false;
   
   // Store form data when user needs to login
   let savedFormData = {
@@ -62,7 +72,10 @@
     isExpanded = !isExpanded;
   }
   
-  async function handleSubmit() {
+  async function handleSubmit(e: Event) {
+    // Prevent form submission
+    e.preventDefault();
+    
     if (!subject || !content) {
       submissionError = 'Please fill in all fields';
       return;
@@ -81,8 +94,17 @@
       return;
     }
     
-    // User is logged in, proceed with submission
+    // Show confirmation dialog
+    showConfirmDialog = true;
+  }
+  
+  async function confirmSubmit() {
+    showConfirmDialog = false;
     await submitIssue();
+  }
+
+  function cancelSubmit() {
+    showConfirmDialog = false;
   }
   
   async function submitIssue() {
@@ -243,7 +265,7 @@
 </script>
 
 <div class='w-full flex justify-center'>
-  <main class='main-leather flex flex-col space-y-6 max-w-3xl w-full my-6 px-4'>
+  <main class='main-leather flex flex-col space-y-6 max-w-3xl w-full my-6 px-6 sm:px-4'>
     <Heading tag='h1' class='h-leather mb-2'>Contact GitCitadel</Heading>
     
     <P class="mb-3">
@@ -263,61 +285,107 @@
     <form class="space-y-4 mt-6" on:submit|preventDefault={handleSubmit}>
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
-        <Input id="subject" class="w-full" placeholder="Issue subject" bind:value={subject} required />
+        <Input id="subject" class="w-full" placeholder="Issue subject" bind:value={subject} required autofocus />
       </div>
       
       <div class="relative">
         <Label for="content" class="mb-2">Description</Label>
-        <div class="relative {isExpanded ? 'h-[600px]' : 'h-[300px]'} overflow-y-scroll border border-gray-300 dark:border-gray-600 rounded-lg">
-          <Textarea 
-            id="content" 
-            class="resize-none w-full h-auto min-h-[150%] border-0 focus:ring-0"
-            placeholder="Describe your issue in detail...
+        <div class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded ? 'h-[1200px]' : 'h-[300px]'} transition-all duration-200">
+          <div class="h-full flex flex-col">
+            <div class="border-b border-gray-300 dark:border-gray-600">
+              <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
+                <li class="mr-2" role="presentation">
+                  <button 
+                    type="button"
+                    class="inline-block p-4 rounded-t-lg {activeTab === 'write' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
+                    on:click={() => activeTab = 'write'}
+                    role="tab"
+                  >
+                    Write
+                  </button>
+                </li>
+                <li role="presentation">
+                  <button 
+                    type="button"
+                    class="inline-block p-4 rounded-t-lg {activeTab === 'preview' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
+                    on:click={() => activeTab = 'preview'}
+                    role="tab"
+                  >
+                    Preview
+                  </button>
+                </li>
+              </ul>
+            </div>
+            
+            <div class="flex-1 min-h-0 relative">
+              {#if activeTab === 'write'}
+                <div class="absolute inset-0">
+                  <Textarea 
+                    id="content" 
+                    class="w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4 description-textarea"
+                    bind:value={content} 
+                    required 
+                    placeholder="Describe your issue in detail...
 
-Markdown is supported, including code blocks with syntax highlighting for these languages:
+Markdown formatting is supported:
 
-JavaScript (js)
-TypeScript (ts)
-Python (py)
-Java (java)
-C++ (cpp)
-C (c)
-Rust (rust, rs)
-Go (go)
-Ruby (ruby, rb)
-PHP (php)
-Haskell (haskell, hs)
-Perl (perl, pl)
-R (r)
-SQL (sql)
-YAML (yaml, yml)
-HTML (html)
-CSS (css)
-XML (xml)
-Shell/Bash (shell, bash, sh)
-Markdown (markdown, md)
-AsciiDoc (asciidoc, adoc)
-AsciiMath (asciimath)
-LaTeX (latex, tex)
-Gherkin/Cucumber (gherkin, cucumber, feature)
+# Headers (1-6 levels)
 
-Use ```language at the start of a code block to enable syntax highlighting." 
-            bind:value={content} 
-            required 
-          />
+**Bold** or *Bold*
+
+_Italic_ text
+
+> Blockquotes
+
+Lists, including nested:
+* Bullets/unordered lists
+1. Numbered/ordered lists
+
+[Links](url)
+![Images](url)
+`Inline code`
+```language
+Code blocks with syntax highlighting for over 100 languages
+```
+| Tables | With |
+|--------|------|
+| Multiple | Rows |
+
+Footnotes[^1] and [^1]: footnote content
+
+Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. With or without the nostr: prefix." 
+                  />
+                </div>
+              {:else}
+                <div class="absolute inset-0 p-4 prose dark:prose-invert max-w-none bg-white dark:bg-gray-800 prose-content">
+                  {#await parseMarkdown(content)}
+                    <p>Loading preview...</p>
+                  {:then html}
+                    {@html html}
+                  {:catch error}
+                    <p class="text-red-500">Error rendering markdown: {error.message}</p>
+                  {/await}
+                </div>
+              {/if}
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="xs"
+            class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
+            color="light"
+            on:click={toggleSize}
+          >
+            {isExpanded ? '⌃' : '⌄'}
+          </Button>
         </div>
-        <Button
-          size="xs"
-          class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
-          color="light"
-          on:click={toggleSize}
-        >
-          {isExpanded ? '⌃' : '⌄'}
-        </Button>
       </div>
-      
-      <div class="flex justify-end">
-        <Button type="submit" disabled={isSubmitting}>
+
+      <div class="flex justify-end space-x-4">
+        <Button type="button" color="alternative" on:click={clearForm}>
+          Clear Form
+        </Button>
+        <Button type="submit" tabindex={0}>
           {#if isSubmitting}
             Submitting...
           {:else}
@@ -396,9 +464,31 @@ Use ```language at the start of a code block to enable syntax highlighting."
     </main>
 </div>
 
+<!-- Confirmation Dialog -->
+<Modal
+  bind:open={showConfirmDialog}
+  size="sm"
+  autoclose={false}
+  class="w-full"
+>
+  <div class="text-center">
+    <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+      Would you like to submit the issue?
+    </h3>
+    <div class="flex justify-center gap-4">
+      <Button color="alternative" on:click={cancelSubmit}>
+        Cancel
+      </Button>
+      <Button color="primary" on:click={confirmSubmit}>
+        Submit
+      </Button>
+    </div>
+  </div>
+</Modal>
+
 <!-- Login Modal -->
 <LoginModal 
-  show={showLoginModal} 
+  show={showLoginModal}
   onClose={() => showLoginModal = false}
   onLoginSuccess={() => {
     // Restore saved form data
@@ -446,23 +536,58 @@ Use ```language at the start of a code block to enable syntax highlighting."
     color: var(--color-leather-primary);
   }
 
-  /* Add custom scrollbar styling */
   :global(.description-textarea) {
     overflow-y: scroll !important;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+    min-height: 100% !important;
   }
 
   :global(.description-textarea::-webkit-scrollbar) {
-    width: 8px;
+    width: 8px !important;
+    display: block !important;
   }
 
   :global(.description-textarea::-webkit-scrollbar-track) {
-    background: transparent;
+    background: transparent !important;
   }
 
   :global(.description-textarea::-webkit-scrollbar-thumb) {
-    background-color: rgba(156, 163, 175, 0.5);
-    border-radius: 4px;
+    background-color: rgba(156, 163, 175, 0.5) !important;
+    border-radius: 4px !important;
+  }
+
+  :global(.description-textarea::-webkit-scrollbar-thumb:hover) {
+    background-color: rgba(156, 163, 175, 0.7) !important;
+  }
+
+  :global(.prose-content) {
+    overflow-y: scroll !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+  }
+
+  :global(.prose-content::-webkit-scrollbar) {
+    width: 8px !important;
+    display: block !important;
+  }
+
+  :global(.prose-content::-webkit-scrollbar-track) {
+    background: transparent !important;
+  }
+
+  :global(.prose-content::-webkit-scrollbar-thumb) {
+    background-color: rgba(156, 163, 175, 0.5) !important;
+    border-radius: 4px !important;
+  }
+
+  :global(.prose-content::-webkit-scrollbar-thumb:hover) {
+    background-color: rgba(156, 163, 175, 0.7) !important;
+  }
+
+  :global(.tab-content) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
   }
 </style>

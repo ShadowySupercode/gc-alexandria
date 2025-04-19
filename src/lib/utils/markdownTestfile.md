@@ -1,0 +1,182 @@
+This is a test
+============
+
+### Disclaimer
+
+It is _only_ a test. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
+
+npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
+
+> This is important information
+
+> This is multiple
+> lines of
+> important information
+> with a second[^2] footnote.
+
+This is an unordered list:
+* but
+* not
+* really
+
+This is an unordered list with nesting:
+* but
+  * not
+    * really
+* but
+  * yes,
+    * really
+    
+## More testing
+
+An ordered list:
+1. first
+2. second
+3. third
+
+Let's nest that:
+1. first
+   2. second indented
+3. third
+   4. fourth indented
+      5. fifth indented even more
+
+This is ordered and unordered mixed:
+1. first
+   2. second indented
+3. third
+   * make this a bullet point
+      4. fourth indented even more
+   * second bullet point
+
+Here is a horizontal rule:
+
+---
+
+Try embedded a nostr note with nevent:
+
+nostr:nevent1qvzqqqqqqypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyrzdyycehfwyekef75z5wnnygqeps6a4qvc8dunvumzr08g06svgcptkske
+
+Here with note:
+
+note1cnfpxxd6t3xdk204q4r5uezqxgvxhdgrxpm0ym8xcsme6r75rzxqcj9lmz
+
+Here with a naddr:
+
+nostr:naddr1qvzqqqr4gupzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqzasj6ar9wd6xv6tvv5kkvmmj94kkzuntv3hhwmsu0ktnz
+
+This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
+
+You can even include `code inline` or
+
+```
+in a code block
+```
+
+You can even use a multi-line code block, with a json tag.
+
+```json
+{
+"created_at":1745038670,"content":"# This is a test\n\nIt is _only_ a test. I just wanted to see if the *markdown* renders correctly on the page, even if I use **two asterisks** for bold text.[^1]\n\nnpub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.\n\n> This is important information\n\n> This is multiple\n> lines of\n> important information\n> with a second[^2] footnote.\n\n* but\n* not\n* really\n\n## More testing\n\n1. first\n2. second\n3. third\n\nHere is a horizontal rule:\n\n---\n\nThis is an implementation of [Nostr-flavored Markdown](github.com/nostrability/nostrability/issues/146 ) for #gitstuff issue notes.\n\nYou can even include `code inline` or\n\n```\nin a code block\n```\n\nYou can even use a \n\n```json\nmultiline of json block\n```\n\n\n![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)\n\n[^1]: this is a footnote\n[^2]: so is this","tags":[["subject","test"],["alt","git repository issue: test"],["a","30617:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:Alexandria","","root"],["p","fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1"],["t","gitstuff"]],"kind":1621,"pubkey":"dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319","id":"e78a689369511fdb3c36b990380c2d8db2b5e62f13f6b836e93ef5a09611afe8","sig":"7a2b3a6f6f61b6ea04de1fe873e46d40f2a220f02cdae004342430aa1df67647a9589459382f22576c651b3d09811546bbd79564cf472deaff032f137e94a865"
+}
+```
+
+C or C++:
+```cpp
+bool getBit(int num, int i) {
+    return ((num & (1<<i)) != 0);
+}
+```
+
+Asciidoc:
+```adoc
+= Header 1
+
+preamble goes here
+
+== Header 2 
+
+some more text
+```
+
+Gherkin:
+```gherkin
+Feature: Account Holder withdraws cash
+ 
+Scenario: Account has sufficient funds
+    Given The account balance is $100
+      And the card is valid
+      And the machine contains enough money
+     When the Account Holder requests $20
+     Then the ATM should dispense $20
+      And the account balance should be $80
+      And the card should be returned
+```
+
+Go:
+```go
+package main
+
+   import (
+       "fmt"
+       "bufio"
+       "os"
+   )
+
+   func main() {
+       scanner := bufio.NewScanner(os.Stdin)
+       fmt.Print("Enter text: ")
+       scanner.Scan()
+       input := scanner.Text()
+       fmt.Println("You entered:", input)
+   }
+
+```
+
+or even Markdown:
+
+```md
+A H1 Header
+============
+
+Paragraphs are separated by a blank line.
+
+2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists
+look like:
+
+  * this one
+  * that one
+  * the other one
+
+Note that --- not considering the asterisk --- the actual text
+content starts at 4-columns in.
+
+> Block quotes are
+> written like so.
+>
+> They can span multiple paragraphs,
+> if you like.
+```
+
+#### Here is an image!
+
+![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)
+
+### I went ahead and implemented tables, too.
+
+A neat table:
+
+| Syntax      | Description |
+| ----------- | ----------- |
+| Header      | Title       |
+| Paragraph   | Text        |
+
+A messy table (should render the same as above):
+
+| Syntax | Description |
+| --- | ----------- |
+| Header | Title |
+| Paragraph | Text |
+
+[^1]: this is a footnote
+[^2]: so is this

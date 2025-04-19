@@ -100,48 +100,76 @@ async function getUserMetadata(identifier: string): Promise<{name?: string, disp
  */
 function processLists(content: string): string {
   const lines = content.split('\n');
-  let inList = false;
-  let isOrdered = false;
-  let currentList: string[] = [];
   const processed: string[] = [];
+  const listStack: { type: 'ol' | 'ul', items: string[], level: number }[] = [];
+  
+  function closeList() {
+    if (listStack.length > 0) {
+      const list = listStack.pop()!;
+      const listType = list.type;
+      const listClass = listType === 'ol' ? 'list-decimal' : 'list-disc';
+      const indentClass = list.level > 0 ? 'ml-6' : 'ml-4';
+      let listHtml = `<${listType} class="${listClass} ${indentClass} my-2 space-y-2">`;
+      list.items.forEach(item => {
+        listHtml += `\n  <li class="pl-1">${item}</li>`;
+      });
+      listHtml += `\n</${listType}>`;
+      
+      if (listStack.length > 0) {
+        // If we're in a nested list, add this as an item to the parent
+        const parentList = listStack[listStack.length - 1];
+        const lastItem = parentList.items.pop()!;
+        parentList.items.push(lastItem + '\n' + listHtml);
+      } else {
+        processed.push(listHtml);
+      }
+    }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const orderedMatch = line.match(/^(\d+)\.[ \t]+(.+)$/);
-    const unorderedMatch = line.match(/^\*[ \t]+(.+)$/);
+    // Count leading spaces to determine nesting level
+    const leadingSpaces = line.match(/^(\s*)/)?.[0]?.length ?? 0;
+    const effectiveLevel = Math.floor(leadingSpaces / 2); // 2 spaces per level
     
+    // Trim the line and check for list markers
+    const trimmedLine = line.trim();
+    const orderedMatch = trimmedLine.match(/^(\d+)\.[ \t]+(.+)$/);
+    const unorderedMatch = trimmedLine.match(/^[-*][ \t]+(.+)$/);
+
     if (orderedMatch || unorderedMatch) {
-      if (!inList) {
-        inList = true;
-        isOrdered = !!orderedMatch;
-        currentList = [];
+      const content = orderedMatch ? orderedMatch[2] : (unorderedMatch && unorderedMatch[1]) || '';
+      const type = orderedMatch ? 'ol' : 'ul';
+
+      // Close any lists that are at a deeper level
+      while (listStack.length > 0 && listStack[listStack.length - 1].level > effectiveLevel) {
+        closeList();
       }
-      const content = orderedMatch ? orderedMatch[2] : unorderedMatch![1];
-      currentList.push(content);
+
+      // If we're at a new level, start a new list
+      if (listStack.length === 0 || listStack[listStack.length - 1].level < effectiveLevel) {
+        listStack.push({ type, items: [], level: effectiveLevel });
+      }
+      // If we're at the same level but different type, close the current list and start a new one
+      else if (listStack[listStack.length - 1].type !== type && listStack[listStack.length - 1].level === effectiveLevel) {
+        closeList();
+        listStack.push({ type, items: [], level: effectiveLevel });
+      }
+
+      // Add the item to the current list
+      listStack[listStack.length - 1].items.push(content);
     } else {
-      if (inList) {
-        const listType = isOrdered ? 'ol' : 'ul';
-        const listClass = isOrdered ? 'list-decimal' : 'list-disc';
-        processed.push(`<${listType} class="${listClass} pl-6 my-4 space-y-1">`);
-        currentList.forEach(item => {
-          processed.push(`  <li class="ml-4">${item}</li>`);
-        });
-        processed.push(`</${listType}>`);
-        inList = false;
-        currentList = [];
+      // Not a list item - close all open lists and add the line
+      while (listStack.length > 0) {
+        closeList();
       }
       processed.push(line);
     }
   }
 
-  if (inList) {
-    const listType = isOrdered ? 'ol' : 'ul';
-    const listClass = isOrdered ? 'list-decimal' : 'list-disc';
-    processed.push(`<${listType} class="${listClass} pl-6 my-4 space-y-1">`);
-    currentList.forEach(item => {
-      processed.push(`  <li class="ml-4">${item}</li>`);
-    });
-    processed.push(`</${listType}>`);
+  // Close any remaining open lists
+  while (listStack.length > 0) {
+    closeList();
   }
 
   return processed.join('\n');
@@ -293,48 +321,18 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
     const { code, language } = JSON.parse(blockContent);
     let processedCode = code;
     
-    // First escape HTML characters
-    processedCode = processedCode
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-
-    // Format and highlight based on language
+    // Format JSON if the language is specified as json
     if (language === 'json') {
       try {
-        // Parse and format JSON
-        const parsed = JSON.parse(code);
-        processedCode = JSON.stringify(parsed, null, 2)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-
-        // Apply JSON syntax highlighting
-        processedCode = processedCode
-          // Match JSON keys (including colons)
-          .replace(/(&quot;[^&quot;]+&quot;):/g, '<span class="json-key">$1</span>:')
-          // Match string values (after colons and in arrays)
-          .replace(/: (&quot;[^&quot;]+&quot;)/g, ': <span class="json-string">$1</span>')
-          .replace(/\[(&quot;[^&quot;]+&quot;)/g, '[<span class="json-string">$1</span>')
-          .replace(/, (&quot;[^&quot;]+&quot;)/g, ', <span class="json-string">$1</span>')
-          // Match numbers
-          .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
-          .replace(/\[(-?\d+\.?\d*)/g, '[<span class="json-number">$1</span>')
-          .replace(/, (-?\d+\.?\d*)/g, ', <span class="json-number">$1</span>')
-          // Match booleans
-          .replace(/: (true|false)\b/g, ': <span class="json-boolean">$1</span>')
-          // Match null
-          .replace(/: (null)\b/g, ': <span class="json-null">$1</span>');
+        const jsonObj = JSON.parse(code.trim());
+        processedCode = JSON.stringify(jsonObj, null, 2);
       } catch (e) {
-        // If JSON parsing fails, use the original escaped code
         console.warn('Failed to parse JSON:', e);
       }
-    } else if (language) {
-      // Use highlight.js for other languages
+    }
+    
+    // Apply syntax highlighting if language is specified
+    if (language) {
       try {
         if (hljs.getLanguage(language)) {
           const highlighted = hljs.highlight(processedCode, { language });
@@ -346,7 +344,18 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
     }
 
     const languageClass = language ? ` language-${language}` : '';
-    const replacement = `<pre class="code-block" data-language="${language || ''}"><code class="hljs${languageClass}">${processedCode}</code></pre>`;
+    const replacement = `<div class="relative group my-2">
+      <button 
+        type="button"
+        class="absolute right-2 top-2 p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded opacity-0 group-hover:opacity-100 transition-opacity" 
+        onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.parentElement.querySelector('code').textContent);"
+      >
+        <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+        </svg>
+      </button>
+      <pre class="code-block whitespace-pre overflow-x-auto bg-gray-900 rounded-md p-3" data-language="${language || ''}"><code class="hljs${languageClass}">${processedCode}</code></pre>
+    </div>`;
     result = result.replace(id, replacement);
   });
   return result;
@@ -357,14 +366,7 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
  */
 function processInlineCode(text: string): string {
   return text.replace(INLINE_CODE_REGEX, (match, code) => {
-    const escapedCode = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-    
-    return `<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">${escapedCode}</code>`;
+    return `<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">${code}</code>`;
   });
 }
 
