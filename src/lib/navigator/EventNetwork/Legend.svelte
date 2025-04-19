@@ -50,12 +50,3 @@
   </ul>
 </div>
 
-<style>
-  .legend-circle.content {
-    background-color: var(--content-color, #d6c1a8);
-  }
-  
-  :global(.dark) .legend-circle.content {
-    background-color: var(--content-color-dark, #FFFFFF);
-  }
-</style>
