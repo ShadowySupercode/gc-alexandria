@@ -318,7 +318,7 @@
           <div class="mb-3">
             <span class="font-semibold">View your issue:</span>
             <div class="mt-1">
-              <A href={issueLink} target="_blank" class="text-blue-600 hover:underline break-all">
+              <A href={issueLink} target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 break-all">
                 {issueLink}
               </A>
             </div>
