@@ -1,3 +1,4 @@
+@import '@fontsource/fira-mono';
 @import './styles/base.css';
 @import './styles/publications.css';
 @import './styles/visualize.css';
@@ -198,6 +199,82 @@
   }
   .network-node-content {
     @apply fill-[#d6c1a8];
+  }
+
+  /* Code blocks */
+  .code-block {
+    @apply relative w-full max-w-[95%] overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-800 p-4 my-4 font-mono text-sm whitespace-pre;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+
+  .code-block::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .code-block::-webkit-scrollbar-track {
+    @apply bg-transparent rounded-b-lg;
+  }
+
+  .code-block::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 dark:bg-gray-600 rounded-full;
+  }
+
+  /* Inline code */
+  .inline-code {
+    @apply font-mono text-sm bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded;
+  }
+
+  /* JSON syntax highlighting */
+  .code-block[data-language="json"] {
+    color: #24292e; /* Default text color */
+  }
+
+  .code-block[data-language="json"] .json-key {
+    color: #005cc5;
+  }
+
+  .code-block[data-language="json"] .json-string {
+    color: #032f62;
+  }
+
+  .code-block[data-language="json"] .json-number {
+    color: #005cc5;
+  }
+
+  .code-block[data-language="json"] .json-boolean {
+    color: #d73a49;
+  }
+
+  .code-block[data-language="json"] .json-null {
+    color: #d73a49;
+  }
+
+  /* Dark mode */
+  @media (prefers-color-scheme: dark) {
+    .code-block[data-language="json"] {
+      color: #e1e4e8;
+    }
+
+    .code-block[data-language="json"] .json-key {
+      color: #79b8ff;
+    }
+
+    .code-block[data-language="json"] .json-string {
+      color: #9ecbff;
+    }
+
+    .code-block[data-language="json"] .json-number {
+      color: #79b8ff;
+    }
+
+    .code-block[data-language="json"] .json-boolean {
+      color: #f97583;
+    }
+
+    .code-block[data-language="json"] .json-null {
+      color: #f97583;
+    }
   }
 }
 

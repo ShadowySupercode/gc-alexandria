@@ -14,14 +14,17 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@fontsource/fira-mono": "^5.2.5",
     "@nostr-dev-kit/ndk": "2.11.x",
     "@nostr-dev-kit/ndk-cache-dexie": "2.5.x",
     "@popperjs/core": "2.11.x",
     "@tailwindcss/forms": "0.5.x",
     "@tailwindcss/typography": "0.5.x",
+    "@types/highlight.js": "^9.12.4",
     "asciidoctor": "3.0.x",
     "d3": "^7.9.0",
     "he": "1.2.x",
+    "highlight.js": "^11.11.1",
     "nostr-tools": "2.10.x"
   },
   "devDependencies": {

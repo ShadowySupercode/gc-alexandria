@@ -5,6 +5,8 @@
 import { get } from 'svelte/store';
 import { ndkInstance } from '$lib/ndk';
 import { nip19 } from 'nostr-tools';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 // Regular expressions for nostr identifiers - process these first
 const NOSTR_PROFILE_REGEX = /(?:nostr:)?((?:npub|nprofile)[a-zA-Z0-9]{20,})/g;
@@ -14,6 +16,7 @@ const NOSTR_NOTE_REGEX = /(?:nostr:)?((?:nevent|note|naddr)[a-zA-Z0-9]{20,})/g;
 const BOLD_REGEX = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
 const ITALIC_REGEX = /_([^_]+)_/g;
 const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
+const ALTERNATE_HEADING_REGEX = /^(.+)\n([=]{3,}|-{3,})$/gm;
 const HORIZONTAL_RULE_REGEX = /^(?:---|\*\*\*|___)$/gm;
 const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
 const LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g;
@@ -21,6 +24,9 @@ const IMAGE_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const HASHTAG_REGEX = /(?<!\S)#([a-zA-Z0-9_]+)(?!\S)/g;
 const FOOTNOTE_REFERENCE_REGEX = /\[(\^[^\]]+)\]/g;
 const FOOTNOTE_DEFINITION_REGEX = /^\[(\^[^\]]+)\]:\s*(.+?)(?:\n(?!\[)|\n\n|$)/gm;
+const TABLE_REGEX = /^\|(.+)\|\r?\n\|([-|\s]+)\|\r?\n((?:\|.+\|\r?\n?)+)$/gm;
+const TABLE_ROW_REGEX = /^\|(.+)\|$/gm;
+const TABLE_DELIMITER_REGEX = /^[\s-]+$/;
 
 // Cache for npub metadata
 const npubCache = new Map<string, {name?: string, displayName?: string}>();
@@ -214,236 +220,6 @@ function processBlockquotes(text: string): string {
 }
 
 /**
- * Format code based on language
- */
-function formatCodeByLanguage(code: string, lang: string): string {
-  const language = lang.trim().toLowerCase();
-  
-  // Remove any trailing whitespace or empty lines at start/end
-  let formattedCode = code.trim();
-
-  switch (language) {
-    case 'json':
-      try {
-        return JSON.stringify(JSON.parse(formattedCode), null, 2);
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'javascript':
-    case 'js':
-    case 'typescript':
-    case 'ts':
-      try {
-        // Basic indentation for JS/TS
-        formattedCode = formattedCode
-          .split('\n')
-          .map(line => line.trim())
-          .join('\n');
-        
-        // Add line breaks after certain characters
-        formattedCode = formattedCode
-          .replace(/([{([])\s*/g, '$1\n')
-          .replace(/\s*([\]})])/g, '\n$1')
-          .replace(/;\s*/g, ';\n')
-          .replace(/,\s*([^\s])/g, ',\n$1');
-
-        // Indent based on brackets
-        let indent = 0;
-        return formattedCode
-          .split('\n')
-          .map(line => {
-            line = line.trim();
-            if (line.match(/[}\])]$/)) indent--;
-            const formatted = '  '.repeat(Math.max(0, indent)) + line;
-            if (line.match(/[{([]\s*$/)) indent++;
-            return formatted;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'html':
-    case 'xml':
-      try {
-        // Basic indentation for HTML/XML
-        let indent = 0;
-        return formattedCode
-          .replace(/></g, '>\n<')
-          .split('\n')
-          .map(line => {
-            line = line.trim();
-            if (line.match(/<\/[^>]+>$/)) indent--;
-            const formatted = '  '.repeat(Math.max(0, indent)) + line;
-            if (line.match(/<[^/][^>]*>$/) && !line.match(/<[^>]+\/>/)) indent++;
-            return formatted;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'css':
-      try {
-        // Basic indentation for CSS
-        return formattedCode
-          .replace(/\s*{\s*/g, ' {\n')
-          .replace(/;\s*/g, ';\n')
-          .replace(/\s*}\s*/g, '\n}\n')
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line)
-          .map(line => line.startsWith('}') ? line : '  ' + line)
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'python':
-    case 'py':
-      try {
-        // Basic indentation for Python
-        let indent = 0;
-        return formattedCode
-          .split('\n')
-          .map(line => {
-            line = line.trim();
-            if (line.match(/^(return|break|continue|pass|else|elif|except|finally)\b/)) indent--;
-            const formatted = '    '.repeat(Math.max(0, indent)) + line;
-            if (line.match(/:\s*$/)) indent++;
-            return formatted;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'cpp':
-    case 'c':
-    case 'rust':
-      try {
-        // Basic indentation for C/C++/Rust
-        let indent = 0;
-        return formattedCode
-          .split('\n')
-          .map(line => {
-            line = line.trim();
-            if (line.match(/^[}\])]/) || line.match(/^(public|private|protected):/)) indent--;
-            const formatted = '    '.repeat(Math.max(0, indent)) + line;
-            if (line.match(/[{[]$/)) indent++;
-            return formatted;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'php':
-      try {
-        // Basic indentation for PHP
-        let indent = 0;
-        return formattedCode
-          .split('\n')
-          .map(line => {
-            line = line.trim();
-            if (line.match(/^[}\])]/) || line.match(/^(case|default):/)) indent--;
-            const formatted = '    '.repeat(Math.max(0, indent)) + line;
-            if (line.match(/[{[]$/) || line.match(/^(case|default):/)) indent++;
-            return formatted;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    case 'bash':
-    case 'shell':
-    case 'sh':
-      try {
-        // Basic formatting for shell scripts
-        return formattedCode
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line)
-          .map(line => {
-            if (line.startsWith('#')) return line;
-            if (line.endsWith('\\')) return line + '\n';
-            if (line.match(/^(if|while|for|case)/)) return line;
-            if (line.match(/^(then|do|else|elif)/)) return '  ' + line;
-            if (line.match(/^(fi|done|esac)/)) return line;
-            return '  ' + line;
-          })
-          .join('\n');
-      } catch (e) {
-        return formattedCode;
-      }
-
-    default:
-      return formattedCode;
-  }
-}
-
-/**
- * Process nostr identifiers
- */
-async function processNostrIdentifiers(content: string): Promise<string> {
-  let processedContent = content;
-
-  // Process profiles (npub and nprofile)
-  const profileMatches = Array.from(content.matchAll(NOSTR_PROFILE_REGEX));
-  for (const match of profileMatches) {
-    const [fullMatch, identifier] = match;
-    const metadata = await getUserMetadata(identifier);
-    const displayText = metadata.displayName || metadata.name || `${identifier.slice(0, 8)}...${identifier.slice(-4)}`;
-    const escapedId = identifier
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-    const escapedDisplayText = displayText
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-    
-    // Create a link with standardized styling
-    const link = `<a href="https://njump.me/${escapedId}" target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 items-center" title="${escapedId}">@${escapedDisplayText}</a>`;
-    
-    // Replace only the exact match to preserve surrounding text
-    processedContent = processedContent.replace(fullMatch, link);
-  }
-
-  // Process notes (nevent, note, naddr)
-  const noteMatches = Array.from(processedContent.matchAll(NOSTR_NOTE_REGEX));
-  for (const match of noteMatches) {
-    const [fullMatch, identifier] = match;
-    const shortId = identifier.slice(0, 12) + '...' + identifier.slice(-8);
-    const escapedId = identifier
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-    
-    // Create a link with standardized styling
-    const link = `<a href="https://njump.me/${escapedId}" target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 break-all items-center" title="${escapedId}">${shortId}</a>`;
-    
-    // Replace only the exact match to preserve surrounding text
-    processedContent = processedContent.replace(fullMatch, link);
-  }
-
-  return processedContent;
-}
-
-/**
  * Process code blocks by finding consecutive code lines and preserving their content
  */
 function processCodeBlocks(text: string): { text: string; blocks: Map<string, string> } {
@@ -454,7 +230,6 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
   let currentCode: string[] = [];
   let currentLanguage = '';
   let blockCount = 0;
-  let lastWasCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -466,33 +241,26 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
         inCodeBlock = true;
         currentLanguage = codeBlockStart[1];
         currentCode = [];
-        lastWasCodeBlock = true;
       } else {
         // Ending current code block
         blockCount++;
-        const id = `CODE_BLOCK_${blockCount}`;
+        const id = `CODE-BLOCK-${blockCount}`;
         const code = currentCode.join('\n');
         
+        // Store the raw code and language for later processing
         blocks.set(id, JSON.stringify({
           code,
-          language: currentLanguage,
-          raw: true
+          language: currentLanguage
         }));
         
-        processedLines.push('');  // Add spacing before code block
         processedLines.push(id);
-        processedLines.push('');  // Add spacing after code block
         inCodeBlock = false;
-        currentCode = [];
         currentLanguage = '';
+        currentCode = [];
       }
     } else if (inCodeBlock) {
       currentCode.push(line);
     } else {
-      if (lastWasCodeBlock && line.trim()) {
-        processedLines.push('');
-        lastWasCodeBlock = false;
-      }
       processedLines.push(line);
     }
   }
@@ -500,15 +268,14 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
   // Handle unclosed code block
   if (inCodeBlock && currentCode.length > 0) {
     blockCount++;
-    const id = `CODE_BLOCK_${blockCount}`;
+    const id = `CODE-BLOCK-${blockCount}`;
+    const code = currentCode.join('\n');
+    
     blocks.set(id, JSON.stringify({
-      code: currentCode.join('\n'),
-      language: currentLanguage,
-      raw: true
+      code,
+      language: currentLanguage
     }));
-    processedLines.push('');
     processedLines.push(id);
-    processedLines.push('');
   }
 
   return {
@@ -522,18 +289,66 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
  */
 function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
   let result = text;
-  
-  for (const [id, blockData] of blocks) {
-    const { code, language } = JSON.parse(blockData);
+  blocks.forEach((blockContent, id) => {
+    const { code, language } = JSON.parse(blockContent);
+    let processedCode = code;
     
-    // Preserve code exactly as it was written
-    const html = `<div class="w-full my-4">
-      <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code${language ? ` class="language-${language}"` : ''}>${code}</code></pre>
-    </div>`;
+    // First escape HTML characters
+    processedCode = processedCode
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
-    result = result.replace(id, html);
-  }
+    // Format and highlight based on language
+    if (language === 'json') {
+      try {
+        // Parse and format JSON
+        const parsed = JSON.parse(code);
+        processedCode = JSON.stringify(parsed, null, 2)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
 
+        // Apply JSON syntax highlighting
+        processedCode = processedCode
+          // Match JSON keys (including colons)
+          .replace(/(&quot;[^&quot;]+&quot;):/g, '<span class="json-key">$1</span>:')
+          // Match string values (after colons and in arrays)
+          .replace(/: (&quot;[^&quot;]+&quot;)/g, ': <span class="json-string">$1</span>')
+          .replace(/\[(&quot;[^&quot;]+&quot;)/g, '[<span class="json-string">$1</span>')
+          .replace(/, (&quot;[^&quot;]+&quot;)/g, ', <span class="json-string">$1</span>')
+          // Match numbers
+          .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+          .replace(/\[(-?\d+\.?\d*)/g, '[<span class="json-number">$1</span>')
+          .replace(/, (-?\d+\.?\d*)/g, ', <span class="json-number">$1</span>')
+          // Match booleans
+          .replace(/: (true|false)\b/g, ': <span class="json-boolean">$1</span>')
+          // Match null
+          .replace(/: (null)\b/g, ': <span class="json-null">$1</span>');
+      } catch (e) {
+        // If JSON parsing fails, use the original escaped code
+        console.warn('Failed to parse JSON:', e);
+      }
+    } else if (language) {
+      // Use highlight.js for other languages
+      try {
+        if (hljs.getLanguage(language)) {
+          const highlighted = hljs.highlight(processedCode, { language });
+          processedCode = highlighted.value;
+        }
+      } catch (e) {
+        console.warn('Failed to apply syntax highlighting:', e);
+      }
+    }
+
+    const languageClass = language ? ` language-${language}` : '';
+    const replacement = `<pre class="code-block" data-language="${language || ''}"><code class="hljs${languageClass}">${processedCode}</code></pre>`;
+    result = result.replace(id, replacement);
+  });
   return result;
 }
 
@@ -547,10 +362,68 @@ function processInlineCode(text: string): string {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
-      .replace(/\\n/g, '&#92;n');
+      .replace(/'/g, '&#039;');
     
-    return `<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">${escapedCode}</code>`;
+    return `<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">${escapedCode}</code>`;
+  });
+}
+
+/**
+ * Process markdown tables
+ */
+function processTables(content: string): string {
+  return content.replace(TABLE_REGEX, (match, headerRow, delimiterRow, bodyRows) => {
+    // Process header row
+    const headers: string[] = headerRow
+      .split('|')
+      .map((cell: string) => cell.trim())
+      .filter((cell: string) => cell.length > 0);
+
+    // Validate delimiter row (should contain only dashes and spaces)
+    const delimiters: string[] = delimiterRow
+      .split('|')
+      .map((cell: string) => cell.trim())
+      .filter((cell: string) => cell.length > 0);
+
+    if (!delimiters.every(d => TABLE_DELIMITER_REGEX.test(d))) {
+      return match;
+    }
+
+    // Process body rows
+    const rows: string[][] = bodyRows
+      .trim()
+      .split('\n')
+      .map((row: string) => {
+        return row
+          .split('|')
+          .map((cell: string) => cell.trim())
+          .filter((cell: string) => cell.length > 0);
+      })
+      .filter((row: string[]) => row.length > 0);
+
+    // Generate HTML table with leather theme styling and thicker grid lines
+    let table = '<div class="my-6 overflow-x-auto rounded-lg border-2 border-gray-300 dark:border-gray-600">\n';
+    table += '<table class="min-w-full border-collapse">\n';
+    
+    // Add header with leather theme styling
+    table += '<thead class="bg-gray-100 dark:bg-gray-800">\n<tr>\n';
+    headers.forEach((header: string) => {
+      table += `<th class="px-6 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-200 border-2 border-gray-300 dark:border-gray-600">${header}</th>\n`;
+    });
+    table += '</tr>\n</thead>\n';
+    
+    // Add body with leather theme styling
+    table += '<tbody class="bg-primary-0 dark:bg-primary-1000">\n';
+    rows.forEach((row: string[], index: number) => {
+      table += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">\n`;
+      row.forEach((cell: string) => {
+        table += `<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-2 border-gray-300 dark:border-gray-600">${cell}</td>\n`;
+      });
+      table += '</tr>\n';
+    });
+    table += '</tbody>\n</table>\n</div>';
+    
+    return table;
   });
 }
 
@@ -561,9 +434,21 @@ function processOtherElements(content: string): string {
   // Process blockquotes first
   content = processBlockquotes(content);
 
+  // Process tables before other elements
+  content = processTables(content);
+
   // Process basic markdown elements
   content = content.replace(BOLD_REGEX, '<strong>$1$2</strong>');
   content = content.replace(ITALIC_REGEX, '<em>$1</em>');
+  
+  // Process alternate heading syntax first (=== or ---)
+  content = content.replace(ALTERNATE_HEADING_REGEX, (match, content, level) => {
+    const headingLevel = level.startsWith('=') ? 1 : 2;
+    const sizes = ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm', 'text-xs'];
+    return `<h${headingLevel} class="${sizes[headingLevel-1]} font-bold mt-4 mb-2">${content.trim()}</h${headingLevel}>`;
+  });
+  
+  // Process standard heading syntax (#)
   content = content.replace(HEADING_REGEX, (match, hashes, content) => {
     const level = hashes.length;
     const sizes = ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm', 'text-xs'];
@@ -625,6 +510,60 @@ function processFootnotes(text: string): { text: string, footnotes: Map<string, 
 }
 
 /**
+ * Process nostr identifiers
+ */
+async function processNostrIdentifiers(content: string): Promise<string> {
+  let processedContent = content;
+
+  // Process profiles (npub and nprofile)
+  const profileMatches = Array.from(content.matchAll(NOSTR_PROFILE_REGEX));
+  for (const match of profileMatches) {
+    const [fullMatch, identifier] = match;
+    const metadata = await getUserMetadata(identifier);
+    const displayText = metadata.displayName || metadata.name || `${identifier.slice(0, 8)}...${identifier.slice(-4)}`;
+    const escapedId = identifier
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    const escapedDisplayText = displayText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    
+    // Create a link with standardized styling
+    const link = `<a href="https://njump.me/${escapedId}" target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 items-center" title="${escapedId}">@${escapedDisplayText}</a>`;
+    
+    // Replace only the exact match to preserve surrounding text
+    processedContent = processedContent.replace(fullMatch, link);
+  }
+
+  // Process notes (nevent, note, naddr)
+  const noteMatches = Array.from(processedContent.matchAll(NOSTR_NOTE_REGEX));
+  for (const match of noteMatches) {
+    const [fullMatch, identifier] = match;
+    const shortId = identifier.slice(0, 12) + '...' + identifier.slice(-8);
+    const escapedId = identifier
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    
+    // Create a link with standardized styling
+    const link = `<a href="https://njump.me/${escapedId}" target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 break-all items-center" title="${escapedId}">${shortId}</a>`;
+    
+    // Replace only the exact match to preserve surrounding text
+    processedContent = processedContent.replace(fullMatch, link);
+  }
+
+  return processedContent;
+}
+
+/**
  * Parse markdown text to content with special handling for nostr identifiers
  */
 export async function parseMarkdown(text: string): Promise<string> {
@@ -655,9 +594,9 @@ export async function parseMarkdown(text: string): Promise<string> {
   // Handle paragraphs and line breaks, preserving existing HTML
   content = content
     .split(/\n{2,}/)
-    .map(para => para.trim())
-    .filter(para => para)
-    .map(para => para.startsWith('<') ? para : `<p class="my-4 break-words">${para}</p>`)
+    .map((para: string) => para.trim())
+    .filter((para: string) => para)
+    .map((para: string) => para.startsWith('<') ? para : `<p class="my-4 break-words">${para}</p>`)
     .join('\n\n');
 
   // Finally, restore code blocks
@@ -671,4 +610,30 @@ export async function parseMarkdown(text: string): Promise<string> {
  */
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function processCode(text: string): string {
+  // Process code blocks with language specification
+  text = text.replace(/```(\w+)?\n([\s\S]+?)\n```/g, (match, lang, code) => {
+    if (lang === 'json') {
+      try {
+        const parsed = JSON.parse(code.trim());
+        code = JSON.stringify(parsed, null, 2);
+        // Add syntax highlighting classes for JSON
+        code = code.replace(/"([^"]+)":/g, '"<span class="json-key">$1</span>":') // keys
+          .replace(/"([^"]+)"/g, '"<span class="json-string">$1</span>"') // strings
+          .replace(/\b(true|false)\b/g, '<span class="json-boolean">$1</span>') // booleans
+          .replace(/\b(null)\b/g, '<span class="json-null">$1</span>') // null
+          .replace(/\b(\d+\.?\d*)\b/g, '<span class="json-number">$1</span>'); // numbers
+      } catch (e) {
+        // If JSON parsing fails, use the original code
+      }
+    }
+    return `<div class="code-block" data-language="${lang || ''}">${code}</div>`;
+  });
+
+  // Process inline code
+  text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+  return text;
 }

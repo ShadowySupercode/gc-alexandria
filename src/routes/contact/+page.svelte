@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import { Heading, Img, P, A, Button, Label, Textarea, Input } from "flowbite-svelte";
+  import { Heading, P, A, Button, Label, Textarea, Input } from "flowbite-svelte";
   import { ndkSignedIn, ndkInstance, activePubkey } from '$lib/ndk';
   import { standardRelays } from '$lib/consts';
   import { onMount } from 'svelte';
@@ -24,6 +24,7 @@
   let submittedEvent: NDKEvent | null = null;
   let issueLink = '';
   let successfulRelays: string[] = [];
+  let isExpanded = false;
   
   // Store form data when user needs to login
   let savedFormData = {
@@ -55,6 +56,10 @@
   // Function to normalize relay URLs by removing trailing slashes
   function normalizeRelayUrl(url: string): string {
     return url.replace(/\/+$/, '');
+  }
+  
+  function toggleSize() {
+    isExpanded = !isExpanded;
   }
   
   async function handleSubmit() {
@@ -238,7 +243,7 @@
 </script>
 
 <div class='w-full flex justify-center'>
-  <main class='main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4'>
+  <main class='main-leather flex flex-col space-y-6 max-w-3xl w-full my-6 px-4'>
     <Heading tag='h1' class='h-leather mb-2'>Contact GitCitadel</Heading>
     
     <P class="mb-3">
@@ -258,12 +263,57 @@
     <form class="space-y-4 mt-6" on:submit|preventDefault={handleSubmit}>
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
-        <Input id="subject" placeholder="Issue subject" bind:value={subject} required />
+        <Input id="subject" class="w-full" placeholder="Issue subject" bind:value={subject} required />
       </div>
       
-      <div>
+      <div class="relative">
         <Label for="content" class="mb-2">Description</Label>
-        <Textarea id="content" placeholder="Describe your issue in detail... (Markdown supported)" rows={12} bind:value={content} required />
+        <div class="relative {isExpanded ? 'h-[600px]' : 'h-[300px]'} overflow-y-scroll border border-gray-300 dark:border-gray-600 rounded-lg">
+          <Textarea 
+            id="content" 
+            class="resize-none w-full h-auto min-h-[150%] border-0 focus:ring-0"
+            placeholder="Describe your issue in detail...
+
+Markdown is supported, including code blocks with syntax highlighting for these languages:
+
+JavaScript (js)
+TypeScript (ts)
+Python (py)
+Java (java)
+C++ (cpp)
+C (c)
+Rust (rust, rs)
+Go (go)
+Ruby (ruby, rb)
+PHP (php)
+Haskell (haskell, hs)
+Perl (perl, pl)
+R (r)
+SQL (sql)
+YAML (yaml, yml)
+HTML (html)
+CSS (css)
+XML (xml)
+Shell/Bash (shell, bash, sh)
+Markdown (markdown, md)
+AsciiDoc (asciidoc, adoc)
+AsciiMath (asciimath)
+LaTeX (latex, tex)
+Gherkin/Cucumber (gherkin, cucumber, feature)
+
+Use ```language at the start of a code block to enable syntax highlighting." 
+            bind:value={content} 
+            required 
+          />
+        </div>
+        <Button
+          size="xs"
+          class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
+          color="light"
+          on:click={toggleSize}
+        >
+          {isExpanded ? '⌃' : '⌄'}
+        </Button>
       </div>
       
       <div class="flex justify-end">
@@ -394,5 +444,25 @@
   :global(.note-leather) :global(.footnote-ref),
   :global(.note-leather) :global(.footnote-backref) {
     color: var(--color-leather-primary);
+  }
+
+  /* Add custom scrollbar styling */
+  :global(.description-textarea) {
+    overflow-y: scroll !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+
+  :global(.description-textarea::-webkit-scrollbar) {
+    width: 8px;
+  }
+
+  :global(.description-textarea::-webkit-scrollbar-track) {
+    background: transparent;
+  }
+
+  :global(.description-textarea::-webkit-scrollbar-thumb) {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 4px;
   }
 </style>
