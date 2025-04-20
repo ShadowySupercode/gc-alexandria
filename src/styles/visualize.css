@@ -1,7 +1,7 @@
 @layer components {
     /* Legend styles - specific to visualization */
     .legend-list {
-        @apply list-disc pl-5 space-y-2 text-gray-800 dark:text-gray-300;
+        @apply list-disc mt-2 space-y-2 text-gray-800 dark:text-gray-300;
     }
 
     .legend-item {
@@ -39,15 +39,16 @@
     
     /* Network visualization styles - specific to visualization */
     .network-container {
-        @apply flex flex-col w-full h-[calc(100vh-120px)] min-h-[400px] max-h-[900px] p-4 gap-4;
+        @apply flex flex-col w-full h-[calc(100vh-138px)] min-h-[400px] max-h-[900px];
     }
     
     .network-svg-container {
-        @apply relative;
+        @apply relative sm:h-[100%];
     }
     
     .network-svg {
-        @apply w-full h-full border border-gray-300 dark:border-gray-700 rounded;
+        @apply w-full sm:h-[100%] border;
+        @apply border border-primary-200 has-[:hover]:border-primary-700 dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500 rounded;
     }
     
     .network-error {
@@ -72,9 +73,7 @@
     }
     
     .network-control-button {
-        @apply bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 
-               shadow-md hover:shadow-lg transition-shadow duration-200
-               border border-gray-300 dark:border-gray-700;
+        @apply bg-white;
     }
     
     /* Tooltip styles - specific to visualization tooltips */

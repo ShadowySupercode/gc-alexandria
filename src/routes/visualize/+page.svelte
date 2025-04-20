@@ -10,13 +10,10 @@
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
-  import EventLimitControl from "$lib/components/EventLimitControl.svelte";
-  import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
   import { networkFetchLimit } from "$lib/state";
-  import { fly } from "svelte/transition";
-  import { quintOut } from "svelte/easing";
   import { CogSolid } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
+    import Settings from "$lib/navigator/EventNetwork/Settings.svelte";
   
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging
@@ -110,12 +107,6 @@
     }
   }
 
-  /**
-   * Handles updates to visualization settings
-   */
-  function handleLimitUpdate() {
-    fetchEvents();
-  }
 
   // Fetch events when component mounts
   onMount(() => {
@@ -127,44 +118,8 @@
 <div class="leather w-full p-4 relative">
   <!-- Header with title and settings button -->
   <div class="flex items-center mb-4">
-    <h1 class="h-leather text-2xl font-bold">Publication Network</h1>
-    
-    <!-- Settings Button -->
-    {#if !loading && !error}
-      <Button
-        class="btn-leather z-10 rounded-lg min-w-[120px] ml-3"
-        on:click={() => (showSettings = !showSettings)}
-      >
-        <CogSolid class="mr-2 h-5 w-5" />
-        Settings
-      </Button>
-    {/if}
+    <h1 class="h-leather">Publication Network</h1>
   </div>
-
-  <!-- Settings Panel (shown when settings button is clicked) -->
-  {#if !loading && !error && showSettings}
-    <div
-      class="absolute left-0 top-14 h-auto w-80 bg-white dark:bg-gray-800 p-4 shadow-lg z-10
-             overflow-y-auto max-h-[calc(100vh-96px)] rounded-lg border
-             border-gray-200 dark:border-gray-700"
-      transition:fly={{ duration: 300, y: -10, opacity: 1, easing: quintOut }}
-    >
-      <div class="card space-y-4">
-        <h2 class="text-xl font-bold mb-4 h-leather">
-          Visualization Settings
-        </h2>
-
-        <div class="space-y-4">
-          <span class="text-sm text-gray-600 dark:text-gray-400">
-            Showing {events.length} events from {$networkFetchLimit} headers
-          </span>
-          <EventLimitControl on:update={handleLimitUpdate} />
-          <EventRenderLevelLimit on:update={handleLimitUpdate} />
-        </div>
-      </div>
-    </div>
-  {/if}
-  
   <!-- Loading spinner -->
   {#if loading}
     <div class="flex justify-center items-center h-64">
@@ -206,9 +161,7 @@
     </div>
   <!-- Network visualization -->
   {:else}
-    <div class="relative">
-      <!-- Event network visualization -->
-      <EventNetwork {events} />
-    </div>
+    <!-- Event network visualization -->
+    <EventNetwork {events} onupdate={fetchEvents} />
   {/if}
 </div>

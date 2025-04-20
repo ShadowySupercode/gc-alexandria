@@ -206,8 +206,9 @@
 @layer components {
   /* Legend */
   .leather-legend {
-    @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
-           border border-gray-200 dark:border-gray-800;
+    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
+    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
   
   /* Tooltip */
@@ -219,8 +220,7 @@
     z-index: 1000;
   }
   
-  /* Heading for leather components */
-  h3.h-leather {
-    @apply text-gray-800 dark:text-gray-200 text-lg font-bold mb-2;
+  .leather-legend button {
+    @apply dark:text-white;
   }
 }

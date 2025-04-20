@@ -21,6 +21,8 @@
   import Legend from "./Legend.svelte";
   import NodeTooltip from "./NodeTooltip.svelte";
   import type { NetworkNode, NetworkLink } from "./types";
+  import Settings from "./Settings.svelte";
+  import {Button} from 'flowbite-svelte';
   
   // Type alias for D3 selections
   type Selection = any;
@@ -43,7 +45,7 @@
   }
   
   // Component props
-  let { events = [] } = $props<{ events?: NDKEvent[] }>();
+  let { events = [], onupdate } = $props<{ events?: NDKEvent[], onupdate: () => void }>();
 
   // Error state
   let errorMessage = $state<string | null>(null);
@@ -498,6 +500,17 @@
       );
     }
   }
+
+  /**
+   * Legend interactions
+  */
+  let graphInteracted = $state(false);
+
+  function handleGraphClick() {
+    if (!graphInteracted) {
+      graphInteracted = true;
+    }
+  }
 </script>
 
 <div class="network-container">
@@ -514,15 +527,23 @@
     </div>
   {/if}
 
-  <div class="network-svg-container" bind:this={container}>
+  <div class="network-svg-container" bind:this={container} role="figure">
+    <Legend collapsedOnInteraction={graphInteracted} className='' />
+
+  <!-- Settings Panel (shown when settings button is clicked) -->
+    <Settings count={events.length} onupdate={onupdate} />
+
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <svg
       bind:this={svg}
       class="network-svg"
+      onclick={handleGraphClick}
     />
     
     <!-- Zoom controls -->
     <div class="network-controls">
-      <button 
+      <Button outline size="lg"
         class="network-control-button btn-leather rounded-lg p-2" 
         onclick={zoomIn}
         aria-label="Zoom in"
@@ -533,8 +554,8 @@
           <line x1="11" y1="8" x2="11" y2="14"></line>
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
-      </button>
-      <button 
+      </Button>
+      <Button outline size="lg"
         class="network-control-button btn-leather rounded-lg p-2" 
         onclick={zoomOut}
         aria-label="Zoom out"
@@ -544,8 +565,8 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
-      </button>
-      <button 
+      </Button>
+      <Button outline size="lg"
         class="network-control-button btn-leather rounded-lg p-2" 
         onclick={centerGraph}
         aria-label="Center graph"
@@ -554,7 +575,7 @@
           <circle cx="12" cy="12" r="10"></circle>
           <circle cx="12" cy="12" r="3"></circle>
         </svg>
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -568,5 +589,4 @@
     />
   {/if}
 
-  <Legend />
 </div>
