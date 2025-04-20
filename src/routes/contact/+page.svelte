@@ -1,13 +1,14 @@
 <script lang='ts'>
-  import { Heading, P, A, Button, Label, Textarea, Input, Tabs, TabItem, Modal } from 'flowbite-svelte';
-  import { ndkSignedIn, ndkInstance, activePubkey } from '$lib/ndk';
+  import { Heading, P, A, Button, Label, Textarea, Input, Modal } from 'flowbite-svelte';
+  import { ndkSignedIn, ndkInstance } from '$lib/ndk';
   import { standardRelays } from '$lib/consts';
-  import { onMount } from 'svelte';
-  import NDK, { NDKEvent, NDKRelay, NDKRelaySet } from '@nostr-dev-kit/ndk';
+  import type NDK from '@nostr-dev-kit/ndk';
+  import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from '$lib/components/LoginModal.svelte';
-  import { parseMarkdown } from '$lib/utils/markdownParser';
+  import { parseAdvancedMarkdown } from '$lib/utils/advancedMarkdownParser';
   import { nip19 } from 'nostr-tools';
+  import { getMimeTags } from '$lib/utils/mime';
   
   // Function to close the success message
   function closeSuccessMessage() {
@@ -46,7 +47,7 @@
   const repoAddress = 'naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr';
   
   // Hard-coded relays to ensure we have working relays
-  const hardcodedRelays = [
+  const allRelays = [
     'wss://relay.damus.io',
     'wss://relay.nostr.band',
     'wss://nos.lol',
@@ -57,11 +58,6 @@
   // These values are extracted from the naddr
   const repoOwnerPubkey = 'fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1';
   const repoId = 'Alexandria';
-  
-  onMount(() => {
-    console.log('Repository owner pubkey:', repoOwnerPubkey);
-    console.log('Repository ID:', repoId);
-  });
   
   // Function to normalize relay URLs by removing trailing slashes
   function normalizeRelayUrl(url: string): string {
@@ -107,14 +103,75 @@
     showConfirmDialog = false;
   }
   
+  /**
+   * Publish event to relays with retry logic
+   */
+  async function publishToRelays(
+    event: NDKEvent,
+    ndk: NDK,
+    relays: Set<string>,
+    maxRetries: number = 3,
+    timeout: number = 10000
+  ): Promise<string[]> {
+    const successfulRelays: string[] = [];
+    const relaySet = NDKRelaySet.fromRelayUrls(Array.from(relays), ndk);
+    
+    // Set up listeners for successful publishes
+    const publishPromises = Array.from(relays).map(relayUrl => {
+      return new Promise<void>(resolve => {
+        const relay = ndk.pool?.getRelay(relayUrl);
+        if (relay) {
+          relay.on('published', (publishedEvent: NDKEvent) => {
+            if (publishedEvent.id === event.id) {
+              successfulRelays.push(relayUrl);
+              resolve();
+            }
+          });
+        } else {
+          resolve(); // Resolve if relay not available
+        }
+      });
+    });
+
+    // Try publishing with retries
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Start publishing with timeout
+        const publishPromise = event.publish(relaySet);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Publish timeout')), timeout);
+        });
+
+        await Promise.race([
+          publishPromise,
+          Promise.allSettled(publishPromises),
+          timeoutPromise
+        ]);
+        
+        if (successfulRelays.length > 0) {
+          break; // Exit retry loop if we have successful publishes
+        }
+        
+        if (attempt < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      } catch (error) {
+        if (attempt === maxRetries && successfulRelays.length === 0) {
+          throw new Error('Failed to publish to any relays after multiple attempts');
+        }
+      }
+    }
+
+    return successfulRelays;
+  }
+
   async function submitIssue() {
     isSubmitting = true;
     submissionError = '';
     submissionSuccess = false;
     
     try {
-      console.log('Starting issue submission...');
-      
       // Get NDK instance
       const ndk = $ndkInstance;
       if (!ndk) {
@@ -125,109 +182,21 @@
         throw new Error('No signer available. Make sure you are logged in.');
       }
       
-      console.log('NDK instance available with signer');
-      console.log('Active pubkey:', $activePubkey);
-      
-      // Log the repository reference values
-      console.log('Using repository reference values:', { repoOwnerPubkey, repoId });
-      
-      // Create a new NDK event
-      const event = new NDKEvent(ndk);
-      event.kind = 1621; // issue_kind
-      event.tags.push(['subject', subject]);
-      event.tags.push(['alt', `git repository issue: ${subject}`]);
-      
-      // Add repository reference with proper format
-      const aTagValue = `30617:${repoOwnerPubkey}:${repoId}`;
-      console.log('Adding a tag with value:', aTagValue);
-      event.tags.push([
-        'a',
-        aTagValue,
-        '',
-        'root'
-      ]);
-      
-      // Add repository owner as p tag with proper value
-      console.log('Adding p tag with value:', repoOwnerPubkey);
-      event.tags.push(['p', repoOwnerPubkey]);
-      
-      // Set content
-      event.content = content;
-      
-      console.log('Created NDK event:', event);
-      
-      // Sign the event
-      console.log('Signing event...');
-      try {
-        await event.sign();
-        console.log('Event signed successfully');
-      } catch (error) {
-        console.error('Failed to sign event:', error);
-        throw new Error('Failed to sign event');
-      }
+      // Create and prepare the event
+      const event = await createIssueEvent(ndk);
       
       // Collect all unique relays
       const uniqueRelays = new Set([
-        ...hardcodedRelays.map(normalizeRelayUrl),
-        ...standardRelays.map(normalizeRelayUrl),
+        ...allRelays.map(normalizeRelayUrl),
         ...(ndk.pool ? Array.from(ndk.pool.relays.values())
           .filter(relay => relay.url && !relay.url.includes('wss://nos.lol'))
           .map(relay => normalizeRelayUrl(relay.url)) : [])
       ]);
-      
-      console.log('Publishing to relays:', Array.from(uniqueRelays));
-      
+
       try {
-        // Create NDK relay set
-        const relaySet = NDKRelaySet.fromRelayUrls(Array.from(uniqueRelays), ndk);
+        // Publish to relays with retry logic
+        successfulRelays = await publishToRelays(event, ndk, uniqueRelays);
         
-        // Track successful relays
-        successfulRelays = [];
-        
-        // Set up listeners for successful publishes
-        const publishPromises = Array.from(uniqueRelays).map(relayUrl => {
-          return new Promise<void>(resolve => {
-            const relay = ndk.pool?.getRelay(relayUrl);
-            if (relay) {
-              relay.on('published', (publishedEvent: NDKEvent) => {
-                if (publishedEvent.id === event.id) {
-                  console.log(`Event published to relay: ${relayUrl}`);
-                  successfulRelays = [...successfulRelays, relayUrl];
-                  resolve();
-                }
-              });
-            } else {
-              resolve(); // Resolve if relay not available
-            }
-          });
-        });
-
-        // Start publishing with timeout
-        const publishPromise = event.publish(relaySet);
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Publish timeout')), 10000);
-        });
-
-        try {
-          await Promise.race([
-            publishPromise,
-            Promise.allSettled(publishPromises),
-            timeoutPromise
-          ]);
-          
-          console.log('Event published successfully to', successfulRelays.length, 'relays');
-          
-          if (successfulRelays.length === 0) {
-            console.warn('Event published but no relay confirmations received');
-          }
-        } catch (error) {
-          if (successfulRelays.length > 0) {
-            console.warn('Partial publish success:', error);
-          } else {
-            throw new Error('Failed to publish to any relays');
-          }
-        }
-
         // Store the submitted event and create issue link
         submittedEvent = event;
         
@@ -235,20 +204,55 @@
         const noteId = nip19.noteEncode(event.id);
         issueLink = `https://gitcitadel.com/r/${repoAddress}/issues/${noteId}`;
         
-        // Reset form and show success message
-        subject = '';
-        content = '';
+        // Clear form and show success message
+        clearForm();
         submissionSuccess = true;
       } catch (error) {
-        console.error('Failed to publish event:', error);
         throw new Error('Failed to publish event');
       }
     } catch (error: any) {
-      console.error('Error submitting issue:', error);
       submissionError = `Error submitting issue: ${error.message || 'Unknown error'}`;
     } finally {
       isSubmitting = false;
     }
+  }
+  
+  /**
+   * Create and sign a new issue event
+   */
+  async function createIssueEvent(ndk: NDK): Promise<NDKEvent> {
+    const event = new NDKEvent(ndk);
+    event.kind = 1621; // issue_kind
+    event.tags.push(['subject', subject]);
+    event.tags.push(['alt', `git repository issue: ${subject}`]);
+    
+    // Add repository reference with proper format
+    const aTagValue = `30617:${repoOwnerPubkey}:${repoId}`;
+    event.tags.push([
+      'a',
+      aTagValue,
+      '',
+      'root'
+    ]);
+    
+    // Add repository owner as p tag with proper value
+    event.tags.push(['p', repoOwnerPubkey]);
+
+    // Add MIME tags
+    const mimeTags = getMimeTags(1621);
+    event.tags.push(...mimeTags);
+    
+    // Set content
+    event.content = content;
+    
+    // Sign the event
+    try {
+      await event.sign();
+    } catch (error) {
+      throw new Error('Failed to sign event');
+    }
+
+    return event;
   }
   
   // Handle login completion
@@ -290,7 +294,7 @@
       
       <div class="relative">
         <Label for="content" class="mb-2">Description</Label>
-        <div class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded ? 'h-[1200px]' : 'h-[300px]'} transition-all duration-200">
+        <div class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded ? 'h-[800px]' : 'h-[200px]'} transition-all duration-200 sm:w-[95vw] md:w-full">
           <div class="h-full flex flex-col">
             <div class="border-b border-gray-300 dark:border-gray-600">
               <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
@@ -327,13 +331,15 @@
                     required 
                     placeholder="Describe your issue in detail...
 
-Markdown formatting is supported:
+The following Markdown is supported:
 
 # Headers (1-6 levels)
 
-**Bold** or *Bold*
+*Bold* or **bold**
 
-_Italic_ text
+_Italic_ or __italic__ text
+
+~Strikethrough~ or ~~strikethrough~~ text
 
 > Blockquotes
 
@@ -343,11 +349,14 @@ Lists, including nested:
 
 [Links](url)
 ![Images](url)
+
 `Inline code`
+
 ```language
 Code blocks with syntax highlighting for over 100 languages
 ```
-| Tables | With |
+
+| Tables | With or without headers |
 |--------|------|
 | Multiple | Rows |
 
@@ -358,13 +367,15 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
                 </div>
               {:else}
                 <div class="absolute inset-0 p-4 prose dark:prose-invert max-w-none bg-white dark:bg-gray-800 prose-content">
-                  {#await parseMarkdown(content)}
-                    <p>Loading preview...</p>
-                  {:then html}
-                    {@html html}
-                  {:catch error}
-                    <p class="text-red-500">Error rendering markdown: {error.message}</p>
-                  {/await}
+                  {#key content}
+                    {#await parseAdvancedMarkdown(content)}
+                      <p>Loading preview...</p>
+                    {:then html}
+                      {@html html || '<p class="text-gray-500">Nothing to preview</p>'}
+                    {:catch error}
+                      <p class="text-red-500">Error rendering preview: {error.message}</p>
+                    {/await}
+                  {/key}
                 </div>
               {/if}
             </div>
@@ -421,8 +432,8 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
             </div>
             <div>
               <span class="font-semibold">Description:</span>
-              <div class="mt-1 note-leather">
-                {#await parseMarkdown(submittedEvent.content)}
+              <div class="mt-1 note-leather max-h-[400px] overflow-y-auto">
+                {#await parseAdvancedMarkdown(submittedEvent.content)}
                   <p>Loading...</p>
                 {:then html}
                   {@html html}

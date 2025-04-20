@@ -3,7 +3,9 @@ This is a test
 
 ### Disclaimer
 
-It is _only_ a test. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
+It is _only_ a test, for __sure__. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
+
+This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
 
 npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
 
@@ -40,6 +42,9 @@ Let's nest that:
 3. third
    4. fourth indented
       5. fifth indented even more
+   6. sixth under the fourth
+   7. seventh under the sixth
+8. eighth under the third
 
 This is ordered and unordered mixed:
 1. first
@@ -67,7 +72,7 @@ nostr:naddr1qvzqqqr4gupzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqydh
 
 This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 
-You can even include `code inline` or
+You can even include `code inline`, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
 
 ```
 in a code block
@@ -130,7 +135,6 @@ package main
        input := scanner.Text()
        fmt.Println("You entered:", input)
    }
-
 ```
 
 or even Markdown:
@@ -144,7 +148,7 @@ Paragraphs are separated by a blank line.
 2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists
 look like:
 
-  * this one
+  * this one[^some reference text]
   * that one
   * the other one
 
@@ -164,7 +168,7 @@ content starts at 4-columns in.
 
 ### I went ahead and implemented tables, too.
 
-A neat table:
+A neat table[^some reference text]:
 
 | Syntax      | Description |
 | ----------- | ----------- |
@@ -178,5 +182,12 @@ A messy table (should render the same as above):
 | Header | Title |
 | Paragraph | Text |
 
+Here is a table without a header row:
+
+| Sometimes | you don't |
+| need a | header |
+| just | pipes |
+
 [^1]: this is a footnote
 [^2]: so is this
+[^some reference text]: this is a footnote that isn't a number
