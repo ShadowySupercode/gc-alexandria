@@ -6,7 +6,6 @@ const ITALIC_REGEX = /\b(_[^_\n]+_|\b__[^_\n]+__)\b/g;
 const STRIKETHROUGH_REGEX = /~~([^~\n]+)~~|~([^~\n]+)~/g;
 const HASHTAG_REGEX = /(?<![^\s])#([a-zA-Z0-9_]+)(?!\w)/g;
 const BLOCKQUOTE_REGEX = /^([ \t]*>[ \t]?.*)(?:\n\1[ \t]*(?!>).*)*$/gm;
-const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
 
 interface ListItem {
   type: 'ul' | 'ol';
@@ -77,10 +76,7 @@ function processBasicFormatting(content: string): string {
     
     // Finally process hashtags - style them with a lighter color
     content = content.replace(HASHTAG_REGEX, '<span class="text-gray-500 dark:text-gray-400">#$1</span>');
-    
-    // Process inline code
-    content = content.replace(INLINE_CODE_REGEX, '<code class="bg-gray-200 dark:bg-gray-800/80 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700">$1</code>');
-    
+     
     return content;
   } catch (error) {
     console.error('Error in processBasicFormatting:', error);
