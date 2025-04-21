@@ -19,7 +19,6 @@
     "@popperjs/core": "2.11.x",
     "@tailwindcss/forms": "0.5.x",
     "@tailwindcss/typography": "0.5.x",
-    "@types/highlight.js": "^11.11.1",
     "asciidoctor": "3.0.x",
     "d3": "^7.9.0",
     "he": "1.2.x",
