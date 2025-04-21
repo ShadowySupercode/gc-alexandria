@@ -207,7 +207,7 @@
 {#snippet coverImage(rootId: string, index: number, depth: number)}
   {#if hasCoverImage(rootId, index)}
     <div class="coverImage depth-{depth}">
-      <img src={hasCoverImage(rootId, index)} >
+      <img src={hasCoverImage(rootId, index)} alt={title} />
     </div>
   {/if}
 {/snippet}

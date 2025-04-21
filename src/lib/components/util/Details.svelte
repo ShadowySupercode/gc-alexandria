@@ -20,7 +20,7 @@
 <div class="flex flex-row md:space-x-4 max-sm:flex-wrap">
   {#if image}
     <div class="flex col">
-      <img class="md:max-w-48 max-sm:w-full object-cover" src={image} />
+      <img class="md:max-w-48 max-sm:w-full object-cover" alt={title} src={image} />
     </div>
   {/if}
   <div class="flex flex-col col space-y-5  justify-center  align-middle">
