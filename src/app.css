@@ -190,6 +190,8 @@
   .ul-leather li a {
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
+  
+  /* Network visualization */
   .network-link-leather {
     @apply stroke-gray-400 fill-gray-400;
   }
@@ -202,11 +204,23 @@
 }
 
 @layer components {
+  /* Legend */
   .leather-legend {
-    @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
-           border border-gray-200 dark:border-gray-800;
+    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
+    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
+  
+  /* Tooltip */
   .tooltip-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
+    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 
+           text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 
+           transition-colors duration-200;
+    max-width: 400px;
+    z-index: 1000;
+  }
+  
+  .leather-legend button {
+    @apply dark:text-white;
   }
 }
