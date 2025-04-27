@@ -1,20 +1,33 @@
+<!--
+  NodeTooltip Component
+  
+  Displays detailed information about a node when hovering or clicking on it
+  in the event network visualization.
+-->
 <script lang="ts">
   import type { NetworkNode } from "./types";
-  import { onMount, createEventDispatcher } from "svelte";
+  import { onMount } from "svelte";
   
-  let { node, selected = false, x, y } = $props<{
-    node: NetworkNode;
-    selected?: boolean;
-    x: number;
-    y: number;
+  // Component props
+  let { node, selected = false, x, y, onclose } = $props<{
+    node: NetworkNode;       // The node to display information for
+    selected?: boolean;      // Whether the node is selected (clicked)
+    x: number;               // X position for the tooltip
+    y: number;               // Y position for the tooltip
+    onclose: () => void;     // Function to call when closing the tooltip
   }>();
   
-  const dispatch = createEventDispatcher();
-  
+  // DOM reference and positioning
   let tooltipElement: HTMLDivElement;
-  let tooltipX = $state(x + 10);
+  let tooltipX = $state(x + 10); // Add offset to avoid cursor overlap
   let tooltipY = $state(y - 10);
   
+  // Maximum content length to display
+  const MAX_CONTENT_LENGTH = 200;
+  
+  /**
+   * Gets the author name from the event tags
+   */
   function getAuthorTag(node: NetworkNode): string {
     if (node.event) {
       const authorTags = node.event.getMatchingTags("author");
@@ -25,6 +38,9 @@
     return "Unknown";
   }
   
+  /**
+   * Gets the summary from the event tags
+   */
   function getSummaryTag(node: NetworkNode): string | null {
     if (node.event) {
       const summaryTags = node.event.getMatchingTags("summary");
@@ -35,6 +51,9 @@
     return null;
   }
   
+  /**
+   * Gets the d-tag from the event
+   */
   function getDTag(node: NetworkNode): string {
     if (node.event) {
       const dTags = node.event.getMatchingTags("d");
@@ -45,40 +64,47 @@
     return "View Publication";
   }
   
-  function truncateContent(content: string, maxLength: number = 200): string {
+  /**
+   * Truncates content to a maximum length
+   */
+  function truncateContent(content: string, maxLength: number = MAX_CONTENT_LENGTH): string {
+    if (!content) return "";
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + "...";
   }
   
+  /**
+   * Closes the tooltip
+   */
   function closeTooltip() {
-    dispatch('close');
+    onclose();
   }
   
-  // Ensure tooltip is fully visible on screen
+  /**
+   * Ensures tooltip is fully visible on screen
+   */
   onMount(() => {
     if (tooltipElement) {
       const rect = tooltipElement.getBoundingClientRect();
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
+      const padding = 10; // Padding from window edges
       
-      // Check if tooltip goes off the right edge
+      // Adjust position if tooltip goes off screen
       if (rect.right > windowWidth) {
-        tooltipX = windowWidth - rect.width - 10;
+        tooltipX = windowWidth - rect.width - padding;
       }
       
-      // Check if tooltip goes off the bottom edge
       if (rect.bottom > windowHeight) {
-        tooltipY = windowHeight - rect.height - 10;
+        tooltipY = windowHeight - rect.height - padding;
       }
       
-      // Check if tooltip goes off the left edge
       if (rect.left < 0) {
-        tooltipX = 10;
+        tooltipX = padding;
       }
       
-      // Check if tooltip goes off the top edge
       if (rect.top < 0) {
-        tooltipY = 10;
+        tooltipY = padding;
       }
     }
   });
@@ -86,12 +112,12 @@
 
 <div
   bind:this={tooltipElement}
-  class="tooltip-leather fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-800
-         border border-gray-200 dark:border-gray-800 transition-colors duration-200"
-  style="left: {tooltipX}px; top: {tooltipY}px; z-index: 1000; max-width: 400px;"
+  class="tooltip-leather"
+  style="left: {tooltipX}px; top: {tooltipY}px;"
 >
+  <!-- Close button -->
   <button 
-    class="absolute top-2 left-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+    class="tooltip-close-btn"
     onclick={closeTooltip}
     aria-label="Close"
   >
@@ -99,34 +125,46 @@
       <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
     </svg>
   </button>
-  <div class="space-y-2 pl-6">
-    <div class="font-bold text-base">
-      <a href="/publication?id={node.id}" class="text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500">
-        {node.title}
+  
+  <!-- Tooltip content -->
+  <div class="tooltip-content">
+    <!-- Title with link -->
+    <div class="tooltip-title">
+      <a 
+        href="/publication?id={node.id}" 
+        class="tooltip-title-link"
+      >
+        {node.title || "Untitled"}
       </a>
     </div>
-    <div class="text-gray-600 dark:text-gray-400 text-sm">
-      {node.type} ({node.kind})
+    
+    <!-- Node type and kind -->
+    <div class="tooltip-metadata">
+      {node.type} (kind: {node.kind})
     </div>
-    <div class="text-gray-600 dark:text-gray-400 text-sm">
+    
+    <!-- Author -->
+    <div class="tooltip-metadata">
       Author: {getAuthorTag(node)}
     </div>
 
+    <!-- Summary (for index nodes) -->
     {#if node.isContainer && getSummaryTag(node)}
-      <div class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
-        <span class="font-semibold">Summary:</span> {truncateContent(getSummaryTag(node) || "", 200)}
+      <div class="tooltip-summary">
+        <span class="font-semibold">Summary:</span> {truncateContent(getSummaryTag(node) || "")}
       </div>
     {/if}
 
+    <!-- Content preview -->
     {#if node.content}
-      <div
-        class="mt-2 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40"
-      >
+      <div class="tooltip-content-preview">
         {truncateContent(node.content)}
       </div>
     {/if}
+    
+    <!-- Help text for selected nodes -->
     {#if selected}
-      <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+      <div class="tooltip-help-text">
         Click node again to dismiss
       </div>
     {/if}
