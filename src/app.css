@@ -186,11 +186,6 @@
     @apply bg-gray-200 dark:bg-gray-700;
   }
   
-  /* Unordered list */
-  .ul-leather li a {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
-  }
-  
   /* Network visualization */
   .network-link-leather {
     @apply stroke-gray-400 fill-gray-400;
@@ -200,6 +195,43 @@
   }
   .network-node-content {
     @apply fill-[#d6c1a8];
+  }
+}
+
+/* Utilities can be applied via the @apply directive. */
+@layer utilities {
+  .h-leather {
+    @apply text-gray-800 dark:text-gray-300 pt-4;
+  }
+
+  .h1-leather {
+    @apply text-4xl font-bold;
+  }
+
+  .h2-leather {
+    @apply text-3xl font-bold;
+  }
+
+  .h3-leather {
+    @apply text-2xl font-bold;
+  }
+
+  .h4-leather {
+    @apply text-xl font-bold;
+  }
+
+  .h5-leather {
+    @apply text-lg font-semibold;
+  }
+
+  .h6-leather {
+    @apply text-base font-semibold;
+  }
+
+  /* Lists */
+  .ol-leather li a,
+  .ul-leather li a {
+    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
 }
 
@@ -222,5 +254,70 @@
   
   .leather-legend button {
     @apply dark:text-white;
+  }
+
+  /* Rendered publication content */
+  .publication-leather {
+    @apply flex flex-col space-y-4;
+
+    h1, h2, h3, h4, h5, h6 {
+      @apply h-leather;
+    }
+
+    h1 {
+      @apply h1-leather;
+    }
+
+    h2 {
+      @apply h2-leather;
+    }
+
+    h3 {
+      @apply h3-leather;
+    }
+
+    h4 {
+      @apply h4-leather;
+    }
+
+    h5 {
+      @apply h5-leather;
+    }
+
+    h6 {
+      @apply h6-leather;
+    }
+
+    div {
+      @apply flex flex-col space-y-4;
+    }
+
+    .olist {
+      @apply flex flex-col space-y-4;
+
+      ol {
+        @apply ol-leather list-decimal px-6 flex flex-col space-y-2;
+
+        li {
+          .paragraph {
+            @apply py-2;
+          }
+        }
+      }
+    }
+
+    .ulist {
+      @apply flex flex-col space-y-4;
+
+      ul {
+        @apply ul-leather list-disc px-6 flex flex-col space-y-2;
+
+        li {
+          .paragraph {
+            @apply py-2;
+          }
+        }
+      }
+    }
   }
 }

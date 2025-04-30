@@ -14,13 +14,7 @@
 {/snippet}
 
 {#snippet contentParagraph(content: string, publicationType: string, isSectionStart: boolean)}
-  {#if publicationType === 'novel'}
-    <P class='whitespace-normal' firstupper={isSectionStart}>
-      {@html content}
-    </P>
-  {:else}
-    <P class='whitespace-normal' firstupper={false}>
-      {@html content}
-    </P>
-  {/if}
+  <section class='whitespace-normal publication-leather'>
+    {@html content}
+  </section>
 {/snippet}
