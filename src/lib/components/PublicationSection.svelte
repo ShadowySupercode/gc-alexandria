@@ -42,7 +42,6 @@
     return leaves[index - 1];
   });
   let previousLeafHierarchy: Promise<NDKEvent[] | null> = $derived.by(async () => {
-    console.debug('Finding previous leaf hierarchy for ', address);
     if (!previousLeafEvent) {
       return null;
     }
@@ -50,7 +49,6 @@
   });
 
   let divergingBranches = $derived.by(async () => {
-    console.debug('Finding diverging branches for ', address);
     let [leafHierarchyValue, previousLeafHierarchyValue] = await Promise.all([leafHierarchy, previousLeafHierarchy]);
     
     const branches: [NDKEvent, number][] = [];
