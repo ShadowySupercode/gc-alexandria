@@ -155,7 +155,7 @@
 
 
 {#if showTocButton && !showToc}
-  <Button
+  <!-- <Button
     class="btn-leather fixed top-20 left-4 h-6 w-6"
     outline={true}
     on:click={(ev) => {
@@ -165,7 +165,7 @@
   >
     <BookOutline />
   </Button>
-  <Tooltip>Show Table of Contents</Tooltip>
+  <Tooltip>Show Table of Contents</Tooltip> -->
 {/if}
 <!-- TODO: Use loader to build ToC. -->
 <!-- {#if showToc}
