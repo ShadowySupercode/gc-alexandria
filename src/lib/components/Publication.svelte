@@ -10,8 +10,6 @@
     Tooltip,
   } from "flowbite-svelte";
   import { getContext, onMount } from "svelte";
-  import { BookOutline } from "flowbite-svelte-icons";
-  import { page } from "$app/state";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
@@ -107,41 +105,9 @@
     }
   }
 
-  /**
-   * Hides the table of contents sidebar when the window shrinks below a certain size.  This
-   * prevents the sidebar from occluding the article content.
-   */
-  function setTocVisibilityOnResize() {
-    showToc = window.innerWidth >= tocBreakpoint;
-    showTocButton = window.innerWidth < tocBreakpoint;
-  }
-
-  /**
-   * Hides the table of contents sidebar when the user clicks outside of it.
-   */
-  function hideTocOnClick(ev: MouseEvent) {
-    const target = ev.target as HTMLElement;
-
-    if (target.closest(".sidebar-leather") || target.closest(".btn-leather")) {
-      return;
-    }
-
-    if (showToc) {
-      showToc = false;
-    }
-  }
-
   // #endregion
 
   onMount(() => {
-    // Always check whether the TOC sidebar should be visible.
-    setTocVisibilityOnResize();
-    window.addEventListener("hashchange", scrollToElementWithOffset);
-    // Also handle the case where the user lands on the page with a hash in the URL
-    scrollToElementWithOffset();
-    window.addEventListener("resize", setTocVisibilityOnResize);
-    window.addEventListener("click", hideTocOnClick);
-
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -153,13 +119,10 @@
     loadMore(8);
 
     return () => {
-      window.removeEventListener("hashchange", scrollToElementWithOffset);
-      window.removeEventListener("resize", setTocVisibilityOnResize);
-      window.removeEventListener("click", hideTocOnClick);
-
       observer.disconnect();
     };
   });
+
 </script>
 
 {#if $publicationColumnVisibility.details}
@@ -170,37 +133,6 @@
   </div>
 {/if}
 
-
-{#if showTocButton && !showToc}
-  <!-- <Button
-    class="btn-leather fixed top-20 left-4 h-6 w-6"
-    outline={true}
-    on:click={(ev) => {
-      showToc = true;
-      ev.stopPropagation();
-    }}
-  >
-    <BookOutline />
-  </Button>
-  <Tooltip>Show Table of Contents</Tooltip> -->
-{/if}
-<!-- TODO: Use loader to build ToC. -->
-<!-- {#if showToc}
-  <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
-    <SidebarWrapper>
-      <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
-        {#each events as event}
-          <SidebarItem
-            class='sidebar-item-leather'
-            label={event.getMatchingTags('title')[0][1]}
-            href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
-          />
-        {/each}
-      </SidebarGroup>
-    </SidebarWrapper>
-  </Sidebar>
-{/if} -->
-
 {#if isDefaultVisible()}
   <div class="flex flex-col space-y-4 overflow-auto
           {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
@@ -209,7 +141,6 @@
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mx-2 mb-4 rounded-lg border">
       <Details event={indexEvent} />
     </div>
-<div class="flex flex-col space-y-4 max-w-2xl">
   {#each leaves as leaf, i}
     <PublicationSection
       rootAddress={rootAddress}
@@ -219,7 +150,6 @@
     />
   {/each}
 </div>
-  </div>
 {/if}
 
 {#if currentBlog !== null && $publicationColumnVisibility.inner }
@@ -235,9 +165,3 @@
 
   </div>
 {/if}
-
-<style>
-  :global(.sidebar-group-leather) {
-    max-height: calc(100vh - 8rem);
-  }
-</style>
