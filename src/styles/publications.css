@@ -53,7 +53,7 @@
         @apply p-3 text-wrap break-words;
     }
 
-    .note-leather .listingblock pre {
+    .publication-leather .listingblock pre {
         @apply overflow-x-auto;
     }
 
@@ -62,24 +62,24 @@
         @apply space-y-1 list-disc list-inside;
     }
 
-    .note-leather .olist ol {
+    .publication-leather .olist ol {
         @apply space-y-1 list-inside;
     }
 
-    .note-leather ol.arabic {
+    .publication-leather ol.arabic {
         @apply list-decimal;
     }
 
-    .note-leather ol.loweralpha {
+    .publication-leather ol.loweralpha {
         @apply list-lower-alpha;
     }
 
-    .note-leather ol.upperalpha {
+    .publication-leather ol.upperalpha {
         @apply list-upper-alpha;
     }
 
-    .note-leather li ol,
-    .note-leather li ul {
+    .publication-leather li ol,
+    .publication-leather li ul {
         @apply ps-5 my-2;
     }
 
@@ -93,25 +93,25 @@
         @apply my-2 font-thin text-lg;
     }
 
-    .note-leather li p {
+    .publication-leather li p {
         @apply inline;
     }
 
     /* blockquote; prose and poetry quotes */
-    .note-leather .quoteblock,
-    .note-leather .verseblock {
+    .publication-leather .quoteblock,
+    .publication-leather .verseblock {
         @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
     }
 
-    .note-leather .verseblock pre.content {
+    .publication-leather .verseblock pre.content {
         @apply text-base font-sans;
     }
 
-    .note-leather .attribution {
+    .publication-leather .attribution {
         @apply mt-3 italic clear-both;
     }
 
-    .note-leather cite {
+    .publication-leather cite {
         @apply text-sm;
     }
 
@@ -199,19 +199,19 @@
     }
 
     /* listingblock, literalblock */
-    .note-leather .listingblock,
-    .note-leather .literalblock {
+    .publication-leather .listingblock,
+    .publication-leather .literalblock {
         @apply p-4 rounded  bg-highlight dark:bg-primary-700;
     }
 
-    .note-leather .sidebarblock .title,
-    .note-leather .listingblock .title,
-    .note-leather .literalblock .title {
+    .publication-leather .sidebarblock .title,
+    .publication-leather .listingblock .title,
+    .publication-leather .literalblock .title {
         @apply font-semibold mb-1;
     }
 
     /* sidebar */
-    .note-leather .sidebarblock {
+    .publication-leather .sidebarblock {
         @apply p-4 rounded bg-info-100 dark:bg-info-800;
     }
 
