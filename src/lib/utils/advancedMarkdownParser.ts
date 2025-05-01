@@ -2,7 +2,6 @@ import { parseBasicMarkdown } from './basicMarkdownParser';
 import hljs from 'highlight.js';
 import 'highlight.js/lib/common';  // Import common languages
 import 'highlight.js/styles/github-dark.css';  // Dark theme only
-import { processNostrIdentifiers } from './nostrUtils';
 
 // Register common languages
 hljs.configure({
@@ -13,22 +12,9 @@ hljs.configure({
 const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
 const ALTERNATE_HEADING_REGEX = /^([^\n]+)\n(=+|-+)\n/gm;
 const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
-const LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g;
-const IMAGE_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const HORIZONTAL_RULE_REGEX = /^(?:[-*_]\s*){3,}$/gm;
 const FOOTNOTE_REFERENCE_REGEX = /\[\^([^\]]+)\]/g;
 const FOOTNOTE_DEFINITION_REGEX = /^\[\^([^\]]+)\]:\s*(.+)$/gm;
-
-interface Footnote {
-  id: string;
-  text: string;
-  referenceCount: number;
-}
-
-interface FootnoteReference {
-  id: string;
-  count: number;
-}
 
 /**
  * Process headings (both styles)
@@ -121,23 +107,6 @@ function processTables(content: string): string {
     console.error('Error in processTables:', error);
     return content;
   }
-}
-
-/**
- * Process links and images
- */
-function processLinksAndImages(content: string): string {
-  // Process images first to avoid conflicts with links
-  let processedContent = content.replace(IMAGE_REGEX, 
-    '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy">'
-  );
-
-  // Process links
-  processedContent = processedContent.replace(LINK_REGEX,
-    '<a href="$2" class="text-primary-600 hover:underline">$1</a>'
-  );
-
-  return processedContent;
 }
 
 /**
@@ -367,21 +336,18 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
  * Parse markdown text with advanced formatting
  */
 export async function parseAdvancedMarkdown(text: string): Promise<string> {
+  if (!text) return '';
+  
   try {
-    if (!text) return '';
-
     // Step 1: Extract and save code blocks first
     const { text: withoutCode, blocks } = processCodeBlocks(text);
-
-    // Step 2: Process all other markdown
     let processedText = withoutCode;
 
-    // Process block-level elements
+    // Step 2: Process block-level elements
     processedText = processTables(processedText);
     processedText = processBlockquotes(processedText);
     processedText = processHeadings(processedText);
     processedText = processHorizontalRules(processedText);
-    processedText = processLinksAndImages(processedText);
 
     // Process inline elements
     processedText = processedText.replace(INLINE_CODE_REGEX, (_, code) => {
@@ -395,11 +361,10 @@ export async function parseAdvancedMarkdown(text: string): Promise<string> {
       return `<code class="px-1.5 py-0.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-sm font-mono">${escapedCode}</code>`;
     });
 
-    // Process footnotes before basic markdown to prevent unwanted paragraph tags
+    // Process footnotes
     processedText = processFootnotes(processedText);
 
-    // Process async elements
-    processedText = await processNostrIdentifiers(processedText);
+    // Process basic markdown (which will also handle Nostr identifiers)
     processedText = await parseBasicMarkdown(processedText);
 
     // Step 3: Restore code blocks
@@ -408,9 +373,6 @@ export async function parseAdvancedMarkdown(text: string): Promise<string> {
     return processedText;
   } catch (error) {
     console.error('Error in parseAdvancedMarkdown:', error);
-    if (error instanceof Error) {
-      return `<div class="text-red-500">Error processing markdown: ${error.message}</div>`;
-    }
-    return '<div class="text-red-500">An error occurred while processing the markdown</div>';
+    return `<div class="text-red-500">Error processing markdown: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
   }
-} 
+}

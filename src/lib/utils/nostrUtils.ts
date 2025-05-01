@@ -118,6 +118,7 @@ function createNoteLink(identifier: string): string {
  * Process Nostr identifiers in text
  */
 export async function processNostrIdentifiers(content: string): Promise<string> {
+  console.log('Processing Nostr identifiers:', { input: content });
   let processedContent = content;
 
   // Process profiles (npub and nprofile)
