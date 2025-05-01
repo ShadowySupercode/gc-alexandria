@@ -4,6 +4,7 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
   import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
+  import BlogHeader from "./blog/BlogHeader.svelte";
 
   // TODO: Fix move between parents.
 
@@ -92,6 +93,10 @@
       hasNextSibling = !!nextSibling[0];
     }
   });
+
+  function getBlogEvent(index: number) {
+      return blogEntries[index][1];
+  }
 
   function byline(rootId: string, index: number) {
     console.log(rootId, index, blogEntries);
@@ -198,7 +203,7 @@
 {#snippet sectionHeading(title: string, depth: number)}
   {@const headingLevel = Math.min(depth + 1, 6)}
   {@const className = $pharosInstance.isFloatingTitle(rootId) ? 'discrete' : 'h-leather'}
-  
+
   <svelte:element this={`h${headingLevel}`} class={className}>
     {title}
   </svelte:element>
@@ -218,12 +223,6 @@
   </p>
   <p class='h-leather italic text-sm'>
     {publishedAt(rootId, index)}
-  </p>
-{/snippet}
-
-{#snippet readMoreLink(rootId: string, index: number)}
-  <p class='h-leather'>
-    <button class="underline" onclick={() => readBlog(rootId)}>Read all about it...</button>
   </p>
 {/snippet}
 
@@ -294,17 +293,13 @@
           </Button>
         </ButtonGroup>
       {:else}
-        {#if publicationType === 'blog' && depth === 1}
-          {@render coverImage(rootId, index, depth)}
-          {@render sectionHeading(title!, depth)}
-          {@render blogMetadata(rootId, index)}
-          {:else}
+        {#if !(publicationType === 'blog' && depth === 1)}
           {@render sectionHeading(title!, depth)}
         {/if}
       {/if}
       <!-- Recurse on child indices and zettels -->
       {#if publicationType === 'blog' && depth === 1}
-        {@render readMoreLink(rootId, index)}
+        <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} />
       {:else }
         {#key subtreeUpdateCount}
           {#each orderedChildren as id, index}

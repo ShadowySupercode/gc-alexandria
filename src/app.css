@@ -55,11 +55,12 @@
 
   /* Content */
   main {
-    @apply max-w-full flex;
+    @apply max-w-full flex mb-2;
   }
 
-  main.blog {
-    max-height: calc(100vh - 130px);
+  /* To scroll columns independently */
+  main.publication { 
+    /* max-height: calc(100vh - 130px); */
   }
 
   main.main-leather,
@@ -218,4 +219,11 @@
   .tooltip-leather {
     @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
   }
+}
+
+.line-ellipsis {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

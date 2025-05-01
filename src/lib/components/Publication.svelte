@@ -1,8 +1,6 @@
 <script lang="ts">
   import Preview from "./Preview.svelte";
   import { pharosInstance } from "$lib/parser";
-  import { page } from "$app/state";
-  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
@@ -17,7 +15,6 @@
     console.error("Root ID does not match parser root index ID");
   }
 
-  let activeHash = $state(page.url.hash);
 
   let currentBlog: null|string = $state(null);
 
@@ -40,8 +37,10 @@
 </script>
 
 {#if $publicationColumnVisibility.details}
-  <div class="flex flex-col space-y-4 max-w-xl flex-grow-1 p-2 bg-highlight">
-    <Details event={indexEvent} />
+  <div class="flex flex-col space-y-4 max-w-xl min-w-24 sm:min-w-36 sm:flex-grow-1 p-2 overflow-auto">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mx-2 rounded-lg border">
+      <Details event={indexEvent} />
+    </div>
   </div>
 {/if}
 
@@ -50,6 +49,10 @@
           {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
           {currentBlog !== null ? 'discreet' : ''}
   ">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mx-2 mb-4 rounded-lg border">
+      <Details event={indexEvent} />
+    </div>
+
     <Preview {rootId} {publicationType} index={0} onBlogUpdate={loadBlog} />
   </div>
 {/if}
@@ -63,8 +66,8 @@
 {/if}
 
 {#if $publicationColumnVisibility.social }
-  <div class="flex flex-col space-y-4 max-w-xl overflow-auto flex-grow-1 bg-highlight">
-      <p>Social column</p>
+  <div class="flex flex-col space-y-4 max-w-xl overflow-auto flex-grow-1">
+
   </div>
 {/if}
 

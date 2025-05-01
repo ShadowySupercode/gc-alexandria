@@ -51,10 +51,10 @@
 </svelte:head>
 
 {#key data}
-  <ArticleNav publicationType={data.publicationType} rootId={data.parser.getRootIndexId()}  />
+  <ArticleNav publicationType={data.publicationType} rootId={data.parser.getRootIndexId()} indexEvent={data.indexEvent} />
 {/key}
 
-<main class={data.publicationType}>
+<main class="publication {data.publicationType}">
   {#await data.waitable}
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}

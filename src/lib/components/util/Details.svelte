@@ -37,18 +37,18 @@
 </div>
 
 {#if summary}
-  <div class="flex flex-row ">
+  <div class="flex flex-row my-2">
     <p class='text-base text-primary-900 dark:text-highlight'>{summary}</p>
   </div>
 {/if}
 
-<div class="flex flex-row ">
+<div class="flex flex-row my-4">
   <h4 class='text-base font-normal mt-2'>Index author: <InlineProfile pubkey={event.pubkey} /></h4>
 </div>
 
 <div class="flex flex-col pb-4 space-y-1">
   {#if source !== null}
-    <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank">{source}</a></h5>
+    <h5 class="text-sm">Source: <a class="underline break-all" href={source} target="_blank">{source}</a></h5>
   {/if}
   {#if type !== null}
     <h5 class="text-sm">Publication type: {type}</h5>
