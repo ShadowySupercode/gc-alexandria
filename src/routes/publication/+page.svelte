@@ -1,30 +1,26 @@
 <script lang="ts">
-  import Article from "$lib/components/Publication.svelte";
+  import Publication from "$lib/components/Publication.svelte";
   import { TextPlaceholder } from "flowbite-svelte";
-  import type { PageData } from "./$types";
-  import { onDestroy } from "svelte";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { pharosInstance } from "$lib/parser";
-  import { page } from "$app/stores";
+  import type { PageProps } from "./$types";
+  import { onDestroy, setContext } from "svelte";
+  import { PublicationTree } from "$lib/data_structures/publication_tree";
+  import Processor from "asciidoctor";
 
-  // Extend the PageData type with the properties we need
-  interface ExtendedPageData extends PageData {
-    waitable: Promise<any>;
-    publicationType: string;
-    indexEvent: NDKEvent;
-    parser: any;
-  }
+  let { data }: PageProps = $props();
 
-  let { data } = $props<{ data: ExtendedPageData }>();
+  const publicationTree = new PublicationTree(data.indexEvent, data.ndk);
+
+  setContext('publicationTree', publicationTree);
+  setContext('asciidoctor', Processor());
 
   // Get publication metadata for OpenGraph tags
   let title = $derived(data.indexEvent?.getMatchingTags('title')[0]?.[1] || data.parser?.getIndexTitle(data.parser?.getRootIndexId()) || 'Alexandria Publication');
-  let currentUrl = $page.url.href;
+  let currentUrl = data.url?.href ?? '';
   
   // Get image and summary from the event tags if available
   // If image unavailable, use the Alexandria default pic.
   let image = $derived(data.indexEvent?.getMatchingTags('image')[0]?.[1] || '/screenshots/old_books.jpg');
-  let summary = $derived(data.indexEvent?.getMatchingTags('summary')[0]?.[1] || 'Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.');
+  let summary = $derived(data.indexEvent?.getMatchingTags('summary')[0]?.[1] || 'Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.');  
 
   onDestroy(() => data.parser.reset());
 </script>
@@ -53,10 +49,10 @@
   {#await data.waitable}
     <TextPlaceholder divClass='skeleton-leather w-full' size="xxl" />
   {:then}
-  <Article 
-      rootId={data.parser.getRootIndexId()} 
+    <Publication 
+      rootAddress={data.indexEvent.tagAddress()} 
       publicationType={data.publicationType} 
-      indexEvent={data.indexEvent} 
+      indexEvent={data.indexEvent}
     />
   {/await}
 </main>

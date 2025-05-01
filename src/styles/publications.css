@@ -53,7 +53,7 @@
         @apply p-3 text-wrap break-words;
     }
 
-    .note-leather .listingblock pre {
+    .publication-leather .listingblock pre {
         @apply overflow-x-auto;
     }
 
@@ -62,24 +62,24 @@
         @apply space-y-1 list-disc list-inside;
     }
 
-    .note-leather .olist ol {
+    .publication-leather .olist ol {
         @apply space-y-1 list-inside;
     }
 
-    .note-leather ol.arabic {
+    .publication-leather ol.arabic {
         @apply list-decimal;
     }
 
-    .note-leather ol.loweralpha {
+    .publication-leather ol.loweralpha {
         @apply list-lower-alpha;
     }
 
-    .note-leather ol.upperalpha {
+    .publication-leather ol.upperalpha {
         @apply list-upper-alpha;
     }
 
-    .note-leather li ol,
-    .note-leather li ul {
+    .publication-leather li ol,
+    .publication-leather li ul {
         @apply ps-5 my-2;
     }
 
@@ -93,25 +93,25 @@
         @apply my-2 font-thin text-lg;
     }
 
-    .note-leather li p {
+    .publication-leather li p {
         @apply inline;
     }
 
     /* blockquote; prose and poetry quotes */
-    .note-leather .quoteblock,
-    .note-leather .verseblock {
+    .publication-leather .quoteblock,
+    .publication-leather .verseblock {
         @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
     }
 
-    .note-leather .verseblock pre.content {
+    .publication-leather .verseblock pre.content {
         @apply text-base font-sans;
     }
 
-    .note-leather .attribution {
+    .publication-leather .attribution {
         @apply mt-3 italic clear-both;
     }
 
-    .note-leather cite {
+    .publication-leather cite {
         @apply text-sm;
     }
 
@@ -120,94 +120,98 @@
     }
 
     /* admonition */
-    .note-leather .admonitionblock .title {
+    .publication-leather .admonitionblock .title {
         @apply font-semibold;
     }
 
-    .note-leather .admonitionblock table {
+    .publication-leather .admonitionblock table {
         @apply w-full border-collapse;
     }
 
-    .note-leather .admonitionblock tr {
-        @apply flex flex-col;
+    .publication-leather .admonitionblock tr {
+        @apply flex flex-col border-none;
     }
 
-    .note-leather .admonitionblock p:has(code) {
+    .publication-leather .admonitionblock td {
+        @apply border-none;
+    }
+
+    .publication-leather .admonitionblock p:has(code) {
         @apply my-3;
     }
 
-    .note-leather .admonitionblock {
+    .publication-leather .admonitionblock {
         @apply rounded overflow-hidden border;
     }
 
-    .note-leather .admonitionblock .icon,
-    .note-leather .admonitionblock .content {
+    .publication-leather .admonitionblock .icon,
+    .publication-leather .admonitionblock .content {
         @apply p-4;
     }
 
-    .note-leather .admonitionblock .content {
+    .publication-leather .admonitionblock .content {
         @apply pt-0;
     }
 
-    .note-leather .admonitionblock.tip {
+    .publication-leather .admonitionblock.tip {
         @apply rounded overflow-hidden border border-success-100 dark:border-success-800;
     }
 
-    .note-leather .admonitionblock.tip .icon,
-    .note-leather .admonitionblock.tip .content {
+    .publication-leather .admonitionblock.tip .icon,
+    .publication-leather .admonitionblock.tip .content {
         @apply bg-success-100 dark:bg-success-800;
     }
 
-    .note-leather .admonitionblock.note {
+    .publication-leather .admonitionblock.note {
         @apply rounded overflow-hidden border border-info-100 dark:border-info-700;
     }
 
-    .note-leather .admonitionblock.note .icon,
-    .note-leather .admonitionblock.note .content {
+    .publication-leather .admonitionblock.note .icon,
+    .publication-leather .admonitionblock.note .content {
         @apply bg-info-100 dark:bg-info-800;
     }
 
-    .note-leather .admonitionblock.important {
+    .publication-leather .admonitionblock.important {
         @apply rounded overflow-hidden border border-primary-200 dark:border-primary-700;
     }
 
-    .note-leather .admonitionblock.important .icon,
-    .note-leather .admonitionblock.important .content {
+    .publication-leather .admonitionblock.important .icon,
+    .publication-leather .admonitionblock.important .content {
         @apply bg-primary-200 dark:bg-primary-700;
     }
 
-    .note-leather .admonitionblock.caution {
+    .publication-leather .admonitionblock.caution {
         @apply rounded overflow-hidden border border-warning-200 dark:border-warning-700;
     }
 
-    .note-leather .admonitionblock.caution .icon,
-    .note-leather .admonitionblock.caution .content {
+    .publication-leather .admonitionblock.caution .icon,
+    .publication-leather .admonitionblock.caution .content {
         @apply bg-warning-200 dark:bg-warning-700;
     }
 
-    .note-leather .admonitionblock.warning {
+    .publication-leather .admonitionblock.warning {
         @apply rounded overflow-hidden border border-danger-200 dark:border-danger-800;
     }
 
-    .note-leather .admonitionblock.warning .icon,
-    .note-leather .admonitionblock.warning .content {
+    .publication-leather .admonitionblock.warning .icon,
+    .publication-leather .admonitionblock.warning .content {
         @apply bg-danger-200 dark:bg-danger-800;
     }
 
     /* listingblock, literalblock */
-    .note-leather .listingblock,
-    .note-leather .literalblock {
+    .publication-leather .listingblock,
+    .publication-leather .literalblock {
         @apply p-4 rounded  bg-highlight dark:bg-primary-700;
     }
 
-    .note-leather .sidebarblock .title,
-    .note-leather .listingblock .title,
-    .note-leather .literalblock .title {
+    .publication-leather .sidebarblock .title,
+    .publication-leather .listingblock .title,
+    .publication-leather .literalblock .title {
         @apply font-semibold mb-1;
     }
 
     /* sidebar */
-    .note-leather .sidebarblock {
+    .publication-leather .sidebarblock {
         @apply p-4 rounded bg-info-100 dark:bg-info-800;
     }
 
