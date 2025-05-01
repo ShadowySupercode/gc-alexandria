@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { Load } from '@sveltejs/kit';
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
-import { getActiveRelays } from '$lib/ndk.ts';
+import { getActiveRelays } from '$lib/ndk';
 
 /**
  * Decodes an naddr identifier and returns a filter object
@@ -103,5 +103,6 @@ export const load: Load = async ({ url, parent }: { url: URL; parent: () => Prom
     waitable: fetchPromise,
     publicationType,
     indexEvent,
+    url,
   };
 };
