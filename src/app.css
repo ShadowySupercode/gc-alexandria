@@ -233,6 +233,10 @@
   .ul-leather li a {
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
+
+  .link {
+    @apply underline cursor-pointer hover:text-primary-400 dark:hover:text-primary-500;
+  }
 }
 
 @layer components {
@@ -316,6 +320,36 @@
           .paragraph {
             @apply py-2;
           }
+        }
+      }
+    }
+
+    a {
+      @apply link;
+    }
+
+    .imageblock {
+      @apply flex flex-col items-center;
+
+      .title {
+        @apply text-sm text-center;
+      }
+    }
+
+    .stemblock {
+      @apply bg-gray-100 dark:bg-gray-900 p-4 rounded-lg;
+    }
+
+    table {
+      @apply w-full overflow-x-auto;
+
+      caption {
+        @apply text-sm;
+      }
+
+      thead, tbody {
+        th, td {
+          @apply border border-gray-200 dark:border-gray-700;
         }
       }
     }
