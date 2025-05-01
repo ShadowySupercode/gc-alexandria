@@ -649,7 +649,7 @@ export default class Pharos {
     );
 
     // if a blog, save complete events for later
-    if (event.getMatchingTags("type")[0][1] === 'blog') {
+    if (event.getMatchingTags("type").length > 0 && event.getMatchingTags("type")[0][1] === 'blog') {
       childEvents.forEach(child => {
         if (child) {
           this.blogEntries.set(child?.getMatchingTags("d")?.[0]?.[1], child);
@@ -661,7 +661,7 @@ export default class Pharos {
     if (event.created_at) {
       this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
     }
-    if (event.getMatchingTags('image')) {
+    if (event.getMatchingTags('image').length > 0) {
       this.rootIndexMetadata.coverImage = event.getMatchingTags('image')[0][1];
     }
 
