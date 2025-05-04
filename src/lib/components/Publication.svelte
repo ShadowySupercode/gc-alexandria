@@ -39,7 +39,7 @@
 
     for (let i = 0; i < count; i++) {
       const nextItem = await publicationTree.next();
-      if (leaves.includes(nextItem.value) || nextItem.done) {
+      if (leaves.includes(nextItem.value) || (nextItem.done && nextItem.value === null)) {
         isLoading = false;
         return;
       }

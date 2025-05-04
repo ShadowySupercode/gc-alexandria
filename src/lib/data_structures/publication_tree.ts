@@ -4,7 +4,6 @@ import { Lazy } from "./lazy.ts";
 import { findIndexAsync as _findIndexAsync } from '../utils.ts';
 
 enum PublicationTreeNodeType {
-  Root,
   Branch,
   Leaf,
 }
@@ -50,7 +49,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
     this.#root = {
-      type: PublicationTreeNodeType.Root,
+      type: this.#getNodeType(rootEvent),
       address: rootAddress,
       children: [],
     };
@@ -286,8 +285,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
         continue;
       }
 
-      if (this.#cursor.target?.type === PublicationTreeNodeType.Root) {
+      const isRoot = this.#cursor.target?.address === this.#root.address;
+
+      if (isRoot && this.#cursor.target?.type === PublicationTreeNodeType.Branch) {
         return { done: true, value: null };
+      }
+
+      if (isRoot && this.#cursor.target?.type === PublicationTreeNodeType.Leaf) {
+        return { done: true, value: this.#events.get(this.#cursor.target!.address)! };
       }
     } while (this.#cursor.target?.type !== PublicationTreeNodeType.Leaf);
 
@@ -414,11 +419,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent> {
     return node;
   }
 
-  async #getNodeType(event: NDKEvent): Promise<PublicationTreeNodeType> {
-    if (event.tagAddress() === this.#root.address) {
-      return PublicationTreeNodeType.Root;
-    }
-
+  #getNodeType(event: NDKEvent): PublicationTreeNodeType {
     if (event.kind === 30040 && event.tags.some(tag => tag[0] === 'a')) {
       return PublicationTreeNodeType.Branch;
     }
