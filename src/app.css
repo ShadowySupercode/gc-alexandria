@@ -340,6 +340,12 @@
       @apply bg-gray-100 dark:bg-gray-900 p-4 rounded-lg;
     }
 
+    .literalblock {
+      pre {
+        @apply text-wrap;
+      }
+    }
+
     table {
       @apply w-full overflow-x-auto;
 
