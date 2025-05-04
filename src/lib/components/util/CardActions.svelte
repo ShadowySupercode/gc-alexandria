@@ -10,8 +10,7 @@
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
-    import Details from "./Details.svelte";
+  import Details from "./Details.svelte";
 
   let { event } = $props();
 

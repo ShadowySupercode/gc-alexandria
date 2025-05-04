@@ -9,12 +9,14 @@
     TextPlaceholder,
     Tooltip,
   } from "flowbite-svelte";
+  import { CaretLeftOutline } from 'flowbite-svelte-icons';
   import { getContext, onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
+  import BlogHeader from "$components/blog/BlogHeader.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string,
@@ -83,29 +85,14 @@
     }
     $publicationColumnVisibility.inner = true;
     currentBlog = rootId;
+    // set current blog values for publication render
+    console.log(currentBlog);
   }
 
-  // #region ToC
-
-
-  function scrollToElementWithOffset() {
-    const hash = window.location.hash;
-    if (hash) {
-      const targetElement = document.querySelector(hash);
-      if (targetElement) {
-        const headerOffset = 80;
-        const elementPosition = targetElement.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.scrollY - headerOffset;
-
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: "auto",
-        });
-      }
-    }
+  function backToMain() {
+    $publicationColumnVisibility.blog = true;
+    $publicationColumnVisibility.inner = false;
   }
-
-  // #endregion
 
   onMount(() => {
     // Set up the intersection observer.
@@ -134,28 +121,54 @@
 {/if}
 
 {#if isDefaultVisible()}
-  <div class="flex flex-col space-y-4 overflow-auto
+  <div class="flex flex-col px-2 space-y-4 overflow-auto
           {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
-          {currentBlog !== null ? 'discreet' : ''}
+          {currentBlog !== null && $publicationColumnVisibility.inner ? 'discreet' : ''}
   ">
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mx-2 mb-4 rounded-lg border">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
       <Details event={indexEvent} />
     </div>
-  {#each leaves as leaf, i}
-    <PublicationSection
-      rootAddress={rootAddress}
-      leaves={leaves}
-      address={leaf.tagAddress()}
-      ref={(el) => setLastElementRef(el, i)}
-    />
-  {/each}
+
+    {#if publicationType === 'blog'}
+      <!-- List blog excerpts -->
+      {#each leaves as leaf, i}
+        <BlogHeader
+          rootId={leaf.tagAddress()}
+          event={leaf}
+          onBlogUpdate={loadBlog}
+          active={!(currentBlog !== null && $publicationColumnVisibility.inner)}
+        />
+      {/each}
+    {:else}
+      {#each leaves as leaf, i}
+        <PublicationSection
+          rootAddress={rootAddress}
+          leaves={leaves}
+          address={leaf.tagAddress()}
+          ref={(el) => setLastElementRef(el, i)}
+        />
+      {/each}
+    {/if}
+
 </div>
 {/if}
 
 {#if currentBlog !== null && $publicationColumnVisibility.inner }
   {#key currentBlog }
-    <div class="flex flex-col space-y-4 max-w-3xl overflow-auto flex-grow-2">
-      <span>Todo...</span>
+    <div class="flex flex-col px-2 max-w-3xl overflow-auto flex-grow-2">
+      <div class="flex flex-row bg-primary-0 fixed top-[145px] w-full">
+        <Button color="none" class="p-0 my-1" onclick={backToMain}><CaretLeftOutline /> Back</Button>
+      </div>
+      {#each leaves as leaf, i}
+        {#if leaf.tagAddress() === currentBlog}
+          <PublicationSection
+            rootAddress={rootAddress}
+            leaves={leaves}
+            address={leaf.tagAddress()}
+            ref={(el) => setLastElementRef(el, i)}
+          />
+        {/if}
+      {/each}
     </div>
   {/key}
 {/if}

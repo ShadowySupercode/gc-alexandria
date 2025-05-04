@@ -1,18 +1,17 @@
 <script lang="ts">
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { Card, Img } from "flowbite-svelte";
+  import { scale } from 'svelte/transition';
+  import { Button, Card, Img } from "flowbite-svelte";
   import InlineProfile from "$components/util/InlineProfile.svelte";
-    import { HeartOutline } from 'flowbite-svelte-icons';
+  import Interactions from "$components/util/Interactions.svelte";
+  import { quintOut } from "svelte/easing";
 
-  const { rootId, event, onBlogUpdate } = $props<{ rootId: String, event: NDKEvent, onBlogUpdate?: any;  }>();
+  const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: String, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
-
-  let likeCount = 0;
-  
 
   function publishedAt() {
     const date = event.created_at ? new Date(event.created_at * 1000) : '';
@@ -33,33 +32,32 @@
 </script>
 
 {#if title != null}
-  <Card class='ArticleBox card-leather w-xl flex flex-col'>
-    <div class='flex flex-col space-y-2'>
+  <Card class="ArticleBox card-leather w-full grid max-w-xl {active ? 'active' : ''}">
+    <div class='space-y-2'>
       <div class="flex flex-row justify-between my-2">
         <InlineProfile pubkey={authorPubkey} title={author} />
         <span class='text-gray-500'>{publishedAt()}</span>
       </div>
-      {#if image}
-      <div class="flex col justify-center">
-        <Img src={image} class="rounded w-full h-full object-cover"/>
-      </div>
+      {#if image && active}
+        <div class="ArticleBoxImage flex col justify-center"
+             in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
+        >
+          <Img src={image} class="rounded w-full max-h-72 object-cover"/>
+        </div>
       {/if}
       <div class='flex flex-col flex-grow space-y-4'>
         <button onclick={() => showBlog()} class='text-left'>
           <h2 class='text-lg font-bold line-clamp-2' title="{title}">{title}</h2>
         </button>
-        <button class="underline text-right" onclick={() => showBlog()} >Read all about it...</button>
+        {#if active}
+          <Button color="none" class="underline justify-end p-0" onclick={() => showBlog()} ><span class="">Read all about it...</span></Button>
+        {/if}
       </div>
-      <div class='flex flex-row bg-primary-50'>
-        <div class='InteractiveMenu flex flex-row'>
-          <div class='flex flex-row shrink-0'><HeartOutline /><span>{likeCount}</span></div>
-          <div class='flex flex-row shrink-0'><HeartOutline /><span>{likeCount}</span></div>
-          <div class='flex flex-row shrink-0'><HeartOutline /><span>{likeCount}</span></div>
-          <div class='flex flex-row shrink-0'><HeartOutline /><span>{likeCount}</span></div>
-          <div class='flex flex-row shrink-0'><HeartOutline /><span>{likeCount}</span></div>
-
+      {#if active}
+        <div class='flex flex-row '>
+          <Interactions rootId={rootId} event={event}  />
         </div>
-      </div>
+      {/if}
     </div>
   </Card>
 {/if}

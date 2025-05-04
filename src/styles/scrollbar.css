@@ -1,13 +1,12 @@
 @layer components {
     /* Global scrollbar styles */
     * {
-        scrollbar-width: thin; /* Firefox */
         scrollbar-color: rgba(87, 66, 41, 0.8) transparent; /* Transparent track, default scrollbar thumb */
     }
 
     /* Webkit Browsers (Chrome, Safari, Edge) */
     *::-webkit-scrollbar {
-        width: 8px; /* Thin scrollbar */
+        width: 12px; /* Thin scrollbar */
     }
 
     *::-webkit-scrollbar-track {

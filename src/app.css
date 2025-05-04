@@ -55,13 +55,15 @@
 
   /* Content */
   main {
-    @apply max-w-full flex mb-2;
+    @apply max-w-full flex;
   }
 
   /* To scroll columns independently */
-  main.publication { 
-    /* max-height: calc(100vh - 130px); */
-  }
+    main.publication.blog {
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 76px);
+    }
 
   main.main-leather,
   article.article-leather {
@@ -247,6 +249,17 @@
   .link {
     @apply underline cursor-pointer hover:text-primary-400 dark:hover:text-primary-500;
   }
+
+  /* Card with transition */
+  .ArticleBox.grid .ArticleBoxImage {
+    @apply max-h-0;
+    transition: max-height 0.5s ease;
+  }
+
+  .ArticleBox.grid.active .ArticleBoxImage {
+    @apply max-h-72;
+  }
+
 }
 
 @layer components {
