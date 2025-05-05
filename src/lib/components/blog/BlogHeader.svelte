@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { scale } from 'svelte/transition';
-  import { Button, Card, Img } from "flowbite-svelte";
+  import {  Card, Img } from "flowbite-svelte";
   import InlineProfile from "$components/util/InlineProfile.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
 
-  const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: String, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
+  const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
@@ -33,7 +33,7 @@
 
 {#if title != null}
   <Card class="ArticleBox card-leather w-full grid max-w-xl {active ? 'active' : ''}">
-    <div class='space-y-2'>
+    <div class='space-y-4'>
       <div class="flex flex-row justify-between my-2">
         <InlineProfile pubkey={authorPubkey} title={author} />
         <span class='text-gray-500'>{publishedAt()}</span>
@@ -49,12 +49,9 @@
         <button onclick={() => showBlog()} class='text-left'>
           <h2 class='text-lg font-bold line-clamp-2' title="{title}">{title}</h2>
         </button>
-        {#if active}
-          <Button color="none" class="underline justify-end p-0" onclick={() => showBlog()} ><span class="">Read all about it...</span></Button>
-        {/if}
       </div>
       {#if active}
-        <div class='flex flex-row '>
+        <div class='flex flex-row'>
           <Interactions rootId={rootId} event={event}  />
         </div>
       {/if}

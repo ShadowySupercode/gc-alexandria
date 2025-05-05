@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    Button,
+    Button, Card, Img,
     Sidebar,
     SidebarGroup,
     SidebarItem,
@@ -68,6 +68,7 @@
   // #endregion
 
   let currentBlog: null|string = $state(null);
+  let currentBlogEvent: null|NDKEvent = $state(null);
 
   function isDefaultVisible() {
     if (publicationType !== 'blog') {
@@ -81,18 +82,26 @@
     return currentBlog !== null && $publicationColumnVisibility.inner;
   }
 
+  function isSocialActive() {
+    return $publicationColumnVisibility.social;
+  }
+
   function loadBlog(rootId: string) {
-    // depending on the size of the screen, also toggle blog list visibility
+    // depending on the size of the screen, also toggle blog list & social visibility
     if (window.innerWidth < 1024) {
       $publicationColumnVisibility.blog = false;
+      $publicationColumnVisibility.social = false;
     }
     $publicationColumnVisibility.inner = true;
     currentBlog = rootId;
     // set current blog values for publication render
-    console.log(currentBlog);
+    currentBlogEvent = leaves.find(i => i.tagAddress() === currentBlog) ?? null;
   }
 
 
+  function showBlogHeaderOnMobile() {
+    return (currentBlog && currentBlogEvent && window.innerWidth < 1024);
+  }
 
   onMount(() => {
     // Set up the intersection observer.
@@ -162,8 +171,25 @@
   {/key}
 {/if}
 
-{#if $publicationColumnVisibility.social }
+{#if isSocialActive() }
   <div class="flex flex-col p-4 space-y-4 max-w-xl overflow-auto flex-grow-1">
+      {#if showBlogHeaderOnMobile()}
+        <BlogHeader
+          rootId={currentBlog}
+          event={currentBlogEvent}
+          onBlogUpdate={loadBlog}
+          active={true}
+        />
 
+      {/if}
+    <div class="flex flex-col w-full">
+      <Card class="ArticleBox card-leather w-full grid max-w-xl">
+        <div class='space-y-2'>
+          <div class='flex flex-col flex-grow space-y-4'>
+            This is a placeholder comment...
+          </div>
+        </div>
+      </Card>
+    </div>
   </div>
 {/if}

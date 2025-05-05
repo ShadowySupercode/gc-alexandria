@@ -60,7 +60,7 @@
 
   /* To scroll columns independently */
     main.publication.blog {
-      @apply min-h-full;
+      @apply w-full sm:w-auto min-h-full;
       max-height: calc(100vh - 146px);
     }
 
@@ -380,7 +380,6 @@
 
 .line-ellipsis {
   max-width: 100%;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }

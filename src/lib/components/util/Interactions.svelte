@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { ndkInstance } from '$lib/ndk';
 
-  const { rootId, event } = $props<{ rootId: String, event: NDKEvent  }>();
+  const { rootId, event } = $props<{ rootId: string, event: NDKEvent  }>();
 
   // Reactive arrays to hold incoming events
   let likes: NDKEvent[] = [];
