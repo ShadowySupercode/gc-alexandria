@@ -9,7 +9,6 @@
     TextPlaceholder,
     Tooltip,
   } from "flowbite-svelte";
-  import { CaretLeftOutline } from 'flowbite-svelte-icons';
   import { getContext, onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
@@ -78,6 +77,10 @@
     }
   }
 
+  function isInnerActive() {
+    return currentBlog !== null && $publicationColumnVisibility.inner;
+  }
+
   function loadBlog(rootId: string) {
     // depending on the size of the screen, also toggle blog list visibility
     if (window.innerWidth < 1024) {
@@ -89,10 +92,7 @@
     console.log(currentBlog);
   }
 
-  function backToMain() {
-    $publicationColumnVisibility.blog = true;
-    $publicationColumnVisibility.inner = false;
-  }
+
 
   onMount(() => {
     // Set up the intersection observer.
@@ -112,19 +112,11 @@
 
 </script>
 
-{#if $publicationColumnVisibility.details}
-  <div class="flex flex-col space-y-4 max-w-xl min-w-24 sm:min-w-36 sm:flex-grow-1 p-2 overflow-auto">
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mx-2 rounded-lg border">
-      <Details event={indexEvent} />
-    </div>
-  </div>
-{/if}
-
 {#if isDefaultVisible()}
-  <div class="flex flex-col px-2 space-y-4 overflow-auto
-          {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
-          {currentBlog !== null && $publicationColumnVisibility.inner ? 'discreet' : ''}
-  ">
+  <div class="flex flex-col p-4 space-y-4 overflow-auto
+        {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
+        {isInnerActive() ? 'discreet' : ''}
+">
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
       <Details event={indexEvent} />
     </div>
@@ -136,7 +128,7 @@
           rootId={leaf.tagAddress()}
           event={leaf}
           onBlogUpdate={loadBlog}
-          active={!(currentBlog !== null && $publicationColumnVisibility.inner)}
+          active={!(isInnerActive())}
         />
       {/each}
     {:else}
@@ -150,15 +142,12 @@
       {/each}
     {/if}
 
-</div>
+  </div>
 {/if}
 
-{#if currentBlog !== null && $publicationColumnVisibility.inner }
+{#if isInnerActive() }
   {#key currentBlog }
-    <div class="flex flex-col px-2 max-w-3xl overflow-auto flex-grow-2">
-      <div class="flex flex-row bg-primary-0 fixed top-[145px] w-full">
-        <Button color="none" class="p-0 my-1" onclick={backToMain}><CaretLeftOutline /> Back</Button>
-      </div>
+    <div class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2">
       {#each leaves as leaf, i}
         {#if leaf.tagAddress() === currentBlog}
           <PublicationSection
@@ -174,7 +163,7 @@
 {/if}
 
 {#if $publicationColumnVisibility.social }
-  <div class="flex flex-col space-y-4 max-w-xl overflow-auto flex-grow-1">
+  <div class="flex flex-col p-4 space-y-4 max-w-xl overflow-auto flex-grow-1">
 
   </div>
 {/if}

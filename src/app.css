@@ -60,9 +60,8 @@
 
   /* To scroll columns independently */
     main.publication.blog {
-      display: flex;
-      flex-direction: column;
-      max-height: calc(100vh - 76px);
+      @apply min-h-full;
+      max-height: calc(100vh - 146px);
     }
 
   main.main-leather,
