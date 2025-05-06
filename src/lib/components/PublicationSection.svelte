@@ -23,24 +23,38 @@
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(async () => 
     await publicationTree.getEvent(address));
+
   let rootEvent: Promise<NDKEvent | null> = $derived.by(async () =>
     await publicationTree.getEvent(rootAddress));
+
   let publicationType: Promise<string | undefined> = $derived.by(async () =>
     (await rootEvent)?.getMatchingTags('type')[0]?.[1]);
+
   let leafHierarchy: Promise<NDKEvent[]> = $derived.by(async () =>
     await publicationTree.getHierarchy(address));
+
   let leafTitle: Promise<string | undefined> = $derived.by(async () =>
     (await leafEvent)?.getMatchingTags('title')[0]?.[1]);
+
   let leafContent: Promise<string | Document> = $derived.by(async () =>
     asciidoctor.convert((await leafEvent)?.content ?? ''));
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
-    const index = leaves.findIndex(leaf => leaf.tagAddress() === address);
-    if (index === 0) {
-      return null;
-    }
-    return leaves[index - 1];
+    let index: number;
+    let event: NDKEvent | null = null;
+    let decrement = 1;
+
+    do {
+      index = leaves.findIndex(leaf => leaf?.tagAddress() === address);
+      if (index === 0) {
+        return null;
+      }
+      event = leaves[index - decrement++];
+    } while (event == null && index - decrement >= 0);
+
+    return event;
   });
+
   let previousLeafHierarchy: Promise<NDKEvent[] | null> = $derived.by(async () => {
     if (!previousLeafEvent) {
       return null;

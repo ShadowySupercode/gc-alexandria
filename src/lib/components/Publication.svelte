@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Alert,
     Button,
     Sidebar,
     SidebarGroup,
@@ -10,7 +11,7 @@
     Tooltip,
   } from "flowbite-svelte";
   import { getContext, onMount } from "svelte";
-  import { BookOutline } from "flowbite-svelte-icons";
+  import { BookOutline, ExclamationCircleOutline } from "flowbite-svelte-icons";
   import { page } from "$app/state";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
@@ -153,6 +154,9 @@
   });
 </script>
 
+<!-- TODO: Keep track of already-loaded leaves. -->
+<!-- TODO: Handle entering mid-document and scrolling up. -->
+<!-- TODO: Make loading more gradual. -->
 
 {#if showTocButton && !showToc}
   <!-- <Button
@@ -185,12 +189,19 @@
 {/if} -->
 <div class="flex flex-col space-y-4 max-w-2xl">
   {#each leaves as leaf, i}
-    <PublicationSection
-      rootAddress={rootAddress}
-      leaves={leaves}
-      address={leaf.tagAddress()}
-      ref={(el) => setLastElementRef(el, i)}
-    />
+    {#if leaf == null}
+      <Alert class='flex space-x-2'>
+        <ExclamationCircleOutline class='w-5 h-5' />
+        Error loading content.  One or more events could not be loaded.
+      </Alert>
+    {:else}
+      <PublicationSection
+        rootAddress={rootAddress}
+        leaves={leaves}
+        address={leaf.tagAddress()}
+        ref={(el) => setLastElementRef(el, i)}
+      />
+    {/if}
   {/each}
 </div>
 
