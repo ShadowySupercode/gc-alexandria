@@ -22,13 +22,16 @@
   let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
 
   // Function to toggle column visibility
-  function toggleColumn(column: 'blog'|'inner'|'social') {
+  function toggleColumn(column: 'blog'|'inner'|'discussion') {
     publicationColumnVisibility.update(store => {
       store[column] = !store[column]; // Toggle true/false
-      if (window.innerWidth < 1400 && $publicationColumnVisibility.social) {
+      if (window.innerWidth < 1400 && column === 'discussion' && $publicationColumnVisibility.discussion) {
         $publicationColumnVisibility.blog = false;
       }
-      if (window.innerWidth < 1200) {
+      if (window.innerWidth < 1400 && column === 'blog' && $publicationColumnVisibility.blog) {
+        $publicationColumnVisibility.discussion = false;
+      }
+      if (window.innerWidth < 980) {
         $publicationColumnVisibility.inner = false;
       }
       return { ...store }; // Ensure reactivity
@@ -36,23 +39,23 @@
   }
 
   function backToMain() {
-    if ($publicationColumnVisibility.social) {
+    if ($publicationColumnVisibility.discussion) {
       $publicationColumnVisibility.inner = true;
-      $publicationColumnVisibility.social = false;
+      $publicationColumnVisibility.discussion = false;
     } else {
       $publicationColumnVisibility.blog = true;
       $publicationColumnVisibility.inner = false;
-      $publicationColumnVisibility.social = false;
+      $publicationColumnVisibility.discussion = false;
     }
   }
 
 </script>
 
-<nav class="Navbar navbar-leather flex sticky top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10">
+<nav class="Navbar navbar-leather flex fixed top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10">
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if publicationType === 'blog'}
-        {#if $publicationColumnVisibility.inner || $publicationColumnVisibility.social}
+        {#if $publicationColumnVisibility.inner || $publicationColumnVisibility.discussion}
           <Button class='btn-leather !w-auto sm:hidden' outline={true} onclick={backToMain}>
             <CaretLeftOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Back</span>
           </Button>
@@ -66,18 +69,18 @@
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
-        <p class="line-ellipsis"><b>{title}</b> <span>by <InlineProfile pubkey={pubkey} title={author} /></span></p>
+        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by <InlineProfile pubkey={pubkey} title={author} /></span></p>
     </div>
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if publicationType === 'blog'}
-        {#if $publicationColumnVisibility.inner || $publicationColumnVisibility.social}
+        {#if $publicationColumnVisibility.inner || $publicationColumnVisibility.discussion}
           <Button class='btn-leather !w-auto hidden sm:flex' outline={true} onclick={backToMain}>
             <CaretLeftOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Back</span>
           </Button>
           {/if}
         {#if $publicationColumnVisibility.inner}
-          <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('social')}>
-            <GlobeOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Social</span>
+          <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('discussion')}>
+            <GlobeOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Discussion</span>
           </Button>
         {/if}
       {/if}

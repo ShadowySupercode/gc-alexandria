@@ -73,7 +73,7 @@
 
 </script>
 
-<div class="group" role="group" onmouseenter={openPopover}>
+<div class="group bg-highlight dark:bg-primary-1000 rounded" role="group" onmouseenter={openPopover}>
   <!-- Main button -->
   <Button type="button"
           id="dots-{event.id}"
@@ -134,6 +134,6 @@
   </Modal>
   <!-- Event details -->
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
-    <Details event={event} />
+    <Details event={event} isModal={true} />
   </Modal>
 </div>

@@ -12,6 +12,6 @@ export const publicationColumnVisibility = writable({
   blog: true,
   main: true,
   inner: true,
-  social: false,
+  discussion: false,
   editing: false
 });

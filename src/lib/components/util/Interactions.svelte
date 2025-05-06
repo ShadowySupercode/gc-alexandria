@@ -1,11 +1,15 @@
 <script lang="ts">
+  import {
+    Button
+  } from "flowbite-svelte";
   import { HeartOutline, FilePenOutline, AnnotationOutline } from 'flowbite-svelte-icons';
   import ZapOutline from "$components/util/ZapOutline.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { ndkInstance } from '$lib/ndk';
+  import { publicationColumnVisibility } from "$lib/stores";
 
-  const { rootId, event } = $props<{ rootId: string, event: NDKEvent  }>();
+  const { rootId, event, direction = 'row' } = $props<{ rootId: string, event?: NDKEvent, direction?: string  }>();
 
   // Reactive arrays to hold incoming events
   let likes: NDKEvent[] = [];
@@ -28,7 +32,7 @@
   function subscribeCount(kind: number, targetArray: NDKEvent[]) {
     const sub = $ndkInstance.subscribe({
       kinds: [kind],
-      '#a': [rootId]
+      '#a': [rootId] // Will this work?
     });
 
 
@@ -52,11 +56,18 @@
     subs.push(subscribeCount(1, comments));     // comments (Text Notes)
   });
 
+  function showSocial() {
+    $publicationColumnVisibility.discussion = true;
+    if (window.innerWidth < 1400) {
+      $publicationColumnVisibility.blog = false;
+      $publicationColumnVisibility.inner = false;
+    }
+  }
 </script>
 
-<div class='InteractiveMenu flex flex-row justify-around align-middle text-primary-600 dark:text-gray-500'>
-  <div class='flex flex-row shrink-0 min-w-11'><HeartOutline size="lg" /><span>{likeCount}</span></div>
-  <div class='flex flex-row shrink-0 min-w-11'><ZapOutline /><span>{zapCount}</span></div>
-  <div class='flex flex-row shrink-0 min-w-11'><FilePenOutline size="lg"/><span>{highlightCount}</span></div>
-  <div class='flex flex-row shrink-0 min-w-11'><AnnotationOutline size="lg"/><span>{commentCount}</span></div>
+<div class='InteractiveMenu flex flex-{direction} justify-around align-middle text-primary-700 dark:text-gray-500'>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><ZapOutline className="mx-2" /><span>{zapCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><FilePenOutline class="mx-2" size="lg"/><span>{highlightCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={() => showSocial()}><AnnotationOutline class="mx-2" size="lg"/><span>{commentCount}</span></Button>
 </div>

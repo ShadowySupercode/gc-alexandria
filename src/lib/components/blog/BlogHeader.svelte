@@ -5,6 +5,7 @@
   import InlineProfile from "$components/util/InlineProfile.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
+  import CardActions from "$components/util/CardActions.svelte";
 
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
@@ -12,6 +13,7 @@
   let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
+  let hashtags: string = $derived(event.getMatchingTags('t') ?? null);
 
   function publishedAt() {
     const date = event.created_at ? new Date(event.created_at * 1000) : '';
@@ -35,8 +37,11 @@
   <Card class="ArticleBox card-leather w-full grid max-w-xl {active ? 'active' : ''}">
     <div class='space-y-4'>
       <div class="flex flex-row justify-between my-2">
-        <InlineProfile pubkey={authorPubkey} title={author} />
-        <span class='text-gray-500'>{publishedAt()}</span>
+        <div class="flex flex-col">
+          <InlineProfile pubkey={authorPubkey} title={author} />
+          <span class='text-gray-500'>{publishedAt()}</span>
+        </div>
+        <CardActions event={event} />
       </div>
       {#if image && active}
         <div class="ArticleBoxImage flex col justify-center"
@@ -49,11 +54,16 @@
         <button onclick={() => showBlog()} class='text-left'>
           <h2 class='text-lg font-bold line-clamp-2' title="{title}">{title}</h2>
         </button>
+        {#if hashtags}
+        <div class="tags">
+          {#each hashtags as tag}
+            <span>{tag}</span>
+          {/each}
+        </div>
+        {/if}
       </div>
       {#if active}
-        <div class='flex flex-row'>
           <Interactions rootId={rootId} event={event}  />
-        </div>
       {/if}
     </div>
   </Card>

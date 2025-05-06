@@ -1,21 +1,24 @@
 <script lang="ts">
   import {
-    Button, Card, Img,
+    Button, Card,
     Sidebar,
     SidebarGroup,
     SidebarItem,
     SidebarWrapper,
     Skeleton,
     TextPlaceholder,
-    Tooltip,
+    Tooltip
   } from "flowbite-svelte";
-  import { getContext, onMount } from "svelte";
+  import { HeartOutline } from 'flowbite-svelte-icons';
+  import { getContext, onDestroy, onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/blog/BlogHeader.svelte";
+  import Interactions from "$components/util/Interactions.svelte";
+  import ZapOutline from "$components/util/ZapOutline.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string,
@@ -83,14 +86,14 @@
   }
 
   function isSocialActive() {
-    return $publicationColumnVisibility.social;
+    return $publicationColumnVisibility.discussion;
   }
 
   function loadBlog(rootId: string) {
     // depending on the size of the screen, also toggle blog list & social visibility
     if (window.innerWidth < 1024) {
       $publicationColumnVisibility.blog = false;
-      $publicationColumnVisibility.social = false;
+      $publicationColumnVisibility.discussion = false;
     }
     $publicationColumnVisibility.inner = true;
     currentBlog = rootId;
@@ -98,9 +101,8 @@
     currentBlogEvent = leaves.find(i => i.tagAddress() === currentBlog) ?? null;
   }
 
-
   function showBlogHeaderOnMobile() {
-    return (currentBlog && currentBlogEvent && window.innerWidth < 1024);
+    return (currentBlog && currentBlogEvent && window.innerWidth < 1140);
   }
 
   onMount(() => {
@@ -118,6 +120,18 @@
       observer.disconnect();
     };
   });
+
+  onDestroy(() => {
+    // reset visibility
+    $publicationColumnVisibility = {
+      toc: false,
+      blog: true,
+      main: true,
+      inner: true,
+      discussion: false,
+      editing: false
+    };
+  })
 
 </script>
 
@@ -156,15 +170,23 @@
 
 {#if isInnerActive() }
   {#key currentBlog }
-    <div class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2">
+    <div class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-146px)] sticky top-[146px]">
       {#each leaves as leaf, i}
         {#if leaf.tagAddress() === currentBlog}
+          <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
+            <Details event={leaf} />
+          </div>
+
           <PublicationSection
             rootAddress={rootAddress}
             leaves={leaves}
             address={leaf.tagAddress()}
             ref={(el) => setLastElementRef(el, i)}
           />
+
+          <Card class="ArticleBox card-leather min-w-full grid mt-4">
+            <Interactions rootId={currentBlog} />
+          </Card>
         {/if}
       {/each}
     </div>
@@ -172,7 +194,7 @@
 {/if}
 
 {#if isSocialActive() }
-  <div class="flex flex-col p-4 space-y-4 max-w-xl overflow-auto flex-grow-1">
+  <div class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 h-[calc(100vh-146px)] sticky top-[146px] space-y-4">
       {#if showBlogHeaderOnMobile()}
         <BlogHeader
           rootId={currentBlog}
@@ -182,13 +204,35 @@
         />
 
       {/if}
-    <div class="flex flex-col w-full">
+    <div class="flex flex-col w-full space-y-4">
       <Card class="ArticleBox card-leather w-full grid max-w-xl">
-        <div class='space-y-2'>
-          <div class='flex flex-col flex-grow space-y-4'>
-            This is a placeholder comment...
+          <div class="flex flex-col my-2">
+            <span>Unknown</span>
+            <span class='text-gray-500'>1.1.1970</span>
           </div>
-        </div>
+          <div class='flex flex-col flex-grow space-y-4'>
+            This is a very intelligent comment placeholder that applies to all the content equally well.
+          </div>
+      </Card>
+
+      <Card class="ArticleBox card-leather w-full grid grid-cols-2  max-w-xl">
+          <div class="flex flex-col my-2">
+            <span>Unknown</span>
+            <span class='text-gray-500'>1.1.1970</span>
+          </div>
+          <div class='flex flex-col flex-grow  items-end justify-center'>
+            <ZapOutline ></ZapOutline>
+          </div>
+      </Card>
+
+      <Card class="ArticleBox card-leather w-full grid grid-cols-2 max-w-xl">
+          <div class="flex flex-col my-2">
+            <span>Unknown</span>
+            <span class='text-gray-500'>1.1.1970</span>
+          </div>
+          <div class='flex flex-col flex-grow items-end justify-center'>
+            <HeartOutline />
+          </div>
       </Card>
     </div>
   </div>

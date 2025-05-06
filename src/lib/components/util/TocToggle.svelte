@@ -95,7 +95,7 @@
 
 {#if showTocButton && !showToc}
   <Button
-    class="btn-leather h-6 !w-auto"
+    class="btn-leather !w-auto"
     outline={true}
     on:click={(ev) => {
       showToc = true;
@@ -103,7 +103,7 @@
     }}
   >
     <BookOutline class="!fill-none mr-1"/>
-    Table of Contents
+    <span class="hidden sm:flex">Table of Contents</span>
   </Button>
 {/if}
 <!-- TODO: Get TOC from parser. -->

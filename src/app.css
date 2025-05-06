@@ -1,5 +1,5 @@
 @import './styles/base.css';
-@import 'styles/scrollbar.css';
+@import './styles/scrollbar.css';
 @import './styles/publications.css';
 @import './styles/visualize.css';
 
@@ -58,10 +58,13 @@
     @apply max-w-full flex;
   }
 
+  main.publication {
+    @apply mt-[70px];
+  }
+
   /* To scroll columns independently */
     main.publication.blog {
       @apply w-full sm:w-auto min-h-full;
-      max-height: calc(100vh - 146px);
     }
 
   main.main-leather,
@@ -259,6 +262,10 @@
     @apply max-h-72;
   }
 
+  .tags span {
+    @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-primary-900 dark:text-primary-200;
+  }
+
 }
 
 @layer components {
@@ -379,7 +386,6 @@
 }
 
 .line-ellipsis {
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
