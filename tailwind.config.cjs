@@ -1,4 +1,5 @@
 import flowbite from "flowbite/plugin";
+import plugin from "tailwindcss/plugin";
 
 /** @type {import('tailwindcss').Config}*/
 const config = {
@@ -85,6 +86,25 @@ const config = {
 
   plugins: [
     flowbite(),
+    plugin(function({ addUtilities, matchUtilities }) {
+      addUtilities({
+        '.content-visibility-auto': {
+          'content-visibility': 'auto',
+        },
+        '.contain-size': {
+          contain: 'size',
+        },
+      });
+
+      matchUtilities({
+        'contain-intrinsic-w-*': value => ({
+          width: value,
+        }),
+        'contain-intrinsic-h-*': value => ({
+          height: value,
+        })
+      });
+    })
   ],
 
   darkMode: 'class',

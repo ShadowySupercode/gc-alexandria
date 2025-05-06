@@ -105,7 +105,7 @@
 </script>
 
 <!-- TODO: Correctly handle events that are the start of a content section. -->
-<section bind:this={sectionRef} class='publication-leather'>
+<section bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
