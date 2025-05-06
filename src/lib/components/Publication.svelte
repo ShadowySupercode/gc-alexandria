@@ -138,7 +138,7 @@
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting && !isLoading) {
-          loadMore(4);
+          loadMore(1);
         }
       });
     }, { threshold: 0.5 });
