@@ -30,6 +30,7 @@
   // TODO: Test load handling.
 
   let leaves = $state<NDKEvent[]>([]);
+  let loadedAddresses = $state<Set<string>>(new Set());
   let isLoading = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
 
@@ -40,10 +41,21 @@
 
     for (let i = 0; i < count; i++) {
       const nextItem = await publicationTree.next();
+      
+      const nextAddress = nextItem.value?.tagAddress();
+      if (nextAddress && loadedAddresses.has(nextAddress)) {
+        continue;
+      }
+
+      if (nextAddress && !loadedAddresses.has(nextAddress)) {
+        loadedAddresses.add(nextAddress);
+      }
+      
       if (leaves.includes(nextItem.value) || (nextItem.done && nextItem.value === null)) {
         isLoading = false;
         return;
       }
+      
       leaves.push(nextItem.value);
     }
 
