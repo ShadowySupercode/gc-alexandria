@@ -4,6 +4,7 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import InlineProfile from "$components/util/InlineProfile.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { onDestroy, onMount } from "svelte";
 
   let {
     rootId,
@@ -18,6 +19,9 @@
   let title: string = $derived(indexEvent.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(indexEvent.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
+
+  let lastScrollY = $state(0);
+  let isVisible = $state(true);
 
   // Function to toggle column visibility
   function toggleColumn(column: 'toc' | 'blog' | 'inner' | 'discussion') {
@@ -72,9 +76,39 @@
       return updated;
     })
   }
+
+  function handleScroll() {
+    if (window.innerWidth < 768) {
+      const currentScrollY = window.scrollY;
+
+      // Hide on scroll down
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        isVisible = false;
+      }
+      // Show on scroll up
+      else if (currentScrollY < lastScrollY) {
+        isVisible = true;
+      }
+
+      lastScrollY = currentScrollY;
+    }
+  }
+
+  let unsubscribe: () => void;
+  onMount(() => {
+    window.addEventListener('scroll', handleScroll);
+    unsubscribe = publicationColumnVisibility.subscribe(() => {
+      isVisible = true; // show navbar when store changes
+    });
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('scroll', handleScroll);
+    unsubscribe();
+  });
 </script>
 
-<nav class="Navbar navbar-leather flex fixed top-[60px] sm:top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10">
+<nav class="Navbar navbar-leather flex fixed top-[60px] sm:top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible ? 'translate-y-0' : '-translate-y-full'}">
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if shouldShowBack()}

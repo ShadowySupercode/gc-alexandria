@@ -104,7 +104,7 @@
     }
 
     .publication-leather .verseblock pre.content {
-        @apply text-base font-sans;
+        @apply text-base font-sans overflow-x-scroll py-1;
     }
 
     .publication-leather .attribution {
