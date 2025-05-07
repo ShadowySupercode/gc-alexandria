@@ -167,8 +167,8 @@
 </script>
 
 <!-- TODO: Keep track of already-loaded leaves. -->
+<!-- TODO: Determine when we've reached the end of the document. -->
 <!-- TODO: Handle entering mid-document and scrolling up. -->
-<!-- TODO: Make loading more gradual. -->
 
 {#if showTocButton && !showToc}
   <!-- <Button
@@ -215,6 +215,18 @@
       />
     {/if}
   {/each}
+  <!-- TODO: Hide the button if there are no more leaves to load. -->
+  <div class="flex justify-center my-4">
+    {#if isLoading}
+      <Button disabled color="primary">
+        Loading...
+      </Button>
+    {:else}
+      <Button color="primary" on:click={() => loadMore(1)}>
+        Show More
+      </Button>
+    {/if}
+  </div>
 </div>
 
 <style>
