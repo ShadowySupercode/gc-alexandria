@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    Button
+    Button, Modal, P
   } from "flowbite-svelte";
   import { HeartOutline, FilePenOutline, AnnotationOutline } from 'flowbite-svelte-icons';
   import ZapOutline from "$components/util/ZapOutline.svelte";
@@ -16,6 +16,8 @@
   let zaps: NDKEvent[] = [];
   let highlights: NDKEvent[] = [];
   let comments: NDKEvent[] = [];
+
+  let interactionOpen: boolean = $state(false);
 
   // Reactive counts derived from array lengths
   // Derived counts from store values
@@ -66,11 +68,26 @@
       return updated;
     });
   }
+
+  function doLike() {
+    interactionOpen = true;
+  }
+  function doHighlight() {
+    interactionOpen = true;
+  }
+  function doZap() {
+    interactionOpen = true;
+  }
 </script>
 
 <div class='InteractiveMenu flex flex-{direction} justify-around align-middle text-primary-700 dark:text-gray-500'>
-  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button>
-  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><ZapOutline className="mx-2" /><span>{zapCount}</span></Button>
-  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><FilePenOutline class="mx-2" size="lg"/><span>{highlightCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doLike}><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doZap}><ZapOutline className="mx-2" /><span>{zapCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doHighlight}><FilePenOutline class="mx-2" size="lg"/><span>{highlightCount}</span></Button>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={showDiscussion}><AnnotationOutline class="mx-2" size="lg"/><span>{commentCount}</span></Button>
 </div>
+
+<Modal class='modal-leather' title='Interaction' bind:open={interactionOpen} autoclose outsideclose size='sm'>
+    <P>Can't like, zap or highlight yet.</P>
+    <P>You should totally check out the discussion though.</P>
+</Modal>
