@@ -32,6 +32,7 @@
   let leaves = $state<NDKEvent[]>([]);
   let loadedAddresses = $state<Set<string>>(new Set());
   let isLoading = $state<boolean>(false);
+  let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
 
   let observer: IntersectionObserver;
@@ -40,9 +41,18 @@
     isLoading = true;
 
     for (let i = 0; i < count; i++) {
-      const nextItem = await publicationTree.next();
+      const iterResult = await publicationTree.next();
+      const { done, value } = iterResult;
       
-      const nextAddress = nextItem.value?.tagAddress();
+      console.debug('Iterator result:', iterResult, 'done type:', typeof done);
+
+      if (done) {
+        console.debug('Done condition met, setting isDone to true');
+        isDone = true;
+        break;
+      }
+
+      const nextAddress = value?.tagAddress();
       if (nextAddress && loadedAddresses.has(nextAddress)) {
         continue;
       }
@@ -50,13 +60,18 @@
       if (nextAddress && !loadedAddresses.has(nextAddress)) {
         loadedAddresses.add(nextAddress);
       }
-      
-      if (leaves.includes(nextItem.value) || (nextItem.done && nextItem.value === null)) {
+
+      if (value == null) {
         isLoading = false;
-        return;
+        break;
+      }
+
+      if (leaves.includes(value)) {
+        isLoading = false;
+        break;
       }
       
-      leaves.push(nextItem.value);
+      leaves.push(value);
     }
 
     isLoading = false;
@@ -73,8 +88,17 @@
       return;
     }
 
-    observer.observe(lastElementRef!);
-    return () => observer.unobserve(lastElementRef!);
+    if (isDone) {
+      observer?.unobserve(lastElementRef!);
+      return;
+    }
+
+    observer?.observe(lastElementRef!);
+    return () => observer?.unobserve(lastElementRef!);
+  });
+
+  $effect(() => {
+    console.debug('isDone changed to:', isDone);
   });
 
   // #endregion
@@ -149,7 +173,7 @@
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting && !isLoading) {
+        if (entry.isIntersecting && !isLoading && !isDone) {
           loadMore(1);
         }
       });
@@ -221,7 +245,7 @@
       <Button disabled color="primary">
         Loading...
       </Button>
-    {:else}
+    {:else if !isDone}
       <Button color="primary" on:click={() => loadMore(1)}>
         Show More
       </Button>
