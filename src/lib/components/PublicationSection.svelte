@@ -104,12 +104,10 @@
   });
 </script>
 
-<!-- TODO: Correctly handle events that are the start of a content section. -->
 <section bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
-    <!-- TODO: Ensure we render all headings, not just the first one. -->
     {#each divergingBranches as [branch, depth]}
       {@render sectionHeading(branch.getMatchingTags('title')[0]?.[1] ?? '', depth)}
     {/each}
