@@ -56,12 +56,15 @@
     subs.push(subscribeCount(1, comments));     // comments (Text Notes)
   });
 
-  function showSocial() {
-    $publicationColumnVisibility.discussion = true;
-    if (window.innerWidth < 1400) {
-      $publicationColumnVisibility.blog = false;
-      $publicationColumnVisibility.inner = false;
-    }
+  function showDiscussion() {
+    publicationColumnVisibility.update(v => {
+      const updated = { ...v, discussion: true};
+      // hide blog, unless the only column
+      if (v.inner) {
+        updated.blog = (v.blog && window.innerWidth >= 1400 );
+      }
+      return updated;
+    });
   }
 </script>
 
@@ -69,5 +72,5 @@
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><ZapOutline className="mx-2" /><span>{zapCount}</span></Button>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0'><FilePenOutline class="mx-2" size="lg"/><span>{highlightCount}</span></Button>
-  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={() => showSocial()}><AnnotationOutline class="mx-2" size="lg"/><span>{commentCount}</span></Button>
+  <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={showDiscussion}><AnnotationOutline class="mx-2" size="lg"/><span>{commentCount}</span></Button>
 </div>

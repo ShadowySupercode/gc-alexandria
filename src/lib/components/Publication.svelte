@@ -7,9 +7,9 @@
     SidebarWrapper,
     Skeleton,
     TextPlaceholder,
-    Tooltip
+    Tooltip, Heading
   } from "flowbite-svelte";
-  import { HeartOutline } from 'flowbite-svelte-icons';
+  import { CloseOutline } from 'flowbite-svelte-icons';
   import { getContext, onDestroy, onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
@@ -18,7 +18,7 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/blog/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
-  import ZapOutline from "$components/util/ZapOutline.svelte";
+  import TocToggle from "$components/util/TocToggle.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string,
@@ -70,42 +70,49 @@
 
   // #endregion
 
+  // region Columns visibility
   let currentBlog: null|string = $state(null);
   let currentBlogEvent: null|NDKEvent = $state(null);
-
-  function isDefaultVisible() {
-    if (publicationType !== 'blog') {
-      return true;
-    } else {
-      return $publicationColumnVisibility.blog;
-    }
-  }
 
   function isInnerActive() {
     return currentBlog !== null && $publicationColumnVisibility.inner;
   }
 
-  function isSocialActive() {
-    return $publicationColumnVisibility.discussion;
+  function closeDiscussion() {
+    publicationColumnVisibility.update(v => ({ ...v, discussion: false}));
   }
 
   function loadBlog(rootId: string) {
-    // depending on the size of the screen, also toggle blog list & social visibility
-    if (window.innerWidth < 1024) {
-      $publicationColumnVisibility.blog = false;
-      $publicationColumnVisibility.discussion = false;
-    }
-    $publicationColumnVisibility.inner = true;
+    // depending on the size of the screen, also toggle blog list & discussion visibility
+    publicationColumnVisibility.update(current => {
+      const updated = current;
+      if (window.innerWidth < 1024) {
+        updated.blog = false;
+        updated.discussion = false;
+      }
+      updated.inner = true;
+      return updated;
+    });
+
     currentBlog = rootId;
     // set current blog values for publication render
     currentBlogEvent = leaves.find(i => i.tagAddress() === currentBlog) ?? null;
   }
 
-  function showBlogHeaderOnMobile() {
+  function showBlogHeader() {
     return (currentBlog && currentBlogEvent && window.innerWidth < 1140);
   }
 
+  onDestroy(() => {
+    // reset visibility
+    publicationColumnVisibility.reset();
+  })
+
   onMount(() => {
+    // Set current columns depending on the publication type
+    const isBlog = publicationType === 'blog';
+    publicationColumnVisibility.update(v => ({ ...v, main: !isBlog, blog: isBlog }));
+
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -121,50 +128,48 @@
     };
   });
 
-  onDestroy(() => {
-    // reset visibility
-    $publicationColumnVisibility = {
-      toc: false,
-      blog: true,
-      main: true,
-      inner: true,
-      discussion: false,
-      editing: false
-    };
-  })
-
 </script>
 
-{#if isDefaultVisible()}
-  <div class="flex flex-col p-4 space-y-4 overflow-auto
-        {publicationType === 'blog' ? 'max-w-xl flex-grow-1' : 'max-w-2xl flex-grow-2' }
-        {isInnerActive() ? 'discreet' : ''}
-">
+<!-- Table of contents -->
+{#if publicationType !== 'blog'}
+  <TocToggle rootId={rootAddress} />
+{/if}
+
+<!-- Default publications -->
+{#if $publicationColumnVisibility.main}
+  <div class="flex flex-col p-4 space-y-4 overflow-auto max-w-2xl flex-grow-2">
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
       <Details event={indexEvent} />
     </div>
+    <!-- Publication -->
+    {#each leaves as leaf, i}
+      <PublicationSection
+        rootAddress={rootAddress}
+        leaves={leaves}
+        address={leaf.tagAddress()}
+        ref={(el) => setLastElementRef(el, i)}
+      />
+    {/each}
+  </div>
+{/if}
 
-    {#if publicationType === 'blog'}
-      <!-- List blog excerpts -->
-      {#each leaves as leaf, i}
-        <BlogHeader
-          rootId={leaf.tagAddress()}
-          event={leaf}
-          onBlogUpdate={loadBlog}
-          active={!(isInnerActive())}
-        />
-      {/each}
-    {:else}
-      {#each leaves as leaf, i}
-        <PublicationSection
-          rootAddress={rootAddress}
-          leaves={leaves}
-          address={leaf.tagAddress()}
-          ref={(el) => setLastElementRef(el, i)}
-        />
-      {/each}
-    {/if}
-
+<!-- Blog list -->
+{#if $publicationColumnVisibility.blog}
+  <div class="flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1
+        {isInnerActive() ? 'discreet' : ''}
+  ">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
+      <Details event={indexEvent} />
+    </div>
+    <!-- List blog excerpts -->
+    {#each leaves as leaf, i}
+      <BlogHeader
+        rootId={leaf.tagAddress()}
+        event={leaf}
+        onBlogUpdate={loadBlog}
+        active={!(isInnerActive())}
+      />
+    {/each}
   </div>
 {/if}
 
@@ -193,47 +198,42 @@
   {/key}
 {/if}
 
-{#if isSocialActive() }
-  <div class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 h-[calc(100vh-146px)] sticky top-[146px] space-y-4">
-      {#if showBlogHeaderOnMobile()}
-        <BlogHeader
-          rootId={currentBlog}
-          event={currentBlogEvent}
-          onBlogUpdate={loadBlog}
-          active={true}
-        />
-
-      {/if}
-    <div class="flex flex-col w-full space-y-4">
-      <Card class="ArticleBox card-leather w-full grid max-w-xl">
-          <div class="flex flex-col my-2">
-            <span>Unknown</span>
-            <span class='text-gray-500'>1.1.1970</span>
+{#if $publicationColumnVisibility.discussion }
+  <Sidebar class='sidebar-leather right-0 md:!pl-8'>
+    <SidebarWrapper>
+      <SidebarGroup class='sidebar-group-leather'>
+        <div class="flex justify-between items-baseline">
+          <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading>
+          <Button class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-primary-900" outline onclick={closeDiscussion}>
+            <CloseOutline />
+          </Button>
+        </div>
+        <div class="flex flex-col space-y-4">
+          <!-- TODO
+                alternative for other publications and
+                when blog is not opened, but discussion is opened from the list
+          -->
+          {#if showBlogHeader()}
+            <BlogHeader
+              rootId={currentBlog}
+              event={currentBlogEvent}
+              onBlogUpdate={loadBlog}
+              active={true}
+            />
+          {/if}
+          <div class="flex flex-col w-full space-y-4">
+            <Card class="ArticleBox card-leather w-full grid max-w-xl">
+              <div class="flex flex-col my-2">
+                <span>Unknown</span>
+                <span class='text-gray-500'>1.1.1970</span>
+              </div>
+              <div class='flex flex-col flex-grow space-y-4'>
+                This is a very intelligent comment placeholder that applies to all the content equally well.
+              </div>
+            </Card>
           </div>
-          <div class='flex flex-col flex-grow space-y-4'>
-            This is a very intelligent comment placeholder that applies to all the content equally well.
-          </div>
-      </Card>
-
-      <Card class="ArticleBox card-leather w-full grid grid-cols-2  max-w-xl">
-          <div class="flex flex-col my-2">
-            <span>Unknown</span>
-            <span class='text-gray-500'>1.1.1970</span>
-          </div>
-          <div class='flex flex-col flex-grow  items-end justify-center'>
-            <ZapOutline ></ZapOutline>
-          </div>
-      </Card>
-
-      <Card class="ArticleBox card-leather w-full grid grid-cols-2 max-w-xl">
-          <div class="flex flex-col my-2">
-            <span>Unknown</span>
-            <span class='text-gray-500'>1.1.1970</span>
-          </div>
-          <div class='flex flex-col flex-grow items-end justify-center'>
-            <HeartOutline />
-          </div>
-      </Card>
-    </div>
-  </div>
+        </div>
+      </SidebarGroup>
+    </SidebarWrapper>
+  </Sidebar>
 {/if}

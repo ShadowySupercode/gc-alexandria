@@ -159,8 +159,13 @@
   }
 
   /* Sidebar */
+  aside.sidebar-leather {
+    @apply fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10;
+    @apply bg-primary-0 dark:bg-primary-1000 px-5 w-full sm:w-auto sm:max-w-xl;
+  }
+
   aside.sidebar-leather > div {
-    @apply bg-gray-100 dark:bg-gray-900;
+    @apply bg-primary-50 dark:bg-primary-900 h-full px-5 py-0;
   }
 
   a.sidebar-item-leather {
