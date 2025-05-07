@@ -29,7 +29,7 @@
         <img class="w-full md:max-w-48 object-contain rounded" alt={title} src={image} />
       </div>
     {/if}
-    <div class="space-y-4">
+    <div class="space-y-4 {!image && !isModal ? 'mt-8' : ''}">
       <h1 class="text-3xl font-bold">{title}</h1>
       <h2 class="text-base font-bold">
         by
@@ -42,12 +42,11 @@
       <h4 class="text-base font-thin">Version: {version}</h4>
     </div>
   </div>
-
-  <div class="absolute right-0 sm:relative sm:flex sm:flex-col space-y-4">
-    {#if !isModal}
+  {#if !isModal}
+    <div class="absolute right-0 sm:relative sm:flex sm:flex-col space-y-4">
        <CardActions event={event}></CardActions>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>
 
 {#if summary}
