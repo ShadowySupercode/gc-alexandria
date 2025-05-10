@@ -348,7 +348,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         const event = await this.getEvent(this.#cursor.target!.address);
         return { done: false, value: event };
       }
-      this.#cursor.tryMoveToParent();
     } while (this.#cursor.tryMoveToParent());
 
     // If we get to this point, we're at the root node (can't move up any more).
