@@ -14,7 +14,7 @@
   }: {
     address: string,
     rootAddress: string,
-    leaves: NDKEvent[],
+    leaves: Array<NDKEvent | null>,
     ref: (ref: HTMLElement) => void,
   } = $props();
 

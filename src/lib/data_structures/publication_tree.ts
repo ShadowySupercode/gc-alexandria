@@ -345,10 +345,18 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
           continue;
         }
 
+        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+          return { done: false, value: null };
+        }
+
         const event = await this.getEvent(this.#cursor.target!.address);
         return { done: false, value: event };
       }
     } while (this.#cursor.tryMoveToParent());
+
+    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+      return { done: false, value: null };
+    }
 
     // If we get to this point, we're at the root node (can't move up any more).
     return { done: true, value: null };
@@ -370,10 +378,18 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
           continue;
         }
 
+        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+          return { done: false, value: null };
+        }
+
         const event = await this.getEvent(this.#cursor.target!.address);
         return { done: false, value: event };
       }
     } while (this.#cursor.tryMoveToParent());
+
+    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+      return { done: false, value: null };
+    }
 
     return { done: true, value: null };
   }

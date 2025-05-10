@@ -29,7 +29,7 @@
 
   // TODO: Test load handling.
 
-  let leaves = $state<NDKEvent[]>([]);
+  let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state<boolean>(false);
   let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
@@ -48,16 +48,6 @@
         break;
       }
 
-      if (value == null) {
-        isLoading = false;
-        break;
-      }
-
-      if (leaves.includes(value)) {
-        isLoading = false;
-        break;
-      }
-      
       leaves.push(value);
     }
 
