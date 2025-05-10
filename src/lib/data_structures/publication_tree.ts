@@ -337,7 +337,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     }
 
-    // Based on Raymond Chen's tree traversal algorithm.
+    // Based on Raymond Chen's tree traversal algorithm example.
     // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
     do {
       if (await this.#cursor.tryMoveToNextSibling()) {
@@ -362,7 +362,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     }
     
-    // Based on Raymond Chen's tree traversal algorithm.
+    // Based on Raymond Chen's tree traversal algorithm example.
     // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
     do {
       if (await this.#cursor.tryMoveToPreviousSibling()) {
