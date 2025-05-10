@@ -30,7 +30,6 @@
   // TODO: Test load handling.
 
   let leaves = $state<NDKEvent[]>([]);
-  let loadedAddresses = $state<Set<string>>(new Set());
   let isLoading = $state<boolean>(false);
   let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
@@ -47,15 +46,6 @@
       if (done) {
         isDone = true;
         break;
-      }
-
-      const nextAddress = value?.tagAddress();
-      if (nextAddress && loadedAddresses.has(nextAddress)) {
-        continue;
-      }
-
-      if (nextAddress && !loadedAddresses.has(nextAddress)) {
-        loadedAddresses.add(nextAddress);
       }
 
       if (value == null) {
