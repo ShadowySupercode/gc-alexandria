@@ -288,32 +288,22 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       await this.#cursor.tryMoveTo(this.#bookmark);
     }
 
+    // Based on Raymond Chen's tree traversal algorithm.
+    // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
     do {
-      if (await this.#cursor.tryMoveToFirstChild()) {
-        continue;
-      }
-
       if (await this.#cursor.tryMoveToNextSibling()) {
-        continue;
+        while (await this.#cursor.tryMoveToFirstChild()) {
+          continue;
+        }
+
+        const event = await this.getEvent(this.#cursor.target!.address);
+        return { done: false, value: event };
       }
+      this.#cursor.tryMoveToParent();
+    } while (this.#cursor.tryMoveToParent());
 
-      if (this.#cursor.tryMoveToParent()) {
-        continue;
-      }
-
-      const isRoot = this.#cursor.target?.address === this.#root.address;
-
-      if (isRoot && this.#cursor.target?.type === PublicationTreeNodeType.Branch) {
-        return { done: true, value: null };
-      }
-
-      if (isRoot && this.#cursor.target?.type === PublicationTreeNodeType.Leaf) {
-        return { done: true, value: this.#events.get(this.#cursor.target!.address)! };
-      }
-    } while (this.#cursor.target?.type !== PublicationTreeNodeType.Leaf);
-
-    const event = await this.getEvent(this.#cursor.target!.address);
-    return { done: false, value: event };
+    // If we get to this point, we're at the root node (can't move up any more).
+    return { done: true, value: null };
   }
 
   // #endregion

@@ -43,11 +43,8 @@
     for (let i = 0; i < count; i++) {
       const iterResult = await publicationTree.next();
       const { done, value } = iterResult;
-      
-      console.debug('Iterator result:', iterResult, 'done type:', typeof done);
 
       if (done) {
-        console.debug('Done condition met, setting isDone to true');
         isDone = true;
         break;
       }
@@ -95,10 +92,6 @@
 
     observer?.observe(lastElementRef!);
     return () => observer?.unobserve(lastElementRef!);
-  });
-
-  $effect(() => {
-    console.debug('isDone changed to:', isDone);
   });
 
   // #endregion
@@ -191,7 +184,6 @@
 </script>
 
 <!-- TODO: Keep track of already-loaded leaves. -->
-<!-- TODO: Determine when we've reached the end of the document. -->
 <!-- TODO: Handle entering mid-document and scrolling up. -->
 
 {#if showTocButton && !showToc}
@@ -239,7 +231,6 @@
       />
     {/if}
   {/each}
-  <!-- TODO: Hide the button if there are no more leaves to load. -->
   <div class="flex justify-center my-4">
     {#if isLoading}
       <Button disabled color="primary">
