@@ -120,7 +120,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       );
     }
 
-    await this.#addNode(address, parentNode);
+    this.#addNode(address, parentNode);
   }
 
   /**
