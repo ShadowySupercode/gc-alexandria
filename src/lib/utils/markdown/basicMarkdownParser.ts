@@ -304,8 +304,8 @@ function processBasicFormatting(content: string): string {
     processedText = output;
     // --- End Improved List Grouping and Parsing ---
 
-  } catch (error) {
-    console.error('Error in processBasicFormatting:', error);
+  } catch (e: unknown) {
+    console.error('Error in processBasicFormatting:', e);
   }
 
   return processedText;
@@ -330,8 +330,8 @@ function processBlockquotes(content: string): string {
         lines.join('\n')
       }</blockquote>`;
     });
-  } catch (error) {
-    console.error('Error in processBlockquotes:', error);
+  } catch (e: unknown) {
+    console.error('Error in processBlockquotes:', e);
     return content;
   }
 }
@@ -342,8 +342,8 @@ function processEmojiShortcuts(content: string): string {
       const emojiChar = emoji.get(name);
       return emojiChar || `:${name}:`;
     }});
-  } catch (error) {
-    console.error('Error in processEmojiShortcuts:', error);
+  } catch (e: unknown) {
+    console.error('Error in processEmojiShortcuts:', e);
     return content;
   }
 }
@@ -396,8 +396,8 @@ export async function parseBasicMarkdown(text: string): Promise<string> {
     processedText = replaceWikilinks(processedText);
 
     return processedText;
-  } catch (error) {
-    console.error('Error in parseBasicMarkdown:', error);
-    return `<div class="text-red-500">Error processing markdown: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
+  } catch (e: unknown) {
+    console.error('Error in parseBasicMarkdown:', e);
+    return `<div class="text-red-500">Error processing markdown: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
   }
 }

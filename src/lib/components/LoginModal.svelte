@@ -27,10 +27,10 @@
       if (!user) {
         throw new Error('The NIP-07 extension did not return a user.');
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(e);
       signInFailed = true;
-      errorMessage = e instanceof Error ? e.message : 'Failed to sign in. Please try again.';
+      errorMessage = (e as Error)?.message ?? 'Failed to sign in. Please try again.';
     }
   }
 </script>

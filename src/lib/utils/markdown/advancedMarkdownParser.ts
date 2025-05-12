@@ -110,13 +110,13 @@ function processTables(content: string): string {
 
         html += '</tbody>\n</table>\n</div>';
         return html;
-      } catch (error) {
-        console.error('Error processing table row:', error);
+      } catch (e: unknown) {
+        console.error('Error processing table row:', e);
         return match;
       }
     });
-  } catch (error) {
-    console.error('Error in processTables:', error);
+  } catch (e: unknown) {
+    console.error('Error in processTables:', e);
     return content;
   }
 }
@@ -242,7 +242,7 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
         if (currentLanguage.toLowerCase() === 'json') {
           try {
             formattedCode = JSON.stringify(JSON.parse(code), null, 2);
-          } catch (e) {
+          } catch (e: unknown) {
             formattedCode = code;
           }
         }
@@ -282,7 +282,7 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
     if (currentLanguage.toLowerCase() === 'json') {
       try {
         formattedCode = JSON.stringify(JSON.parse(code), null, 2);
-      } catch (e) {
+      } catch (e: unknown) {
         formattedCode = code;
       }
     }
@@ -321,7 +321,7 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
             ignoreIllegals: true
           }).value;
           html = `<pre class="code-block"><code class="hljs language-${language}">${highlighted}</code></pre>`;
-        } catch (e) {
+        } catch (e: unknown) {
           console.warn('Failed to highlight code block:', e);
           html = `<pre class="code-block"><code class="hljs ${language ? `language-${language}` : ''}">${code}</code></pre>`;
         }
@@ -330,8 +330,8 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
       }
 
       result = result.replace(id, html);
-    } catch (error) {
-      console.error('Error restoring code block:', error);
+    } catch (e: unknown) {
+      console.error('Error restoring code block:', e);
       result = result.replace(id, '<pre class="code-block"><code class="hljs">Error processing code block</code></pre>');
     }
   }
@@ -378,8 +378,8 @@ export async function parseAdvancedMarkdown(text: string): Promise<string> {
     processedText = restoreCodeBlocks(processedText, blocks);
 
     return processedText;
-  } catch (error) {
-    console.error('Error in parseAdvancedMarkdown:', error);
-    return `<div class="text-red-500">Error processing markdown: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
+  } catch (e: unknown) {
+    console.error('Error in parseAdvancedMarkdown:', e);
+    return `<div class=\"text-red-500\">Error processing markdown: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
   }
 }
