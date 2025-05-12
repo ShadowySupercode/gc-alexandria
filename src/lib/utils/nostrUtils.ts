@@ -118,13 +118,27 @@ function createNoteLink(identifier: string): string {
  * Process Nostr identifiers in text
  */
 export async function processNostrIdentifiers(content: string): Promise<string> {
-  console.log('Processing Nostr identifiers:', { input: content });
   let processedContent = content;
+
+  // Helper to check if a match is part of a URL
+  function isPartOfUrl(text: string, index: number): boolean {
+    // Look for http(s):// or www. before the match
+    const before = text.slice(Math.max(0, index - 12), index);
+    return /https?:\/\/$|www\.$/i.test(before);
+  }
 
   // Process profiles (npub and nprofile)
   const profileMatches = Array.from(content.matchAll(NOSTR_PROFILE_REGEX));
   for (const match of profileMatches) {
-    const [fullMatch, identifier] = match;
+    const [fullMatch] = match;
+    const matchIndex = match.index ?? 0;
+    if (isPartOfUrl(content, matchIndex)) {
+      continue; // skip if part of a URL
+    }
+    let identifier = fullMatch;
+    if (!identifier.startsWith('nostr:')) {
+      identifier = 'nostr:' + identifier;
+    }
     const metadata = await getUserMetadata(identifier);
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
@@ -134,7 +148,15 @@ export async function processNostrIdentifiers(content: string): Promise<string> 
   // Process notes (nevent, note, naddr)
   const noteMatches = Array.from(processedContent.matchAll(NOSTR_NOTE_REGEX));
   for (const match of noteMatches) {
-    const [fullMatch, identifier] = match;
+    const [fullMatch] = match;
+    const matchIndex = match.index ?? 0;
+    if (isPartOfUrl(processedContent, matchIndex)) {
+      continue; // skip if part of a URL
+    }
+    let identifier = fullMatch;
+    if (!identifier.startsWith('nostr:')) {
+      identifier = 'nostr:' + identifier;
+    }
     const link = createNoteLink(identifier);
     processedContent = processedContent.replace(fullMatch, link);
   }

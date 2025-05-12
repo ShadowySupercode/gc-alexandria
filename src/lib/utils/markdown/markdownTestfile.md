@@ -70,6 +70,16 @@ Here with a naddr:
 
 nostr:naddr1qvzqqqr4gupzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqzasj6ar9wd6xv6tvv5kkvmmj94kkzuntv3hhwmsu0ktnz
 
+Here's a nonsense one:
+
+nevent123
+
+And some Nostr addresses that should be ignored:
+
+https://lumina.rocks/note/note1sd0hkhxr49jsetkcrjkvf2uls5m8frkue6f5huj8uv4964p2d8fs8dn68z
+
+https://primal.net/e/nevent1qqsqum7j25p9z8vcyn93dsd7edx34w07eqav50qnde3vrfs466q558gdd02yr
+
 This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 
 You can even include `code inline`, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
@@ -161,6 +171,8 @@ content starts at 4-columns in.
 > They can span multiple paragraphs,
 > if you like.
 ```
+
+Test out some emojis :heart: and :trophy:
 
 #### Here is an image!
 

@@ -1,4 +1,5 @@
 import { processNostrIdentifiers } from '../nostrUtils';
+import * as emoji from 'node-emoji';
 
 // Regular expressions for basic markdown elements
 const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
@@ -25,6 +26,8 @@ const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
 const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
 
+// Emoji shortcut pattern
+const EMOJI_SHORTCUT_REGEX = /:([a-zA-Z0-9_+-]+):/g;
 
 function processBasicFormatting(content: string): string {
   if (!content) return '';
@@ -133,12 +136,27 @@ function processBlockquotes(content: string): string {
   }
 }
 
+function processEmojiShortcuts(content: string): string {
+  try {
+    return emoji.emojify(content, { fallback: (name: string) => {
+      const emojiChar = emoji.get(name);
+      return emojiChar || `:${name}:`;
+    }});
+  } catch (error) {
+    console.error('Error in processEmojiShortcuts:', error);
+    return content;
+  }
+}
+
 export async function parseBasicMarkdown(text: string): Promise<string> {
   if (!text) return '';
   
   try {
     // Process basic text formatting first
     let processedText = processBasicFormatting(text);
+
+    // Process emoji shortcuts
+    processedText = processEmojiShortcuts(processedText);
 
     // Process lists - handle ordered lists first
     processedText = processedText
