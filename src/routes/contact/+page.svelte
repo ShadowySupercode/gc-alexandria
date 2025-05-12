@@ -6,7 +6,7 @@
   import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from '$lib/components/LoginModal.svelte';
-  import { parseAdvancedMarkdown } from '$lib/utils/advancedMarkdownParser';
+  import { parseAdvancedMarkdown } from '$lib/utils/markdown/advancedMarkdownParser';
   import { nip19 } from 'nostr-tools';
   import { getMimeTags } from '$lib/utils/mime';
   

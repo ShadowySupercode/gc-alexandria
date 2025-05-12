@@ -1,4 +1,4 @@
-import { processNostrIdentifiers } from './nostrUtils';
+import { processNostrIdentifiers } from '../nostrUtils';
 
 // Regular expressions for basic markdown elements
 const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
