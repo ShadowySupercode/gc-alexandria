@@ -289,7 +289,7 @@
     <form class="space-y-4 mt-6" on:submit|preventDefault={handleSubmit}>
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
-        <Input id="subject" class="w-full" placeholder="Issue subject" bind:value={subject} required autofocus />
+        <Input id="subject" class="w-full bg-white dark:bg-gray-800" placeholder="Issue subject" bind:value={subject} required autofocus />
       </div>
       
       <div class="relative">
@@ -366,7 +366,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
                   />
                 </div>
               {:else}
-                <div class="absolute inset-0 p-4 prose dark:prose-invert max-w-none bg-white dark:bg-gray-800 prose-content">
+                <div class="absolute inset-0 p-4 max-w-none bg-white dark:bg-gray-800 prose-content markdown-content">
                   {#key content}
                     {#await parseAdvancedMarkdown(content)}
                       <p>Loading preview...</p>

@@ -1,5 +1,6 @@
 import { processNostrIdentifiers } from '../nostrUtils';
 import * as emoji from 'node-emoji';
+import { nip19 } from 'nostr-tools';
 
 // Regular expressions for basic markdown elements
 const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
@@ -26,6 +27,67 @@ const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
 const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
 
+// Add this helper function near the top:
+function replaceAlexandriaNostrLinks(text: string): string {
+  // Regex for Alexandria/localhost URLs
+  const alexandriaPattern = /^https?:\/\/((next-)?alexandria\.gitcitadel\.(eu|com)|localhost(:\d+)?)/i;
+  // Regex for bech32 Nostr identifiers
+  const bech32Pattern = /(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{20,}/;
+  // Regex for 64-char hex
+  const hexPattern = /\b[a-fA-F0-9]{64}\b/;
+
+  // 1. Replace Markdown links ONLY if they match the criteria
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, _label, url) => {
+    if (alexandriaPattern.test(url)) {
+      // Ignore d-tag URLs
+      if (/[?&]d=/.test(url)) return match;
+      // Convert hexid in URL to nevent if present
+      const hexMatch = url.match(hexPattern);
+      if (hexMatch) {
+        try {
+          const nevent = nip19.neventEncode({ id: hexMatch[0] });
+          return `nostr:${nevent}`;
+        } catch {
+          return match;
+        }
+      }
+      // Or use bech32 if present
+      const bech32Match = url.match(bech32Pattern);
+      if (bech32Match) {
+        return `nostr:${bech32Match[0]}`;
+      }
+    }
+    // For all other links, leave the markdown link untouched
+    return match;
+  });
+
+  // 2. Replace bare Alexandria/localhost URLs only if they contain a Nostr identifier (not d-tag)
+  text = text.replace(/https?:\/\/[^\s)\]]+/g, (url) => {
+    if (alexandriaPattern.test(url)) {
+      // Ignore d-tag URLs
+      if (/[?&]d=/.test(url)) return url;
+      // Convert hexid in URL to nevent if present
+      const hexMatch = url.match(hexPattern);
+      if (hexMatch) {
+        try {
+          const nevent = nip19.neventEncode({ id: hexMatch[0] });
+          return `nostr:${nevent}`;
+        } catch {
+          return url;
+        }
+      }
+      // Or use bech32 if present
+      const bech32Match = url.match(bech32Pattern);
+      if (bech32Match) {
+        return `nostr:${bech32Match[0]}`;
+      }
+    }
+    return url;
+  });
+
+  return text;
+}
+
 // Utility to strip tracking parameters from URLs
 function stripTrackingParams(url: string): string {
   // List of tracking params to remove
@@ -41,8 +103,8 @@ function stripTrackingParams(url: string): string {
           }
         }
       });
-      parsed.search = parsed.searchParams.toString();
-      return parsed.origin + parsed.pathname + (parsed.search ? '?' + parsed.search : '') + (parsed.hash || '');
+      const queryString = parsed.searchParams.toString();
+      return parsed.origin + parsed.pathname + (queryString ? '?' + queryString : '') + (parsed.hash || '');
     } else {
       // Relative URL: parse query string manually
       const [path, queryAndHash = ''] = url.split('?');
@@ -68,6 +130,9 @@ function processBasicFormatting(content: string): string {
   let processedText = content;
   
   try {
+    // Sanitize Alexandria Nostr links before further processing
+    processedText = replaceAlexandriaNostrLinks(processedText);
+
     // Process Markdown images first
     processedText = processedText.replace(MARKDOWN_IMAGE, (match, alt, url) => {
       url = stripTrackingParams(url);

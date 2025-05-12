@@ -5,6 +5,13 @@ This is a test
 
 It is _only_ a test, for __sure__. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
 
+# H1
+## H2
+### H3
+#### H4
+##### H5
+###### H6
+
 This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
 
 npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as this one with a nostr prefix nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
@@ -92,7 +99,17 @@ https://upload.wikimedia.org/wikipedia/commons/f/f1/Heart_coraz%C3%B3n.svg
 
 This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 
-You can even include `code inline`, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
+You can even turn Alexandria URLs into embedded events, if they have hexids or bech32 addresses:
+http://localhost:4173/publication?id=nevent1qqstjcyerjx4laxlxc70cwzuxf3u9kkzuhdhgtu8pwrzvh7k5d5zdngpzemhxue69uhhyetvv9ujumn0wd68ytnzv9hxgq3qm3xdppkd0njmrqe2ma8a6ys39zvgp5k8u22mev8xsnqp4nh80srq0ylvuw
+
+But not if they have d-tags:
+http://next-alexandria.gitcitadel.eu/publication?d=relay-test-thecitadel-by-unknown-v-1
+
+And within a Markdown tag: [Markdown link title](http://alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
+
+And to localhost: http://localhost:4173/publication?id=c36b54991e459221f444612d88ea94ef5bb4a1b93863ef89b1328996746f6d25
+
+You can even include code inline, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
 
 ```
 in a code block

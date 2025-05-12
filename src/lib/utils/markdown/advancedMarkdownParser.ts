@@ -20,16 +20,28 @@ const FOOTNOTE_DEFINITION_REGEX = /^\[\^([^\]]+)\]:\s*(.+)$/gm;
  * Process headings (both styles)
  */
 function processHeadings(content: string): string {
+  // Tailwind classes for each heading level
+  const headingClasses = [
+    'text-4xl font-bold mt-6 mb-4 text-gray-800 dark:text-gray-300', // h1
+    'text-3xl font-bold mt-6 mb-4 text-gray-800 dark:text-gray-300', // h2
+    'text-2xl font-bold mt-6 mb-4 text-gray-800 dark:text-gray-300', // h3
+    'text-xl font-bold mt-6 mb-4 text-gray-800 dark:text-gray-300',  // h4
+    'text-lg font-semibold mt-6 mb-4 text-gray-800 dark:text-gray-300', // h5
+    'text-base font-semibold mt-6 mb-4 text-gray-800 dark:text-gray-300', // h6
+  ];
+
   // Process ATX-style headings (# Heading)
   let processedContent = content.replace(HEADING_REGEX, (_, level, text) => {
-    const headingLevel = level.length;
-    return `<h${headingLevel} class="text-2xl font-bold mt-6 mb-4">${text.trim()}</h${headingLevel}>`;
+    const headingLevel = Math.min(level.length, 6);
+    const classes = headingClasses[headingLevel - 1];
+    return `<h${headingLevel} class="${classes}">${text.trim()}</h${headingLevel}>`;
   });
 
   // Process Setext-style headings (Heading\n====)
   processedContent = processedContent.replace(ALTERNATE_HEADING_REGEX, (_, text, level) => {
     const headingLevel = level[0] === '=' ? 1 : 2;
-    return `<h${headingLevel} class="text-2xl font-bold mt-6 mb-4">${text.trim()}</h${headingLevel}>`;
+    const classes = headingClasses[headingLevel - 1];
+    return `<h${headingLevel} class="${classes}">${text.trim()}</h${headingLevel}>`;
   });
 
   return processedContent;
@@ -148,9 +160,9 @@ function processFootnotes(content: string): string {
       return `<sup><a href="#fn-${id}" id="fnref-${id}-${referenceMap.get(id)!.length}" class="text-primary-600 hover:underline">[${refNum}]</a></sup>`;
     });
 
-    // Add footnotes section if we have any
+    // Only render footnotes section if there are actual definitions and at least one reference
     if (footnotes.size > 0 && referenceOrder.length > 0) {
-      processedContent += '\n\n<h2 class="text-xl font-bold mt-8 mb-4">Footnotes</h2>\n<ol class="list-decimal list-inside footnotes-ol">\n';
+      processedContent += '\n\n<h2 class="text-xl font-bold mt-8 mb-4">Footnotes</h2>\n<ol class="list-decimal list-inside footnotes-ol" style="list-style-type:decimal !important;">\n';
       // Only include each unique footnote once, in order of first reference
       const seen = new Set<string>();
       for (const { id, label } of referenceOrder) {

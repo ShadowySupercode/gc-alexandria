@@ -251,6 +251,11 @@
     @apply dark:text-white;
   }
 
+  /* Footnotes */
+  :global(.footnotes-ol) {
+    list-style-type: decimal !important;
+  }
+
   /* Rendered publication content */
   .publication-leather {
     @apply flex flex-col space-y-4;
