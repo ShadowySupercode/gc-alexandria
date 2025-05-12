@@ -21,14 +21,9 @@
     "@tailwindcss/typography": "0.5.x",
     "asciidoctor": "3.0.x",
     "d3": "^7.9.0",
-    "easymde": "^2.20.0",
     "he": "1.2.x",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.1.0",
-    "markdown-it-emoji": "^3.0.0",
-    "markdown-it-footnote": "^4.0.0",
-    "nostr-tools": "2.10.x",
-    "svelte-heros": "^7.0.2"
+    "nostr-tools": "2.10.x"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
@@ -39,7 +34,6 @@
     "@sveltejs/vite-plugin-svelte": "4.x",
     "@types/d3": "^7.4.3",
     "@types/he": "1.2.x",
-    "@types/markdown-it": "^14.1.2",
     "@types/node": "22.x",
     "autoprefixer": "10.x",
     "eslint-plugin-svelte": "2.x",

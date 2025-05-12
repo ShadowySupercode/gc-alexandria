@@ -104,9 +104,9 @@
   });
 </script>
 
-<section bind:this={sectionRef} class="publication-section content-visibility-auto">
+<section bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
-    <TextPlaceholder size="xxl" />
+    <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {#each divergingBranches as [branch, depth]}
       {@render sectionHeading(branch.getMatchingTags('title')[0]?.[1] ?? '', depth)}

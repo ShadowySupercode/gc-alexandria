@@ -7,23 +7,23 @@
   let leftMenuOpen = $state(false);
 </script>
 
-<Navbar class={`nav-container ${className}`}>
-  <div class="nav-content">
-    <NavBrand href="/" class="nav-brand">
+<Navbar class={`Navbar navbar-leather ${className}`}>
+  <div class='flex flex-grow justify-between'>
+    <NavBrand href='/'>
       <h1>Alexandria</h1>
     </NavBrand>
   </div>
-  <div class="nav-links">
+  <div class='flex md:order-2'>
     <Login />
-    <NavHamburger class="btn-base" />
+    <NavHamburger class='btn-leather' />
   </div>
-  <NavUl class="nav-links">
-    <NavLi href="/new/edit" class="nav-link">Publish</NavLi>
-    <NavLi href="/visualize" class="nav-link">Visualize</NavLi>
-    <NavLi href="/about" class="nav-link">About</NavLi>
-    <NavLi href="/contact" class="nav-link">Contact</NavLi>
-    <NavLi>
-      <DarkMode btnClass="btn-base no-padding" />
+  <NavUl class='ul-leather'>
+    <NavLi href='/new/edit'>Publish</NavLi>
+    <NavLi href='/visualize'>Visualize</NavLi>
+    <NavLi href='/about'>About</NavLi>
+    <NavLi href='/contact'>Contact</NavLi>
+  <NavLi>
+      <DarkMode btnClass='btn-leather p-0'/>
     </NavLi>
   </NavUl>
 </Navbar>

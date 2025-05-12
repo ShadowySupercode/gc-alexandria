@@ -5,9 +5,7 @@ This is a test
 
 It is _only_ a test, for __sure__. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
 
-This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser. 
-
-Try out some emojisface with smiling :facesmile:, call-me hand :call-me-hand:, and trophy :trophy:. 
+This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
 
 npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
 

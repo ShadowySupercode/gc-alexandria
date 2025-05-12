@@ -1,5 +1,3 @@
 {
-    "editor.tabSize": 2,
-    "css.validate": false,
-    "tailwindCSS.validate": true
+    "editor.tabSize": 2
 }

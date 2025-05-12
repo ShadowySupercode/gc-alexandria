@@ -12,7 +12,7 @@
   } from "flowbite-svelte";
   import { getContext, onMount } from "svelte";
   import { BookOutline, ExclamationCircleOutline } from "flowbite-svelte-icons";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
@@ -80,11 +80,9 @@
 
   const tocBreakpoint = 1140;
 
-  let activeHash = $state($page.url.hash);
+  let activeHash = $state(page.url.hash);
   let showToc: boolean = $state(true);
   let showTocButton: boolean = $state(false);
-
-  let currentPath = $page.url.pathname;
 
   function normalizeHashPath(str: string): string {
     return str
@@ -168,12 +166,41 @@
 <!-- TODO: Keep track of already-loaded leaves. -->
 <!-- TODO: Handle entering mid-document and scrolling up. -->
 
-<div class="publication-container">
+{#if showTocButton && !showToc}
+  <!-- <Button
+    class="btn-leather fixed top-20 left-4 h-6 w-6"
+    outline={true}
+    on:click={(ev) => {
+      showToc = true;
+      ev.stopPropagation();
+    }}
+  >
+    <BookOutline />
+  </Button>
+  <Tooltip>Show Table of Contents</Tooltip> -->
+{/if}
+<!-- TODO: Use loader to build ToC. -->
+<!-- {#if showToc}
+  <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
+    <SidebarWrapper>
+      <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
+        {#each events as event}
+          <SidebarItem
+            class='sidebar-item-leather'
+            label={event.getMatchingTags('title')[0][1]}
+            href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
+          />
+        {/each}
+      </SidebarGroup>
+    </SidebarWrapper>
+  </Sidebar>
+{/if} -->
+<div class="flex flex-col space-y-4 max-w-2xl">
   {#each leaves as leaf, i}
     {#if leaf == null}
-      <Alert class="message-error">
-        <ExclamationCircleOutline class="w-5 h-5" />
-        Error loading content. One or more events could not be loaded.
+      <Alert class='flex space-x-2'>
+        <ExclamationCircleOutline class='w-5 h-5' />
+        Error loading content.  One or more events could not be loaded.
       </Alert>
     {:else}
       <PublicationSection
@@ -184,50 +211,18 @@
       />
     {/if}
   {/each}
-  <div class="publication-footer">
+  <div class="flex justify-center my-4">
     {#if isLoading}
-      <Button disabled class="btn-base">
+      <Button disabled color="primary">
         Loading...
       </Button>
     {:else if !isDone}
-      <Button class="btn-base" on:click={() => loadMore(1)}>
+      <Button color="primary" on:click={() => loadMore(1)}>
         Show More
       </Button>
     {/if}
   </div>
 </div>
-
-{#if showTocButton && !showToc}
-  <Button
-    class="btn-secondary toc-toggle-btn"
-    outline={true}
-    on:click={(ev) => {
-      showToc = true;
-      ev.stopPropagation();
-    }}
-  >
-    <BookOutline />
-  </Button>
-  <Tooltip>Show Table of Contents</Tooltip>
-{/if}
-
-{#if showToc}
-  <Sidebar class="toc-container">
-    <SidebarWrapper>
-      <SidebarGroup class="toc-list">
-        {#each leaves as leaf}
-          {#if leaf && leaf.getMatchingTags('title').length > 0}
-            <SidebarItem
-              class="toc-item"
-              label={leaf.getMatchingTags('title')[0][1]}
-              href={`${currentPath}#${normalizeHashPath(leaf.getMatchingTags('title')[0][1])}`}
-            />
-          {/if}
-        {/each}
-      </SidebarGroup>
-    </SidebarWrapper>
-  </Sidebar>
-{/if}
 
 <style>
   :global(.sidebar-group-leather) {

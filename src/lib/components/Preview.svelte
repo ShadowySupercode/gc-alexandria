@@ -188,7 +188,7 @@
             <div slot='footer' class='flex space-x-2 justify-end'>
               <Button
                 type='reset'
-                class='btn-base min-w-fit'
+                class='btn-leather min-w-fit'
                 size='sm'
                 outline
                 onclick={() => toggleEditing(rootId, false)}
@@ -197,7 +197,7 @@
               </Button>
               <Button
                 type='submit'
-                class='btn-base min-w-fit'
+                class='btn-leather min-w-fit'
                 size='sm'
                 onclick={() => toggleEditing(rootId, true)}
               >
@@ -217,7 +217,7 @@
           <Input type='text' class='input-leather' size='lg' bind:value={title}>
             <CloseButton slot='right' onclick={() => toggleEditing(rootId, false)} />
           </Input>
-          <Button class='btn-base' color='primary' size='lg' onclick={() => toggleEditing(rootId, true)}>
+          <Button class='btn-leather' color='primary' size='lg' onclick={() => toggleEditing(rootId, true)}>
             Save
           </Button>
         </ButtonGroup>
@@ -246,12 +246,12 @@
   {#if allowEditing && depth > 0}
     <div class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? 'visible' : 'invisible'}`}>
       {#if hasPreviousSibling && parentId}
-        <Button class='btn-base' size='sm' outline onclick={() => moveUp(rootId, parentId)}>
+        <Button class='btn-leather' size='sm' outline onclick={() => moveUp(rootId, parentId)}>
           <CaretUpSolid />
         </Button>
       {/if}
       {#if hasNextSibling && parentId}
-        <Button class='btn-base' size='sm' outline onclick={() => moveDown(rootId, parentId)}>
+        <Button class='btn-leather' size='sm' outline onclick={() => moveDown(rootId, parentId)}>
           <CaretDownSolid />
         </Button>
       {/if}

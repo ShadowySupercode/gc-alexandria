@@ -12,8 +12,7 @@ import type {
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
-import { zettelKinds } from './consts';
-import { replaceEmojisWithUnicode } from './utils/markdown/markdownItParser';
+import { zettelKinds } from './consts.ts';
 
 interface IndexMetadata {
   authors?: string[];
@@ -209,11 +208,10 @@ export default class Pharos {
 
   /**
    * Gets the entire HTML content of the AsciiDoc document.
-   * @returns The HTML content of the converted document, with emoji shortcodes replaced by Unicode.
+   * @returns The HTML content of the converted document.
    */
   getHtml(): string {
-    const html = this.html?.toString() || '';
-    return replaceEmojisWithUnicode(html);
+    return this.html?.toString() || '';
   }
 
   /**

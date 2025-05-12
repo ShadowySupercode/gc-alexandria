@@ -115,14 +115,14 @@
   });
 </script>
 
-<div class="visualize-container">
+<div class="leather w-full p-4 relative">
   <!-- Header with title and settings button -->
-  <div class="visualize-header">
-    <h1 class="heading-1">Publication Network</h1>
+  <div class="flex items-center mb-4">
+    <h1 class="h-leather">Publication Network</h1>
   </div>
   <!-- Loading spinner -->
   {#if loading}
-    <div class="visualize-loading">
+    <div class="flex justify-center items-center h-64">
       <div role="status">
         <svg
           aria-hidden="true"
@@ -145,12 +145,15 @@
     </div>
   <!-- Error message -->
   {:else if error}
-    <div class="visualize-error" role="alert">
-      <p class="heading-3">Error loading network:</p>
-      <p class="text-secondary mb-3">{error}</p>
+    <div
+      class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400"
+      role="alert"
+    >
+      <p class="font-bold mb-2">Error loading network:</p>
+      <p class="mb-3">{error}</p>
       <button
         type="button"
-        class="btn-base text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
+        class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mt-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
         on:click={fetchEvents}
       >
         Retry
