@@ -1,13 +1,11 @@
 import { get } from 'svelte/store';
 import { nip19 } from 'nostr-tools';
 import { ndkInstance } from '$lib/ndk';
+import { npubCache } from './npubCache';
 
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX = /(?<![\w/])((nostr:)?(npub|nprofile)[a-zA-Z0-9]{20,})(?![\w/])/g;
 export const NOSTR_NOTE_REGEX = /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0-9]{20,})(?![\w/])/g;
-
-// Cache for npub metadata
-const npubCache = new Map<string, {name?: string, displayName?: string}>();
 
 /**
  * HTML escape a string
