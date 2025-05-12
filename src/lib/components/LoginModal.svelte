@@ -4,7 +4,7 @@
   
   const { show = false, onClose = () => {}, onLoginSuccess = () => {} } = $props<{
     show?: boolean;
-    onClose?: (event: MouseEvent) => void;
+    onClose?: () => void;
     onLoginSuccess?: () => void;
   }>();
 
@@ -14,7 +14,7 @@
   $effect(() => {
     if ($ndkSignedIn && show) {
       onLoginSuccess();
-      onClose(new MouseEvent('click'));
+      onClose();
     }
   });
 
