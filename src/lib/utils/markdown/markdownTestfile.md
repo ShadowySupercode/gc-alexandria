@@ -7,7 +7,7 @@ It is _only_ a test, for __sure__. I just wanted to see if the markdown renders 
 
 This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
 
-npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
+npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as this one with a nostr prefix nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
 
 > This is important information
 
@@ -62,7 +62,7 @@ Try embedded a nostr note with nevent:
 
 nostr:nevent1qvzqqqqqqypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyrzdyycehfwyekef75z5wnnygqeps6a4qvc8dunvumzr08g06svgcptkske
 
-Here with note:
+Here a note with no prefix
 
 note1cnfpxxd6t3xdk204q4r5uezqxgvxhdgrxpm0ym8xcsme6r75rzxqcj9lmz
 
@@ -74,11 +74,21 @@ Here's a nonsense one:
 
 nevent123
 
+And a nonsense one with a prefix:
+
+nostr:naddrwhatever
+
 And some Nostr addresses that should be ignored:
 
 https://lumina.rocks/note/note1sd0hkhxr49jsetkcrjkvf2uls5m8frkue6f5huj8uv4964p2d8fs8dn68z
 
 https://primal.net/e/nevent1qqsqum7j25p9z8vcyn93dsd7edx34w07eqav50qnde3vrfs466q558gdd02yr
+
+URL with a tracking parameter, no Markdown:
+https://example.com?utm_source=newsletter1&utm_medium=email&utm_campaign=sale
+
+Image without Markdown:
+https://upload.wikimedia.org/wikipedia/commons/f/f1/Heart_coraz%C3%B3n.svg
 
 This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 

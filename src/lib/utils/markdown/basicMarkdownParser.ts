@@ -26,8 +26,41 @@ const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
 const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
 
-// Emoji shortcut pattern
-const EMOJI_SHORTCUT_REGEX = /:([a-zA-Z0-9_+-]+):/g;
+// Utility to strip tracking parameters from URLs
+function stripTrackingParams(url: string): string {
+  // List of tracking params to remove
+  const trackingParams = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^tracking$/i, /^ref$/i];
+  try {
+    // Absolute URL
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+      const parsed = new URL(url);
+      trackingParams.forEach(pattern => {
+        for (const key of Array.from(parsed.searchParams.keys())) {
+          if (pattern.test(key)) {
+            parsed.searchParams.delete(key);
+          }
+        }
+      });
+      parsed.search = parsed.searchParams.toString();
+      return parsed.origin + parsed.pathname + (parsed.search ? '?' + parsed.search : '') + (parsed.hash || '');
+    } else {
+      // Relative URL: parse query string manually
+      const [path, queryAndHash = ''] = url.split('?');
+      const [query = '', hash = ''] = queryAndHash.split('#');
+      if (!query) return url;
+      const params = query.split('&').filter(Boolean);
+      const filtered = params.filter(param => {
+        const [key] = param.split('=');
+        return !trackingParams.some(pattern => pattern.test(key));
+      });
+      const queryString = filtered.length ? '?' + filtered.join('&') : '';
+      const hashString = hash ? '#' + hash : '';
+      return path + queryString + hashString;
+    }
+  } catch {
+    return url;
+  }
+}
 
 function processBasicFormatting(content: string): string {
   if (!content) return '';
@@ -37,27 +70,30 @@ function processBasicFormatting(content: string): string {
   try {
     // Process Markdown images first
     processedText = processedText.replace(MARKDOWN_IMAGE, (match, alt, url) => {
+      url = stripTrackingParams(url);
       if (YOUTUBE_URL_REGEX.test(url)) {
         const videoId = extractYouTubeVideoId(url);
         if (videoId) {
           return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-4" src="https://www.youtube-nocookie.com/embed/${videoId}" title="${alt || 'YouTube video'}" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
         }
       }
-      
       if (VIDEO_URL_REGEX.test(url)) {
         return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${url}">${alt || 'Video'}</video>`;
       }
-      
       if (AUDIO_URL_REGEX.test(url)) {
         return `<audio controls class="w-full my-4" preload="none"><source src="${url}">${alt || 'Audio'}</audio>`;
       }
-      
-      return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
+      // Only render <img> if the url ends with a direct image extension
+      if (/\.(jpg|jpeg|gif|png|webp|svg)$/i.test(url.split('?')[0])) {
+        return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
+      }
+      // Otherwise, render as a clickable link
+      return `<a href="${url}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${alt || url}</a>`;
     });
 
     // Process Markdown links
     processedText = processedText.replace(MARKDOWN_LINK, (match, text, url) => 
-      `<a href="${url}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`
+      `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`
     );
 
     // Process WebSocket URLs
@@ -67,28 +103,27 @@ function processBasicFormatting(content: string): string {
       return `<a href="https://nostrudel.ninja/#/r/wss%3A%2F%2F${cleanUrl}%2F" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-500 hover:underline">${match}</a>`;
     });
 
-    // Process direct media URLs
+    // Process direct media URLs and auto-link all URLs
     processedText = processedText.replace(DIRECT_LINK, match => {
-      if (YOUTUBE_URL_REGEX.test(match)) {
-        const videoId = extractYouTubeVideoId(match);
+      const clean = stripTrackingParams(match);
+      if (YOUTUBE_URL_REGEX.test(clean)) {
+        const videoId = extractYouTubeVideoId(clean);
         if (videoId) {
           return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-4" src="https://www.youtube-nocookie.com/embed/${videoId}" title="YouTube video" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation" class="text-primary-600 dark:text-primary-500 hover:underline"></iframe>`;
         }
       }
-      
-      if (VIDEO_URL_REGEX.test(match)) {
-        return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${match}">Your browser does not support the video tag.</video>`;
+      if (VIDEO_URL_REGEX.test(clean)) {
+        return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${clean}">Your browser does not support the video tag.</video>`;
       }
-      
-      if (AUDIO_URL_REGEX.test(match)) {
-        return `<audio controls class="w-full my-4" preload="none"><source src="${match}">Your browser does not support the audio tag.</audio>`;
+      if (AUDIO_URL_REGEX.test(clean)) {
+        return `<audio controls class="w-full my-4" preload="none"><source src="${clean}">Your browser does not support the audio tag.</audio>`;
       }
-      
-      if (IMAGE_URL_REGEX.test(match)) {
-        return `<img src="${match}" alt="Embedded media" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
+      // Only render <img> if the url ends with a direct image extension
+      if (/\.(jpg|jpeg|gif|png|webp|svg)$/i.test(clean.split('?')[0])) {
+        return `<img src="${clean}" alt="Embedded media" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
       }
-      
-      return `<a href="${match}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">${match}</a>`;
+      // Otherwise, render as a clickable link
+      return `<a href="${clean}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">${clean}</a>`;
     });
     
     // Process text formatting
