@@ -6,7 +6,7 @@
   import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from '$lib/components/LoginModal.svelte';
-  import { parseAdvancedMarkdown } from '$lib/utils/markdown/advancedMarkdownParser';
+  import { parseAdvancedmarkup } from '$lib/utils/markup/advancedMarkupParser';
   import { nip19 } from 'nostr-tools';
   import { getMimeTags } from '$lib/utils/mime';
   
@@ -334,7 +334,7 @@
                     required
                     placeholder="Describe your issue in detail...
 
-The following Markdown is supported:
+The following markup is supported:
 
 # Headers (1-6 levels)
 
@@ -369,9 +369,9 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
                   />
                 </div>
               {:else}
-                <div class="absolute inset-0 p-4 max-w-none bg-white dark:bg-gray-800 prose-content markdown-content">
+                <div class="absolute inset-0 p-4 max-w-none bg-white dark:bg-gray-800 prose-content markup-content">
                   {#key content}
-                    {#await parseAdvancedMarkdown(content)}
+                    {#await parseAdvancedmarkup(content)}
                       <p>Loading preview...</p>
                     {:then html}
                       {@html html || '<p class="text-gray-500">Nothing to preview</p>'}
@@ -436,12 +436,12 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
             <div>
               <span class="font-semibold">Description:</span>
               <div class="mt-1 note-leather max-h-[400px] overflow-y-auto">
-                {#await parseAdvancedMarkdown(submittedEvent.content)}
+                {#await parseAdvancedmarkup(submittedEvent.content)}
                   <p>Loading...</p>
                 {:then html}
                   {@html html}
                 {:catch error}
-                  <p class="text-red-500">Error rendering markdown: {error.message}</p>
+                  <p class="text-red-500">Error rendering markup: {error.message}</p>
                 {/await}
               </div>
             </div>

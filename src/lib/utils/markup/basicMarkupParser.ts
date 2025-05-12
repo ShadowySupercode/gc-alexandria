@@ -2,20 +2,16 @@ import { processNostrIdentifiers } from '../nostrUtils';
 import * as emoji from 'node-emoji';
 import { nip19 } from 'nostr-tools';
 
-// Regular expressions for basic markdown elements
+// Regular expressions for basic markup elements
 const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
 const ITALIC_REGEX = /\b(_[^_\n]+_|\b__[^_\n]+__)\b/g;
 const STRIKETHROUGH_REGEX = /~~([^~\n]+)~~|~([^~\n]+)~/g;
 const HASHTAG_REGEX = /(?<![^\s])#([a-zA-Z0-9_]+)(?!\w)/g;
 const BLOCKQUOTE_REGEX = /^([ \t]*>[ \t]?.*)(?:\n\1[ \t]*(?!>).*)*$/gm;
 
-// List regex patterns
-const UNORDERED_LIST_REGEX = /^(\s*[-*+]\s+)(.*?)$/gm;
-const ORDERED_LIST_REGEX = /^(\s*\d+\.\s+)(.*?)$/gm;
-
-// Markdown patterns
-const MARKDOWN_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
-const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
+// markup patterns
+const markup_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
+const markup_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
 // URL patterns
 const WSS_URL = /wss:\/\/[^\s<>"]+/g;
@@ -36,7 +32,7 @@ function replaceAlexandriaNostrLinks(text: string): string {
   // Regex for 64-char hex
   const hexPattern = /\b[a-fA-F0-9]{64}\b/;
 
-  // 1. Alexandria/localhost Markdown links
+  // 1. Alexandria/localhost markup links
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, _label, url) => {
     if (alexandriaPattern.test(url)) {
       if (/[?&]d=/.test(url)) return match;
@@ -150,39 +146,37 @@ function replaceWikilinks(text: string): string {
   });
 }
 
-function renderListGroup(lines: string[]): string {
-  // Recursive function to render a list group with proper nesting
-  function render(lines: string[], start = 0, indent = 0): [string, number] {
+function renderListGroup(lines: string[], typeHint?: 'ol' | 'ul'): string {
+  function parseList(start: number, indent: number, type: 'ol' | 'ul'): [string, number] {
     let html = '';
     let i = start;
-    let currentTag = '';
+    html += `<${type} class="${type === 'ol' ? 'list-decimal' : 'list-disc'} ml-6 mb-2">`;
     while (i < lines.length) {
       const line = lines[i];
       const match = line.match(/^([ \t]*)([*+-]|\d+\.)[ \t]+(.*)$/);
       if (!match) break;
       const lineIndent = match[1].replace(/\t/g, '    ').length;
       const isOrdered = /\d+\./.test(match[2]);
-      const tag = isOrdered ? 'ol' : 'ul';
-      if (!currentTag) {
-        html += `<${tag} class="ml-6 mb-2">`;
-        currentTag = tag;
-      } else if (lineIndent > indent) {
+      const itemType = isOrdered ? 'ol' : 'ul';
+      if (lineIndent > indent) {
         // Nested list
-        const [nestedHtml, consumed] = render(lines, i, lineIndent);
-        html += nestedHtml;
+        const [nestedHtml, consumed] = parseList(i, lineIndent, itemType);
+        html = html.replace(/<\/li>$/, '') + nestedHtml + '</li>';
         i = consumed;
         continue;
-      } else if (lineIndent < indent) {
+      }
+      if (lineIndent < indent || itemType !== type) {
         break;
       }
       html += `<li class="mb-1">${match[3]}`;
-      // Check if next line is more indented (nested)
+      // Check for next line being a nested list
       if (i + 1 < lines.length) {
         const nextMatch = lines[i + 1].match(/^([ \t]*)([*+-]|\d+\.)[ \t]+/);
         if (nextMatch) {
           const nextIndent = nextMatch[1].replace(/\t/g, '    ').length;
+          const nextType = /\d+\./.test(nextMatch[2]) ? 'ol' : 'ul';
           if (nextIndent > lineIndent) {
-            const [nestedHtml, consumed] = render(lines, i + 1, nextIndent);
+            const [nestedHtml, consumed] = parseList(i + 1, nextIndent, nextType);
             html += nestedHtml;
             i = consumed - 1;
           }
@@ -191,10 +185,15 @@ function renderListGroup(lines: string[]): string {
       html += '</li>';
       i++;
     }
-    html += `</${currentTag}>`;
+    html += `</${type}>`;
     return [html, i];
   }
-  const [html] = render(lines);
+  if (!lines.length) return '';
+  const firstLine = lines[0];
+  const match = firstLine.match(/^([ \t]*)([*+-]|\d+\.)[ \t]+/);
+  const indent = match ? match[1].replace(/\t/g, '    ').length : 0;
+  const type = typeHint || (match && /\d+\./.test(match[2]) ? 'ol' : 'ul');
+  const [html] = parseList(0, indent, type);
   return html;
 }
 
@@ -207,8 +206,8 @@ function processBasicFormatting(content: string): string {
     // Sanitize Alexandria Nostr links before further processing
     processedText = replaceAlexandriaNostrLinks(processedText);
 
-    // Process Markdown images first
-    processedText = processedText.replace(MARKDOWN_IMAGE, (match, alt, url) => {
+    // Process markup images first
+    processedText = processedText.replace(markup_IMAGE, (match, alt, url) => {
       url = stripTrackingParams(url);
       if (YOUTUBE_URL_REGEX.test(url)) {
         const videoId = extractYouTubeVideoId(url);
@@ -230,8 +229,8 @@ function processBasicFormatting(content: string): string {
       return `<a href="${url}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${alt || url}</a>`;
     });
 
-    // Process Markdown links
-    processedText = processedText.replace(MARKDOWN_LINK, (match, text, url) => 
+    // Process markup links
+    processedText = processedText.replace(markup_LINK, (match, text, url) => 
       `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`
     );
 
@@ -291,7 +290,9 @@ function processBasicFormatting(content: string): string {
         inList = true;
       } else {
         if (inList) {
-          output += renderListGroup(buffer);
+          const firstLine = buffer[0];
+          const isOrdered = /^\s*\d+\.\s+/.test(firstLine);
+          output += renderListGroup(buffer, isOrdered ? 'ol' : 'ul');
           buffer = [];
           inList = false;
         }
@@ -299,7 +300,9 @@ function processBasicFormatting(content: string): string {
       }
     }
     if (buffer.length) {
-      output += renderListGroup(buffer);
+      const firstLine = buffer[0];
+      const isOrdered = /^\s*\d+\.\s+/.test(firstLine);
+      output += renderListGroup(buffer, isOrdered ? 'ol' : 'ul');
     }
     processedText = output;
     // --- End Improved List Grouping and Parsing ---
@@ -348,7 +351,7 @@ function processEmojiShortcuts(content: string): string {
   }
 }
 
-export async function parseBasicMarkdown(text: string): Promise<string> {
+export async function parseBasicmarkup(text: string): Promise<string> {
   if (!text) return '';
   
   try {
@@ -357,26 +360,6 @@ export async function parseBasicMarkdown(text: string): Promise<string> {
 
     // Process emoji shortcuts
     processedText = processEmojiShortcuts(processedText);
-
-    // Process lists - handle ordered lists first
-    processedText = processedText
-      // Process ordered lists
-      .replace(ORDERED_LIST_REGEX, (match, marker, content) => {
-        // Count leading spaces to determine nesting level
-        const indent = marker.match(/^\s*/)[0].length;
-        const extraIndent = indent > 0 ? ` ml-${indent * 4}` : '';
-        return `<li class="py-2${extraIndent}">${content}</li>`;
-      })
-      .replace(/<li.*?>.*?<\/li>\n?/gs, '<ol class="list-decimal my-4 ml-8">$&</ol>')
-      
-      // Process unordered lists
-      .replace(UNORDERED_LIST_REGEX, (match, marker, content) => {
-        // Count leading spaces to determine nesting level
-        const indent = marker.match(/^\s*/)[0].length;
-        const extraIndent = indent > 0 ? ` ml-${indent * 4}` : '';
-        return `<li class="py-2${extraIndent}">${content}</li>`;
-      })
-      .replace(/<li.*?>.*?<\/li>\n?/gs, '<ul class="list-disc my-4 ml-8">$&</ul>');
       
     // Process blockquotes
     processedText = processBlockquotes(processedText);
@@ -397,7 +380,7 @@ export async function parseBasicMarkdown(text: string): Promise<string> {
 
     return processedText;
   } catch (e: unknown) {
-    console.error('Error in parseBasicMarkdown:', e);
-    return `<div class="text-red-500">Error processing markdown: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
+    console.error('Error in parseBasicmarkup:', e);
+    return `<div class="text-red-500">Error processing markup: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
   }
 }

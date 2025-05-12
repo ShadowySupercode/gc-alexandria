@@ -3,7 +3,7 @@ This is a test
 
 ### Disclaimer
 
-It is _only_ a test, for __sure__. I just wanted to see if the markdown renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
+It is _only_ a test, for __sure__. I just wanted to see if the markup renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
 
 # H1
 ## H2
@@ -12,7 +12,7 @@ It is _only_ a test, for __sure__. I just wanted to see if the markdown renders 
 ##### H5
 ###### H6
 
-This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
+This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markup parser.
 
 You can even learn about [[mirepoix]], [[nkbip-03]], or [[roman catholic church|catholics]]
 
@@ -95,13 +95,13 @@ https://primal.net/e/nevent1qqsqum7j25p9z8vcyn93dsd7edx34w07eqav50qnde3vrfs466q5
 
 https://primal.net/p/nprofile1qqs06gywary09qmcp2249ztwfq3ue8wxhl2yyp3c39thzp55plvj0sgjn9mdk
 
-URL with a tracking parameter, no Markdown:
+URL with a tracking parameter, no markup:
 https://example.com?utm_source=newsletter1&utm_medium=email&utm_campaign=sale
 
-Image without Markdown:
+Image without markup:
 https://upload.wikimedia.org/wikipedia/commons/f/f1/Heart_coraz%C3%B3n.svg
 
-This is an implementation of [Nostr-flavored Markdown](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
+This is an implementation of [Nostr-flavored markup](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 
 You can even turn Alexandria URLs into embedded events, if they have hexids or bech32 addresses:
 http://localhost:4173/publication?id=nevent1qqstjcyerjx4laxlxc70cwzuxf3u9kkzuhdhgtu8pwrzvh7k5d5zdngpzemhxue69uhhyetvv9ujumn0wd68ytnzv9hxgq3qm3xdppkd0njmrqe2ma8a6ys39zvgp5k8u22mev8xsnqp4nh80srq0ylvuw
@@ -109,7 +109,7 @@ http://localhost:4173/publication?id=nevent1qqstjcyerjx4laxlxc70cwzuxf3u9kkzuhdh
 But not if they have d-tags:
 http://next-alexandria.gitcitadel.eu/publication?d=relay-test-thecitadel-by-unknown-v-1
 
-And within a Markdown tag: [Markdown link title](http://alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
+And within a markup tag: [markup link title](http://alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
 
 And to localhost: http://localhost:4173/publication?id=c36b54991e459221f444612d88ea94ef5bb4a1b93863ef89b1328996746f6d25
 
@@ -125,7 +125,7 @@ You can even use a multi-line code block, with a json tag.
 
 ```json
 {
-"created_at":1745038670,"content":"# This is a test\n\nIt is _only_ a test. I just wanted to see if the *markdown* renders correctly on the page, even if I use **two asterisks** for bold text.[^1]\n\nnpub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.\n\n> This is important information\n\n> This is multiple\n> lines of\n> important information\n> with a second[^2] footnote.\n\n* but\n* not\n* really\n\n## More testing\n\n1. first\n2. second\n3. third\n\nHere is a horizontal rule:\n\n---\n\nThis is an implementation of [Nostr-flavored Markdown](github.com/nostrability/nostrability/issues/146 ) for #gitstuff issue notes.\n\nYou can even include `code inline` or\n\n```\nin a code block\n```\n\nYou can even use a \n\n```json\nmultiline of json block\n```\n\n\n![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)\n\n[^1]: this is a footnote\n[^2]: so is this","tags":[["subject","test"],["alt","git repository issue: test"],["a","30617:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:Alexandria","","root"],["p","fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1"],["t","gitstuff"]],"kind":1621,"pubkey":"dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319","id":"e78a689369511fdb3c36b990380c2d8db2b5e62f13f6b836e93ef5a09611afe8","sig":"7a2b3a6f6f61b6ea04de1fe873e46d40f2a220f02cdae004342430aa1df67647a9589459382f22576c651b3d09811546bbd79564cf472deaff032f137e94a865"
+"created_at":1745038670,"content":"# This is a test\n\nIt is _only_ a test. I just wanted to see if the *markup* renders correctly on the page, even if I use **two asterisks** for bold text.[^1]\n\nnpub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.\n\n> This is important information\n\n> This is multiple\n> lines of\n> important information\n> with a second[^2] footnote.\n\n* but\n* not\n* really\n\n## More testing\n\n1. first\n2. second\n3. third\n\nHere is a horizontal rule:\n\n---\n\nThis is an implementation of [Nostr-flavored markup](github.com/nostrability/nostrability/issues/146 ) for #gitstuff issue notes.\n\nYou can even include `code inline` or\n\n```\nin a code block\n```\n\nYou can even use a \n\n```json\nmultiline of json block\n```\n\n\n![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)\n\n[^1]: this is a footnote\n[^2]: so is this","tags":[["subject","test"],["alt","git repository issue: test"],["a","30617:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:Alexandria","","root"],["p","fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1"],["t","gitstuff"]],"kind":1621,"pubkey":"dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319","id":"e78a689369511fdb3c36b990380c2d8db2b5e62f13f6b836e93ef5a09611afe8","sig":"7a2b3a6f6f61b6ea04de1fe873e46d40f2a220f02cdae004342430aa1df67647a9589459382f22576c651b3d09811546bbd79564cf472deaff032f137e94a865"
 }
 ```
 
@@ -180,7 +180,7 @@ package main
    }
 ```
 
-or even Markdown:
+or even markup:
 
 ```md
 A H1 Header

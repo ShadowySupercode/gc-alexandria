@@ -1,4 +1,4 @@
-import { parseBasicMarkdown } from './basicMarkdownParser';
+import { parseBasicmarkup } from './basicMarkupParser';
 import hljs from 'highlight.js';
 import 'highlight.js/lib/common';  // Import common languages
 import 'highlight.js/styles/github-dark.css';  // Dark theme only
@@ -8,7 +8,7 @@ hljs.configure({
   ignoreUnescapedHTML: true
 });
 
-// Regular expressions for advanced markdown elements
+// Regular expressions for advanced markup elements
 const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
 const ALTERNATE_HEADING_REGEX = /^([^\n]+)\n(=+|-+)\n/gm;
 const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
@@ -138,12 +138,15 @@ function processFootnotes(content: string): string {
   try {
     if (!content) return '';
 
-    // Collect all footnote definitions
+    // Collect all footnote definitions (but do not remove them from the text yet)
     const footnotes = new Map<string, string>();
-    let processedContent = content.replace(FOOTNOTE_DEFINITION_REGEX, (match, id, text) => {
+    content.replace(FOOTNOTE_DEFINITION_REGEX, (match, id, text) => {
       footnotes.set(id, text.trim());
-      return '';
+      return match;
     });
+
+    // Remove all footnote definition lines from the main content
+    let processedContent = content.replace(FOOTNOTE_DEFINITION_REGEX, '');
 
     // Track all references to each footnote
     const referenceOrder: { id: string, refNum: number, label: string }[] = [];
@@ -341,9 +344,9 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
 }
 
 /**
- * Parse markdown text with advanced formatting
+ * Parse markup text with advanced formatting
  */
-export async function parseAdvancedMarkdown(text: string): Promise<string> {
+export async function parseAdvancedmarkup(text: string): Promise<string> {
   if (!text) return '';
   
   try {
@@ -369,18 +372,18 @@ export async function parseAdvancedMarkdown(text: string): Promise<string> {
       return `<code class="px-1.5 py-0.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-sm font-mono">${escapedCode}</code>`;
     });
 
-    // Process footnotes
+    // Process footnotes (only references, not definitions)
     processedText = processFootnotes(processedText);
 
-    // Process basic markdown (which will also handle Nostr identifiers)
-    processedText = await parseBasicMarkdown(processedText);
+    // Process basic markup (which will also handle Nostr identifiers)
+    processedText = await parseBasicmarkup(processedText);
 
     // Step 3: Restore code blocks
     processedText = restoreCodeBlocks(processedText, blocks);
 
     return processedText;
   } catch (e: unknown) {
-    console.error('Error in parseAdvancedMarkdown:', e);
-    return `<div class=\"text-red-500\">Error processing markdown: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
+    console.error('Error in parseAdvancedmarkup:', e);
+    return `<div class=\"text-red-500\">Error processing markup: ${(e as Error)?.message ?? 'Unknown error'}</div>`;
   }
 }

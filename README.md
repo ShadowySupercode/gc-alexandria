@@ -115,3 +115,7 @@ For the Playwright end-to-end (e2e) tests:
 ```bash
 npx playwright test
 ```
+
+## Markup Support
+
+Alexandria supports both Markdown and AsciiDoc markup for different content types. For a detailed list of supported tags and features in the basic and advanced markdown parsers, as well as information about AsciiDoc usage for publications and wikis, see [MarkupInfo.md](src/lib/utils/markup/MarkupInfo.md).

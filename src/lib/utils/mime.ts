@@ -55,13 +55,13 @@ export function getMimeTags(kind: number): [string, string][] {
 
     // Issue
     case 1621:
-      mTag = ["m", "text/markdown"];
+      mTag = ["m", "text/markup"];
       MTag = ["M", `git/issue/${replaceability}`];
       break;
 
     // Issue comment
     case 1622:
-      mTag = ["m", "text/markdown"];
+      mTag = ["m", "text/markup"];
       MTag = ["M", `git/comment/${replaceability}`];
       break;
 
@@ -85,7 +85,7 @@ export function getMimeTags(kind: number): [string, string][] {
 
     // Long-form note
     case 30023:
-      mTag = ["m", "text/markdown"];
+      mTag = ["m", "text/markup"];
       MTag = ["M", `article/long-form/${replaceability}`];
       break;
 
