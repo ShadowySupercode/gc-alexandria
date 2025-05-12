@@ -25,6 +25,12 @@ npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That
 > important information
 > with a second[^2] footnote.
 
+This is a youtube link 
+https://www.youtube.com/watch?v=9aqVxNCpx9s
+
+And here is a link with tracking tokens:
+https://arstechnica.com/science/2019/07/new-data-may-extend-norse-occupancy-in-north-america/?fbclid=IwAR1LOW3BebaMLinfkWFtFpzkLFi48jKNF7P6DV2Ux2r3lnT6Lqj6eiiOZNU
+
 This is an unordered list:
 * but
 * not
