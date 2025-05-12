@@ -296,7 +296,7 @@
         <Label for="content" class="mb-2">Description</Label>
         <div class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded ? 'h-[800px]' : 'h-[200px]'} transition-all duration-200 sm:w-[95vw] md:w-full">
           <div class="h-full flex flex-col">
-            <div class="border-b border-gray-300 dark:border-gray-600">
+            <div class="border-b border-gray-300 dark:border-gray-600 rounded-t-lg">
               <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
                 <li class="mr-2" role="presentation">
                   <button 
@@ -323,12 +323,12 @@
             
             <div class="flex-1 min-h-0 relative">
               {#if activeTab === 'write'}
-                <div class="absolute inset-0">
-                  <Textarea 
-                    id="content" 
-                    class="w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4 description-textarea"
-                    bind:value={content} 
-                    required 
+                <div class="absolute inset-0 overflow-hidden">
+                  <Textarea
+                    id="content"
+                    class="w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4 description-textarea rounded-b-lg rounded-t-none"
+                    bind:value={content}
+                    required
                     placeholder="Describe your issue in detail...
 
 The following Markdown is supported:
