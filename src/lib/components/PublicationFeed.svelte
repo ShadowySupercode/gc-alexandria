@@ -80,7 +80,7 @@
   });
 </script>
 
-<div class='leather flex flex-col space-y-4'>
+<div class='feed-container'>
   {#if eventsInView.length === 0}
     {#each getSkeletonIds() as id}
       <Skeleton divClass='skeleton-leather w-full' size='lg' />
@@ -109,7 +109,7 @@
     </div>
   {:else}
     <div class='flex justify-center mt-4 mb-8'>
-      <P class='text-sm text-gray-600'>You've reached the end of the feed.</P>
+      <P class='text-sm-secondary'>You've reached the end of the feed.</P>
     </div>
   {/if}
 </div>

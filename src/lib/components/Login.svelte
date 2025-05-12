@@ -46,33 +46,28 @@
 
 </script>
 
-<div class="m-4">
+<div class="login-container">
   {#if $ndkSignedIn}
     <Profile pubkey={$activePubkey} isNav={true} />
   {:else}
-    <Avatar rounded class='h-6 w-6 cursor-pointer' id='avatar' />
+    <Avatar rounded class="avatar-small" id="avatar" />
     <Popover
-      class='popover-leather w-fit'
-      placement='bottom'
-      triggeredBy='#avatar'
+      class="modal-content"
+      placement="bottom"
+      triggeredBy="#avatar"
     >
-      <div class='w-full flex flex-col space-y-2'>
+      <div class="login-form">
         <Button
-          onclick={handleSignInClick}
+          class="login-button"
+          on:click={handleSignInClick}
         >
           Extension Sign-In
         </Button>
         {#if signInFailed}
-          <div class="p-2 text-sm text-red-600 bg-red-100 rounded">
+          <div class="login-error">
             {errorMessage}
           </div>
         {/if}
-        <!-- <Button
-          color='alternative'
-          on:click={signInWithBunker}
-        >
-          Bunker Sign-In
-        </Button> -->
       </div>
     </Popover>
   {/if}

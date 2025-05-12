@@ -6,9 +6,10 @@
   import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from '$lib/components/LoginModal.svelte';
-  import { parseAdvancedMarkdown } from '$lib/utils/advancedMarkdownParser';
+  import { parseAdvancedMarkdown } from '$lib/utils/markdown/advancedMarkdownParser';
   import { nip19 } from 'nostr-tools';
   import { getMimeTags } from '$lib/utils/mime';
+  import MarkdownForm from '$lib/components/MarkdownForm.svelte';
   
   // Function to close the success message
   function closeSuccessMessage() {
@@ -68,29 +69,16 @@
     isExpanded = !isExpanded;
   }
   
-  async function handleSubmit(e: Event) {
-    // Prevent form submission
-    e.preventDefault();
-    
+  function handleIssueSubmit(subject: string, content: string) {
+    // Set the local state for subject/content if needed
+    // subject = subject;
+    // content = content;
+    // Call the original handleSubmit logic, but without the event
     if (!subject || !content) {
       submissionError = 'Please fill in all fields';
       return;
     }
-    
-    // Check if user is logged in
-    if (!$ndkSignedIn) {
-      // Save form data
-      savedFormData = {
-        subject,
-        content
-      };
-      
-      // Show login modal
-      showLoginModal = true;
-      return;
-    }
-    
-    // Show confirmation dialog
+    // Show confirmation dialog or proceed with submission as before
     showConfirmDialog = true;
   }
   
@@ -268,8 +256,8 @@
   }
 </script>
 
-<div class='w-full flex justify-center'>
-  <main class='main-leather flex flex-col space-y-6 max-w-3xl w-full my-6 px-6 sm:px-4'>
+<div class='contact-form-container'>
+  <main class='contact-form-main'>
     <Heading tag='h1' class='h-leather mb-2'>Contact GitCitadel</Heading>
     
     <P class="mb-3">
@@ -286,193 +274,92 @@
       If you are logged into the Alexandria web application (using the button at the top-right of the window), then you can use the form, below, to submit an issue, that will appear on our repo page.
     </P>
 
-    <form class="space-y-4 mt-6" on:submit|preventDefault={handleSubmit}>
-      <div>
-        <Label for="subject" class="mb-2">Subject</Label>
-        <Input id="subject" class="w-full" placeholder="Issue subject" bind:value={subject} required autofocus />
-      </div>
-      
-      <div class="relative">
-        <Label for="content" class="mb-2">Description</Label>
-        <div class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded ? 'h-[800px]' : 'h-[200px]'} transition-all duration-200 sm:w-[95vw] md:w-full">
-          <div class="h-full flex flex-col">
-            <div class="border-b border-gray-300 dark:border-gray-600">
-              <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
-                <li class="mr-2" role="presentation">
-                  <button 
-                    type="button"
-                    class="inline-block p-4 rounded-t-lg {activeTab === 'write' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'write'}
-                    role="tab"
-                  >
-                    Write
-                  </button>
-                </li>
-                <li role="presentation">
-                  <button 
-                    type="button"
-                    class="inline-block p-4 rounded-t-lg {activeTab === 'preview' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'preview'}
-                    role="tab"
-                  >
-                    Preview
-                  </button>
-                </li>
-              </ul>
-            </div>
-            
-            <div class="flex-1 min-h-0 relative">
-              {#if activeTab === 'write'}
-                <div class="absolute inset-0">
-                  <Textarea 
-                    id="content" 
-                    class="w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4 description-textarea"
-                    bind:value={content} 
-                    required 
-                    placeholder="Describe your issue in detail...
+    <MarkdownForm
+      labelSubject="Subject"
+      labelContent="Description"
+      submitLabel="Submit Issue"
+      showSubject={true}
+      on:submit={({ detail }) => handleIssueSubmit(detail.subject, detail.content)}
+    />
 
-The following Markdown is supported:
-
-# Headers (1-6 levels)
-
-*Bold* or **bold**
-
-_Italic_ or __italic__ text
-
-~Strikethrough~ or ~~strikethrough~~ text
-
-> Blockquotes
-
-Lists, including nested:
-* Bullets/unordered lists
-1. Numbered/ordered lists
-
-[Links](url)
-![Images](url)
-
-`Inline code`
-
-```language
-Code blocks with syntax highlighting for over 100 languages
-```
-
-| Tables | With or without headers |
-|--------|------|
-| Multiple | Rows |
-
-Footnotes[^1] and [^1]: footnote content
-
-Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. With or without the nostr: prefix." 
-                  />
-                </div>
-              {:else}
-                <div class="absolute inset-0 p-4 prose dark:prose-invert max-w-none bg-white dark:bg-gray-800 prose-content">
-                  {#key content}
-                    {#await parseAdvancedMarkdown(content)}
-                      <p>Loading preview...</p>
-                    {:then html}
-                      {@html html || '<p class="text-gray-500">Nothing to preview</p>'}
-                    {:catch error}
-                      <p class="text-red-500">Error rendering preview: {error.message}</p>
-                    {/await}
-                  {/key}
-                </div>
-              {/if}
-            </div>
-          </div>
-          <Button
-            type="button"
-            size="xs"
-            class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
-            color="light"
-            on:click={toggleSize}
-          >
-            {isExpanded ? '⌃' : '⌄'}
-          </Button>
-        </div>
-      </div>
-
-      <div class="flex justify-end space-x-4">
-        <Button type="button" color="alternative" on:click={clearForm}>
-          Clear Form
-        </Button>
-        <Button type="submit" tabindex={0}>
-          {#if isSubmitting}
-            Submitting...
-          {:else}
-            Submit Issue
-          {/if}
-        </Button>
-      </div>
-      
-      {#if submissionSuccess && submittedEvent}
-        <div class="p-6 mb-4 text-sm bg-success-200 dark:bg-success-700 border border-success-300 dark:border-success-600 rounded-lg relative" role="alert">
-          <!-- Close button -->
-          <button 
-            class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
-            on:click={closeSuccessMessage}
-            aria-label="Close"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-          
-          <div class="flex items-center mb-3">
-            <svg class="w-5 h-5 mr-2 text-success-700 dark:text-success-300" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-            </svg>
-            <span class="font-medium text-success-800 dark:text-success-200">Issue submitted successfully!</span>
-          </div>
-          
-          <div class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-success-200 dark:border-success-600">
-            <div class="mb-2">
-              <span class="font-semibold">Subject:</span> 
-              <span>{submittedEvent.tags.find(t => t[0] === 'subject')?.[1] || 'No subject'}</span>
-            </div>
-            <div>
-              <span class="font-semibold">Description:</span>
-              <div class="mt-1 note-leather max-h-[400px] overflow-y-auto">
-                {#await parseAdvancedMarkdown(submittedEvent.content)}
-                  <p>Loading...</p>
-                {:then html}
-                  {@html html}
-                {:catch error}
-                  <p class="text-red-500">Error rendering markdown: {error.message}</p>
-                {/await}
-              </div>
-            </div>
-          </div>
-          
-          <div class="mb-3">
-            <span class="font-semibold">View your issue:</span>
-            <div class="mt-1">
-              <A href={issueLink} target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 break-all">
-                {issueLink}
-              </A>
-            </div>
-          </div>
-          
-          <!-- Display successful relays -->
-          <div class="text-sm">
-            <span class="font-semibold">Successfully published to relays:</span>
-            <ul class="list-disc list-inside mt-1">
-              {#each successfulRelays as relay}
-                <li class="text-success-700 dark:text-success-300">{relay}</li>
-              {/each}
-            </ul>
-          </div>
-        </div>
-      {/if}
-      
-      {#if submissionError}
-        <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-          {submissionError}
-        </div>
-      {/if}
-    </form>
+    <div class="contact-form-actions">
+      <Button type="button" color="alternative" onclick={clearForm}>
+        Clear Form
+      </Button>
+      <Button type="submit" tabindex={0}>
+        {#if isSubmitting}
+          Submitting...
+        {:else}
+          Submit Issue
+        {/if}
+      </Button>
+    </div>
     
-    </main>
+    {#if submissionSuccess && submittedEvent}
+      <div class="contact-form-success" role="alert">
+        <button 
+          class="contact-form-success-close"
+          onclick={closeSuccessMessage}
+          aria-label="Close"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+        
+        <div class="flex items-center mb-3">
+          <svg class="contact-form-success-icon" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+          </svg>
+          <span class="contact-form-success-title">Issue submitted successfully!</span>
+        </div>
+        
+        <div class="contact-form-success-content">
+          <div class="mb-2">
+            <span class="font-semibold">Subject:</span> 
+            <span>{submittedEvent.tags.find(t => t[0] === 'subject')?.[1] || 'No subject'}</span>
+          </div>
+          <div>
+            <span class="font-semibold">Description:</span>
+            <div class="contact-form-success-description">
+              {#await parseAdvancedMarkdown(submittedEvent.content)}
+                <p>Loading...</p>
+              {:then html}
+                {@html html}
+              {:catch error}
+                <p class="text-red-500">Error rendering markdown: {error.message}</p>
+              {/await}
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <span class="font-semibold">View your issue:</span>
+          <div class="mt-1">
+            <A href={issueLink} target="_blank" class="hover:underline text-primary-600 dark:text-primary-500 break-all">
+              {issueLink}
+            </A>
+          </div>
+        </div>
+        
+        <!-- Display successful relays -->
+        <div class="text-sm">
+          <span class="font-semibold">Successfully published to relays:</span>
+          <ul class="list-disc list-inside mt-1">
+            {#each successfulRelays as relay}
+              <li class="text-success-700 dark:text-success-300">{relay}</li>
+            {/each}
+          </ul>
+        </div>
+      </div>
+    {/if}
+    
+    {#if submissionError}
+      <div class="contact-form-error" role="alert">
+        {submissionError}
+      </div>
+    {/if}
+  </main>
 </div>
 
 <!-- Confirmation Dialog -->
@@ -482,15 +369,15 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
   autoclose={false}
   class="w-full"
 >
-  <div class="text-center">
-    <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+  <div class="contact-form-confirm-dialog">
+    <h3 class="contact-form-confirm-title">
       Would you like to submit the issue?
     </h3>
-    <div class="flex justify-center gap-4">
-      <Button color="alternative" on:click={cancelSubmit}>
+    <div class="contact-form-confirm-actions">
+      <Button color="alternative" onclick={cancelSubmit}>
         Cancel
       </Button>
-      <Button color="primary" on:click={confirmSubmit}>
+      <Button color="primary" onclick={confirmSubmit}>
         Submit
       </Button>
     </div>
@@ -510,95 +397,3 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
     submitIssue();
   }}
 />
-
-<style>
-  :global(.footnote-ref) {
-    text-decoration: none;
-    color: var(--color-primary);
-  }
-
-  :global(.footnotes) {
-    margin-top: 2rem;
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-  }
-
-  :global(.footnotes hr) {
-    margin: 1rem 0;
-    border-top: 1px solid var(--color-border);
-  }
-
-  :global(.footnotes ol) {
-    padding-left: 1rem;
-  }
-
-  :global(.footnotes li) {
-    margin-bottom: 0.5rem;
-  }
-
-  :global(.footnote-backref) {
-    text-decoration: none;
-    margin-left: 0.5rem;
-    color: var(--color-primary);
-  }
-
-  :global(.note-leather) :global(.footnote-ref),
-  :global(.note-leather) :global(.footnote-backref) {
-    color: var(--color-leather-primary);
-  }
-
-  :global(.description-textarea) {
-    overflow-y: scroll !important;
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
-    min-height: 100% !important;
-  }
-
-  :global(.description-textarea::-webkit-scrollbar) {
-    width: 8px !important;
-    display: block !important;
-  }
-
-  :global(.description-textarea::-webkit-scrollbar-track) {
-    background: transparent !important;
-  }
-
-  :global(.description-textarea::-webkit-scrollbar-thumb) {
-    background-color: rgba(156, 163, 175, 0.5) !important;
-    border-radius: 4px !important;
-  }
-
-  :global(.description-textarea::-webkit-scrollbar-thumb:hover) {
-    background-color: rgba(156, 163, 175, 0.7) !important;
-  }
-
-  :global(.prose-content) {
-    overflow-y: scroll !important;
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
-  }
-
-  :global(.prose-content::-webkit-scrollbar) {
-    width: 8px !important;
-    display: block !important;
-  }
-
-  :global(.prose-content::-webkit-scrollbar-track) {
-    background: transparent !important;
-  }
-
-  :global(.prose-content::-webkit-scrollbar-thumb) {
-    background-color: rgba(156, 163, 175, 0.5) !important;
-    border-radius: 4px !important;
-  }
-
-  :global(.prose-content::-webkit-scrollbar-thumb:hover) {
-    background-color: rgba(156, 163, 175, 0.7) !important;
-  }
-
-  :global(.tab-content) {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-  }
-</style>

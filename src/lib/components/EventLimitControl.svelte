@@ -29,23 +29,23 @@
   }
 </script>
 
-<div class="flex items-center gap-2 mb-4">
-  <label for="event-limit" class="leather bg-transparent text-sm font-medium"
-    >Number of root events:
+<div class="event-control-container">
+  <label for="event-limit" class="event-control-label">
+    Number of root events:
   </label>
   <input
     type="number"
     id="event-limit"
     min="1"
     max="50"
-    class="w-20 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+    class="event-control-input"
     bind:value={inputValue}
-    on:input={handleInput}
-    on:keydown={handleKeyDown}
+    oninput={handleInput}
+    onkeydown={handleKeyDown}
   />
   <button
-    on:click={handleUpdate}
-    class="btn-leather px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+    onclick={handleUpdate}
+    class="btn-base"
   >
     Update
   </button>

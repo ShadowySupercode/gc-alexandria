@@ -115,3 +115,58 @@ For the Playwright end-to-end (e2e) tests:
 ```bash
 npx playwright test
 ```
+
+## Markdown Support
+
+In addition to the [standard Asciidoc](https://asciidoc.org/) support for publication and wiki events, Alexandria supports a rich set of Markdown features for content creation:
+
+### Text Formatting
+- **Bold**: `*text*` or `**text**`
+- **Italic**: `_text_` or `__text__`
+- **Strikethrough**: `~text~` or `~~text~~`
+- **Inline Code**: `` `code` ``
+- **Links**: `[text](url)`
+- **Images**: `![alt](url)`
+
+### Structure
+- **Headings**: 
+  - ATX style: `# Heading 1` through `###### Heading 6`
+  - Setext style: 
+    ```markdown
+    Heading 1
+    ========
+    ```
+- **Lists**:
+  - Unordered: `* item`
+  - Ordered: `1. item`, `2. item`
+  - Nested lists supported
+- **Code Blocks with language-specific highlighting**:
+  ```markdown
+      ```javascript
+      const code = 'example';
+      ```
+  ```
+- **Blockquotes**: `> Quote text`
+- **Horizontal Rules**: `---`
+- **Tables**:
+  ```markdown
+  | Header 1 | Header 2 |
+  |----------|----------|
+  | Cell 1   | Cell 2   |
+  ```
+
+### Special Features
+- **Footnotes**: `[^1]` and `[^1]: definition`
+- **Emojis**: `:smile:`
+- **Hashtags**: `#tag`
+- **Nostr Identifiers**: 
+  - Profiles: `npub...` or `nprofile...`
+  - Notes: `note...`, `nevent...`, or `naddr...`
+
+### Media Support
+- **YouTube Videos**: Automatically embedded
+- **Video Files**: mp4, webm, mov, avi
+- **Audio Files**: mp3, wav, ogg, m4a
+- **Images**: jpg, jpeg, gif, png, webp
+
+All media URLs are automatically cleaned of tracking parameters for privacy.

@@ -2,195 +2,489 @@
 @import './styles/publications.css';
 @import './styles/visualize.css';
 
-/* Custom styles */
+/* Base styles */
 @layer base {
-  .leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-200;
-  }
-
-  .btn-leather.text-xs {
-    @apply px-2 py-1;
-  }
-
-  .btn-leather.text-xs svg {
-    @apply h-3 w-3;
-  }
-
-  .btn-leather.text-sm {
-    @apply px-3 py-2;
-  }
-
-  .btn-leather.text-sm svg {
-    @apply h-4 w-4;
-  }
-
-  div[role='tooltip'] button.btn-leather {
-    @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
-  }
-
-  .image-border {
-    @apply border border-primary-700;
-  }
-
-  div.card-leather {
-    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
-  }
-
-  div.card-leather h1,
-  div.card-leather h2,
-  div.card-leather h3,
-  div.card-leather h4,
-  div.card-leather h5,
-  div.card-leather h6 {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
-  }
-
-  div.card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-200;
-  }
-
-  main {
-    @apply max-w-full;
-  }
-
-  main.main-leather,
-  article.article-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
-  }
-
-  div.note-leather,
-  p.note-leather,
-  section.note-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 p-2 rounded;
-  }
-
-  div.note-leather:hover:not(:has(.note-leather:hover)),
-  p.note-leather:hover:not(:has(.note-leather:hover)),
-  section.note-leather:hover:not(:has(.note-leather:hover)) {
-    @apply hover:bg-primary-100 dark:hover:bg-primary-800;
-  }
-
-  h1.h-leather,
-  h2.h-leather,
-  h3.h-leather,
-  h4.h-leather,
-  h5.h-leather,
-  h6.h-leather {
+  /* Common text colors and typography */
+  .text-primary {
     @apply text-gray-800 dark:text-gray-300;
   }
 
-  h1.h-leather {
-    @apply text-4xl font-bold;
+  .text-secondary {
+    @apply text-gray-600 dark:text-gray-400;
   }
 
-  h2.h-leather {
-    @apply text-3xl font-bold;
+  .text-sm-secondary {
+    @apply text-sm text-gray-600 dark:text-gray-400;
   }
 
-  h3.h-leather {
-    @apply text-2xl font-bold;
+  /* Common link styles */
+  .link {
+    @apply underline cursor-pointer hover:text-primary-700 dark:hover:text-primary-400;
   }
 
-  h4.h-leather {
-    @apply text-xl font-bold;
+  .link-secondary {
+    @apply text-gray-800 hover:text-primary-700 dark:text-gray-300 dark:hover:text-primary-400;
   }
 
-  h5.h-leather {
-    @apply text-lg font-semibold;
+  /* Common container styles */
+  .container-base {
+    @apply w-full flex justify-center;
   }
 
-  h6.h-leather {
-    @apply text-base font-semibold;
+  .container-main {
+    @apply main-leather flex flex-col space-y-4 max-w-2xl w-full my-6 px-4;
   }
 
-  div.modal-leather>div {
-    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
+  .container-main-wide {
+    @apply container-main max-w-3xl;
   }
 
-  div.modal-leather>div>h1,
-  div.modal-leather>div>h2,
-  div.modal-leather>div>h3,
-  div.modal-leather>div>h4,
-  div.modal-leather>div>h5,
-  div.modal-leather>div>h6 {
-    @apply text-gray-800 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-300;
+  /* Common form styles */
+  .form-base {
+    @apply space-y-4 mt-6;
   }
 
-  div.modal-leather button {
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+  .form-input {
+    @apply w-full;
   }
 
-  nav.navbar-leather {
+  .form-textarea {
+    @apply w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4;
+  }
+
+  .form-preview {
+    @apply absolute inset-0 p-4 prose dark:prose-invert max-w-none bg-white dark:bg-gray-800 prose-content;
+  }
+
+  /* Common button styles */
+  .btn-base {
+    @apply btn-leather !w-fit;
+  }
+
+  .btn-secondary {
+    @apply btn-base outline;
+  }
+
+  .btn-sm {
+    @apply text-sm px-3 py-2;
+  }
+
+  .btn-xs {
+    @apply text-xs px-2 py-1;
+  }
+
+  /* Common message styles */
+  .message-base {
+    @apply p-4 mb-4 text-sm rounded-lg;
+  }
+
+  .message-success {
+    @apply message-base bg-success-200 dark:bg-success-700 border border-success-300 dark:border-success-600 relative;
+  }
+
+  .message-error {
+    @apply message-base text-red-700 bg-red-100;
+  }
+
+  /* Common image styles */
+  .image-container {
+    @apply flex flex-col items-center space-y-4 my-4;
+  }
+
+  .image-bordered {
+    @apply border border-primary-700 rounded-lg;
+  }
+
+  /* Common heading styles */
+  .heading-base {
+    @apply text-gray-800 dark:text-gray-300 font-bold;
+  }
+
+  .heading-1 {
+    @apply heading-base text-4xl;
+  }
+
+  .heading-2 {
+    @apply heading-base text-3xl;
+  }
+
+  .heading-3 {
+    @apply heading-base text-2xl;
+  }
+
+  .heading-4 {
+    @apply heading-base text-xl;
+  }
+
+  .heading-5 {
+    @apply heading-base text-lg font-semibold;
+  }
+
+  .heading-6 {
+    @apply heading-base text-base font-semibold;
+  }
+
+    /* Update link colors for better contrast */
+    .link {
+      @apply underline cursor-pointer hover:text-primary-700 dark:hover:text-primary-400;
+    }
+
+    /* Update secondary text colors for better contrast */
+    .text-gray-500 {
+      @apply text-gray-600 dark:text-gray-400;
+    }
+
+    /* Update link colors in notes */
+    .note-leather p a {
+      @apply underline hover:text-primary-700 dark:hover:text-primary-400;
+    }
+
+    /* Update link colors in lists */
+    .ol-leather li a,
+    .ul-leather li a {
+      @apply text-gray-800 hover:text-primary-700 dark:text-gray-300 dark:hover:text-primary-400;
+    }
+  }
+
+/* Component styles */
+@layer components {
+  /* Page containers */
+  .about-container,
+  .contact-container,
+  .edit-container,
+  .visualize-container,
+  .not-found-container {
+    @apply container-base;
+  }
+
+  .about-main,
+  .contact-main {
+    @apply container-main-wide;
+  }
+
+  .edit-main {
+    @apply container-main;
+  }
+
+  /* About page */
+  .about-header {
+    @apply flex justify-between items-center;
+  }
+
+  .about-version {
+    @apply text-sm-secondary bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap;
+  }
+
+  .about-image-container {
+    @apply image-container;
+  }
+
+  .about-image {
+    @apply image-bordered;
+  }
+
+  /* Contact page */
+  .contact-form {
+    @apply form-base;
+  }
+
+  .contact-form-input {
+    @apply form-input;
+  }
+
+  .contact-form-textarea-container {
+    @apply relative border border-gray-300 dark:border-gray-600 rounded-lg transition-all duration-200 sm:w-[95vw] md:w-full;
+  }
+
+  .contact-form-textarea-container.expanded {
+    @apply h-[800px];
+  }
+
+  .contact-form-textarea-container.collapsed {
+    @apply h-[200px];
+  }
+
+  .contact-form-tabs {
+    @apply flex flex-wrap -mb-px text-sm font-medium text-center;
+  }
+
+  .contact-form-tab {
+    @apply inline-block p-4 rounded-t-lg;
+  }
+
+  .contact-form-tab.active {
+    @apply border-b-2 border-primary-600 text-primary-600;
+  }
+
+  .contact-form-tab.inactive {
+    @apply hover:text-gray-600 hover:border-gray-300;
+  }
+
+  .contact-form-tab-content {
+    @apply absolute inset-0;
+  }
+
+  .contact-form-textarea {
+    @apply form-textarea;
+  }
+
+  .contact-form-preview {
+    @apply form-preview;
+  }
+
+  .contact-form-toggle {
+    @apply absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100;
+  }
+
+  .contact-form-actions {
+    @apply flex justify-end space-x-4;
+  }
+
+  .contact-form-success {
+    @apply message-success;
+  }
+
+  .contact-form-error {
+    @apply message-error;
+  }
+
+  /* Edit page */
+  .edit-preview-form {
+    @apply border border-gray-400 dark:border-gray-600 rounded-lg flex flex-col space-y-2 h-fit;
+  }
+
+  .edit-preview-toolbar {
+    @apply toolbar-leather rounded-b-none bg-gray-200 dark:bg-gray-800;
+  }
+
+  /* Visualize page */
+  .visualize-header {
+    @apply flex items-center mb-4;
+  }
+
+  .visualize-loading {
+    @apply flex justify-center items-center h-64;
+  }
+
+  .visualize-error {
+    @apply message-error;
+  }
+
+  .visualize-error-title {
+    @apply font-bold mb-2;
+  }
+
+  .visualize-error-retry {
+    @apply btn-base text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800;
+  }
+
+  /* 404 page */
+  .not-found-container {
+    @apply leather flex flex-col items-center justify-center min-h-screen text-center px-4;
+  }
+
+  .not-found-title {
+    @apply heading-1 mb-4;
+  }
+
+  .not-found-message {
+    @apply text-secondary mb-6;
+  }
+
+  .not-found-actions {
+    @apply flex space-x-4;
+  }
+
+  .not-found-button {
+    @apply btn-base;
+  }
+
+  /* Publication component styles */
+  .publication-container {
+    @apply flex flex-col space-y-4;
+  }
+
+  .publication-header {
+    @apply flex flex-col space-y-2;
+  }
+
+  .publication-title {
+    @apply heading-1;
+  }
+
+  .publication-metadata {
+    @apply text-sm-secondary;
+  }
+
+  .publication-content {
+    @apply flex flex-col space-y-4;
+  }
+
+  .publication-section {
+    @apply flex flex-col space-y-4;
+  }
+
+  .publication-section-title {
+    @apply heading-2;
+  }
+
+  .publication-section-content {
+    @apply text-secondary;
+  }
+
+  /* Login component styles */
+  .login-container {
+    @apply flex flex-col items-center justify-center min-h-screen p-4;
+  }
+
+  .login-form {
+    @apply form-base w-full max-w-md;
+  }
+
+  .login-input {
+    @apply form-input;
+  }
+
+  .login-button {
+    @apply btn-base w-full;
+  }
+
+  .login-error {
+    @apply message-error;
+  }
+
+  /* Modal component styles */
+  .modal-container {
+    @apply fixed inset-0 z-50 overflow-y-auto;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black bg-opacity-50 transition-opacity;
+  }
+
+  .modal-content {
+    @apply relative bg-white dark:bg-gray-800 rounded-lg shadow-xl mx-auto my-8 max-w-lg p-6;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  .modal-title {
+    @apply heading-2;
+  }
+
+  .modal-close {
+    @apply text-gray-400 hover:text-gray-500 dark:hover:text-gray-300;
+  }
+
+  .modal-body {
+    @apply text-secondary;
+  }
+
+  .modal-footer {
+    @apply flex justify-end space-x-4 mt-6;
+  }
+
+  /* Navigation component styles */
+  .nav-container {
     @apply bg-primary-0 dark:bg-primary-1000 z-10;
   }
 
-  nav.navbar-leather svg {
-    @apply fill-gray-800 hover:fill-primary-400 dark:fill-gray-300 dark:hover:fill-primary-500;
+  .nav-content {
+    @apply flex items-center justify-between p-4;
   }
 
-  nav.navbar-leather h1,
-  nav.navbar-leather h2,
-  nav.navbar-leather h3,
-  nav.navbar-leather h4,
-  nav.navbar-leather h5,
-  nav.navbar-leather h6 {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+  .nav-brand {
+    @apply heading-3;
   }
 
-  aside.sidebar-leather>div {
-    @apply bg-primary-0 dark:bg-primary-1000;
+  .nav-links {
+    @apply flex items-center space-x-4;
   }
 
-  a.sidebar-item-leather {
-    @apply hover:bg-primary-100 dark:hover:bg-primary-800;
+  .nav-link {
+    @apply link-secondary;
   }
 
-  div.skeleton-leather div {
-    @apply bg-primary-100 dark:bg-primary-800;
+  /* Table of Contents styles */
+  .toc-container {
+    @apply fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 max-w-xs;
   }
 
-  div.textarea-leather {
-    @apply bg-primary-0 dark:bg-primary-1000;
+  .toc-title {
+    @apply heading-3 mb-2;
   }
 
-  div.textarea-leather>div:nth-child(1),
-  div.toolbar-leather {
-    @apply border-none;
+  .toc-list {
+    @apply space-y-2;
   }
 
-  div.textarea-leather>div:nth-child(2) {
-    @apply bg-primary-0 dark:bg-primary-1000;
+  .toc-item {
+    @apply link-secondary text-sm;
   }
 
-  div.textarea-leather,
-  div.textarea-leather textarea {
-    @apply text-gray-800 dark:text-gray-300;
+  /* Event control styles */
+  .event-control-container {
+    @apply flex items-center space-x-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg;
   }
 
-  div.tooltip-leather {
-    @apply text-gray-800 dark:text-gray-300;
+  .event-control-label {
+    @apply text-sm-secondary;
   }
 
-  div[role='tooltip'] button.btn-leather .tooltip-leather {
-    @apply bg-primary-100 dark:bg-primary-800;
+  .event-control-input {
+    @apply form-input max-w-24;
   }
 
-  /* Network visualization */
-  .network-link-leather {
-    @apply stroke-primary-200 fill-primary-200;
+  /* Preview component styles */
+  .preview-container {
+    @apply flex flex-col space-y-4;
   }
 
-  .network-node-leather {
-    @apply stroke-primary-600;
+  .preview-header {
+    @apply flex items-center justify-between;
   }
 
-  .network-node-content {
-    @apply fill-primary-100;
+  .preview-title {
+    @apply heading-2;
   }
-}
 
-/* Utilities can be applied via the @apply directive. */
+  .preview-content {
+    @apply text-secondary;
+  }
+
+  /* Publication Feed styles */
+  .feed-container {
+    @apply flex flex-col space-y-4;
+  }
+
+  .feed-header {
+    @apply flex items-center justify-between;
+  }
+
+  .feed-title {
+    @apply heading-2;
+  }
+
+  .feed-list {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
+
+  .feed-item {
+    @apply card-leather p-4;
+  }
+
+  .feed-item-title {
+    @apply heading-3;
+  }
+
+  .feed-item-metadata {
+    @apply text-sm-secondary mt-2;
+  }
+  }
+
+/* Keep existing utility classes */
 @layer utilities {
   .h-leather {
     @apply text-gray-800 dark:text-gray-300 pt-4;
@@ -229,134 +523,89 @@
   .link {
     @apply underline cursor-pointer hover:text-primary-400 dark:hover:text-primary-500;
   }
-}
 
-@layer components {
-
-  /* Legend */
-  .leather-legend {
-    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
-    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+  .avatar-small {
+    @apply w-6 h-6 cursor-pointer;
   }
 
-  /* Tooltip */
-  .tooltip-leather {
-    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
-    max-width: 400px;
-    z-index: 1000;
+  .toc-toggle-btn {
+    @apply fixed top-20 left-4 h-6 w-6;
   }
 
-  .leather-legend button {
-    @apply dark:text-white;
+  .no-padding {
+    @apply p-0;
   }
 
-  /* Rendered publication content */
-  .publication-leather {
-    @apply flex flex-col space-y-4;
+  .flex { @apply flex; }
+  .flex-col { @apply flex-col; }
+  .flex-row { @apply flex-row; }
+  .space-x-2 { @apply space-x-2; }
+  .space-y-2 { @apply space-y-2; }
+  .justify-between { @apply justify-between; }
+  .justify-end { @apply justify-end; }
+  .justify-start { @apply justify-start; }
+  .w-full { @apply w-full; }
+  .min-w-fit { @apply min-w-fit; }
+  .visible { @apply visible; }
+  .invisible { @apply invisible; }
+  .break-words { @apply break-words; }
+  .text-wrap { @apply text-wrap; }
+  .whitespace-normal { @apply whitespace-normal; }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      @apply h-leather;
+  .w-lg { @apply w-[32rem]; }
+  .col { @apply flex-col; }
+  .align-middle { @apply align-middle; }
+  .max-h-36 { @apply max-h-36; }
+  .max-w-24 { @apply max-w-24; }
+  .overflow-hidden { @apply overflow-hidden; }
+  .rounded { @apply rounded; }
+  .object-cover { @apply object-cover; }
+  .text-lg { @apply text-lg; }
+  .text-base { @apply text-base; }
+  .font-bold { @apply font-bold; }
+  .font-normal { @apply font-normal; }
+  .font-thin { @apply font-thin; }
+  .line-clamp-2 { @apply line-clamp-2; }
+
+  .mb-2 { @apply mb-2; }
+  .mb-3 { @apply mb-3; }
+  .mt-4 { @apply mt-4; }
+  .mr-2 { @apply mr-2; }
+  .flex-1 { @apply flex-1; }
+  .min-h-0 { @apply min-h-0; }
+  .relative { @apply relative; }
+  .border-b { @apply border-b; }
+  .border-gray-300 { @apply border-gray-300; }
+  .dark\:border-gray-600 { @apply dark:border-gray-600; }
+  .text-gray-500 { @apply text-gray-500; }
+  .text-red-500 { @apply text-red-500; }
+
+  .w-5 { @apply w-5; }
+  .h-5 { @apply h-5; }
+  .items-center { @apply items-center; }
+  .font-semibold { @apply font-semibold; }
+  .mt-1 { @apply mt-1; }
+  .hover\:underline:hover { @apply underline; }
+  .text-primary-600 { @apply text-primary-600; }
+  .dark\:text-primary-500 { @apply dark:text-primary-500; }
+  .break-all { @apply break-all; }
+  .text-sm { @apply text-sm; }
+  .list-disc { @apply list-disc; }
+  .list-inside { @apply list-inside; }
+  .text-success-700 { @apply text-success-700; }
+  .dark\:text-success-300 { @apply dark:text-success-300; }
     }
 
-    h1 {
-      @apply h1-leather;
-    }
+.backdrop {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+      }
+.Modal {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-lg w-full;
+      }
 
-    h2 {
-      @apply h2-leather;
-    }
-
-    h3 {
-      @apply h3-leather;
-    }
-
-    h4 {
-      @apply h4-leather;
-    }
-
-    h5 {
-      @apply h5-leather;
-    }
-
-    h6 {
-      @apply h6-leather;
-    }
-
-    div {
-      @apply flex flex-col space-y-4;
-    }
-
-    .olist {
-      @apply flex flex-col space-y-4;
-
-      ol {
-        @apply ol-leather list-decimal px-6 flex flex-col space-y-2;
-
-        li {
-          .paragraph {
-            @apply py-2;
-          }
+.toc {
+  @apply p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-xs mx-auto;
         }
-      }
-    }
-
-    .ulist {
-      @apply flex flex-col space-y-4;
-
-      ul {
-        @apply ul-leather list-disc px-6 flex flex-col space-y-2;
-
-        li {
-          .paragraph {
-            @apply py-2;
-          }
-        }
-      }
-    }
-
-    a {
-      @apply link;
-    }
-
-    .imageblock {
-      @apply flex flex-col items-center;
-
-      .title {
-        @apply text-sm text-center;
-      }
-    }
-
-    .stemblock {
-      @apply bg-gray-100 dark:bg-gray-900 p-4 rounded-lg;
-    }
-
-    .literalblock {
-      pre {
-        @apply text-wrap;
-      }
-    }
-
-    table {
-      @apply w-full overflow-x-auto;
-
-      caption {
-        @apply text-sm;
-      }
-
-      thead,
-      tbody {
-
-        th,
-        td {
-          @apply border border-gray-200 dark:border-gray-700;
-        }
-      }
-    }
-  }
+.toc-title {
+  text-align: center;
 }
