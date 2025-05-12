@@ -15,6 +15,7 @@ const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
 const HORIZONTAL_RULE_REGEX = /^(?:[-*_]\s*){3,}$/gm;
 const FOOTNOTE_REFERENCE_REGEX = /\[\^([^\]]+)\]/g;
 const FOOTNOTE_DEFINITION_REGEX = /^\[\^([^\]]+)\]:\s*(.+)$/gm;
+const CODE_BLOCK_REGEX = /^```(\w*)$/;
 
 /**
  * Process headings (both styles)
@@ -222,7 +223,7 @@ function processCodeBlocks(text: string): { text: string; blocks: Map<string, st
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const codeBlockStart = line.match(/^```(\w*)$/);
+    const codeBlockStart = line.match(CODE_BLOCK_REGEX);
     
     if (codeBlockStart) {
       if (!inCodeBlock) {
