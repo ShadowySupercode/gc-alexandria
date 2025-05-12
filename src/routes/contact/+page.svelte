@@ -24,18 +24,18 @@
     activeTab = 'write';
   }
   
-  let subject = '';
-  let content = '';
-  let isSubmitting = false;
-  let showLoginModal = false;
-  let submissionSuccess = false;
-  let submissionError = '';
-  let submittedEvent: NDKEvent | null = null;
-  let issueLink = '';
-  let successfulRelays: string[] = [];
-  let isExpanded = false;
-  let activeTab = 'write';
-  let showConfirmDialog = false;
+  let subject = $state('');
+  let content = $state('');
+  let isSubmitting = $state(false);
+  let showLoginModal = $state(false);
+  let submissionSuccess = $state(false);
+  let submissionError = $state('');
+  let submittedEvent = $state<NDKEvent | null>(null);
+  let issueLink = $state('');
+  let successfulRelays = $state<string[]>([]);
+  let isExpanded = $state(false);
+  let activeTab = $state('write');
+  let showConfirmDialog = $state(false);
   
   // Store form data when user needs to login
   let savedFormData = {
@@ -256,16 +256,19 @@
   }
   
   // Handle login completion
-  $: if ($ndkSignedIn && showLoginModal) {
-    showLoginModal = false;
-    
-    // Restore saved form data
-    if (savedFormData.subject) subject = savedFormData.subject;
-    if (savedFormData.content) content = savedFormData.content;
-    
-    // Submit the issue
-    submitIssue();
-  }
+  $effect(() => {
+    if ($ndkSignedIn && showLoginModal) {
+      showLoginModal = false;
+
+      // Restore saved form data
+      if (savedFormData.subject) subject = savedFormData.subject;
+      if (savedFormData.content) content = savedFormData.content;
+
+      // Submit the issue
+      submitIssue();
+    }
+  });
+
 </script>
 
 <div class='w-full flex justify-center'>
@@ -286,7 +289,7 @@
       If you are logged into the Alexandria web application (using the button at the top-right of the window), then you can use the form, below, to submit an issue, that will appear on our repo page.
     </P>
 
-    <form class="space-y-4 mt-6" on:submit|preventDefault={handleSubmit}>
+    <form class="space-y-4" on:submit={handleSubmit} autocomplete="off">
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
         <Input id="subject" class="w-full bg-white dark:bg-gray-800" placeholder="Issue subject" bind:value={subject} required autofocus />
