@@ -36,12 +36,10 @@ function replaceAlexandriaNostrLinks(text: string): string {
   // Regex for 64-char hex
   const hexPattern = /\b[a-fA-F0-9]{64}\b/;
 
-  // 1. Replace Markdown links ONLY if they match the criteria
+  // 1. Alexandria/localhost Markdown links
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, _label, url) => {
     if (alexandriaPattern.test(url)) {
-      // Ignore d-tag URLs
       if (/[?&]d=/.test(url)) return match;
-      // Convert hexid in URL to nevent if present
       const hexMatch = url.match(hexPattern);
       if (hexMatch) {
         try {
@@ -51,22 +49,18 @@ function replaceAlexandriaNostrLinks(text: string): string {
           return match;
         }
       }
-      // Or use bech32 if present
       const bech32Match = url.match(bech32Pattern);
       if (bech32Match) {
         return `nostr:${bech32Match[0]}`;
       }
     }
-    // For all other links, leave the markdown link untouched
     return match;
   });
 
-  // 2. Replace bare Alexandria/localhost URLs only if they contain a Nostr identifier (not d-tag)
+  // 2. Alexandria/localhost bare URLs and non-Alexandria/localhost URLs with Nostr identifiers
   text = text.replace(/https?:\/\/[^\s)\]]+/g, (url) => {
     if (alexandriaPattern.test(url)) {
-      // Ignore d-tag URLs
       if (/[?&]d=/.test(url)) return url;
-      // Convert hexid in URL to nevent if present
       const hexMatch = url.match(hexPattern);
       if (hexMatch) {
         try {
@@ -76,11 +70,24 @@ function replaceAlexandriaNostrLinks(text: string): string {
           return url;
         }
       }
-      // Or use bech32 if present
       const bech32Match = url.match(bech32Pattern);
       if (bech32Match) {
         return `nostr:${bech32Match[0]}`;
       }
+    }
+    // For non-Alexandria/localhost URLs, append (View here: nostr:<id>) if a Nostr identifier is present
+    const hexMatch = url.match(hexPattern);
+    if (hexMatch) {
+      try {
+        const nevent = nip19.neventEncode({ id: hexMatch[0] });
+        return `${url} (View here: nostr:${nevent})`;
+      } catch {
+        return url;
+      }
+    }
+    const bech32Match = url.match(bech32Pattern);
+    if (bech32Match) {
+      return `${url} (View here: nostr:${bech32Match[0]})`;
     }
     return url;
   });
@@ -122,6 +129,25 @@ function stripTrackingParams(url: string): string {
   } catch {
     return url;
   }
+}
+
+function normalizeDTag(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function replaceWikilinks(text: string): string {
+  // [[target page]] or [[target page|display text]]
+  return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target, label) => {
+    const normalized = normalizeDTag(target.trim());
+    const display = (label || target).trim();
+    const url = `https://next-alexandria.gitcitadel.eu/publication?d=${normalized}`;
+    // Output as a clickable <a> with the [[display]] format
+    return `<a class="wikilink" data-dtag="${normalized}" data-url="${url}" href="${url}">[[${display}]]</a>`;
+  });
 }
 
 function processBasicFormatting(content: string): string {
@@ -291,6 +317,9 @@ export async function parseBasicMarkdown(text: string): Promise<string> {
 
     // Process Nostr identifiers last
     processedText = await processNostrIdentifiers(processedText);
+
+    // Replace wikilinks
+    processedText = replaceWikilinks(processedText);
 
     return processedText;
   } catch (error) {

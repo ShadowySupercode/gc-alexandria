@@ -14,6 +14,8 @@ It is _only_ a test, for __sure__. I just wanted to see if the markdown renders 
 
 This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markdown parser.
 
+You can even learn about [[mirepoix]], [[nkbip-03]], or [[roman catholic church|catholics]]
+
 npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as this one with a nostr prefix nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z and nprofile1qydhwumn8ghj7argv4nx7un9wd6zumn0wd68yvfwvdhk6tcpr3mhxue69uhkx6rjd9ehgurfd3kzumn0wd68yvfwvdhk6tcqyr7jprhgeregx7q2j4fgjmjgy0xfm34l63pqvwyf2acsd9q0mynuzp4qva3. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.
 
 > This is important information
@@ -85,11 +87,13 @@ And a nonsense one with a prefix:
 
 nostr:naddrwhatever
 
-And some Nostr addresses that should be ignored:
+And some Nostr addresses that should be preserved and have a internal link appended:
 
 https://lumina.rocks/note/note1sd0hkhxr49jsetkcrjkvf2uls5m8frkue6f5huj8uv4964p2d8fs8dn68z
 
 https://primal.net/e/nevent1qqsqum7j25p9z8vcyn93dsd7edx34w07eqav50qnde3vrfs466q558gdd02yr
+
+https://primal.net/p/nprofile1qqs06gywary09qmcp2249ztwfq3ue8wxhl2yyp3c39thzp55plvj0sgjn9mdk
 
 URL with a tracking parameter, no Markdown:
 https://example.com?utm_source=newsletter1&utm_medium=email&utm_campaign=sale
@@ -108,6 +112,8 @@ http://next-alexandria.gitcitadel.eu/publication?d=relay-test-thecitadel-by-unkn
 And within a Markdown tag: [Markdown link title](http://alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
 
 And to localhost: http://localhost:4173/publication?id=c36b54991e459221f444612d88ea94ef5bb4a1b93863ef89b1328996746f6d25
+
+http://localhost:4173/profile?id=nprofile1qqs99d9qw67th0wr5xh05de4s9k0wjvnkxudkgptq8yg83vtulad30gxyk5sf
 
 You can even include code inline, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
 
