@@ -145,9 +145,57 @@ function replaceWikilinks(text: string): string {
     const normalized = normalizeDTag(target.trim());
     const display = (label || target).trim();
     const url = `https://next-alexandria.gitcitadel.eu/publication?d=${normalized}`;
-    // Output as a clickable <a> with the [[display]] format
-    return `<a class="wikilink" data-dtag="${normalized}" data-url="${url}" href="${url}">[[${display}]]</a>`;
+    // Output as a clickable <a> with the [[display]] format and matching link colors
+    return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">[[${display}]]</a>`;
   });
+}
+
+function renderListGroup(lines: string[]): string {
+  // Recursive function to render a list group with proper nesting
+  function render(lines: string[], start = 0, indent = 0): [string, number] {
+    let html = '';
+    let i = start;
+    let currentTag = '';
+    while (i < lines.length) {
+      const line = lines[i];
+      const match = line.match(/^([ \t]*)([*+-]|\d+\.)[ \t]+(.*)$/);
+      if (!match) break;
+      const lineIndent = match[1].replace(/\t/g, '    ').length;
+      const isOrdered = /\d+\./.test(match[2]);
+      const tag = isOrdered ? 'ol' : 'ul';
+      if (!currentTag) {
+        html += `<${tag} class="ml-6 mb-2">`;
+        currentTag = tag;
+      } else if (lineIndent > indent) {
+        // Nested list
+        const [nestedHtml, consumed] = render(lines, i, lineIndent);
+        html += nestedHtml;
+        i = consumed;
+        continue;
+      } else if (lineIndent < indent) {
+        break;
+      }
+      html += `<li class="mb-1">${match[3]}`;
+      // Check if next line is more indented (nested)
+      if (i + 1 < lines.length) {
+        const nextMatch = lines[i + 1].match(/^([ \t]*)([*+-]|\d+\.)[ \t]+/);
+        if (nextMatch) {
+          const nextIndent = nextMatch[1].replace(/\t/g, '    ').length;
+          if (nextIndent > lineIndent) {
+            const [nestedHtml, consumed] = render(lines, i + 1, nextIndent);
+            html += nestedHtml;
+            i = consumed - 1;
+          }
+        }
+      }
+      html += '</li>';
+      i++;
+    }
+    html += `</${currentTag}>`;
+    return [html, i];
+  }
+  const [html] = render(lines);
+  return html;
 }
 
 function processBasicFormatting(content: string): string {
@@ -229,7 +277,33 @@ function processBasicFormatting(content: string): string {
     });
 
     // Process hashtags
-    processedText = processedText.replace(HASHTAG_REGEX, '<span class="text-gray-500 dark:text-gray-400">#$1</span>');
+    processedText = processedText.replace(HASHTAG_REGEX, '<span class="text-primary-600 dark:text-primary-500">#$1</span>');
+
+    // --- Improved List Grouping and Parsing ---
+    const lines = processedText.split('\n');
+    let output = '';
+    let buffer: string[] = [];
+    let inList = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^([ \t]*)([*+-]|\d+\.)[ \t]+/.test(line)) {
+        buffer.push(line);
+        inList = true;
+      } else {
+        if (inList) {
+          output += renderListGroup(buffer);
+          buffer = [];
+          inList = false;
+        }
+        output += (output && !output.endsWith('\n') ? '\n' : '') + line + '\n';
+      }
+    }
+    if (buffer.length) {
+      output += renderListGroup(buffer);
+    }
+    processedText = output;
+    // --- End Improved List Grouping and Parsing ---
+
   } catch (error) {
     console.error('Error in processBasicFormatting:', error);
   }
