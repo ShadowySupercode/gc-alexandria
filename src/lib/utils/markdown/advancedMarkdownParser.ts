@@ -125,51 +125,46 @@ function processFootnotes(content: string): string {
   try {
     if (!content) return '';
 
-    // First collect all footnote references and definitions
+    // Collect all footnote definitions
     const footnotes = new Map<string, string>();
-    const references = new Map<string, number>();
-    const referenceLocations = new Set<string>();
-    let nextNumber = 1;
-
-    // First pass: collect all references to establish order
-    let processedContent = content.replace(FOOTNOTE_REFERENCE_REGEX, (match, id) => {
-      if (!referenceLocations.has(id) && !references.has(id)) {
-        references.set(id, nextNumber++);
-      }
-      referenceLocations.add(id);
-      return match;  // Keep the reference for now
-    });
-
-    // Second pass: collect all definitions
-    processedContent = processedContent.replace(FOOTNOTE_DEFINITION_REGEX, (match, id, text) => {
+    let processedContent = content.replace(FOOTNOTE_DEFINITION_REGEX, (match, id, text) => {
       footnotes.set(id, text.trim());
-      return '';  // Remove the definition
+      return '';
     });
 
-    // Third pass: process references with collected information
+    // Track all references to each footnote
+    const referenceOrder: { id: string, refNum: number, label: string }[] = [];
+    const referenceMap = new Map<string, number[]>(); // id -> [refNum, ...]
+    let globalRefNum = 1;
     processedContent = processedContent.replace(FOOTNOTE_REFERENCE_REGEX, (match, id) => {
       if (!footnotes.has(id)) {
         console.warn(`Footnote reference [^${id}] found but no definition exists`);
         return match;
       }
-      
-      const num = references.get(id)!;
-      return `<sup><a href="#fn-${id}" id="fnref-${id}" class="text-primary-600 hover:underline">[${num}]</a></sup>`;
+      const refNum = globalRefNum++;
+      if (!referenceMap.has(id)) referenceMap.set(id, []);
+      referenceMap.get(id)!.push(refNum);
+      referenceOrder.push({ id, refNum, label: id });
+      return `<sup><a href="#fn-${id}" id="fnref-${id}-${referenceMap.get(id)!.length}" class="text-primary-600 hover:underline">[${refNum}]</a></sup>`;
     });
 
     // Add footnotes section if we have any
-    if (references.size > 0) {
-      processedContent += '\n\n<h2 class="text-xl font-bold mt-8 mb-4">Footnotes</h2>\n<ol class="list-decimal list-inside">\n';
-      
-      // Sort footnotes by their reference number
-      const sortedFootnotes = Array.from(references.entries())
-        .sort((a, b) => a[1] - b[1])
-        .filter(([id]) => footnotes.has(id));  // Only include footnotes that have definitions
-
-      // Add each footnote in order
-      for (const [id, num] of sortedFootnotes) {
+    if (footnotes.size > 0 && referenceOrder.length > 0) {
+      processedContent += '\n\n<h2 class="text-xl font-bold mt-8 mb-4">Footnotes</h2>\n<ol class="list-decimal list-inside footnotes-ol">\n';
+      // Only include each unique footnote once, in order of first reference
+      const seen = new Set<string>();
+      for (const { id, label } of referenceOrder) {
+        if (seen.has(id)) continue;
+        seen.add(id);
         const text = footnotes.get(id) || '';
-        processedContent += `<li id="fn-${id}" value="${num}"><span class="marker">${text}</span> <a href="#fnref-${id}" class="text-primary-600 hover:underline">↩</a></li>\n`;
+        // List of backrefs for this footnote
+        const refs = referenceMap.get(id) || [];
+        const backrefs = refs.map((num, i) =>
+          `<a href=\"#fnref-${id}-${i + 1}\" class=\"text-primary-600 hover:underline footnote-backref\">↩${num}</a>`
+        ).join(' ');
+        // If label is not a number, show it after all backrefs
+        const labelSuffix = isNaN(Number(label)) ? ` ${label}` : '';
+        processedContent += `<li id=\"fn-${id}\"><span class=\"marker\">${text}</span> ${backrefs}${labelSuffix}</li>\n`;
       }
       processedContent += '</ol>';
     }

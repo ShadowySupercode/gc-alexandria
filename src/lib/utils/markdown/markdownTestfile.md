@@ -184,7 +184,7 @@ content starts at 4-columns in.
 
 Test out some emojis :heart: and :trophy:
 
-#### Here is an image!
+#### Here is an image![^some reference text]
 
 ![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)
 
