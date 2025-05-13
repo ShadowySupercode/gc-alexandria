@@ -359,4 +359,81 @@
       }
     }
   }
+
+  /* Footnotes */
+  .footnote-ref {
+    text-decoration: none;
+    color: var(--color-primary);
+  }
+
+  .footnotes {
+    margin-top: 2rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+
+  .footnotes hr {
+    margin: 1rem 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .footnotes ol {
+    padding-left: 1rem;
+  }
+
+  .footnotes li {
+    margin-bottom: 0.5rem;
+  }
+
+  .footnote-backref {
+    text-decoration: none;
+    margin-left: 0.5rem;
+    color: var(--color-primary);
+  }
+
+  .note-leather .footnote-ref,
+  .note-leather .footnote-backref {
+    color: var(--color-leather-primary);
+  }
+
+  /* Scrollable content */
+  .description-textarea,
+  .prose-content {
+    overflow-y: scroll !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+  }
+
+  .description-textarea {
+    min-height: 100% !important;
+  }
+
+  .description-textarea::-webkit-scrollbar,
+  .prose-content::-webkit-scrollbar {
+    width: 8px !important;
+    display: block !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-track,
+  .prose-content::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-thumb,
+  .prose-content::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5) !important;
+    border-radius: 4px !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-thumb:hover,
+  .prose-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7) !important;
+  }
+
+  /* Tab content */
+  .tab-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
 }
