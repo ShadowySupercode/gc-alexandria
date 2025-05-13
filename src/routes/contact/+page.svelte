@@ -338,6 +338,9 @@ The following markup is supported:
 
 # Headers (1-6 levels)
 
+Header 1
+======
+
 *Bold* or **bold**
 
 _Italic_ or __italic__ text
