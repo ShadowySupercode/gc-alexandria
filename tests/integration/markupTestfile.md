@@ -24,6 +24,7 @@ npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That
 > lines of
 > important information
 > with a second[^2] footnote.
+[^2]: This is a "Test" of a longer footnote-reference, placed inline, including some punctuation. 1984.
 
 This is a youtube link 
 https://www.youtube.com/watch?v=9aqVxNCpx9s
@@ -240,5 +241,4 @@ Here is a table without a header row:
 | just | pipes |
 
 [^1]: this is a footnote
-[^2]: so is this
 [^some reference text]: this is a footnote that isn't a number

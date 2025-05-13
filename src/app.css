@@ -436,4 +436,17 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* Input styles */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea {
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply focus:border-primary-400 dark:focus:border-primary-500;
+  }
 }

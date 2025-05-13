@@ -280,7 +280,7 @@
     </P>
 
     <P class="mb-3">
-    You can contact us on Nostr <A href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">npub1s3h…75wz</A> or you can view submitted issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page.</A>
+    You can contact us on Nostr <A href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">GitCitadel</A> or you can view submitted issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page.</A>
     </P>
     
     <Heading tag='h2' class='h-leather mt-4 mb-2'>Submit an issue</Heading>
@@ -329,7 +329,7 @@
                 <div class="absolute inset-0 overflow-hidden">
                   <Textarea
                     id="content"
-                    class="w-full h-full resize-none border-0 focus:ring-0 bg-white dark:bg-gray-800 p-4 description-textarea rounded-b-lg rounded-t-none"
+                    class="w-full h-full resize-none bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-400 dark:focus:border-primary-500"
                     bind:value={content}
                     required
                     placeholder="Describe your issue in detail...

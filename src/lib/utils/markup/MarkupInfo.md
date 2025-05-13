@@ -2,9 +2,9 @@
 
 Alexandria supports multiple markup formats for different use cases. Below is a summary of the supported tags and features for each parser, as well as the formats used for publications and wikis.
 
-## Basic Markdown Parser
+## Basic Markup Parser
 
-The **basic markdown parser** supports:
+The **basic markup parser** follows the [Nostr best-practice guidelines](https://github.com/nostrability/nostrability/issues/146) and supports:
 
 - **Headers:**  
   - ATX-style: `# H1` through `###### H6`  
@@ -18,19 +18,19 @@ The **basic markdown parser** supports:
 - **Links:** `[text](url)`
 - **Images:** `![alt](url)`
 - **Hashtags:** `#hashtag`
-- **Nostr identifiers:** npub, nprofile, nevent, naddr, note, with or without `nostr:` prefix
-- **Emoji shortcodes:** `:smile:`
+- **Nostr identifiers:** npub, nprofile, nevent, naddr, note, with or without `nostr:` prefix (note is deprecated)
+- **Emoji shortcodes:** `:smile:` will render as 😄
 
-## Advanced Markdown Parser
+## Advanced Markup Parser
 
-The **advanced markdown parser** includes all features of the basic parser, plus:
+The **advanced markup parser** includes all features of the basic parser, plus:
 
 - **Inline code:** `` `code` ``
-- **Syntax highlighting:** for code blocks in over 100 languages
+- **Syntax highlighting:** for code blocks in many programming languages (from [highlight.js](https://highlightjs.org/))
 - **Tables:** Pipe-delimited tables with or without headers
-- **Footnotes:** `[^1]` and `[ ^1 ]: footnote text`
-- **Wikilinks:** `[[Page Name]]` (NIP-54)
-- **Better footnote rendering:** with backreferences and unique numbering
+- **Footnotes:** `[^1]` or `[^Smith]`, which should appear where the footnote shall be placed, and will be displayed as unique, consecutive numbers
+- **Footnote References:** `[^1]: footnote text` or `[^Smith]: Smith, Adam. 1984 "The Wiggle Mysteries`, which will be listed in order, at the bottom of the event, with back-reference links to the footnote, and text footnote labels appended
+- **Wikilinks:** `[[NIP-54]]` will render as a hyperlink and goes to [NIP-54](https://next-alexandria.gitcitadel.eu/publication?d=nip-54) (Will later go to our new disambiguation page.)
 
 ## Publications and Wikis
 
@@ -51,4 +51,5 @@ For more information on AsciiDoc, see the [AsciiDoc documentation](https://ascii
 **Note:**
 - The markdown parsers are primarily used for comments, issues, and other user-generated content.
 - Publications and wikis are rendered using AsciiDoc for maximum expressiveness and compatibility.
-- All URLs are sanitized to remove tracking parameters, and YouTube links are presented in a clean, privacy-friendly format. 
+- All URLs are sanitized to remove tracking parameters, and YouTube links are presented in a clean, privacy-friendly format.
+- [Here is a test markup file](/tests/integration/markupTestfile.md) that you can use to test out the parser and see how things should be formatted.
