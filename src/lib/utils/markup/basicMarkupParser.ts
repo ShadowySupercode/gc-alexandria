@@ -2,23 +2,25 @@ import { processNostrIdentifiers } from '../nostrUtils';
 import * as emoji from 'node-emoji';
 import { nip19 } from 'nostr-tools';
 
-// Regular expressions for basic markup elements
+/* Regex constants for basic markup parsing */
+
+// Text formatting
 const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
 const ITALIC_REGEX = /\b(_[^_\n]+_|\b__[^_\n]+__)\b/g;
 const STRIKETHROUGH_REGEX = /~~([^~\n]+)~~|~([^~\n]+)~/g;
 const HASHTAG_REGEX = /(?<![^\s])#([a-zA-Z0-9_]+)(?!\w)/g;
+
+// Block elements
 const BLOCKQUOTE_REGEX = /^([ \t]*>[ \t]?.*)(?:\n\1[ \t]*(?!>).*)*$/gm;
 
-// markup patterns
-const markup_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
-const markup_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
-
-// URL patterns
+// Links and media
+const MARKUP_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
+const MARKUP_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const WSS_URL = /wss:\/\/[^\s<>"]+/g;
 const DIRECT_LINK = /(?<!["'=])(https?:\/\/[^\s<>"]+)(?!["'])/g;
 
 // Media URL patterns
-const IMAGE_URL_REGEX = /https?:\/\/[^\s<]+\.(?:jpg|jpeg|gif|png|webp)(?:[^\s<]*)?/i;
+const IMAGE_EXTENSIONS = /\.(jpg|jpeg|gif|png|webp|svg)$/i;
 const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
 const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
@@ -207,7 +209,7 @@ function processBasicFormatting(content: string): string {
     processedText = replaceAlexandriaNostrLinks(processedText);
 
     // Process markup images first
-    processedText = processedText.replace(markup_IMAGE, (match, alt, url) => {
+    processedText = processedText.replace(MARKUP_IMAGE, (match, alt, url) => {
       url = stripTrackingParams(url);
       if (YOUTUBE_URL_REGEX.test(url)) {
         const videoId = extractYouTubeVideoId(url);
@@ -222,7 +224,7 @@ function processBasicFormatting(content: string): string {
         return `<audio controls class="w-full my-4" preload="none"><source src="${url}">${alt || 'Audio'}</audio>`;
       }
       // Only render <img> if the url ends with a direct image extension
-      if (/\.(jpg|jpeg|gif|png|webp|svg)$/i.test(url.split('?')[0])) {
+      if (IMAGE_EXTENSIONS.test(url.split('?')[0])) {
         return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
       }
       // Otherwise, render as a clickable link
@@ -230,7 +232,7 @@ function processBasicFormatting(content: string): string {
     });
 
     // Process markup links
-    processedText = processedText.replace(markup_LINK, (match, text, url) => 
+    processedText = processedText.replace(MARKUP_LINK, (match, text, url) => 
       `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`
     );
 
@@ -257,7 +259,7 @@ function processBasicFormatting(content: string): string {
         return `<audio controls class="w-full my-4" preload="none"><source src="${clean}">Your browser does not support the audio tag.</audio>`;
       }
       // Only render <img> if the url ends with a direct image extension
-      if (/\.(jpg|jpeg|gif|png|webp|svg)$/i.test(clean.split('?')[0])) {
+      if (IMAGE_EXTENSIONS.test(clean.split('?')[0])) {
         return `<img src="${clean}" alt="Embedded media" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
       }
       // Otherwise, render as a clickable link

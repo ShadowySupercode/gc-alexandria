@@ -15,6 +15,32 @@ class NpubCache {
     return key in this.cache;
   }
 
+  delete(key: string): boolean {
+    if (key in this.cache) {
+      delete this.cache[key];
+      return true;
+    }
+    return false;
+  }
+
+  deleteMany(keys: string[]): number {
+    let deleted = 0;
+    for (const key of keys) {
+      if (this.delete(key)) {
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  clear(): void {
+    this.cache = {};
+  }
+
+  size(): number {
+    return Object.keys(this.cache).length;
+  }
+
   getAll(): Record<string, NpubMetadata> {
     return { ...this.cache };
   }
