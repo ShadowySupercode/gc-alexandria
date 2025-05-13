@@ -26,7 +26,7 @@
         href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
         >curated publications</A
       > (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form
-      articles (Markdown). It is produced by the <A
+      articles (markup). It is produced by the <A
         href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1"
         >GitCitadel project team</A
       >.

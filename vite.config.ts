@@ -27,7 +27,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['./tests/unit/**/*.unit-test.js']
+    include: ['./tests/unit/**/*.test.ts', './tests/integration/**/*.test.ts']
   },
   define: {
     // Expose the app version as a global variable
