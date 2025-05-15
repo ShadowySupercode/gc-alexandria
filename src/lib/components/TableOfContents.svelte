@@ -5,12 +5,14 @@
 
   let { rootAddress } = $props<{ rootAddress: string }>();
 
+  // Determine the event kind.
+  // If index, use the publication tree to build the table of contents.
+  // If single event, build the table of contents from the rendered HTML.
+  // Each rendered `<h>` should receive an entry in the ToC.
+
   let toc = $state<TocEntry[]>([]);
 
 	const publicationTree = getContext('publicationTree') as PublicationTree;
-
-  // TODO: Build the table of contents.
-  // Base hrefs on d-tags for events within the publication.
 </script>
 
 <!-- TODO: Add contents. -->
