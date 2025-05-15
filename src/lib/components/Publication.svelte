@@ -17,10 +17,8 @@
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
 
-  let { rootAddress, publicationType, indexEvent } = $props<{ 
+  let { rootAddress } = $props<{ 
     rootAddress: string, 
-    publicationType: string,
-    indexEvent: NDKEvent
   }>();
 
   const publicationTree = getContext('publicationTree') as PublicationTree;
