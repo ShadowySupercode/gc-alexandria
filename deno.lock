@@ -2902,6 +2902,8 @@
         "npm:flowbite-svelte@0",
         "npm:flowbite@2",
         "npm:he@1.2",
+        "npm:highlight.js@^11.11.1",
+        "npm:node-emoji@^2.2.0",
         "npm:nostr-tools@2.10",
         "npm:playwright@^1.50.1",
         "npm:postcss-load-config@6",
