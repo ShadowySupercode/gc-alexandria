@@ -21,6 +21,7 @@
     <NavLi href='/new/edit'>Publish</NavLi>
     <NavLi href='/visualize'>Visualize</NavLi>
     <NavLi href='/about'>About</NavLi>
+    <NavLi href='/contact'>Contact</NavLi>
   <NavLi>
       <DarkMode btnClass='btn-leather p-0'/>
     </NavLi>

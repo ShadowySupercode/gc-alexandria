@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Alert,
     Button, Card,
     Sidebar,
     SidebarGroup,
@@ -9,8 +10,9 @@
     TextPlaceholder,
     Tooltip, Heading
   } from "flowbite-svelte";
-  import { CloseOutline } from 'flowbite-svelte-icons';
   import { getContext, onDestroy, onMount } from "svelte";
+  import { CloseOutline, BookOutline, ExclamationCircleOutline } from "flowbite-svelte-icons";
+  import { page } from "$app/state";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
@@ -32,8 +34,9 @@
 
   // TODO: Test load handling.
 
-  let leaves = $state<NDKEvent[]>([]);
+  let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state<boolean>(false);
+  let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
 
   let observer: IntersectionObserver;
@@ -42,12 +45,15 @@
     isLoading = true;
 
     for (let i = 0; i < count; i++) {
-      const nextItem = await publicationTree.next();
-      if (leaves.includes(nextItem.value) || nextItem.done) {
-        isLoading = false;
-        return;
+      const iterResult = await publicationTree.next();
+      const { done, value } = iterResult;
+
+      if (done) {
+        isDone = true;
+        break;
       }
-      leaves.push(nextItem.value);
+
+      leaves.push(value);
     }
 
     isLoading = false;
@@ -64,8 +70,13 @@
       return;
     }
 
-    observer.observe(lastElementRef!);
-    return () => observer.unobserve(lastElementRef!);
+    if (isDone) {
+      observer?.unobserve(lastElementRef!);
+      return;
+    }
+
+    observer?.observe(lastElementRef!);
+    return () => observer?.unobserve(lastElementRef!);
   });
 
   // #endregion
@@ -116,8 +127,8 @@
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting && !isLoading) {
-          loadMore(4);
+        if (entry.isIntersecting && !isLoading && !isDone) {
+          loadMore(1);
         }
       });
     }, { threshold: 0.5 });
@@ -143,13 +154,31 @@
     </div>
     <!-- Publication -->
     {#each leaves as leaf, i}
+      {#if leaf == null}
+        <Alert class='flex space-x-2'>
+          <ExclamationCircleOutline class='w-5 h-5' />
+          Error loading content.  One or more events could not be loaded.
+        </Alert>
+      {:else}
       <PublicationSection
         rootAddress={rootAddress}
         leaves={leaves}
         address={leaf.tagAddress()}
         ref={(el) => setLastElementRef(el, i)}
       />
+      {/if}
     {/each}
+    <div class="flex justify-center my-4">
+      {#if isLoading}
+        <Button disabled color="primary">
+          Loading...
+        </Button>
+      {:else if !isDone}
+        <Button color="primary" on:click={() => loadMore(1)}>
+          Show More
+        </Button>
+      {/if}
+    </div>
   </div>
 {/if}
 

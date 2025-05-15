@@ -1,4 +1,5 @@
 import flowbite from "flowbite/plugin";
+import plugin from "tailwindcss/plugin";
 
 /** @type {import('tailwindcss').Config}*/
 const config = {
@@ -19,7 +20,7 @@ const config = {
           200: '#c6a885',
           300: '#b58f62',
           400: '#ad8351',
-          500: '#9c7649',
+          500: '#c6a885',
           600: '#795c39',
           700: '#574229',
           800: '#342718',
@@ -93,6 +94,25 @@ const config = {
 
   plugins: [
     flowbite(),
+    plugin(function({ addUtilities, matchUtilities }) {
+      addUtilities({
+        '.content-visibility-auto': {
+          'content-visibility': 'auto',
+        },
+        '.contain-size': {
+          contain: 'size',
+        },
+      });
+
+      matchUtilities({
+        'contain-intrinsic-w-*': value => ({
+          width: value,
+        }),
+        'contain-intrinsic-h-*': value => ({
+          height: value,
+        })
+      });
+    })
   ],
 
   darkMode: 'class',

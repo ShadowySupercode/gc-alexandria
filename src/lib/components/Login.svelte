@@ -11,6 +11,7 @@
   let npub = $state<string | undefined >(undefined);
 
   let signInFailed = $state<boolean>(false);
+  let errorMessage = $state<string>('');
 
   $effect(() => {
     if ($ndkSignedIn) {
@@ -26,6 +27,9 @@
 
   async function handleSignInClick() {
     try {
+      signInFailed = false;
+      errorMessage = '';
+      
       const user = await loginWithExtension();
       if (!user) {
         throw new Error('The NIP-07 extension did not return a user.');
@@ -36,7 +40,7 @@
     } catch (e) {
       console.error(e);
       signInFailed = true;
-      // TODO: Show an error message to the user.
+      errorMessage = e instanceof Error ? e.message : 'Failed to sign in. Please try again.';
     }
   }
 
@@ -52,12 +56,17 @@
       placement='bottom'
       triggeredBy='#avatar'
     >
-      <div class='w-full flex space-x-2'>
+      <div class='w-full flex flex-col space-y-2'>
         <Button
           onclick={handleSignInClick}
         >
           Extension Sign-In
         </Button>
+        {#if signInFailed}
+          <div class="p-2 text-sm text-red-600 bg-red-100 rounded">
+            {errorMessage}
+          </div>
+        {/if}
         <!-- <Button
           color='alternative'
           on:click={signInWithBunker}
