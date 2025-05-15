@@ -163,7 +163,6 @@
   });
 </script>
 
-<!-- TODO: Keep track of already-loaded leaves. -->
 <!-- TODO: Handle entering mid-document and scrolling up. -->
 
 {#if showTocButton && !showToc}
