@@ -44,10 +44,11 @@
 
 <div class={'leather min-h-full w-full flex flex-col items-center'}>
   <Navigation class='sticky top-0' />
-  <Alert rounded={false} class='border-t-4 border-primary-500 text-gray-900 dark:text-gray-100 dark:border-primary-500 flex justify-left'>
+  <Alert rounded={false} class='border-t-4 border-primary-500 text-gray-900 dark:text-gray-100 dark:border-primary-500 flex justify-left mb-4'>
     <HammerSolid class='mr-2 h-5 w-5 text-primary-500 dark:text-primary-500' />
     <span class='font-medium'>
-      Pardon our dust!  The publication view is currently using an experimental loader, and may be unstable.
+      <p>Pardon our dust!  The publication view is currently using an experimental loader, and may be unstable.</p>
+      <p>New to Alexandria? Check out our <a href="/start" class='text-primary-600 dark:text-primary-400 hover:underline'>Getting Started guide</a> to learn more about using the library.</p>
     </span>
   </Alert>
   <slot />
