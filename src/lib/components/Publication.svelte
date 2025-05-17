@@ -195,7 +195,7 @@
     </SidebarWrapper>
   </Sidebar>
 {/if} -->
-<div class="flex flex-col space-y-4 max-w-2xl">
+<div class="flex flex-col space-y-4 max-w-2xl pb-10 px-4 sm:px-6 md:px-8">
   {#each leaves as leaf, i}
     {#if leaf == null}
       <Alert class='flex space-x-2'>
@@ -220,6 +220,8 @@
       <Button color="primary" on:click={() => loadMore(1)}>
         Show More
       </Button>
+    {:else}
+      <p class="text-gray-500 dark:text-gray-400">You've reached the end of the publication.</p>
     {/if}
   </div>
 </div>
