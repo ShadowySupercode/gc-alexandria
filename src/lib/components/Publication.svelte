@@ -224,7 +224,7 @@
             ref={(el) => setLastElementRef(el, i)}
           />
 
-          <Card class="ArticleBox card-leather min-w-full grid mt-4">
+          <Card class="ArticleBox !hidden card-leather min-w-full grid mt-4">
             <Interactions rootId={currentBlog} />
           </Card>
         {/if}
