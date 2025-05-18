@@ -123,7 +123,10 @@
   onMount(() => {
     // Set current columns depending on the publication type
     const isBlog = publicationType === 'blog';
-    publicationColumnVisibility.update(v => ({ ...v, main: !isBlog, blog: isBlog, toc: !(isLeaf || isBlog) }));
+    publicationColumnVisibility.update(v => ({ ...v, main: !isBlog, blog: isBlog }));
+    if (isLeaf || isBlog) {
+      publicationColumnVisibility.update(v => ({ ...v, toc: false}));
+    }
 
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
