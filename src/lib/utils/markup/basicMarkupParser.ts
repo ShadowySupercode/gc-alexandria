@@ -142,7 +142,7 @@ function replaceWikilinks(text: string): string {
   return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target, label) => {
     const normalized = normalizeDTag(target.trim());
     const display = (label || target).trim();
-    const url = `./publication?d=${normalized}`;
+    const url = `./wiki?d=${normalized}`;
     // Output as a clickable <a> with the [[display]] format and matching link colors
     return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">${display}</a>`;
   });

@@ -24,7 +24,7 @@ function escapeHtml(text: string): string {
 /**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
-export async function getUserMetadata(identifier: string): Promise<{name?: string, displayName?: string}> {
+export async function getUserMetadata(identifier: string): Promise<{name?: string, displayName?: string, nip05?: string}> {
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, '');
   
@@ -73,7 +73,8 @@ export async function getUserMetadata(identifier: string): Promise<{name?: strin
 
       const metadata = {
         name: profile.name || fallback.name,
-        displayName: profile.displayName
+        displayName: profile.displayName,
+        nip05: profile.nip05
       };
       
       npubCache.set(cleanId, metadata);
