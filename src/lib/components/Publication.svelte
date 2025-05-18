@@ -178,7 +178,9 @@
         <Button color="primary" on:click={() => loadMore(1)}>
           Show More
         </Button>
-      {/if}
+      {:else}
+      <p class="text-gray-500 dark:text-gray-400">You've reached the end of the publication.</p>
+    {/if}
     </div>
   </div>
 {/if}
