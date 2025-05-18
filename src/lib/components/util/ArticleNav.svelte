@@ -140,7 +140,7 @@
         </Button>
       {/if}
       {#if publicationType !== 'blog' && !$publicationColumnVisibility.discussion}
-        <Button class="btn-leather hidden sm:flex !w-auto" outline={true} onclick={() => toggleColumn('discussion')} >
+        <Button class="btn-leather !hidden hidden sm:flex !w-auto" outline={true} onclick={() => toggleColumn('discussion')} >
           <GlobeOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Discussion</span>
         </Button>
       {/if}
