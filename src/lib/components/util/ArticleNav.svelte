@@ -19,6 +19,7 @@
   let title: string = $derived(indexEvent.getMatchingTags('title')[0]?.[1]);
   let author: string = $derived(indexEvent.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
+  let isLeaf: boolean = $derived(indexEvent.kind === 30041);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
@@ -116,23 +117,23 @@
           <CaretLeftOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Back</span>
         </Button>
       {/if}
-      {#if publicationType === 'blog'}
-        <Button class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog ? 'active' : ''}"
-                outline={true} onclick={() => toggleColumn('blog')} >
-          <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
-        </Button>
-      {:else}
-        {#if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
-        <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('toc')}>
-          <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
-        </Button>
+      {#if !isLeaf}
+        {#if publicationType === 'blog'}
+          <Button class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog ? 'active' : ''}"
+                  outline={true} onclick={() => toggleColumn('blog')} >
+            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+          </Button>
+        {:else if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
+          <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('toc')}>
+            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+          </Button>
         {/if}
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
         <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by <InlineProfile pubkey={pubkey} title={author} /></span></p>
     </div>
-    <div class="flex justify-end space-x-2 md:min-w-52 min-w-8">
+    <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}
         <Button class='btn-leather !w-auto hidden sm:flex' outline={true} onclick={backToBlog}>
           <CloseOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Close</span>

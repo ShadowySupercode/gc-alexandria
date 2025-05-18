@@ -160,11 +160,11 @@
   }
 
   aside.sidebar-leather > div {
-    @apply bg-primary-50 dark:bg-primary-900 h-full px-5 py-0;
+    @apply bg-primary-50 dark:bg-gray-800 h-full px-5 py-0;
   }
 
   a.sidebar-item-leather {
-    @apply hover:bg-primary-100 dark:hover:bg-primary-800;
+    @apply hover:bg-primary-100 dark:hover:bg-gray-800;
   }
 
   div.skeleton-leather div {

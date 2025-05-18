@@ -84,6 +84,7 @@
   // region Columns visibility
   let currentBlog: null|string = $state(null);
   let currentBlogEvent: null|NDKEvent = $state(null);
+  const isLeaf = $derived(indexEvent.kind === 30041);
 
   function isInnerActive() {
     return currentBlog !== null && $publicationColumnVisibility.inner;
@@ -122,7 +123,7 @@
   onMount(() => {
     // Set current columns depending on the publication type
     const isBlog = publicationType === 'blog';
-    publicationColumnVisibility.update(v => ({ ...v, main: !isBlog, blog: isBlog }));
+    publicationColumnVisibility.update(v => ({ ...v, main: !isBlog, blog: isBlog, toc: !(isLeaf || isBlog) }));
 
     // Set up the intersection observer.
     observer = new IntersectionObserver((entries) => {
@@ -142,7 +143,7 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== 'blog'}
+{#if publicationType !== 'blog' || !isLeaf}
   <TocToggle rootId={rootAddress} />
 {/if}
 
@@ -233,7 +234,7 @@
       <SidebarGroup class='sidebar-group-leather'>
         <div class="flex justify-between items-baseline">
           <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading>
-          <Button class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-primary-900" outline onclick={closeDiscussion}>
+          <Button class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-gray-800" outline onclick={closeDiscussion}>
             <CloseOutline />
           </Button>
         </div>
