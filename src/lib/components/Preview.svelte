@@ -4,6 +4,7 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
   import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
+  import BlogHeader from "./blog/BlogHeader.svelte";
 
   // TODO: Fix move between parents.
 
@@ -16,8 +17,10 @@
     oncursorrelease,
     parentId,
     rootId,
+    index,
     sectionClass,
     publicationType,
+    onBlogUpdate
   } = $props<{
     allowEditing?: boolean;
     depth?: number;
@@ -27,13 +30,18 @@
     oncursorrelease?: (e: MouseEvent) => void;
     parentId?: string | null | undefined;
     rootId: string;
+    index: number;
     sectionClass?: string;
     publicationType?: string;
+    onBlogUpdate?: any;
   }>();
 
   let currentContent: string = $state($pharosInstance.getContent(rootId));
   let title: string | undefined = $state($pharosInstance.getIndexTitle(rootId));
   let orderedChildren: string[] = $state($pharosInstance.getOrderedChildIds(rootId));
+
+  let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()));
+  let metadata = $state($pharosInstance.getIndexMetadata());
 
   let isEditing: boolean = $state(false);
   let hasCursor: boolean = $state(false);
@@ -85,6 +93,48 @@
       hasNextSibling = !!nextSibling[0];
     }
   });
+
+  function getBlogEvent(index: number) {
+      return blogEntries[index][1];
+  }
+
+  function byline(rootId: string, index: number) {
+    console.log(rootId, index, blogEntries);
+    const event = blogEntries[index][1];
+    const author = event ? event.getMatchingTags("author")[0][1] : '';
+    return author ?? "";
+  }
+
+  function hasCoverImage(rootId: string, index: number) {
+    console.log(rootId);
+    const event = blogEntries[index][1];
+    const image = event && event.getMatchingTags("image")[0] ? event.getMatchingTags("image")[0][1] : '';
+    return image ?? '';
+  }
+
+  function publishedAt(rootId: string, index: number) {
+    console.log(rootId, index);
+    console.log(blogEntries[index]);
+    const event = blogEntries[index][1];
+    const date = event.created_at ? new Date(event.created_at * 1000) : '';
+    if (date !== '') {
+      const formattedDate = new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      }).format(date);
+      return formattedDate ?? "";
+    }
+    return '';
+  }
+
+  function readBlog(rootId:string) {
+    onBlogUpdate?.(rootId);
+  }
+
+  function propagateBlogUpdate(rootId:string) {
+    onBlogUpdate?.(rootId);
+  }
 
   function handleMouseEnter(e: MouseEvent) {
     hasCursor = true;
@@ -153,15 +203,36 @@
 {#snippet sectionHeading(title: string, depth: number)}
   {@const headingLevel = Math.min(depth + 1, 6)}
   {@const className = $pharosInstance.isFloatingTitle(rootId) ? 'discrete' : 'h-leather'}
-  
+
   <svelte:element this={`h${headingLevel}`} class={className}>
     {title}
   </svelte:element>
 {/snippet}
 
+{#snippet coverImage(rootId: string, index: number, depth: number)}
+  {#if hasCoverImage(rootId, index)}
+    <div class="coverImage depth-{depth}">
+      <img src={hasCoverImage(rootId, index)} alt={title} />
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet blogMetadata(rootId: string, index: number)}
+  <p class='h-leather'>
+    by {byline(rootId, index)}
+  </p>
+  <p class='h-leather italic text-sm'>
+    {publishedAt(rootId, index)}
+  </p>
+{/snippet}
+
 {#snippet contentParagraph(content: string, publicationType: string)}
   {#if publicationType === 'novel'}
     <P class='whitespace-normal' firstupper={isSectionStart}>
+      {@html content}
+    </P>
+  {:else if publicationType === 'blog'}
+    <P class='whitespace-normal' firstupper={false}>
       {@html content}
     </P>
   {:else}
@@ -222,25 +293,33 @@
           </Button>
         </ButtonGroup>
       {:else}
-        {@render sectionHeading(title!, depth)}
+        {#if !(publicationType === 'blog' && depth === 1)}
+          {@render sectionHeading(title!, depth)}
+        {/if}
       {/if}
       <!-- Recurse on child indices and zettels -->
-      {#key subtreeUpdateCount}
-        {#each orderedChildren as id, index}
-          <Self
-            rootId={id}
-            parentId={rootId}
-            publicationType={publicationType}
-            depth={depth + 1}
-            {allowEditing}
-            {sectionClass}
-            isSectionStart={index === 0}
-            bind:needsUpdate={subtreeNeedsUpdate}
-            oncursorcapture={handleChildCursorCaptured}
-            oncursorrelease={handleChildCursorReleased}
-          />
-        {/each}
-      {/key}
+      {#if publicationType === 'blog' && depth === 1}
+        <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} active={true} />
+      {:else }
+        {#key subtreeUpdateCount}
+          {#each orderedChildren as id, index}
+            <Self
+              rootId={id}
+              parentId={rootId}
+              index={index}
+              publicationType={publicationType}
+              depth={depth + 1}
+              {allowEditing}
+              {sectionClass}
+              isSectionStart={index === 0}
+              bind:needsUpdate={subtreeNeedsUpdate}
+              oncursorcapture={handleChildCursorCaptured}
+              oncursorrelease={handleChildCursorReleased}
+              onBlogUpdate={propagateBlogUpdate}
+            />
+          {/each}
+        {/key}
+      {/if}
     </div>
   {/if}
   {#if allowEditing && depth > 0}

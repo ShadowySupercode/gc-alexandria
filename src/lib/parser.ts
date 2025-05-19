@@ -124,6 +124,11 @@ export default class Pharos {
   private eventsByLevelMap: Map<number, string[]> = new Map<number, string[]>();
 
   /**
+   * A map of blog entries
+   */
+  private blogEntries: Map<string, NDKEvent> = new Map<string, NDKEvent>();
+
+  /**
    * When `true`, `getEvents()` should regenerate the event tree to propagate updates.
    */
   private shouldUpdateEventTree: boolean = false;
@@ -178,6 +183,14 @@ export default class Pharos {
     }
 
     this.parse(content);
+  }
+
+  getBlogEntries() {
+    return this.blogEntries;
+  }
+
+  getIndexMetadata(): IndexMetadata {
+    return this.rootIndexMetadata;
   }
 
   /**
@@ -635,6 +648,23 @@ export default class Pharos {
       tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
     );
 
+    // if a blog, save complete events for later
+    if (event.getMatchingTags("type").length > 0 && event.getMatchingTags("type")[0][1] === 'blog') {
+      childEvents.forEach(child => {
+        if (child) {
+          this.blogEntries.set(child?.getMatchingTags("d")?.[0]?.[1], child);
+        }
+      })
+    }
+
+    // populate metadata
+    if (event.created_at) {
+      this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
+    }
+    if (event.getMatchingTags('image').length > 0) {
+      this.rootIndexMetadata.coverImage = event.getMatchingTags('image')[0][1];
+    }
+
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
     // children of index events before processing them for content.  We won't make that change now,
     // as it would increase complexity, but if performance suffers, we can revisit this option.
@@ -1084,3 +1114,8 @@ export default class Pharos {
 }
 
 export const pharosInstance: Writable<Pharos> = writable();
+
+export const tocUpdate = writable(0);
+
+// Whenever you update the publication tree, call:
+tocUpdate.update(n => n + 1);

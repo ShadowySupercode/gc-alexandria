@@ -49,7 +49,7 @@
 {:else if npub }
   <a href='{externalProfileDestination}{npub}' title={title ?? username} target='_blank'>
     <Avatar rounded
-          class='h-6 w-6 mx-1 cursor-pointer inline'
+          class='h-6 w-6 mx-1 cursor-pointer inline bg-transparent'
           src={pfp}
           alt={username} />
     <span class='underline'>{username ?? shortenNpub(npub)}</span>

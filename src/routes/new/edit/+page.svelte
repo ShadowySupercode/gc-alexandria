@@ -5,6 +5,7 @@
   import Pharos, { pharosInstance } from "$lib/parser";
   import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
+  let someIndexValue = 0;
 
   // TODO: Prompt user to sign in before editing.
 
@@ -80,7 +81,7 @@
           </ToolbarButton>
         </Toolbar>
         {#if rootIndexId}
-          <Preview sectionClass='m-2' rootId={rootIndexId} />
+          <Preview sectionClass='m-2' rootId={rootIndexId} index={someIndexValue} />
         {/if}
       </form>
     {/if}
