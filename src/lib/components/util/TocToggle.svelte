@@ -1,17 +1,17 @@
 <script lang="ts">
   import {
-    Button,
+    Button, Heading,
     Sidebar,
     SidebarGroup,
     SidebarItem,
     SidebarWrapper,
     Skeleton,
     TextPlaceholder,
-    Tooltip,
+    Tooltip
   } from "flowbite-svelte";
   import { onMount } from "svelte";
-  import { BookOutline } from "flowbite-svelte-icons";
   import { pharosInstance } from "$lib/parser";
+  import { publicationColumnVisibility } from "$lib/stores";
   import { page } from "$app/state";
 
   let { rootId } = $props<{ rootId: string }>();
@@ -23,8 +23,6 @@
   const tocBreakpoint = 1140;
 
   let activeHash = $state(page.url.hash);
-  let showToc: boolean = $state(true);
-  let showTocButton: boolean = $state(false);
 
   function normalizeHashPath(str: string): string {
     return str
@@ -55,8 +53,7 @@
    * prevents the sidebar from occluding the article content.
    */
   function setTocVisibilityOnResize() {
-    showToc = window.innerWidth >= tocBreakpoint;
-    showTocButton = window.innerWidth < tocBreakpoint;
+    publicationColumnVisibility.update(v => ({ ...v, toc: window.innerWidth >= tocBreakpoint}));
   }
 
   /**
@@ -69,8 +66,8 @@
       return;
     }
 
-    if (showToc) {
-      showToc = false;
+    if ($publicationColumnVisibility.toc) {
+      publicationColumnVisibility.update(v => ({ ...v, toc: false}));
     }
   }
 
@@ -93,32 +90,20 @@
   });
 </script>
 
-{#if showTocButton && !showToc}
-  <Button
-    class="btn-leather h-6 !w-auto"
-    outline={true}
-    on:click={(ev) => {
-      showToc = true;
-      ev.stopPropagation();
-    }}
-  >
-    <BookOutline class="!fill-none mr-1"/>
-    Table of Contents
-  </Button>
-{/if}
 <!-- TODO: Get TOC from parser. -->
-<!-- {#if showToc}
-  <Sidebar class='sidebar-leather fixed top-20 left-0 px-4 w-60' {activeHash}>
+{#if $publicationColumnVisibility.toc}
+  <Sidebar  class='sidebar-leather left-0' {activeHash}>
     <SidebarWrapper>
-      <SidebarGroup class='sidebar-group-leather overflow-y-scroll'>
-        {#each events as event}
-          <SidebarItem
-            class='sidebar-item-leather'
-            label={event.getMatchingTags('title')[0][1]}
-            href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}
-          />
-        {/each}
+      <SidebarGroup class='sidebar-group-leather'>
+        <Heading tag="h1" class="h-leather !text-lg">Table of contents</Heading>
+        <!--{#each events as event}-->
+        <!--  <SidebarItem-->
+        <!--    class='sidebar-item-leather'-->
+        <!--    label={event.getMatchingTags('title')[0][1]}-->
+        <!--    href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}-->
+        <!--  />-->
+        <!--{/each}-->
       </SidebarGroup>
     </SidebarWrapper>
   </Sidebar>
-{/if} -->
+{/if}

@@ -5,6 +5,7 @@
   import { onDestroy, setContext } from "svelte";
   import { PublicationTree } from "$lib/data_structures/publication_tree";
   import Processor from "asciidoctor";
+  import ArticleNav from "$components/util/ArticleNav.svelte";
 
   let { data }: PageProps = $props();
 
@@ -59,10 +60,11 @@
   <ArticleNav
     publicationType={data.publicationType}
     rootId={data.parser.getRootIndexId()}
+    indexEvent={data.indexEvent}
   />
 {/key}
 
-<main class={data.publicationType}>
+<main class="publication {data.publicationType}">
   {#await data.waitable}
     <TextPlaceholder divClass="skeleton-leather w-full" size="xxl" />
   {:then}
