@@ -132,18 +132,21 @@ export async function getWikiPageById(id: string, ndk: NDK) {
   let html = '';
   try {
     const pharos = new Pharos(ndk);
+    console.log('Pharos instance:', pharos);
     pharos.parse(asciidoc);
     const pharosHtml = pharos.getHtml();
-    html = await parseBasicmarkup(pharosHtml);
-    if (!html) {
-      console.error('getWikiPageById: Parsed HTML is empty for id:', id, 'event:', event);
+    console.log('AsciiDoc:', asciidoc);
+    console.log('Pharos HTML:', pharosHtml);
+    html = await parseBasicmarkup(pharosHtml ?? '');
+    if (!html || html.trim() === '') {
+      console.error('getWikiPageById: Parsed HTML is empty for id:', id, 'event:', event, 'asciidoc:', asciidoc, 'pharosHtml:', pharosHtml);
     }
   } catch (err) {
     console.error('getWikiPageById: Error parsing content:', err, 'event:', event);
     return null;
   }
 
-  return { title, pubhex, eventId: event.id, summary, hashtags, html };
+  return { title, pubhex, eventId: event.id, summary, hashtags, html, content: event.content };
 }
 
 /**

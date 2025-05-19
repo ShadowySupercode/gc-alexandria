@@ -78,6 +78,9 @@
         error = 'Event not found';
       } else {
         console.log('[Events] Event found:', event);
+        if (typeof event.getMatchingTags !== 'function') {
+          event = new NDKEvent(event.ndk || $ndkInstance, event);
+        }
       }
     } catch (err) {
       console.error('[Events] Error fetching event:', err, 'Query:', searchQuery);
@@ -190,8 +193,7 @@
     }
   });
 
-  $: if (event && event.kind !== 0) {
-    // Only parse for non-profile events
+  $: if (event && event.kind !== 0 && event.content) {
     parseBasicmarkup(event.content).then(html => {
       parsedContent = html;
       contentPreview = html.slice(0, 250);
@@ -200,6 +202,10 @@
 
   $: profile = event && event.kind === 0
     ? (() => { try { return JSON.parse(event.content); } catch { return null; } })()
+    : null;
+
+  $: profileTitle = event && event.kind === 0 && profile && profile.name
+    ? profile.name
     : null;
 </script>
 
@@ -242,7 +248,7 @@
       </div>
     {/if}
 
-    {#if event}
+    {#if event && typeof event.getMatchingTags === 'function'}
       <div class="flex flex-col space-y-6">
         <!-- Event Identifier (plain text, not a link) -->
         <div class="text-sm font-mono text-gray-600 dark:text-gray-400 break-all">
@@ -251,7 +257,11 @@
 
         <!-- Event Details -->
         <div class="flex flex-col space-y-4">
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{getEventTitle(event)}</h2>
+          {#if event.kind !== 0 && getEventTitle(event)}
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{getEventTitle(event)}</h2>
+          {:else if event.kind === 0 && profile && profile.name}
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{profile.name}</h2>
+          {/if}
           <div class="flex items-center space-x-2">
             <span class="text-gray-600 dark:text-gray-400">Author:</span>
             <InlineProfile pubkey={event.pubkey} />
@@ -283,45 +293,63 @@
             <span class="text-gray-600 dark:text-gray-400">Content:</span>
             {#if event.kind === 0}
               {#if profile}
-                <div class="flex flex-col gap-2 mt-2">
-                  {#if profile.name}
-                    <div><span class="font-semibold">Name:</span> {profile.name}</div>
-                  {/if}
-                  {#if profile.display_name}
-                    <div><span class="font-semibold">Display Name:</span> {profile.display_name}</div>
-                  {/if}
-                  {#if profile.about}
-                    <div><span class="font-semibold">About:</span> {profile.about}</div>
-                  {/if}
-                  {#if profile.picture}
-                    <div class="flex items-center gap-2">
-                      <span class="font-semibold">Picture:</span>
-                      <img src={profile.picture} alt="Profile" class="w-16 h-16 rounded-full border" />
-                    </div>
-                  {/if}
-                  {#if profile.banner}
-                    <div class="flex items-center gap-2">
-                      <span class="font-semibold">Banner:</span>
-                      <img src={profile.banner} alt="Banner" class="w-full max-w-xs rounded border" />
-                    </div>
-                  {/if}
-                  {#if profile.website}
-                    <div>
-                      <span class="font-semibold">Website:</span>
-                      <a href={profile.website} target="_blank" class="underline text-primary-700">{profile.website}</a>
-                    </div>
-                  {/if}
-                  {#if profile.lud16}
-                    <div>
-                      <span class="font-semibold">Lightning Address:</span> {profile.lud16}
-                    </div>
-                  {/if}
-                  {#if profile.nip05}
-                    <div>
-                      <span class="font-semibold">NIP-05:</span> {profile.nip05}
-                    </div>
-                  {/if}
-                  <!-- Add more fields as needed -->
+                <div class="bg-primary-50 dark:bg-primary-900 rounded-lg p-6 mt-2 shadow flex flex-col gap-4">
+                  <dl class="grid grid-cols-1 gap-y-2">
+                    {#if profile.name}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">Name:</dt>
+                        <dd>{profile.name}</dd>
+                      </div>
+                    {/if}
+                    {#if profile.display_name}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">Display Name:</dt>
+                        <dd>{profile.display_name}</dd>
+                      </div>
+                    {/if}
+                    {#if profile.about}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">About:</dt>
+                        <dd class="whitespace-pre-line">{profile.about}</dd>
+                      </div>
+                    {/if}
+                    {#if profile.picture}
+                      <div class="flex gap-2 items-center">
+                        <dt class="font-semibold min-w-[120px]">Picture:</dt>
+                        <dd>
+                          <img src={profile.picture} alt="Profile" class="w-16 h-16 rounded-full border" />
+                        </dd>
+                      </div>
+                    {/if}
+                    {#if profile.banner}
+                      <div class="flex gap-2 items-center">
+                        <dt class="font-semibold min-w-[120px]">Banner:</dt>
+                        <dd>
+                          <img src={profile.banner} alt="Banner" class="w-full max-w-xs rounded border" />
+                        </dd>
+                      </div>
+                    {/if}
+                    {#if profile.website}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">Website:</dt>
+                        <dd>
+                          <a href={profile.website} target="_blank" class="underline text-primary-700">{profile.website}</a>
+                        </dd>
+                      </div>
+                    {/if}
+                    {#if profile.lud16}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
+                        <dd>{profile.lud16}</dd>
+                      </div>
+                    {/if}
+                    {#if profile.nip05}
+                      <div class="flex gap-2">
+                        <dt class="font-semibold min-w-[120px]">NIP-05:</dt>
+                        <dd>{profile.nip05}</dd>
+                      </div>
+                    {/if}
+                  </dl>
                 </div>
               {:else}
                 <pre class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-2 mt-2">{event.content}</pre>
@@ -362,6 +390,16 @@
           </details>
         </div>
       </div>
+      {#if !getEventTitle(event) && !event.content}
+        <div class="p-4 text-gray-500">
+          No title or content available for this event.
+          <pre class="text-xs mt-2 bg-gray-100 dark:bg-gray-800 p-2 rounded">
+            {JSON.stringify(event.rawEvent(), null, 2)}
+          </pre>
+        </div>
+      {/if}
+    {:else if event}
+      <div class="text-red-600">Fetched event is not a valid NDKEvent. See console for details.</div>
     {/if}
   </main>
 </div>

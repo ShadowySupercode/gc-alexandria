@@ -10,7 +10,8 @@
   import { neventEncode } from '$lib/utils';
   import { processNostrIdentifiers } from '$lib/utils/nostrUtils';
   import { standardRelays, wikiKind } from '$lib/consts';
-
+  import Pharos from '$lib/parser';
+  import { parseBasicmarkup } from '$lib/utils/markup/basicMarkupParser';
   // @ts-ignore Svelte linter false positive: hashtags is used in the template
   let { } = $props<{
     title: string;
@@ -28,6 +29,7 @@
     summary: string;
     hashtags: string[];
     html: string;
+    content: string;
   };
 
   let searchInput = $state('');
@@ -124,6 +126,7 @@
           summary: pageData.summary,
           hashtags: pageData.hashtags,
           html: processedHtml,
+          content: pageData.content,
         };
         wikiContent = {
           title: pageData.title,
@@ -205,6 +208,22 @@
       wikiPage = null;
     }
   });
+
+  (async () => {
+    let html = '';
+    try {
+      const pharos = new Pharos($ndkInstance);
+      pharos.parse('= Test\n\nHello world');
+      const pharosHtml = pharos.getHtml();
+      if (!pharosHtml || pharosHtml.trim() === '') {
+        console.error('Pharos failed to parse AsciiDoc:', '= Test\n\nHello world');
+      }
+      html = await parseBasicmarkup(pharosHtml ?? '');
+      console.log('Test parse result:', html);
+    } catch (err) {
+      console.error('Pharos parse error:', err);
+    }
+  })();
 </script>
 
 <div class="flex flex-col items-center min-h-[60vh] pt-8">
@@ -258,14 +277,15 @@
       {/if}
       <div class="w-full prose prose-lg dark:prose-invert max-w-none">
         {#if wikiPage.html && wikiPage.html.trim().length > 0}
-          {#if event && typeof event.getMatchingTags === 'function'}
-            {@html wikiPage.html}
-          {:else if event}
-            <div class="text-red-600">Fetched event is not a valid NDKEvent. See console for details.</div>
-          {/if}
+          {@html wikiPage.html}
         {:else}
           <div class="text-red-600">
             No content found for this wiki page.
+            {#if wikiPage.content}
+              <pre class="text-xs mt-2 bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                {wikiPage.content}
+              </pre>
+            {/if}
             <pre class="text-xs mt-2 bg-gray-100 dark:bg-gray-800 p-2 rounded">
               {JSON.stringify(wikiPage, null, 2)}
             </pre>

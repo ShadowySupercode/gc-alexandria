@@ -3,7 +3,7 @@
   import { type NDKUserProfile } from "@nostr-dev-kit/ndk";
   import { ndkInstance } from '$lib/ndk';
 
-  let { pubkey, title = null } = $props();
+  let { pubkey, name = null } = $props();
 
   const externalProfileDestination = './events?id='
   let loading = $state(true);
@@ -43,11 +43,11 @@
 </script>
 
 {#if loading}
-  {title ?? '…'}
+  {name ?? '…'}
 {:else if anon }
-  <a class='underline' href={'/events?id=' + npub} title={title ?? npub}>{shortenNpub(npub)}</a>
+  <a class='underline' href={'/events?id=' + npub} title={name ?? npub}>{shortenNpub(npub)}</a>
 {:else if npub }
-  <a href={'/events?id=' + npub} title={title ?? username}>
+  <a href={'/events?id=' + npub} title={name ?? username}>
     <Avatar rounded
           class='h-6 w-6 mx-1 cursor-pointer inline'
           src={pfp}
@@ -55,5 +55,5 @@
     <span class='underline'>{username ?? shortenNpub(npub)}</span>
   </a>
 {:else}
-  {title ?? pubkey}
+  {name ?? pubkey}
 {/if}
