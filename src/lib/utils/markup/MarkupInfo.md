@@ -30,7 +30,7 @@ The **advanced markup parser** includes all features of the basic parser, plus:
 - **Tables:** Pipe-delimited tables with or without headers
 - **Footnotes:** `[^1]` or `[^Smith]`, which should appear where the footnote shall be placed, and will be displayed as unique, consecutive numbers
 - **Footnote References:** `[^1]: footnote text` or `[^Smith]: Smith, Adam. 1984 "The Wiggle Mysteries`, which will be listed in order, at the bottom of the event, with back-reference links to the footnote, and text footnote labels appended
-- **Wikilinks:** `[[NIP-54]]` will render as a hyperlink and goes to [NIP-54](https://next-alexandria.gitcitadel.eu/publication?d=nip-54) (Will later go to our new disambiguation page.)
+- **Wikilinks:** `[[NIP-54]]` will render as a hyperlink and goes to [NIP-54](./wiki?d=nip-54)
 
 ## Publications and Wikis
 

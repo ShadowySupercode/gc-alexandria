@@ -11,6 +11,7 @@
   import { standardRelays } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { goto } from "$app/navigation";
 
   let { event } = $props();
 
@@ -78,10 +79,41 @@
   }
 
   function viewDetails() {
-    console.log('Details');
     detailsModalOpen = true;
   }
 
+  // --- Custom JSON pretty-printer with NIP-33 address hyperlinking ---
+  /**
+   * Returns HTML for pretty-printed JSON, with NIP-33 addresses as links to /events?id=naddr1...
+   */
+  function jsonWithNaddrLinks(obj: any): string {
+    const NIP33_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
+    function replacer(_key: string, value: any) {
+      return value;
+    }
+    // Stringify with 2-space indent
+    let json = JSON.stringify(obj, replacer, 2);
+    // Replace NIP-33 addresses with links
+    json = json.replace(NIP33_REGEX, (match) => {
+      try {
+        const [kind, pubkey, dtag] = match.split(":");
+        // Compose a fake event for naddrEncode
+        const fakeEvent = {
+          kind: parseInt(kind),
+          pubkey,
+          tags: [["d", dtag]],
+        };
+        const naddr = naddrEncode(fakeEvent as any, standardRelays);
+        return `<a href='./events?id=${naddr}' class='text-primary-600 underline' target='_blank'>${match}</a>`;
+      } catch {
+        return match;
+      }
+    });
+    // Escape < and > for HTML safety, but allow our <a> tags
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    json = json.replace(/&lt;a /g, '<a ').replace(/&lt;\/a&gt;/g, '</a>');
+    return json;
+  }
 </script>
 
 <div class="group" role="group" onmouseenter={openPopover}>
@@ -127,22 +159,11 @@
               {/if}
             </button>
           </li>
-          <li>
-            <button class='btn-leather w-full text-left' onclick={viewJson}>
-              <CodeOutline class="inline mr-2"  /> View JSON
-            </button>
-          </li>
         </ul>
       </div>
     </div>
   </Popover>
   {/if}
-  <!-- Event JSON -->
-  <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='lg'>
-    <div class="overflow-auto bg-highlight dark:bg-primary-900 text-sm rounded p-1" style="max-height: 70vh;">
-      <pre><code>{JSON.stringify(event.rawEvent(), null, 2)}</code></pre>
-    </div>
-  </Modal>
   <!-- Event details -->
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
     <div class="flex flex-row space-x-4">
@@ -190,7 +211,12 @@
       {#if identifier !== null}
         <h5 class="text-sm">{identifier}</h5>
       {/if}
-
+      <a 
+        href="/events?id={neventEncode(event, standardRelays)}" 
+        class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
+      >
+        View Event Details
+      </a>
     </div>
 
   </Modal>

@@ -11,7 +11,6 @@
 
   let { class: className = "" } = $props();
 
-  let leftMenuOpen = $state(false);
 </script>
 
 <Navbar class={`Navbar navbar-leather ${className}`}>
@@ -25,7 +24,9 @@
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
-    <NavLi href="/new/edit">Publish</NavLi>
+    <NavLi href="/">Publications</NavLi>
+    <NavLi href="/wiki">Wiki</NavLi>
+    <NavLi href="/events">Events</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
     <NavLi href="/about">About</NavLi>

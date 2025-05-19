@@ -3,13 +3,13 @@
 # Alexandria
 
 Alexandria is a reader and writer for curated publications, including e-books.
-For a thorough introduction, please refer to our [project documention](https://next-alexandria.gitcitadel.eu/publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria, or to the Alexandria [About page](https://next-alexandria.gitcitadel.eu/about).
+For a thorough introduction, please refer to our [project documention](./publication?d=gitcitadel-project-documentation-by-stella-v-1), viewable on Alexandria, or to the Alexandria [About page](./about).
 
 ## Issues and Patches
 
-If you would like to suggest a feature or report a bug, please use the [Alexandria Contact page](https://next-alexandria.gitcitadel.eu/contact).
+If you would like to suggest a feature or report a bug, please use the [Alexandria Contact page](./contact).
 
-You can also contact us [on Nostr](https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg), directly.
+You can also contact us [on Nostr](./events?id=nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg), directly.
 
 ## Developing
 
@@ -73,7 +73,7 @@ To run the container, in detached mode (-d):
 docker run -d --rm --name=gc-alexandria -p 4174:80 gc-alexandria
 ```
 
-The container is then viewable on your [local machine](http://localhost:4174).
+The container is then viewable on your [local machine](./).
 
 If you want to see the container process (assuming it's the last process to start), enter:
 
@@ -118,4 +118,4 @@ npx playwright test
 
 ## Markup Support
 
-Alexandria supports both Markdown and AsciiDoc markup for different content types. For a detailed list of supported tags and features in the basic and advanced markdown parsers, as well as information about AsciiDoc usage for publications and wikis, see [MarkupInfo.md](src/lib/utils/markup/MarkupInfo.md).
+Alexandria supports both Markdown and AsciiDoc markup for different content types. For a detailed list of supported tags and features in the basic and advanced markdown parsers, as well as information about AsciiDoc usage for publications and wikis, see [MarkupInfo.md](./src/lib/utils/markup/MarkupInfo.md).

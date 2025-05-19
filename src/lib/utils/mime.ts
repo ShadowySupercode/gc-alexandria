@@ -6,7 +6,7 @@
  * - Addressable: 30000-39999 (latest per d-tag stored)
  * - Regular: all other kinds (stored by relays)
  */
-function getEventType(kind: number): 'regular' | 'replaceable' | 'ephemeral' | 'addressable' {
+export function getEventType(kind: number): 'regular' | 'replaceable' | 'ephemeral' | 'addressable' {
   // Check special ranges first
   if (kind >= 30000 && kind < 40000) {
     return 'addressable';

@@ -70,7 +70,7 @@ describe('Basic Markup Parser', () => {
   it('parses nostr identifiers', async () => {
     const input = 'npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
     const output = await parseBasicmarkup(input);
-    expect(output).toContain('https://njump.me/npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
+    expect(output).toContain('./events?id=npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
   });
 
   it('parses emoji shortcodes', async () => {

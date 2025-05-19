@@ -5,7 +5,7 @@
 
   let { pubkey, title = null } = $props();
 
-  const externalProfileDestination = 'https://njump.me/'
+  const externalProfileDestination = './events?id='
   let loading = $state(true);
   let anon = $state(false);
   let npub = $state('');
@@ -45,9 +45,9 @@
 {#if loading}
   {title ?? '…'}
 {:else if anon }
-  <a class='underline' href='{externalProfileDestination}{npub}' title={title ?? npub} target='_blank'>{shortenNpub(npub)}</a>
+  <a class='underline' href={'/events?id=' + npub} title={title ?? npub}>{shortenNpub(npub)}</a>
 {:else if npub }
-  <a href='{externalProfileDestination}{npub}' title={title ?? username} target='_blank'>
+  <a href={'/events?id=' + npub} title={title ?? username}>
     <Avatar rounded
           class='h-6 w-6 mx-1 cursor-pointer inline'
           src={pfp}

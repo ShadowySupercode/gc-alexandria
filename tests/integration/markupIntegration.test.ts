@@ -34,7 +34,7 @@ describe('Markup Integration Test', () => {
     // Hashtags
     expect(output).toContain('text-primary-600');
     // Nostr identifiers (should be njump.me links)
-    expect(output).toContain('https://njump.me/npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
+    expect(output).toContain('./events?id=npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
     // Wikilinks
     expect(output).toContain('wikilink');
     // YouTube iframe
@@ -77,7 +77,7 @@ describe('Markup Integration Test', () => {
     // Hashtags
     expect(output).toContain('text-primary-600');
     // Nostr identifiers (should be njump.me links)
-    expect(output).toContain('https://njump.me/npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
+    expect(output).toContain('./events?id=npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
     // Wikilinks
     expect(output).toContain('wikilink');
     // YouTube iframe

@@ -2,14 +2,19 @@
   import { Card } from "flowbite-svelte";
   import InlineProfile from "$components/util/InlineProfile.svelte";
 
-  let { title, pubhex, eventId, summary, urlPath, hashtags = [] } = $props<{
-    title: string;
-    pubhex: string;
-    eventId: string;
-    summary: string;
-    urlPath: string;
-    hashtags?: string[];
-  }>();
+  export let title: string;
+  export let pubhex: string;
+  export let eventId: string;
+  export let summary: string;
+  export let urlPath: string;
+  export let hashtags: string[] = [];
+  export let html: string = '';
+
+  let expanded = false;
+  $: preview = html.slice(0, 250);
+
+  // Logging for debug
+  console.log('WikiCard props:', { title, pubhex, eventId, summary, urlPath, hashtags });
 </script>
 
 <Card class='ArticleBox card-leather w-lg flex flex-row space-x-2'>
@@ -30,6 +35,12 @@
                 <span class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-xs font-semibold">#{tag}</span>
               {/each}
             </div>
+          {/if}
+        </div>
+        <div class="prose dark:prose-invert max-w-none mt-2">
+          {@html expanded ? html : preview}
+          {#if !expanded && html.length > 250}
+            <button class="mt-2 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300" onclick={() => expanded = true}>Read more...</button>
           {/if}
         </div>
       </a>

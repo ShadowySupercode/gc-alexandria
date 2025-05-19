@@ -2,6 +2,9 @@ import { get } from 'svelte/store';
 import { nip19 } from 'nostr-tools';
 import { ndkInstance } from '$lib/ndk';
 import { npubCache } from './npubCache';
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
+import { standardRelays, bootstrapRelays } from "$lib/consts";
 
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX = /(?<![\w/])((nostr:)?(npub|nprofile)[a-zA-Z0-9]{20,})(?![\w/])/g;
@@ -98,7 +101,7 @@ function createProfileLink(identifier: string, displayText: string | undefined):
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
   
-  return `<a href="https://njump.me/${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline" target="_blank">@${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline" target="_blank">@${escapedText}</a>`;
 }
 
 /**
@@ -110,7 +113,7 @@ function createNoteLink(identifier: string): string {
   const escapedId = escapeHtml(cleanId);
   const escapedText = escapeHtml(shortId);
   
-  return `<a href="https://njump.me/${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline break-all" target="_blank">${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline break-all" target="_blank">${escapedText}</a>`;
 }
 
 /**
@@ -178,6 +181,64 @@ export async function getNpubFromNip05(nip05: string): Promise<string | null> {
     return user.npub;
   } catch (error) {
     console.error('Error getting npub from nip05:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetches an event using a two-step relay strategy:
+ * 1. First tries standard relays with timeout
+ * 2. Falls back to all relays if not found
+ * Always wraps result as NDKEvent
+ */
+export async function fetchEventWithFallback(
+  ndk: NDK,
+  filterOrId: string | NDKFilter<NDKKind>,
+  timeoutMs: number = 3000
+): Promise<NDKEvent | null> {
+  const allRelays = Array.from(new Set([...standardRelays, ...bootstrapRelays]));
+  const relaySets = [
+    NDKRelaySet.fromRelayUrls(standardRelays, ndk),
+    NDKRelaySet.fromRelayUrls(allRelays, ndk)
+  ];
+
+  async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+    ]);
+  }
+
+  try {
+    let found: NDKEvent | null = null;
+
+    // Try standard relays first
+    if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
+      found = await withTimeout(ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySets[0]));
+      if (!found) {
+        // Fallback to all relays
+        found = await withTimeout(ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySets[1]));
+      }
+    } else {
+      const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
+      const results = await withTimeout(ndk.fetchEvents(filter, undefined, relaySets[0]));
+      found = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
+      if (!found) {
+        // Fallback to all relays
+        const fallbackResults = await withTimeout(ndk.fetchEvents(filter, undefined, relaySets[1]));
+        found = fallbackResults instanceof Set ? Array.from(fallbackResults)[0] as NDKEvent : null;
+      }
+    }
+
+    if (!found) {
+      console.warn('Event not found after timeout. Some relays may be offline or slow.');
+      return null;
+    }
+
+    // Always wrap as NDKEvent
+    return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
+  } catch (err) {
+    console.error('Error in fetchEventWithFallback:', err);
     return null;
   }
 } 
