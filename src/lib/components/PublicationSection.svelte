@@ -104,7 +104,7 @@
   });
 </script>
 
-<section bind:this={sectionRef} class='publication-leather content-visibility-auto'>
+<section id={address} bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}

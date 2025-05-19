@@ -5,20 +5,14 @@
     Card,
     Sidebar,
     SidebarGroup,
-    SidebarItem,
     SidebarWrapper,
-    Skeleton,
-    TextPlaceholder,
-    Tooltip,
     Heading,
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
     CloseOutline,
-    BookOutline,
     ExclamationCircleOutline,
   } from "flowbite-svelte-icons";
-  import { page } from "$app/state";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
@@ -27,6 +21,7 @@
   import BlogHeader from "$components/blog/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
+  import { pharosInstance } from '$lib/parser';
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -114,8 +109,10 @@
 
     currentBlog = rootId;
     // set current blog values for publication render
-    currentBlogEvent =
-      leaves.find((i) => i.tagAddress() === currentBlog) ?? null;
+    if (leaves.length > 0) {
+      currentBlogEvent =
+        leaves.find((i) => i && i.tagAddress() === currentBlog) ?? null;
+    }
   }
 
   function showBlogHeader() {
@@ -156,11 +153,14 @@
       observer.disconnect();
     };
   });
+
+  // Whenever the publication changes, update rootId
+  let rootId = $derived($pharosInstance.getRootIndexId());
 </script>
 
 <!-- Table of contents -->
 {#if publicationType !== "blog" || !isLeaf}
-  <TocToggle rootId={rootAddress} />
+  <TocToggle {rootId} />
 {/if}
 
 <!-- Default publications -->
@@ -171,7 +171,7 @@
     >
       <Details event={indexEvent} />
     </div>
-    <!-- Publication -->
+    <!-- Publication sections/cards -->
     {#each leaves as leaf, i}
       {#if leaf == null}
         <Alert class="flex space-x-2">
@@ -215,12 +215,14 @@
     </div>
     <!-- List blog excerpts -->
     {#each leaves as leaf, i}
-      <BlogHeader
-        rootId={leaf.tagAddress()}
-        event={leaf}
-        onBlogUpdate={loadBlog}
-        active={!isInnerActive()}
-      />
+      {#if leaf}
+        <BlogHeader
+          rootId={leaf.tagAddress()}
+          event={leaf}
+          onBlogUpdate={loadBlog}
+          active={!isInnerActive()}
+        />
+      {/if}
     {/each}
   </div>
 {/if}
@@ -231,7 +233,7 @@
       class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-146px)] sticky top-[146px]"
     >
       {#each leaves as leaf, i}
-        {#if leaf.tagAddress() === currentBlog}
+        {#if leaf && leaf.tagAddress() === currentBlog}
           <div
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
@@ -245,7 +247,7 @@
             ref={(el) => setLastElementRef(el, i)}
           />
 
-          <Card class="ArticleBox !hidden card-leather min-w-full grid mt-4">
+          <Card class="ArticleBox !hidden card-leather min-w-full mt-4">
             <Interactions rootId={currentBlog} />
           </Card>
         {/if}
@@ -273,7 +275,7 @@
                 alternative for other publications and
                 when blog is not opened, but discussion is opened from the list
           -->
-          {#if showBlogHeader()}
+          {#if showBlogHeader() && currentBlog && currentBlogEvent}
             <BlogHeader
               rootId={currentBlog}
               event={currentBlogEvent}

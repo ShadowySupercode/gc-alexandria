@@ -1114,3 +1114,8 @@ export default class Pharos {
 }
 
 export const pharosInstance: Writable<Pharos> = writable();
+
+export const tocUpdate = writable(0);
+
+// Whenever you update the publication tree, call:
+tocUpdate.update(n => n + 1);

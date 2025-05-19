@@ -299,7 +299,7 @@
       {/if}
       <!-- Recurse on child indices and zettels -->
       {#if publicationType === 'blog' && depth === 1}
-        <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} />
+        <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} active={true} />
       {:else }
         {#key subtreeUpdateCount}
           {#each orderedChildren as id, index}

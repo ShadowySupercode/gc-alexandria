@@ -1,19 +1,15 @@
 <script lang="ts">
   import {
-    Button, Heading,
+    Heading,
     Sidebar,
     SidebarGroup,
     SidebarItem,
     SidebarWrapper,
-    Skeleton,
-    TextPlaceholder,
-    Tooltip
   } from "flowbite-svelte";
   import { onMount } from "svelte";
-  import { pharosInstance } from "$lib/parser";
+  import { pharosInstance, tocUpdate } from "$lib/parser";
   import { publicationColumnVisibility } from "$lib/stores";
-  import { page } from "$app/state";
-
+  
   let { rootId } = $props<{ rootId: string }>();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
@@ -22,7 +18,36 @@
 
   const tocBreakpoint = 1140;
 
-  let activeHash = $state(page.url.hash);
+  let activeHash = $state(window.location.hash);
+
+  interface TocItem {
+    label: string;
+    hash: string;
+  }
+
+  // Get TOC items from parser
+  let tocItems = $state<TocItem[]>([]);
+
+  $effect(() => {
+    // This will re-run whenever tocUpdate changes
+    tocUpdate;
+    const items: TocItem[] = [];
+    const childIds = $pharosInstance.getChildIndexIds(rootId);
+    console.log('TOC rootId:', rootId, 'childIds:', childIds);
+    const processNode = (nodeId: string) => {
+      const title = $pharosInstance.getIndexTitle(nodeId);
+      if (title) {
+        items.push({
+          label: title,
+          hash: `#${nodeId}`
+        });
+      }
+      const children = $pharosInstance.getChildIndexIds(nodeId);
+      children.forEach(processNode);
+    };
+    childIds.forEach(processNode);
+    tocItems = items;
+  });
 
   function normalizeHashPath(str: string): string {
     return str
@@ -48,12 +73,17 @@
     }
   }
 
+  function updateActiveHash() {
+    activeHash = window.location.hash;
+  }
+
   /**
    * Hides the table of contents sidebar when the window shrinks below a certain size.  This
    * prevents the sidebar from occluding the article content.
    */
   function setTocVisibilityOnResize() {
-    publicationColumnVisibility.update(v => ({ ...v, toc: window.innerWidth >= tocBreakpoint}));
+    // Always show TOC on laptop and larger screens, collapsible only on small/medium
+    publicationColumnVisibility.update(v => ({ ...v, toc: window.innerWidth >= tocBreakpoint }));
   }
 
   /**
@@ -66,7 +96,8 @@
       return;
     }
 
-    if ($publicationColumnVisibility.toc) {
+    // Only allow hiding TOC on screens smaller than tocBreakpoint
+    if (window.innerWidth < tocBreakpoint && $publicationColumnVisibility.toc) {
       publicationColumnVisibility.update(v => ({ ...v, toc: false}));
     }
   }
@@ -75,6 +106,7 @@
     // Always check whether the TOC sidebar should be visible.
     setTocVisibilityOnResize();
 
+    window.addEventListener("hashchange", updateActiveHash);
     window.addEventListener("hashchange", scrollToElementWithOffset);
     // Also handle the case where the user lands on the page with a hash in the URL
     scrollToElementWithOffset();
@@ -83,6 +115,7 @@
     window.addEventListener("click", hideTocOnClick);
 
     return () => {
+      window.removeEventListener("hashchange", updateActiveHash);
       window.removeEventListener("hashchange", scrollToElementWithOffset);
       window.removeEventListener("resize", setTocVisibilityOnResize);
       window.removeEventListener("click", hideTocOnClick);
@@ -92,17 +125,18 @@
 
 <!-- TODO: Get TOC from parser. -->
 {#if $publicationColumnVisibility.toc}
-  <Sidebar  class='sidebar-leather left-0' {activeHash}>
+  <Sidebar class='sidebar-leather left-0'>
     <SidebarWrapper>
       <SidebarGroup class='sidebar-group-leather'>
         <Heading tag="h1" class="h-leather !text-lg">Table of contents</Heading>
-        <!--{#each events as event}-->
-        <!--  <SidebarItem-->
-        <!--    class='sidebar-item-leather'-->
-        <!--    label={event.getMatchingTags('title')[0][1]}-->
-        <!--    href={`${$page.url.pathname}#${normalizeHashPath(event.getMatchingTags('title')[0][1])}`}-->
-        <!--  />-->
-        <!--{/each}-->
+        <p>(This ToC is only for demo purposes, and is not fully-functional.)</p>
+        {#each tocItems as item}
+          <SidebarItem
+            class="sidebar-item-leather {activeHash === item.hash ? 'bg-primary-200 font-bold' : ''}"
+            label={item.label}
+            href={item.hash}
+          />
+        {/each}
       </SidebarGroup>
     </SidebarWrapper>
   </Sidebar>
