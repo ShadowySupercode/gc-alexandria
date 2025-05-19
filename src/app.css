@@ -3,40 +3,38 @@
 @import './styles/publications.css';
 @import './styles/visualize.css';
 
-@layer components {
-  /* General */
+/* Custom styles */
+@layer base {
   .leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-200;
   }
 
   .btn-leather.text-xs {
-    @apply w-7 h-7;
+    @apply px-2 py-1;
   }
 
   .btn-leather.text-xs svg {
-    @apply w-3 h-3;
+    @apply h-3 w-3;
   }
 
   .btn-leather.text-sm {
-    @apply w-8 h-8;
+    @apply px-3 py-2;
   }
 
   .btn-leather.text-sm svg {
-    @apply w-4 h-4;
+    @apply h-4 w-4;
   }
 
   div[role='tooltip'] button.btn-leather {
     @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
   }
 
-  /* Images */
   .image-border {
     @apply border border-primary-700;
   }
 
-  /* Card */
   div.card-leather {
-    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200  has-[:hover]:border-primary-700;
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
     @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
 
@@ -53,7 +51,6 @@
     @apply text-gray-900 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-200;
   }
 
-  /* Content */
   main {
     @apply max-w-full flex;
   }
@@ -79,7 +76,6 @@
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
   }
 
-  /* Section headers */
   h1.h-leather,
   h2.h-leather,
   h3.h-leather,
@@ -113,17 +109,16 @@
     @apply text-base font-semibold;
   }
 
-  /* Modal */
-  div.modal-leather > div {
+  div.modal-leather>div {
     @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
-  div.modal-leather > div > h1,
-  div.modal-leather > div > h2,
-  div.modal-leather > div > h3,
-  div.modal-leather > div > h4,
-  div.modal-leather > div > h5,
-  div.modal-leather > div > h6 {
+  div.modal-leather>div>h1,
+  div.modal-leather>div>h2,
+  div.modal-leather>div>h3,
+  div.modal-leather>div>h4,
+  div.modal-leather>div>h5,
+  div.modal-leather>div>h6 {
     @apply text-gray-800 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-300;
   }
 
@@ -153,32 +148,29 @@
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
 
-  /* Sidebar */
-  aside.sidebar-leather > div {
-    @apply bg-gray-100 dark:bg-gray-900;
+  aside.sidebar-leather>div {
+    @apply bg-primary-0 dark:bg-primary-1000;
   }
 
   a.sidebar-item-leather {
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
   }
 
-  /* Skeleton */
   div.skeleton-leather div {
-    @apply bg-gray-400 dark:bg-gray-600;
+    @apply bg-primary-100 dark:bg-primary-800;
   }
 
-  /* Textarea */
   div.textarea-leather {
-    @apply bg-gray-200 dark:bg-gray-800 border-gray-400 dark:border-gray-600;
+    @apply bg-primary-0 dark:bg-primary-1000;
   }
 
-  div.textarea-leather > div:nth-child(1),
+  div.textarea-leather>div:nth-child(1),
   div.toolbar-leather {
     @apply border-none;
   }
 
-  div.textarea-leather > div:nth-child(2) {
-    @apply bg-gray-100 dark:bg-gray-900;
+  div.textarea-leather>div:nth-child(2) {
+    @apply bg-primary-0 dark:bg-primary-1000;
   }
 
   div.textarea-leather,
@@ -186,36 +178,285 @@
     @apply text-gray-800 dark:text-gray-300;
   }
 
-  /* Tooltip */
   div.tooltip-leather {
     @apply text-gray-800 dark:text-gray-300;
   }
 
   div[role='tooltip'] button.btn-leather .tooltip-leather {
-    @apply bg-gray-200 dark:bg-gray-700;
+    @apply bg-primary-100 dark:bg-primary-800;
   }
-  
-  /* Unordered list */
+
+  /* Network visualization */
+  .network-link-leather {
+    @apply stroke-primary-200 fill-primary-200;
+  }
+
+  .network-node-leather {
+    @apply stroke-primary-600;
+  }
+
+  .network-node-content {
+    @apply fill-primary-100;
+  }
+}
+
+/* Utilities can be applied via the @apply directive. */
+@layer utilities {
+  .h-leather {
+    @apply text-gray-800 dark:text-gray-300 pt-4;
+  }
+
+  .h1-leather {
+    @apply text-4xl font-bold;
+  }
+
+  .h2-leather {
+    @apply text-3xl font-bold;
+  }
+
+  .h3-leather {
+    @apply text-2xl font-bold;
+  }
+
+  .h4-leather {
+    @apply text-xl font-bold;
+  }
+
+  .h5-leather {
+    @apply text-lg font-semibold;
+  }
+
+  .h6-leather {
+    @apply text-base font-semibold;
+  }
+
+  /* Lists */
+  .ol-leather li a,
   .ul-leather li a {
     @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
   }
-  .network-link-leather {
-    @apply stroke-gray-400 fill-gray-400;
-  }
-  .network-node-leather {
-    @apply stroke-gray-800;
-  }
-  .network-node-content {
-    @apply fill-[#d6c1a8];
+
+  .link {
+    @apply underline cursor-pointer hover:text-primary-400 dark:hover:text-primary-500;
   }
 }
 
 @layer components {
+
+  /* Legend */
   .leather-legend {
-    @apply flex-shrink-0 p-4 bg-primary-0 dark:bg-primary-1000 rounded-lg shadow
-           border border-gray-200 dark:border-gray-800;
+    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
+    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
+
+  /* Tooltip */
   .tooltip-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
+    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
+    max-width: 400px;
+    z-index: 1000;
+  }
+
+  .leather-legend button {
+    @apply dark:text-white;
+  }
+
+  /* Rendered publication content */
+  .publication-leather {
+    @apply flex flex-col space-y-4;
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      @apply h-leather;
+    }
+
+    h1 {
+      @apply h1-leather;
+    }
+
+    h2 {
+      @apply h2-leather;
+    }
+
+    h3 {
+      @apply h3-leather;
+    }
+
+    h4 {
+      @apply h4-leather;
+    }
+
+    h5 {
+      @apply h5-leather;
+    }
+
+    h6 {
+      @apply h6-leather;
+    }
+
+    div {
+      @apply flex flex-col space-y-4;
+    }
+
+    .olist {
+      @apply flex flex-col space-y-4;
+
+      ol {
+        @apply ol-leather list-decimal px-6 flex flex-col space-y-2;
+
+        li {
+          .paragraph {
+            @apply py-2;
+          }
+        }
+      }
+    }
+
+    .ulist {
+      @apply flex flex-col space-y-4;
+
+      ul {
+        @apply ul-leather list-disc px-6 flex flex-col space-y-2;
+
+        li {
+          .paragraph {
+            @apply py-2;
+          }
+        }
+      }
+    }
+
+    a {
+      @apply link;
+    }
+
+    .imageblock {
+      @apply flex flex-col items-center;
+
+      .title {
+        @apply text-sm text-center;
+      }
+    }
+
+    .stemblock {
+      @apply bg-gray-100 dark:bg-gray-900 p-4 rounded-lg;
+    }
+
+    .literalblock {
+      pre {
+        @apply text-wrap;
+      }
+    }
+
+    table {
+      @apply w-full overflow-x-auto;
+
+      caption {
+        @apply text-sm;
+      }
+
+      thead,
+      tbody {
+
+        th,
+        td {
+          @apply border border-gray-200 dark:border-gray-700;
+        }
+      }
+    }
+  }
+
+  /* Footnotes */
+  .footnote-ref {
+    text-decoration: none;
+    color: var(--color-primary);
+  }
+
+  .footnotes {
+    margin-top: 2rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+
+  .footnotes hr {
+    margin: 1rem 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .footnotes ol {
+    padding-left: 1rem;
+  }
+
+  .footnotes li {
+    margin-bottom: 0.5rem;
+  }
+
+  .footnote-backref {
+    text-decoration: none;
+    margin-left: 0.5rem;
+    color: var(--color-primary);
+  }
+
+  .note-leather .footnote-ref,
+  .note-leather .footnote-backref {
+    color: var(--color-leather-primary);
+  }
+
+  /* Scrollable content */
+  .description-textarea,
+  .prose-content {
+    overflow-y: scroll !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+  }
+
+  .description-textarea {
+    min-height: 100% !important;
+  }
+
+  .description-textarea::-webkit-scrollbar,
+  .prose-content::-webkit-scrollbar {
+    width: 8px !important;
+    display: block !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-track,
+  .prose-content::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-thumb,
+  .prose-content::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5) !important;
+    border-radius: 4px !important;
+  }
+
+  .description-textarea::-webkit-scrollbar-thumb:hover,
+  .prose-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7) !important;
+  }
+
+  /* Tab content */
+  .tab-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Input styles */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea {
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply focus:border-primary-400 dark:focus:border-primary-500;
   }
 }

@@ -1,4 +1,4 @@
-version: 38
+version: 39
 jobs:
 - name: Github Push
   steps:
@@ -10,6 +10,7 @@ jobs:
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !BranchUpdateTrigger {}
+  - !TagCreateTrigger {}
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
