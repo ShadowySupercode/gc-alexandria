@@ -46,7 +46,7 @@
       <h2 class="text-base font-bold">
         by
         {#if originalAuthor !== null}
-          <InlineProfile pubkey={originalAuthor} title={author} />
+          <InlineProfile pubkey={originalAuthor} name={author} />
         {:else}
           {author}
         {/if}

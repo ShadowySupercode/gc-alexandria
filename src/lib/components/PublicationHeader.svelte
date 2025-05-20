@@ -45,7 +45,7 @@
           <h3 class='text-base font-normal'>
             by
             {#if authorPubkey != null}
-              <InlineProfile pubkey={authorPubkey} title={author} />
+              <InlineProfile pubkey={authorPubkey} name={author} />
             {:else}
               {author}
             {/if}

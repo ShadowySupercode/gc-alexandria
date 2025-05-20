@@ -38,7 +38,7 @@
     <div class='space-y-4'>
       <div class="flex flex-row justify-between my-2">
         <div class="flex flex-col">
-          <InlineProfile pubkey={authorPubkey} title={author} />
+          <InlineProfile pubkey={authorPubkey} name={author} />
           <span class='text-gray-500'>{publishedAt()}</span>
         </div>
         <CardActions event={event} />
