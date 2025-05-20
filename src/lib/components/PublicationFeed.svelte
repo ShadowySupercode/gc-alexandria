@@ -63,9 +63,9 @@
         return;
       }
 
-      const eventMap = new Map([...eventsInView, ...eventArray].map(event => [event.id, event]));
+      const eventMap = new Map([...eventsInView, ...eventArray].map(event => [event.tagAddress(), event]));
       const allEvents = Array.from(eventMap.values());
-      const uniqueIds = new Set(allEvents.map(event => event.id));
+      const uniqueIds = new Set(allEvents.map(event => event.tagAddress()));
       eventsInView = Array.from(uniqueIds)
         .map(id => eventMap.get(id))
         .filter(event => event != null) as NDKEvent[];
