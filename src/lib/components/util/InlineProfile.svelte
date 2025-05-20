@@ -42,7 +42,6 @@
   }
 </script>
 
-<!-- TODO: Use userBadge snippet here to add verification badges. -->
 {#if loading}
   {title ?? '…'}
 {:else if anon }
