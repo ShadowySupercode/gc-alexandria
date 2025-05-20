@@ -4,7 +4,7 @@ import { ndkInstance } from '$lib/ndk';
 import { npubCache } from './npubCache';
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { standardRelays, bootstrapRelays } from "$lib/consts";
+import { standardRelays, fallbackRelays } from "$lib/consts";
 
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX = /(?<![\w/])((nostr:)?(npub|nprofile)[a-zA-Z0-9]{20,})(?![\w/])/g;
@@ -256,7 +256,7 @@ export async function fetchEventWithFallback(
   const relaySets = [
     NDKRelaySet.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
     NDKRelaySet.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
-    NDKRelaySet.fromRelayUrls(bootstrapRelays, ndk)  // 3. Bootstrap relays (last resort)
+    NDKRelaySet.fromRelayUrls(fallbackRelays, ndk)  // 3. fallback relays (last resort)
   ];
 
   try {
@@ -281,7 +281,7 @@ export async function fetchEventWithFallback(
     for (const [index, relaySet] of relaySets.entries()) {
       const setName = index === 0 ? 'standard relays' : 
                      index === 1 ? 'user relays' : 
-                     'bootstrap relays';
+                     'fallback relays';
       
       found = await tryFetchFromRelaySet(relaySet, setName);
       if (found) break;
@@ -292,7 +292,7 @@ export async function fetchEventWithFallback(
       const relayUrls = relaySets.map((set, i) => {
         const setName = i === 0 ? 'standard relays' : 
                        i === 1 ? 'user relays' : 
-                       'bootstrap relays';
+                       'fallback relays';
         const urls = Array.from(set.relays).map(r => r.url);
         return urls.length > 0 ? `${setName} (${urls.join(', ')})` : null;
       }).filter(Boolean).join(', then ');
