@@ -127,10 +127,10 @@
   }
 
   /**
-   * Returns HTML for pretty-printed JSON, with NIP-33 addresses and event IDs as links
+   * Returns HTML for pretty-printed JSON, with naddr addresses and event IDs as links
    */
   function jsonWithLinks(obj: any): string {
-    const NIP33_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
+    const NADDR_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
     const EVENT_ID_REGEX = /\b([0-9a-f]{64})\b/g;
     
     function replacer(_key: string, value: any) {
@@ -139,8 +139,8 @@
     // Stringify with 2-space indent
     let json = JSON.stringify(obj, replacer, 2);
     
-    // Replace NIP-33 addresses with links
-    json = json.replace(NIP33_REGEX, (match) => {
+    // Replace  addresses with links
+    json = json.replace(NADDR_REGEX, (match) => {
       try {
         const [kind, pubkey, dtag] = match.split(":");
         // Compose a fake event for naddrEncode

@@ -82,19 +82,19 @@
     detailsModalOpen = true;
   }
 
-  // --- Custom JSON pretty-printer with NIP-33 address hyperlinking ---
+  // --- Custom JSON pretty-printer with naddr hyperlinking ---
   /**
-   * Returns HTML for pretty-printed JSON, with NIP-33 addresses as links to /events?id=naddr1...
+   * Returns HTML for pretty-printed JSON, with naddrs as links to /events?id=naddr1...
    */
   function jsonWithNaddrLinks(obj: any): string {
-    const NIP33_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
+    const NADDR_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
     function replacer(_key: string, value: any) {
       return value;
     }
     // Stringify with 2-space indent
     let json = JSON.stringify(obj, replacer, 2);
-    // Replace NIP-33 addresses with links
-    json = json.replace(NIP33_REGEX, (match) => {
+    // Replace naddr addresses with links
+    json = json.replace(NADDR_REGEX, (match) => {
       try {
         const [kind, pubkey, dtag] = match.split(":");
         // Compose a fake event for naddrEncode
