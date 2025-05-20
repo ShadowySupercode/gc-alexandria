@@ -266,7 +266,11 @@
   }
 
   .npub-badge {
-    @apply inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline me-2 px-2.5 py-0.5 rounded-sm border border-primary-600 dark:border-primary-500;
+    @apply inline-flex space-x-1 items-center text-primary-600 dark:text-primary-500 hover:underline me-2 px-2 py-0.5 rounded-sm border border-primary-600 dark:border-primary-500;
+
+    svg {
+      @apply fill-primary-600 dark:fill-primary-500;
+    }
   }
 }
 
