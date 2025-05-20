@@ -1,17 +1,21 @@
 <script lang="ts">
   import {
-    ClipboardCheckOutline,
     ClipboardCleanOutline,
     DotsVerticalOutline,
     EyeOutline,
     ShareNodesOutline
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
-  import { standardRelays } from "$lib/consts";
+  import { standardRelays, FeedType } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { feedType } from "$lib/stores";
+  import { inboxRelays, ndkSignedIn } from "$lib/ndk";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 
-  let { event } = $props();
+  // Component props
+  let { event } = $props<{ event: NDKEvent }>();
 
   // Derive metadata from event
   let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
@@ -26,94 +30,81 @@
   let publisher = $derived(event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
   let identifier = $derived(event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
 
-  let jsonModalOpen: boolean = $state(false);
+  // UI state
   let detailsModalOpen: boolean = $state(false);
-  let eventIdCopied: boolean = $state(false);
-  let shareLinkCopied: boolean = $state(false);
+  let isOpen: boolean = $state(false);
 
-  let isOpen = $state(false);
+  /**
+   * Selects the appropriate relay set based on user state and feed type
+   * - Uses user's inbox relays when signed in and viewing personal feed
+   * - Falls back to standard relays for anonymous users or standard feed
+   */
+  let activeRelays = $derived(
+    (() => {
+      const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
+      const relays = isUserFeed ? $inboxRelays : standardRelays;
+      
+      console.debug("[CardActions] Selected relays:", {
+        eventId: event.id,
+        isSignedIn: $ndkSignedIn,
+        feedType: $feedType,
+        isUserFeed,
+        relayCount: relays.length,
+        relayUrls: relays
+      });
+      
+      return relays;
+    })()
+  );
 
+  /**
+   * Opens the actions popover menu
+   */
   function openPopover() {
+    console.debug("[CardActions] Opening menu", { eventId: event.id });
     isOpen = true;
   }
 
+  /**
+   * Closes the actions popover menu and removes focus
+   */
   function closePopover() {
+    console.debug("[CardActions] Closing menu", { eventId: event.id });
     isOpen = false;
     const menu = document.getElementById('dots-' + event.id);
     if (menu) menu.blur();
   }
 
-  function shareNjump() {
-    const relays: string[] = standardRelays;
-    
-    try {
-      const naddr = naddrEncode(event, relays);
-      console.debug(naddr);
-      navigator.clipboard.writeText(`https://njump.me/${naddr}`);
-      shareLinkCopied = true;
-      setTimeout(() => {
-        shareLinkCopied = false;
-      }, 4000);
-    }
-    catch (e) {
-      console.error('Failed to encode naddr:', e);
-    }
+  /**
+   * Gets the appropriate identifier (nevent or naddr) for copying
+   * @param type - The type of identifier to get ('nevent' or 'naddr')
+   * @returns The encoded identifier string
+   */
+  function getIdentifier(type: 'nevent' | 'naddr'): string {
+    const encodeFn = type === 'nevent' ? neventEncode : naddrEncode;
+    return encodeFn(event, activeRelays);
   }
 
-  function copyEventId() {
-    console.debug("copyEventID");
-    const relays: string[] = standardRelays;
-    const nevent = neventEncode(event, relays);
-
-    navigator.clipboard.writeText(nevent);
-
-    eventIdCopied = true;
-    setTimeout(() => {
-      eventIdCopied = false;
-    }, 4000);
-  }
-
-  function viewJson() {
-    console.debug("viewJSON");
-    jsonModalOpen = true;
-  }
-
+  /**
+   * Opens the event details modal
+   */
   function viewDetails() {
+    console.debug("[CardActions] Opening details modal", { 
+      eventId: event.id,
+      title: event.title,
+      author: event.author
+    });
     detailsModalOpen = true;
   }
 
-  // --- Custom JSON pretty-printer with naddr hyperlinking ---
-  /**
-   * Returns HTML for pretty-printed JSON, with naddrs as links to /events?id=naddr1...
-   */
-  function jsonWithNaddrLinks(obj: any): string {
-    const NADDR_REGEX = /\b(\d{5}:[a-f0-9]{64}:[a-zA-Z0-9._-]+)\b/g;
-    function replacer(_key: string, value: any) {
-      return value;
-    }
-    // Stringify with 2-space indent
-    let json = JSON.stringify(obj, replacer, 2);
-    // Replace naddr addresses with links
-    json = json.replace(NADDR_REGEX, (match) => {
-      try {
-        const [kind, pubkey, dtag] = match.split(":");
-        // Compose a fake event for naddrEncode
-        const fakeEvent = {
-          kind: parseInt(kind),
-          pubkey,
-          tags: [["d", dtag]],
-        };
-        const naddr = naddrEncode(fakeEvent as any, standardRelays);
-        return `<a href='./events?id=${naddr}' class='text-primary-600 underline' target='_blank'>${match}</a>`;
-      } catch {
-        return match;
-      }
-    });
-    // Escape < and > for HTML safety, but allow our <a> tags
-    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    json = json.replace(/&lt;a /g, '<a ').replace(/&lt;\/a&gt;/g, '</a>');
-    return json;
-  }
+  // Log component initialization
+  console.debug("[CardActions] Initialized", {
+    eventId: event.id,
+    kind: event.kind,
+    pubkey: event.pubkey,
+    title: event.title,
+    author: event.author
+  });
 </script>
 
 <div class="group bg-highlight dark:bg-primary-1000 rounded" role="group" onmouseenter={openPopover}>
@@ -142,22 +133,18 @@
             </button>
           </li>
           <li>
-            <button class='btn-leather w-full text-left' onclick={shareNjump}>
-              {#if shareLinkCopied}
-                <ClipboardCheckOutline class="inline mr-2" /> Copied!
-              {:else}
-                <ShareNodesOutline class="inline mr-2" /> Share via NJump
-              {/if}
-            </button>
+            <CopyToClipboard 
+              displayText="Copy naddr address"
+              copyText={getIdentifier('naddr')}
+              icon={ShareNodesOutline}
+            />
           </li>
           <li>
-            <button class='btn-leather w-full text-left' onclick={copyEventId}>
-              {#if eventIdCopied}
-                <ClipboardCheckOutline class="inline mr-2" /> Copied!
-              {:else}
-                <ClipboardCleanOutline class="inline mr-2" /> Copy event ID
-              {/if}
-            </button>
+            <CopyToClipboard 
+              displayText="Copy nevent address"
+              copyText={getIdentifier('nevent')}
+              icon={ClipboardCleanOutline}
+            />
           </li>
         </ul>
       </div>
@@ -214,7 +201,7 @@
         <h5 class="text-sm">Identifier: {identifier}</h5>
       {/if}
       <a 
-        href="/events?id={neventEncode(event, standardRelays)}" 
+        href="/events?id={neventEncode(event, activeRelays)}" 
         class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
       >
         View Event Details

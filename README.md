@@ -75,7 +75,7 @@ To run the container, in detached mode (-d):
 docker run -d --rm --name=gc-alexandria -p 4174:80 gc-alexandria
 ```
 
-The container is then viewable on your [local machine](http://localhost:4174).
+The container is then viewable on your [local machine](http://localhost:4173).
 
 If you want to see the container process (assuming it's the last process to start), enter:
 

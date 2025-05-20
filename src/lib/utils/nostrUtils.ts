@@ -186,6 +186,55 @@ export async function getNpubFromNip05(nip05: string): Promise<string | null> {
 }
 
 /**
+ * Generic utility function to add a timeout to any promise
+ * Can be used in two ways:
+ * 1. Method style: promise.withTimeout(5000)
+ * 2. Function style: withTimeout(promise, 5000)
+ * 
+ * @param thisOrPromise Either the promise to timeout (function style) or the 'this' context (method style)
+ * @param timeoutMsOrPromise Timeout duration in milliseconds (function style) or the promise (method style)
+ * @returns The promise result if completed before timeout, otherwise throws an error
+ * @throws Error with message 'Timeout' if the promise doesn't resolve within timeoutMs
+ */
+export function withTimeout<T>(
+  thisOrPromise: Promise<T> | number,
+  timeoutMsOrPromise?: number | Promise<T>
+): Promise<T> {
+  // Handle method-style call (promise.withTimeout(5000))
+  if (typeof thisOrPromise === 'number') {
+    const timeoutMs = thisOrPromise;
+    const promise = timeoutMsOrPromise as Promise<T>;
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+      )
+    ]);
+  }
+  
+  // Handle function-style call (withTimeout(promise, 5000))
+  const promise = thisOrPromise;
+  const timeoutMs = timeoutMsOrPromise as number;
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+    )
+  ]);
+}
+
+// Add the method to Promise prototype
+declare global {
+  interface Promise<T> {
+    withTimeout(timeoutMs: number): Promise<T>;
+  }
+}
+
+Promise.prototype.withTimeout = function<T>(this: Promise<T>, timeoutMs: number): Promise<T> {
+  return withTimeout(timeoutMs, this);
+};
+
+/**
  * Fetches an event using a two-step relay strategy:
  * 1. First tries standard relays with timeout
  * 2. Falls back to all relays if not found
@@ -196,42 +245,59 @@ export async function fetchEventWithFallback(
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000
 ): Promise<NDKEvent | null> {
-  const allRelays = Array.from(new Set([...standardRelays, ...bootstrapRelays]));
+  // Get user relays if logged in
+  const userRelays = ndk.activeUser ? 
+    Array.from(ndk.pool?.relays.values() || [])
+      .filter(r => r.status === 1) // Only use connected relays
+      .map(r => r.url) : 
+    [];
+  
+  // Create three relay sets in priority order
   const relaySets = [
-    NDKRelaySet.fromRelayUrls(standardRelays, ndk),
-    NDKRelaySet.fromRelayUrls(allRelays, ndk)
+    NDKRelaySet.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
+    NDKRelaySet.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
+    NDKRelaySet.fromRelayUrls(bootstrapRelays, ndk)  // 3. Bootstrap relays (last resort)
   ];
-
-  async function withTimeout<T>(promise: Promise<T>): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
-    ]);
-  }
 
   try {
     let found: NDKEvent | null = null;
+    const triedRelaySets: string[] = [];
 
-    // Try standard relays first
-    if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
-      found = await withTimeout(ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySets[0]));
-      if (!found) {
-        // Fallback to all relays
-        found = await withTimeout(ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySets[1]));
-      }
-    } else {
-      const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
-      const results = await withTimeout(ndk.fetchEvents(filter, undefined, relaySets[0]));
-      found = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
-      if (!found) {
-        // Fallback to all relays
-        const fallbackResults = await withTimeout(ndk.fetchEvents(filter, undefined, relaySets[1]));
-        found = fallbackResults instanceof Set ? Array.from(fallbackResults)[0] as NDKEvent : null;
+    // Helper function to try fetching from a relay set
+    async function tryFetchFromRelaySet(relaySet: NDKRelaySet, setName: string): Promise<NDKEvent | null> {
+      if (relaySet.relays.size === 0) return null;
+      triedRelaySets.push(setName);
+      
+      if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
+        return await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
+      } else {
+        const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
+        const results = await ndk.fetchEvents(filter, undefined, relaySet).withTimeout(timeoutMs);
+        return results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
       }
     }
 
+    // Try each relay set in order
+    for (const [index, relaySet] of relaySets.entries()) {
+      const setName = index === 0 ? 'standard relays' : 
+                     index === 1 ? 'user relays' : 
+                     'bootstrap relays';
+      
+      found = await tryFetchFromRelaySet(relaySet, setName);
+      if (found) break;
+    }
+
     if (!found) {
-      console.warn('Event not found after timeout. Some relays may be offline or slow.');
+      const timeoutSeconds = timeoutMs / 1000;
+      const relayUrls = relaySets.map((set, i) => {
+        const setName = i === 0 ? 'standard relays' : 
+                       i === 1 ? 'user relays' : 
+                       'bootstrap relays';
+        const urls = Array.from(set.relays).map(r => r.url);
+        return urls.length > 0 ? `${setName} (${urls.join(', ')})` : null;
+      }).filter(Boolean).join(', then ');
+      
+      console.warn(`Event not found after ${timeoutSeconds}s timeout. Tried ${relayUrls}. Some relays may be offline or slow.`);
       return null;
     }
 

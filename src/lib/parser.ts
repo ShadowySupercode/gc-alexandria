@@ -152,6 +152,10 @@ export default class Pharos {
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
+
+    // Ensure the content is valid AsciiDoc and has a header and the doctype book
+    content = ensureAsciiDocHeader(content);
+    
     try {
       this.html = this.asciidoctor.convert(content, {
         'extension_registry': this.pharosExtensions,
@@ -1119,3 +1123,44 @@ export const tocUpdate = writable(0);
 
 // Whenever you update the publication tree, call:
 tocUpdate.update(n => n + 1);
+
+function ensureAsciiDocHeader(content: string): string {
+  const lines = content.split(/\r?\n/);
+  let headerIndex = -1;
+  let hasDoctype = false;
+
+  // Find the first non-empty line as header
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue;
+    if (lines[i].trim().startsWith('=')) {
+      headerIndex = i;
+      console.debug('[Pharos] AsciiDoc document header:', lines[i].trim());
+      break;
+    } else {
+      throw new Error('AsciiDoc document is missing a header at the top.');
+    }
+  }
+
+  if (headerIndex === -1) {
+    throw new Error('AsciiDoc document is missing a header.');
+  }
+
+  // Check for doctype in the next non-empty line after header
+  let nextLine = headerIndex + 1;
+  while (nextLine < lines.length && lines[nextLine].trim() === '') {
+    nextLine++;
+  }
+  if (nextLine < lines.length && lines[nextLine].trim().startsWith(':doctype:')) {
+    hasDoctype = true;
+  }
+
+  // Insert doctype immediately after header if not present
+  if (!hasDoctype) {
+    lines.splice(headerIndex + 1, 0, ':doctype: book');
+  }
+
+  // Log the state of the lines before returning
+  console.debug('[Pharos] AsciiDoc lines after header/doctype normalization:', lines.slice(0, 5));
+
+  return lines.join('\n');
+}
