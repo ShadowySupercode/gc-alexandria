@@ -1,6 +1,6 @@
 import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
-import { bootstrapRelays, FeedType, loginStorageKey, standardRelays } from './consts';
+import { fallbackRelays, FeedType, loginStorageKey, standardRelays } from './consts';
 import { feedType } from './stores';
 
 export const ndkInstance: Writable<NDK> = writable();
@@ -199,7 +199,7 @@ export function logout(user: NDKUser): void {
 async function getUserPreferredRelays(
   ndk: NDK,
   user: NDKUser,
-  bootstraps: readonly string[] = bootstrapRelays
+  fallbacks: readonly string[] = fallbackRelays
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
   const relayList = await ndk.fetchEvent(
     {
@@ -211,7 +211,7 @@ async function getUserPreferredRelays(
       skipVerification: false,
       skipValidation: false,
     },
-    NDKRelaySet.fromRelayUrls(bootstraps, ndk),
+    NDKRelaySet.fromRelayUrls(fallbacks, ndk),
   );
 
   const inboxRelays = new Set<NDKRelay>();
