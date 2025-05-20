@@ -1,4 +1,4 @@
-<script lang='ts'>
+<script module lang='ts'>
   import { createProfileLink, createProfileLinkWithVerification } from '$lib/utils/nostrUtils';
 
   export { userBadge };
