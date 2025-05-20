@@ -265,6 +265,9 @@
     @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-primary-900 dark:text-primary-200;
   }
 
+  .npub-badge {
+    @apply inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline me-2 px-2.5 py-0.5 rounded-sm border border-primary-600 dark:border-primary-500;
+  }
 }
 
 @layer components {
