@@ -10,7 +10,6 @@
   import Login from "./Login.svelte";
 
   let { class: className = "" } = $props();
-
 </script>
 
 <Navbar class={`Navbar navbar-leather ${className}`}>
@@ -25,7 +24,6 @@
   </div>
   <NavUl class="ul-leather">
     <NavLi href="/">Publications</NavLi>
-    <NavLi href="/wiki">Wiki</NavLi>
     <NavLi href="/events">Events</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
