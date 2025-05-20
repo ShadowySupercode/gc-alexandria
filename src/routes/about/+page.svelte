@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
 
   // Get the git tag version from environment variables
@@ -43,13 +44,8 @@
       >.
     </P>
 
-    <!-- TODO: Add userBadge snippet here. -->
     <P>
-      We are easiest to contact over our Nostr address <A
-        href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg"
-        title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz"
-        target="_blank">GitCitadel</A
-      >. Or, you can visit us on our <A
+      We are easiest to contact over our Nostr address {@render userBadge("npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz", "GitCitadel")}. Or, you can visit us on our <A
         href="https://gitcitadel.com"
         title="GitCitadel Homepage"
         target="_blank">homepage</A
