@@ -32,7 +32,7 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class='ArticleBox card-leather w-lg flex flex-row space-x-2'>
+  <Card class='ArticleBox card-leather max-w-md flex flex-row space-x-2'>
     {#if image}
     <div class="flex col justify-center align-middle max-h-36 max-w-24 overflow-hidden">
       <Img src={image} class="rounded w-full h-full object-cover"/>

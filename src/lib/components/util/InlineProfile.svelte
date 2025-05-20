@@ -2,7 +2,7 @@
   import { Avatar } from 'flowbite-svelte';
   import { type NDKUserProfile } from "@nostr-dev-kit/ndk";
   import { ndkInstance } from '$lib/ndk';
-
+  import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   let { pubkey, title = null } = $props();
 
   const externalProfileDestination = 'https://njump.me/'
@@ -45,14 +45,14 @@
 {#if loading}
   {title ?? '…'}
 {:else if anon }
-  <a class='underline' href='{externalProfileDestination}{npub}' title={title ?? npub} target='_blank'>{shortenNpub(npub)}</a>
+  {@render userBadge(npub, username)}
 {:else if npub }
   <a href='{externalProfileDestination}{npub}' title={title ?? username} target='_blank'>
     <Avatar rounded
-          class='h-6 w-6 mx-1 cursor-pointer inline bg-transparent'
+          class='h-7 w-7 mx-1 cursor-pointer inline bg-transparent'
           src={pfp}
           alt={username} />
-    <span class='underline'>{username ?? shortenNpub(npub)}</span>
+    {@render userBadge(npub, username)}
   </a>
 {:else}
   {title ?? pubkey}

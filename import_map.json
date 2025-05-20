@@ -13,7 +13,7 @@
     "svelte": "npm:svelte@5.0.x",
     "flowbite": "npm:flowbite@2.2.x",
     "flowbite-svelte": "npm:flowbite-svelte@0.44.x",
-    "flowbite-svelte-icons": "npm:flowbite-svelte-icons@2.0.x",
+    "flowbite-svelte-icons": "npm:flowbite-svelte-icons@2.1.x",
     "child_process": "node:child_process"
   }
 } 
