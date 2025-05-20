@@ -9,6 +9,7 @@
   import { parseAdvancedmarkup } from '$lib/utils/markup/advancedMarkupParser';
   import { nip19 } from 'nostr-tools';
   import { getMimeTags } from '$lib/utils/mime';
+    import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   
   // Function to close the success message
   function closeSuccessMessage() {
@@ -280,7 +281,7 @@
     </P>
 
     <P class="mb-3">
-    You can contact us on Nostr <A href="./events?id=nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg" title="npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz" target="_blank">GitCitadel</A> or you can view submitted issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page.</A>
+    You can contact us on Nostr {@render userBadge("npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz", "GitCitadel")} or you can view submitted issues on the <A href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues" target="_blank">Alexandria repo page.</A>
     </P>
     
     <Heading tag='h2' class='h-leather mt-4 mb-2'>Submit an issue</Heading>
@@ -289,7 +290,7 @@
       If you are logged into the Alexandria web application (using the button at the top-right of the window), then you can use the form, below, to submit an issue, that will appear on our repo page.
     </P>
 
-    <form class="space-y-4" on:submit={handleSubmit} autocomplete="off">
+    <form class="space-y-4" onsubmit={handleSubmit} autocomplete="off">
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
         <Input id="subject" class="w-full bg-white dark:bg-gray-800" placeholder="Issue subject" bind:value={subject} required autofocus />
@@ -305,7 +306,7 @@
                   <button 
                     type="button"
                     class="inline-block p-4 rounded-t-lg {activeTab === 'write' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'write'}
+                    onclick={() => activeTab = 'write'}
                     role="tab"
                   >
                     Write
@@ -315,7 +316,7 @@
                   <button 
                     type="button"
                     class="inline-block p-4 rounded-t-lg {activeTab === 'preview' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'preview'}
+                    onclick={() => activeTab = 'preview'}
                     role="tab"
                   >
                     Preview
@@ -416,7 +417,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
           <!-- Close button -->
           <button 
             class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
-            on:click={closeSuccessMessage}
+            onclick={closeSuccessMessage}
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

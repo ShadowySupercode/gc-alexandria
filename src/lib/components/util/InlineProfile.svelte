@@ -2,10 +2,11 @@
   import { Avatar } from 'flowbite-svelte';
   import { type NDKUserProfile } from "@nostr-dev-kit/ndk";
   import { ndkInstance } from '$lib/ndk';
-
+  import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   let { pubkey, name = null } = $props();
 
   const externalProfileDestination = './events?id='
+
   let loading = $state(true);
   let anon = $state(false);
   let npub = $state('');
@@ -45,14 +46,14 @@
 {#if loading}
   {name ?? '…'}
 {:else if anon }
-  <a class='underline' href={'/events?id=' + npub} title={name ?? npub}>{shortenNpub(npub)}</a>
+  {@render userBadge(npub, username)}
 {:else if npub }
-  <a href={'/events?id=' + npub} title={name ?? username}>
+  <a href={externalProfileDestination + npub} title={name ?? username}>
     <Avatar rounded
-          class='h-6 w-6 mx-1 cursor-pointer inline bg-transparent'
+          class='h-7 w-7 mx-1 cursor-pointer inline bg-transparent'
           src={pfp}
           alt={username} />
-    <span class='underline'>{username ?? shortenNpub(npub)}</span>
+    {@render userBadge(npub, username)}
   </a>
 {:else}
   {name ?? pubkey}
