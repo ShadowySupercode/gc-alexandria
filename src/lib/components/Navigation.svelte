@@ -12,7 +12,7 @@
   let { class: className = "" } = $props();
 </script>
 
-<Navbar class={`Navbar navbar-leather ${className}`}>
+<Navbar class={`Navbar navbar-leather navbar-main ${className}`}>
   <div class="flex flex-grow justify-between">
     <NavBrand href="/">
       <h1>Alexandria</h1>

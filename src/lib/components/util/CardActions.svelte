@@ -2,7 +2,6 @@
   import {
     ClipboardCheckOutline,
     ClipboardCleanOutline,
-    CodeOutline,
     DotsVerticalOutline,
     EyeOutline,
     ShareNodesOutline
@@ -11,25 +10,26 @@
   import { standardRelays } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import InlineProfile from "$components/util/InlineProfile.svelte";
-  import { goto } from "$app/navigation";
 
   let { event } = $props();
+
+  // Derive metadata from event
+  let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
+  let summary = $derived(event.tags.find((t: string[]) => t[0] === 'summary')?.[1] ?? '');
+  let image = $derived(event.tags.find((t: string[]) => t[0] === 'image')?.[1] ?? null);
+  let author = $derived(event.tags.find((t: string[]) => t[0] === 'author')?.[1] ?? '');
+  let originalAuthor = $derived(event.tags.find((t: string[]) => t[0] === 'original_author')?.[1] ?? null);
+  let version = $derived(event.tags.find((t: string[]) => t[0] === 'version')?.[1] ?? '');
+  let source = $derived(event.tags.find((t: string[]) => t[0] === 'source')?.[1] ?? null);
+  let type = $derived(event.tags.find((t: string[]) => t[0] === 'type')?.[1] ?? null);
+  let language = $derived(event.tags.find((t: string[]) => t[0] === 'language')?.[1] ?? null);
+  let publisher = $derived(event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
+  let identifier = $derived(event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
 
   let jsonModalOpen: boolean = $state(false);
   let detailsModalOpen: boolean = $state(false);
   let eventIdCopied: boolean = $state(false);
   let shareLinkCopied: boolean = $state(false);
-  let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
-  let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
-  let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
-  let originalAuthor: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
-  let summary: string = $derived(event.getMatchingTags('summary')[0]?.[1] ?? null);
-  let type: string = $derived(event.getMatchingTags('type')[0]?.[1] ?? null);
-  let language: string = $derived(event.getMatchingTags('l')[0]?.[1] ?? null);
-  let source: string = $derived(event.getMatchingTags('source')[0]?.[1] ?? null);
-  let publisher: string = $derived(event.getMatchingTags('published_by')[0]?.[1] ?? null);
-  let identifier: string = $derived(event.getMatchingTags('i')[0]?.[1] ?? null);
 
   let isOpen = $state(false);
 
@@ -116,7 +116,7 @@
   }
 </script>
 
-<div class="group" role="group" onmouseenter={openPopover}>
+<div class="group bg-highlight dark:bg-primary-1000 rounded" role="group" onmouseenter={openPopover}>
   <!-- Main button -->
   <Button type="button"
           id="dots-{event.id}"
@@ -168,48 +168,50 @@
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
     <div class="flex flex-row space-x-4">
       {#if image}
-      <div class="flex col">
-        <img class="max-w-48" src={image} alt="Publication cover" />
-      </div>
+        <div class="flex col">
+          <img src={image} alt="Publication cover" class="w-32 h-32 object-cover rounded" />
+        </div>
       {/if}
-      <div class="flex flex-col col space-y-5  justify-center  align-middle">
-        <h1 class="text-3xl font-bold mt-5">{title}</h1>
+      <div class="flex flex-col col space-y-5 justify-center align-middle">
+        <h1 class="text-3xl font-bold mt-5">{title || 'Untitled'}</h1>
         <h2 class="text-base font-bold">by
-          {#if originalAuthor !== null}
-            <InlineProfile pubkey={originalAuthor} title={author} />
+          {#if originalAuthor}
+            <InlineProfile pubkey={originalAuthor} />
           {:else}
-            {author}
+            {author || 'Unknown'}
           {/if}
         </h2>
-        <h4 class='text-base font-thin mt-2'>Version: {version}</h4>
+        {#if version}
+          <h4 class='text-base font-thin mt-2'>Version: {version}</h4>
+        {/if}
       </div>
     </div>
 
     {#if summary}
-      <div class="flex flex-row ">
+      <div class="flex flex-row">
         <p class='text-base text-primary-900 dark:text-highlight'>{summary}</p>
       </div>
     {/if}
 
-    <div class="flex flex-row ">
+    <div class="flex flex-row">
       <h4 class='text-base font-normal mt-2'>Index author: <InlineProfile pubkey={event.pubkey} /></h4>
     </div>
 
     <div class="flex flex-col pb-4 space-y-1">
-      {#if source !== null}
-        <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank">{source}</a></h5>
+      {#if source}
+        <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank" rel="noopener noreferrer">{source}</a></h5>
       {/if}
-      {#if type !== null}
+      {#if type}
         <h5 class="text-sm">Publication type: {type}</h5>
       {/if}
-      {#if language !== null}
+      {#if language}
         <h5 class="text-sm">Language: {language}</h5>
       {/if}
-      {#if publisher !== null}
+      {#if publisher}
         <h5 class="text-sm">Published by: {publisher}</h5>
       {/if}
-      {#if identifier !== null}
-        <h5 class="text-sm">{identifier}</h5>
+      {#if identifier}
+        <h5 class="text-sm">Identifier: {identifier}</h5>
       {/if}
       <a 
         href="/events?id={neventEncode(event, standardRelays)}" 
@@ -218,6 +220,5 @@
         View Event Details
       </a>
     </div>
-
   </Modal>
 </div>

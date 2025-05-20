@@ -1,55 +1,55 @@
 @layer components {
     /* AsciiDoc content */
-    .note-leather p a {
+    .publication-leather p a {
         @apply underline hover:text-primary-500 dark:hover:text-primary-400;
     }
 
-    .note-leather section p {
+    .publication-leather section p {
         @apply w-full;
     }
 
-    .note-leather section p table {
+    .publication-leather section p table {
         @apply w-full table-fixed space-x-2 space-y-2;
     }
 
-    .note-leather section p table td {
+    .publication-leather section p table td {
         @apply p-2;
     }
 
-    .note-leather section p table td .content:has(> .imageblock) {
+    .publication-leather section p table td .content:has(> .imageblock) {
         @apply flex flex-col items-center;
     }
 
-    .note-leather .imageblock {
+    .publication-leather .imageblock {
         @apply flex flex-col space-y-2;
     }
 
-    .note-leather .imageblock .content {
+    .publication-leather .imageblock .content {
         @apply flex justify-center;
     }
-    .note-leather .imageblock .title {
+    .publication-leather .imageblock .title {
         @apply text-center;
     }
 
-    .note-leather .imageblock.left .content {
+    .publication-leather .imageblock.left .content {
         @apply justify-start;
     }
-    .note-leather .imageblock.left .title {
+    .publication-leather .imageblock.left .title {
         @apply text-left;
     }
 
-    .note-leather .imageblock.right .content {
+    .publication-leather .imageblock.right .content {
         @apply justify-end;
     }
-    .note-leather .imageblock.right .title {
+    .publication-leather .imageblock.right .title {
         @apply text-right;
     }
 
-    .note-leather section p table td .literalblock {
+    .publication-leather section p table td .literalblock {
         @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
     }
 
-    .note-leather .literalblock pre {
+    .publication-leather .literalblock pre {
         @apply p-3 text-wrap break-words;
     }
 
@@ -58,7 +58,7 @@
     }
 
     /* lists */
-    .note-leather .ulist ul {
+    .publication-leather .ulist ul {
         @apply space-y-1 list-disc list-inside;
     }
 
@@ -104,7 +104,7 @@
     }
 
     .publication-leather .verseblock pre.content {
-        @apply text-base font-sans;
+        @apply text-base font-sans overflow-x-scroll py-1;
     }
 
     .publication-leather .attribution {
@@ -232,6 +232,34 @@
 
     .audioblock .content audio {
         @apply w-full;
+    }
+
+    .coverImage {
+        @apply max-h-[230px] overflow-hidden;
+    }
+
+    .coverImage.depth-0 {
+        @apply max-h-[460px] overflow-hidden;
+    }
+
+    .coverImage img {
+        @apply object-contain w-full;
+    }
+
+    .coverImage.depth-0 img {
+        @apply m-auto w-auto;
+    }
+
+    /** blog */
+    @screen lg {
+        @media (hover: hover) {
+            .blog .discreet .card-leather:not(:hover) {
+                @apply bg-primary-50 dark:bg-primary-1000 opacity-75 transition duration-500 ease-in-out ;
+            }
+            .blog .discreet .group {
+                @apply bg-transparent;
+            }
+        }
     }
 
     /* Discrete headers */

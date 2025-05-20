@@ -22,11 +22,11 @@ const config = {
           400: '#ad8351',
           500: '#c6a885',
           600: '#795c39',
-          700: '#574229',
-          800: '#342718',
-          900: '#231a10',
-          950: '#17110A',
-          1000: '#110d08',
+          700: '#564a3e',
+          800: '#3c352c',
+          900: '#2a241c',
+          950: '#1d1812',
+          1000: '#15110d',
         },
         success: {
           50: '#e3f2e7',
@@ -80,6 +80,14 @@ const config = {
       listStyleType: {
         'upper-alpha': 'upper-alpha', // Uppercase letters
         'lower-alpha': 'lower-alpha', // Lowercase letters
+      },
+      flexGrow: {
+        '1': '1',
+        '2': '2',
+        '3': '3',
+      },
+      hueRotate: {
+        20: '20deg',
       }
     },
   },

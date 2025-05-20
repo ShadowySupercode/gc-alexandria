@@ -53,20 +53,23 @@
     <P class="mb-3">
       Each content section (30041 or 30818) is also a level in the table of
       contents, which can be accessed from the floating icon top-left in the
-      reading view. This allows for navigation within the publication. (This
-      functionality has been temporarily disabled.)
+      reading view. This allows for navigation within the publication.
+      Publications of type "blog" have a ToC which emphasizes that each entry
+      is a blog post.
+      
+      (This functionality has been temporarily disabled, but the TOC is visible.)
     </P>
 
     <div class="flex flex-col items-center space-y-4 my-4">
       <Img
-        src="/screenshots/ToC_icon.png"
-        alt="ToC icon"
+        src="/screenshots/ToC_normal.png"
+        alt="ToC basic"
         class="image-border rounded-lg"
         width="400"
       />
       <Img
-        src="/screenshots/TableOfContents.png"
-        alt="Table of contents example"
+        src="/screenshots/ToC_blog.png"
+        alt="ToC blog"
         class="image-border rounded-lg"
         width="400"
       />
