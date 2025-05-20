@@ -1,5 +1,5 @@
 <script lang="ts">
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
@@ -31,7 +31,7 @@
 <div class="flex flex-col relative mb-2">
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
-      <P class='text-base font-normal'><InlineProfile pubkey={event.pubkey} /></P>
+      <P class='text-base font-normal'>{@render userBadge(event.pubkey, author)}</P>
       <CardActions event={event}></CardActions>
     </div>
   {/if}
@@ -46,7 +46,7 @@
       <h2 class="text-base font-bold">
         by
         {#if originalAuthor !== null}
-          <InlineProfile pubkey={originalAuthor} name={author} />
+        {@render userBadge(originalAuthor, author)}
         {:else}
           {author}
         {/if}
@@ -80,7 +80,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      <InlineProfile pubkey={event.pubkey} />
+      {@render userBadge(event.pubkey, author)}
     </h4>
   </div>
 

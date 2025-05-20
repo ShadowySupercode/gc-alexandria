@@ -9,7 +9,9 @@ export const fallbackRelays = [
   'wss://relay.noswhere.com',
   'wss://relay.damus.io',
   'wss://relay.nostr.band',
-  'wss://relay.lumina.rocks'
+  'wss://relay.lumina.rocks',
+  'wss://nostr.wine',
+  'wss://nostr.land'
 ];
 
 export enum FeedType {

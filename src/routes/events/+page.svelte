@@ -11,7 +11,8 @@
   import { getMimeTags, getEventType } from "$lib/utils/mime";
   import { page } from "$app/stores";
   import { nip19 } from 'nostr-tools';
-  import InlineProfile from '$lib/components/util/InlineProfile.svelte';
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { toNpub } from "$lib/utils/nostrUtils";
 
   let searchQuery = $state("");
   let event = $state<NDKEvent | null>(null);
@@ -39,50 +40,72 @@
     error = null;
     event = null;
 
-    console.log('[Events] searchEvent called with query:', searchQuery);
+    // Clean the query
+    let cleanedQuery = searchQuery.trim().replace(/^nostr:/, '');
+    let filterOrId: any = cleanedQuery;
+    console.log('[Events] Cleaned query:', cleanedQuery);
 
-    try {
-      let filterOrId: any = searchQuery.trim();
-      // Try to decode bech32 (nevent, naddr, note, npub, nprofile)
-      if (/^(nevent|note|naddr|npub|nprofile)[a-z0-9]+$/i.test(searchQuery.trim())) {
-        try {
-          const decoded = nip19.decode(searchQuery.trim());
-          console.log('[Events] Decoded NIP-19:', decoded);
-          if (decoded.type === 'nevent') {
+    // If it's a 64-char hex, try as event id first, then as pubkey (profile)
+    if (/^[a-f0-9]{64}$/i.test(cleanedQuery)) {
+      // Try as event id
+      filterOrId = cleanedQuery;
+      event = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
+
+      if (!event) {
+        // Try as pubkey (profile event)
+        filterOrId = { kinds: [0], authors: [cleanedQuery] };
+        event = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
+      }
+      // ... handle not found, etc.
+      return;
+    } else if (/^(nevent|note|naddr|npub|nprofile)[a-z0-9]+$/i.test(cleanedQuery)) {
+      try {
+        const decoded = nip19.decode(cleanedQuery);
+        console.log('[Events] Decoded NIP-19:', decoded);
+        switch (decoded.type) {
+          case 'nevent':
             filterOrId = decoded.data.id;
-          } else if (decoded.type === 'note') {
+            break;
+          case 'note':
             filterOrId = decoded.data;
-          } else if (decoded.type === 'naddr') {
+            break;
+          case 'naddr':
             filterOrId = {
               kinds: [decoded.data.kind],
               authors: [decoded.data.pubkey],
               '#d': [decoded.data.identifier],
             };
-          } else if (decoded.type === 'nprofile') {
-            // Fetch kind 0 (profile) event for pubkey
+            break;
+          case 'nprofile':
             filterOrId = {
               kinds: [0],
               authors: [decoded.data.pubkey],
             };
-          } else if (decoded.type === 'npub') {
-            // Fetch kind 0 (profile) event for pubkey
+            break;
+          case 'npub':
             filterOrId = {
               kinds: [0],
               authors: [decoded.data],
             };
-          }
-          console.log('[Events] Using filterOrId:', filterOrId);
-        } catch (e) {
-          console.error('[Events] Invalid Nostr identifier:', searchQuery, e);
-          error = 'Invalid Nostr identifier.';
-          loading = false;
-          return;
+            break;
+          default:
+            filterOrId = cleanedQuery;
         }
+        console.log('[Events] Using filterOrId:', filterOrId);
+      } catch (e) {
+        console.error('[Events] Invalid Nostr identifier:', cleanedQuery, e);
+        error = 'Invalid Nostr identifier.';
+        loading = false;
+        return;
       }
+    }
+    // Optionally: handle NIP-05 here if you want
+    // else if (cleanedQuery.includes('@')) { ... }
 
+    try {
       // Use our new utility function to fetch the event
-      console.log('[Events] Fetching event with filterOrId:', filterOrId);
-      event = await fetchEventWithFallback($ndkInstance, filterOrId);
+      console.log('Searching for event:', filterOrId);
+      event = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
       
       if (!event) {
         console.warn('[Events] Event not found for filterOrId:', filterOrId);
@@ -103,19 +126,19 @@
     if (eventType === 'addressable') {
       const dTag = event.getMatchingTags('d')[0]?.[1];
       if (dTag) {
-        return `/publication?id=${event.id}`;
+        return './publication?id=${event.id}';
       }
     }
     if (event.kind === 30818) {
-      return `/wiki?id=${event.id}`;
+      return './wiki?id=${event.id}';
     }
     const nevent = neventEncode(event, standardRelays);
-    return `https://njump.me/${nevent}`;
+    return './events?id=${nevent}';
   }
 
   function getEventTypeDisplay(event: NDKEvent): string {
     const [mTag, MTag] = getMimeTags(event.kind || 0);
-    return MTag[1].split('/')[1] || `Event Kind ${event.kind}`;
+    return MTag[1].split('/')[1] || 'Event Kind ${event.kind}';
   }
 
   function getEventTitle(event: NDKEvent): string {
@@ -158,7 +181,7 @@
           tags: [["d", dtag]],
         };
         const naddr = naddrEncode(fakeEvent as any, standardRelays);
-        return `<a href='./events?id=${naddr}' class='text-primary-600 underline' target='_blank'>${match}</a>`;
+        return "<a href='./events?id=${naddr}' class='text-primary-600 underline' target='_blank'>${match}</a>";
       } catch {
         return match;
       }
@@ -168,7 +191,7 @@
     json = json.replace(EVENT_ID_REGEX, (match) => {
       try {
         const nevent = neventEncode({ id: match, kind: 1 } as NDKEvent, standardRelays);
-        return `<a href='./events?id=${nevent}' class='text-primary-600 underline' target='_blank'>${match}</a>`;
+        return "<a href='./events?id=${nevent}' class='text-primary-600 underline' target='_blank'>${match}</a>";
       } catch {
         return match;
       }
@@ -184,12 +207,12 @@
     if (tag[0] === 'a' && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(':');
       // Use type assertion as any to satisfy NDKEvent signature for naddrEncode
-      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [["d", d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>a:${tag[1]}</a>`;
+      return "<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>a:${tag[1]}</a>";
     } else if (tag[0] === 'e' && tag.length > 1) {
       // Use type assertion as any to satisfy NDKEvent signature for neventEncode
-      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>e:${tag[1]}</a>`;
+      return "<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>e:${tag[1]}</a>";
     } else {
-      return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
+      return "<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>";
     }
   }
 
@@ -238,7 +261,7 @@
     </div>
 
     <P class="mb-3">
-      Use this page to view any event (npub, nprofile, nevent, naddr, or hexID).
+      Use this page to view any event (npub, nprofile, nevent, naddr, note, pubkey, or eventID).
     </P>
 
     <div class="flex gap-2">
@@ -264,7 +287,7 @@
               href={"https://njump.me/" + encodeURIComponent(searchQuery.trim())}
               target="_blank"
               rel="noopener"
-            >njump</a>.
+            >Njump</a>.
           </div>
         {/if}
       </div>
@@ -285,8 +308,11 @@
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{profile.name}</h2>
           {/if}
           <div class="flex items-center space-x-2">
-            <span class="text-gray-600 dark:text-gray-400">Author:</span>
-            <InlineProfile pubkey={event.pubkey} />
+            {#if toNpub(event.pubkey)}
+              <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
+            {:else}
+              <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>
+            {/if}
           </div>
           <div class="flex items-center space-x-2">
             <span class="text-gray-600 dark:text-gray-400">Kind:</span>

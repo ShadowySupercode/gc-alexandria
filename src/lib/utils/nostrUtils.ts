@@ -105,7 +105,7 @@ export function createProfileLink(identifier: string, displayText: string | unde
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
   
-  return `<a href=""./events?id=${escapedId}"" class="npub-badge" target="_blank">@${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="npub-badge" target="_blank">@${escapedText}</a>`;
 }
 
 /**
@@ -149,9 +149,9 @@ export async function createProfileLinkWithVerification(identifier: string, disp
   const type = nip05.endsWith('edu') ? 'edu' : 'standard';
   switch (type) {
     case 'edu':
-      return `<span class="npub-badge"><a href="https://njump.me/${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
     case 'standard':
-      return `<span class="npub-badge"><a href="https://njump.me/${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
 /**
@@ -355,6 +355,22 @@ export async function fetchEventWithFallback(
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
     console.error('Error in fetchEventWithFallback:', err);
+    return null;
+  }
+}
+
+/**
+ * Converts a hex pubkey to npub, or returns npub if already encoded.
+ */
+export function toNpub(pubkey: string | undefined): string | null {
+  if (!pubkey) return null;
+  try {
+    if (/^[a-f0-9]{64}$/i.test(pubkey)) {
+      return nip19.npubEncode(pubkey);
+    }
+    if (pubkey.startsWith('npub1')) return pubkey;
+    return null;
+  } catch {
     return null;
   }
 } 

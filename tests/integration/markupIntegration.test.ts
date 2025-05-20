@@ -33,7 +33,7 @@ describe('Markup Integration Test', () => {
     expect(output).toMatch(/<a[^>]+href="https:\/\/github.com\/nostrability\/nostrability\/issues\/146"/);
     // Hashtags
     expect(output).toContain('text-primary-600');
-    // Nostr identifiers (should be njump.me links)
+    // Nostr identifiers (should be Alexandria links)
     expect(output).toContain('./events?id=npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
     // Wikilinks
     expect(output).toContain('wikilink');
@@ -76,7 +76,7 @@ describe('Markup Integration Test', () => {
     expect(output).toMatch(/<a[^>]+href="https:\/\/github.com\/nostrability\/nostrability\/issues\/146"/);
     // Hashtags
     expect(output).toContain('text-primary-600');
-    // Nostr identifiers (should be njump.me links)
+    // Nostr identifiers (should be Alexandria links)
     expect(output).toContain('./events?id=npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z');
     // Wikilinks
     expect(output).toContain('wikilink');

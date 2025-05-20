@@ -2,7 +2,7 @@
   import { BookOutline, CaretLeftOutline, CloseOutline, GlobeOutline } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
 
@@ -131,7 +131,7 @@
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
-        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by <InlineProfile pubkey={pubkey} name={author} /></span></p>
+        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}

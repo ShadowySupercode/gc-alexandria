@@ -5,7 +5,7 @@
   import { standardRelays } from '../consts';
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -46,7 +46,7 @@
           <h3 class='text-base font-normal'>
             by
             {#if authorPubkey != null}
-              <InlineProfile pubkey={authorPubkey} name={author} />
+            {@render userBadge(authorPubkey, author)}
             {:else}
               {author}
             {/if}

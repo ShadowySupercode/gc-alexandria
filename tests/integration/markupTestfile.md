@@ -111,16 +111,16 @@ https://upload.wikimedia.org/wikipedia/commons/f/f1/Heart_coraz%C3%B3n.svg
 This is an implementation of [Nostr-flavored markup](https://github.com/nostrability/nostrability/issues/146) for #gitstuff issue notes.
 
 You can even turn Alexandria URLs into embedded events, if they have hexids or bech32 addresses:
-http://localhost:4173/publication?id=nevent1qqstjcyerjx4laxlxc70cwzuxf3u9kkzuhdhgtu8pwrzvh7k5d5zdngpzemhxue69uhhyetvv9ujumn0wd68ytnzv9hxgq3qm3xdppkd0njmrqe2ma8a6ys39zvgp5k8u22mev8xsnqp4nh80srq0ylvuw
+https://next-alexandria.gitcitadel.eu/events?id=nevent1qqstjcyerjx4laxlxc70cwzuxf3u9kkzuhdhgtu8pwrzvh7k5d5zdngpzemhxue69uhhyetvv9ujumn0wd68ytnzv9hxgq3qm3xdppkd0njmrqe2ma8a6ys39zvgp5k8u22mev8xsnqp4nh80srq0ylvuw
 
 But not if they have d-tags:
-http://next-alexandria.gitcitadel.eu/publication?d=relay-test-thecitadel-by-unknown-v-1
+https://next-alexandria.gitcitadel.eu/publication?d=relay-test-thecitadel-by-unknown-v-1
 
-And within a markup tag: [markup link title](http://alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
+And within a markup tag: [markup link title](https://next-alexandria.gitcitadel.com/publication?id=84ad65f7a321404f55d97c2208dd3686c41724e6c347d3ee53cfe16f67cdfb7c).
 
 And to localhost: http://localhost:4173/publication?id=c36b54991e459221f444612d88ea94ef5bb4a1b93863ef89b1328996746f6d25
 
-http://localhost:4173/profile?id=nprofile1qqs99d9qw67th0wr5xh05de4s9k0wjvnkxudkgptq8yg83vtulad30gxyk5sf
+https://next-alexandria.gitcitadel.eu/events?id=nprofile1qqs99d9qw67th0wr5xh05de4s9k0wjvnkxudkgptq8yg83vtulad30gxyk5sf
 
 You can even include code inline, like `<div class="leather min-h-full w-full flex flex-col items-center">` or
 

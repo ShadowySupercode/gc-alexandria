@@ -8,7 +8,7 @@
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays, FeedType } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { feedType } from "$lib/stores";
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -83,7 +83,7 @@
   function getIdentifier(type: 'nevent' | 'naddr'): string {
     const encodeFn = type === 'nevent' ? neventEncode : naddrEncode;
     const identifier = encodeFn(event, activeRelays);
-    console.debug(`[CardActions] ${type} identifier for event ${event.id}:`, identifier);
+    console.debug("[CardActions] ${type} identifier for event ${event.id}:", identifier);
     return identifier;
   }
 
@@ -165,7 +165,7 @@
         <h1 class="text-3xl font-bold mt-5">{title || 'Untitled'}</h1>
         <h2 class="text-base font-bold">by
           {#if originalAuthor}
-            <InlineProfile pubkey={originalAuthor} />
+          {@render userBadge(originalAuthor, author)}
           {:else}
             {author || 'Unknown'}
           {/if}
@@ -183,7 +183,7 @@
     {/if}
 
     <div class="flex flex-row">
-      <h4 class='text-base font-normal mt-2'>Index author: <InlineProfile pubkey={event.pubkey} /></h4>
+      <h4 class='text-base font-normal mt-2'>Index author: {@render userBadge(event.pubkey, author)}</h4>
     </div>
 
     <div class="flex flex-col pb-4 space-y-1">
