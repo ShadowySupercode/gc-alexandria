@@ -13,13 +13,24 @@
   import { nip19 } from 'nostr-tools';
   import InlineProfile from '$lib/components/util/InlineProfile.svelte';
 
-  let searchQuery = "";
-  let event: NDKEvent | null = null;
-  let loading = false;
-  let error: string | null = null;
-  let showFullContent = false;
-  let contentPreview = '';
-  let parsedContent = '';
+  let searchQuery = $state("");
+  let event = $state<NDKEvent | null>(null);
+  let loading = $state(false);
+  let error = $state<string | null>(null);
+  let showFullContent = $state(false);
+  let parsedContent = $state('');
+  let contentPreview = $state('');
+  let profile = $state<{
+    name?: string;
+    display_name?: string;
+    about?: string;
+    picture?: string;
+    banner?: string;
+    website?: string;
+    lud16?: string;
+    nip05?: string;
+  } | null>(null);
+  let profileTitle = $state<string | null>(null);
 
   async function searchEvent() {
     if (!searchQuery.trim()) return;
@@ -193,20 +204,34 @@
     }
   });
 
-  $: if (event && event.kind !== 0 && event.content) {
-    parseBasicmarkup(event.content).then(html => {
-      parsedContent = html;
-      contentPreview = html.slice(0, 250);
-    });
-  }
+  $effect(() => {
+    if (event && event.kind !== 0 && event.content) {
+      parseBasicmarkup(event.content).then(html => {
+        parsedContent = html;
+        contentPreview = html.slice(0, 250);
+      });
+    }
+  });
 
-  $: profile = event && event.kind === 0
-    ? (() => { try { return JSON.parse(event.content); } catch { return null; } })()
-    : null;
+  $effect(() => {
+    if (event && event.kind === 0) {
+      try {
+        profile = JSON.parse(event.content);
+      } catch {
+        profile = null;
+      }
+    } else {
+      profile = null;
+    }
+  });
 
-  $: profileTitle = event && event.kind === 0 && profile && profile.name
-    ? profile.name
-    : null;
+  $effect(() => {
+    if (event && event.kind === 0 && profile && profile.name) {
+      profileTitle = profile.name;
+    } else {
+      profileTitle = null;
+    }
+  });
 </script>
 
 <div class="w-full flex justify-center">
