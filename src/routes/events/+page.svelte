@@ -89,9 +89,6 @@
         error = 'Event not found';
       } else {
         console.log('[Events] Event found:', event);
-        if (typeof event.getMatchingTags !== 'function') {
-          event = new NDKEvent(event.ndk || $ndkInstance, event);
-        }
       }
     } catch (err) {
       console.error('[Events] Error fetching event:', err, 'Query:', searchQuery);

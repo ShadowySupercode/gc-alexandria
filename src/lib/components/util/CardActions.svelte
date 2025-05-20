@@ -82,7 +82,9 @@
    */
   function getIdentifier(type: 'nevent' | 'naddr'): string {
     const encodeFn = type === 'nevent' ? neventEncode : naddrEncode;
-    return encodeFn(event, activeRelays);
+    const identifier = encodeFn(event, activeRelays);
+    console.debug(`[CardActions] ${type} identifier for event ${event.id}:`, identifier);
+    return identifier;
   }
 
   /**
@@ -201,7 +203,7 @@
         <h5 class="text-sm">Identifier: {identifier}</h5>
       {/if}
       <a 
-        href="/events?id={neventEncode(event, activeRelays)}" 
+        href="/events?id={getIdentifier('nevent')}" 
         class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
       >
         View Event Details
