@@ -43,6 +43,7 @@
       >.
     </P>
 
+    <!-- TODO: Add userBadge snippet here. -->
     <P>
       We are easiest to contact over our Nostr address <A
         href="https://njump.me/nprofile1qqsggm4l0xs23qfjwnkfwf6fqcs66s3lz637gaxhl4nwd2vtle8rnfqprfmhxue69uhhg6r9vehhyetnwshxummnw3erztnrdaks5zhueg"

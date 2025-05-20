@@ -1,5 +1,7 @@
 <script lang='ts'>
   import { createProfileLink, createProfileLinkWithVerification } from '$lib/utils/nostrUtils';
+
+  export { userBadge };
 </script>
 
 {#snippet userBadge(identifier: string, displayText: string | undefined)}
