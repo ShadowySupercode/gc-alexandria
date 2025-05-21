@@ -6,9 +6,10 @@
   import EventSearch from '$lib/components/EventSearch.svelte';
   import EventDetails from '$lib/components/EventDetails.svelte';
   import RelayActions from '$lib/components/RelayActions.svelte';
+  import CommentBox from '$lib/components/CommentBox.svelte';
 
-  let loading = false;
-  let error: string | null = null;
+  let loading = $state(false);
+  let error = $state<string | null>(null);
   let searchValue = $state<string | null>(null);
   let event = $state<NDKEvent | null>(null);
   let profile = $state<{
@@ -21,6 +22,8 @@
     lud16?: string;
     nip05?: string;
   } | null>(null);
+  let userPubkey = $state<string | null>(null);
+  let userRelayPreference = $state(false);
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -35,11 +38,15 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     const id = $page.url.searchParams.get('id');
     if (id) {
       searchValue = id;
     }
+
+    // Get user's pubkey and relay preference from localStorage
+    userPubkey = localStorage.getItem('userPubkey');
+    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
   });
 </script>
 
@@ -57,6 +64,16 @@
     {#if event}
       <EventDetails {event} {profile} />
       <RelayActions {event} />
+      {#if userPubkey}
+        <div class="mt-8">
+          <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
+          <CommentBox event={event} userPubkey={userPubkey} userRelayPreference={userRelayPreference} />
+        </div>
+      {:else}
+        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <P>Please sign in to add comments.</P>
+        </div>
+      {/if}
     {/if}
   </main>
 </div>

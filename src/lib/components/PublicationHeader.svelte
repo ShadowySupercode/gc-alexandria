@@ -24,7 +24,7 @@
 );
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
+  let author: string = $derived(event.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
   let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);

@@ -5,8 +5,6 @@
   import { nip19 } from '$lib/utils/nostrUtils';
   import { goto } from '$app/navigation';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
-  import { NDKRelaySet } from '@nostr-dev-kit/ndk';
-  import { standardRelays, fallbackRelays } from '$lib/consts';
   import RelayDisplay from './RelayDisplay.svelte';
 
   const { loading, error, searchValue, onEventFound, event } = $props<{
@@ -127,43 +125,6 @@
       console.error('[Events] Error fetching event:', err, 'Query:', query);
       localError = 'Error fetching event. Please check the ID and try again.';
     }
-  }
-
-  async function resilientSearch(filterOrId: any) {
-    const ndk = $ndkInstance;
-    const allRelays = [
-      ...standardRelays,
-      ...Array.from(ndk.pool?.relays.values() || []).map(r => r.url),
-      ...fallbackRelays
-    ].filter((url, idx, arr) => arr.indexOf(url) === idx);
-
-    relayStatuses = Object.fromEntries(allRelays.map(r => [r, 'pending']));
-    foundEvent = null;
-
-    await Promise.all(
-      allRelays.map(async (relay) => {
-        try {
-          const relaySet = NDKRelaySet.fromRelayUrls(allRelays, ndk);
-          const event = await ndk.fetchEvent(
-            typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId,
-            undefined,
-            relaySet
-          ).withTimeout(2500);
-
-          if (event && !foundEvent) {
-            foundEvent = event;
-            handleFoundEvent(event);
-          }
-          relayStatuses = { ...relayStatuses, [relay]: event ? 'found' : 'notfound' };
-        } catch {
-          relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
-        }
-      })
-    );
-  }
-
-  function searchForEvent(value: string) {
-    searchEvent(false);
   }
 
   function handleFoundEvent(event: NDKEvent) {

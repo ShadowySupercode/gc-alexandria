@@ -6,7 +6,6 @@
   import { createRelaySetFromUrls, createNDKEvent } from '$lib/utils/nostrUtils';
   import RelayDisplay, { getConnectedRelays, getEventRelays } from './RelayDisplay.svelte';
   import { standardRelays, fallbackRelays } from "$lib/consts";
-  import NDK from '@nostr-dev-kit/ndk';
 
   const { event } = $props<{
     event: NDKEvent;
@@ -30,48 +29,6 @@
   const broadcastIcon = `<svg class="w-4 h-4 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3"/>
   </svg>`;
-
-  async function searchRelays() {
-    if (!event) return;
-    const currentEvent = event; // Store reference to avoid null checks
-    searchingRelays = true;
-    foundRelays = [];
-    try {
-      const ndk = get(ndkInstance);
-      if (!ndk) throw new Error('NDK not initialized');
-
-      // Get all relays from the pool
-      const allRelays = Array.from(ndk.pool?.relays.values() || [])
-        .map(r => r.url)
-        .concat(standardRelays)
-        .filter((url, index, self) => self.indexOf(url) === index); // Remove duplicates
-
-      // Try to fetch the event from each relay
-      const results = await Promise.allSettled(
-        allRelays.map(async (relay) => {
-          const relaySet = createRelaySetFromUrls([relay], ndk);
-          const found = await ndk.fetchEvent(
-            { ids: [currentEvent.id] },
-            undefined,
-            relaySet
-          ).withTimeout(3000);
-          return found ? relay : null;
-        })
-      );
-
-      // Collect successful results
-      foundRelays = results
-        .filter((r): r is PromiseFulfilledResult<string | null> => 
-          r.status === 'fulfilled' && r.value !== null
-        )
-        .map(r => r.value as string);
-
-    } catch (err) {
-      console.error('Error searching relays:', err);
-    } finally {
-      searchingRelays = false;
-    }
-  }
 
   async function broadcastEvent() {
     if (!event || !$ndkInstance?.activeUser) return;
@@ -142,16 +99,6 @@
     showRelayModal = false;
   }
 
-  async function initializeNDK() {
-    const ndk = new NDK({ explicitRelayUrls: [
-      'wss://relay.nostr.band',
-      'wss://another.relay',
-      'wss://fallback.relay'
-    ] });
-    await ndk.connect();
-    ndkInstance.set(ndk);
-    console.log('Connected relays:', getConnectedRelays());
-  }
 </script>
 
 <div class="mt-4 flex flex-wrap gap-2">

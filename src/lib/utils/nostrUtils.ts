@@ -6,6 +6,9 @@ import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
 import { standardRelays, fallbackRelays } from "$lib/consts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from '@nostr-dev-kit/ndk';
+import { sha256 } from '@noble/hashes/sha256';
+import { schnorr } from '@noble/curves/secp256k1';
+import { bytesToHex } from '@noble/hashes/utils';
 
 const badgeCheckSvg = '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>'
 
@@ -391,6 +394,7 @@ export function toNpub(pubkey: string | undefined): string | null {
 }
 
 export type { NDKEvent, NDKRelaySet, NDKUser };
+export { NDKRelaySetFromNDK };
 export { nip19 };
 
 export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
@@ -409,4 +413,34 @@ export function createNDKEvent(ndk: NDK, rawEvent: any) {
  */
 export function getMatchingTags(event: NDKEvent, tagName: string): string[][] {
   return event.tags.filter((tag: string[]) => tag[0] === tagName);
+}
+
+export function getEventHash(event: {
+  kind: number;
+  created_at: number;
+  tags: string[][];
+  content: string;
+  pubkey: string;
+}): string {
+  const serialized = JSON.stringify([
+    0,
+    event.pubkey,
+    event.created_at,
+    event.kind,
+    event.tags,
+    event.content
+  ]);
+  return bytesToHex(sha256(serialized));
+}
+
+export async function signEvent(event: {
+  kind: number;
+  created_at: number;
+  tags: string[][];
+  content: string;
+  pubkey: string;
+}): Promise<string> {
+  const id = getEventHash(event);
+  const sig = await schnorr.sign(id, event.pubkey);
+  return bytesToHex(sig);
 } 

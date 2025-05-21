@@ -1,12 +1,11 @@
 <script lang="ts">
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { getMimeTags, getEventType } from "$lib/utils/mime";
+  import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
-  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+  import { neventEncode, naddrEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
   import type { NDKEvent } from '$lib/utils/nostrUtils';
-  import { onMount } from "svelte";
   import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   const { event, profile = null } = $props<{

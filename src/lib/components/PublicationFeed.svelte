@@ -1,13 +1,13 @@
 <script lang='ts'>
   import { indexKind } from '$lib/consts';
   import { ndkInstance } from '$lib/ndk';
-  import { filterValidIndexEvents } from '$lib/utils';
-  import { NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
+  import { filterValidIndexEvents, debounce } from '$lib/utils';
   import { Button, P, Skeleton, Spinner } from 'flowbite-svelte';
   import ArticleHeader from './PublicationHeader.svelte';
   import { onMount } from 'svelte';
+  import { getMatchingTags, NDKRelaySetFromNDK, type NDKEvent, type NDKRelaySet } from '$lib/utils/nostrUtils';
 
-  let { relays, fallbackRelays } = $props<{ relays: string[], fallbackRelays: string[] }>();
+  let { relays, fallbackRelays, searchQuery = '' } = $props<{ relays: string[], fallbackRelays: string[], searchQuery?: string }>();
 
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
@@ -19,22 +19,48 @@
     eventsInView?.at(eventsInView.length - 1)?.created_at ?? new Date().getTime()
   );
 
-  async function getEvents(before: number | undefined = undefined) {
+  // Debounced search function
+  const debouncedSearch = debounce(async (query: string) => {
+    if (query.trim()) {
+      await getEvents(undefined, query);
+    } else {
+      await getEvents();
+    }
+  }, 300);
+
+  $effect(() => {
+    debouncedSearch(searchQuery);
+  });
+
+  async function getEvents(before: number | undefined = undefined, search: string = '') {
     loading = true;
     const ndk = $ndkInstance;
     const primaryRelays: string[] = relays;
     const fallback: string[] = fallbackRelays.filter((r: string) => !primaryRelays.includes(r));
     relayStatuses = Object.fromEntries(primaryRelays.map((r: string) => [r, 'pending']));
     let allEvents: NDKEvent[] = [];
+    let fetchedCount = 0; // Track number of new events
+
+    // Function to filter events based on search query
+    const filterEventsBySearch = (events: NDKEvent[]) => {
+      if (!search) return events;
+      const query = search.toLowerCase();
+      return events.filter(event => {
+        const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
+        const author = event.pubkey.toLowerCase();
+        return title.includes(query) || author.includes(query);
+      });
+    };
+
     // First, try primary relays
     await Promise.all(
       primaryRelays.map(async (relay: string) => {
         try {
-          const relaySet = NDKRelaySet.fromRelayUrls([relay], ndk);
+          const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
           let eventSet = await ndk.fetchEvents(
             {
               kinds: [indexKind],
-              limit: 16,
+              limit: 30,
               until: before,
             },
             {
@@ -45,7 +71,8 @@
             relaySet
           ).withTimeout(2500);
           eventSet = filterValidIndexEvents(eventSet);
-          const eventArray = Array.from(eventSet);
+          const eventArray = filterEventsBySearch(Array.from(eventSet));
+          fetchedCount += eventArray.length; // Count new events
           if (eventArray.length > 0) {
             allEvents = allEvents.concat(eventArray);
             relayStatuses = { ...relayStatuses, [relay]: 'found' };
@@ -63,7 +90,7 @@
       await Promise.all(
         fallback.map(async (relay: string) => {
           try {
-            const relaySet = NDKRelaySet.fromRelayUrls([relay], ndk);
+            const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
             let eventSet = await ndk.fetchEvents(
               {
                 kinds: [indexKind],
@@ -78,7 +105,8 @@
               relaySet
             ).withTimeout(2500);
             eventSet = filterValidIndexEvents(eventSet);
-            const eventArray = Array.from(eventSet);
+            const eventArray = filterEventsBySearch(Array.from(eventSet));
+            fetchedCount += eventArray.length; // Count new events
             if (eventArray.length > 0) {
               allEvents = allEvents.concat(eventArray);
               relayStatuses = { ...relayStatuses, [relay]: 'found' };
@@ -96,8 +124,15 @@
     const uniqueEvents = Array.from(eventMap.values());
     uniqueEvents.sort((a, b) => b.created_at! - a.created_at!);
     eventsInView = uniqueEvents;
-    endOfFeed = false; // Could add logic to detect end
+    // Set endOfFeed if fewer than limit events were fetched
+    if ((before !== undefined && fetchedCount < 30 && fallback.length === 0) ||
+        (before !== undefined && fetchedCount < 16 && fallback.length > 0)) {
+      endOfFeed = true;
+    } else {
+      endOfFeed = false;
+    }
     loading = false;
+    console.debug('Relay statuses:', relayStatuses);
   }
 
   const getSkeletonIds = (): string[] => {
@@ -121,26 +156,25 @@
   });
 </script>
 
-<div class='leather flex flex-col space-y-4'>
-  <div class="flex flex-wrap gap-2">
-    {#each Object.entries(relayStatuses) as [relay, status]}
-      <span class="text-xs font-mono px-2 py-1 rounded border" class:bg-green-100={status==='found'} class:bg-red-100={status==='notfound'} class:bg-yellow-100={status==='pending'}>{relay}: {status}</span>
-    {/each}
+<div class='leather'>
+  <div class='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+    {#if loading && eventsInView.length === 0}
+      {#each getSkeletonIds() as id}
+        <Skeleton divClass='skeleton-leather w-full' size='lg' />
+      {/each}
+    {:else if eventsInView.length > 0}
+      {#each eventsInView as event}
+        <ArticleHeader {event} />
+      {/each}
+    {:else}
+      <div class='col-span-full'>
+        <p class='text-center'>No publications found.</p>
+      </div>
+    {/if}
   </div>
-  {#if loading && eventsInView.length === 0}
-    {#each getSkeletonIds() as id}
-      <Skeleton divClass='skeleton-leather w-full' size='lg' />
-    {/each}
-  {:else if eventsInView.length > 0}
-    {#each eventsInView as event}
-      <ArticleHeader {event} />
-    {/each}
-  {:else}
-    <p class='text-center'>No publications found.</p>
-  {/if}
   {#if !loadingMore && !endOfFeed}
     <div class='flex justify-center mt-4 mb-8'>
-      <Button outline class="w-full" onclick={async () => {
+      <Button outline class="w-full max-w-md" onclick={async () => {
         await loadMorePublications();
       }}>
         Show more publications
@@ -148,7 +182,7 @@
     </div>
   {:else if loadingMore}
     <div class='flex justify-center mt-4 mb-8'>
-      <Button outline disabled class="w-full">
+      <Button outline disabled class="w-full max-w-md">
         <Spinner class='mr-3 text-gray-300' size='4' />
         Loading...
       </Button>
