@@ -14,4 +14,4 @@
   onMount(renderQR);
 </script>
 
-<canvas class="qr-code" bind:this={canvas} />
+<canvas class="qr-code" bind:this={canvas}></canvas>

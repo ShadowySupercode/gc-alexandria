@@ -629,7 +629,7 @@ export default class Pharos {
     let content: string = '';
 
     // Format title into AsciiDoc header.
-    const title = event.getMatchingTags('title')[0][1];
+    const title = getMatchingTags(event, 'title')[0][1];
     let titleLevel = '';
     for (let i = 0; i <= depth; i++) {
       titleLevel += '=';
@@ -639,7 +639,7 @@ export default class Pharos {
     // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
     let tags = getMatchingTags(event, 'a');
     if (tags.length === 0) {
-      tags = event.getMatchingTags('e');
+      tags = getMatchingTags(event, 'e');
     }
 
     // Base case: The event is a zettel.
@@ -654,10 +654,10 @@ export default class Pharos {
     );
 
     // if a blog, save complete events for later
-    if (event.getMatchingTags("type").length > 0 && event.getMatchingTags("type")[0][1] === 'blog') {
+    if (getMatchingTags(event, 'type').length > 0 && getMatchingTags(event, 'type')[0][1] === 'blog') {
       childEvents.forEach(child => {
         if (child) {
-          this.blogEntries.set(child?.getMatchingTags("d")?.[0]?.[1], child);
+          this.blogEntries.set(getMatchingTags(child, 'd')?.[0]?.[1], child);
         }
       })
     }
@@ -666,8 +666,8 @@ export default class Pharos {
     if (event.created_at) {
       this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
     }
-    if (event.getMatchingTags('image').length > 0) {
-      this.rootIndexMetadata.coverImage = event.getMatchingTags('image')[0][1];
+    if (getMatchingTags(event, 'image').length > 0) {
+      this.rootIndexMetadata.coverImage = getMatchingTags(event, 'image')[0][1];
     }
 
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching

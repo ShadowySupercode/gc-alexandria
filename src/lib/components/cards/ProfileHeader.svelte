@@ -5,10 +5,11 @@
   import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils.ts";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { bech32 } from 'bech32';
+  // @ts-ignore
+  import { bech32 } from 'https://esm.sh/bech32';
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
-  const { event, profile } = $props<{ event: NDKEvent, profile: NostrProfile }>();
+  const { event, profile, identifiers = [] } = $props<{ event: NDKEvent, profile: NostrProfile, identifiers?: { label: string, value: string, link?: string }[] }>();
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
@@ -71,18 +72,24 @@
               </dd>
             </div>
           {/if}
-          {#if profile.nip05}
-            <div class="flex gap-2">
-              <dt class="font-semibold min-w-[120px]">NIP-05:</dt>
-              <dd>{profile.nip05}</dd>
-            </div>
-          {/if}
           {#if profile.lud16}
             <div class="flex items-center gap-2 mt-4">
               <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
               <dd><Button class="btn-leather" color="primary" outline onclick={() => lnModalOpen = true}>{profile.lud16}</Button> </dd>
             </div>
           {/if}
+          {#if profile.nip05}
+            <div class="flex gap-2">
+              <dt class="font-semibold min-w-[120px]">NIP-05:</dt>
+              <dd>{profile.nip05}</dd>
+            </div>
+          {/if}
+          {#each identifiers as id}
+            <div class="flex gap-2">
+              <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
+              <dd class="break-all">{#if id.link}<a href={id.link} class="underline text-primary-700 dark:text-primary-200 break-all">{id.value}</a>{:else}{id.value}{/if}</dd>
+            </div>
+          {/each}
         </dl>
       </div>
     </div>

@@ -71,7 +71,6 @@
     if (event.kind === 0) {
       // NIP-05
       const nip05 = profile?.nip05 || getMatchingTags(event, 'nip05')[0]?.[1];
-      if (nip05) ids.push({ label: 'NIP-05', value: nip05 });
       // npub
       const npub = toNpub(event.pubkey);
       if (npub) ids.push({ label: 'npub', value: npub, link: `/events?id=${npub}` });
@@ -155,7 +154,7 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <ProfileHeader {event} {profile} />
+    <ProfileHeader {event} {profile} identifiers={getIdentifiers(event, profile)} />
   {/if}
 
   <!-- Tags Array -->
@@ -169,23 +168,6 @@
       </div>
     </div>
   {/if}
-
-  <!-- Identifier List -->
-  <div class="flex flex-col space-y-1">
-    <span class="text-gray-600 dark:text-gray-400">Identifiers:</span>
-    <div class="flex flex-wrap gap-2">
-      {#each getIdentifiers(event, profile) as id}
-        {#if id.link}
-          <a href={id.link}
-            class="px-2 py-1 rounded border font-mono text-xs bg-primary-50 dark:bg-primary-900 hover:bg-primary-100 dark:hover:bg-primary-800 transition-all {isCurrentSearch(id.value) ? 'border-primary-500 ring-2 ring-primary-400' : 'border-gray-300'}"
-            >{id.label}: {id.value}</a>
-        {:else}
-          <span class="px-2 py-1 rounded border font-mono text-xs bg-primary-50 dark:bg-primary-900 {isCurrentSearch(id.value) ? 'border-primary-500 ring-2 ring-primary-400' : 'border-gray-300'}"
-            >{id.label}: {id.value}</span>
-        {/if}
-      {/each}
-    </div>
-  </div>
 
   <!-- Raw Event JSON -->
   <details class="bg-primary-50 dark:bg-primary-900 rounded p-4">
