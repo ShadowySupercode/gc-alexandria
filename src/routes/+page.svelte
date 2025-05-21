@@ -36,7 +36,7 @@
     <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
   {:else}
     <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
-      <Button id="feed-toggle-btn" class="min-w-[220px] max-w-xs">
+      <Button id="feed-toggle-btn" class="min-w-[220px] max-w-sm">
         {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}
         <ChevronDownOutline class='w-6 h-6' />
       </Button>

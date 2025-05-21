@@ -62,7 +62,7 @@
 
     <EventSearch {loading} {error} {searchValue} {event} onEventFound={handleEventFound} />
     {#if event}
-      <EventDetails {event} {profile} />
+      <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
       {#if userPubkey}
         <div class="mt-8">

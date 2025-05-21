@@ -21,18 +21,24 @@
 
   // Debounced search function
   const debouncedSearch = debounce(async (query: string) => {
+    console.debug('[PublicationFeed] Search query changed:', query);
     if (query.trim()) {
-      await getEvents(undefined, query);
+      console.debug('[PublicationFeed] Clearing events and searching with query:', query);
+      eventsInView = [];
+      await getEvents(undefined, query, true);
     } else {
-      await getEvents();
+      console.debug('[PublicationFeed] Clearing events and resetting search');
+      eventsInView = [];
+      await getEvents(undefined, '', true);
     }
   }, 300);
 
   $effect(() => {
+    console.debug('[PublicationFeed] Search query effect triggered:', searchQuery);
     debouncedSearch(searchQuery);
   });
 
-  async function getEvents(before: number | undefined = undefined, search: string = '') {
+  async function getEvents(before: number | undefined = undefined, search: string = '', reset: boolean = false) {
     loading = true;
     const ndk = $ndkInstance;
     const primaryRelays: string[] = relays;
@@ -41,18 +47,61 @@
     let allEvents: NDKEvent[] = [];
     let fetchedCount = 0; // Track number of new events
 
+    console.debug('[getEvents] Called with before:', before, 'search:', search);
+
     // Function to filter events based on search query
     const filterEventsBySearch = (events: NDKEvent[]) => {
       if (!search) return events;
       const query = search.toLowerCase();
-      return events.filter(event => {
+      console.debug('[PublicationFeed] Filtering events with query:', query, 'Total events before filter:', events.length);
+
+      // Check if the query is a NIP-05 address
+      const isNip05Query = /^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(query);
+      console.debug('[PublicationFeed] Is NIP-05 query:', isNip05Query);
+
+      const filtered = events.filter(event => {
         const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
-        const author = event.pubkey.toLowerCase();
-        return title.includes(query) || author.includes(query);
+        const authorName = getMatchingTags(event, 'author')[0]?.[1]?.toLowerCase() ?? '';
+        const authorPubkey = event.pubkey.toLowerCase();
+        const nip05 = getMatchingTags(event, 'nip05')[0]?.[1]?.toLowerCase() ?? '';
+
+        // For NIP-05 queries, only match against NIP-05 tags
+        if (isNip05Query) {
+          const matches = nip05 === query;
+          if (matches) {
+            console.debug('[PublicationFeed] Event matches NIP-05 search:', {
+              id: event.id,
+              nip05,
+              authorPubkey
+            });
+          }
+          return matches;
+        }
+
+        // For regular queries, match against all fields
+        const matches = (
+          title.includes(query) ||
+          authorName.includes(query) ||
+          authorPubkey.includes(query) ||
+          nip05.includes(query)
+        );
+        if (matches) {
+          console.debug('[PublicationFeed] Event matches search:', {
+            id: event.id,
+            title,
+            authorName,
+            authorPubkey,
+            nip05
+          });
+        }
+        return matches;
       });
+      console.debug('[PublicationFeed] Events after filtering:', filtered.length);
+      return filtered;
     };
 
     // First, try primary relays
+    let foundEventsInPrimary = false;
     await Promise.all(
       primaryRelays.map(async (relay: string) => {
         try {
@@ -76,16 +125,21 @@
           if (eventArray.length > 0) {
             allEvents = allEvents.concat(eventArray);
             relayStatuses = { ...relayStatuses, [relay]: 'found' };
+            foundEventsInPrimary = true;
           } else {
             relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
           }
-        } catch {
+          console.debug(`[getEvents] Fetched ${eventArray.length} events from relay: ${relay} (search: "${search}")`);
+        } catch (err) {
+          console.error(`Error fetching from primary relay ${relay}:`, err);
           relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
         }
       })
     );
-    // If no events found, try fallback relays
-    if (allEvents.length === 0 && fallback.length > 0) {
+
+    // Only try fallback relays if no events were found in primary relays
+    if (!foundEventsInPrimary && fallback.length > 0) {
+      console.debug('[getEvents] No events found in primary relays, trying fallback relays');
       relayStatuses = { ...relayStatuses, ...Object.fromEntries(fallback.map((r: string) => [r, 'pending'])) };
       await Promise.all(
         fallback.map(async (relay: string) => {
@@ -94,7 +148,7 @@
             let eventSet = await ndk.fetchEvents(
               {
                 kinds: [indexKind],
-                limit: 16,
+                limit: 18,
                 until: before,
               },
               {
@@ -113,24 +167,29 @@
             } else {
               relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
             }
-          } catch {
+            console.debug(`[getEvents] Fetched ${eventArray.length} events from relay: ${relay} (search: "${search}")`);
+          } catch (err) {
+            console.error(`Error fetching from fallback relay ${relay}:`, err);
             relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
           }
         })
       );
     }
     // Deduplicate and sort
-    const eventMap = new Map([...eventsInView, ...allEvents].map(event => [event.tagAddress(), event]));
+    const eventMap = reset
+      ? new Map(allEvents.map(event => [event.tagAddress(), event]))
+      : new Map([...eventsInView, ...allEvents].map(event => [event.tagAddress(), event]));
     const uniqueEvents = Array.from(eventMap.values());
     uniqueEvents.sort((a, b) => b.created_at! - a.created_at!);
     eventsInView = uniqueEvents;
-    // Set endOfFeed if fewer than limit events were fetched
-    if ((before !== undefined && fetchedCount < 30 && fallback.length === 0) ||
-        (before !== undefined && fetchedCount < 16 && fallback.length > 0)) {
+    const pageSize = fallback.length > 0 ? 18 : 30;
+    if (fetchedCount < pageSize) {
       endOfFeed = true;
     } else {
       endOfFeed = false;
     }
+    console.debug(`[getEvents] Total unique events after deduplication: ${uniqueEvents.length}`);
+    console.debug(`[getEvents] endOfFeed set to: ${endOfFeed} (fetchedCount: ${fetchedCount}, pageSize: ${pageSize})`);
     loading = false;
     console.debug('Relay statuses:', relayStatuses);
   }
@@ -147,7 +206,7 @@
 
   async function loadMorePublications() {
     loadingMore = true;
-    await getEvents(cutoffTimestamp);
+    await getEvents(cutoffTimestamp, searchQuery, false);
     loadingMore = false;
   }
 

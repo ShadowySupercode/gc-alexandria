@@ -51,21 +51,46 @@
     let filterOrId: any = cleanedQuery;
     console.log('[Events] Cleaned query:', cleanedQuery);
 
+    // NIP-05 address pattern: user@domain
+    if (/^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(cleanedQuery)) {
+      try {
+        const [name, domain] = cleanedQuery.split('@');
+        const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+        const data = await res.json();
+        const pubkey = data.names?.[name];
+        if (pubkey) {
+          filterOrId = { kinds: [0], authors: [pubkey] };
+          const profileEvent = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
+          if (profileEvent) {
+            handleFoundEvent(profileEvent);
+            return;
+          } else {
+            localError = 'No profile found for this NIP-05 address.';
+            return;
+          }
+        } else {
+          localError = 'NIP-05 address not found.';
+          return;
+        }
+      } catch (e) {
+        localError = 'Error resolving NIP-05 address.';
+        return;
+      }
+    }
+
     // If it's a 64-char hex, try as event id first, then as pubkey (profile)
     if (/^[a-f0-9]{64}$/i.test(cleanedQuery)) {
       // Try as event id
       filterOrId = cleanedQuery;
-      const event = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
-
-      if (!event) {
-        // Try as pubkey (profile event)
-        filterOrId = { kinds: [0], authors: [cleanedQuery] };
-        const profileEvent = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
-        if (profileEvent) {
-          handleFoundEvent(profileEvent);
-        }
-      } else {
-        handleFoundEvent(event);
+      const eventResult = await fetchEventWithFallback($ndkInstance, filterOrId, 10000);
+      // Always try as pubkey (profile event) as well
+      const profileFilter = { kinds: [0], authors: [cleanedQuery] };
+      const profileEvent = await fetchEventWithFallback($ndkInstance, profileFilter, 10000);
+      // Prefer profile if found and pubkey matches query
+      if (profileEvent && profileEvent.pubkey.toLowerCase() === cleanedQuery.toLowerCase()) {
+        handleFoundEvent(profileEvent);
+      } else if (eventResult) {
+        handleFoundEvent(eventResult);
       }
       return;
     } else if (/^(nevent|note|naddr|npub|nprofile)[a-z0-9]+$/i.test(cleanedQuery)) {

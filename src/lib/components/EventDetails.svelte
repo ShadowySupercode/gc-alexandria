@@ -3,12 +3,13 @@
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
-  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { getMatchingTags } from '$lib/utils/nostrUtils';
+  import { nip19 } from 'nostr-tools';
 
-  const { event, profile = null } = $props<{
+  const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
     profile?: {
       name?: string;
@@ -20,6 +21,7 @@
       lud16?: string;
       nip05?: string;
     } | null;
+    searchValue?: string | null;
   }>();
 
   let showFullContent = $state(false);
@@ -62,6 +64,43 @@
       });
     }
   });
+
+  // --- Identifier helpers ---
+  function getIdentifiers(event: NDKEvent, profile: any): { label: string, value: string, link?: string }[] {
+    const ids: { label: string, value: string, link?: string }[] = [];
+    if (event.kind === 0) {
+      // NIP-05
+      const nip05 = profile?.nip05 || getMatchingTags(event, 'nip05')[0]?.[1];
+      if (nip05) ids.push({ label: 'NIP-05', value: nip05 });
+      // npub
+      const npub = toNpub(event.pubkey);
+      if (npub) ids.push({ label: 'npub', value: npub, link: `/events?id=${npub}` });
+      // nprofile
+      ids.push({ label: 'nprofile', value: nprofileEncode(event.pubkey, standardRelays), link: `/events?id=${nprofileEncode(event.pubkey, standardRelays)}` });
+      // nevent
+      ids.push({ label: 'nevent', value: neventEncode(event, standardRelays), link: `/events?id=${neventEncode(event, standardRelays)}` });
+      // hex pubkey
+      ids.push({ label: 'pubkey', value: event.pubkey });
+    } else {
+      // nevent
+      ids.push({ label: 'nevent', value: neventEncode(event, standardRelays), link: `/events?id=${neventEncode(event, standardRelays)}` });
+      // naddr (if addressable)
+      try {
+        const naddr = naddrEncode(event, standardRelays);
+        ids.push({ label: 'naddr', value: naddr, link: `/events?id=${naddr}` });
+      } catch {}
+      // hex id
+      ids.push({ label: 'id', value: event.id });
+    }
+    return ids;
+  }
+
+  function isCurrentSearch(value: string): boolean {
+    if (!searchValue) return false;
+    // Compare ignoring case and possible nostr: prefix
+    const norm = (s: string) => s.replace(/^nostr:/, '').toLowerCase();
+    return norm(value) === norm(searchValue);
+  }
 </script>
 
 <div class="flex flex-col space-y-4">
@@ -190,6 +229,23 @@
       </div>
     </div>
   {/if}
+
+  <!-- Identifier List -->
+  <div class="flex flex-col space-y-1">
+    <span class="text-gray-600 dark:text-gray-400">Identifiers:</span>
+    <div class="flex flex-wrap gap-2">
+      {#each getIdentifiers(event, profile) as id}
+        {#if id.link}
+          <a href={id.link}
+            class="px-2 py-1 rounded border font-mono text-xs bg-primary-50 dark:bg-primary-900 hover:bg-primary-100 dark:hover:bg-primary-800 transition-all {isCurrentSearch(id.value) ? 'border-primary-500 ring-2 ring-primary-400' : 'border-gray-300'}"
+            >{id.label}: {id.value}</a>
+        {:else}
+          <span class="px-2 py-1 rounded border font-mono text-xs bg-primary-50 dark:bg-primary-900 {isCurrentSearch(id.value) ? 'border-primary-500 ring-2 ring-primary-400' : 'border-gray-300'}"
+            >{id.label}: {id.value}</span>
+        {/if}
+      {/each}
+    </div>
+  </div>
 
   <!-- Raw Event JSON -->
   <details class="bg-primary-50 dark:bg-primary-900 rounded p-4">
