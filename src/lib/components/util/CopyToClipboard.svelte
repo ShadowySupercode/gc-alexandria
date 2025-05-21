@@ -1,11 +1,12 @@
 <script lang='ts'>
   import { ClipboardCheckOutline, ClipboardCleanOutline } from "flowbite-svelte-icons";
   import { withTimeout } from "$lib/utils/nostrUtils";
+  import type { Component } from "svelte";
 
   let { displayText, copyText = displayText, icon = ClipboardCleanOutline } = $props<{
     displayText: string;
     copyText?: string;
-    icon?: typeof ClipboardCleanOutline;
+    icon?: Component | false;
   }>();
 
   let copied: boolean = $state(false);
@@ -34,7 +35,7 @@
     <ClipboardCheckOutline class="inline mr-2" /> Copied!
   {:else}
     {#if icon}
-      <icon class="inline mr-2"></icon>
+      <svelte:component this={icon} class="inline mr-2" />
     {/if}
     {displayText}
   {/if}

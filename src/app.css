@@ -2,6 +2,7 @@
 @import './styles/scrollbar.css';
 @import './styles/publications.css';
 @import './styles/visualize.css';
+@import "./styles/events.css";
 
 /* Custom styles */
 @layer base {

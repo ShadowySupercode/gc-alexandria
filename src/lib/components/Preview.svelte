@@ -4,7 +4,7 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
   import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
-  import BlogHeader from "./blog/BlogHeader.svelte";
+  import BlogHeader from "$components/cards/BlogHeader.svelte";
 
   // TODO: Fix move between parents.
 

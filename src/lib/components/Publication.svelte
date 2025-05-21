@@ -18,7 +18,7 @@
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
-  import BlogHeader from "$components/blog/BlogHeader.svelte";
+  import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
   import { pharosInstance } from '$lib/parser';
