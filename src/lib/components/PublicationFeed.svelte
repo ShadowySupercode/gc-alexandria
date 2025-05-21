@@ -2,84 +2,107 @@
   import { indexKind } from '$lib/consts';
   import { ndkInstance } from '$lib/ndk';
   import { filterValidIndexEvents } from '$lib/utils';
-  import { fetchEventWithFallback } from '$lib/utils/nostrUtils';
   import { NDKRelaySet, type NDKEvent } from '@nostr-dev-kit/ndk';
   import { Button, P, Skeleton, Spinner } from 'flowbite-svelte';
   import ArticleHeader from './PublicationHeader.svelte';
   import { onMount } from 'svelte';
 
-  let { relays } = $props<{ relays: string[] }>();
+  let { relays, fallbackRelays } = $props<{ relays: string[], fallbackRelays: string[] }>();
 
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
+  let relayStatuses = $state<Record<string, 'pending' | 'found' | 'notfound'>>({});
+  let loading: boolean = $state(true);
 
   let cutoffTimestamp: number = $derived(
     eventsInView?.at(eventsInView.length - 1)?.created_at ?? new Date().getTime()
   );
 
-  async function getEvents(
-    before: number | undefined = undefined,
-  ): Promise<void> {
-    try {
-      // First try to fetch a single event to verify we can connect to the relays
-      const testEvent = await fetchEventWithFallback($ndkInstance, {
-        kinds: [indexKind],
-        limit: 1,
-        until: before
-      });
-
-      if (!testEvent) {
-        console.warn('No events found in initial fetch');
-        return;
-      }
-
-      // If we found an event, proceed with fetching the full set
-      let eventSet = await $ndkInstance.fetchEvents(
-        { 
-          kinds: [indexKind],
-          limit: 16,
-          until: before,
-        },
-        { 
-          groupable: false,
-          skipVerification: false,
-          skipValidation: false,
-        },
-        NDKRelaySet.fromRelayUrls(relays, $ndkInstance)
+  async function getEvents(before: number | undefined = undefined) {
+    loading = true;
+    const ndk = $ndkInstance;
+    const primaryRelays: string[] = relays;
+    const fallback: string[] = fallbackRelays.filter((r: string) => !primaryRelays.includes(r));
+    relayStatuses = Object.fromEntries(primaryRelays.map((r: string) => [r, 'pending']));
+    let allEvents: NDKEvent[] = [];
+    // First, try primary relays
+    await Promise.all(
+      primaryRelays.map(async (relay: string) => {
+        try {
+          const relaySet = NDKRelaySet.fromRelayUrls([relay], ndk);
+          let eventSet = await ndk.fetchEvents(
+            {
+              kinds: [indexKind],
+              limit: 16,
+              until: before,
+            },
+            {
+              groupable: false,
+              skipVerification: false,
+              skipValidation: false,
+            },
+            relaySet
+          ).withTimeout(2500);
+          eventSet = filterValidIndexEvents(eventSet);
+          const eventArray = Array.from(eventSet);
+          if (eventArray.length > 0) {
+            allEvents = allEvents.concat(eventArray);
+            relayStatuses = { ...relayStatuses, [relay]: 'found' };
+          } else {
+            relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
+          }
+        } catch {
+          relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
+        }
+      })
+    );
+    // If no events found, try fallback relays
+    if (allEvents.length === 0 && fallback.length > 0) {
+      relayStatuses = { ...relayStatuses, ...Object.fromEntries(fallback.map((r: string) => [r, 'pending'])) };
+      await Promise.all(
+        fallback.map(async (relay: string) => {
+          try {
+            const relaySet = NDKRelaySet.fromRelayUrls([relay], ndk);
+            let eventSet = await ndk.fetchEvents(
+              {
+                kinds: [indexKind],
+                limit: 16,
+                until: before,
+              },
+              {
+                groupable: false,
+                skipVerification: false,
+                skipValidation: false,
+              },
+              relaySet
+            ).withTimeout(2500);
+            eventSet = filterValidIndexEvents(eventSet);
+            const eventArray = Array.from(eventSet);
+            if (eventArray.length > 0) {
+              allEvents = allEvents.concat(eventArray);
+              relayStatuses = { ...relayStatuses, [relay]: 'found' };
+            } else {
+              relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
+            }
+          } catch {
+            relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
+          }
+        })
       );
-      eventSet = filterValidIndexEvents(eventSet);
-      
-      let eventArray = Array.from(eventSet);
-      eventArray?.sort((a, b) => b.created_at! - a.created_at!);
-
-      if (!eventArray) {
-        return;
-      }
-
-      endOfFeed = eventArray?.at(eventArray.length - 1)?.id === eventsInView?.at(eventsInView.length - 1)?.id;
-
-      if (endOfFeed) {
-        return;
-      }
-
-      const eventMap = new Map([...eventsInView, ...eventArray].map(event => [event.tagAddress(), event]));
-      const allEvents = Array.from(eventMap.values());
-      const uniqueIds = new Set(allEvents.map(event => event.tagAddress()));
-      eventsInView = Array.from(uniqueIds)
-        .map(id => eventMap.get(id))
-        .filter(event => event != null) as NDKEvent[];
-    } catch (err) {
-      console.error('Error fetching events:', err);
     }
+    // Deduplicate and sort
+    const eventMap = new Map([...eventsInView, ...allEvents].map(event => [event.tagAddress(), event]));
+    const uniqueEvents = Array.from(eventMap.values());
+    uniqueEvents.sort((a, b) => b.created_at! - a.created_at!);
+    eventsInView = uniqueEvents;
+    endOfFeed = false; // Could add logic to detect end
+    loading = false;
   }
 
   const getSkeletonIds = (): string[] => {
     const skeletonHeight = 124; // The height of the skeleton component in pixels.
-
-    // Determine the number of skeletons to display based on the height of the screen.
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
-
     const skeletonIds = [];
     for (let i = 0; i < skeletonCount; i++) {
       skeletonIds.push(`skeleton-${i}`);
@@ -99,7 +122,12 @@
 </script>
 
 <div class='leather flex flex-col space-y-4'>
-  {#if eventsInView.length === 0}
+  <div class="flex flex-wrap gap-2">
+    {#each Object.entries(relayStatuses) as [relay, status]}
+      <span class="text-xs font-mono px-2 py-1 rounded border" class:bg-green-100={status==='found'} class:bg-red-100={status==='notfound'} class:bg-yellow-100={status==='pending'}>{relay}: {status}</span>
+    {/each}
+  </div>
+  {#if loading && eventsInView.length === 0}
     {#each getSkeletonIds() as id}
       <Skeleton divClass='skeleton-leather w-full' size='lg' />
     {/each}

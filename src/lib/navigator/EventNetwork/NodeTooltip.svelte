@@ -7,6 +7,7 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
+  import { getMatchingTags } from '$lib/utils/nostrUtils';
   
   // Component props
   let { node, selected = false, x, y, onclose } = $props<{
@@ -30,7 +31,7 @@
    */
   function getAuthorTag(node: NetworkNode): string {
     if (node.event) {
-      const authorTags = node.event.getMatchingTags("author");
+      const authorTags = getMatchingTags(node.event, "author");
       if (authorTags.length > 0) {
         return authorTags[0][1];
       }
@@ -43,7 +44,7 @@
    */
   function getSummaryTag(node: NetworkNode): string | null {
     if (node.event) {
-      const summaryTags = node.event.getMatchingTags("summary");
+      const summaryTags = getMatchingTags(node.event, "summary");
       if (summaryTags.length > 0) {
         return summaryTags[0][1];
       }
@@ -56,7 +57,7 @@
    */
   function getDTag(node: NetworkNode): string {
     if (node.event) {
-      const dTags = node.event.getMatchingTags("d");
+      const dTags = getMatchingTags(node.event, "d");
       if (dTags.length > 0) {
         return dTags[0][1];
       }

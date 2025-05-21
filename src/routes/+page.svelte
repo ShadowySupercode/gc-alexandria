@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import { FeedType, feedTypeStorageKey, standardRelays } from '$lib/consts';
+  import { FeedType, feedTypeStorageKey, standardRelays, fallbackRelays } from '$lib/consts';
   import { Alert, Button, Dropdown, Radio } from "flowbite-svelte";
   import { ChevronDownOutline, HammerSolid } from "flowbite-svelte-icons";
   import { inboxRelays, ndkSignedIn } from '$lib/ndk';
@@ -31,7 +31,7 @@
 
 <main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
   {#if !$ndkSignedIn}
-    <PublicationFeed relays={standardRelays} />
+    <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} />
   {:else}
     <div class='leather w-full flex justify-end'>
       <Button>
@@ -47,9 +47,9 @@
       </Dropdown>
     </div>
     {#if $feedType === FeedType.StandardRelays}
-      <PublicationFeed relays={standardRelays} />
+      <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} />
     {:else if $feedType === FeedType.UserRelays}
-      <PublicationFeed relays={$inboxRelays} />
+      <PublicationFeed relays={$inboxRelays} fallbackRelays={fallbackRelays} />
     {/if}
   {/if}
 </main>

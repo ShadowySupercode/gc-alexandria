@@ -5,6 +5,7 @@ import { npubCache } from './npubCache';
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
 import { standardRelays, fallbackRelays } from "$lib/consts";
+import { NDKRelaySet as NDKRelaySetFromNDK } from '@nostr-dev-kit/ndk';
 
 const badgeCheckSvg = '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>'
 
@@ -13,6 +14,17 @@ const graduationCapSvg = '<svg class="w-6 h-6 text-gray-800 dark:text-white" ari
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX = /(?<![\w/])((nostr:)?(npub|nprofile)[a-zA-Z0-9]{20,})(?![\w/])/g;
 export const NOSTR_NOTE_REGEX = /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0-9]{20,})(?![\w/])/g;
+
+export interface NostrProfile {
+  name?: string;
+  displayName?: string;
+  nip05?: string;
+  picture?: string;
+  about?: string;
+  banner?: string;
+  website?: string;
+  lud16?: string;
+}
 
 /**
  * HTML escape a string
@@ -31,7 +43,7 @@ function escapeHtml(text: string): string {
 /**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
-export async function getUserMetadata(identifier: string): Promise<{name?: string, displayName?: string, nip05?: string}> {
+export async function getUserMetadata(identifier: string): Promise<NostrProfile> {
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, '');
   
@@ -65,31 +77,22 @@ export async function getUserMetadata(identifier: string): Promise<{name?: strin
       return fallback;
     }
 
-    const user = ndk.getUser({ pubkey: pubkey });
-    if (!user) {
-      npubCache.set(cleanId, fallback);
-      return fallback;
-    }
+    const profileEvent = await fetchEventWithFallback(ndk, { kinds: [0], authors: [pubkey] });
+    const profile = profileEvent && profileEvent.content ? JSON.parse(profileEvent.content) : null;
 
-    try {
-      const profile = await user.fetchProfile();
-      if (!profile) {
-        npubCache.set(cleanId, fallback);
-        return fallback;
-      }
-
-      const metadata = {
-        name: profile.name || fallback.name,
-        displayName: profile.displayName,
-        nip05: profile.nip05
-      };
-      
-      npubCache.set(cleanId, metadata);
-      return metadata;
-    } catch (e) {
-      npubCache.set(cleanId, fallback);
-      return fallback;
-    }
+    const metadata: NostrProfile = {
+      name: profile?.name || fallback.name,
+      displayName: profile?.displayName,
+      nip05: profile?.nip05,
+      picture: profile?.image,
+      about: profile?.about,
+      banner: profile?.banner,
+      website: profile?.website,
+      lud16: profile?.lud16
+    };
+    
+    npubCache.set(cleanId, metadata);
+    return metadata;
   } catch (e) {
     npubCache.set(cleanId, fallback);
     return fallback;
@@ -128,7 +131,19 @@ export async function createProfileLinkWithVerification(identifier: string, disp
     user = ndk.getUser({ pubkey: cleanId });
   }
 
-  const profile = await user.fetchProfile();
+  const userRelays = Array.from(ndk.pool?.relays.values() || []).map(r => r.url);
+  const allRelays = [
+    ...standardRelays,
+    ...userRelays,
+    ...fallbackRelays
+  ].filter((url, idx, arr) => arr.indexOf(url) === idx);
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
+  const profileEvent = await ndk.fetchEvent(
+    { kinds: [0], authors: [user.pubkey] },
+    undefined,
+    relaySet
+  );
+  const profile = profileEvent?.content ? JSON.parse(profileEvent.content) : null;
   const nip05 = profile?.nip05;
 
   if (!nip05) {
@@ -304,9 +319,9 @@ export async function fetchEventWithFallback(
   
   // Create three relay sets in priority order
   const relaySets = [
-    NDKRelaySet.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
-    NDKRelaySet.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
-    NDKRelaySet.fromRelayUrls(fallbackRelays, ndk)  // 3. fallback relays (last resort)
+    NDKRelaySetFromNDK.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
+    NDKRelaySetFromNDK.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
+    NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk)  // 3. fallback relays (last resort)
   ];
 
   try {
@@ -314,7 +329,7 @@ export async function fetchEventWithFallback(
     const triedRelaySets: string[] = [];
 
     // Helper function to try fetching from a relay set
-    async function tryFetchFromRelaySet(relaySet: NDKRelaySet, setName: string): Promise<NDKEvent | null> {
+    async function tryFetchFromRelaySet(relaySet: NDKRelaySetFromNDK, setName: string): Promise<NDKEvent | null> {
       if (relaySet.relays.size === 0) return null;
       triedRelaySets.push(setName);
       
@@ -373,4 +388,25 @@ export function toNpub(pubkey: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+export type { NDKEvent, NDKRelaySet, NDKUser };
+export { nip19 };
+
+export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
+  return NDKRelaySetFromNDK.fromRelayUrls(relayUrls, ndk);
+}
+
+export function createNDKEvent(ndk: NDK, rawEvent: any) {
+  return new NDKEvent(ndk, rawEvent);
+}
+
+/**
+ * Returns all tags from the event that match the given tag name.
+ * @param event The NDKEvent object.
+ * @param tagName The tag name to match (e.g., 'a', 'd', 'title').
+ * @returns An array of matching tags.
+ */
+export function getMatchingTags(event: NDKEvent, tagName: string): string[][] {
+  return event.tags.filter((tag: string[]) => tag[0] === tagName);
 } 

@@ -10,7 +10,7 @@
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
+  let author: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
   let hashtags: string = $derived(event.getMatchingTags('t') ?? null);

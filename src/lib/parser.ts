@@ -13,6 +13,7 @@ import type {
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
 import { zettelKinds } from './consts.ts';
+import { getMatchingTags } from '$lib/utils/nostrUtils';
 
 interface IndexMetadata {
   authors?: string[];
@@ -636,7 +637,7 @@ export default class Pharos {
     content += `${titleLevel} ${title}\n\n`;
 
     // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
-    let tags = event.getMatchingTags('a');
+    let tags = getMatchingTags(event, 'a');
     if (tags.length === 0) {
       tags = event.getMatchingTags('e');
     }
