@@ -8,6 +8,7 @@
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { getMatchingTags } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
+  import EventTag from "./EventTag.svelte";
 
   const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
@@ -43,17 +44,6 @@
   function getEventTypeDisplay(event: NDKEvent): string {
     const [mTag, MTag] = getMimeTags(event.kind || 0);
     return MTag[1].split('/')[1] || `Event Kind ${event.kind}`;
-  }
-
-  function renderTag(tag: string[]): string {
-    if (tag[0] === 'a' && tag.length > 1) {
-      const [kind, pubkey, d] = tag[1].split(':');
-      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>a:${tag[1]}</a>`;
-    } else if (tag[0] === 'e' && tag.length > 1) {
-      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>e:${tag[1]}</a>`;
-    } else {
-      return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
-    }
   }
 
   $effect(() => {
@@ -163,7 +153,7 @@
       <span class="text-gray-600 dark:text-gray-400">Event Tags:</span>
       <div class="flex flex-wrap gap-2">
         {#each event.tags as tag}
-          {@html renderTag(tag)}
+          <EventTag {tag} />
         {/each}
       </div>
     </div>

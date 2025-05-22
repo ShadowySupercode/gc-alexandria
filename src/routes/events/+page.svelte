@@ -57,7 +57,7 @@
     </div>
 
     <P class="mb-3">
-      Use this page to view any event (npub, nprofile, nevent, naddr, note, pubkey, or eventID).
+      Use this page to view any event (npub, nprofile, nevent, naddr, note, pubkey, NIP-05, or eventID).
     </P>
 
     <EventSearch {loading} {error} {searchValue} {event} onEventFound={handleEventFound} />
