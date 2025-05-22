@@ -1,76 +1,112 @@
 <script lang="ts">
   import {
-    ClipboardCheckOutline,
     ClipboardCleanOutline,
-    CodeOutline,
     DotsVerticalOutline,
     EyeOutline,
     ShareNodesOutline
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
-  import { standardRelays } from "$lib/consts";
+  import { standardRelays, FeedType } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import Details from "./Details.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { feedType } from "$lib/stores";
+  import { inboxRelays, ndkSignedIn } from "$lib/ndk";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 
-  let { event } = $props();
+  // Component props
+  let { event } = $props<{ event: NDKEvent }>();
 
-  let jsonModalOpen: boolean = $state(false);
+  // Derive metadata from event
+  let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
+  let summary = $derived(event.tags.find((t: string[]) => t[0] === 'summary')?.[1] ?? '');
+  let image = $derived(event.tags.find((t: string[]) => t[0] === 'image')?.[1] ?? null);
+  let author = $derived(event.tags.find((t: string[]) => t[0] === 'author')?.[1] ?? '');
+  let originalAuthor = $derived(event.tags.find((t: string[]) => t[0] === 'original_author')?.[1] ?? null);
+  let version = $derived(event.tags.find((t: string[]) => t[0] === 'version')?.[1] ?? '');
+  let source = $derived(event.tags.find((t: string[]) => t[0] === 'source')?.[1] ?? null);
+  let type = $derived(event.tags.find((t: string[]) => t[0] === 'type')?.[1] ?? null);
+  let language = $derived(event.tags.find((t: string[]) => t[0] === 'language')?.[1] ?? null);
+  let publisher = $derived(event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
+  let identifier = $derived(event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
+
+  // UI state
   let detailsModalOpen: boolean = $state(false);
-  let eventIdCopied: boolean = $state(false);
-  let shareLinkCopied: boolean = $state(false);
+  let isOpen: boolean = $state(false);
 
-  let isOpen = $state(false);
+  /**
+   * Selects the appropriate relay set based on user state and feed type
+   * - Uses user's inbox relays when signed in and viewing personal feed
+   * - Falls back to standard relays for anonymous users or standard feed
+   */
+  let activeRelays = $derived(
+    (() => {
+      const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
+      const relays = isUserFeed ? $inboxRelays : standardRelays;
+      
+      console.debug("[CardActions] Selected relays:", {
+        eventId: event.id,
+        isSignedIn: $ndkSignedIn,
+        feedType: $feedType,
+        isUserFeed,
+        relayCount: relays.length,
+        relayUrls: relays
+      });
+      
+      return relays;
+    })()
+  );
 
+  /**
+   * Opens the actions popover menu
+   */
   function openPopover() {
+    console.debug("[CardActions] Opening menu", { eventId: event.id });
     isOpen = true;
   }
 
+  /**
+   * Closes the actions popover menu and removes focus
+   */
   function closePopover() {
+    console.debug("[CardActions] Closing menu", { eventId: event.id });
     isOpen = false;
     const menu = document.getElementById('dots-' + event.id);
     if (menu) menu.blur();
   }
 
-  function shareNjump() {
-    const relays: string[] = standardRelays;
-    
-    try {
-      const naddr = naddrEncode(event, relays);
-      console.debug(naddr);
-      navigator.clipboard.writeText(`https://njump.me/${naddr}`);
-      shareLinkCopied = true;
-      setTimeout(() => {
-        shareLinkCopied = false;
-      }, 4000);
-    }
-    catch (e) {
-      console.error('Failed to encode naddr:', e);
-    }
+  /**
+   * Gets the appropriate identifier (nevent or naddr) for copying
+   * @param type - The type of identifier to get ('nevent' or 'naddr')
+   * @returns The encoded identifier string
+   */
+  function getIdentifier(type: 'nevent' | 'naddr'): string {
+    const encodeFn = type === 'nevent' ? neventEncode : naddrEncode;
+    const identifier = encodeFn(event, activeRelays);
+    console.debug("[CardActions] ${type} identifier for event ${event.id}:", identifier);
+    return identifier;
   }
 
-  function copyEventId() {
-    console.debug("copyEventID");
-    const relays: string[] = standardRelays;
-    const nevent = neventEncode(event, relays);
-
-    navigator.clipboard.writeText(nevent);
-
-    eventIdCopied = true;
-    setTimeout(() => {
-      eventIdCopied = false;
-    }, 4000);
-  }
-
-  function viewJson() {
-    console.debug("viewJSON");
-    jsonModalOpen = true;
-  }
-
+  /**
+   * Opens the event details modal
+   */
   function viewDetails() {
-    console.log('Details');
+    console.debug("[CardActions] Opening details modal", { 
+      eventId: event.id,
+      title: event.title,
+      author: event.author
+    });
     detailsModalOpen = true;
   }
 
+  // Log component initialization
+  console.debug("[CardActions] Initialized", {
+    eventId: event.id,
+    kind: event.kind,
+    pubkey: event.pubkey,
+    title: event.title,
+    author: event.author
+  });
 </script>
 
 <div class="group bg-highlight dark:bg-primary-1000 rounded" role="group" onmouseenter={openPopover}>
@@ -99,41 +135,79 @@
             </button>
           </li>
           <li>
-            <button class='btn-leather w-full text-left' onclick={shareNjump}>
-              {#if shareLinkCopied}
-                <ClipboardCheckOutline class="inline mr-2" /> Copied!
-              {:else}
-                <ShareNodesOutline class="inline mr-2" /> Share via NJump
-              {/if}
-            </button>
+            <CopyToClipboard 
+              displayText="Copy naddr address"
+              copyText={getIdentifier('naddr')}
+              icon={ShareNodesOutline}
+            />
           </li>
           <li>
-            <button class='btn-leather w-full text-left' onclick={copyEventId}>
-              {#if eventIdCopied}
-                <ClipboardCheckOutline class="inline mr-2" /> Copied!
-              {:else}
-                <ClipboardCleanOutline class="inline mr-2" /> Copy event ID
-              {/if}
-            </button>
-          </li>
-          <li>
-            <button class='btn-leather w-full text-left' onclick={viewJson}>
-              <CodeOutline class="inline mr-2"  /> View JSON
-            </button>
+            <CopyToClipboard 
+              displayText="Copy nevent address"
+              copyText={getIdentifier('nevent')}
+              icon={ClipboardCleanOutline}
+            />
           </li>
         </ul>
       </div>
     </div>
   </Popover>
   {/if}
-  <!-- Event JSON -->
-  <Modal class='modal-leather' title='Event JSON' bind:open={jsonModalOpen} autoclose outsideclose size='lg'>
-    <div class="overflow-auto bg-highlight dark:bg-primary-900 text-sm rounded p-1" style="max-height: 70vh;">
-      <pre><code>{JSON.stringify(event.rawEvent(), null, 2)}</code></pre>
-    </div>
-  </Modal>
   <!-- Event details -->
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
-    <Details event={event} isModal={true} />
+    <div class="flex flex-row space-x-4">
+      {#if image}
+        <div class="flex col">
+          <img src={image} alt="Publication cover" class="w-32 h-32 object-cover rounded" />
+        </div>
+      {/if}
+      <div class="flex flex-col col space-y-5 justify-center align-middle">
+        <h1 class="text-3xl font-bold mt-5">{title || 'Untitled'}</h1>
+        <h2 class="text-base font-bold">by
+          {#if originalAuthor}
+          {@render userBadge(originalAuthor, author)}
+          {:else}
+            {author || 'Unknown'}
+          {/if}
+        </h2>
+        {#if version}
+          <h4 class='text-base font-thin mt-2'>Version: {version}</h4>
+        {/if}
+      </div>
+    </div>
+
+    {#if summary}
+      <div class="flex flex-row">
+        <p class='text-base text-primary-900 dark:text-highlight'>{summary}</p>
+      </div>
+    {/if}
+
+    <div class="flex flex-row">
+      <h4 class='text-base font-normal mt-2'>Index author: {@render userBadge(event.pubkey, author)}</h4>
+    </div>
+
+    <div class="flex flex-col pb-4 space-y-1">
+      {#if source}
+        <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank" rel="noopener noreferrer">{source}</a></h5>
+      {/if}
+      {#if type}
+        <h5 class="text-sm">Publication type: {type}</h5>
+      {/if}
+      {#if language}
+        <h5 class="text-sm">Language: {language}</h5>
+      {/if}
+      {#if publisher}
+        <h5 class="text-sm">Published by: {publisher}</h5>
+      {/if}
+      {#if identifier}
+        <h5 class="text-sm">Identifier: {identifier}</h5>
+      {/if}
+      <a 
+        href="/events?id={getIdentifier('nevent')}" 
+        class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
+      >
+        View Event Details
+      </a>
+    </div>
   </Modal>
 </div>

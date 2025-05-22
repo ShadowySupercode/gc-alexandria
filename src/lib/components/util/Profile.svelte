@@ -5,7 +5,7 @@ import { ArrowRightToBracketOutline, UserOutline, FileSearchOutline } from "flow
 import { Avatar, Popover } from "flowbite-svelte";
 import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
 
-const externalProfileDestination = 'https://njump.me/'
+const externalProfileDestination = './events?id='
 
 let { pubkey, isNav = false } = $props();
 

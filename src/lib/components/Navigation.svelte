@@ -10,8 +10,6 @@
   import Login from "./Login.svelte";
 
   let { class: className = "" } = $props();
-
-  let leftMenuOpen = $state(false);
 </script>
 
 <Navbar class={`Navbar navbar-leather navbar-main ${className}`}>
@@ -25,9 +23,10 @@
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
-    <NavLi href="/new/edit">Publish</NavLi>
+    <NavLi href="/">Publications</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
+    <NavLi href="/events">Events</NavLi>
     <NavLi href="/about">About</NavLi>
     <NavLi href="/contact">Contact</NavLi>
     <NavLi>

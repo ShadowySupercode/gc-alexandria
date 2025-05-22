@@ -1,13 +1,10 @@
 <script lang='ts'>
   import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
-  import { activePubkey, loginWithExtension, logout, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
-  import { Avatar, Button, Popover, Tooltip } from 'flowbite-svelte';
+  import { activePubkey, loginWithExtension, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
+  import { Avatar, Button, Popover } from 'flowbite-svelte';
   import Profile from "$components/util/Profile.svelte";
 
   let profile = $state<NDKUserProfile | null>(null);
-  let pfp = $derived(profile?.image);
-  let username = $derived(profile?.name);
-  let tag = $derived(profile?.name);
   let npub = $state<string | undefined >(undefined);
 
   let signInFailed = $state<boolean>(false);

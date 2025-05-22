@@ -1,27 +1,28 @@
 <script lang="ts">
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
+  import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   // isModal
   //  - don't show interactions in modal view
   //  - don't show all the details when _not_ in modal view
   let { event, isModal = false } = $props();
 
-  let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
-  let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
-  let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
-  let originalAuthor: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
-  let summary: string = $derived(event.getMatchingTags('summary')[0]?.[1] ?? null);
-  let type: string = $derived(event.getMatchingTags('type')[0]?.[1] ?? null);
-  let language: string = $derived(event.getMatchingTags('l')[0]?.[1] ?? null);
-  let source: string = $derived(event.getMatchingTags('source')[0]?.[1] ?? null);
-  let publisher: string = $derived(event.getMatchingTags('published_by')[0]?.[1] ?? null);
-  let identifier: string = $derived(event.getMatchingTags('i')[0]?.[1] ?? null);
-  let hashtags: [] = $derived(event.getMatchingTags('t') ?? []);
-  let rootId: string = $derived(event.getMatchingTags('d')[0]?.[1] ?? null);
+  let title: string = $derived(getMatchingTags(event, 'title')[0]?.[1]);
+  let author: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
+  let version: string = $derived(getMatchingTags(event, 'version')[0]?.[1] ?? '1');
+  let image: string = $derived(getMatchingTags(event, 'image')[0]?.[1] ?? null);
+  let originalAuthor: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? null);
+  let summary: string = $derived(getMatchingTags(event, 'summary')[0]?.[1] ?? null);
+  let type: string = $derived(getMatchingTags(event, 'type')[0]?.[1] ?? null);
+  let language: string = $derived(getMatchingTags(event, 'l')[0]?.[1] ?? null);
+  let source: string = $derived(getMatchingTags(event, 'source')[0]?.[1] ?? null);
+  let publisher: string = $derived(getMatchingTags(event, 'published_by')[0]?.[1] ?? null);
+  let identifier: string = $derived(getMatchingTags(event, 'i')[0]?.[1] ?? null);
+  let hashtags: string[] = $derived(getMatchingTags(event, 't').map(tag => tag[1]));
+  let rootId: string = $derived(getMatchingTags(event, 'd')[0]?.[1] ?? null);
   let kind = $derived(event.kind);
 
 
@@ -31,7 +32,7 @@
 <div class="flex flex-col relative mb-2">
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
-      <P class='text-base font-normal'><InlineProfile pubkey={event.pubkey} /></P>
+      <P class='text-base font-normal'>{@render userBadge(event.pubkey, author)}</P>
       <CardActions event={event}></CardActions>
     </div>
   {/if}
@@ -46,7 +47,7 @@
       <h2 class="text-base font-bold">
         by
         {#if originalAuthor !== null}
-          <InlineProfile pubkey={originalAuthor} title={author} />
+        {@render userBadge(originalAuthor, author)}
         {:else}
           {author}
         {/if}
@@ -67,7 +68,7 @@
 {#if hashtags.length}
   <div class="tags my-2">
     {#each hashtags as tag}
-      <span class="text-sm">#{tag[1]}</span>
+      <span class="text-sm">#{tag}</span>
     {/each}
   </div>
 {/if}
@@ -80,7 +81,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      <InlineProfile pubkey={event.pubkey} />
+      {@render userBadge(event.pubkey, author)}
     </h4>
   </div>
 

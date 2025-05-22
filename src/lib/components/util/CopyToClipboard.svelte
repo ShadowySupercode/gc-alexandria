@@ -1,27 +1,44 @@
 <script lang='ts'>
   import { ClipboardCheckOutline, ClipboardCleanOutline } from "flowbite-svelte-icons";
+  import { withTimeout } from "$lib/utils/nostrUtils";
+  import type { Component } from "svelte";
 
-  let { displayText, copyText = displayText} = $props();
+  let { displayText, copyText = displayText, icon = ClipboardCleanOutline } = $props<{
+    displayText: string;
+    copyText?: string;
+    icon?: Component | false;
+  }>();
 
   let copied: boolean = $state(false);
 
   async function copyToClipboard() {
     try {
-      await navigator.clipboard.writeText(copyText);
+      await withTimeout(navigator.clipboard.writeText(copyText), 2000);
       copied = true;
-      setTimeout(() => {
+      await withTimeout(
+        new Promise(resolve => setTimeout(resolve, 4000)),
+        4000
+      ).then(() => {
         copied = false;
-      }, 4000);
+      }).catch(() => {
+        // If timeout occurs, still reset the state
+        copied = false;
+      });
     } catch (err) {
-      console.error("Failed to copy: ", err);
+      console.error("[CopyToClipboard] Failed to copy:", err instanceof Error ? err.message : err);
     }
   }
 </script>
 
-<button class='btn-leather text-nowrap' onclick={copyToClipboard}>
+<button class='btn-leather w-full text-left' onclick={copyToClipboard}>
   {#if copied}
-    <ClipboardCheckOutline class="!fill-none dark:!fill-none inline mr-1" /> Copied!
+    <ClipboardCheckOutline class="inline mr-2" /> Copied!
   {:else}
-    <ClipboardCleanOutline class="!fill-none dark:!fill-none inline mr-1" /> {displayText}
+    {#if icon === ClipboardCleanOutline}
+      <ClipboardCleanOutline class="inline mr-2" />
+    {:else if icon === ClipboardCheckOutline}
+      <ClipboardCheckOutline class="inline mr-2" />
+    {/if}
+    {displayText}
   {/if}
 </button>

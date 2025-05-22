@@ -290,7 +290,7 @@
       If you are logged into the Alexandria web application (using the button at the top-right of the window), then you can use the form, below, to submit an issue, that will appear on our repo page.
     </P>
 
-    <form class="space-y-4" on:submit={handleSubmit} autocomplete="off">
+    <form class="space-y-4" onsubmit={handleSubmit} autocomplete="off">
       <div>
         <Label for="subject" class="mb-2">Subject</Label>
         <Input id="subject" class="w-full bg-white dark:bg-gray-800" placeholder="Issue subject" bind:value={subject} required autofocus />
@@ -306,7 +306,7 @@
                   <button 
                     type="button"
                     class="inline-block p-4 rounded-t-lg {activeTab === 'write' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'write'}
+                    onclick={() => activeTab = 'write'}
                     role="tab"
                   >
                     Write
@@ -316,7 +316,7 @@
                   <button 
                     type="button"
                     class="inline-block p-4 rounded-t-lg {activeTab === 'preview' ? 'border-b-2 border-primary-600 text-primary-600' : 'hover:text-gray-600 hover:border-gray-300'}" 
-                    on:click={() => activeTab = 'preview'}
+                    onclick={() => activeTab = 'preview'}
                     role="tab"
                   >
                     Preview
@@ -417,7 +417,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
           <!-- Close button -->
           <button 
             class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
-            on:click={closeSuccessMessage}
+            onclick={closeSuccessMessage}
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

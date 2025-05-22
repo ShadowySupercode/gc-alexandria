@@ -9,6 +9,7 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { nip19 } from "nostr-tools";
 import { standardRelays } from "$lib/consts";
+import { getMatchingTags } from '$lib/utils/nostrUtils';
 
 // Configuration
 const DEBUG = false; // Set to true to enable debug logging
@@ -158,7 +159,7 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
     // Build set of referenced event IDs to identify root events
     const referencedIds = new Set<string>();
     events.forEach((event) => {
-        const aTags = event.getMatchingTags("a");
+        const aTags = getMatchingTags(event, "a");
         debug("Processing a-tags for event", { 
             eventId: event.id, 
             aTagCount: aTags.length 
@@ -279,8 +280,7 @@ export function processIndexEvent(
     if (level >= maxLevel) return;
 
     // Extract the sequence of nodes referenced by this index
-    const sequence = indexEvent
-        .getMatchingTags("a")
+    const sequence = getMatchingTags(indexEvent, "a")
         .map((tag) => extractEventIdFromATag(tag))
         .filter((id): id is string => id !== null)
         .map((id) => state.nodeMap.get(id))
@@ -321,7 +321,7 @@ export function generateGraph(
     rootIndices.forEach((rootIndex) => {
         debug("Processing root index", { 
             rootId: rootIndex.id,
-            aTags: rootIndex.getMatchingTags("a").length
+            aTags: getMatchingTags(rootIndex, "a").length
         });
         processIndexEvent(rootIndex, 0, state, maxLevel);
     });

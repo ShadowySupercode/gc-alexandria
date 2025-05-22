@@ -26,6 +26,11 @@ export default defineConfig({
       $components: './src/components'
     }
   },
+  build: {
+    rollupOptions: {
+      external: ['bech32']
+    }
+  },
   test: {
     include: ['./tests/unit/**/*.test.ts', './tests/integration/**/*.test.ts']
   },

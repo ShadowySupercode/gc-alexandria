@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { Button, P } from 'flowbite-svelte';
 </script>

@@ -2,7 +2,7 @@
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { scale } from 'svelte/transition';
   import {  Card, Img } from "flowbite-svelte";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
   import CardActions from "$components/util/CardActions.svelte";
@@ -10,7 +10,7 @@
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
   let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
+  let author: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
   let hashtags: string = $derived(event.getMatchingTags('t') ?? null);
@@ -38,7 +38,7 @@
     <div class='space-y-4'>
       <div class="flex flex-row justify-between my-2">
         <div class="flex flex-col">
-          <InlineProfile pubkey={authorPubkey} title={author} />
+          {@render userBadge(authorPubkey, author)}
           <span class='text-gray-500'>{publishedAt()}</span>
         </div>
         <CardActions event={event} />

@@ -4,7 +4,8 @@
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
   import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
-  import BlogHeader from "./blog/BlogHeader.svelte";
+  import BlogHeader from "$components/cards/BlogHeader.svelte";
+  import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   // TODO: Fix move between parents.
 
@@ -101,14 +102,14 @@
   function byline(rootId: string, index: number) {
     console.log(rootId, index, blogEntries);
     const event = blogEntries[index][1];
-    const author = event ? event.getMatchingTags("author")[0][1] : '';
+    const author = event ? getMatchingTags(event, 'author')[0][1] : '';
     return author ?? "";
   }
 
   function hasCoverImage(rootId: string, index: number) {
     console.log(rootId);
     const event = blogEntries[index][1];
-    const image = event && event.getMatchingTags("image")[0] ? event.getMatchingTags("image")[0][1] : '';
+    const image = event && getMatchingTags(event, 'image')[0] ? getMatchingTags(event, 'image')[0][1] : '';
     return image ?? '';
   }
 

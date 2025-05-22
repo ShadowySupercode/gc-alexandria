@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
 
   // Get the git tag version from environment variables
@@ -20,15 +20,15 @@
         >
       {/if}
     </div>
-    <Img src="/screenshots/old_books.jpg" alt="Alexandria icon" />
+    <Img src="./screenshots/old_books.jpg" alt="Alexandria icon" />
 
     <P class="mb-3">
       Alexandria is a reader and writer for <A
-        href="/publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
+        href="./publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
         >curated publications</A
       > (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form
       articles (markup). It is produced by the <A
-        href="/publication?d=gitcitadel-project-documentation-gitcitadel-project-1-by-stella-v-1"
+        href="./publication?d=gitcitadel-project-documentation-by-stella-v-1"
         >GitCitadel project team</A
       >.
     </P>

@@ -2,12 +2,11 @@
   import { BookOutline, CaretLeftOutline, CloseOutline, GlobeOutline } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
-  import InlineProfile from "$components/util/InlineProfile.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
 
   let {
-    rootId,
     publicationType,
     indexEvent
   } = $props<{
@@ -17,7 +16,7 @@
   }>();
 
   let title: string = $derived(indexEvent.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(indexEvent.getMatchingTags('author')[0]?.[1] ?? 'unknown');
+  let author: string = $derived(indexEvent.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
   let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
 
@@ -131,7 +130,7 @@
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
-        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by <InlineProfile pubkey={pubkey} title={author} /></span></p>
+        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}
