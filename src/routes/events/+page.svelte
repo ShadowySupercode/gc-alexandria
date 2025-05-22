@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import EventSearch from '$lib/components/EventSearch.svelte';
   import EventDetails from '$lib/components/EventDetails.svelte';
@@ -27,6 +27,7 @@
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
+    loading = false;
     if (newEvent.kind === 0) {
       try {
         profile = JSON.parse(newEvent.content);
@@ -38,8 +39,16 @@
     }
   }
 
+  $effect(() => {
+    if (page.data.searchParams?.id) {
+      searchValue = page.data.searchParams.id;
+      error = null;
+      loading = true;
+    }
+  });
+
   onMount(async () => {
-    const id = $page.url.searchParams.get('id');
+    const id = page.data.searchParams?.id;
     if (id) {
       searchValue = id;
     }
@@ -62,6 +71,7 @@
 
     <EventSearch {loading} {error} {searchValue} {event} onEventFound={handleEventFound} />
     {#if event}
+      {#key event.id}
       <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
       {#if userPubkey}
@@ -74,6 +84,7 @@
           <P>Please sign in to add comments.</P>
         </div>
       {/if}
+      {/key}
     {/if}
   </main>
 </div>
