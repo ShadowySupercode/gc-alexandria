@@ -102,6 +102,7 @@
   }
 </script>
 
+{#key event.id}
 <div class="flex flex-col space-y-4">
   {#if event.kind !== 0 && getEventTitle(event)}
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{getEventTitle(event)}</h2>
@@ -181,4 +182,5 @@
       {JSON.stringify(event.rawEvent(), null, 2)}
     </pre>
   </details>
-</div> 
+</div>
+{/key}
