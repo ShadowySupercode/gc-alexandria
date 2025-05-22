@@ -1,7 +1,7 @@
 <script lang='ts'>
   import { Heading, P, A, Button, Label, Textarea, Input, Modal } from 'flowbite-svelte';
   import { ndkSignedIn, ndkInstance } from '$lib/ndk';
-  import { standardRelays } from '$lib/consts';
+  import { standardRelays, fallbackRelays } from '$lib/consts';
   import type NDK from '@nostr-dev-kit/ndk';
   import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
   // @ts-ignore - Workaround for Svelte component import issue
@@ -47,11 +47,9 @@
   // Repository event address from the task
   const repoAddress = 'naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr';
   
-  // Hard-coded relays to ensure we have working relays
+  // Remove hardcoded relays and use fallbackRelays from consts
   const allRelays = [
-    'wss://relay.damus.io',
-    'wss://relay.nostr.band',
-    'wss://nos.lol',
+    ...fallbackRelays,
     ...standardRelays
   ];
   

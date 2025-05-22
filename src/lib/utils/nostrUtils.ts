@@ -81,7 +81,7 @@ export async function getUserMetadata(identifier: string): Promise<NostrProfile>
     }
 
     const profileEvent = await fetchEventWithFallback(ndk, { kinds: [0], authors: [pubkey] });
-    const profile = profileEvent && profileEvent.content ? JSON.parse(profileEvent.content) : null;
+    const profile = profileEvent.event && profileEvent.event.content ? JSON.parse(profileEvent.event.content) : null;
 
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
@@ -163,12 +163,13 @@ export async function createProfileLinkWithVerification(identifier: string, disp
     return createProfileLink(identifier, displayText);
   }
   
-  // TODO: Make this work with an enum in case we add more types.
   const type = nip05.endsWith('edu') ? 'edu' : 'standard';
   switch (type) {
     case 'edu':
       return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
     case 'standard':
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+    default:
       return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
@@ -302,17 +303,39 @@ Promise.prototype.withTimeout = function<T>(this: Promise<T>, timeoutMs: number)
   return withTimeout(timeoutMs, this);
 };
 
+interface RelaySearchResult {
+  event: NDKEvent | null;
+  relay: string;
+  latency: number;
+  group: string;
+}
+
+interface EventSearchResult {
+  event: NDKEvent | null;
+  relayInfo?: {
+    url: string;
+    latency: number;
+    group: string;
+  };
+}
+
 /**
- * Fetches an event using a two-step relay strategy:
- * 1. First tries standard relays with timeout
- * 2. Falls back to all relays if not found
- * Always wraps result as NDKEvent
+ * Fetches an event using parallel relay sets with performance tracking
+ * Searches relays in parallel within each group, but maintains group priority order
+ * @param ndk NDK instance
+ * @param filterOrId Event ID or filter
+ * @param timeoutMs Timeout in milliseconds
+ * @param useFallbackRelays Whether to include fallback relays in the search
+ * @param signal Optional AbortSignal for cancellation
+ * @returns The event and relay info if found, null otherwise
  */
 export async function fetchEventWithFallback(
   ndk: NDK,
   filterOrId: string | NDKFilter<NDKKind>,
-  timeoutMs: number = 3000
-): Promise<NDKEvent | null> {
+  timeoutMs: number = 3000,
+  useFallbackRelays: boolean = true,
+  signal?: AbortSignal
+): Promise<EventSearchResult> {
   // Get user relays if logged in
   const userRelays = ndk.activeUser ? 
     Array.from(ndk.pool?.relays.values() || [])
@@ -320,60 +343,118 @@ export async function fetchEventWithFallback(
       .map(r => r.url) : 
     [];
   
-  // Create three relay sets in priority order
-  const relaySets = [
-    NDKRelaySetFromNDK.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
-    NDKRelaySetFromNDK.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
-    NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk)  // 3. fallback relays (last resort)
-  ];
+  // Create relay groups in priority order
+  const relayGroups = [
+    { name: 'primary', relays: [...standardRelays, ...userRelays] },
+    { name: 'fallback', relays: fallbackRelays }
+  ].filter(group => group.relays.length > 0 && (group.name !== 'fallback' || useFallbackRelays));
 
-  try {
-    let found: NDKEvent | null = null;
-    const triedRelaySets: string[] = [];
+  // Helper function to try fetching from a single relay
+  async function tryFetchFromRelay(relayUrl: string, groupName: string): Promise<RelaySearchResult> {
+    const startTime = performance.now();
+    try {
+      // Check for cancellation
+      if (signal?.aborted) {
+        throw new Error('Search cancelled');
+      }
 
-    // Helper function to try fetching from a relay set
-    async function tryFetchFromRelaySet(relaySet: NDKRelaySetFromNDK, setName: string): Promise<NDKEvent | null> {
-      if (relaySet.relays.size === 0) return null;
-      triedRelaySets.push(setName);
-      
+      const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relayUrl], ndk);
+      let event: NDKEvent | null = null;
+
       if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
-        return await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
+        event = await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
       } else {
         const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
         const results = await ndk.fetchEvents(filter, undefined, relaySet).withTimeout(timeoutMs);
-        return results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
+        event = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
       }
+
+      // Check for cancellation after fetch
+      if (signal?.aborted) {
+        throw new Error('Search cancelled');
+      }
+
+      const latency = performance.now() - startTime;
+      if (event) {
+        console.debug(`[${groupName}] Found event on ${relayUrl} in ${latency.toFixed(0)}ms`);
+      }
+      return { event, relay: relayUrl, latency, group: groupName };
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Search cancelled') {
+        throw err;
+      }
+      const latency = performance.now() - startTime;
+      console.debug(`[${groupName}] Failed to fetch from ${relayUrl} after ${latency.toFixed(0)}ms:`, err);
+      return { event: null, relay: relayUrl, latency, group: groupName };
+    }
+  }
+
+  try {
+    // Search each group in sequence, but relays within groups in parallel
+    for (const group of relayGroups) {
+      // Check for cancellation before starting group search
+      if (signal?.aborted) {
+        throw new Error('Search cancelled');
+      }
+
+      // Start parallel searches within this group
+      const searchPromises = group.relays.map(relay => 
+        tryFetchFromRelay(relay, group.name)
+      );
+
+      // Wait for all searches in this group to complete or timeout
+      const results = await Promise.allSettled(searchPromises);
+
+      // Check for cancellation after group search
+      if (signal?.aborted) {
+        throw new Error('Search cancelled');
+      }
+
+      // Process results from this group
+      const successfulResults = results
+        .filter((r): r is PromiseFulfilledResult<RelaySearchResult> => 
+          r.status === 'fulfilled' && r.value.event !== null
+        )
+        .map(r => r.value)
+        .sort((a, b) => a.latency - b.latency); // Sort by latency
+
+      if (successfulResults.length > 0) {
+        const fastest = successfulResults[0];
+        console.debug(
+          `Event found on ${fastest.relay} in ${fastest.latency.toFixed(0)}ms. ` +
+          `Also found on ${successfulResults.length - 1} other relay(s) in the ${group.name} group.`
+        );
+        return {
+          event: fastest.event,
+          relayInfo: {
+            url: fastest.relay,
+            latency: fastest.latency,
+            group: fastest.group
+          }
+        };
+      }
+
+      // If we didn't find the event in this group, log it and continue to next group
+      console.debug(
+        `No event found in ${group.name} group after searching ${group.relays.length} relay(s). ` +
+        `Moving to next group...`
+      );
     }
 
-    // Try each relay set in order
-    for (const [index, relaySet] of relaySets.entries()) {
-      const setName = index === 0 ? 'standard relays' : 
-                     index === 1 ? 'user relays' : 
-                     'fallback relays';
-      
-      found = await tryFetchFromRelaySet(relaySet, setName);
-      if (found) break;
-    }
-
-    if (!found) {
-      const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = relaySets.map((set, i) => {
-        const setName = i === 0 ? 'standard relays' : 
-                       i === 1 ? 'user relays' : 
-                       'fallback relays';
-        const urls = Array.from(set.relays).map(r => r.url);
-        return urls.length > 0 ? `${setName} (${urls.join(', ')})` : null;
-      }).filter(Boolean).join(', then ');
-      
-      console.warn(`Event not found after ${timeoutSeconds}s timeout. Tried ${relayUrls}. Some relays may be offline or slow.`);
-      return null;
-    }
-
-    // Always wrap as NDKEvent
-    return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
+    // If we get here, no event was found in any group
+    const njumpLink = `<a href="https://njump.me/${typeof filterOrId === 'string' ? filterOrId : ''}" target="_blank" class="text-primary-600 hover:underline">Njump</a>`;
+    console.warn(
+      `Event not found after searching all relay groups. ` +
+      `Try searching on ${njumpLink} instead.`
+    );
+    return { event: null };
   } catch (err) {
+    if (err instanceof Error && err.message === 'Search cancelled') {
+      console.log('Search cancelled by user');
+      throw err;
+    }
     console.error('Error in fetchEventWithFallback:', err);
-    return null;
+    return { event: null };
   }
 }
 
