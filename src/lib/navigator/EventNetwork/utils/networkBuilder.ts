@@ -9,7 +9,7 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { nip19 } from "nostr-tools";
 import { standardRelays } from "$lib/consts";
-import { getMatchingTags } from '$lib/utils/nostrUtils';
+import { getTagValue, getTagValues } from '$lib/utils/eventTags';
 
 // Configuration
 const DEBUG = false; // Set to true to enable debug logging
@@ -50,7 +50,7 @@ export function createNetworkNode(
         event,
         isContainer,
         level,
-        title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
+        title: event.getTagValue('title') || "Untitled",
         content: event.content || "",
         author: event.pubkey || "",
         kind: event.kind || CONTENT_EVENT_KIND, // Default to content event kind if undefined
@@ -60,7 +60,7 @@ export function createNetworkNode(
     // Add NIP-19 identifiers if possible
     if (event.kind && event.pubkey) {
         try {
-            const dTag = event.getMatchingTags("d")?.[0]?.[1] || "";
+            const dTag = event.getTagValue('d') || "";
             
             // Create naddr (NIP-19 address) for the event
             node.naddr = nip19.naddrEncode({
@@ -105,13 +105,15 @@ export function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
 }
 
 /**
- * Extracts an event ID from an 'a' tag
- * 
- * @param tag - The tag array from a Nostr event
- * @returns The event ID or null if not found
+ * Extracts a d-tag (identifier) from an 'a' tag value.
+ *
+ * @param tagValue - The tag value to extract the d-tag from (format: 'kind:pubkey:d-tag')
+ * @returns The d-tag (identifier) or null if not found
  */
-export function extractEventIdFromATag(tag: string[]): string | null {
-    return tag[3] || null;
+export function extractDTagFromATag(tagValue: string): string | null {
+    // The third part of the colon-separated string is the d-tag (identifier)
+    const parts = tagValue.split(':');
+    return parts.length > 2 ? parts[2] : null;
 }
 
 /**
@@ -159,14 +161,14 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
     // Build set of referenced event IDs to identify root events
     const referencedIds = new Set<string>();
     events.forEach((event) => {
-        const aTags = getMatchingTags(event, "a");
+        const aTags = event.getTagValues('a');
         debug("Processing a-tags for event", { 
             eventId: event.id, 
             aTagCount: aTags.length 
         });
         
         aTags.forEach((tag) => {
-            const id = extractEventIdFromATag(tag);
+            const id = extractDTagFromATag(tag);
             if (id) referencedIds.add(id);
         });
     });
@@ -280,11 +282,11 @@ export function processIndexEvent(
     if (level >= maxLevel) return;
 
     // Extract the sequence of nodes referenced by this index
-    const sequence = getMatchingTags(indexEvent, "a")
-        .map((tag) => extractEventIdFromATag(tag))
-        .filter((id): id is string => id !== null)
-        .map((id) => state.nodeMap.get(id))
-        .filter((node): node is NetworkNode => node !== undefined);
+    const sequence = indexEvent.getTagValues('a')
+        .map((tag: string) => extractDTagFromATag(tag))
+        .filter((id: string | null): id is string => id !== null)
+        .map((id: string) => state.nodeMap.get(id))
+        .filter((node: NetworkNode | undefined): node is NetworkNode => node !== undefined);
 
     processSequence(sequence, indexEvent, level, state, maxLevel);
 }
@@ -321,7 +323,7 @@ export function generateGraph(
     rootIndices.forEach((rootIndex) => {
         debug("Processing root index", { 
             rootId: rootIndex.id,
-            aTags: getMatchingTags(rootIndex, "a").length
+            aTags: rootIndex.getTagValues('a').length
         });
         processIndexEvent(rootIndex, 0, state, maxLevel);
     });

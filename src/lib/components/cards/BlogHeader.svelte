@@ -9,11 +9,11 @@
 
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
-  let title: string = $derived(event.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(event.getMatchingTags('author')[0]?.[1] ?? 'unknown');
-  let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
-  let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
-  let hashtags: string = $derived(event.getMatchingTags('t') ?? null);
+  let title: string = $derived.by(() => event.getTagValue('title'));
+  let author: string = $derived.by(() => event.getTagValue('author') ?? 'unknown');
+  let image: string = $derived.by(() => event.getTagValue('image') ?? null);
+  let authorPubkey: string = $derived.by(() => event.getTagValue('p') ?? null);
+  let hashtags: string[] = $derived.by(() => event.getTagValues('t'));
 
   function publishedAt() {
     const date = event.created_at ? new Date(event.created_at * 1000) : '';

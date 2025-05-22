@@ -2,22 +2,23 @@
   import { levelsToRender } from "$lib/state";
   import { createEventDispatcher } from "svelte";
 
-  let inputValue = $levelsToRender;
+  // Convert inputValue to a derived value
+  let inputValue = $derived.by(() => $levelsToRender);
 
   const dispatch = createEventDispatcher<{
     update: { limit: number };
   }>();
+
   function handleInput(event: Event) {
     const input = event.target as HTMLInputElement;
     const value = parseInt(input.value);
     // Ensure value is between 1 and 50
     if (value >= 1 && value <= 50) {
-      inputValue = value;
+      $levelsToRender = value;
     }
   }
 
   function handleUpdate() {
-    $levelsToRender = inputValue;
     dispatch("update", { limit: inputValue });
   }
 
@@ -39,7 +40,7 @@
     min="1"
     max="50"
     class="w-20 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
-    bind:value={inputValue}
+    value={inputValue}
     oninput={handleInput}
     onkeydown={handleKeyDown}
   />

@@ -9,7 +9,7 @@
   }>();
 
   let signInFailed = $state<boolean>(false);
-  let errorMessage = $state<string>('');
+  let errorMessage = $derived.by(() => signInFailed ? 'Failed to sign in. Please try again.' : '');
 
   $effect(() => {
     if ($ndkSignedIn && show) {
@@ -21,7 +21,6 @@
   async function handleSignInClick() {
     try {
       signInFailed = false;
-      errorMessage = '';
       
       const user = await loginWithExtension();
       if (!user) {
@@ -30,7 +29,6 @@
     } catch (e: unknown) {
       console.error(e);
       signInFailed = true;
-      errorMessage = (e as Error)?.message ?? 'Failed to sign in. Please try again.';
     }
   }
 </script>

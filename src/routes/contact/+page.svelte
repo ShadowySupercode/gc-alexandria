@@ -390,7 +390,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
             size="xs"
             class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
             color="light"
-            on:click={toggleSize}
+            onclick={toggleSize}
           >
             {isExpanded ? '⌃' : '⌄'}
           </Button>
@@ -398,7 +398,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
       </div>
 
       <div class="flex justify-end space-x-4">
-        <Button type="button" color="alternative" on:click={clearForm}>
+        <Button type="button" color="alternative" onclick={clearForm}>
           Clear Form
         </Button>
         <Button type="submit" tabindex={0}>
@@ -492,10 +492,10 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
       Would you like to submit the issue?
     </h3>
     <div class="flex justify-center gap-4">
-      <Button color="alternative" on:click={cancelSubmit}>
+      <Button color="alternative" onclick={cancelSubmit}>
         Cancel
       </Button>
-      <Button color="primary" on:click={confirmSubmit}>
+      <Button color="primary" onclick={confirmSubmit}>
         Submit
       </Button>
     </div>

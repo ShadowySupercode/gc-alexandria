@@ -7,7 +7,7 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
+  import { getTagValues } from '$lib/utils/eventTags';
   
   // Component props
   let { node, selected = false, x, y, onclose } = $props<{
@@ -20,8 +20,8 @@
   
   // DOM reference and positioning
   let tooltipElement: HTMLDivElement;
-  let tooltipX = $state(x + 10); // Add offset to avoid cursor overlap
-  let tooltipY = $state(y - 10);
+  let tooltipX = $derived.by(() => x + 10); // Add offset to avoid cursor overlap
+  let tooltipY = $derived.by(() => y - 10);
   
   // Maximum content length to display
   const MAX_CONTENT_LENGTH = 200;
@@ -31,7 +31,7 @@
    */
   function getAuthorTag(node: NetworkNode): string {
     if (node.event) {
-      const authorTags = getMatchingTags(node.event, "author");
+      const authorTags = getTagValues(node.event, "author");
       if (authorTags.length > 0) {
         return authorTags[0][1];
       }
@@ -44,25 +44,12 @@
    */
   function getSummaryTag(node: NetworkNode): string | null {
     if (node.event) {
-      const summaryTags = getMatchingTags(node.event, "summary");
+      const summaryTags = getTagValues(node.event, "summary");
       if (summaryTags.length > 0) {
         return summaryTags[0][1];
       }
     }
     return null;
-  }
-  
-  /**
-   * Gets the d-tag from the event
-   */
-  function getDTag(node: NetworkNode): string {
-    if (node.event) {
-      const dTags = getMatchingTags(node.event, "d");
-      if (dTags.length > 0) {
-        return dTags[0][1];
-      }
-    }
-    return "View Publication";
   }
   
   /**

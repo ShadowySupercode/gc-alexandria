@@ -4,8 +4,6 @@
 <script lang="ts">
     import {Button} from 'flowbite-svelte';
     import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
-    import { fly } from "svelte/transition";
-    import { quintOut } from "svelte/easing";
     import EventLimitControl from "$lib/components/EventLimitControl.svelte";
     import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
     import { networkFetchLimit } from "$lib/state";

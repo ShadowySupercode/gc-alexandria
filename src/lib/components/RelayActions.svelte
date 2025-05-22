@@ -4,7 +4,8 @@
   import { get } from 'svelte/store';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { createRelaySetFromUrls, createNDKEvent } from '$lib/utils/nostrUtils';
-  import RelayDisplay, { getConnectedRelays, getEventRelays } from './RelayDisplay.svelte';
+  import RelayDisplay from './RelayDisplay.svelte';
+  import { getConnectedRelays, getEventRelays } from '$lib/utils/relayUtils';
   import { standardRelays, fallbackRelays } from "$lib/consts";
 
   const { event } = $props<{
@@ -18,7 +19,14 @@
   let broadcastError = $state<string | null>(null);
   let showRelayModal = $state(false);
   let relaySearchResults = $state<Record<string, 'pending' | 'found' | 'notfound'>>({});
-  let allRelays = $state<string[]>([]);
+
+  // Convert state variables to derived values
+  let allRelays = $derived.by(() => {
+    const standard = standardRelays;
+    const fallback = fallbackRelays;
+    const connected = getConnectedRelays();
+    return [...new Set([...standard, ...fallback, ...connected])];
+  });
 
   // Magnifying glass icon SVG
   const searchIcon = `<svg class="w-4 h-4 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
@@ -103,7 +111,7 @@
 
 <div class="mt-4 flex flex-wrap gap-2">
   <Button 
-    on:click={openRelayModal} 
+    onclick={openRelayModal} 
     class="flex items-center"
   >
     {@html searchIcon}
@@ -112,7 +120,7 @@
 
   {#if $ndkInstance?.activeUser}
     <Button 
-      on:click={broadcastEvent} 
+      onclick={broadcastEvent} 
       disabled={broadcasting}
       class="flex items-center"
     >

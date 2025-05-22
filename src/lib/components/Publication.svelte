@@ -84,12 +84,14 @@
 
   // region Columns visibility
   let currentBlog: null | string = $state(null);
-  let currentBlogEvent: null | NDKEvent = $state(null);
-  const isLeaf = $derived(indexEvent.kind === 30041);
+  let currentBlogEvent = $derived.by(() => {
+    if (!currentBlog || leaves.length === 0) return null;
+    return leaves.find((i) => i && i.tagAddress() === currentBlog) ?? null;
+  });
+  const isLeaf = $derived.by(() => indexEvent.kind === 30041);
 
-  function isInnerActive() {
-    return currentBlog !== null && $publicationColumnVisibility.inner;
-  }
+  let isInnerActive = $derived.by(() => currentBlog !== null && $publicationColumnVisibility.inner);
+  let showBlogHeader = $derived.by(() => currentBlog && currentBlogEvent && window.innerWidth < 1140);
 
   function closeDiscussion() {
     publicationColumnVisibility.update((v) => ({ ...v, discussion: false }));
@@ -108,15 +110,6 @@
     });
 
     currentBlog = rootId;
-    // set current blog values for publication render
-    if (leaves.length > 0) {
-      currentBlogEvent =
-        leaves.find((i) => i && i.tagAddress() === currentBlog) ?? null;
-    }
-  }
-
-  function showBlogHeader() {
-    return currentBlog && currentBlogEvent && window.innerWidth < 1140;
   }
 
   onDestroy(() => {
@@ -191,7 +184,7 @@
       {#if isLoading}
         <Button disabled color="primary">Loading...</Button>
       {:else if !isDone}
-        <Button color="primary" on:click={() => loadMore(1)}>Show More</Button>
+        <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
       {:else}
         <p class="text-gray-500 dark:text-gray-400">
           You've reached the end of the publication.
@@ -205,8 +198,7 @@
 {#if $publicationColumnVisibility.blog}
   <div
     class="flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1
-        {isInnerActive() ? 'discreet' : ''}
-  "
+        {isInnerActive ? 'discreet' : ''}"
   >
     <div
       class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
@@ -220,14 +212,14 @@
           rootId={leaf.tagAddress()}
           event={leaf}
           onBlogUpdate={loadBlog}
-          active={!isInnerActive()}
+          active={!isInnerActive}
         />
       {/if}
     {/each}
   </div>
 {/if}
 
-{#if isInnerActive()}
+{#if isInnerActive}
   {#key currentBlog}
     <div
       class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-146px)] sticky top-[146px]"
@@ -271,11 +263,7 @@
           </Button>
         </div>
         <div class="flex flex-col space-y-4">
-          <!-- TODO
-                alternative for other publications and
-                when blog is not opened, but discussion is opened from the list
-          -->
-          {#if showBlogHeader() && currentBlog && currentBlogEvent}
+          {#if showBlogHeader && currentBlog && currentBlogEvent}
             <BlogHeader
               rootId={currentBlog}
               event={currentBlogEvent}

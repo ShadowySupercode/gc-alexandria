@@ -2,7 +2,7 @@
   import { Button, Textarea, Alert } from 'flowbite-svelte';
   import { parseBasicmarkup } from '$lib/utils/markup/basicMarkupParser';
   import { nip19 } from 'nostr-tools';
-  import { getEventHash, signEvent, getUserMetadata, type NostrProfile } from '$lib/utils/nostrUtils';
+  import { getEventHash, signEvent, getUserMetadata, type NostrProfile, publishEvent } from '$lib/utils/nostrUtils';
   import { standardRelays, fallbackRelays } from '$lib/consts';
   import { userRelays } from '$lib/stores/relayStore';
   import { get } from 'svelte/store';
@@ -17,13 +17,30 @@
   }>();
 
   let content = $state('');
-  let preview = $state('');
+  let previewContent = $state('');
   let isSubmitting = $state(false);
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
+
+  // Update relay visibility based on user relays and preferences
+  $effect(() => {
+    showOtherRelays = $userRelays.length > 0;
+    showFallbackRelays = !props.userRelayPreference;
+  });
+
+  // Update preview content when content changes
+  $effect(() => {
+    if (content) {
+      parseBasicmarkup(content).then(parsed => {
+        previewContent = parsed;
+      });
+    } else {
+      previewContent = '';
+    }
+  });
 
   // Fetch user profile on mount
   onMount(async () => {
@@ -46,7 +63,7 @@
     { label: 'Hashtag', action: () => insertMarkup('#', '') }
   ];
 
-  function insertMarkup(prefix: string, suffix: string) {
+  async function insertMarkup(prefix: string, suffix: string) {
     const textarea = document.querySelector('textarea');
     if (!textarea) return;
 
@@ -55,26 +72,20 @@
     const selectedText = content.substring(start, end);
     
     content = content.substring(0, start) + prefix + selectedText + suffix + content.substring(end);
-    updatePreview();
     
-    // Set cursor position after the inserted markup
-    setTimeout(() => {
+    // Update preview and set cursor position after the inserted markup
+    await parseBasicmarkup(content).then(parsed => {
+      previewContent = parsed;
       textarea.focus();
       textarea.selectionStart = textarea.selectionEnd = start + prefix.length + selectedText.length + suffix.length;
-    }, 0);
-  }
-
-  async function updatePreview() {
-    preview = await parseBasicmarkup(content);
+    });
   }
 
   function clearForm() {
     content = '';
-    preview = '';
+    previewContent = '';
     error = null;
     success = null;
-    showOtherRelays = false;
-    showFallbackRelays = false;
   }
 
   function removeFormatting() {
@@ -88,7 +99,6 @@
       .replace(/^[-*]\s*/gm, '')
       .replace(/^\d+\.\s*/gm, '')
       .replace(/#(\w+)/g, '$1');
-    updatePreview();
   }
 
   async function handleSubmit(useOtherRelays = false, useFallbackRelays = false) {
@@ -156,50 +166,18 @@
         relays = fallbackRelays;
       }
 
-      // Try to publish to relays
-      let published = false;
-      for (const relayUrl of relays) {
-        try {
-          const ws = new WebSocket(relayUrl);
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              ws.close();
-              reject(new Error('Timeout'));
-            }, 5000);
+      // Try to publish the event
+      const result = await publishEvent(signedEvent, {
+        relays,
+        useFallbackRelays: !useFallbackRelays && !useOtherRelays
+      });
 
-            ws.onopen = () => {
-              ws.send(JSON.stringify(['EVENT', signedEvent]));
-            };
-
-            ws.onmessage = (e) => {
-              const [type, id, ok, message] = JSON.parse(e.data);
-              if (type === 'OK' && id === signedEvent.id) {
-                clearTimeout(timeout);
-                if (ok) {
-                  published = true;
-                  success = { relay: relayUrl, eventId: signedEvent.id };
-                  ws.close();
-                  resolve();
-                } else {
-                  ws.close();
-                  reject(new Error(message));
-                }
-              }
-            };
-
-            ws.onerror = () => {
-              clearTimeout(timeout);
-              ws.close();
-              reject(new Error('WebSocket error'));
-            };
-          });
-          if (published) break;
-        } catch (e) {
-          console.error(`Failed to publish to ${relayUrl}:`, e);
-        }
-      }
-
-      if (!published) {
+      if (result.success) {
+        success = { relay: result.relay!, eventId: signedEvent.id };
+        // Navigate to the event page
+        const nevent = nip19.neventEncode({ id: signedEvent.id });
+        goto(`/events?id=${nevent}`);
+      } else {
         if (!useOtherRelays && !useFallbackRelays) {
           showOtherRelays = true;
           error = 'Failed to publish to primary relays. Would you like to try the other relays?';
@@ -207,12 +185,8 @@
           showFallbackRelays = true;
           error = 'Failed to publish to other relays. Would you like to try the fallback relays?';
         } else {
-          error = 'Failed to publish to any relays. Please try again later.';
+          error = result.error || 'Failed to publish to any relays. Please try again later.';
         }
-      } else {
-        // Navigate to the event page
-        const nevent = nip19.neventEncode({ id: signedEvent.id });
-        goto(`/events?id=${nevent}`);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'An error occurred';
@@ -225,24 +199,23 @@
 <div class="w-full space-y-4">
   <div class="flex flex-wrap gap-2">
     {#each markupButtons as button}
-      <Button size="xs" on:click={button.action}>{button.label}</Button>
+      <Button size="xs" onclick={button.action}>{button.label}</Button>
     {/each}
-    <Button size="xs" color="alternative" on:click={removeFormatting}>Remove Formatting</Button>
-    <Button size="xs" color="alternative" on:click={clearForm}>Clear</Button>
+    <Button size="xs" color="alternative" onclick={removeFormatting}>Remove Formatting</Button>
+    <Button size="xs" color="alternative" onclick={clearForm}>Clear</Button>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <Textarea
         bind:value={content}
-        on:input={updatePreview}
         placeholder="Write your comment..."
         rows={10}
         class="w-full"
       />
     </div>
     <div class="prose dark:prose-invert max-w-none p-4 border rounded-lg">
-      {@html preview}
+      {@html previewContent}
     </div>
   </div>
 
@@ -250,10 +223,10 @@
     <Alert color="red" dismissable>
       {error}
       {#if showOtherRelays}
-        <Button size="xs" class="mt-2" on:click={() => handleSubmit(true)}>Try Other Relays</Button>
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}>Try Other Relays</Button>
       {/if}
       {#if showFallbackRelays}
-        <Button size="xs" class="mt-2" on:click={() => handleSubmit(false, true)}>Try Fallback Relays</Button>
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(false, true)}>Try Fallback Relays</Button>
       {/if}
     </Alert>
   {/if}
@@ -287,7 +260,7 @@
       </div>
     {/if}
     <Button
-      on:click={() => handleSubmit()}
+      onclick={() => handleSubmit()}
       disabled={isSubmitting || !content.trim() || !props.userPubkey}
       class="w-full md:w-auto"
     >

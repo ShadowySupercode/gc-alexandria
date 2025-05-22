@@ -1,6 +1,6 @@
+import { getTagValue, getTagValues } from './utils/eventTags';
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getMatchingTags } from "./utils/nostrUtils";
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -12,7 +12,7 @@ export function neventEncode(event: NDKEvent, relays: string[]) {
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = getMatchingTags(event, 'd')[0]?.[1];
+  const dTag = event.getTagValue('d');
   if (!dTag) {
     throw new Error('Event does not have a d tag');
   }
@@ -114,11 +114,11 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
     // Index events have no content, and they must have `title`, `d`, and `e` tags.
     if (
       (event.content != null && event.content.length > 0)
-      || getMatchingTags(event, 'title').length === 0
-      || getMatchingTags(event, 'd').length === 0
+      || !event.getTagValue('title')
+      || !event.getTagValue('d')
       || (
-        getMatchingTags(event, 'a').length === 0
-        && getMatchingTags(event, 'e').length === 0
+        event.getTagValues('a').length === 0
+        && event.getTagValues('e').length === 0
       )
     ) {
       events.delete(event);

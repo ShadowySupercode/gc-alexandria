@@ -2,7 +2,7 @@
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import type { NDKEvent } from '$lib/utils/nostrUtils';
+  import type { NDKEvent, NostrProfile } from '$lib/utils/nostrUtils';
   import EventSearch from '$lib/components/EventSearch.svelte';
   import EventDetails from '$lib/components/EventDetails.svelte';
   import RelayActions from '$lib/components/RelayActions.svelte';
@@ -12,16 +12,7 @@
   let error = $state<string | null>(null);
   let searchValue = $state<string | null>(null);
   let event = $state<NDKEvent | null>(null);
-  let profile = $state<{
-    name?: string;
-    display_name?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    nip05?: string;
-  } | null>(null);
+  let profile = $state<NostrProfile | null>(null);
   let userPubkey = $state<string | null>(null);
   let userRelayPreference = $state(false);
 

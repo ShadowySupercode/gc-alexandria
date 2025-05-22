@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, Input, Select, Textarea, Label, Checkbox } from 'flowbite-svelte';
+  import { Button, Input, Select, Textarea, Label } from 'flowbite-svelte';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher<{
@@ -24,15 +24,24 @@
     source: ''
   });
 
-  function handleSearch() {
-    if (isSearching) {
-      dispatch('cancel');
-      isSearching = false;
-      return;
-    }
+  let hasActiveFilters = $derived.by(() => 
+    Object.values(filters).some(value => String(value).trim() !== '')
+  );
 
-    isSearching = true;
-    const query = Object.entries(filters)
+  let canSearch = $derived.by(() => 
+    !isSearching && hasActiveFilters
+  );
+
+  let showClearButton = $derived.by(() => 
+    hasActiveFilters && !isSearching
+  );
+
+  type ButtonColor = "red" | "primary" | "green" | "yellow" | "purple" | "blue" | "light" | "dark" | "none" | "alternative";
+  let searchButtonText = $derived.by(() => isSearching ? 'Cancel' : 'Search');
+  let searchButtonColor = $derived.by(() => (isSearching ? "red" : "primary") as ButtonColor);
+  let expandButtonText = $derived.by(() => isExpanded ? 'Hide Advanced Search' : 'Show Advanced Search');
+  let searchQuery = $derived.by(() => {
+    return Object.entries(filters)
       .filter(([key, value]) => {
         if (key === 'publishedOnStart' || key === 'publishedOnEnd') {
           return String(value).trim() !== '';
@@ -49,15 +58,20 @@
         return `${key}:${value}`;
       })
       .join(' ');
-    
-    dispatch('search', { query, filters });
-  }
+  });
 
-  function handleClear() {
+  function handleSearch() {
     if (isSearching) {
       dispatch('cancel');
       isSearching = false;
+      return;
     }
+
+    isSearching = true;
+    dispatch('search', { query: searchQuery, filters });
+  }
+
+  function handleClear() {
     filters = {
       title: '',
       author: '',
@@ -75,17 +89,28 @@
   }
 </script>
 
-<div class="w-full">
-  <Button
-    color="alternative"
-    class="w-full mb-4"
-    on:click={() => (isExpanded = !isExpanded)}
-  >
-    {isExpanded ? 'Hide Advanced Search' : 'Show Advanced Search'}
-  </Button>
+<div class="flex flex-col space-y-4">
+  <div class="flex justify-between items-center">
+    <Button 
+      color="light" 
+      onclick={() => isExpanded = !isExpanded}
+      disabled={isSearching}
+    >
+      {expandButtonText}
+    </Button>
+    {#if showClearButton}
+      <Button 
+        color="light" 
+        onclick={handleClear}
+        disabled={isSearching}
+      >
+        Clear Filters
+      </Button>
+    {/if}
+  </div>
 
   {#if isExpanded}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div class="col-span-2">
         <Label for="title">Title</Label>
         <Input id="title" bind:value={filters.title} placeholder="Search by title" />
@@ -159,13 +184,16 @@
         <Label for="summary">Summary</Label>
         <Textarea id="summary" bind:value={filters.summary} placeholder="Search in summary" class="h-20" />
       </div>
-
-      <div class="col-span-2 flex justify-end gap-2">
-        <Button color="alternative" on:click={handleClear} disabled={isSearching}>Clear</Button>
-        <Button on:click={handleSearch} color={isSearching ? "red" : "blue"}>
-          {isSearching ? 'Cancel' : 'Search'}
-        </Button>
-      </div>
     </div>
   {/if}
+
+  <div class="flex justify-end">
+    <Button 
+      onclick={handleSearch} 
+      color={searchButtonColor}
+      disabled={!canSearch}
+    >
+      {searchButtonText}
+    </Button>
+  </div>
 </div> 

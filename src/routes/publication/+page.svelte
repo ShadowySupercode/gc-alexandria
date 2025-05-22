@@ -15,22 +15,22 @@
   setContext("asciidoctor", Processor());
 
   // Get publication metadata for OpenGraph tags
-  let title = $derived(
+  let title = $derived.by(() => 
     data.indexEvent?.getMatchingTags("title")[0]?.[1] ||
-      data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
-      "Alexandria Publication",
+    data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
+    "Alexandria Publication"
   );
   let currentUrl = data.url?.href ?? "";
 
   // Get image and summary from the event tags if available
   // If image unavailable, use the Alexandria default pic.
-  let image = $derived(
+  let image = $derived.by(() => 
     data.indexEvent?.getMatchingTags("image")[0]?.[1] ||
-      "/screenshots/old_books.jpg",
+    "/screenshots/old_books.jpg"
   );
-  let summary = $derived(
+  let summary = $derived.by(() => 
     data.indexEvent?.getMatchingTags("summary")[0]?.[1] ||
-      "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
+    "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages."
   );
 
   onDestroy(() => data.parser.reset());

@@ -6,37 +6,11 @@
   import ArticleHeader from './PublicationHeader.svelte';
   import SearchBar from './SearchBar.svelte';
   import { onMount, onDestroy } from 'svelte';
-  import { NDKRelaySetFromNDK, type NDKEvent } from '$lib/utils/nostrUtils';
+  import { NDKRelaySetFromNDK, type NDKEvent, isParentPublication, isTopLevelParent } from '$lib/utils/nostrUtils';
   import AdvancedSearchForm from './AdvancedSearchForm.svelte';
   import { fallbackRelays } from '$lib/consts';
 
-  // Helper function to determine if an event is a parent publication
-  function isParentPublication(event: NDKEvent): boolean {
-    // Must be a 30040 event
-    if (event.kind !== 30040) return false;
-    
-    // Must contain at least one 'a' tag that references another 30040
-    return event.tags.some(tag => {
-      if (tag[0] !== 'a') return false;
-      const [kind] = tag[1].split(':');
-      return kind === '30040';
-    });
-  }
-
-  // Helper function to determine if an event is a top-level parent
-  function isTopLevelParent(event: NDKEvent, allEvents: NDKEvent[]): boolean {
-    // Must be a parent publication
-    if (!isParentPublication(event)) return false;
-    
-    // Check if this event is referenced by any other parent publication
-    const eventAddress = event.tagAddress();
-    return !allEvents.some(otherEvent => 
-      isParentPublication(otherEvent) && 
-      otherEvent.tags.some(tag => tag[0] === 'a' && tag[1] === eventAddress)
-    );
-  }
-
-  let { relays, searchQuery = '' } = $props<{ relays: string[], fallbackRelays: string[], searchQuery?: string }>();
+  let { relays, searchQuery = '', useFallbackRelays = $bindable(true) } = $props<{ relays: string[], fallbackRelays: string[], searchQuery?: string, useFallbackRelays?: boolean }>();
 
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
@@ -45,16 +19,36 @@
   let loading: boolean = $state(true);
   let isSearching = $state(false);
   let searchAbortController: AbortController | null = $state(null);
-  let useFallbackRelays = $state(true);
   let searchBarComponent: SearchBar;
   let advancedSearchFilters = $state<Record<string, string>>({});
-  let searchProgress = $state<{ processed: number; total: number; percentage: number } | null>(null);
+  let processedEvents = $state(0);
+  let totalEvents = $state(0);
   let searchError = $state<{ message: string; code: string } | null>(null);
   let searchTimeout: number | null = $state(null);
 
-  let cutoffTimestamp: number = $derived(
+  // Convert more state variables to derived values
+  let isLoading = $derived.by(() => loading || loadingMore);
+  let hasError = $derived.by(() => searchError !== null);
+  let canLoadMore = $derived.by(() => !endOfFeed && !isLoading && !isSearching);
+  let showSearchProgress = $derived.by(() => isSearching && totalEvents > 0);
+  let searchProgressPercentage = $derived.by(() => {
+    if (!showSearchProgress) return 0;
+    return Math.round((processedEvents / totalEvents) * 100);
+  });
+
+  let cutoffTimestamp: number = $derived.by(() => 
     eventsInView?.at(eventsInView.length - 1)?.created_at ?? new Date().getTime()
   );
+
+  // Convert searchProgress to a derived value
+  let searchProgress = $derived.by(() => {
+    if (!showSearchProgress) return null;
+    return {
+      processed: processedEvents,
+      total: totalEvents,
+      percentage: searchProgressPercentage
+    };
+  });
 
   // Create a worker instance
   let searchWorker: Worker;
@@ -363,22 +357,25 @@
 
 <div class='leather'>
   <div class="mb-6 space-y-4">
-    {#if searchError}
-      <Alert color="red" dismissable on:close={() => searchError = null}>
-        <span class="font-medium">Search Error:</span> {searchError.message}
+    {#if hasError}
+      <Alert color="red" class="mb-4">
+        {searchError?.message}
       </Alert>
     {/if}
     
-    {#if searchProgress}
-      <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-        <div 
-          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-          style="width: {searchProgress.percentage}%"
-        ></div>
+    {#if showSearchProgress}
+      <div class="mb-4">
+        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+          <span>Searching...</span>
+          <span>{searchProgressPercentage}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+          <div 
+            class="bg-primary-600 h-2.5 rounded-full transition-all duration-300" 
+            style="width: {searchProgressPercentage}%"
+          ></div>
+        </div>
       </div>
-      <p class="text-sm text-gray-600 dark:text-gray-400 text-center">
-        Searching... {searchProgress.processed} of {searchProgress.total} events ({searchProgress.percentage}%)
-      </p>
     {/if}
 
     <SearchBar
@@ -436,9 +433,28 @@
         <Skeleton divClass='skeleton-leather w-full' size='lg' />
       {/each}
     {:else if eventsInView.length > 0}
-      {#each eventsInView as event}
-        <ArticleHeader {event} />
-      {/each}
+      <div class="space-y-4">
+        {#each eventsInView as event (event.id)}
+          <ArticleHeader {event} />
+        {/each}
+      </div>
+
+      {#if canLoadMore}
+        <div class="mt-4 flex justify-center">
+          <Button 
+            color="light" 
+            onclick={() => loadMorePublications()}
+            disabled={isLoading}
+          >
+            {#if isLoading}
+              <Spinner class="mr-2" />
+              Loading...
+            {:else}
+              Load More
+            {/if}
+          </Button>
+        </div>
+      {/if}
     {:else if searchQuery.trim()}
       <div class='col-span-full'>
         <p class='text-center'>No publications found matching "{searchQuery}".</p>
@@ -450,24 +466,9 @@
     {/if}
   </div>
 
-  {#if !loadingMore && !endOfFeed && !isSearching}
-    <div class='flex justify-center mt-4 mb-8'>
-      <Button outline class="w-full max-w-md" onclick={async () => {
-        await loadMorePublications();
-      }}>
-        Show more publications
-      </Button>
-    </div>
-  {:else if loadingMore || isSearching}
-    <div class='flex justify-center mt-4 mb-8'>
-      <Button outline disabled class="w-full max-w-md">
-        <Spinner class='mr-3 text-gray-300' size='4' />
-        {isSearching ? 'Searching...' : 'Loading...'}
-      </Button>
-    </div>
-  {:else}
-    <div class='flex justify-center mt-4 mb-8'>
-      <P class='text-sm text-gray-600'>You've reached the end of the feed.</P>
+  {#if !isLoading && eventsInView.length === 0 && !isSearching}
+    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+      No events found
     </div>
   {/if}
 </div>

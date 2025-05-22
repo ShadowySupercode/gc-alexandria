@@ -1,5 +1,4 @@
 <script module lang='ts'>
-  import { P } from 'flowbite-svelte';
 
   export { contentParagraph, sectionHeading };
 </script>

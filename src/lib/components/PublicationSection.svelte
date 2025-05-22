@@ -5,7 +5,6 @@
   import { TextPlaceholder } from "flowbite-svelte";
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   let {
     address,
@@ -29,13 +28,13 @@
     await publicationTree.getEvent(rootAddress));
 
   let publicationType: Promise<string | undefined> = $derived.by(async () =>
-    (await rootEvent)?.getMatchingTags('type')[0]?.[1]);
+    (await rootEvent)?.getTagValue('type'));
 
   let leafHierarchy: Promise<NDKEvent[]> = $derived.by(async () =>
     await publicationTree.getHierarchy(address));
 
   let leafTitle: Promise<string | undefined> = $derived.by(async () =>
-    (await leafEvent)?.getMatchingTags('title')[0]?.[1]);
+    (await leafEvent)?.getTagValue('title'));
 
   let leafContent: Promise<string | Document> = $derived.by(async () =>
     asciidoctor.convert((await leafEvent)?.content ?? ''));
@@ -110,7 +109,7 @@
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {#each divergingBranches as [branch, depth]}
-      {@render sectionHeading(getMatchingTags(branch, 'title')[0]?.[1] ?? '', depth)}
+      {@render sectionHeading(branch.getTagValue('title') ?? '', depth)}
     {/each}
     {#if leafTitle}
       {@const leafDepth = leafHierarchy.length - 1}

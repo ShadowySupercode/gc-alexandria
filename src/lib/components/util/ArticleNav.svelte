@@ -15,10 +15,10 @@
     indexEvent: NDKEvent
   }>();
 
-  let title: string = $derived(indexEvent.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(indexEvent.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
-  let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
-  let isLeaf: boolean = $derived(indexEvent.kind === 30041);
+  let title: string = $derived.by(() => indexEvent.getMatchingTags('title')[0]?.[1]);
+  let author: string = $derived.by(() => indexEvent.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
+  let pubkey: string = $derived.by(() => indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
+  let isLeaf: boolean = $derived.by(() => indexEvent.kind === 30041);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);

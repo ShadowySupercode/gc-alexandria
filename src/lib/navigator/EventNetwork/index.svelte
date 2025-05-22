@@ -49,7 +49,7 @@
 
   // Error state
   let errorMessage = $state<string | null>(null);
-  let hasError = $derived(!!errorMessage);
+  let hasError = $derived.by(() => !!errorMessage);
 
   // DOM references
   let svg: SVGSVGElement;
@@ -66,10 +66,12 @@
   let tooltipNode = $state<NetworkNode | null>(null);
 
   // Dimensions
-  let width = $state(1000);
-  let height = $state(600);
+  let containerWidth = $state(0);
+  let containerHeight = $state(0);
   let windowHeight = $state<number | undefined>(undefined);
-  let graphHeight = $derived(windowHeight ? Math.max(windowHeight * 0.2, 400) : 400);
+  let width = $derived.by(() => containerWidth || 1000);
+  let height = $derived.by(() => containerHeight || 600);
+  let graphHeight = $derived.by(() => windowHeight ? Math.max(windowHeight * 0.2, 400) : 400);
   
   // D3 objects
   let simulation: Simulation<NetworkNode, NetworkLink> | null = null;
@@ -78,13 +80,13 @@
   let svgElement: Selection;
 
   // Track current render level
-  let currentLevels = $derived(levelsToRender);
+  let currentLevels = $derived.by(() => levelsToRender);
 
   // Update dimensions when container changes
   $effect(() => {
     if (container) {
-      width = container.clientWidth || width;
-      height = container.clientHeight || height;
+      containerWidth = container.clientWidth;
+      containerHeight = container.clientHeight;
     }
   });
 
@@ -405,8 +407,8 @@
     // Set up container resize observer
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        width = entry.contentRect.width;
-        height = graphHeight;
+        containerWidth = entry.contentRect.width;
+        containerHeight = entry.contentRect.height;
       }
       if (svg) {
         d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);

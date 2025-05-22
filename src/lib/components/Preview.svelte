@@ -3,9 +3,9 @@
   import { Button, ButtonGroup, CloseButton, Input, P, Textarea, Tooltip } from 'flowbite-svelte';
   import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
   import Self from './Preview.svelte';
-  import { contentParagraph, sectionHeading } from '$lib/snippets/PublicationSnippets.svelte';
   import BlogHeader from "$components/cards/BlogHeader.svelte";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
+  import { getTagValue } from '$lib/utils/eventTags';
+  import { getTagValues } from '$lib/utils/eventTags';
 
   // TODO: Fix move between parents.
 
@@ -42,91 +42,70 @@
   let orderedChildren: string[] = $state($pharosInstance.getOrderedChildIds(rootId));
 
   let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()));
-  let metadata = $state($pharosInstance.getIndexMetadata());
 
   let isEditing: boolean = $state(false);
   let hasCursor: boolean = $state(false);
   let childHasCursor: boolean = $state(false);
 
-  let hasPreviousSibling: boolean = $state(false);
-  let hasNextSibling: boolean = $state(false);
+  let canEdit = $derived.by(() => allowEditing && !childHasCursor);
 
-  let subtreeNeedsUpdate: boolean = $state(false);
-  let updateCount: number = $state(0);
-  let subtreeUpdateCount: number = $state(0);
+  let hasPreviousSibling = $derived.by(() => {
+    if (!parentId || !allowEditing) return false;
+    const previousSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+    return !!previousSibling[0];
+  });
 
-  let buttonsVisible: boolean = $derived(hasCursor && !childHasCursor);
+  let hasNextSibling = $derived.by(() => {
+    if (!parentId || !allowEditing) return false;
+    const nextSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+    return !!nextSibling[0];
+  });
+
+  let updateTrigger = $state(0);
+  let subtreeUpdateTrigger = $state(0);
+  let updateCount = $derived.by(() => updateTrigger);
+  let subtreeUpdateCount = $derived.by(() => subtreeUpdateTrigger);
+  let subtreeNeedsUpdate = $derived.by(() => needsUpdate);
+
+  let buttonsVisible: boolean = $derived.by(() => hasCursor && !childHasCursor);
+
+  let blogEvent = $derived.by(() => blogEntries[index]?.[1]);
+  let blogAuthor = $derived.by(() => blogEvent ? blogEvent.getTagValue('author') ?? '' : '');
+  let blogImage = $derived.by(() => blogEvent ? blogEvent.getTagValue('image') ?? '' : '');
+  let blogPublishedAt = $derived.by(() => {
+    if (!blogEvent?.created_at) return '';
+    const date = new Date(blogEvent.created_at * 1000);
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(date);
+  });
 
   $effect(() => {
     if (needsUpdate) {
-      updateCount++;
+      updateTrigger++;
       needsUpdate = false;
       title = $pharosInstance.getIndexTitle(rootId);
       currentContent = $pharosInstance.getContent(rootId);
     }
 
     if (subtreeNeedsUpdate) {
-      subtreeUpdateCount++;
+      subtreeUpdateTrigger++;
       subtreeNeedsUpdate = false;
 
       const prevChildCount = orderedChildren.length;
       orderedChildren = $pharosInstance.getOrderedChildIds(rootId);
       const newChildCount = orderedChildren.length;
 
-      // If the number of children has changed, a child has been added or removed, and a child may
-      // have been moved into a different subtree.  Due to the `needsUpdate` binding in the
-      // component's recursion, setting `needsUpdate` to true will force the parent to rerender its
-      // subtree.
       if (newChildCount !== prevChildCount) {
         needsUpdate = true;
       }
     }
   });
 
-  $effect(() => {
-    if (parentId && allowEditing) {
-      // Check for previous/next siblings on load
-      const previousSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
-      const nextSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
-      
-      // Hide arrows if no siblings exist
-      hasPreviousSibling = !!previousSibling[0];
-      hasNextSibling = !!nextSibling[0];
-    }
-  });
-
   function getBlogEvent(index: number) {
-      return blogEntries[index][1];
-  }
-
-  function byline(rootId: string, index: number) {
-    console.log(rootId, index, blogEntries);
-    const event = blogEntries[index][1];
-    const author = event ? getMatchingTags(event, 'author')[0][1] : '';
-    return author ?? "";
-  }
-
-  function hasCoverImage(rootId: string, index: number) {
-    console.log(rootId);
-    const event = blogEntries[index][1];
-    const image = event && getMatchingTags(event, 'image')[0] ? getMatchingTags(event, 'image')[0][1] : '';
-    return image ?? '';
-  }
-
-  function publishedAt(rootId: string, index: number) {
-    console.log(rootId, index);
-    console.log(blogEntries[index]);
-    const event = blogEntries[index][1];
-    const date = event.created_at ? new Date(event.created_at * 1000) : '';
-    if (date !== '') {
-      const formattedDate = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      }).format(date);
-      return formattedDate ?? "";
-    }
-    return '';
+    return blogEvent;
   }
 
   function readBlog(rootId:string) {
@@ -210,23 +189,6 @@
   </svelte:element>
 {/snippet}
 
-{#snippet coverImage(rootId: string, index: number, depth: number)}
-  {#if hasCoverImage(rootId, index)}
-    <div class="coverImage depth-{depth}">
-      <img src={hasCoverImage(rootId, index)} alt={title} />
-    </div>
-  {/if}
-{/snippet}
-
-{#snippet blogMetadata(rootId: string, index: number)}
-  <p class='h-leather'>
-    by {byline(rootId, index)}
-  </p>
-  <p class='h-leather italic text-sm'>
-    {publishedAt(rootId, index)}
-  </p>
-{/snippet}
-
 {#snippet contentParagraph(content: string, publicationType: string)}
   {#if publicationType === 'novel'}
     <P class='whitespace-normal' firstupper={isSectionStart}>
@@ -251,7 +213,7 @@
   onmouseleave={handleMouseLeave}
   aria-label='Publication section'
 >
-  <!-- Zettel base case -->
+  <!-- Section base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
     {#key updateCount}
       {#if isEditing}
@@ -298,7 +260,7 @@
           {@render sectionHeading(title!, depth)}
         {/if}
       {/if}
-      <!-- Recurse on child indices and zettels -->
+      <!-- Recurse on child indices and Sections -->
       {#if publicationType === 'blog' && depth === 1}
         <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} active={true} />
       {:else }

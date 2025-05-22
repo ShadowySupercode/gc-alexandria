@@ -3,8 +3,6 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { Alert } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
 
   // Get standard metadata for OpenGraph tags
   let title = 'Library of Alexandria';

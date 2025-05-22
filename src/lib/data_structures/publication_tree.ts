@@ -2,6 +2,7 @@ import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Lazy } from "./lazy.ts";
 import { findIndexAsync as _findIndexAsync } from '../utils.ts';
+import { getTagValues } from '$lib/utils/eventTags';
 
 enum PublicationTreeNodeType {
   Branch,
@@ -523,7 +524,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    if (event.kind === 30040 && event.tags.some(tag => tag[0] === 'a')) {
+    if (event.kind === 30040 && getTagValues(event, 'a').length > 0) {
       return PublicationTreeNodeType.Branch;
     }
 

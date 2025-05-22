@@ -9,23 +9,19 @@
     icon?: Component | false;
   }>();
 
-  let copied: boolean = $state(false);
+  let copyPromise = $state<Promise<void> | null>(null);
+  let copied = $derived.by(() => copyPromise !== null);
 
   async function copyToClipboard() {
     try {
-      await withTimeout(navigator.clipboard.writeText(copyText), 2000);
-      copied = true;
-      await withTimeout(
-        new Promise(resolve => setTimeout(resolve, 4000)),
-        4000
-      ).then(() => {
-        copied = false;
-      }).catch(() => {
-        // If timeout occurs, still reset the state
-        copied = false;
-      });
+      copyPromise = withTimeout(navigator.clipboard.writeText(copyText), 2000);
+      await copyPromise;
+      // Simple delay to show the "Copied!" state
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      copyPromise = null;
     } catch (err) {
       console.error("[CopyToClipboard] Failed to copy:", err instanceof Error ? err.message : err);
+      copyPromise = null;
     }
   }
 </script>

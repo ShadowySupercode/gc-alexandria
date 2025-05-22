@@ -1,43 +1,39 @@
 <script lang='ts'>
-  import { type NDKUserProfile } from '@nostr-dev-kit/ndk';
+  import { type NostrProfile, getUserMetadata } from '$lib/utils/nostrUtils';
   import { activePubkey, loginWithExtension, ndkInstance, ndkSignedIn, persistLogin } from '$lib/ndk';
   import { Avatar, Button, Popover } from 'flowbite-svelte';
   import Profile from "$components/util/Profile.svelte";
 
-  let profile = $state<NDKUserProfile | null>(null);
-  let npub = $state<string | undefined >(undefined);
+  let profile = $state<NostrProfile | null>(null);
+  let npub = $derived.by(() => $ndkInstance.activeUser?.npub);
 
   let signInFailed = $state<boolean>(false);
-  let errorMessage = $state<string>('');
+  let errorMessage = $derived.by(() => signInFailed ? 'Failed to sign in. Please try again.' : '');
 
   $effect(() => {
-    if ($ndkSignedIn) {
-      $ndkInstance
-        .getUser({ pubkey: $activePubkey ?? undefined })
-        ?.fetchProfile()
-        .then(userProfile => {
-          profile = userProfile;
-        });
-      npub = $ndkInstance.activeUser?.npub;
+    if ($ndkSignedIn && $ndkInstance.activeUser?.npub) {
+      getUserMetadata($ndkInstance.activeUser.npub).then(metadata => {
+        profile = metadata;
+      });
     }
   });
 
   async function handleSignInClick() {
     try {
       signInFailed = false;
-      errorMessage = '';
       
       const user = await loginWithExtension();
       if (!user) {
         throw new Error('The NIP-07 extension did not return a user.');
       }
 
-      profile = await user.fetchProfile();
+      if (user.npub) {
+        profile = await getUserMetadata(user.npub);
+      }
       persistLogin(user);
     } catch (e) {
       console.error(e);
       signInFailed = true;
-      errorMessage = e instanceof Error ? e.message : 'Failed to sign in. Please try again.';
     }
   }
 
@@ -64,12 +60,6 @@
             {errorMessage}
           </div>
         {/if}
-        <!-- <Button
-          color='alternative'
-          on:click={signInWithBunker}
-        >
-          Bunker Sign-In
-        </Button> -->
       </div>
     </Popover>
   {/if}

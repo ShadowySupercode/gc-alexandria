@@ -1,5 +1,5 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
-import { getMatchingTags } from '$lib/utils/nostrUtils';
+import { getTagValue, getTagValues } from '$lib/utils/eventTags';
 
 // Message types for worker communication
 type SearchMessage = {
@@ -108,11 +108,11 @@ function filterEventsBySearch(
       const event = events[i];
       
       // Basic search fields
-      const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
-      const authorName = getMatchingTags(event, 'author')[0]?.[1]?.toLowerCase() ?? '';
+      const title = getTagValue(event, 'title')?.toLowerCase() ?? '';
+      const authorName = getTagValue(event, 'author')?.toLowerCase() ?? '';
       const authorPubkey = event.pubkey.toLowerCase();
-      const nip05 = getMatchingTags(event, 'nip05')[0]?.[1]?.toLowerCase() ?? '';
-      const summary = getMatchingTags(event, 'summary')[0]?.[1]?.toLowerCase() ?? '';
+      const nip05 = getTagValue(event, 'nip05')?.toLowerCase() ?? '';
+      const summary = getTagValue(event, 'summary')?.toLowerCase() ?? '';
 
       // Check NIP-05 query first
       if (isNip05Query) {
@@ -144,23 +144,23 @@ function filterEventsBySearch(
         
         switch (key) {
           case 'type':
-            return getMatchingTags(event, 'type')[0]?.[1]?.toLowerCase() === searchValue;
+            return getTagValue(event, 'type')?.toLowerCase() === searchValue;
           case 'version':
-            return getMatchingTags(event, 'version')[0]?.[1]?.toLowerCase().includes(searchValue);
+            return getTagValue(event, 'version')?.toLowerCase().includes(searchValue);
           case 'publishedOn':
-            return getMatchingTags(event, 'published_on')[0]?.[1]?.toLowerCase() === searchValue;
+            return getTagValue(event, 'published_on')?.toLowerCase() === searchValue;
           case 'publishedBy':
-            return getMatchingTags(event, 'published_by')[0]?.[1]?.toLowerCase().includes(searchValue);
+            return getTagValue(event, 'published_by')?.toLowerCase().includes(searchValue);
           case 'summary':
-            return getMatchingTags(event, 'summary')[0]?.[1]?.toLowerCase().includes(searchValue);
+            return getTagValue(event, 'summary')?.toLowerCase().includes(searchValue);
           case 'isbn':
-            return getMatchingTags(event, 'i')[0]?.[1]?.toLowerCase().includes(searchValue);
+            return getTagValue(event, 'i')?.toLowerCase().includes(searchValue);
           case 'source':
-            return getMatchingTags(event, 'source')[0]?.[1]?.toLowerCase().includes(searchValue);
+            return getTagValue(event, 'source')?.toLowerCase().includes(searchValue);
           case 'autoUpdate':
-            return getMatchingTags(event, 'auto-update')[0]?.[1]?.toLowerCase() === searchValue;
+            return getTagValue(event, 'auto-update')?.toLowerCase() === searchValue;
           case 'tags':
-            const tags = event.tags.filter(t => t[0] === 't').map(t => t[1].toLowerCase());
+            const tags = getTagValues(event, 't').map(t => t.toLowerCase());
             return searchValue.split(',').some(tag => tags.includes(tag.trim()));
           default:
             return true;
@@ -185,10 +185,8 @@ function filterEventsBySearch(
       .sort((a, b) => b.score - a.score)
       .map(({ event }) => event);
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('Unknown error during search operation');
+    console.error('Error in filterEventsBySearch:', error);
+    throw error;
   }
 }
 
@@ -265,21 +263,21 @@ function generateSuggestions(
   // Process events to extract potential suggestions
   for (const event of events) {
     // Get title suggestions
-    const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
+    const title = getTagValue(event, 'title')?.toLowerCase() ?? '';
     if (title && title.includes(searchQuery)) {
       const score = calculateSuggestionScore(title, searchQuery, 'title');
       suggestions.set(title, { text: title, type: 'title', score });
     }
     
     // Get author suggestions
-    const authorName = getMatchingTags(event, 'author')[0]?.[1]?.toLowerCase() ?? '';
+    const authorName = getTagValue(event, 'author')?.toLowerCase() ?? '';
     if (authorName && authorName.includes(searchQuery)) {
       const score = calculateSuggestionScore(authorName, searchQuery, 'author');
       suggestions.set(authorName, { text: authorName, type: 'author', score });
     }
     
     // Get tag suggestions
-    const tags = event.tags.filter(t => t[0] === 't').map(t => t[1].toLowerCase());
+    const tags = getTagValues(event, 't').map(t => t.toLowerCase());
     for (const tag of tags) {
       if (tag.includes(searchQuery)) {
         const score = calculateSuggestionScore(tag, searchQuery, 'tag');

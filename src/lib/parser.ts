@@ -12,8 +12,9 @@ import type {
 } from 'asciidoctor';
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
-import { zettelKinds } from './consts.ts';
-import { getMatchingTags } from '$lib/utils/nostrUtils';
+import { SectionKinds } from './consts.ts';
+import { getTagValue, getTagValues } from '$lib/utils/eventTags';
+import { fetchEventByDTag } from '../../src/routes/publication/+page.ts';
 
 interface IndexMetadata {
   authors?: string[];
@@ -48,8 +49,8 @@ export default class Pharos {
    * Key to terminology used in the class:
    * 
    * Nostr Knowledge Base (NKB) entities:
-   * - Zettel: Bite-sized pieces of text contained within kind 30041 events.
-   * - Index: A kind 30040 event describing a collection of zettels or other Nostr events.
+   * - Section: Bite-sized pieces of text contained within kind 30041 events.
+   * - Index: A kind 30040 event describing a collection of Sections or other Nostr events.
    * - Event: The generic term for a Nostr event.
    * 
    * Asciidoctor entities:
@@ -258,9 +259,9 @@ export default class Pharos {
   }
 
   /**
-   * @returns The IDs of any child zettels of the index with the given ID.
+   * @returns The IDs of any child Sections of the index with the given ID.
    */
-  getChildZettelIds(id: string): string[] {
+  getChildSectionIds(id: string): string[] {
     return Array.from(this.indexToChildEventsMap.get(id) ?? [])
       .filter(id => this.eventToKindMap.get(id) !== 30040);
   }
@@ -562,7 +563,7 @@ export default class Pharos {
   /**
    * Processes a block of the Asciidoctor AST.
    * @param block The block to process.
-   * @remarks Blocks are mapped as kind 30041 zettels by default.
+   * @remarks Blocks are mapped as kind 30041 Sections by default.
    */
   private processBlock(block: Block): void {
     // Obtain or generate a unique ID for the block.
@@ -578,7 +579,7 @@ export default class Pharos {
     }
 
     this.nodes.set(blockId, block);
-    this.eventToKindMap.set(blockId, 30041);  // Blocks are zettels by default.
+    this.eventToKindMap.set(blockId, 30041);  // Blocks are Sections by default.
 
     const parentId = this.normalizeId(block.getParent()?.getId());
     if (!parentId) {
@@ -629,7 +630,7 @@ export default class Pharos {
     let content: string = '';
 
     // Format title into AsciiDoc header.
-    const title = getMatchingTags(event, 'title')[0][1];
+    const title = getTagValue(event, 'title');
     let titleLevel = '';
     for (let i = 0; i <= depth; i++) {
       titleLevel += '=';
@@ -637,27 +638,30 @@ export default class Pharos {
     content += `${titleLevel} ${title}\n\n`;
 
     // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
-    let tags = getMatchingTags(event, 'a');
+    let tags = getTagValues(event, 'a');
     if (tags.length === 0) {
-      tags = getMatchingTags(event, 'e');
+      tags = getTagValues(event, 'e');
     }
 
-    // Base case: The event is a zettel.
-    if (zettelKinds.includes(event.kind ?? -1)) {
+    // Base case: The event is a Section.
+    if (SectionKinds.includes(event.kind ?? -1)) {
       content += event.content;
       return content;
     }
 
     // Recursive case: The event is an index.
     const childEvents = await Promise.all(
-      tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
+      tags.map(tag => fetchEventByDTag(this.ndk, tag[1]))
     );
 
     // if a blog, save complete events for later
-    if (getMatchingTags(event, 'type').length > 0 && getMatchingTags(event, 'type')[0][1] === 'blog') {
+    if (event.getTagValue('type') === 'blog') {
       childEvents.forEach(child => {
         if (child) {
-          this.blogEntries.set(getMatchingTags(child, 'd')?.[0]?.[1], child);
+          const dTag = getTagValue(child, 'd');
+          if (dTag) {
+            this.blogEntries.set(dTag, child);
+          }
         }
       })
     }
@@ -666,8 +670,8 @@ export default class Pharos {
     if (event.created_at) {
       this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
     }
-    if (getMatchingTags(event, 'image').length > 0) {
-      this.rootIndexMetadata.coverImage = getMatchingTags(event, 'image')[0][1];
+    if (!!event.getTagValue('image')) {
+      this.rootIndexMetadata.coverImage = event.getTagValue('image');
     }
 
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
@@ -739,8 +743,8 @@ export default class Pharos {
 
       case 30041:
       default:
-        // Kind 30041 (zettel) is currently the default kind for contentful events.
-        events.push(this.generateZettelEvent(nodeId!, pubkey));
+        // Kind 30041 (Section) is currently the default kind for contentful events.
+        events.push(this.generateSectionEvent(nodeId!, pubkey));
         break;
       }
     }
@@ -819,14 +823,14 @@ export default class Pharos {
   }
 
   /**
-   * Generates a kind 30041 zettel event for the node with the given ID.
+   * Generates a kind 30041 Section event for the node with the given ID.
    * @param nodeId The ID of the AsciiDoc document node from which to generate an index event.  The
    * node ID will be used as the event's unique d tag identifier.
    * @param pubkey The public key (not encoded in npub form) of the user generating the events.
-   * @returns An unsigned NDKEvent containing the content of the zettel, the requisite tags, and
+   * @returns An unsigned NDKEvent containing the content of the Section, the requisite tags, and
    * dated to the present moment.
    */
-  private generateZettelEvent(nodeId: string, pubkey: string): NDKEvent {
+  private generateSectionEvent(nodeId: string, pubkey: string): NDKEvent {
     const title = (this.nodes.get(nodeId)! as Block).getTitle();
     const content = (this.nodes.get(nodeId)! as Block).getSource();  // AsciiDoc source content.
 

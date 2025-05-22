@@ -19,12 +19,16 @@
 
   let interactionOpen: boolean = $state(false);
 
-  // Reactive counts derived from array lengths
-  // Derived counts from store values
-  const likeCount = $derived(likes.length);
-  const zapCount = $derived(zaps.length);
-  const highlightCount = $derived(highlights.length);
-  const commentCount = $derived(comments.length);
+  // Convert counts to derived values
+  let likeCount = $derived.by(() => likes.length);
+  let zapCount = $derived.by(() => zaps.length);
+  let highlightCount = $derived.by(() => highlights.length);
+  let commentCount = $derived.by(() => comments.length);
+
+  // Add a derived value for whether any interactions exist
+  let hasInteractions = $derived.by(() => 
+    likeCount > 0 || zapCount > 0 || highlightCount > 0 || commentCount > 0
+  );
 
   /**
    * Subscribe to Nostr events of a given kind that reference our root event via e-tag.

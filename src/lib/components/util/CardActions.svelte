@@ -18,17 +18,17 @@
   let { event } = $props<{ event: NDKEvent }>();
 
   // Derive metadata from event
-  let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
-  let summary = $derived(event.tags.find((t: string[]) => t[0] === 'summary')?.[1] ?? '');
-  let image = $derived(event.tags.find((t: string[]) => t[0] === 'image')?.[1] ?? null);
-  let author = $derived(event.tags.find((t: string[]) => t[0] === 'author')?.[1] ?? '');
-  let originalAuthor = $derived(event.tags.find((t: string[]) => t[0] === 'original_author')?.[1] ?? null);
-  let version = $derived(event.tags.find((t: string[]) => t[0] === 'version')?.[1] ?? '');
-  let source = $derived(event.tags.find((t: string[]) => t[0] === 'source')?.[1] ?? null);
-  let type = $derived(event.tags.find((t: string[]) => t[0] === 'type')?.[1] ?? null);
-  let language = $derived(event.tags.find((t: string[]) => t[0] === 'language')?.[1] ?? null);
-  let publisher = $derived(event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
-  let identifier = $derived(event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
+  let title = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
+  let summary = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'summary')?.[1] ?? '');
+  let image = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'image')?.[1] ?? null);
+  let author = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'author')?.[1] ?? '');
+  let originalAuthor = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'original_author')?.[1] ?? null);
+  let version = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'version')?.[1] ?? '');
+  let source = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'source')?.[1] ?? null);
+  let type = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'type')?.[1] ?? null);
+  let language = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'language')?.[1] ?? null);
+  let publisher = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
+  let identifier = $derived.by(() => event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
@@ -39,23 +39,21 @@
    * - Uses user's inbox relays when signed in and viewing personal feed
    * - Falls back to standard relays for anonymous users or standard feed
    */
-  let activeRelays = $derived(
-    (() => {
-      const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
-      const relays = isUserFeed ? $inboxRelays : standardRelays;
-      
-      console.debug("[CardActions] Selected relays:", {
-        eventId: event.id,
-        isSignedIn: $ndkSignedIn,
-        feedType: $feedType,
-        isUserFeed,
-        relayCount: relays.length,
-        relayUrls: relays
-      });
-      
-      return relays;
-    })()
-  );
+  let activeRelays = $derived.by(() => {
+    const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
+    const relays = isUserFeed ? $inboxRelays : standardRelays;
+    
+    console.debug("[CardActions] Selected relays:", {
+      eventId: event.id,
+      isSignedIn: $ndkSignedIn,
+      feedType: $feedType,
+      isUserFeed,
+      relayCount: relays.length,
+      relayUrls: relays
+    });
+    
+    return relays;
+  });
 
   /**
    * Opens the actions popover menu

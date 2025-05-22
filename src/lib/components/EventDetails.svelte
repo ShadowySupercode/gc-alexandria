@@ -6,61 +6,65 @@
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
   import type { NDKEvent } from '$lib/utils/nostrUtils';
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import EventTag from "./EventTag.svelte";
 
-  const { event, profile = null, searchValue = null } = $props<{
-    event: NDKEvent;
-    profile?: {
-      name?: string;
-      display_name?: string;
-      about?: string;
-      picture?: string;
-      banner?: string;
-      website?: string;
-      lud16?: string;
-      nip05?: string;
-    } | null;
-    searchValue?: string | null;
-  }>();
+  const { event, profile = null, searchValue = null } = $props();
 
   let showFullContent = $state(false);
-  let parsedContent = $state('');
-  let contentPreview = $state('');
-
-  function getEventTitle(event: NDKEvent): string {
-    return getMatchingTags(event, 'title')[0]?.[1] || 'Untitled';
-  }
-
-  function getEventSummary(event: NDKEvent): string {
-    return getMatchingTags(event, 'summary')[0]?.[1] || '';
-  }
-
-  function getEventHashtags(event: NDKEvent): string[] {
-    return getMatchingTags(event, 't').map((tag: string[]) => tag[1]);
-  }
-
-  function getEventTypeDisplay(event: NDKEvent): string {
-    const [mTag, MTag] = getMimeTags(event.kind || 0);
-    return MTag[1].split('/')[1] || `Event Kind ${event.kind}`;
-  }
-
-  $effect(() => {
+  let parsedContentPromise = $derived.by(async () => {
     if (event && event.kind !== 0 && event.content) {
-      parseBasicmarkup(event.content).then(html => {
-        parsedContent = html;
-        contentPreview = html.slice(0, 250);
-      });
+      return await parseBasicmarkup(event.content);
     }
+    return '';
+  });
+  let parsedContent = $state('');
+
+  // Convert more state variables to derived values
+  let displayContent = $derived.by(() => {
+    if (!parsedContent) return '';
+    return showFullContent ? parsedContent : parsedContent.slice(0, 250);
   });
 
-  // --- Identifier helpers ---
+  let hasMoreContent = $derived.by(() => 
+    parsedContent.length > 250
+  );
+
+  let showReadMoreButton = $derived.by(() => 
+    hasMoreContent && !showFullContent
+  );
+
+  let showReadLessButton = $derived.by(() => 
+    hasMoreContent && showFullContent
+  );
+
+  let eventMetadata = $derived.by(() => ({
+    title: eventTitle,
+    summary: eventSummary,
+    hashtags: eventHashtags,
+    type: eventTypeDisplay
+  }));
+
+  // Update parsedContent when the promise resolves
+  $effect(() => {
+    parsedContentPromise.then(content => {
+      parsedContent = content;
+    });
+  });
+
+  let eventTitle = $derived.by(() => event.getTagValue('title') || 'Untitled');
+  let eventSummary = $derived.by(() => event.getTagValue('summary') || '');
+  let eventHashtags = $derived.by(() => event.getTagValues('t'));
+  let eventTypeDisplay = $derived.by(() => {
+    const [mTag, MTag] = getMimeTags(event.kind || 0);
+    return MTag[1].split('/')[1] || `Event Kind ${event.kind}`;
+  });
+
   function getIdentifiers(event: NDKEvent, profile: any): { label: string, value: string, link?: string }[] {
     const ids: { label: string, value: string, link?: string }[] = [];
     if (event.kind === 0) {
       // NIP-05
-      const nip05 = profile?.nip05 || getMatchingTags(event, 'nip05')[0]?.[1];
+      const nip05 = profile?.nip05 || event.getTagValue('nip05');
       // npub
       const npub = toNpub(event.pubkey);
       if (npub) ids.push({ label: 'npub', value: npub, link: `/events?id=${npub}` });
@@ -84,18 +88,12 @@
     return ids;
   }
 
-  function isCurrentSearch(value: string): boolean {
-    if (!searchValue) return false;
-    // Compare ignoring case and possible nostr: prefix
-    const norm = (s: string) => s.replace(/^nostr:/, '').toLowerCase();
-    return norm(value) === norm(searchValue);
-  }
 </script>
 
 {#key event.id}
 <div class="flex flex-col space-y-4">
-  {#if event.kind !== 0 && getEventTitle(event)}
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{getEventTitle(event)}</h2>
+  {#if event.kind !== 0 && eventTitle}
+    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
   {/if}
 
   <div class="flex items-center space-x-2">
@@ -109,21 +107,21 @@
   <div class="flex items-center space-x-2">
     <span class="text-gray-600 dark:text-gray-400">Kind:</span>
     <span class="font-mono">{event.kind}</span>
-    <span class="text-gray-600 dark:text-gray-400">({getEventTypeDisplay(event)})</span>
+    <span class="text-gray-600 dark:text-gray-400">({eventTypeDisplay})</span>
   </div>
 
-  {#if getEventSummary(event)}
+  {#if eventSummary}
     <div class="flex flex-col space-y-1">
       <span class="text-gray-600 dark:text-gray-400">Summary:</span>
-      <p class="text-gray-800 dark:text-gray-200">{getEventSummary(event)}</p>
+      <p class="text-gray-800 dark:text-gray-200">{eventSummary}</p>
     </div>
   {/if}
 
-  {#if getEventHashtags(event).length}
+  {#if eventHashtags.length}
     <div class="flex flex-col space-y-1">
       <span class="text-gray-600 dark:text-gray-400">Tags:</span>
       <div class="flex flex-wrap gap-2">
-        {#each getEventHashtags(event) as tag}
+        {#each eventHashtags as tag}
           <span class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-sm font-medium">#{tag}</span>
         {/each}
       </div>
@@ -135,9 +133,22 @@
     {#if event.kind !== 0}
       <span class="text-gray-600 dark:text-gray-400">Content:</span>
       <div class="prose dark:prose-invert max-w-none">
-        {@html showFullContent ? parsedContent : contentPreview}
-        {#if !showFullContent && parsedContent.length > 250}
-          <button class="mt-2 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300" onclick={() => showFullContent = true}>Show more</button>
+        {@html displayContent}
+        {#if showReadMoreButton}
+          <button 
+            class="text-primary-600 hover:text-primary-700 mt-2"
+            onclick={() => showFullContent = true}
+          >
+            Read more...
+          </button>
+        {/if}
+        {#if showReadLessButton}
+          <button 
+            class="text-primary-600 hover:text-primary-700 mt-2"
+            onclick={() => showFullContent = false}
+          >
+            Show less
+          </button>
         {/if}
       </div>
     {/if}

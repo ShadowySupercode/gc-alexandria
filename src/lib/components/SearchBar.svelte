@@ -10,13 +10,15 @@
     initialValue = "",
     showFallbackToggle = false,
     initialFallbackValue = true,
-    disabled = false
+    disabled = false,
+    useFallbackRelays = $bindable(initialFallbackValue)
   } = $props<{
     placeholder?: string;
     initialValue?: string;
     showFallbackToggle?: boolean;
     initialFallbackValue?: boolean;
     disabled?: boolean;
+    useFallbackRelays?: boolean;
   }>();
 
   // Events
@@ -30,7 +32,6 @@
   let searchInput = $state(initialValue);
   let isSearching = $state(false);
   let suggestions = $state<Array<{ text: string; type: 'title' | 'author' | 'tag'; score: number }>>([]);
-  let useFallbackRelays = $state(initialFallbackValue);
   let searchError = $state<{ message: string; code: string } | null>(null);
 
   // Subscribe to store updates
@@ -38,13 +39,43 @@
     searchInput = state.query;
     isSearching = state.isSearching;
     suggestions = state.suggestions;
-    useFallbackRelays = state.useFallbackRelays;
     searchError = state.error;
   });
 
+  // Convert state variables to derived values
   let showSuggestions = $state(false);
-  let selectedIndex = $state(-1);
+  let selectedIndex = $state(-1); // Keep as state since it's modified by keyboard navigation
   let debounceTimer: number | null = $state(null);
+
+  // Derived values for button
+  type ButtonColor = "red" | "primary" | "green" | "yellow" | "purple" | "blue" | "light" | "dark" | "none" | "alternative";
+  
+  // Convert more state variables to derived values
+  let hasQuery = $derived.by(() => 
+    searchInput.trim().length > 0
+  );
+
+  let hasSuggestions = $derived.by(() => 
+    suggestions.length > 0
+  );
+
+  let showSuggestionsPanel = $derived.by(() => 
+    showSuggestions && hasSuggestions
+  );
+
+  let searchButtonState = $derived.by(() => ({
+    text: isSearching ? 'Cancel' : 'Search',
+    color: isSearching ? 'red' : 'primary' as ButtonColor,
+    disabled: !hasQuery && !isSearching
+  }));
+
+  let suggestionItems = $derived.by(() => 
+    suggestions.map(suggestion => ({
+      ...suggestion,
+      displayTitle: suggestion.text || 'Untitled',
+      displayAuthor: suggestion.type === 'author' ? suggestion.text : 'Unknown Author'
+    }))
+  );
 
   // Initialize worker on mount
   onMount(() => {
@@ -69,7 +100,6 @@
       return;
     }
     
-    showSuggestions = false;
     dispatch('search', { 
       query: searchInput.trim(), 
       useFallbackRelays 
@@ -82,7 +112,6 @@
       dispatch('cancel');
     }
     searchStore.clearSearch();
-    showSuggestions = false;
     dispatch('clear');
   }
 
@@ -93,21 +122,17 @@
     }
 
     if (searchInput.length < 2) {
-      showSuggestions = false;
       return;
     }
 
     debounceTimer = window.setTimeout(async () => {
       await searchStore.getSuggestions(searchInput.trim());
-      showSuggestions = true;
-      selectedIndex = -1;
     }, 150); // 150ms debounce
   }
 
   // Function to handle suggestion selection
   function selectSuggestion(suggestion: { text: string; type: 'title' | 'author' | 'tag' }) {
     searchStore.update(state => ({ ...state, query: suggestion.text }));
-    showSuggestions = false;
     performSearch();
   }
 
@@ -139,7 +164,6 @@
         break;
       case 'Escape':
         e.preventDefault();
-        showSuggestions = false;
         selectedIndex = -1;
         break;
     }
@@ -166,40 +190,35 @@
         {disabled}
         on:input={handleInput}
         on:keydown={handleKeydown}
-        on:blur={() => {
-          // Delay hiding suggestions to allow for clicks
-          setTimeout(() => {
-            showSuggestions = false;
-          }, 200);
-        }}
+        on:focus={() => showSuggestions = true}
+        on:blur={() => setTimeout(() => showSuggestions = false, 200)}
       />
-      {#if showSuggestions}
+      {#if showSuggestionsPanel}
         <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          {#each suggestions as suggestion, i}
+          {#each suggestionItems as suggestion, i}
             <button
               class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 {selectedIndex === i ? 'bg-gray-100 dark:bg-gray-700' : ''}"
               onmousedown={() => selectSuggestion(suggestion)}
             >
-              <span class="text-sm text-gray-500 dark:text-gray-400 min-w-[60px]">
-                {suggestion.type === 'title' ? 'Title:' : 
-                 suggestion.type === 'author' ? 'Author:' : 'Tag:'}
+              <span class="text-sm text-gray-500 dark:text-gray-400">
+                {suggestion.type === 'author' ? 'Author:' : 'Tag:'}
               </span>
-              <span class="flex-grow">{suggestion.text}</span>
+              <span class="flex-grow">{suggestion.displayTitle}</span>
             </button>
           {/each}
         </div>
       {/if}
     </div>
     <Button 
-      on:click={performSearch} 
+      onclick={performSearch} 
       disabled={disabled}
-      color={isSearching ? "red" : "blue"}
+      color={searchButtonState.color}
     >
-      {isSearching ? 'Cancel' : 'Search'}
+      {searchButtonState.text}
     </Button>
     <Button 
       color="alternative" 
-      on:click={clearSearch} 
+      onclick={clearSearch} 
       disabled={disabled}
     >
       Clear

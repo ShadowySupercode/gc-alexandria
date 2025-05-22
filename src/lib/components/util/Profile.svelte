@@ -3,28 +3,26 @@ import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 import { logout, ndkInstance } from '$lib/ndk';
 import { ArrowRightToBracketOutline, UserOutline, FileSearchOutline } from "flowbite-svelte-icons";
 import { Avatar, Popover } from "flowbite-svelte";
-import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
+import type { NostrProfile } from "$lib/utils/nostrUtils";
+import { getUserMetadata } from "$lib/utils/nostrUtils";
 
 const externalProfileDestination = './events?id='
 
 let { pubkey, isNav = false } = $props();
 
-let profile = $state<NDKUserProfile | null>(null);
-let pfp = $derived(profile?.image);
-let username = $derived(profile?.name);
-let tag = $derived(profile?.name);
-let npub = $state<string | undefined >(undefined);
+let profile = $state<NostrProfile | null>(null);
+let pfp = $derived.by(() => profile?.picture);
+let username = $derived.by(() => profile?.display_name || profile?.name);
+let tag = $derived.by(() => username);
+let npub = $derived.by(() => $ndkInstance.getUser({ pubkey: pubkey ?? undefined })?.npub);
 
 $effect(() => {
-  const user = $ndkInstance
-    .getUser({ pubkey: pubkey ?? undefined });
-
-  npub = user.npub;
-
-  user.fetchProfile()
-    .then(userProfile => {
-      profile = userProfile;
+  const user = $ndkInstance.getUser({ pubkey: pubkey ?? undefined });
+  if (user?.npub) {
+    getUserMetadata(user.npub).then(metadata => {
+      profile = metadata;
     });
+  }
 });
 
 async function handleSignOutClick() {

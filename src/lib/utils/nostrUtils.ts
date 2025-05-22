@@ -20,6 +20,7 @@ export const NOSTR_NOTE_REGEX = /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0
 
 export interface NostrProfile {
   name?: string;
+  display_name?: string;
   displayName?: string;
   nip05?: string;
   picture?: string;
@@ -85,6 +86,7 @@ export async function getUserMetadata(identifier: string): Promise<NostrProfile>
 
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
+      display_name: profile?.displayName,
       displayName: profile?.displayName,
       nip05: profile?.nip05,
       picture: profile?.image,
@@ -467,7 +469,7 @@ export function toNpub(pubkey: string | undefined): string | null {
     if (/^[a-f0-9]{64}$/i.test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
-    if (pubkey.startsWith('npub1')) return pubkey;
+    if (pubkey.startsWith('npub')) return pubkey;
     return null;
   } catch {
     return null;
@@ -484,16 +486,6 @@ export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
 
 export function createNDKEvent(ndk: NDK, rawEvent: any) {
   return new NDKEvent(ndk, rawEvent);
-}
-
-/**
- * Returns all tags from the event that match the given tag name.
- * @param event The NDKEvent object.
- * @param tagName The tag name to match (e.g., 'a', 'd', 'title').
- * @returns An array of matching tags.
- */
-export function getMatchingTags(event: NDKEvent, tagName: string): string[][] {
-  return event.tags.filter((tag: string[]) => tag[0] === tagName);
 }
 
 export function getEventHash(event: {
@@ -524,4 +516,214 @@ export async function signEvent(event: {
   const id = getEventHash(event);
   const sig = await schnorr.sign(id, event.pubkey);
   return bytesToHex(sig);
+}
+
+/**
+ * Determines if an event is a parent publication (kind 30040 with at least one 'a' tag referencing another 30040)
+ */
+export function isParentPublication(event: NDKEvent): boolean {
+  // Must be a 30040 event
+  if (event.kind !== 30040) return false;
+  
+  // Must contain at least one 'a' tag that references another 30040
+  return event.tags.some(tag => {
+    if (tag[0] !== 'a') return false;
+    const [kind] = tag[1].split(':');
+    return kind === '30040';
+  });
+}
+
+/**
+ * Determines if an event is a top-level parent publication (not referenced by any other parent publication)
+ */
+export function isTopLevelParent(event: NDKEvent, allEvents: NDKEvent[]): boolean {
+  // Must be a parent publication
+  if (!isParentPublication(event)) return false;
+  
+  // Check if this event is referenced by any other parent publication
+  const eventAddress = event.tagAddress();
+  return !allEvents.some(otherEvent => 
+    isParentPublication(otherEvent) && 
+    otherEvent.tags.some(tag => tag[0] === 'a' && tag[1] === eventAddress)
+  );
+}
+
+/**
+ * Searches for a Nostr event using various identifier types
+ * @param ndk NDK instance
+ * @param identifier The identifier to search for (event ID, nevent, naddr, npub, nprofile, or NIP-05)
+ * @param options Search options
+ * @returns The search result containing the event and relay info if found
+ */
+export async function searchEventByIdentifier(
+  ndk: NDK,
+  identifier: string,
+  options: {
+    timeoutMs?: number;
+    useFallbackRelays?: boolean;
+    signal?: AbortSignal;
+  } = {}
+): Promise<EventSearchResult> {
+  const cleanedId = identifier.replace(/^nostr:/, '');
+
+  // Try to decode as NIP-19
+  let decoded;
+  try {
+    decoded = nip19.decode(cleanedId);
+  } catch {
+    decoded = null;
+  }
+
+  // If it's a NIP-19 identifier
+  if (decoded) {
+    let hex;
+    switch (decoded.type) {
+      case 'npub':
+        hex = decoded.data;
+        break;
+      case 'nprofile':
+        hex = decoded.data.pubkey;
+        break;
+      case 'nevent':
+        hex = decoded.data.id;
+        break;
+      case 'note':
+        hex = decoded.data;
+        break;
+      case 'naddr':
+        // naddr: { kind, pubkey, identifier }
+        return await fetchEventWithFallback(ndk, {
+          kinds: [decoded.data.kind],
+          authors: [decoded.data.pubkey],
+          '#d': [decoded.data.identifier]
+        }, options.timeoutMs, options.useFallbackRelays, options.signal);
+      default:
+        throw new Error(`Unsupported NIP-19 type: ${decoded.type}`);
+    }
+
+    // If we have a hex string, race profile and event search
+    if (hex && typeof hex === 'string' && /^[a-f0-9]{64}$/i.test(hex)) {
+      const [eventResult, profileResult] = await Promise.allSettled([
+        fetchEventWithFallback(ndk, hex, options.timeoutMs, options.useFallbackRelays, options.signal),
+        fetchEventWithFallback(ndk, { kinds: [0], authors: [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal)
+      ]);
+      if (profileResult.status === 'fulfilled' && profileResult.value.event) {
+        return profileResult.value;
+      }
+      if (eventResult.status === 'fulfilled' && eventResult.value.event) {
+        return eventResult.value;
+      }
+      throw new Error(`No event or profile found for hex ${hex}`);
+    }
+  }
+
+  // If it's a 64-char hex, race as event and as pubkey
+  if (/^[a-f0-9]{64}$/i.test(cleanedId)) {
+    const [eventResult, profileResult] = await Promise.allSettled([
+      fetchEventWithFallback(ndk, cleanedId, options.timeoutMs, options.useFallbackRelays, options.signal),
+      fetchEventWithFallback(ndk, { kinds: [0], authors: [cleanedId] }, options.timeoutMs, options.useFallbackRelays, options.signal)
+    ]);
+    if (profileResult.status === 'fulfilled' && profileResult.value.event) {
+      return profileResult.value;
+    }
+    if (eventResult.status === 'fulfilled' && eventResult.value.event) {
+      return eventResult.value;
+    }
+    throw new Error(`No event or profile found for hex ${cleanedId}`);
+  }
+
+  // If it's a NIP-05, handle as before...
+  // If it's something else, error out
+  throw new Error(`Unrecognized identifier format: ${cleanedId}`);
+}
+
+/**
+ * Publishes a Nostr event to relays with fallback support
+ * @param event The event to publish
+ * @param options Publishing options
+ * @returns The result of the publish attempt
+ */
+export async function publishEvent(
+  event: {
+    kind: number;
+    created_at: number;
+    tags: string[][];
+    content: string;
+    pubkey: string;
+    id: string;
+    sig: string;
+  },
+  options: {
+    relays?: string[];
+    useFallbackRelays?: boolean;
+    timeoutMs?: number;
+  } = {}
+): Promise<{ success: boolean; relay?: string; error?: string }> {
+  const { 
+    relays = standardRelays,
+    useFallbackRelays = true,
+    timeoutMs = 5000 
+  } = options;
+
+  // Try to publish to each relay in sequence
+  for (const relayUrl of relays) {
+    try {
+      const ws = new WebSocket(relayUrl);
+      const result = await new Promise<{ success: boolean; error?: string }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          ws.close();
+          reject(new Error('Timeout'));
+        }, timeoutMs);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify(['EVENT', event]));
+        };
+
+        ws.onmessage = (e) => {
+          const [type, id, ok, message] = JSON.parse(e.data);
+          if (type === 'OK' && id === event.id) {
+            clearTimeout(timeout);
+            if (ok) {
+              ws.close();
+              resolve({ success: true });
+            } else {
+              ws.close();
+              resolve({ success: false, error: message });
+            }
+          }
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          ws.close();
+          reject(new Error('WebSocket error'));
+        };
+      });
+
+      if (result.success) {
+        return { success: true, relay: relayUrl };
+      }
+    } catch (e) {
+      console.error(`Failed to publish to ${relayUrl}:`, e);
+    }
+  }
+
+  // If we get here, we failed to publish to any of the primary relays
+  if (useFallbackRelays && relays === standardRelays) {
+    // Try fallback relays
+    const fallbackResult = await publishEvent(event, {
+      ...options,
+      relays: fallbackRelays,
+      useFallbackRelays: false // Prevent infinite recursion
+    });
+    
+    if (fallbackResult.success) {
+      return fallbackResult;
+    }
+  }
+
+  return { 
+    success: false, 
+    error: 'Failed to publish to any relays. Please try again later.' 
+  };
 } 
