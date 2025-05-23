@@ -102,6 +102,9 @@ export function applyGlobalLogGravity(
     centerY: number,
     alpha: number,
 ) {
+    // Tag anchors should not be affected by gravity
+    if (node.isTagAnchor) return;
+    
     const dx = (node.x ?? 0) - centerX;
     const dy = (node.y ?? 0) - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -127,10 +130,14 @@ export function applyConnectedGravity(
     links: NetworkLink[],
     alpha: number,
 ) {
-    // Find all nodes connected to this node
+    // Tag anchors should not be affected by connected gravity
+    if (node.isTagAnchor) return;
+    
+    // Find all nodes connected to this node (excluding tag anchors)
     const connectedNodes = links
         .filter(link => link.source.id === node.id || link.target.id === node.id)
-        .map(link => link.source.id === node.id ? link.target : link.source);
+        .map(link => link.source.id === node.id ? link.target : link.source)
+        .filter(n => !n.isTagAnchor);
 
     if (connectedNodes.length === 0) return;
 
@@ -168,6 +175,9 @@ export function setupDragHandlers(
     return d3
         .drag()
         .on("start", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
+            // Tag anchors should never be draggable
+            if (d.isTagAnchor) return;
+            
             // Warm up simulation if it's cooled down
             if (!event.active) {
                 simulation.alphaTarget(warmupClickEnergy).restart();
@@ -177,11 +187,17 @@ export function setupDragHandlers(
             d.fy = d.y;
         })
         .on("drag", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
+            // Tag anchors should never be draggable
+            if (d.isTagAnchor) return;
+            
             // Update fixed position to mouse position
             d.fx = event.x;
             d.fy = event.y;
         })
         .on("end", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
+            // Tag anchors should never be draggable
+            if (d.isTagAnchor) return;
+            
             // Cool down simulation when drag ends
             if (!event.active) {
                 simulation.alphaTarget(0);

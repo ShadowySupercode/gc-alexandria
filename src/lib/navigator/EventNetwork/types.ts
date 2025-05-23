@@ -43,10 +43,16 @@ export interface NetworkNode extends SimulationNodeDatum {
     title: string;                 // Event title
     content: string;               // Event content
     author: string;                // Author's public key
-    type: "Index" | "Content";     // Node type classification
+    type: "Index" | "Content" | "TagAnchor";     // Node type classification
     naddr?: string;                // NIP-19 naddr identifier
     nevent?: string;               // NIP-19 nevent identifier
     isContainer?: boolean;         // Whether this node is a container (index)
+    
+    // Tag anchor specific fields
+    isTagAnchor?: boolean;         // Whether this is a tag anchor node
+    tagType?: string;              // Type of tag (t, p, e, etc.)
+    tagValue?: string;             // The tag value
+    connectedNodes?: string[];     // IDs of nodes that have this tag
 }
 
 /**
