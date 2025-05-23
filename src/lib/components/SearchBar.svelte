@@ -183,24 +183,25 @@
 <div class="flex flex-col gap-4 relative">
   <div class="flex gap-2">
     <div class="relative flex-grow">
-      <Input
+      <input
+        type="text"
         bind:value={searchInput}
         {placeholder}
-        class="w-full"
         {disabled}
-        on:input={handleInput}
-        on:keydown={handleKeydown}
-        on:focus={() => showSuggestions = true}
-        on:blur={() => setTimeout(() => showSuggestions = false, 200)}
+        oninput={handleInput}
+        onkeydown={handleKeydown}
+        onfocus={() => showSuggestions = true}
+        onblur={() => setTimeout(() => showSuggestions = false, 200)}
+        class="w-full px-3 py-2 rounded bg-white dark:bg-brown-900 text-gray-900 dark:text-brown-100 border border-brown-500 dark:border-brown-300 placeholder-brown-400 dark:placeholder-brown-200 focus:ring-2 focus:ring-brown-400"
       />
       {#if showSuggestionsPanel}
-        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-brown-900 text-gray-900 dark:text-brown-100 rounded-lg shadow-lg border border-brown-300 dark:border-brown-700">
           {#each suggestionItems as suggestion, i}
             <button
-              class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 {selectedIndex === i ? 'bg-gray-100 dark:bg-gray-700' : ''}"
+              class="w-full px-4 py-2 text-left hover:bg-brown-100 dark:hover:bg-brown-800 flex items-center gap-2 {selectedIndex === i ? 'bg-brown-100 dark:bg-brown-800' : ''} text-gray-900 dark:text-brown-100"
               onmousedown={() => selectSuggestion(suggestion)}
             >
-              <span class="text-sm text-gray-500 dark:text-gray-400">
+              <span class="text-sm text-brown-500 dark:text-brown-300">
                 {suggestion.type === 'author' ? 'Author:' : 'Tag:'}
               </span>
               <span class="flex-grow">{suggestion.displayTitle}</span>
@@ -209,30 +210,32 @@
         </div>
       {/if}
     </div>
-    <Button 
-      onclick={performSearch} 
+    <button
+      onclick={performSearch}
       disabled={disabled}
-      color={searchButtonState.color}
+      class="px-4 py-2 rounded bg-brown-800 dark:bg-brown-700 text-white dark:text-brown-100 border border-brown-700 dark:border-brown-300 hover:bg-brown-900 dark:hover:bg-brown-600 focus:ring-2 focus:ring-brown-400 transition disabled:opacity-50"
     >
       {searchButtonState.text}
-    </Button>
-    <Button 
-      color="alternative" 
-      onclick={clearSearch} 
+    </button>
+    <button
+      onclick={clearSearch}
       disabled={disabled}
+      class="px-4 py-2 rounded bg-brown-100 dark:bg-brown-900 text-brown-900 dark:text-brown-100 border border-brown-300 dark:border-brown-700 hover:bg-brown-200 dark:hover:bg-brown-800 focus:ring-2 focus:ring-brown-400 transition disabled:opacity-50"
     >
       Clear
-    </Button>
+    </button>
   </div>
 
   {#if showFallbackToggle}
     <div class="flex items-center gap-2">
-      <Checkbox
+      <input
+        type="checkbox"
         bind:checked={useFallbackRelays}
         id="use-fallback-relays"
         {disabled}
+        class="form-checkbox h-5 w-5 accent-brown-700 dark:accent-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700 rounded focus:ring-brown-400"
       />
-      <label for="use-fallback-relays" class="text-sm text-gray-600 dark:text-gray-400">
+      <label for="use-fallback-relays" class="text-sm text-gray-900 dark:text-gray-100">
         Include fallback relays (may expose your data to additional relay operators)
       </label>
     </div>

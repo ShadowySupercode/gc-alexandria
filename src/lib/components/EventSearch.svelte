@@ -3,7 +3,8 @@
   import { ndkInstance } from "$lib/ndk";
   import { searchEventByIdentifier } from "$lib/utils/nostrUtils";
   import { goto } from '$app/navigation';
-  import type { NDKEvent } from '$lib/utils/nostrUtils';
+  import NDK from "@nostr-dev-kit/ndk";
+  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import RelayDisplay from './RelayDisplay.svelte';
   import { fallbackRelays } from '$lib/consts';
 
@@ -23,6 +24,8 @@
   let useFallbackRelays = $state(true);
   let relayInfo = $state<{ url: string; latency: number; group: string } | null>(null);
   let abortController = $state<AbortController | null>(null);
+  let lastSearchedValue = $state<string | null>(null);
+  let currentRelayGroup = $state<'primary' | 'fallback'>('primary');
 
   let buttonText = $derived.by(() => {
     if (searching) return 'Cancel';
@@ -44,12 +47,23 @@
   });
 
   let relayList = $derived.by(() => {
-    const relays = useFallbackRelays ? fallbackRelays : [];
-    return relays.map(url => ({
-      url,
-      status: relayStatuses[url] || 'pending',
-      latency: relayInfo?.url === url ? relayInfo.latency : null
-    }));
+    if (currentRelayGroup === 'primary') {
+      // Show only user/standard relays
+      const ndk = $ndkInstance;
+      const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(r => r.url);
+      return userRelays.map(url => ({
+        url,
+        status: relayStatuses[url] || 'pending',
+        latency: relayInfo?.url === url ? relayInfo.latency : null
+      }));
+    } else {
+      // Show only fallback relays
+      return fallbackRelays.map(url => ({
+        url,
+        status: relayStatuses[url] || 'pending',
+        latency: relayInfo?.url === url ? relayInfo.latency : null
+      }));
+    }
   });
 
   let searchUrl = $derived.by(() => {
@@ -59,7 +73,8 @@
   });
 
   $effect(() => {
-    if (searchValue) {
+    if (searchValue && searchValue !== lastSearchedValue) {
+      lastSearchedValue = searchValue;
       startSearch(searchValue, false);
     }
   });
@@ -158,8 +173,14 @@
   }
 
   function handleFoundEvent(event: NDKEvent) {
-    foundEvent = event;
-    onEventFound(event);
+    // Ensure event is an NDKEvent instance
+    const ndk = $ndkInstance;
+    let wrappedEvent = event;
+    if (!(event instanceof NDKEvent)) {
+      wrappedEvent = new NDKEvent(ndk, event);
+    }
+    foundEvent = wrappedEvent;
+    onEventFound(wrappedEvent);
   }
 </script>
 
@@ -221,14 +242,16 @@
     </div>
   {/if}
 
-  <div class="mt-4">
-    <div class="flex flex-wrap gap-2">
-      {#each relayList as { url, status, latency }}
-        <RelayDisplay relay={url} showStatus={true} status={status} />
-      {/each}
+  {#if !foundEvent}
+    <div class="mt-4">
+      <div class="flex flex-wrap gap-2">
+        {#each relayList as { url, status, latency }}
+          <RelayDisplay relay={url} showStatus={true} status={status} />
+        {/each}
+      </div>
+      {#if relayStatusMessage}
+        <div class="text-gray-500 mt-2">{relayStatusMessage}</div>
+      {/if}
     </div>
-    {#if relayStatusMessage}
-      <div class="text-gray-500 mt-2">{relayStatusMessage}</div>
-    {/if}
-  </div>
+  {/if}
 </div> 

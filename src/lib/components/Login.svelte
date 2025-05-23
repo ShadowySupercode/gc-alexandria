@@ -5,8 +5,7 @@
   import Profile from "$components/util/Profile.svelte";
 
   let profile = $state<NostrProfile | null>(null);
-  let npub = $derived.by(() => $ndkInstance.activeUser?.npub);
-
+  
   let signInFailed = $state<boolean>(false);
   let errorMessage = $derived.by(() => signInFailed ? 'Failed to sign in. Please try again.' : '');
 

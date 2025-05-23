@@ -6,7 +6,6 @@ type SearchMessage = {
   type: 'SEARCH' | 'AUTOCOMPLETE';
   events: NDKEvent[];
   query: string;
-  filters: Record<string, string>;
   chunkSize?: number;
 };
 
@@ -88,11 +87,10 @@ function calculateSearchScore(
 function filterEventsBySearch(
   events: NDKEvent[],
   query: string,
-  filters: Record<string, string>,
   onProgress?: (processed: number, total: number) => void,
   abortSignal?: AbortSignal
 ): NDKEvent[] {
-  if (!query && Object.values(filters).every(v => !v)) return events;
+  if (!query) return events;
   
   const searchQuery = query.toLowerCase();
   const isNip05Query = /^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(searchQuery);
@@ -137,37 +135,7 @@ function filterEventsBySearch(
       // Check if any field matches (exact or fuzzy)
       const hasMatch = Object.values(fieldMatches).some(match => match);
 
-      // Check advanced filters
-      const advancedFilterMatch = Object.entries(filters).every(([key, value]) => {
-        if (!value) return true;
-        const searchValue = value.toLowerCase();
-        
-        switch (key) {
-          case 'type':
-            return getTagValue(event, 'type')?.toLowerCase() === searchValue;
-          case 'version':
-            return getTagValue(event, 'version')?.toLowerCase().includes(searchValue);
-          case 'publishedOn':
-            return getTagValue(event, 'published_on')?.toLowerCase() === searchValue;
-          case 'publishedBy':
-            return getTagValue(event, 'published_by')?.toLowerCase().includes(searchValue);
-          case 'summary':
-            return getTagValue(event, 'summary')?.toLowerCase().includes(searchValue);
-          case 'isbn':
-            return getTagValue(event, 'i')?.toLowerCase().includes(searchValue);
-          case 'source':
-            return getTagValue(event, 'source')?.toLowerCase().includes(searchValue);
-          case 'autoUpdate':
-            return getTagValue(event, 'auto-update')?.toLowerCase() === searchValue;
-          case 'tags':
-            const tags = getTagValues(event, 't').map(t => t.toLowerCase());
-            return searchValue.split(',').some(tag => tags.includes(tag.trim()));
-          default:
-            return true;
-        }
-      });
-
-      if ((hasMatch || !query) && advancedFilterMatch) {
+      if (hasMatch || !query) {
         const score = calculateSearchScore(event, searchQuery, fieldMatches);
         results.push({ event, score });
       }
@@ -194,7 +162,6 @@ function filterEventsBySearch(
 async function processEventsInChunks(
   events: NDKEvent[],
   query: string,
-  filters: Record<string, string>,
   chunkSize: number = DEFAULT_CHUNK_SIZE,
   abortSignal?: AbortSignal
 ): Promise<NDKEvent[]> {
@@ -214,7 +181,6 @@ async function processEventsInChunks(
       const chunkResults = filterEventsBySearch(
         chunk,
         query,
-        filters,
         (processed, total) => {
           const overallProcessed = start + processed;
           const progress = {
@@ -327,14 +293,13 @@ function calculateSuggestionScore(
 
 // Handle messages from the main thread
 self.onmessage = async (e: MessageEvent<SearchMessage>) => {
-  const { type, events, query, filters, chunkSize } = e.data;
+  const { type, events, query, chunkSize } = e.data;
   
   if (type === 'SEARCH') {
     try {
       const results = await processEventsInChunks(
         events,
         query,
-        filters,
         chunkSize
       );
       

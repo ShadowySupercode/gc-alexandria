@@ -2,8 +2,7 @@
   import {
     ClipboardCleanOutline,
     DotsVerticalOutline,
-    EyeOutline,
-    ShareNodesOutline
+    EyeOutline
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays, FeedType } from "$lib/consts";
@@ -136,13 +135,6 @@
             <CopyToClipboard 
               displayText="Copy naddr address"
               copyText={getIdentifier('naddr')}
-              icon={ShareNodesOutline}
-            />
-          </li>
-          <li>
-            <CopyToClipboard 
-              displayText="Copy nevent address"
-              copyText={getIdentifier('nevent')}
               icon={ClipboardCleanOutline}
             />
           </li>

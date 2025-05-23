@@ -31,8 +31,9 @@
   }
 
   $effect(() => {
-    if (page.data.searchParams?.id) {
-      searchValue = page.data.searchParams.id;
+    const id = page.data.searchParams?.id;
+    if (id && searchValue !== id) {
+      searchValue = id;
       error = null;
       loading = true;
     }

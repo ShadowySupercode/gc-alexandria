@@ -7,7 +7,7 @@
     SidebarWrapper,
   } from "flowbite-svelte";
   import { onMount } from "svelte";
-  import { pharosInstance, tocUpdate } from "$lib/parser";
+  import { pharosInstance } from "$lib/parser";
   import { publicationColumnVisibility } from "$lib/stores";
   
   let { rootId } = $props<{ rootId: string }>();
@@ -25,15 +25,10 @@
     hash: string;
   }
 
-  // Get TOC items from parser
-  let tocItems = $state<TocItem[]>([]);
-
-  $effect(() => {
-    // This will re-run whenever tocUpdate changes
-    tocUpdate;
+  // Get TOC items directly from parser
+  let tocItems = $derived.by(() => {
     const items: TocItem[] = [];
     const childIds = $pharosInstance.getChildIndexIds(rootId);
-    console.log('TOC rootId:', rootId, 'childIds:', childIds);
     const processNode = (nodeId: string) => {
       const title = $pharosInstance.getIndexTitle(nodeId);
       if (title) {
@@ -46,7 +41,7 @@
       children.forEach(processNode);
     };
     childIds.forEach(processNode);
-    tocItems = items;
+    return items;
   });
 
   function normalizeHashPath(str: string): string {

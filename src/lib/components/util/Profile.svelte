@@ -28,6 +28,11 @@ $effect(() => {
 async function handleSignOutClick() {
   logout($ndkInstance.activeUser!);
   profile = null;
+  // Clear all Alexandria/Nostr-related localStorage/sessionStorage
+  localStorage.clear(); // or selectively remove only Alexandria keys if you want
+  sessionStorage.clear();
+  // Force a full page reload
+  location.reload();
 }
 
 function shortenNpub(long: string|undefined) {

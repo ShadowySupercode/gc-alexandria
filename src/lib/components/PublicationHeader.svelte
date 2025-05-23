@@ -56,12 +56,20 @@
     showActions && eventMetadata.title !== 'Untitled'
   );
 
+  let croppedSummary = $derived.by(() => {
+    const maxLen = 150;
+    if (eventMetadata.summary.length > maxLen) {
+      return eventMetadata.summary.slice(0, maxLen) + '...';
+    }
+    return eventMetadata.summary;
+  });
+
   console.log("PublicationHeader event:", event);
 </script>
 
 {#if eventMetadata.title != null && href != null}
   <Card 
-    class='ArticleBox card-leather max-w-md flex flex-row space-x-2'
+    class='ArticleBox card-leather w-full h-96 max-w-md flex flex-row space-x-2 min-h-96'
     on:mouseenter={() => showActions = true}
     on:mouseleave={() => showActions = false}
   >
@@ -72,7 +80,7 @@
     {/if}
     <div class='col flex flex-row flex-grow space-x-4'>
       <div class="flex flex-col flex-grow">
-        <a href="/{href}" class='flex flex-col space-y-2'>
+        <a href="/{href}" class='flex flex-col space-y-2 h-full'>
           <h2 class='text-lg font-bold line-clamp-2' title="{eventMetadata.title}">{eventMetadata.title}</h2>
           <h3 class='text-base font-normal'>
             by
@@ -86,13 +94,11 @@
             {eventMetadata.publishedAt}
           </p>
           <p class="text-sm text-gray-500 mt-1">Type: {displayType}</p>
-          
           {#if showSummary}
-            <p class="mt-2 text-gray-700 dark:text-gray-300">
-              {eventMetadata.summary}
+            <p class="mt-2 text-gray-700 dark:text-gray-300 line-clamp-4" title={eventMetadata.summary}>
+              {croppedSummary}
             </p>
           {/if}
-          
           {#if showHashtags}
             <div class="flex flex-wrap gap-2 mt-2">
               {#each eventMetadata.hashtags as tag}

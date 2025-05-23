@@ -1,3 +1,4 @@
+import './eventTags';
 import { get } from 'svelte/store';
 import { nip19 } from 'nostr-tools';
 import { ndkInstance } from '$lib/ndk';
@@ -84,12 +85,15 @@ export async function getUserMetadata(identifier: string): Promise<NostrProfile>
     const profileEvent = await fetchEventWithFallback(ndk, { kinds: [0], authors: [pubkey] });
     const profile = profileEvent.event && profileEvent.event.content ? JSON.parse(profileEvent.event.content) : null;
 
+    // Prefer 'picture', fallback to 'image' for profile picture
+    const profilePicture = profile?.picture || profile?.image;
+
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
       display_name: profile?.displayName,
       displayName: profile?.displayName,
       nip05: profile?.nip05,
-      picture: profile?.image,
+      picture: profilePicture,
       about: profile?.about,
       banner: profile?.banner,
       website: profile?.website,
@@ -344,111 +348,74 @@ export async function fetchEventWithFallback(
       .filter(r => r.status === 1) // Only use connected relays
       .map(r => r.url) : 
     [];
-  
-  // Create relay groups in priority order
-  const relayGroups = [
-    { name: 'primary', relays: [...standardRelays, ...userRelays] },
-    { name: 'fallback', relays: fallbackRelays }
-  ].filter(group => group.relays.length > 0 && (group.name !== 'fallback' || useFallbackRelays));
 
-  // Helper function to try fetching from a single relay
-  async function tryFetchFromRelay(relayUrl: string, groupName: string): Promise<RelaySearchResult> {
-    const startTime = performance.now();
-    try {
-      // Check for cancellation
-      if (signal?.aborted) {
-        throw new Error('Search cancelled');
-      }
+  const primaryRelays = [...standardRelays, ...userRelays];
+  const fallback = useFallbackRelays ? fallbackRelays : [];
 
+  // Helper to search a set of relays in parallel, return the first found
+  async function searchRelays(relays: string[], group: string): Promise<RelaySearchResult | null> {
+    if (!relays.length) return null;
+    let found = false;
+    let abortControllers: AbortController[] = [];
+    const searchPromises = relays.map(relayUrl => {
+      const controller = new AbortController();
+      abortControllers.push(controller);
       const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relayUrl], ndk);
-      let event: NDKEvent | null = null;
-
-      if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
-        event = await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
-      } else {
-        const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
-        const results = await ndk.fetchEvents(filter, undefined, relaySet).withTimeout(timeoutMs);
-        event = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
-      }
-
-      // Check for cancellation after fetch
-      if (signal?.aborted) {
-        throw new Error('Search cancelled');
-      }
-
-      const latency = performance.now() - startTime;
-      if (event) {
-        console.debug(`[${groupName}] Found event on ${relayUrl} in ${latency.toFixed(0)}ms`);
-      }
-      return { event, relay: relayUrl, latency, group: groupName };
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Search cancelled') {
-        throw err;
-      }
-      const latency = performance.now() - startTime;
-      console.debug(`[${groupName}] Failed to fetch from ${relayUrl} after ${latency.toFixed(0)}ms:`, err);
-      return { event: null, relay: relayUrl, latency, group: groupName };
-    }
+      const startTime = performance.now();
+      return (async () => {
+        let event: NDKEvent | null = null;
+        try {
+          if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
+            event = await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
+          } else {
+            const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
+            const results = await ndk.fetchEvents(filter, undefined, relaySet).withTimeout(timeoutMs);
+            event = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
+          }
+        } catch {}
+        const latency = performance.now() - startTime;
+        if (event && !found) {
+          found = true;
+          // Abort all other searches
+          abortControllers.forEach(ctrl => ctrl.abort());
+          return { event, relay: relayUrl, latency, group };
+        }
+        return null;
+      })();
+    });
+    const results = await Promise.allSettled(searchPromises);
+    const successful = results.find(r => r.status === 'fulfilled' && r.value && r.value.event);
+    return successful && successful.status === 'fulfilled' ? successful.value : null;
   }
 
   try {
-    // Search each group in sequence, but relays within groups in parallel
-    for (const group of relayGroups) {
-      // Check for cancellation before starting group search
-      if (signal?.aborted) {
-        throw new Error('Search cancelled');
-      }
-
-      // Start parallel searches within this group
-      const searchPromises = group.relays.map(relay => 
-        tryFetchFromRelay(relay, group.name)
-      );
-
-      // Wait for all searches in this group to complete or timeout
-      const results = await Promise.allSettled(searchPromises);
-
-      // Check for cancellation after group search
-      if (signal?.aborted) {
-        throw new Error('Search cancelled');
-      }
-
-      // Process results from this group
-      const successfulResults = results
-        .filter((r): r is PromiseFulfilledResult<RelaySearchResult> => 
-          r.status === 'fulfilled' && r.value.event !== null
-        )
-        .map(r => r.value)
-        .sort((a, b) => a.latency - b.latency); // Sort by latency
-
-      if (successfulResults.length > 0) {
-        const fastest = successfulResults[0];
-        console.debug(
-          `Event found on ${fastest.relay} in ${fastest.latency.toFixed(0)}ms. ` +
-          `Also found on ${successfulResults.length - 1} other relay(s) in the ${group.name} group.`
-        );
+    // 1. Search primary relays in parallel
+    const primaryResult = await searchRelays(primaryRelays, 'primary');
+    if (primaryResult) {
+      return {
+        event: primaryResult.event,
+        relayInfo: {
+          url: primaryResult.relay,
+          latency: primaryResult.latency,
+          group: primaryResult.group
+        }
+      };
+    }
+    // 2. If not found, search fallback relays in parallel
+    if (fallback.length > 0 && useFallbackRelays && !signal?.aborted) {
+      const fallbackResult = await searchRelays(fallback, 'fallback');
+      if (fallbackResult) {
         return {
-          event: fastest.event,
+          event: fallbackResult.event,
           relayInfo: {
-            url: fastest.relay,
-            latency: fastest.latency,
-            group: fastest.group
+            url: fallbackResult.relay,
+            latency: fallbackResult.latency,
+            group: fallbackResult.group
           }
         };
       }
-
-      // If we didn't find the event in this group, log it and continue to next group
-      console.debug(
-        `No event found in ${group.name} group after searching ${group.relays.length} relay(s). ` +
-        `Moving to next group...`
-      );
     }
-
-    // If we get here, no event was found in any group
-    const njumpLink = `<a href="https://njump.me/${typeof filterOrId === 'string' ? filterOrId : ''}" target="_blank" class="text-primary-600 hover:underline">Njump</a>`;
-    console.warn(
-      `Event not found after searching all relay groups. ` +
-      `Try searching on ${njumpLink} instead.`
-    );
+    // Not found
     return { event: null };
   } catch (err) {
     if (err instanceof Error && err.message === 'Search cancelled') {
