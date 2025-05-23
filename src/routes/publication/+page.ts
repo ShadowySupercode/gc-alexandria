@@ -3,6 +3,7 @@ import type { Load } from '@sveltejs/kit';
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import { getActiveRelays } from '$lib/ndk';
+import { getMatchingTags } from '$lib/utils/nostrUtils';
 
 /**
  * Decodes an naddr identifier and returns a filter object
@@ -96,7 +97,7 @@ export const load: Load = async ({ url, parent }: { url: URL; parent: () => Prom
     ? await fetchEventById(ndk, id)
     : await fetchEventByDTag(ndk, dTag!);
   
-  const publicationType = indexEvent?.getMatchingTags('type')[0]?.[1];
+  const publicationType = getMatchingTags(indexEvent, 'type')[0]?.[1];
   const fetchPromise = parser.fetch(indexEvent);
 
   return {

@@ -1,5 +1,6 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
+import { getMatchingTags } from "./utils/nostrUtils";
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -11,7 +12,7 @@ export function neventEncode(event: NDKEvent, relays: string[]) {
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = event.getMatchingTags('d')[0]?.[1];
+  const dTag = getMatchingTags(event, 'd')[0]?.[1];
   if (!dTag) {
     throw new Error('Event does not have a d tag');
   }
@@ -22,6 +23,10 @@ export function naddrEncode(event: NDKEvent, relays: string[]) {
     kind: event.kind || 0,
     relays,
   });
+}
+
+export function nprofileEncode(pubkey: string, relays: string[]) {
+  return nip19.nprofileEncode({ pubkey, relays });
 }
 
 export function formatDate(unixtimestamp: number) {
@@ -109,11 +114,11 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
     // Index events have no content, and they must have `title`, `d`, and `e` tags.
     if (
       (event.content != null && event.content.length > 0)
-      || event.getMatchingTags('title').length === 0
-      || event.getMatchingTags('d').length === 0
+      || getMatchingTags(event, 'title').length === 0
+      || getMatchingTags(event, 'd').length === 0
       || (
-        event.getMatchingTags('a').length === 0
-        && event.getMatchingTags('e').length === 0
+        getMatchingTags(event, 'a').length === 0
+        && getMatchingTags(event, 'e').length === 0
       )
     ) {
       events.delete(event);
@@ -158,3 +163,29 @@ Array.prototype.findIndexAsync = function<T>(
 ): Promise<number> {
   return findIndexAsync(this, predicate);
 };
+
+/**
+ * Creates a debounced function that delays invoking func until after wait milliseconds have elapsed
+ * since the last time the debounced function was invoked.
+ * @param func The function to debounce
+ * @param wait The number of milliseconds to delay
+ * @returns A debounced version of the function
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      timeout = undefined;
+      func(...args);
+    };
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}

@@ -13,6 +13,7 @@ import type {
 import he from 'he';
 import { writable, type Writable } from 'svelte/store';
 import { zettelKinds } from './consts.ts';
+import { getMatchingTags } from '$lib/utils/nostrUtils';
 
 interface IndexMetadata {
   authors?: string[];
@@ -124,6 +125,11 @@ export default class Pharos {
   private eventsByLevelMap: Map<number, string[]> = new Map<number, string[]>();
 
   /**
+   * A map of blog entries
+   */
+  private blogEntries: Map<string, NDKEvent> = new Map<string, NDKEvent>();
+
+  /**
    * When `true`, `getEvents()` should regenerate the event tree to propagate updates.
    */
   private shouldUpdateEventTree: boolean = false;
@@ -147,6 +153,10 @@ export default class Pharos {
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
+
+    // Ensure the content is valid AsciiDoc and has a header and the doctype book
+    content = ensureAsciiDocHeader(content);
+    
     try {
       this.html = this.asciidoctor.convert(content, {
         'extension_registry': this.pharosExtensions,
@@ -178,6 +188,14 @@ export default class Pharos {
     }
 
     this.parse(content);
+  }
+
+  getBlogEntries() {
+    return this.blogEntries;
+  }
+
+  getIndexMetadata(): IndexMetadata {
+    return this.rootIndexMetadata;
   }
 
   /**
@@ -611,7 +629,7 @@ export default class Pharos {
     let content: string = '';
 
     // Format title into AsciiDoc header.
-    const title = event.getMatchingTags('title')[0][1];
+    const title = getMatchingTags(event, 'title')[0][1];
     let titleLevel = '';
     for (let i = 0; i <= depth; i++) {
       titleLevel += '=';
@@ -619,9 +637,9 @@ export default class Pharos {
     content += `${titleLevel} ${title}\n\n`;
 
     // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
-    let tags = event.getMatchingTags('a');
+    let tags = getMatchingTags(event, 'a');
     if (tags.length === 0) {
-      tags = event.getMatchingTags('e');
+      tags = getMatchingTags(event, 'e');
     }
 
     // Base case: The event is a zettel.
@@ -634,6 +652,23 @@ export default class Pharos {
     const childEvents = await Promise.all(
       tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
     );
+
+    // if a blog, save complete events for later
+    if (getMatchingTags(event, 'type').length > 0 && getMatchingTags(event, 'type')[0][1] === 'blog') {
+      childEvents.forEach(child => {
+        if (child) {
+          this.blogEntries.set(getMatchingTags(child, 'd')?.[0]?.[1], child);
+        }
+      })
+    }
+
+    // populate metadata
+    if (event.created_at) {
+      this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
+    }
+    if (getMatchingTags(event, 'image').length > 0) {
+      this.rootIndexMetadata.coverImage = getMatchingTags(event, 'image')[0][1];
+    }
 
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
     // children of index events before processing them for content.  We won't make that change now,
@@ -1084,3 +1119,49 @@ export default class Pharos {
 }
 
 export const pharosInstance: Writable<Pharos> = writable();
+
+export const tocUpdate = writable(0);
+
+// Whenever you update the publication tree, call:
+tocUpdate.update(n => n + 1);
+
+function ensureAsciiDocHeader(content: string): string {
+  const lines = content.split(/\r?\n/);
+  let headerIndex = -1;
+  let hasDoctype = false;
+
+  // Find the first non-empty line as header
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue;
+    if (lines[i].trim().startsWith('=')) {
+      headerIndex = i;
+      console.debug('[Pharos] AsciiDoc document header:', lines[i].trim());
+      break;
+    } else {
+      throw new Error('AsciiDoc document is missing a header at the top.');
+    }
+  }
+
+  if (headerIndex === -1) {
+    throw new Error('AsciiDoc document is missing a header.');
+  }
+
+  // Check for doctype in the next non-empty line after header
+  let nextLine = headerIndex + 1;
+  while (nextLine < lines.length && lines[nextLine].trim() === '') {
+    nextLine++;
+  }
+  if (nextLine < lines.length && lines[nextLine].trim().startsWith(':doctype:')) {
+    hasDoctype = true;
+  }
+
+  // Insert doctype immediately after header if not present
+  if (!hasDoctype) {
+    lines.splice(headerIndex + 1, 0, ':doctype: book');
+  }
+
+  // Log the state of the lines before returning
+  console.debug('[Pharos] AsciiDoc lines after header/doctype normalization:', lines.slice(0, 5));
+
+  return lines.join('\n');
+}

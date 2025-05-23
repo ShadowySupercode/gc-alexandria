@@ -5,6 +5,7 @@
   import { TextPlaceholder } from "flowbite-svelte";
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
+  import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   let {
     address,
@@ -104,12 +105,12 @@
   });
 </script>
 
-<section bind:this={sectionRef} class='publication-leather content-visibility-auto'>
+<section id={address} bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {#each divergingBranches as [branch, depth]}
-      {@render sectionHeading(branch.getMatchingTags('title')[0]?.[1] ?? '', depth)}
+      {@render sectionHeading(getMatchingTags(branch, 'title')[0]?.[1] ?? '', depth)}
     {/each}
     {#if leafTitle}
       {@const leafDepth = leafHierarchy.length - 1}

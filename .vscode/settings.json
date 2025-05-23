@@ -1,6 +1,14 @@
 {
-    "editor.tabSize": 2,
-"files.associations": {
-  "*.css": "postcss"
-}
-}
+  "css.validate": false,
+  "tailwindCSS.includeLanguages": {
+    "svelte": "html",
+    "typescript": "javascript",
+    "javascript": "javascript"
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "files.associations": {
+    "*.svelte": "svelte"
+  }
+} 

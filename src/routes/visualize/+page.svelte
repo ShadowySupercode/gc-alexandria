@@ -11,9 +11,6 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
-  import { CogSolid } from "flowbite-svelte-icons";
-  import { Button } from "flowbite-svelte";
-    import Settings from "$lib/navigator/EventNetwork/Settings.svelte";
   
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging

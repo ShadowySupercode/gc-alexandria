@@ -1,4 +1,6 @@
-export type NpubMetadata = { name?: string; displayName?: string };
+import type { NostrProfile } from './nostrUtils';
+
+export type NpubMetadata = NostrProfile;
 
 class NpubCache {
   private cache: Record<string, NpubMetadata> = {};
