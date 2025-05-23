@@ -11,7 +11,7 @@ import type { NetworkNode, NetworkLink, GraphData } from "../types";
 // Configuration
 const TAG_ANCHOR_RADIUS = 15;
 // TODO: Move this to settings panel for user control
-const TAG_ANCHOR_PLACEMENT_RADIUS = 2500; // Radius from center within which to randomly place tag anchors
+const TAG_ANCHOR_PLACEMENT_RADIUS = 1250; // Radius from center within which to randomly place tag anchors
 
 /**
  * Simple seeded random number generator (using a Linear Congruential Generator)
@@ -50,7 +50,7 @@ function createSeed(str: string): number {
 export function getTagAnchorColor(tagType: string): string {
   switch (tagType) {
     case "t":
-      return "#3B82F6"; // Blue for hashtags
+      return "#eba5a5"; // Blue for hashtags
     case "p":
       return "#10B981"; // Green for people
     case "author":
