@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Button, Checkbox, Badge } from "flowbite-svelte";
+  import { Badge } from "flowbite-svelte";
   import { ndkInstance } from "$lib/ndk";
   import { searchEventByIdentifier } from "$lib/utils/nostrUtils";
   import { goto } from '$app/navigation';
@@ -7,6 +7,7 @@
   import { NDKEvent } from "@nostr-dev-kit/ndk";
   import RelayDisplay from './RelayDisplay.svelte';
   import { fallbackRelays } from '$lib/consts';
+  import SearchBar from './SearchBar.svelte';
 
   const { loading, error, searchValue, onEventFound, event } = $props<{
     loading: boolean;
@@ -26,15 +27,7 @@
   let abortController = $state<AbortController | null>(null);
   let lastSearchedValue = $state<string | null>(null);
   let currentRelayGroup = $state<'primary' | 'fallback'>('primary');
-
-  let buttonText = $derived.by(() => {
-    if (searching) return 'Cancel';
-    if (loading) return 'Loading...';
-    return 'Search';
-  });
-
-  type ButtonColor = "red" | "primary" | "green" | "yellow" | "purple" | "blue" | "light" | "dark" | "none" | "alternative";
-  let buttonColor = $derived.by(() => (searching ? "red" : "primary") as ButtonColor);
+  let searchBarComponent: SearchBar;
 
   let displayError = $derived.by(() => localError || error);
   let showNjumpLink = $derived.by(() => searchQuery.trim() && !localError?.includes('cancelled'));
@@ -101,6 +94,10 @@
         status === 'pending' ? 'notfound' : status
       ])
     );
+
+    if (searchBarComponent) {
+      searchBarComponent.stopSearching();
+    }
   }
 
   async function startSearch(query: string, clearInput: boolean = true) {
@@ -186,32 +183,25 @@
 
 <div class="flex flex-col space-y-6">
   <div class="flex flex-col gap-4">
-    <div class="flex gap-2">
-      <Input
-        bind:value={searchQuery}
-        placeholder="Enter event ID, nevent, or naddr..."
-        class="flex-grow"
-        on:keydown={(e: KeyboardEvent) => e.key === 'Enter' && startSearch(searchQuery, true)}
-        disabled={searching}
-      />
-      <Button 
-        onclick={() => startSearch(searchQuery, true)} 
-        disabled={loading}
-        color={buttonColor}
-      >
-        {buttonText}
-      </Button>
-    </div>
-    <div class="flex items-center gap-2">
-      <Checkbox
-        bind:checked={useFallbackRelays}
-        id="use-fallback-relays"
-        disabled={searching}
-      />
-      <label for="use-fallback-relays" class="text-sm text-gray-600 dark:text-gray-400">
-        Include fallback relays (may expose your data to additional relay operators)
-      </label>
-    </div>
+    <SearchBar
+      bind:this={searchBarComponent}
+      placeholder="Enter event ID, nevent, or naddr..."
+      initialValue={searchQuery}
+      showFallbackToggle={true}
+      bind:useFallbackRelays
+      disabled={loading}
+      onDispatchSearch={(query, useFallbackRelays) => startSearch(query, true)}
+      onDispatchCancel={cancelSearch}
+      onDispatchClear={() => {
+        if (searching) {
+          cancelSearch();
+        }
+        searchQuery = '';
+        localError = null;
+        foundEvent = null;
+        relayStatuses = {};
+      }}
+    />
   </div>
 
   {#if displayError}

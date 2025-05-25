@@ -1,6 +1,7 @@
 <script lang="ts">
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
+  import DualPill from "$components/util/DualPill.svelte";
 
   export let tag: string[];
 
@@ -22,7 +23,5 @@
     {tag[0]}:{tag[1]}
   </a>
 {:else}
-  <span class="bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono">
-    {tag[0]}:{tag[1]}
-  </span>
-{/if} 
+  <DualPill left={tag[0]} right={tag[1]} />
+{/if}

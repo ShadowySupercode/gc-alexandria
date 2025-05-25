@@ -8,6 +8,7 @@
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import EventTag from "./EventTag.svelte";
+  import { Accordion, AccordionItem } from "flowbite-svelte";
 
   const { event, profile = null, searchValue = null } = $props();
 
@@ -92,23 +93,18 @@
 
 {#key event.id}
 <div class="flex flex-col space-y-4">
-  {#if event.kind !== 0 && eventTitle}
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
-  {/if}
+  <!--Will be in the event card header-->
+  <!--{#if event.kind !== 0 && eventTitle}-->
+  <!--  <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>-->
+  <!--{/if}-->
 
-  <div class="flex items-center space-x-2">
-    {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
-    {:else}
-      <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>
-    {/if}
-  </div>
-
-  <div class="flex items-center space-x-2">
-    <span class="text-gray-600 dark:text-gray-400">Kind:</span>
-    <span class="font-mono">{event.kind}</span>
-    <span class="text-gray-600 dark:text-gray-400">({eventTypeDisplay})</span>
-  </div>
+  <!--<div class="flex items-center space-x-2">-->
+  <!--  {#if toNpub(event.pubkey)}-->
+  <!--    <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>-->
+  <!--  {:else}-->
+  <!--    <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>-->
+  <!--  {/if}-->
+  <!--</div>-->
 
   {#if eventSummary}
     <div class="flex flex-col space-y-1">
@@ -156,32 +152,46 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <ProfileHeader {event} {profile} identifiers={getIdentifiers(event, profile)} />
+    <ProfileHeader {event} {profile} typeDisplay={eventTypeDisplay} />
   {/if}
 
-  <!-- Tags Array -->
-  {#if event.tags && event.tags.length}
-    <div class="flex flex-col space-y-1">
-      <span class="text-gray-600 dark:text-gray-400">Event Tags:</span>
-      <div class="flex flex-wrap gap-2">
-        {#each event.tags as tag}
-          <EventTag {tag} />
-        {/each}
+  <!-- Event Technical details -->
+  <Accordion defaultClass="border-none shadow-none" inactiveClass="!bg-primary-50 dark:!bg-primary-900 border-none shadow-none" activeClass="!bg-primary-100 dark:!bg-primary-800 border-none shadow-none" class="w-full">
+    <AccordionItem >
+      {#snippet header()}Shareable Links{/snippet}
+      <div class="flex flex-col space-y-2">
+        <dl>
+          {#each getIdentifiers(event, profile) as id}
+            <div class="flex gap-2">
+              <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
+              <dd class="break-all">{#if id.link}<a href={id.link} class="underline text-primary-700 dark:text-primary-200 break-all">{id.value}</a>{:else}{id.value}{/if}</dd>
+            </div>
+          {/each}
+        </dl>
       </div>
-    </div>
-  {/if}
+    </AccordionItem>
+    <AccordionItem >
+      {#snippet header()}Event Tags{/snippet}
 
-  <!-- Raw Event JSON -->
-  <details class="bg-primary-50 dark:bg-primary-900 rounded p-4">
-    <summary class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2">
-      Show Raw Event JSON
-    </summary>
-    <pre
-      class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono"
-      style="line-height: 1.7; font-size: 1rem;"
-    >
-      {JSON.stringify(event.rawEvent(), null, 2)}
-    </pre>
-  </details>
+      {#if event.tags && event.tags.length}
+        <div class="flex flex-col space-y-1">
+          <div class="flex flex-wrap gap-2">
+            {#each event.tags as tag}
+              <EventTag {tag} />
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <span class="text-gray-500">No tags are set on this event.</span>
+      {/if}
+
+    </AccordionItem>
+    <AccordionItem borderClass="!border-primary-900"  >
+      {#snippet header()}Raw Event JSON{/snippet}
+      <pre class="overflow-x-auto text-sm bg-highlight dark:bg-primary-900 rounded p-2 font-mono">
+        {JSON.stringify(event.rawEvent(), null, 2)}
+      </pre>
+    </AccordionItem>
+  </Accordion>
 </div>
 {/key}

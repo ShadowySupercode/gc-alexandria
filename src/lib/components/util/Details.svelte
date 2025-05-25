@@ -4,6 +4,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
   import { getTagValue, getTagValues } from '$lib/utils/eventTags';
+  import DisplayType from "$components/cards/DisplayType.svelte";
 
   // isModal
   //  - don't show interactions in modal view
@@ -91,7 +92,7 @@
       <h5 class="text-sm">Source: <a class="underline break-all" href={source} target="_blank">{source}</a></h5>
     {/if}
     {#if type !== null}
-      <h5 class="text-sm">Publication type: {type}</h5>
+      <h5 class="text-sm"><DisplayType type={type} /></h5>
     {/if}
     {#if language !== null}
       <h5 class="text-sm">Language: {language}</h5>

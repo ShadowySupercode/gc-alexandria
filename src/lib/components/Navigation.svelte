@@ -30,7 +30,7 @@
     <NavLi href="/about">About</NavLi>
     <NavLi href="/contact">Contact</NavLi>
     <NavLi>
-      <DarkMode btnClass="btn-leather p-0" />
+      <DarkMode btnClass="btn-leather p-0 dark:text-gray-300" />
     </NavLi>
   </NavUl>
 </Navbar>
