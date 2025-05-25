@@ -14,7 +14,7 @@ import he from 'he';
 import { writable, type Writable } from 'svelte/store';
 import { SectionKinds } from './consts.ts';
 import { getTagValue, getTagValues } from '$lib/utils/eventTags';
-import { fetchEventByDTag } from '../../src/routes/publication/+page.ts';
+import { _fetchEventByDTag } from "../routes/publication/+page.ts";
 
 interface IndexMetadata {
   authors?: string[];
@@ -651,7 +651,7 @@ export default class Pharos {
 
     // Recursive case: The event is an index.
     const childEvents = await Promise.all(
-      tags.map(tag => fetchEventByDTag(this.ndk, tag[1]))
+      tags.map(tag => _fetchEventByDTag(this.ndk, tag[1]))
     );
 
     // if a blog, save complete events for later
