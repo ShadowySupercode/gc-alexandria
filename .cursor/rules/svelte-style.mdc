@@ -21,6 +21,8 @@ Observe the the following style guidelines when programming Svelte components or
   - Avoid trying to trigger reactivity by reassigning state variables unless other options have failed.
 - Write components in TypeScript, and prefer strong typing for variables, props, and function signatures.
 - Limit component logic to rendering concerns. Extract business logic into separate TypeScript modules, and import functions and classes into Svelte components as needed.
+- Use PascalCase when naming Svelte components.
+- Keep component files under 500 lines, when possible.
 
 ## Component Code Organization Example
 
