@@ -6,6 +6,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
   import CardActions from "$components/util/CardActions.svelte";
+  import { getMatchingTags } from '$lib/utils/nostrUtils';
 
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 

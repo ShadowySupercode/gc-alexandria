@@ -17,12 +17,14 @@
     starVisualization = $bindable(true),
     showTagAnchors = $bindable(false),
     selectedTagType = $bindable("t"),
+    tagExpansionDepth = $bindable(0),
   } = $props<{
     count: number;
     onupdate: () => void;
     starVisualization?: boolean;
     showTagAnchors?: boolean;
     selectedTagType?: string;
+    tagExpansionDepth?: number;
   }>();
 
   let expanded = $state(false);
@@ -35,6 +37,17 @@
    */
   function handleLimitUpdate() {
     onupdate();
+  }
+
+  function handleDepthInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = parseInt(input.value);
+    // Ensure value is between 0 and 10
+    if (!isNaN(value) && value >= 0 && value <= 10) {
+      tagExpansionDepth = value;
+    } else if (input.value === "") {
+      tagExpansionDepth = 0;
+    }
   }
 </script>
 
@@ -87,25 +100,53 @@
         </p>
 
         {#if showTagAnchors}
-          <div class="mt-2">
-            <label
-              for="tag-type-select"
-              class="text-xs text-gray-600 dark:text-gray-400">Tag Type:</label
-            >
-            <Select
-              id="tag-type-select"
-              bind:value={selectedTagType}
-              size="sm"
-              class="text-xs mt-1"
-            >
-              <option value="t">Hashtags</option>
-              <option value="author">Authors</option>
-              <option value="p">People (Pubkeys)</option>
-              <option value="e">Event References</option>
-              <!-- <option value="a">Article References</option> -->
-              <option value="title">Titles</option>
-              <option value="summary">Summaries</option>
-            </Select>
+          <div class="mt-2 space-y-3">
+            <div>
+              <label
+                for="tag-type-select"
+                class="text-xs text-gray-600 dark:text-gray-400"
+                >Tag Type:</label
+              >
+              <Select
+                id="tag-type-select"
+                bind:value={selectedTagType}
+                size="sm"
+                class="text-xs mt-1"
+              >
+                <option value="t">Hashtags</option>
+                <option value="author">Authors</option>
+                <option value="p">People (Pubkeys)</option>
+                <option value="e">Event References</option>
+                <!-- <option value="a">Article References</option> -->
+                <option value="title">Titles</option>
+                <option value="summary">Summaries</option>
+              </Select>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <label
+                  for="tag-depth-input"
+                  class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
+                  >Expansion Depth:</label
+                >
+                <input
+                  type="number"
+                  id="tag-depth-input"
+                  min="0"
+                  max="10"
+                  value={tagExpansionDepth}
+                  oninput={handleDepthInput}
+                  class="w-16 text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+                />
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  (0-10)
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                Fetch publications sharing tags
+              </p>
+            </div>
           </div>
         {/if}
       </div>

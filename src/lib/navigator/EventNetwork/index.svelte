@@ -41,7 +41,7 @@
   type Selection = any;
 
   // Configuration
-  const DEBUG = false; // Set to true to enable debug logging
+  const DEBUG = true; // Set to true to enable debug logging
   const NODE_RADIUS = 20;
   const LINK_DISTANCE = 10;
   const ARROW_DISTANCE = 10;
@@ -58,9 +58,10 @@
   }
 
   // Component props
-  let { events = [], onupdate } = $props<{
+  let { events = [], onupdate, onTagExpansionChange } = $props<{
     events?: NDKEvent[];
     onupdate: () => void;
+    onTagExpansionChange?: (depth: number, tags: string[]) => void;
   }>();
 
   // Error state
@@ -94,6 +95,9 @@
   let svgGroup: Selection;
   let zoomBehavior: any;
   let svgElement: Selection;
+  
+  // Position cache to preserve node positions across updates
+  let nodePositions = new Map<string, { x: number; y: number; vx?: number; vy?: number }>();
 
   // Track current render level
   let currentLevels = $derived(levelsToRender);
@@ -105,6 +109,14 @@
   let showTagAnchors = $state(false);
   let selectedTagType = $state("t"); // Default to hashtags
   let tagAnchorInfo = $state<any[]>([]);
+  let tagExpansionDepth = $state(0); // Default to no expansion
+  
+  // Store initial state to detect if component is being recreated
+  let componentId = Math.random();
+  debug("Component created with ID:", componentId);
+  
+  // Event counts by kind
+  let eventCounts = $state<{ [kind: number]: number }>({});
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -224,6 +236,13 @@
 
       // Enhance with tag anchors if enabled
       if (showTagAnchors) {
+        debug("Enhancing graph with tags", {
+          selectedTagType,
+          eventCount: events.length,
+          width,
+          height
+        });
+        
         graphData = enhanceGraphWithTags(
           graphData,
           events,
@@ -233,9 +252,14 @@
         );
 
         // Extract tag anchor info for legend
-        tagAnchorInfo = graphData.nodes
-          .filter((n) => n.isTagAnchor)
-          .map((n) => ({
+        const tagAnchors = graphData.nodes.filter((n) => n.isTagAnchor);
+        
+        debug("Tag anchors created", {
+          count: tagAnchors.length,
+          anchors: tagAnchors
+        });
+        
+        tagAnchorInfo = tagAnchors.map((n) => ({
             type: n.tagType,
             label: n.title,
             count: n.connectedNodes?.length || 0,
@@ -245,12 +269,48 @@
         tagAnchorInfo = [];
       }
 
+      // Save current node positions before updating
+      if (simulation && nodes.length > 0) {
+        nodes.forEach(node => {
+          if (node.x != null && node.y != null) {
+            nodePositions.set(node.id, { 
+              x: node.x, 
+              y: node.y,
+              vx: node.vx,
+              vy: node.vy
+            });
+          }
+        });
+        debug("Saved positions for", nodePositions.size, "nodes");
+      }
+
       nodes = graphData.nodes;
       links = graphData.links;
+      
+      // Count events by kind
+      const counts: { [kind: number]: number } = {};
+      events.forEach(event => {
+        counts[event.kind] = (counts[event.kind] || 0) + 1;
+      });
+      eventCounts = counts;
+      
+      // Restore positions for existing nodes
+      let restoredCount = 0;
+      nodes.forEach(node => {
+        const savedPos = nodePositions.get(node.id);
+        if (savedPos && !node.isTagAnchor) { // Don't restore tag anchor positions as they're fixed
+          node.x = savedPos.x;
+          node.y = savedPos.y;
+          node.vx = savedPos.vx || 0;
+          node.vy = savedPos.vy || 0;
+          restoredCount++;
+        }
+      });
 
       debug("Generated graph data", {
         nodeCount: nodes.length,
         linkCount: links.length,
+        restoredPositions: restoredCount
       });
 
       if (!nodes.length) {
@@ -265,14 +325,23 @@
 
       // Create new simulation
       debug("Creating new simulation");
+      const hasRestoredPositions = restoredCount > 0;
+      
       if (starVisualization) {
         // Use star-specific simulation
         simulation = createStarSimulation(nodes, links, width, height);
-        // Apply initial star positioning
-        applyInitialStarPositions(nodes, links, width, height);
+        // Apply initial star positioning only if we don't have restored positions
+        if (!hasRestoredPositions) {
+          applyInitialStarPositions(nodes, links, width, height);
+        }
       } else {
         // Use regular simulation
         simulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
+      }
+      
+      // Use gentler alpha for updates with restored positions
+      if (hasRestoredPositions) {
+        simulation.alpha(0.3); // Gentler restart
       }
 
       // Center the nodes when the simulation is done
@@ -643,6 +712,55 @@
     }
   });
 
+  // Track previous values to avoid unnecessary calls
+  let previousDepth = $state(0);
+  let previousTagType = $state(selectedTagType);
+  let isInitialized = $state(false);
+  
+  // Mark as initialized after first render
+  $effect(() => {
+    if (!isInitialized && svg) {
+      isInitialized = true;
+    }
+  });
+  
+  /**
+   * Watch for tag expansion depth changes
+   */
+  $effect(() => {
+    // Skip if not initialized or no callback
+    if (!isInitialized || !onTagExpansionChange) return;
+    
+    // Check if we need to trigger expansion
+    const depthChanged = tagExpansionDepth !== previousDepth;
+    const tagTypeChanged = selectedTagType !== previousTagType;
+    const shouldExpand = showTagAnchors && (depthChanged || tagTypeChanged);
+    
+    if (shouldExpand) {
+      previousDepth = tagExpansionDepth;
+      previousTagType = selectedTagType;
+      
+      // Extract unique tags from current events
+      const tags = new Set<string>();
+      events.forEach(event => {
+        const eventTags = event.getMatchingTags(selectedTagType);
+        eventTags.forEach(tag => {
+          if (tag[1]) tags.add(tag[1]);
+        });
+      });
+      
+      debug("Tag expansion requested", {
+        depth: tagExpansionDepth,
+        tagType: selectedTagType,
+        tags: Array.from(tags),
+        depthChanged,
+        tagTypeChanged
+      });
+      
+      onTagExpansionChange(tagExpansionDepth, Array.from(tags));
+    }
+  });
+
   /**
    * Handles tooltip close event
    */
@@ -724,6 +842,7 @@
       starMode={starVisualization}
       showTags={showTagAnchors}
       tagAnchors={tagAnchorInfo}
+      eventCounts={eventCounts}
     />
 
     <!-- Settings Panel (shown when settings button is clicked) -->
@@ -733,6 +852,7 @@
       bind:starVisualization
       bind:showTagAnchors
       bind:selectedTagType
+      bind:tagExpansionDepth
     />
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->

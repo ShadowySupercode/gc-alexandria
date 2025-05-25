@@ -73,6 +73,8 @@ export function extractUniqueTagsForType(
 ): Map<string, Set<string>> {
   // Map of tagValue -> Set of event IDs
   const tagMap = new Map<string, Set<string>>();
+  
+  console.log(`[TagBuilder] Extracting tags of type: ${tagType} from ${events.length} events`);
 
   events.forEach((event) => {
     if (!event.tags || !event.id) return;
@@ -92,6 +94,8 @@ export function extractUniqueTagsForType(
       tagMap.get(tagValue)!.add(event.id);
     });
   });
+  
+  console.log(`[TagBuilder] Found ${tagMap.size} unique tags of type ${tagType}:`, Array.from(tagMap.keys()));
 
   return tagMap;
 }
@@ -108,8 +112,10 @@ export function createTagAnchorNodes(
   const anchorNodes: NetworkNode[] = [];
 
   // Calculate positions for tag anchors randomly within radius
+  // For single publication view, show all tags. For network view, only show tags with 2+ events
+  const minEventCount = tagMap.size <= 10 ? 1 : 2;
   const validTags = Array.from(tagMap.entries()).filter(
-    ([_, eventIds]) => eventIds.size >= 2,
+    ([_, eventIds]) => eventIds.size >= minEventCount,
   );
 
   if (validTags.length === 0) return [];

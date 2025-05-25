@@ -13,7 +13,7 @@
   import { networkFetchLimit } from "$lib/state";
   
   // Configuration
-  const DEBUG = false; // Set to true to enable debug logging
+  const DEBUG = true; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
   
@@ -31,6 +31,8 @@
   let loading = true;
   let error: string | null = null;
   let showSettings = false;
+  let tagExpansionDepth = 0;
+  let baseEvents: NDKEvent[] = []; // Store original events before expansion
 
   /**
    * Fetches events from the Nostr network
@@ -95,6 +97,7 @@
 
       // Step 5: Combine both sets of events
       events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      baseEvents = [...events]; // Store base events for tag expansion
       debug("Total events for visualization:", events.length);
     } catch (e) {
       console.error("Error fetching events:", e);
@@ -104,6 +107,85 @@
     }
   }
 
+
+  /**
+   * Handles tag expansion to fetch related publications
+   */
+  async function handleTagExpansion(depth: number, tags: string[]) {
+    debug("Handling tag expansion", { depth, tags });
+    
+    if (depth === 0 || tags.length === 0) {
+      // Reset to base events only
+      events = [...baseEvents];
+      return;
+    }
+    
+    try {
+      // Don't show loading spinner for incremental updates
+      error = null;
+      
+      // Keep track of existing event IDs to avoid duplicates
+      const existingEventIds = new Set(baseEvents.map(e => e.id));
+      
+      // Fetch publications that have any of the specified tags
+      const taggedPublications = await $ndkInstance.fetchEvents({
+        kinds: [INDEX_EVENT_KIND],
+        "#t": tags, // Match any of these tags
+        limit: 30 * depth // Reasonable limit based on depth
+      });
+      
+      debug("Found tagged publications:", taggedPublications.size);
+      
+      // Filter to avoid duplicates
+      const newPublications = Array.from(taggedPublications).filter(
+        event => !existingEventIds.has(event.id)
+      );
+      
+      // Extract content event IDs from new publications
+      const contentEventIds = new Set<string>();
+      const existingContentIds = new Set(
+        baseEvents.filter(e => CONTENT_EVENT_KINDS.includes(e.kind)).map(e => e.id)
+      );
+      
+      newPublications.forEach((event) => {
+        const aTags = event.getMatchingTags("a");
+        aTags.forEach((tag) => {
+          const eventId = tag[3];
+          if (eventId && !existingContentIds.has(eventId)) {
+            contentEventIds.add(eventId);
+          }
+        });
+      });
+      
+      // Fetch the content events
+      let newContentEvents: NDKEvent[] = [];
+      if (contentEventIds.size > 0) {
+        const contentEventsSet = await $ndkInstance.fetchEvents({
+          kinds: CONTENT_EVENT_KINDS,
+          ids: Array.from(contentEventIds),
+        });
+        newContentEvents = Array.from(contentEventsSet);
+      }
+      
+      // Combine all events: base events + new publications + new content
+      events = [
+        ...baseEvents,
+        ...newPublications,
+        ...newContentEvents
+      ];
+      
+      debug("Events after expansion:", {
+        base: baseEvents.length,
+        newPubs: newPublications.length,
+        newContent: newContentEvents.length,
+        total: events.length
+      });
+      
+    } catch (e) {
+      console.error("Error expanding tags:", e);
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   // Fetch events when component mounts
   onMount(() => {
@@ -159,6 +241,6 @@
   <!-- Network visualization -->
   {:else}
     <!-- Event network visualization -->
-    <EventNetwork {events} onupdate={fetchEvents} />
+    <EventNetwork {events} onupdate={fetchEvents} onTagExpansionChange={handleTagExpansion} />
   {/if}
 </div>
