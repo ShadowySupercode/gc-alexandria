@@ -10,6 +10,7 @@
   import { nip19 } from 'nostr-tools';
   import { getMimeTags } from '$lib/utils/mime';
     import { userBadge } from '$lib/snippets/UserSnippets.svelte';
+  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
   
   // Function to close the success message
   function closeSuccessMessage() {
@@ -184,17 +185,12 @@
       // Create and prepare the event
       const event = await createIssueEvent(ndk);
       
-      // Collect all unique relays
-      const uniqueRelays = new Set([
-        ...allRelays.map(normalizeRelayUrl),
-        ...(ndk.pool ? Array.from(ndk.pool.relays.values())
-          .filter(relay => relay.url && !relay.url.includes('wss://nos.lol'))
-          .map(relay => normalizeRelayUrl(relay.url)) : [])
-      ]);
+      // Use relay group utility for relays
+      const relays = new Set(selectRelayGroup().map(normalizeRelayUrl));
 
       try {
         // Publish to relays with retry logic
-        successfulRelays = await publishToRelays(event, ndk, uniqueRelays);
+        successfulRelays = await publishToRelays(event, ndk, relays);
         
         // Store the submitted event and create issue link
         submittedEvent = event;

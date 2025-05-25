@@ -8,7 +8,7 @@
   import { isParentPublication, isTopLevelParent, type NDKEvent, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import PublicationHeader from "$components/cards/PublicationHeader.svelte";
 
-  let { searchQuery = '', useFallbackRelays = $bindable(true), loggedIn, userRelays, fallbackRelays } = $props<{ searchQuery?: string, useFallbackRelays?: boolean, loggedIn: boolean, userRelays: string[], fallbackRelays: string[] }>();
+  let { searchQuery = '', useFallbackRelays = $bindable(true), fallbackRelays } = $props<{ searchQuery?: string, useFallbackRelays?: boolean, userRelays: string[], fallbackRelays: string[] }>();
 
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
@@ -17,7 +17,6 @@
   let loading: boolean = $state(true);
   let isSearching = $state(false);
   let searchAbortController: AbortController | null = $state(null);
-  let searchBarComponent: SearchBar;
   let processedEvents = $state(0);
   let totalEvents = $state(0);
   let searchError = $state<{ message: string; code: string } | null>(null);
@@ -25,7 +24,6 @@
 
   // Convert more state variables to derived values
   let isLoading = $derived.by(() => loading || loadingMore);
-  let hasError = $derived.by(() => searchError !== null);
   let canLoadMore = $derived.by(() => !endOfFeed && !isLoading && !isSearching);
   let showSearchProgress = $derived.by(() => isSearching && totalEvents > 0);
   let searchProgressPercentage = $derived.by(() => {
@@ -56,23 +54,12 @@
   const CHUNK_SIZE = 100;
   const SEARCH_TIMEOUT = 30000; // 30 seconds timeout for search operations
 
-  let relayGroup = $state<'alexandria' | 'user'>('alexandria');
-  let relaysToUse = $derived.by(() =>
-    relayGroup === 'alexandria'
-      ? standardRelays
-      : userRelays
-  );
-
   let showRelayDropdown = $state(false);
 
   async function abortCurrentSearch() {
     if (searchAbortController) {
       searchAbortController.abort();
       searchAbortController = null;
-    }
-    isSearching = false;
-    if (searchBarComponent) {
-      searchBarComponent.stopSearching();
     }
   }
 
@@ -110,7 +97,7 @@
 
     const ndk = $ndkInstance;
     // Use all relays from props as primaryRelays
-    const primaryRelays: string[] = relaysToUse;
+    const primaryRelays: string[] = selectRelayGroup();
     const fallback: string[] = useFallbackRelays ? fallbackRelays.filter((r: string) => !primaryRelays.includes(r)) : [];
     
     relayStatuses = Object.fromEntries([
@@ -244,29 +231,11 @@
       loading = false;
     }
 
-    // Update search bar with events for autocomplete
-    if (searchBarComponent) {
-      searchBarComponent.updateEvents(allEvents);
-    }
+    // After updating eventsInView, ensure all are NDKEvent instances:
+    eventsInView = eventsInView.map(ensureNDKEvent);
 
     const pageSize = fallback.length > 0 ? 18 : 30;
     endOfFeed = fetchedCount < pageSize;
-  }
-
-  const getSkeletonIds = (): string[] => {
-    const skeletonHeight = 124; // The height of the skeleton component in pixels.
-    const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
-    const skeletonIds = [];
-    for (let i = 0; i < skeletonCount; i++) {
-      skeletonIds.push(`skeleton-${i}`);
-    }
-    return skeletonIds;
-  }
-
-  async function loadMorePublications() {
-    loadingMore = true;
-    await getEvents(cutoffTimestamp, searchQuery, false);
-    loadingMore = false;
   }
 
   onMount(() => {
@@ -313,10 +282,6 @@
             index === self.findIndex((e) => e.tagAddress() === event.tagAddress())
           );
           
-          if (searchBarComponent) {
-            searchBarComponent.updateEvents(allEvents);
-          }
-          
           loading = false;
           isSearching = false;
           searchProgress = null;
@@ -356,6 +321,10 @@
     if (workerInitialized) {
       searchWorker.terminate();
     }
+  });
+
+  $effect(() => {
+    getEvents(undefined, searchQuery, true);
   });
 </script>
 
@@ -447,7 +416,9 @@
     </div>
   {:else if eventsInView.length > 0}
     {#each eventsInView as event (event.id)}
-      <PublicationHeader event={event}></PublicationHeader>
+      <a href={'/publication?id=' + event.tagAddress()} class="block h-full">
+        <PublicationHeader {event} />
+      </a>
     {/each}
     {#if canLoadMore}
       <div class='flex justify-center mt-6 col-span-full'>

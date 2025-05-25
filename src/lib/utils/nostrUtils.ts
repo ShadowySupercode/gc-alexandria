@@ -10,6 +10,7 @@ import { NDKRelaySet as NDKRelaySetFromNDK } from '@nostr-dev-kit/ndk';
 import { sha256 } from '@noble/hashes/sha256';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
+import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
 
 const badgeCheckSvg = '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>'
 
@@ -333,24 +334,27 @@ interface EventSearchResult {
  * @param timeoutMs Timeout in milliseconds
  * @param useFallbackRelays Whether to include fallback relays in the search
  * @param signal Optional AbortSignal for cancellation
+ * @param relays Optional array of relays to use instead of default
  * @returns The event and relay info if found, null otherwise
  */
 export async function fetchEventWithFallback(
   ndk: NDK,
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000,
-  useFallbackRelays: boolean = true,
-  signal?: AbortSignal
+  useFallbackRelays: boolean = false,
+  signal?: AbortSignal,
+  relays?: string[]
 ): Promise<EventSearchResult> {
-  // Get user relays if logged in
-  const userRelays = ndk.activeUser ? 
-    Array.from(ndk.pool?.relays.values() || [])
-      .filter(r => r.status === 1) // Only use connected relays
-      .map(r => r.url) : 
-    [];
+  // Remove 'nostr:' prefix if present
+  let cleanedFilterOrId = filterOrId;
+  if (typeof filterOrId === 'string') {
+    cleanedFilterOrId = filterOrId.replace(/^nostr:/, '');
+  }
 
-  const primaryRelays = [...standardRelays, ...userRelays];
-  const fallback = useFallbackRelays ? fallbackRelays : [];
+  const primaryRelays = relays && relays.length > 0 ? relays : selectRelayGroup();
+  const fallback = useFallbackRelays
+    ? fallbackRelays.filter(r => !primaryRelays.includes(r))
+    : [];
 
   // Helper to search a set of relays in parallel, return the first found
   async function searchRelays(relays: string[], group: string): Promise<RelaySearchResult | null> {
@@ -365,10 +369,10 @@ export async function fetchEventWithFallback(
       return (async () => {
         let event: NDKEvent | null = null;
         try {
-          if (typeof filterOrId === 'string' && /^[0-9a-f]{64}$/i.test(filterOrId)) {
-            event = await ndk.fetchEvent({ ids: [filterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
+          if (typeof cleanedFilterOrId === 'string' && /^[0-9a-f]{64}$/i.test(cleanedFilterOrId)) {
+            event = await ndk.fetchEvent({ ids: [cleanedFilterOrId] }, undefined, relaySet).withTimeout(timeoutMs);
           } else {
-            const filter = typeof filterOrId === 'string' ? { ids: [filterOrId] } : filterOrId;
+            const filter = typeof cleanedFilterOrId === 'string' ? { ids: [cleanedFilterOrId] } : cleanedFilterOrId;
             const results = await ndk.fetchEvents(filter, undefined, relaySet).withTimeout(timeoutMs);
             event = results instanceof Set ? Array.from(results)[0] as NDKEvent : null;
           }
@@ -544,34 +548,45 @@ export async function searchEventByIdentifier(
   // If it's a NIP-19 identifier
   if (decoded) {
     let hex;
+    let relays: string[] | undefined;
     switch (decoded.type) {
       case 'npub':
         hex = decoded.data;
         break;
       case 'nprofile':
         hex = decoded.data.pubkey;
+        relays = decoded.data.relays;
         break;
       case 'nevent':
         hex = decoded.data.id;
+        relays = decoded.data.relays;
         break;
       case 'note':
         hex = decoded.data;
         break;
       case 'naddr':
-        // naddr: { kind, pubkey, identifier }
-        return await fetchEventWithFallback(ndk, {
-          kinds: [decoded.data.kind],
-          authors: [decoded.data.pubkey],
-          '#d': [decoded.data.identifier]
-        }, options.timeoutMs, options.useFallbackRelays, options.signal);
+        // naddr: { kind, pubkey, identifier, relays? }
+        return await fetchEventWithFallback(
+          ndk,
+          {
+            kinds: [decoded.data.kind],
+            authors: [decoded.data.pubkey],
+            '#d': [decoded.data.identifier]
+          },
+          options.timeoutMs,
+          options.useFallbackRelays,
+          options.signal,
+          decoded.data.relays
+        );
       default:
         throw new Error(`Unsupported NIP-19 type: ${decoded.type}`);
     }
 
-    // If we have a hex string, race profile and event search
+    // If we have a hex string, race profile and event search first
     if (hex && typeof hex === 'string' && /^[a-f0-9]{64}$/i.test(hex)) {
+      const relayOpts = relays && relays.length > 0 ? relays : undefined;
       const [eventResult, profileResult] = await Promise.allSettled([
-        fetchEventWithFallback(ndk, hex, options.timeoutMs, options.useFallbackRelays, options.signal),
+        fetchEventWithFallback(ndk, hex, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
         fetchEventWithFallback(ndk, { kinds: [0], authors: [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal)
       ]);
       if (profileResult.status === 'fulfilled' && profileResult.value.event) {
@@ -580,11 +595,29 @@ export async function searchEventByIdentifier(
       if (eventResult.status === 'fulfilled' && eventResult.value.event) {
         return eventResult.value;
       }
+      // If neither found, race a-tag, e-tag, p-tag (all kinds)
+      const [aTagResult, eTagResult, pTagResult] = await Promise.allSettled([
+        fetchEventWithFallback(ndk, { '#a': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
+        fetchEventWithFallback(ndk, { '#A': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
+        fetchEventWithFallback(ndk, { '#e': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
+        fetchEventWithFallback(ndk, { '#E': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
+        fetchEventWithFallback(ndk, { '#p': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts),
+        fetchEventWithFallback(ndk, { '#P': [hex] }, options.timeoutMs, options.useFallbackRelays, options.signal, relayOpts)
+      ]);
+      if (aTagResult.status === 'fulfilled' && aTagResult.value.event) {
+        return aTagResult.value;
+      }
+      if (eTagResult.status === 'fulfilled' && eTagResult.value.event) {
+        return eTagResult.value;
+      }
+      if (pTagResult.status === 'fulfilled' && pTagResult.value.event) {
+        return pTagResult.value;
+      }
       throw new Error(`No event or profile found for hex ${hex}`);
     }
   }
 
-  // If it's a 64-char hex, race as event and as pubkey
+  // If it's a 64-char hex, race as event and as pubkey first
   if (/^[a-f0-9]{64}$/i.test(cleanedId)) {
     const [eventResult, profileResult] = await Promise.allSettled([
       fetchEventWithFallback(ndk, cleanedId, options.timeoutMs, options.useFallbackRelays, options.signal),
@@ -595,6 +628,21 @@ export async function searchEventByIdentifier(
     }
     if (eventResult.status === 'fulfilled' && eventResult.value.event) {
       return eventResult.value;
+    }
+    // If neither found, race a-tag, e-tag, p-tag (all kinds)
+    const [aTagResult, eTagResult, pTagResult] = await Promise.allSettled([
+      fetchEventWithFallback(ndk, { '#a': [cleanedId] }, options.timeoutMs, options.useFallbackRelays, options.signal),
+      fetchEventWithFallback(ndk, { '#e': [cleanedId] }, options.timeoutMs, options.useFallbackRelays, options.signal),
+      fetchEventWithFallback(ndk, { '#p': [cleanedId] }, options.timeoutMs, options.useFallbackRelays, options.signal)
+    ]);
+    if (aTagResult.status === 'fulfilled' && aTagResult.value.event) {
+      return aTagResult.value;
+    }
+    if (eTagResult.status === 'fulfilled' && eTagResult.value.event) {
+      return eTagResult.value;
+    }
+    if (pTagResult.status === 'fulfilled' && pTagResult.value.event) {
+      return pTagResult.value;
     }
     throw new Error(`No event or profile found for hex ${cleanedId}`);
   }
@@ -628,7 +676,7 @@ export async function publishEvent(
 ): Promise<{ success: boolean; relay?: string; error?: string }> {
   const { 
     relays = standardRelays,
-    useFallbackRelays = true,
+    useFallbackRelays = false,
     timeoutMs = 5000 
   } = options;
 

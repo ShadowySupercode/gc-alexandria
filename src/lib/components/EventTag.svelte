@@ -2,15 +2,18 @@
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
   import DualPill from "$components/util/DualPill.svelte";
+  import { ensureNDKEvent } from '$lib/utils/relayGroupUtils';
 
   export let tag: string[];
 
   function getTagLink() {
     if (tag[0] === 'a' && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(':');
-      return `/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}`;
+      const ndkEvent = ensureNDKEvent({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''});
+      return `/events?id=${naddrEncode(ndkEvent, standardRelays)}`;
     } else if (tag[0] === 'e' && tag.length > 1) {
-      return `/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}`;
+      const ndkEvent = ensureNDKEvent({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''});
+      return `/events?id=${neventEncode(ndkEvent, standardRelays)}`;
     }
     return null;
   }

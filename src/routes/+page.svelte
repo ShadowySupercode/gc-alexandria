@@ -1,27 +1,17 @@
 <script lang='ts'>
-  import { FeedType, feedTypeStorageKey, standardRelays, fallbackRelays } from '$lib/consts';
-  import { Alert, Button, Dropdown, Radio, Input } from "flowbite-svelte";
-  import { ChevronDownOutline, HammerSolid } from "flowbite-svelte-icons";
-  import { inboxRelays, ndkSignedIn } from '$lib/ndk';
+  import { Alert } from 'flowbite-svelte';
+  import { HammerSolid } from 'flowbite-svelte-icons';
   import PublicationFeed from '$lib/components/PublicationFeed.svelte';
-  import { feedType } from '$lib/stores';
-
-  $effect(() => {
-    localStorage.setItem(feedTypeStorageKey, $feedType);
-  });
-
-  const getFeedTypeFriendlyName = (feedType: FeedType): string => {
-    switch (feedType) {
-    case FeedType.StandardRelays:
-      return `Alexandria's Relays`;
-    case FeedType.UserRelays:
-      return `Your Relays`;
-    default:
-      return '';
-    }
-  };
+  import { relayGroup } from '$lib/stores/relayGroup';
+  import { setRelayGroup, selectRelayGroup } from '$lib/utils/relayGroupUtils';
+  import { ndkSignedIn } from '$lib/ndk';
+  import { fallbackRelays } from '$lib/consts';
 
   let searchQuery = $state('');
+
+  function handleRelayGroupChange(group: 'community' | 'user') {
+    setRelayGroup(group);
+  }
 </script>
 
 <Alert rounded={false} id="alert-experimental" class='border-t-4 border-primary-500 text-gray-900 dark:text-gray-100 dark:border-primary-500 flex justify-left mb-2'>
@@ -32,13 +22,47 @@
 </Alert>
 
 <main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
-  {#if !$ndkSignedIn}
-    <PublicationFeed userRelays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} loggedIn={false} />
-  {:else}
-    {#if $feedType === FeedType.StandardRelays}
-      <PublicationFeed userRelays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} loggedIn={true} />
-    {:else if $feedType === FeedType.UserRelays}
-      <PublicationFeed userRelays={$inboxRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} loggedIn={true} />
-    {/if}
-  {/if}
+  <!-- Relay Group Selector -->
+  <div class="mb-4 flex gap-4 items-center" role="group" aria-labelledby="relay-group-label">
+    <span id="relay-group-label" class="font-medium text-gray-900 dark:text-gray-100">
+      Relay Group:
+    </span>
+    <button
+      class="px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-brown-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brown-400"
+      onclick={() => handleRelayGroupChange('community')}
+      aria-pressed={$relayGroup === 'community'}
+    >
+      Community Relays
+    </button>
+    <button
+      class="px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-brown-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brown-400"
+      onclick={() => handleRelayGroupChange('user')}
+      aria-pressed={$relayGroup === 'user'}
+    >
+      Your Relays
+    </button>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="mb-4 flex gap-2 items-center">
+    <input
+      type="text"
+      class="flex-1 px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-brown-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brown-400"
+      placeholder="Search publications by title or author..."
+      bind:value={searchQuery}
+    />
+    <button
+      class="px-4 py-2 rounded bg-brown-100 dark:bg-brown-900 text-brown-900 dark:text-brown-100 border border-brown-300 dark:border-brown-700 hover:bg-brown-200 dark:hover:bg-brown-800 focus:ring-2 focus:ring-brown-400"
+      onclick={() => searchQuery = ''}
+    >
+      Clear
+    </button>
+  </div>
+
+  <PublicationFeed
+    userRelays={selectRelayGroup()}
+    fallbackRelays={fallbackRelays}
+    {searchQuery}
+    loggedIn={$ndkSignedIn}
+  />
 </main>

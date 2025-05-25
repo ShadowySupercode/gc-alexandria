@@ -1,20 +1,31 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
-  import { page } from "$app/state";
+  import { page } from "$app/stores";
   import type { NDKEvent, NostrProfile } from '$lib/utils/nostrUtils';
   import EventSearch from '$lib/components/EventSearch.svelte';
   import EventDetails from '$lib/components/EventDetails.svelte';
   import RelayActions from '$lib/components/RelayActions.svelte';
   import CommentBox from '$lib/components/CommentBox.svelte';
 
-  let loading = $state(false);
-  let error = $state<string | null>(null);
-  let searchValue = $state<string | null>(null);
-  let event = $state<NDKEvent | null>(null);
-  let profile = $state<NostrProfile | null>(null);
-  let userPubkey = $state<string | null>(null);
-  let userRelayPreference = $state(false);
+  let loading = false;
+  let error: string | null = null;
+  let searchValue: string | null = null;
+  let event: NDKEvent | null = null;
+  let profile: NostrProfile | null = null;
+  let userPubkey: string | null = null;
+  let userRelayPreference = false;
+
+  let searchTerm = '';
+
+  $: {
+    const urlSearchTerm = $page.url.searchParams.get('id') || '';
+    if (urlSearchTerm) {
+      searchValue = urlSearchTerm;
+      error = null;
+      loading = true;
+    }
+  }
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -30,25 +41,19 @@
     }
   }
 
-  $effect(() => {
-    const id = page.data.searchParams?.id;
-    if (id && searchValue !== id) {
-      searchValue = id;
-      error = null;
-      loading = true;
-    }
-  });
-
-  onMount(async () => {
-    const id = page.data.searchParams?.id;
-    if (id) {
-      searchValue = id;
-    }
-
+  onMount(() => {
     // Get user's pubkey and relay preference from localStorage
     userPubkey = localStorage.getItem('userPubkey');
     userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
   });
+
+  function onSubmit() {
+    if (searchTerm.trim()) {
+      searchValue = searchTerm.trim();
+      error = null;
+      loading = true;
+    }
+  }
 </script>
 
 <div class="w-full flex justify-center">

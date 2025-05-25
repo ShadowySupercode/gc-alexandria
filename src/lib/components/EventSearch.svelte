@@ -3,12 +3,12 @@
   import { ndkInstance } from "$lib/ndk";
   import { searchEventByIdentifier } from "$lib/utils/nostrUtils";
   import { goto } from '$app/navigation';
-  import NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent } from "@nostr-dev-kit/ndk";
   import RelayDisplay from './RelayDisplay.svelte';
   import { fallbackRelays } from '$lib/consts';
   import SearchBar from './SearchBar.svelte';
-
+  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
+  
   const { loading, error, searchValue, onEventFound, event } = $props<{
     loading: boolean;
     error: string | null;
@@ -22,7 +22,7 @@
   let relayStatuses = $state<Record<string, 'pending' | 'found' | 'notfound'>>({});
   let foundEvent = $state<NDKEvent | null>(null);
   let searching = $state(false);
-  let useFallbackRelays = $state(true);
+  let useFallbackRelays = $state(false);
   let relayInfo = $state<{ url: string; latency: number; group: string } | null>(null);
   let abortController = $state<AbortController | null>(null);
   let lastSearchedValue = $state<string | null>(null);
@@ -40,23 +40,11 @@
   });
 
   let relayList = $derived.by(() => {
-    if (currentRelayGroup === 'primary') {
-      // Show only user/standard relays
-      const ndk = $ndkInstance;
-      const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(r => r.url);
-      return userRelays.map(url => ({
-        url,
-        status: relayStatuses[url] || 'pending',
-        latency: relayInfo?.url === url ? relayInfo.latency : null
-      }));
-    } else {
-      // Show only fallback relays
-      return fallbackRelays.map(url => ({
-        url,
-        status: relayStatuses[url] || 'pending',
-        latency: relayInfo?.url === url ? relayInfo.latency : null
-      }));
-    }
+    return selectRelayGroup().map(url => ({
+      url,
+      status: relayStatuses[url] || 'pending',
+      latency: relayInfo?.url === url ? relayInfo.latency : null
+    }));
   });
 
   let searchUrl = $derived.by(() => {
@@ -121,11 +109,11 @@
       return;
     }
 
-    // Get all relays to search
+    // Get relays to search
     const ndk = $ndkInstance;
-    const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(r => r.url);
-    const allRelays = [...new Set([...userRelays, ...(useFallbackRelays ? fallbackRelays : [])])];
-    await updateRelayStatuses(allRelays);
+    const primaryRelays = selectRelayGroup();
+    const fallback = useFallbackRelays ? fallbackRelays.filter(r => !primaryRelays.includes(r)) : [];
+    await updateRelayStatuses([...primaryRelays, ...fallback]);
 
     // Only update the URL if this is a manual search
     if (clearInput) {
@@ -169,13 +157,12 @@
     }
   }
 
-  function handleFoundEvent(event: NDKEvent) {
-    // Ensure event is an NDKEvent instance
+  function handleFoundEvent(event: any) {
     const ndk = $ndkInstance;
-    let wrappedEvent = event;
-    if (!(event instanceof NDKEvent)) {
-      wrappedEvent = new NDKEvent(ndk, event);
-    }
+    // If event is Immutable, convert to JS
+    let rawEvent = event?.toJS ? event.toJS() : event;
+    // Always wrap as NDKEvent
+    let wrappedEvent = new NDKEvent(ndk, rawEvent);
     foundEvent = wrappedEvent;
     onEventFound(wrappedEvent);
   }
