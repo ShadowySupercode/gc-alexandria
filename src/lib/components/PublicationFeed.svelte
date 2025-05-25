@@ -1,13 +1,12 @@
 <script lang='ts'>
-  import { indexKind } from '$lib/consts';
-  import { ndkInstance } from '$lib/ndk';
-  import { filterValidIndexEvents } from '$lib/utils';
-  import { Button, Skeleton, Spinner, Alert } from 'flowbite-svelte';
-  import ArticleHeader from './PublicationHeader.svelte';
-  import SearchBar from './SearchBar.svelte';
-  import { onMount, onDestroy } from 'svelte';
-  import { NDKRelaySetFromNDK, type NDKEvent, isParentPublication, isTopLevelParent } from '$lib/utils/nostrUtils';
-  import { standardRelays } from '$lib/consts';
+  import { indexKind, standardRelays } from "$lib/consts";
+  import { ndkInstance } from "$lib/ndk";
+  import { filterValidIndexEvents } from "$lib/utils";
+  import { Button, Spinner, Search, Checkbox } from "flowbite-svelte";
+  import SearchBar from "./SearchBar.svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { isParentPublication, isTopLevelParent, type NDKEvent, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import PublicationHeader from "$components/cards/PublicationHeader.svelte";
 
   let { searchQuery = '', useFallbackRelays = $bindable(true), loggedIn, userRelays, fallbackRelays } = $props<{ searchQuery?: string, useFallbackRelays?: boolean, loggedIn: boolean, userRelays: string[], fallbackRelays: string[] }>();
 
@@ -361,7 +360,7 @@
 </script>
 
 <!-- Controls White Box -->
-<div class="mx-auto my-8 max-w-2xl bg-white dark:bg-brown-900 border border-brown-300 dark:border-brown-700 rounded-lg shadow-sm px-6 py-5 text-gray-900 dark:text-gray-100">
+<div class="mx-auto w-full max-w-3xl">
   <!-- Relay Group Selector -->
   <div class="mb-4 relative">
     <button
@@ -413,44 +412,31 @@
   </div>
 
   <!-- Search Bar, Fallback Toggle, Search and Clear Buttons -->
-  <div class="flex flex-row items-center gap-3 mb-4">
-    <div class="flex-1 rounded-md shadow-sm bg-white dark:bg-brown-800">
       <SearchBar
         bind:this={searchBarComponent}
         placeholder="Search publications by title or author..."
-        showFallbackToggle={false}
+        showFallbackToggle={true}
         bind:useFallbackRelays
-        on:SearchBarSearch={async ({ detail }) => {
-          await abortCurrentSearch();
+        onDispatchSearch={async (query, useFallbackRelays) => {
+          // await abortCurrentSearch();
+          console.log('Searching for:', query, 'with fallback relays:', useFallbackRelays);
           searchAbortController = new AbortController();
           isSearching = true;
           eventsInView = [];
-          await getEvents(undefined, detail.query, true, searchAbortController.signal);
+          await getEvents(undefined, query, true, searchAbortController.signal);
           isSearching = false;
         }}
-        on:cancel={async () => {
+        onDispatchCancel={async () => {
           await abortCurrentSearch();
           isSearching = false;
         }}
-        on:clear={async () => {
+        onDispatchClear={async () => {
           await abortCurrentSearch();
           isSearching = false;
           eventsInView = [];
           await getEvents(undefined, '', true);
         }}
       />
-    </div>
-    <label class="flex items-center ml-2 cursor-pointer select-none text-gray-900 dark:text-gray-100">
-      <input
-        type="checkbox"
-        bind:checked={useFallbackRelays}
-        class="form-checkbox h-5 w-5 text-brown-700 focus:ring-brown-400 border-brown-400 rounded bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700"
-        title={`Fallback relays:\n${fallbackRelays?.join('\n') ?? ''}`}
-        aria-label="Toggle fallback relays"
-      />
-      <span class="ml-2 text-gray-900 dark:text-gray-100">Fallback</span>
-    </label>
-  </div>
 </div>
 
 <!-- Publication Cards Grid and Results (outside the white box) -->
@@ -461,36 +447,7 @@
     </div>
   {:else if eventsInView.length > 0}
     {#each eventsInView as event (event.id)}
-      <div class="flex flex-col h-full p-4 bg-white dark:bg-primary-900 rounded-lg border border-primary-200 dark:border-primary-800" aria-label="Publication card">
-        {#if event.getTagValue('image')}
-          <img src={event.getTagValue('image')} alt={event.getTagValue('title') || 'Publication cover'} class="w-full h-48 object-cover rounded mb-3" />
-        {/if}
-        <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1 line-clamp-2">{event.getTagValue('title') || 'Untitled'}</h2>
-        <div class="text-sm text-gray-700 dark:text-gray-300 mb-1">by {event.getTagValue('author') || 'unknown'}</div>
-        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{event.getTagValue('published_on') || (event.created_at ? (new Date(event.created_at * 1000)).toLocaleDateString() : '')}</div>
-        {#key event.id + '-type'}
-          {@const typeVal = event.getTagValue('type')}
-          {#if typeof typeVal === 'string' && typeVal}
-            <div class="text-xs text-primary-800 dark:text-primary-200 mb-1">
-              Type: {typeVal.charAt(0).toUpperCase() + typeVal.slice(1)}
-            </div>
-          {:else}
-            <div class="text-xs text-primary-800 dark:text-primary-200 mb-1">
-              Type: Book
-            </div>
-          {/if}
-        {/key}
-        {#if event.getTagValue('summary')}
-          <div class="text-sm text-gray-800 dark:text-gray-200 mb-2">{event.getTagValue('summary')}</div>
-        {/if}
-        {#if event}
-          <div class="flex flex-wrap gap-2 mt-4 w-full">
-            {#each (typeof event.getTagValues === 'function' ? event.getTagValues('t') : []) as tag}
-              <span class="px-2 py-1 rounded bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200 text-xs font-medium">#{tag}</span>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <PublicationHeader event={event}></PublicationHeader>
     {/each}
     {#if canLoadMore}
       <div class='flex justify-center mt-6 col-span-full'>

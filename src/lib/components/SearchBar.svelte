@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { Input, Button, Checkbox } from "flowbite-svelte";
+  import { Input, Button, Checkbox, Search, Tooltip } from "flowbite-svelte";
   import { onMount, onDestroy } from 'svelte';
   import { searchStore } from '$lib/stores/searchStore';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
@@ -11,7 +10,10 @@
     showFallbackToggle = false,
     initialFallbackValue = true,
     disabled = false,
-    useFallbackRelays = $bindable(initialFallbackValue)
+    useFallbackRelays = $bindable(initialFallbackValue),
+    onDispatchSearch,
+    onDispatchCancel,
+    onDispatchClear
   } = $props<{
     placeholder?: string;
     initialValue?: string;
@@ -19,13 +21,9 @@
     initialFallbackValue?: boolean;
     disabled?: boolean;
     useFallbackRelays?: boolean;
-  }>();
-
-  // Events
-  const dispatch = createEventDispatcher<{
-    search: { query: string; useFallbackRelays: boolean };
-    clear: void;
-    cancel: void;
+    onDispatchSearch?: (query: string, useFallbackRelays: boolean) => void;
+    onDispatchCancel?: () => void;
+    onDispatchClear?: () => void;
   }>();
 
   // State from store
@@ -96,23 +94,27 @@
     if (!searchInput.trim() || disabled) return;
     
     if (isSearching) {
-      dispatch('cancel');
+      onDispatchCancel?.();
       return;
     }
     
-    dispatch('search', { 
-      query: searchInput.trim(), 
-      useFallbackRelays 
-    });
+    onDispatchSearch?.(searchInput.trim(), useFallbackRelays);
   }
 
   // Function to clear search
   function clearSearch() {
     if (isSearching) {
-      dispatch('cancel');
+      onDispatchCancel?.();
     }
     searchStore.clearSearch();
-    dispatch('clear');
+    onDispatchClear?.();
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    const pastedText = e.clipboardData?.getData('text');
+    if (pastedText) {
+      searchStore.update(state => ({ ...state, query: pastedText }));
+    }
   }
 
   // Function to handle input changes
@@ -180,65 +182,59 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 relative">
-  <div class="flex gap-2">
-    <div class="relative flex-grow">
-      <input
-        type="text"
-        bind:value={searchInput}
-        {placeholder}
-        {disabled}
-        oninput={handleInput}
-        onkeydown={handleKeydown}
-        onfocus={() => showSuggestions = true}
-        onblur={() => setTimeout(() => showSuggestions = false, 200)}
-        class="w-full px-3 py-2 rounded bg-white dark:bg-brown-900 text-gray-900 dark:text-brown-100 border border-brown-500 dark:border-brown-300 placeholder-brown-400 dark:placeholder-brown-200 focus:ring-2 focus:ring-brown-400"
-      />
-      {#if showSuggestionsPanel}
-        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-brown-900 text-gray-900 dark:text-brown-100 rounded-lg shadow-lg border border-brown-300 dark:border-brown-700">
-          {#each suggestionItems as suggestion, i}
-            <button
-              class="w-full px-4 py-2 text-left hover:bg-brown-100 dark:hover:bg-brown-800 flex items-center gap-2 {selectedIndex === i ? 'bg-brown-100 dark:bg-brown-800' : ''} text-gray-900 dark:text-brown-100"
-              onmousedown={() => selectSuggestion(suggestion)}
-            >
-              <span class="text-sm text-brown-500 dark:text-brown-300">
-                {suggestion.type === 'author' ? 'Author:' : 'Tag:'}
-              </span>
-              <span class="flex-grow">{suggestion.displayTitle}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-    <button
+<div class="flex flex-col w-full gap-4 relative">
+  <div class="flex items-center w-full gap-2">
+    <Search
+      bind:value={searchInput}
+      type="text"
+      {placeholder}
+      oninput={handleInput}
+      onkeydown={handleKeydown}
+      onpaste={handlePaste}
+      onfocus={() => showSuggestions = true}
+      onblur={() => setTimeout(() => showSuggestions = false, 200)}
+      wrapperClass="relative flex-grow"
+    >
+    </Search>
+    <Button
       onclick={performSearch}
       disabled={disabled}
-      class="px-4 py-2 rounded bg-brown-800 dark:bg-brown-700 text-white dark:text-brown-100 border border-brown-700 dark:border-brown-300 hover:bg-brown-900 dark:hover:bg-brown-600 focus:ring-2 focus:ring-brown-400 transition disabled:opacity-50"
-    >
-      {searchButtonState.text}
-    </button>
-    <button
+      class="me-1">{searchButtonState.text}
+    </Button>
+    <Button
       onclick={clearSearch}
       disabled={disabled}
-      class="px-4 py-2 rounded bg-brown-100 dark:bg-brown-900 text-brown-900 dark:text-brown-100 border border-brown-300 dark:border-brown-700 hover:bg-brown-200 dark:hover:bg-brown-800 focus:ring-2 focus:ring-brown-400 transition disabled:opacity-50"
+      color="light"
     >
       Clear
-    </button>
+    </Button>
   </div>
 
-  {#if showFallbackToggle}
-    <div class="flex items-center gap-2">
-      <input
-        type="checkbox"
-        bind:checked={useFallbackRelays}
-        id="use-fallback-relays"
-        {disabled}
-        class="form-checkbox h-5 w-5 accent-brown-700 dark:accent-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700 rounded focus:ring-brown-400"
-      />
-      <label for="use-fallback-relays" class="text-sm text-gray-900 dark:text-gray-100">
-        Include fallback relays (may expose your data to additional relay operators)
-      </label>
+
+  {#if showSuggestionsPanel}
+    <div class="absolute z-50 w-full mt-1 bg-white dark:bg-brown-900 text-gray-900 dark:text-brown-100 rounded-lg">
+      {#each suggestionItems as suggestion, i}
+        <button
+          class="w-full px-4 py-2 text-left hover:bg-brown-100 dark:hover:bg-brown-800 flex items-center gap-2 {selectedIndex === i ? 'bg-brown-100 dark:bg-brown-800' : ''} text-gray-900 dark:text-brown-100"
+          onmousedown={() => selectSuggestion(suggestion)}
+        >
+          <span class="text-sm text-brown-500 dark:text-brown-300">
+            {suggestion.type === 'author' ? 'Author:' : 'Tag:'}
+          </span>
+          <span class="flex-grow">{suggestion.displayTitle}</span>
+        </button>
+      {/each}
     </div>
+  {/if}
+
+  {#if showFallbackToggle}
+    <Checkbox
+      bind:checked={useFallbackRelays}
+      id="use-fallback-relays"
+      disabled={disabled}
+    >
+      Include fallback relays (may expose your data to additional relay operators)
+    </Checkbox>
   {/if}
 
   {#if searchError}

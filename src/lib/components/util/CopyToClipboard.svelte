@@ -31,9 +31,12 @@
     <ClipboardCheckOutline class="inline mr-2" /> Copied!
   {:else}
     {#if icon === ClipboardCleanOutline}
-      <ClipboardCleanOutline class="inline mr-2" />
+      <ClipboardCleanOutline class="inline !fill-none  bg-transparent  mr-2" />
     {:else if icon === ClipboardCheckOutline}
       <ClipboardCheckOutline class="inline mr-2" />
+    {:else if icon}
+      <!-- render component by name -->
+      <svelte:component this={icon} class="inline !fill-none bg-transparent mr-2" />
     {/if}
     {displayText}
   {/if}

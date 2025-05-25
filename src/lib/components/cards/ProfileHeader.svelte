@@ -8,8 +8,10 @@
   // @ts-ignore
   import { bech32 } from 'https://esm.sh/bech32';
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import DualPill from "$components/util/DualPill.svelte";
+  import { formatTimestampToDate } from "$lib/utils/dateUtils.ts";
 
-  const { event, profile, identifiers = [] } = $props<{ event: NDKEvent, profile: NostrProfile, identifiers?: { label: string, value: string, link?: string }[] }>();
+  const { event, profile, typeDisplay } = $props<{ event: NDKEvent, profile: NostrProfile, typeDisplay: any }>();
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
@@ -32,6 +34,13 @@
 {#if profile}
 <Card class="ArticleBox card-leather w-full max-w-2xl">
   <div class='space-y-4'>
+    <div class="flex flex-row justify-between items-center">
+      <div class="flex flex-col">
+        {@render userBadge(toNpub(event.pubkey) as string, profile.display_name || profile.name || event.pubkey)}
+        <span class='text-xs text-gray-500'>{formatTimestampToDate(event.created_at)}</span>
+      </div>
+      <DualPill left={event.kind} right={typeDisplay} />
+    </div>
     {#if profile.banner}
       <div class="ArticleBoxImage flex col justify-center">
         <Img src={profile.banner} class="rounded w-full max-h-72 object-cover" alt="Profile banner" onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none';}} />
@@ -41,7 +50,7 @@
       {#if profile.picture}
         <img src={profile.picture} alt="Profile avatar" class="w-16 h-16 rounded-full border" onerror={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} />
       {/if}
-      {@render userBadge(toNpub(event.pubkey) as string, profile.displayName || profile.name || event.pubkey)}
+      {@render userBadge(toNpub(event.pubkey) as string, profile.display_name || profile.name || event.pubkey)}
     </div>
     <div>
       <div class="mt-2 flex flex-col gap-4">
@@ -79,24 +88,18 @@
               </dd>
             </div>
           {/if}
-          {#if profile.lud16}
-            <div class="flex items-center gap-2 mt-4">
-              <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
-              <dd><Button class="btn-leather" color="primary" outline onclick={() => lnModalOpen = true}>{profile.lud16}</Button> </dd>
-            </div>
-          {/if}
           {#if profile.nip05}
             <div class="flex gap-2">
               <dt class="font-semibold min-w-[120px]">NIP-05:</dt>
               <dd>{profile.nip05}</dd>
             </div>
           {/if}
-          {#each identifiers as id}
-            <div class="flex gap-2">
-              <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
-              <dd class="break-all">{#if id.link}<a href={id.link} class="underline text-primary-700 dark:text-primary-200 break-all">{id.value}</a>{:else}{id.value}{/if}</dd>
+          {#if profile.lud16}
+            <div class="flex items-center gap-2 mt-4">
+              <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
+              <dd><Button class="btn-leather" color="primary" outline onclick={() => lnModalOpen = true}>{profile.lud16}</Button> </dd>
             </div>
-          {/each}
+          {/if}
         </dl>
       </div>
     </div>

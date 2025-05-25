@@ -40,7 +40,7 @@
 
 <div class="m-4">
   {#if $ndkSignedIn}
-    <Profile pubkey={$activePubkey} isNav={true} />
+    <Profile pubkey={$activePubkey} />
   {:else}
     <Avatar rounded class='h-6 w-6 cursor-pointer bg-transparent' id='avatar' />
     <Popover

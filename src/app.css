@@ -141,10 +141,6 @@
     @apply bg-primary-0 dark:bg-primary-1000 z-10;
   }
 
-  nav.navbar-leather svg {
-    @apply fill-gray-800 hover:fill-primary-400 dark:fill-gray-300 dark:hover:fill-primary-500;
-  }
-
   nav.navbar-leather h1,
   nav.navbar-leather h2,
   nav.navbar-leather h3,
@@ -262,12 +258,16 @@
     @apply max-h-72;
   }
 
+  .tags {
+    @apply mt-2;
+  }
+
   .tags span {
     @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-primary-900 dark:text-primary-200;
   }
 
   .npub-badge {
-    @apply inline-flex space-x-1 items-center text-primary-600 dark:text-primary-500 hover:underline me-2 px-2 py-0.5 rounded-sm border border-primary-600 dark:border-primary-500;
+    @apply inline-flex space-x-1 items-center text-primary-600 dark:text-primary-500 hover:underline py-0.5;
 
     svg {
       @apply fill-primary-600 dark:fill-primary-500;
@@ -494,7 +494,7 @@
   input[type="tel"],
   input[type="url"],
   textarea {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded shadow-none;
     @apply focus:border-primary-400 dark:focus:border-primary-500;
   }
 }

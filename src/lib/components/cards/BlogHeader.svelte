@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
   import { scale } from 'svelte/transition';
-  import {  Card, Img } from "flowbite-svelte";
+  import {  Card } from "flowbite-svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
   import CardActions from "$components/util/CardActions.svelte";
+  import { formatTimestampToDate } from "$lib/utils/dateUtils";
+  import CardImage from "$lib/components/cards/CardImage.svelte";
 
   const { rootId, event, onBlogUpdate, active = true } = $props<{ rootId: string, event: NDKEvent, onBlogUpdate?: any, active: boolean  }>();
 
@@ -14,19 +16,6 @@
   let image: string = $derived.by(() => event.getTagValue('image') ?? null);
   let authorPubkey: string = $derived.by(() => event.getTagValue('p') ?? null);
   let hashtags: string[] = $derived.by(() => event.getTagValues('t'));
-
-  function publishedAt() {
-    const date = event.created_at ? new Date(event.created_at * 1000) : '';
-    if (date !== '') {
-      const formattedDate = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      }).format(date);
-      return formattedDate ?? "";
-    }
-    return '';
-  }
 
   function showBlog() {
     onBlogUpdate?.(rootId);
@@ -39,15 +28,14 @@
       <div class="flex flex-row justify-between my-2">
         <div class="flex flex-col">
           {@render userBadge(authorPubkey, author)}
-          <span class='text-gray-500'>{publishedAt()}</span>
+          <span class='text-gray-500'>{formatTimestampToDate(event.created_at)}</span>
         </div>
         <CardActions event={event} />
       </div>
-      {#if image && active}
-        <div class="ArticleBoxImage flex col justify-center"
-             in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
+      {#if active}
+        <div class="ArticleBoxImage flex justify-center"
         >
-          <Img src={image} class="rounded w-full max-h-72 object-cover"/>
+          <CardImage imageUrl={image} title={title} useFallbackColor={false} />
         </div>
       {/if}
       <div class='flex flex-col flex-grow space-y-4'>

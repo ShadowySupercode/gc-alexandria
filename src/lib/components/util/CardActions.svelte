@@ -12,6 +12,7 @@
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import Details from "$components/util/Details.svelte";
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
@@ -145,59 +146,12 @@
   {/if}
   <!-- Event details -->
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
-    <div class="flex flex-row space-x-4">
-      {#if image}
-        <div class="flex col">
-          <img src={image} alt="Publication cover" class="w-32 h-32 object-cover rounded" />
-        </div>
-      {/if}
-      <div class="flex flex-col col space-y-5 justify-center align-middle">
-        <h1 class="text-3xl font-bold mt-5">{title || 'Untitled'}</h1>
-        <h2 class="text-base font-bold">by
-          {#if originalAuthor}
-          {@render userBadge(originalAuthor, author)}
-          {:else}
-            {author || 'Unknown'}
-          {/if}
-        </h2>
-        {#if version}
-          <h4 class='text-base font-thin mt-2'>Version: {version}</h4>
-        {/if}
-      </div>
-    </div>
-
-    {#if summary}
-      <div class="flex flex-row">
-        <p class='text-base text-primary-900 dark:text-highlight'>{summary}</p>
-      </div>
-    {/if}
-
-    <div class="flex flex-row">
-      <h4 class='text-base font-normal mt-2'>Index author: {@render userBadge(event.pubkey, author)}</h4>
-    </div>
-
-    <div class="flex flex-col pb-4 space-y-1">
-      {#if source}
-        <h5 class="text-sm">Source: <a class="underline" href={source} target="_blank" rel="noopener noreferrer">{source}</a></h5>
-      {/if}
-      {#if type}
-        <h5 class="text-sm">Publication type: {type}</h5>
-      {/if}
-      {#if language}
-        <h5 class="text-sm">Language: {language}</h5>
-      {/if}
-      {#if publisher}
-        <h5 class="text-sm">Published by: {publisher}</h5>
-      {/if}
-      {#if identifier}
-        <h5 class="text-sm">Identifier: {identifier}</h5>
-      {/if}
-      <a 
-        href="/events?id={getIdentifier('nevent')}" 
-        class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
-      >
-        View Event Details
-      </a>
-    </div>
+    <Details event={event} isModal={true} />
+    <a 
+      href="/events?id={getIdentifier('nevent')}" 
+      class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
+    >
+      View Event Details
+    </a>
   </Modal>
 </div>

@@ -1,14 +1,14 @@
 <script lang='ts'>
 import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 import { logout, ndkInstance } from '$lib/ndk';
-import { ArrowRightToBracketOutline, UserOutline, FileSearchOutline } from "flowbite-svelte-icons";
+import { ArrowRightToBracketOutline, UserOutline, ClipboardCleanOutline } from "flowbite-svelte-icons";
 import { Avatar, Popover } from "flowbite-svelte";
 import type { NostrProfile } from "$lib/utils/nostrUtils";
 import { getUserMetadata } from "$lib/utils/nostrUtils";
 
 const externalProfileDestination = './events?id='
 
-let { pubkey, isNav = false } = $props();
+let { pubkey } = $props();
 
 let profile = $state<NostrProfile | null>(null);
 let pfp = $derived.by(() => profile?.picture);
@@ -62,36 +62,33 @@ function shortenNpub(long: string|undefined) {
           <div class='flex flex-col'>
             {#if username}
               <h3 class='text-lg font-bold'>{username}</h3>
-              {#if isNav}<h4 class='text-base'>@{tag}</h4>{/if}
+              <h4 class='text-base'>@{tag}</h4>
             {/if}
             <ul class="space-y-2 mt-2">
               <li>
-                <CopyToClipboard displayText={shortenNpub(npub)} copyText={npub} />
+                <CopyToClipboard icon={ClipboardCleanOutline} displayText={shortenNpub(npub)} copyText={npub} />
               </li>
               <li>
                 <a class='hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0' href='{externalProfileDestination}{npub}'>
                   <UserOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /><span class='underline'>View profile</span>
                 </a>
               </li>
-              {#if isNav}
-                <li>
-                  <button
-                    id='sign-out-button'
-                    class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                    onclick={handleSignOutClick}
-                  >
-                    <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
-                  </button>
-                </li>
-              {:else}
-                <!-- li>
-                  <button
-                    class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                  >
-                    <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                  </button>
-                </li -->
-              {/if}
+              <li>
+                <button
+                  id='sign-out-button'
+                  class='btn-leather text-nowrap mt-3 flex w-full self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
+                  onclick={handleSignOutClick}
+                >
+                  <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
+                </button>
+              </li>
+              <!-- li>
+                <button
+                  class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
+                >
+                  <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
+                </button>
+              </li -->
             </ul>
           </div>
         </div>
