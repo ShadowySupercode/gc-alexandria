@@ -36,7 +36,6 @@ Observe the following style guidelines when writing code:
 
 ### General Guidance
 
-- Use PascalCase names for Svelte 5 components and their files.
 - Use snake_case names for plain TypeScript files.
 - Use comments sparingly; code should be self-documenting.
 
