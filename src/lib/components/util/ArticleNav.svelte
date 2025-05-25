@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { BookOutline, CaretLeftOutline, CloseOutline, GlobeOutline } from "flowbite-svelte-icons";
+  import { BookOutline, CaretLeftOutline, CloseOutline, GlobeOutline, ChartOutline } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
+  import { goto } from "$app/navigation";
 
   let {
     publicationType,
@@ -94,6 +95,11 @@
     }
   }
 
+  function visualizePublication() {
+    const eventId = indexEvent.id;
+    goto(`/visualize?event=${eventId}`);
+  }
+
   let unsubscribe: () => void;
   onMount(() => {
     window.addEventListener('scroll', handleScroll);
@@ -143,6 +149,9 @@
           <GlobeOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Discussion</span>
         </Button>
       {/if}
+      <Button class="btn-leather !w-auto" outline={true} onclick={visualizePublication} title="Visualize publication network">
+        <ChartOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Visualize</span>
+      </Button>
     </div>
   </div>
 </nav>

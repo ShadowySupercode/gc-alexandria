@@ -11,11 +11,15 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
+  import type { PageData } from './$types';
   
   // Configuration
   const DEBUG = true; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
+  
+  // Props from load function
+  export let data: PageData;
   
   /**
    * Debug logging function that only logs when DEBUG is true
@@ -42,28 +46,47 @@
    */
   async function fetchEvents() {
     debug("Fetching events with limit:", $networkFetchLimit);
+    debug("Event ID from URL:", data.eventId);
     try {
       loading = true;
       error = null;
 
-      // Step 1: Fetch index events
-      debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
-      const indexEvents = await $ndkInstance.fetchEvents(
-        { 
-          kinds: [INDEX_EVENT_KIND], 
-          limit: $networkFetchLimit 
-        },
-        {
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
-      );
-      debug("Fetched index events:", indexEvents.size);
+      let validIndexEvents: Set<NDKEvent>;
 
-      // Step 2: Filter valid index events according to NIP-62
-      const validIndexEvents = filterValidIndexEvents(indexEvents);
-      debug("Valid index events after filtering:", validIndexEvents.size);
+      if (data.eventId) {
+        // Fetch specific publication
+        debug(`Fetching specific publication: ${data.eventId}`);
+        const event = await $ndkInstance.fetchEvent(data.eventId);
+        
+        if (!event) {
+          throw new Error(`Publication not found: ${data.eventId}`);
+        }
+        
+        if (event.kind !== INDEX_EVENT_KIND) {
+          throw new Error(`Event ${data.eventId} is not a publication index (kind ${INDEX_EVENT_KIND})`);
+        }
+        
+        validIndexEvents = new Set([event]);
+      } else {
+        // Original behavior: fetch all publications
+        debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
+        const indexEvents = await $ndkInstance.fetchEvents(
+          { 
+            kinds: [INDEX_EVENT_KIND], 
+            limit: $networkFetchLimit 
+          },
+          {
+            groupable: true,
+            skipVerification: false,
+            skipValidation: false,
+          },
+        );
+        debug("Fetched index events:", indexEvents.size);
+
+        // Filter valid index events according to NIP-62
+        validIndexEvents = filterValidIndexEvents(indexEvents);
+        debug("Valid index events after filtering:", validIndexEvents.size);
+      }
 
       // Step 3: Extract content event IDs from index events
       const contentEventIds = new Set<string>();
@@ -197,7 +220,9 @@
 <div class="leather w-full p-4 relative">
   <!-- Header with title and settings button -->
   <div class="flex items-center mb-4">
-    <h1 class="h-leather">Publication Network</h1>
+    <h1 class="h-leather">
+      {data.eventId ? 'Publication Visualization' : 'Publication Network'}
+    </h1>
   </div>
   <!-- Loading spinner -->
   {#if loading}
