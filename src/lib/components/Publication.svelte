@@ -21,7 +21,7 @@
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
-  import { pharosInstance } from '$lib/parser';
+  import { pharosInstance } from "$lib/parser";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -90,8 +90,12 @@
   });
   const isLeaf = $derived.by(() => indexEvent.kind === 30041);
 
-  let isInnerActive = $derived.by(() => currentBlog !== null && $publicationColumnVisibility.inner);
-  let showBlogHeader = $derived.by(() => currentBlog && currentBlogEvent && window.innerWidth < 1140);
+  let isInnerActive = $derived.by(
+    () => currentBlog !== null && $publicationColumnVisibility.inner,
+  );
+  let showBlogHeader = $derived.by(
+    () => currentBlog && currentBlogEvent && window.innerWidth < 1140,
+  );
 
   function closeDiscussion() {
     publicationColumnVisibility.update((v) => ({ ...v, discussion: false }));

@@ -18,9 +18,9 @@ export class Lazy<T> {
 
   /**
    * Resolves the lazy object and returns the value.
-   * 
+   *
    * @returns The resolved value.
-   * 
+   *
    * @remarks Lazy object resolution is performed as an atomic operation.  If a resolution has
    * already been requested when this function is invoked, the pending promise from the earlier
    * invocation is returned.  Thus, all calls to this function before it is resolved will depend on

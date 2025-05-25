@@ -30,10 +30,14 @@
 </script>
 
 <div class="flex items-center gap-2 mb-4">
-  <label for="levels-to-render" class="leather bg-transparent text-sm font-medium"
+  <label
+    for="levels-to-render"
+    class="leather bg-transparent text-sm font-medium"
     >Levels to render:
   </label>
-  <label for="event-limit" class="leather bg-transparent text-sm font-medium">Limit: </label>
+  <label for="event-limit" class="leather bg-transparent text-sm font-medium"
+    >Limit:
+  </label>
   <input
     type="number"
     id="levels-to-render"

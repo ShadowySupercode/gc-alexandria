@@ -9,7 +9,7 @@
   import { onMount } from "svelte";
   import { pharosInstance } from "$lib/parser";
   import { publicationColumnVisibility } from "$lib/stores";
-  
+
   let { rootId } = $props<{ rootId: string }>();
 
   if (rootId !== $pharosInstance.getRootIndexId()) {
@@ -34,7 +34,7 @@
       if (title) {
         items.push({
           label: title,
-          hash: `#${nodeId}`
+          hash: `#${nodeId}`,
         });
       }
       const children = $pharosInstance.getChildIndexIds(nodeId);
@@ -78,7 +78,10 @@
    */
   function setTocVisibilityOnResize() {
     // Always show TOC on laptop and larger screens, collapsible only on small/medium
-    publicationColumnVisibility.update(v => ({ ...v, toc: window.innerWidth >= tocBreakpoint }));
+    publicationColumnVisibility.update((v) => ({
+      ...v,
+      toc: window.innerWidth >= tocBreakpoint,
+    }));
   }
 
   /**
@@ -93,7 +96,7 @@
 
     // Only allow hiding TOC on screens smaller than tocBreakpoint
     if (window.innerWidth < tocBreakpoint && $publicationColumnVisibility.toc) {
-      publicationColumnVisibility.update(v => ({ ...v, toc: false}));
+      publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
     }
   }
 
@@ -120,14 +123,18 @@
 
 <!-- TODO: Get TOC from parser. -->
 {#if $publicationColumnVisibility.toc}
-  <Sidebar class='sidebar-leather left-0'>
+  <Sidebar class="sidebar-leather left-0">
     <SidebarWrapper>
-      <SidebarGroup class='sidebar-group-leather'>
+      <SidebarGroup class="sidebar-group-leather">
         <Heading tag="h1" class="h-leather !text-lg">Table of contents</Heading>
-        <p>(This ToC is only for demo purposes, and is not fully-functional.)</p>
+        <p>
+          (This ToC is only for demo purposes, and is not fully-functional.)
+        </p>
         {#each tocItems as item}
           <SidebarItem
-            class="sidebar-item-leather {activeHash === item.hash ? 'bg-primary-200 font-bold' : ''}"
+            class="sidebar-item-leather {activeHash === item.hash
+              ? 'bg-primary-200 font-bold'
+              : ''}"
             label={item.label}
             href={item.hash}
           />

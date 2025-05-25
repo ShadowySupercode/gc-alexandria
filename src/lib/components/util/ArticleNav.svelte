@@ -1,35 +1,43 @@
 <script lang="ts">
-  import { BookOutline, CaretLeftOutline, CloseOutline, GlobeOutline } from "flowbite-svelte-icons";
+  import {
+    BookOutline,
+    CaretLeftOutline,
+    CloseOutline,
+    GlobeOutline,
+  } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
 
-  let {
-    publicationType,
-    indexEvent
-  } = $props<{
-    rootId: any,
-    publicationType: string,
-    indexEvent: NDKEvent
+  let { publicationType, indexEvent } = $props<{
+    rootId: string;
+    publicationType: string;
+    indexEvent: NDKEvent;
   }>();
 
-  let title: string = $derived.by(() => indexEvent.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived.by(() => indexEvent.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
-  let pubkey: string = $derived.by(() => indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
+  let title: string = $derived.by(
+    () => indexEvent.getMatchingTags("title")[0]?.[1],
+  );
+  let author: string = $derived.by(
+    () => indexEvent.getMatchingTags(event, "author")[0]?.[1] ?? "unknown",
+  );
+  let pubkey: string = $derived.by(
+    () => indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
+  );
   let isLeaf: boolean = $derived.by(() => indexEvent.kind === 30041);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
 
   // Function to toggle column visibility
-  function toggleColumn(column: 'toc' | 'blog' | 'inner' | 'discussion') {
-    publicationColumnVisibility.update(current => {
+  function toggleColumn(column: "toc" | "blog" | "inner" | "discussion") {
+    publicationColumnVisibility.update((current) => {
       const newValue = !current[column];
       const updated = { ...current, [column]: newValue };
 
-      if (window.innerWidth < 1400 && column === 'blog' && newValue) {
+      if (window.innerWidth < 1400 && column === "blog" && newValue) {
         updated.discussion = false;
       }
 
@@ -39,11 +47,13 @@
 
   function shouldShowBack() {
     const vis = $publicationColumnVisibility;
-    return ['discussion', 'toc', 'inner'].some(key => vis[key as keyof typeof vis]);
+    return ["discussion", "toc", "inner"].some(
+      (key) => vis[key as keyof typeof vis],
+    );
   }
 
   function backToMain() {
-    publicationColumnVisibility.update(current => {
+    publicationColumnVisibility.update((current) => {
       const updated = { ...current };
 
       // if current is 'inner', just go back to blog
@@ -56,7 +66,7 @@
       updated.discussion = false;
       updated.toc = false;
 
-      if (publicationType === 'blog') {
+      if (publicationType === "blog") {
         updated.inner = true;
         updated.blog = false;
       } else {
@@ -68,13 +78,13 @@
   }
 
   function backToBlog() {
-    publicationColumnVisibility.update(current => {
+    publicationColumnVisibility.update((current) => {
       const updated = { ...current };
       updated.inner = false;
       updated.discussion = false;
       updated.blog = true;
       return updated;
-    })
+    });
   }
 
   function handleScroll() {
@@ -96,51 +106,91 @@
 
   let unsubscribe: () => void;
   onMount(() => {
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     unsubscribe = publicationColumnVisibility.subscribe(() => {
       isVisible = true; // show navbar when store changes
     });
   });
 
   onDestroy(() => {
-    window.removeEventListener('scroll', handleScroll);
+    window.removeEventListener("scroll", handleScroll);
     unsubscribe();
   });
 </script>
 
-<nav class="Navbar navbar-leather flex fixed top-[60px] sm:top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible ? 'translate-y-0' : '-translate-y-full'}">
+<nav
+  class="Navbar navbar-leather flex fixed top-[60px] sm:top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+    ? 'translate-y-0'
+    : '-translate-y-full'}"
+>
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if shouldShowBack()}
-        <Button class='btn-leather !w-auto sm:hidden' outline={true} onclick={backToMain}>
-          <CaretLeftOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Back</span>
+        <Button
+          class="btn-leather !w-auto sm:hidden"
+          outline={true}
+          onclick={backToMain}
+        >
+          <CaretLeftOutline class="!fill-none inline mr-1" /><span
+            class="hidden sm:inline">Back</span
+          >
         </Button>
       {/if}
       {#if !isLeaf}
-        {#if publicationType === 'blog'}
-          <Button class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog ? 'active' : ''}"
-                  outline={true} onclick={() => toggleColumn('blog')} >
-            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+        {#if publicationType === "blog"}
+          <Button
+            class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog
+              ? 'active'
+              : ''}"
+            outline={true}
+            onclick={() => toggleColumn("blog")}
+          >
+            <BookOutline class="!fill-none inline mr-1" /><span
+              class="hidden sm:inline">Table of Contents</span
+            >
           </Button>
         {:else if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
-          <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('toc')}>
-            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+          <Button
+            class="btn-leather !w-auto"
+            outline={true}
+            onclick={() => toggleColumn("toc")}
+          >
+            <BookOutline class="!fill-none inline mr-1" /><span
+              class="hidden sm:inline">Table of Contents</span
+            >
           </Button>
         {/if}
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
-        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
+      <p class="max-w-[60vw] line-ellipsis">
+        <b class="text-nowrap">{title}</b>
+        <span class="whitespace-nowrap"
+          >by {@render userBadge(pubkey, author)}</span
+        >
+      </p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}
-        <Button class='btn-leather !w-auto hidden sm:flex' outline={true} onclick={backToBlog}>
-          <CloseOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Close</span>
+        <Button
+          class="btn-leather !w-auto hidden sm:flex"
+          outline={true}
+          onclick={backToBlog}
+        >
+          <CloseOutline class="!fill-none inline mr-1" /><span
+            class="hidden sm:inline">Close</span
+          >
         </Button>
       {/if}
-      {#if publicationType !== 'blog' && !$publicationColumnVisibility.discussion}
-        <Button class="btn-leather !hidden sm:flex !w-auto" outline={true} onclick={() => toggleColumn('discussion')} >
-          <GlobeOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Discussion</span>
+      {#if publicationType !== "blog" && !$publicationColumnVisibility.discussion}
+        <Button
+          class="btn-leather !hidden sm:flex !w-auto"
+          outline={true}
+          onclick={() => toggleColumn("discussion")}
+        >
+          <GlobeOutline class="!fill-none inline mr-1" /><span
+            class="hidden sm:inline">Discussion</span
+          >
         </Button>
       {/if}
     </div>

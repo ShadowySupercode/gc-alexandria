@@ -11,19 +11,19 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { levelsToRender } from "$lib/state";
   import { generateGraph, getEventColor } from "./utils/networkBuilder";
-  import { 
-    createSimulation, 
-    setupDragHandlers, 
-    applyGlobalLogGravity, 
-    applyConnectedGravity, 
-    type Simulation 
+  import {
+    createSimulation,
+    setupDragHandlers,
+    applyGlobalLogGravity,
+    applyConnectedGravity,
+    type Simulation,
   } from "./utils/forceSimulation";
   import Legend from "./Legend.svelte";
   import NodeTooltip from "./NodeTooltip.svelte";
   import type { NetworkNode, NetworkLink } from "./types";
   import Settings from "./Settings.svelte";
-  import {Button} from 'flowbite-svelte';
-  
+  import { Button } from "flowbite-svelte";
+
   // Type alias for D3 selections
   type Selection = any;
 
@@ -34,7 +34,7 @@
   const ARROW_DISTANCE = 10;
   const CONTENT_COLOR_LIGHT = "#d6c1a8";
   const CONTENT_COLOR_DARK = "#FFFFFF";
-  
+
   /**
    * Debug logging function that only logs when DEBUG is true
    */
@@ -43,9 +43,12 @@
       console.log("[EventNetwork]", ...args);
     }
   }
-  
+
   // Component props
-  let { events = [], onupdate } = $props<{ events?: NDKEvent[], onupdate: () => void }>();
+  let { events = [], onupdate } = $props<{
+    events?: NDKEvent[];
+    onupdate: () => void;
+  }>();
 
   // Error state
   let errorMessage = $state<string | null>(null);
@@ -54,10 +57,10 @@
   // DOM references
   let svg: SVGSVGElement;
   let container: HTMLDivElement;
-  
+
   // Theme state
   let isDarkMode = $state(false);
-  
+
   // Tooltip state
   let selectedNodeId = $state<string | null>(null);
   let tooltipVisible = $state(false);
@@ -71,8 +74,10 @@
   let windowHeight = $state<number | undefined>(undefined);
   let width = $derived.by(() => containerWidth || 1000);
   let height = $derived.by(() => containerHeight || 600);
-  let graphHeight = $derived.by(() => windowHeight ? Math.max(windowHeight * 0.2, 400) : 400);
-  
+  let graphHeight = $derived.by(() =>
+    windowHeight ? Math.max(windowHeight * 0.2, 400) : 400,
+  );
+
   // D3 objects
   let simulation: Simulation<NetworkNode, NetworkLink> | null = null;
   let svgGroup: Selection;
@@ -102,8 +107,7 @@
     }
 
     debug("SVG dimensions", { width, height });
-    const svgElement = d3.select(svg)
-      .attr("viewBox", `0 0 ${width} ${height}`);
+    const svgElement = d3.select(svg).attr("viewBox", `0 0 ${width} ${height}`);
 
     // Clear existing content
     svgElement.selectAll("*").remove();
@@ -149,80 +153,81 @@
   function updateGraph() {
     debug("Updating graph");
     errorMessage = null;
-    
+
     // Create variables to hold our selections
     let link: any;
     let node: any;
     let dragHandler: any;
     let nodes: NetworkNode[] = [];
     let links: NetworkLink[] = [];
-    
+
     try {
       // Validate required elements
       if (!svg) {
         throw new Error("SVG element not found");
       }
-      
+
       if (!events?.length) {
         throw new Error("No events to render");
       }
-      
+
       if (!svgGroup) {
         throw new Error("SVG group not found");
       }
-  
+
       // Generate graph data from events
-      debug("Generating graph with events", { 
-        eventCount: events.length, 
-        currentLevels 
+      debug("Generating graph with events", {
+        eventCount: events.length,
+        currentLevels,
       });
-      
+
       const graphData = generateGraph(events, Number(currentLevels));
       nodes = graphData.nodes;
       links = graphData.links;
-      
-      debug("Generated graph data", { 
-        nodeCount: nodes.length, 
-        linkCount: links.length 
+
+      debug("Generated graph data", {
+        nodeCount: nodes.length,
+        linkCount: links.length,
       });
-      
+
       if (!nodes.length) {
         throw new Error("No nodes to render");
       }
-  
+
       // Stop any existing simulation
       if (simulation) {
         debug("Stopping existing simulation");
         simulation.stop();
       }
-  
+
       // Create new simulation
       debug("Creating new simulation");
       simulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
-      
+
       // Center the nodes when the simulation is done
       simulation.on("end", () => {
         centerGraph();
       });
-      
+
       // Create drag handler
       dragHandler = setupDragHandlers(simulation);
-      
+
       // Update links
       debug("Updating links");
       link = svgGroup
         .selectAll("path.link")
         .data(links, (d: NetworkLink) => `${d.source.id}-${d.target.id}`)
         .join(
-          (enter: any) => enter
-            .append("path")
-            .attr("class", "link network-link-leather")
-            .attr("stroke-width", 2)
-            .attr("marker-end", "url(#arrowhead)"),
+          (enter: any) =>
+            enter
+              .append("path")
+              .attr("class", "link network-link-leather")
+              .attr("stroke-width", 2)
+              .attr("marker-end", "url(#arrowhead)"),
           (update: any) => update,
-          (exit: any) => exit.remove()
+          (exit: any) => exit.remove(),
         );
-      
+
       // Update nodes
       debug("Updating nodes");
       node = svgGroup
@@ -262,24 +267,28 @@
             return nodeEnter;
           },
           (update: any) => update,
-          (exit: any) => exit.remove()
-        );
-      
-      // Update node appearances
-      debug("Updating node appearances");
-      node.select("circle.visual-circle")
-        .attr("class", (d: NetworkNode) => !d.isContainer
-          ? "visual-circle network-node-leather network-node-content"
-          : "visual-circle network-node-leather"
-        )
-        .attr("fill", (d: NetworkNode) => !d.isContainer
-          ? isDarkMode ? CONTENT_COLOR_DARK : CONTENT_COLOR_LIGHT
-          : getEventColor(d.id)
+          (exit: any) => exit.remove(),
         );
 
-      node.select("text")
-        .text((d: NetworkNode) => d.isContainer ? "I" : "C");
-      
+      // Update node appearances
+      debug("Updating node appearances");
+      node
+        .select("circle.visual-circle")
+        .attr("class", (d: NetworkNode) =>
+          !d.isContainer
+            ? "visual-circle network-node-leather network-node-content"
+            : "visual-circle network-node-leather",
+        )
+        .attr("fill", (d: NetworkNode) =>
+          !d.isContainer
+            ? isDarkMode
+              ? CONTENT_COLOR_DARK
+              : CONTENT_COLOR_LIGHT
+            : getEventColor(d.id),
+        );
+
+      node.select("text").text((d: NetworkNode) => (d.isContainer ? "I" : "C"));
+
       // Set up node interactions
       debug("Setting up node interactions");
       node
@@ -318,15 +327,20 @@
             tooltipY = event.pageY;
           }
         });
-      
+
       // Set up simulation tick handler
       debug("Setting up simulation tick handler");
       if (simulation) {
         simulation.on("tick", () => {
           // Apply custom forces to each node
-          nodes.forEach(node => {
+          nodes.forEach((node) => {
             // Pull nodes toward the center
-            applyGlobalLogGravity(node, width / 2, height / 2, simulation!.alpha());
+            applyGlobalLogGravity(
+              node,
+              width / 2,
+              height / 2,
+              simulation!.alpha(),
+            );
             // Pull connected nodes toward each other
             applyConnectedGravity(node, links, simulation!.alpha());
           });
@@ -351,7 +365,10 @@
           });
 
           // Update node positions
-          node.attr("transform", (d: NetworkNode) => `translate(${d.x},${d.y})`);
+          node.attr(
+            "transform",
+            (d: NetworkNode) => `translate(${d.x},${d.y})`,
+          );
         });
       }
     } catch (error) {
@@ -368,14 +385,14 @@
     try {
       // Detect initial theme
       isDarkMode = document.body.classList.contains("dark");
-      
+
       // Initialize the graph structure
       initializeGraph();
     } catch (error) {
       console.error("Error in onMount:", error);
       errorMessage = `Error initializing graph: ${error instanceof Error ? error.message : String(error)}`;
     }
-    
+
     // Set up window resize handler
     const handleResize = () => {
       windowHeight = window.innerHeight;
@@ -392,11 +409,15 @@
             isDarkMode = newIsDarkMode;
             // Update node colors when theme changes
             if (svgGroup) {
-              svgGroup.selectAll("g.node")
+              svgGroup
+                .selectAll("g.node")
                 .select("circle.visual-circle")
-                .attr("fill", (d: NetworkNode) => !d.isContainer
-                  ? newIsDarkMode ? CONTENT_COLOR_DARK : CONTENT_COLOR_LIGHT
-                  : getEventColor(d.id)
+                .attr("fill", (d: NetworkNode) =>
+                  !d.isContainer
+                    ? newIsDarkMode
+                      ? CONTENT_COLOR_DARK
+                      : CONTENT_COLOR_LIGHT
+                    : getEventColor(d.id),
                 );
             }
           }
@@ -425,7 +446,7 @@
       attributeFilter: ["class"],
     });
     resizeObserver.observe(container);
-    
+
     // Clean up on component destruction
     return () => {
       themeObserver.disconnect();
@@ -439,12 +460,12 @@
    * Watch for changes that should trigger a graph update
    */
   $effect(() => {
-    debug("Effect triggered", { 
-      hasSvg: !!svg, 
-      eventCount: events?.length, 
-      currentLevels 
+    debug("Effect triggered", {
+      hasSvg: !!svg,
+      eventCount: events?.length,
+      currentLevels,
     });
-    
+
     try {
       if (svg && events?.length) {
         // Include currentLevels in the effect dependencies
@@ -456,7 +477,7 @@
       errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
     }
   });
-  
+
   /**
    * Handles tooltip close event
    */
@@ -464,7 +485,7 @@
     tooltipVisible = false;
     selectedNodeId = null;
   }
-  
+
   /**
    * Centers the graph in the viewport
    */
@@ -472,40 +493,39 @@
     if (svg && svgGroup && zoomBehavior) {
       const svgWidth = svg.clientWidth || width;
       const svgHeight = svg.clientHeight || height;
-      
+
       // Reset zoom and center
-      d3.select(svg).transition().duration(750).call(
-        zoomBehavior.transform,
-        d3.zoomIdentity.translate(svgWidth / 2, svgHeight / 2).scale(0.8)
-      );
+      d3.select(svg)
+        .transition()
+        .duration(750)
+        .call(
+          zoomBehavior.transform,
+          d3.zoomIdentity.translate(svgWidth / 2, svgHeight / 2).scale(0.8),
+        );
     }
   }
-  
+
   /**
    * Zooms in the graph
    */
   function zoomIn() {
     if (svg && zoomBehavior) {
-      d3.select(svg).transition().duration(300).call(
-        zoomBehavior.scaleBy, 1.3
-      );
+      d3.select(svg).transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
     }
   }
-  
+
   /**
    * Zooms out the graph
    */
   function zoomOut() {
     if (svg && zoomBehavior) {
-      d3.select(svg).transition().duration(300).call(
-        zoomBehavior.scaleBy, 0.7
-      );
+      d3.select(svg).transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
     }
   }
 
   /**
    * Legend interactions
-  */
+   */
   let graphInteracted = $state(false);
 
   function handleGraphClick() {
@@ -520,9 +540,12 @@
     <div class="network-error">
       <h3 class="network-error-title">Error</h3>
       <p>{errorMessage}</p>
-      <button 
+      <button
         class="network-error-retry"
-        onclick={() => { errorMessage = null; updateGraph(); }}
+        onclick={() => {
+          errorMessage = null;
+          updateGraph();
+        }}
       >
         Retry
       </button>
@@ -530,50 +553,82 @@
   {/if}
 
   <div class="network-svg-container" bind:this={container} role="figure">
-    <Legend collapsedOnInteraction={graphInteracted} className='' />
+    <Legend collapsedOnInteraction={graphInteracted} className="" />
 
-  <!-- Settings Panel (shown when settings button is clicked) -->
-    <Settings count={events.length} onupdate={onupdate} />
+    <!-- Settings Panel (shown when settings button is clicked) -->
+    <Settings count={events.length} {onupdate} />
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <svg
-      bind:this={svg}
-      class="network-svg"
-      onclick={handleGraphClick}
-    />
-    
+    <svg bind:this={svg} class="network-svg" onclick={handleGraphClick} />
+
     <!-- Zoom controls -->
     <div class="network-controls">
-      <Button outline size="lg"
-        class="network-control-button btn-leather rounded-lg p-2" 
+      <Button
+        outline
+        size="lg"
+        class="network-control-button btn-leather rounded-lg p-2"
         onclick={zoomIn}
         aria-label="Zoom in"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           <line x1="11" y1="8" x2="11" y2="14"></line>
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
       </Button>
-      <Button outline size="lg"
-        class="network-control-button btn-leather rounded-lg p-2" 
+      <Button
+        outline
+        size="lg"
+        class="network-control-button btn-leather rounded-lg p-2"
         onclick={zoomOut}
         aria-label="Zoom out"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
       </Button>
-      <Button outline size="lg"
-        class="network-control-button btn-leather rounded-lg p-2" 
+      <Button
+        outline
+        size="lg"
+        class="network-control-button btn-leather rounded-lg p-2"
         onclick={centerGraph}
         aria-label="Center graph"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="12" cy="12" r="10"></circle>
           <circle cx="12" cy="12" r="3"></circle>
         </svg>
@@ -590,5 +645,4 @@
       onclose={handleTooltipClose}
     />
   {/if}
-
 </div>

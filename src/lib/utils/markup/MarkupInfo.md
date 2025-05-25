@@ -6,8 +6,8 @@ Alexandria supports multiple markup formats for different use cases. Below is a 
 
 The **basic markup parser** follows the [Nostr best-practice guidelines](https://github.com/nostrability/nostrability/issues/146) and supports:
 
-- **Headers:**  
-  - ATX-style: `# H1` through `###### H6`  
+- **Headers:**
+  - ATX-style: `# H1` through `###### H6`
   - Setext-style: `H1\n=====`
 - **Bold:** `*bold*` or `**bold**`
 - **Italic:** `_italic_` or `__italic__`
@@ -49,6 +49,7 @@ For more information on AsciiDoc, see the [AsciiDoc documentation](https://ascii
 ---
 
 **Note:**
+
 - The markdown parsers are primarily used for comments, issues, and other user-generated content.
 - Publications and wikis are rendered using AsciiDoc for maximum expressiveness and compatibility.
 - All URLs are sanitized to remove tracking parameters, and YouTube links are presented in a clean, privacy-friendly format.

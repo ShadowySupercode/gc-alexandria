@@ -1,14 +1,20 @@
 <script lang="ts">
-  import { Button, Textarea, Alert } from 'flowbite-svelte';
-  import { parseBasicmarkup } from '$lib/utils/markup/basicMarkupParser';
-  import { nip19 } from 'nostr-tools';
-  import { getEventHash, signEvent, getUserMetadata, type NostrProfile, publishEvent } from '$lib/utils/nostrUtils';
-  import { standardRelays, fallbackRelays } from '$lib/consts';
-  import { userRelays } from '$lib/stores/relayStore';
-  import { get } from 'svelte/store';
-  import { goto } from '$app/navigation';
-  import type { NDKEvent } from '$lib/utils/nostrUtils';
-  import { onMount } from 'svelte';
+  import { Button, Textarea, Alert } from "flowbite-svelte";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { nip19 } from "nostr-tools";
+  import {
+    getEventHash,
+    signEvent,
+    getUserMetadata,
+    type NostrProfile,
+    publishEvent,
+  } from "$lib/utils/nostrUtils";
+  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { userRelays } from "$lib/stores/relayStore";
+  import { get } from "svelte/store";
+  import { goto } from "$app/navigation";
+  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { onMount } from "svelte";
 
   const props = $props<{
     event: NDKEvent;
@@ -16,8 +22,8 @@
     userRelayPreference: boolean;
   }>();
 
-  let content = $state('');
-  let previewContent = $state('');
+  let content = $state("");
+  let previewContent = $state("");
   let isSubmitting = $state(false);
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
@@ -34,11 +40,11 @@
   // Update preview content when content changes
   $effect(() => {
     if (content) {
-      parseBasicmarkup(content).then(parsed => {
+      parseBasicmarkup(content).then((parsed) => {
         previewContent = parsed;
       });
     } else {
-      previewContent = '';
+      previewContent = "";
     }
   });
 
@@ -52,63 +58,72 @@
 
   // Markup buttons
   const markupButtons = [
-    { label: 'Bold', action: () => insertMarkup('**', '**') },
-    { label: 'Italic', action: () => insertMarkup('_', '_') },
-    { label: 'Strike', action: () => insertMarkup('~~', '~~') },
-    { label: 'Link', action: () => insertMarkup('[', '](url)') },
-    { label: 'Image', action: () => insertMarkup('![', '](url)') },
-    { label: 'Quote', action: () => insertMarkup('> ', '') },
-    { label: 'List', action: () => insertMarkup('- ', '') },
-    { label: 'Numbered List', action: () => insertMarkup('1. ', '') },
-    { label: 'Hashtag', action: () => insertMarkup('#', '') }
+    { label: "Bold", action: () => insertMarkup("**", "**") },
+    { label: "Italic", action: () => insertMarkup("_", "_") },
+    { label: "Strike", action: () => insertMarkup("~~", "~~") },
+    { label: "Link", action: () => insertMarkup("[", "](url)") },
+    { label: "Image", action: () => insertMarkup("![", "](url)") },
+    { label: "Quote", action: () => insertMarkup("> ", "") },
+    { label: "List", action: () => insertMarkup("- ", "") },
+    { label: "Numbered List", action: () => insertMarkup("1. ", "") },
+    { label: "Hashtag", action: () => insertMarkup("#", "") },
   ];
 
   async function insertMarkup(prefix: string, suffix: string) {
-    const textarea = document.querySelector('textarea');
+    const textarea = document.querySelector("textarea");
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = content.substring(start, end);
-    
-    content = content.substring(0, start) + prefix + selectedText + suffix + content.substring(end);
-    
+
+    content =
+      content.substring(0, start) +
+      prefix +
+      selectedText +
+      suffix +
+      content.substring(end);
+
     // Update preview and set cursor position after the inserted markup
-    await parseBasicmarkup(content).then(parsed => {
+    await parseBasicmarkup(content).then((parsed) => {
       previewContent = parsed;
       textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + prefix.length + selectedText.length + suffix.length;
+      textarea.selectionStart = textarea.selectionEnd =
+        start + prefix.length + selectedText.length + suffix.length;
     });
   }
 
   function clearForm() {
-    content = '';
-    previewContent = '';
+    content = "";
+    previewContent = "";
     error = null;
     success = null;
   }
 
   function removeFormatting() {
     content = content
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/_(.*?)_/g, '$1')
-      .replace(/~~(.*?)~~/g, '$1')
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-      .replace(/!\[(.*?)\]\(.*?\)/g, '$1')
-      .replace(/^>\s*/gm, '')
-      .replace(/^[-*]\s*/gm, '')
-      .replace(/^\d+\.\s*/gm, '')
-      .replace(/#(\w+)/g, '$1');
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/_(.*?)_/g, "$1")
+      .replace(/~~(.*?)~~/g, "$1")
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/!\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/^>\s*/gm, "")
+      .replace(/^[-*]\s*/gm, "")
+      .replace(/^\d+\.\s*/gm, "")
+      .replace(/#(\w+)/g, "$1");
   }
 
-  async function handleSubmit(useOtherRelays = false, useFallbackRelays = false) {
+  async function handleSubmit(
+    useOtherRelays = false,
+    useFallbackRelays = false,
+  ) {
     isSubmitting = true;
     error = null;
     success = null;
 
     try {
       if (!props.event.kind) {
-        throw new Error('Invalid event: missing kind');
+        throw new Error("Invalid event: missing kind");
       }
 
       const kind = props.event.kind === 1 ? 1 : 1111;
@@ -116,28 +131,32 @@
 
       if (kind === 1) {
         // NIP-10 reply
-        tags.push(['e', props.event.id, '', 'reply']);
-        tags.push(['p', props.event.pubkey]);
+        tags.push(["e", props.event.id, "", "reply"]);
+        tags.push(["p", props.event.pubkey]);
         if (props.event.tags) {
-          const rootTag = props.event.tags.find((t: string[]) => t[0] === 'e' && t[3] === 'root');
+          const rootTag = props.event.tags.find(
+            (t: string[]) => t[0] === "e" && t[3] === "root",
+          );
           if (rootTag) {
-            tags.push(['e', rootTag[1], '', 'root']);
+            tags.push(["e", rootTag[1], "", "root"]);
           }
           // Add all p tags from the parent event
-          props.event.tags.filter((t: string[]) => t[0] === 'p').forEach((t: string[]) => {
-            if (!tags.some((pt: string[]) => pt[1] === t[1])) {
-              tags.push(['p', t[1]]);
-            }
-          });
+          props.event.tags
+            .filter((t: string[]) => t[0] === "p")
+            .forEach((t: string[]) => {
+              if (!tags.some((pt: string[]) => pt[1] === t[1])) {
+                tags.push(["p", t[1]]);
+              }
+            });
         }
       } else {
         // NIP-22 comment
-        tags.push(['E', props.event.id, '', props.event.pubkey]);
-        tags.push(['K', props.event.kind.toString()]);
-        tags.push(['P', props.event.pubkey]);
-        tags.push(['e', props.event.id, '', props.event.pubkey]);
-        tags.push(['k', props.event.kind.toString()]);
-        tags.push(['p', props.event.pubkey]);
+        tags.push(["E", props.event.id, "", props.event.pubkey]);
+        tags.push(["K", props.event.kind.toString()]);
+        tags.push(["P", props.event.pubkey]);
+        tags.push(["e", props.event.id, "", props.event.pubkey]);
+        tags.push(["k", props.event.kind.toString()]);
+        tags.push(["p", props.event.pubkey]);
       }
 
       const eventToSign = {
@@ -145,7 +164,7 @@
         created_at: Math.floor(Date.now() / 1000),
         tags,
         content,
-        pubkey: props.userPubkey
+        pubkey: props.userPubkey,
       };
 
       const id = getEventHash(eventToSign);
@@ -154,7 +173,7 @@
       const signedEvent = {
         ...eventToSign,
         id,
-        sig
+        sig,
       };
 
       // Determine which relays to use
@@ -169,7 +188,7 @@
       // Try to publish the event
       const result = await publishEvent(signedEvent, {
         relays,
-        useFallbackRelays: !useFallbackRelays && !useOtherRelays
+        useFallbackRelays: !useFallbackRelays && !useOtherRelays,
       });
 
       if (result.success) {
@@ -180,16 +199,20 @@
       } else {
         if (!useOtherRelays && !useFallbackRelays) {
           showOtherRelays = true;
-          error = 'Failed to publish to primary relays. Would you like to try the other relays?';
+          error =
+            "Failed to publish to primary relays. Would you like to try the other relays?";
         } else if (useOtherRelays && !useFallbackRelays) {
           showFallbackRelays = true;
-          error = 'Failed to publish to other relays. Would you like to try the fallback relays?';
+          error =
+            "Failed to publish to other relays. Would you like to try the fallback relays?";
         } else {
-          error = result.error || 'Failed to publish to any relays. Please try again later.';
+          error =
+            result.error ||
+            "Failed to publish to any relays. Please try again later.";
         }
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : 'An error occurred';
+      error = e instanceof Error ? e.message : "An error occurred";
     } finally {
       isSubmitting = false;
     }
@@ -201,7 +224,9 @@
     {#each markupButtons as button}
       <Button size="xs" onclick={button.action}>{button.label}</Button>
     {/each}
-    <Button size="xs" color="alternative" onclick={removeFormatting}>Remove Formatting</Button>
+    <Button size="xs" color="alternative" onclick={removeFormatting}
+      >Remove Formatting</Button
+    >
     <Button size="xs" color="alternative" onclick={clearForm}>Clear</Button>
   </div>
 
@@ -223,10 +248,14 @@
     <Alert color="red" dismissable>
       {error}
       {#if showOtherRelays}
-        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}>Try Other Relays</Button>
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}
+          >Try Other Relays</Button
+        >
       {/if}
       {#if showFallbackRelays}
-        <Button size="xs" class="mt-2" onclick={() => handleSubmit(false, true)}>Try Fallback Relays</Button>
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(false, true)}
+          >Try Fallback Relays</Button
+        >
       {/if}
     </Alert>
   {/if}
@@ -234,7 +263,10 @@
   {#if success}
     <Alert color="green" dismissable>
       Comment published successfully to {success.relay}!
-      <a href="/events?id={nip19.neventEncode({ id: success.eventId })}" class="text-primary-600 dark:text-primary-500 hover:underline">
+      <a
+        href="/events?id={nip19.neventEncode({ id: success.eventId })}"
+        class="text-primary-600 dark:text-primary-500 hover:underline"
+      >
         View your comment
       </a>
     </Alert>
@@ -244,9 +276,9 @@
     {#if userProfile}
       <div class="flex items-center gap-2 text-sm">
         {#if userProfile.picture}
-          <img 
-            src={userProfile.picture} 
-            alt={userProfile.name || 'Profile'} 
+          <img
+            src={userProfile.picture}
+            alt={userProfile.name || "Profile"}
             class="w-8 h-8 rounded-full"
             onerror={(e) => {
               const img = e.target as HTMLImageElement;
@@ -255,7 +287,9 @@
           />
         {/if}
         <span class="text-gray-700 dark:text-gray-300">
-          {userProfile.displayName || userProfile.name || nip19.npubEncode(props.userPubkey).slice(0, 8) + '...'}
+          {userProfile.displayName ||
+            userProfile.name ||
+            nip19.npubEncode(props.userPubkey).slice(0, 8) + "..."}
         </span>
       </div>
     {/if}
@@ -276,7 +310,8 @@
 
   {#if !props.userPubkey}
     <Alert color="yellow" class="mt-4">
-      Please sign in to post comments. Your comments will be signed with your current account.
+      Please sign in to post comments. Your comments will be signed with your
+      current account.
     </Alert>
   {/if}
 </div>

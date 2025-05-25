@@ -7,14 +7,13 @@ export let alexandriaKinds = readable<number[]>([30040, 30041, 30818]);
 
 export let feedType = writable<FeedType>(FeedType.StandardRelays);
 
-
 const defaultVisibility = {
   toc: false,
   blog: true,
   main: true,
   inner: false,
   discussion: false,
-  editing: false
+  editing: false,
 };
 
 function createVisibilityStore() {
@@ -24,7 +23,7 @@ function createVisibilityStore() {
     subscribe,
     set,
     update,
-    reset: () => set({ ...defaultVisibility })
+    reset: () => set({ ...defaultVisibility }),
   };
 }
 

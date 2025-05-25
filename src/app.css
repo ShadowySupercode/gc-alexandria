@@ -1,7 +1,7 @@
-@import './styles/base.css';
-@import './styles/scrollbar.css';
-@import './styles/publications.css';
-@import './styles/visualize.css';
+@import "./styles/base.css";
+@import "./styles/scrollbar.css";
+@import "./styles/publications.css";
+@import "./styles/visualize.css";
 @import "./styles/events.css";
 
 /* Custom styles */
@@ -26,7 +26,7 @@
     @apply h-4 w-4;
   }
 
-  div[role='tooltip'] button.btn-leather {
+  div[role="tooltip"] button.btn-leather {
     @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
   }
 
@@ -61,9 +61,9 @@
   }
 
   /* To scroll columns independently */
-    main.publication.blog {
-      @apply w-full sm:w-auto min-h-full;
-    }
+  main.publication.blog {
+    @apply w-full sm:w-auto min-h-full;
+  }
 
   main.main-leather,
   article.article-leather {
@@ -115,16 +115,16 @@
     @apply text-base font-semibold;
   }
 
-  div.modal-leather>div {
+  div.modal-leather > div {
     @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
-  div.modal-leather>div>h1,
-  div.modal-leather>div>h2,
-  div.modal-leather>div>h3,
-  div.modal-leather>div>h4,
-  div.modal-leather>div>h5,
-  div.modal-leather>div>h6 {
+  div.modal-leather > div > h1,
+  div.modal-leather > div > h2,
+  div.modal-leather > div > h3,
+  div.modal-leather > div > h4,
+  div.modal-leather > div > h5,
+  div.modal-leather > div > h6 {
     @apply text-gray-800 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-300;
   }
 
@@ -172,12 +172,12 @@
     @apply bg-primary-0 dark:bg-primary-1000;
   }
 
-  div.textarea-leather>div:nth-child(1),
+  div.textarea-leather > div:nth-child(1),
   div.toolbar-leather {
     @apply border-none;
   }
 
-  div.textarea-leather>div:nth-child(2) {
+  div.textarea-leather > div:nth-child(2) {
     @apply bg-primary-0 dark:bg-primary-1000;
   }
 
@@ -190,7 +190,7 @@
     @apply text-gray-800 dark:text-gray-300;
   }
 
-  div[role='tooltip'] button.btn-leather .tooltip-leather {
+  div[role="tooltip"] button.btn-leather .tooltip-leather {
     @apply bg-primary-100 dark:bg-primary-800;
   }
 
@@ -276,7 +276,6 @@
 }
 
 @layer components {
-
   /* Legend */
   .leather-legend {
     @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
@@ -395,7 +394,6 @@
 
       thead,
       tbody {
-
         th,
         td {
           @apply border border-gray-200 dark:border-gray-700;
@@ -425,10 +423,10 @@
     padding-left: 1rem;
   }
 
-.line-ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .line-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .footnotes li {
     margin-bottom: 0.5rem;
   }

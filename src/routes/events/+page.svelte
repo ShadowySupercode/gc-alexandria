@@ -2,11 +2,11 @@
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import type { NDKEvent, NostrProfile } from '$lib/utils/nostrUtils';
-  import EventSearch from '$lib/components/EventSearch.svelte';
-  import EventDetails from '$lib/components/EventDetails.svelte';
-  import RelayActions from '$lib/components/RelayActions.svelte';
-  import CommentBox from '$lib/components/CommentBox.svelte';
+  import type { NDKEvent, NostrProfile } from "$lib/utils/nostrUtils";
+  import EventSearch from "$lib/components/EventSearch.svelte";
+  import EventDetails from "$lib/components/EventDetails.svelte";
+  import RelayActions from "$lib/components/RelayActions.svelte";
+  import CommentBox from "$lib/components/CommentBox.svelte";
 
   let loading = false;
   let error: string | null = null;
@@ -16,10 +16,10 @@
   let userPubkey: string | null = null;
   let userRelayPreference = false;
 
-  let searchTerm = '';
+  let searchTerm = "";
 
   $: {
-    const urlSearchTerm = $page.url.searchParams.get('id') || '';
+    const urlSearchTerm = $page.url.searchParams.get("id") || "";
     if (urlSearchTerm) {
       searchValue = urlSearchTerm;
       error = null;
@@ -43,8 +43,8 @@
 
   onMount(() => {
     // Get user's pubkey and relay preference from localStorage
-    userPubkey = localStorage.getItem('userPubkey');
-    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
+    userPubkey = localStorage.getItem("userPubkey");
+    userRelayPreference = localStorage.getItem("useUserRelays") === "true";
   });
 
   function onSubmit() {
@@ -63,24 +63,31 @@
     </div>
 
     <P class="mb-3">
-      Use this page to view any event (npub, nprofile, nevent, naddr, note, pubkey, NIP-05, or eventID).
+      Use this page to view any event (npub, nprofile, nevent, naddr, note,
+      pubkey, NIP-05, or eventID).
     </P>
 
-    <EventSearch {loading} {error} {searchValue} {event} onEventFound={handleEventFound} />
+    <EventSearch
+      {loading}
+      {error}
+      {searchValue}
+      {event}
+      onEventFound={handleEventFound}
+    />
     {#if event}
       {#key event.id}
-      <EventDetails {event} {profile} {searchValue} />
-      <RelayActions {event} />
-      {#if userPubkey}
-        <div class="mt-8">
-          <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
-          <CommentBox event={event} userPubkey={userPubkey} userRelayPreference={userRelayPreference} />
-        </div>
-      {:else}
-        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          <P>Please sign in to add comments.</P>
-        </div>
-      {/if}
+        <EventDetails {event} {profile} {searchValue} />
+        <RelayActions {event} />
+        {#if userPubkey}
+          <div class="mt-8">
+            <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
+            <CommentBox {event} {userPubkey} {userRelayPreference} />
+          </div>
+        {:else}
+          <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <P>Please sign in to add comments.</P>
+          </div>
+        {/if}
       {/key}
     {/if}
   </main>

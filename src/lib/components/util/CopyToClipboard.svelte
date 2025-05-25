@@ -1,9 +1,16 @@
-<script lang='ts'>
-  import { ClipboardCheckOutline, ClipboardCleanOutline } from "flowbite-svelte-icons";
+<script lang="ts">
+  import {
+    ClipboardCheckOutline,
+    ClipboardCleanOutline,
+  } from "flowbite-svelte-icons";
   import { withTimeout } from "$lib/utils/nostrUtils";
   import type { Component } from "svelte";
 
-  let { displayText, copyText = displayText, icon = ClipboardCleanOutline } = $props<{
+  let {
+    displayText,
+    copyText = displayText,
+    icon = ClipboardCleanOutline,
+  } = $props<{
     displayText: string;
     copyText?: string;
     icon?: Component | false;
@@ -17,16 +24,19 @@
       copyPromise = withTimeout(navigator.clipboard.writeText(copyText), 2000);
       await copyPromise;
       // Simple delay to show the "Copied!" state
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      await new Promise((resolve) => setTimeout(resolve, 4000));
       copyPromise = null;
     } catch (err) {
-      console.error("[CopyToClipboard] Failed to copy:", err instanceof Error ? err.message : err);
+      console.error(
+        "[CopyToClipboard] Failed to copy:",
+        err instanceof Error ? err.message : err,
+      );
       copyPromise = null;
     }
   }
 </script>
 
-<button class='btn-leather w-full text-left' onclick={copyToClipboard}>
+<button class="btn-leather w-full text-left" onclick={copyToClipboard}>
   {#if copied}
     <ClipboardCheckOutline class="inline mr-2" /> Copied!
   {:else}
@@ -36,7 +46,10 @@
       <ClipboardCheckOutline class="inline mr-2" />
     {:else if icon}
       <!-- render component by name -->
-      <svelte:component this={icon} class="inline !fill-none bg-transparent mr-2" />
+      <svelte:component
+        this={icon}
+        class="inline !fill-none bg-transparent mr-2"
+      />
     {/if}
     {displayText}
   {/if}

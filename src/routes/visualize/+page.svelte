@@ -11,12 +11,12 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
-  
+
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
-  
+
   /**
    * Debug logging function that only logs when DEBUG is true
    */
@@ -34,7 +34,7 @@
 
   /**
    * Fetches events from the Nostr network
-   * 
+   *
    * This function fetches index events and their referenced content events,
    * filters them according to NIP-62, and combines them for visualization.
    */
@@ -47,9 +47,9 @@
       // Step 1: Fetch index events
       debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
       const indexEvents = await $ndkInstance.fetchEvents(
-        { 
-          kinds: [INDEX_EVENT_KIND], 
-          limit: $networkFetchLimit 
+        {
+          kinds: [INDEX_EVENT_KIND],
+          limit: $networkFetchLimit,
         },
         {
           groupable: true,
@@ -68,7 +68,7 @@
       validIndexEvents.forEach((event) => {
         const aTags = event.getMatchingTags("a");
         debug(`Event ${event.id} has ${aTags.length} a-tags`);
-        
+
         aTags.forEach((tag) => {
           const eventId = tag[3];
           if (eventId) {
@@ -79,7 +79,9 @@
       debug("Content event IDs to fetch:", contentEventIds.size);
 
       // Step 4: Fetch the referenced content events
-      debug(`Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(', ')})`);
+      debug(
+        `Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(", ")})`,
+      );
       const contentEvents = await $ndkInstance.fetchEvents(
         {
           kinds: CONTENT_EVENT_KINDS,
@@ -103,7 +105,6 @@
       loading = false;
     }
   }
-
 
   // Fetch events when component mounts
   onMount(() => {
@@ -140,7 +141,7 @@
         <span class="sr-only">Loading...</span>
       </div>
     </div>
-  <!-- Error message -->
+    <!-- Error message -->
   {:else if error}
     <div
       class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400"
@@ -156,7 +157,7 @@
         Retry
       </button>
     </div>
-  <!-- Network visualization -->
+    <!-- Network visualization -->
   {:else}
     <!-- Event network visualization -->
     <EventNetwork {events} onupdate={fetchEvents} />

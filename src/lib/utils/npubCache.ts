@@ -1,4 +1,4 @@
-import type { NostrProfile } from './nostrUtils';
+import type { NostrProfile } from "./nostrUtils";
 
 export type NpubMetadata = NostrProfile;
 

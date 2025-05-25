@@ -1,7 +1,18 @@
-import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
-import { get, writable, type Writable } from 'svelte/store';
-import { fallbackRelays, FeedType, loginStorageKey, standardRelays } from './consts';
-import { feedType } from './stores';
+import NDK, {
+  NDKNip07Signer,
+  NDKRelay,
+  NDKRelayAuthPolicies,
+  NDKRelaySet,
+  NDKUser,
+} from "@nostr-dev-kit/ndk";
+import { get, writable, type Writable } from "svelte/store";
+import {
+  fallbackRelays,
+  FeedType,
+  loginStorageKey,
+  standardRelays,
+} from "./consts";
+import { feedType } from "./stores";
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -47,7 +58,7 @@ export function clearLogin(): void {
  * @param type The type of relay list to designate.
  * @returns The constructed key.
  */
-function getRelayStorageKey(user: NDKUser, type: 'inbox' | 'outbox'): string {
+function getRelayStorageKey(user: NDKUser, type: "inbox" | "outbox"): string {
   return `${loginStorageKey}/${user.pubkey}/${type}`;
 }
 
@@ -57,14 +68,18 @@ function getRelayStorageKey(user: NDKUser, type: 'inbox' | 'outbox'): string {
  * @param inboxes The user's inbox relays.
  * @param outboxes The user's outbox relays.
  */
-function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKRelay>): void {
+function persistRelays(
+  user: NDKUser,
+  inboxes: Set<NDKRelay>,
+  outboxes: Set<NDKRelay>,
+): void {
   localStorage.setItem(
-    getRelayStorageKey(user, 'inbox'),
-    JSON.stringify(Array.from(inboxes).map(relay => relay.url))
+    getRelayStorageKey(user, "inbox"),
+    JSON.stringify(Array.from(inboxes).map((relay) => relay.url)),
   );
   localStorage.setItem(
-    getRelayStorageKey(user, 'outbox'), 
-    JSON.stringify(Array.from(outboxes).map(relay => relay.url))
+    getRelayStorageKey(user, "outbox"),
+    JSON.stringify(Array.from(outboxes).map((relay) => relay.url)),
   );
 }
 
@@ -76,37 +91,41 @@ function persistRelays(user: NDKUser, inboxes: Set<NDKRelay>, outboxes: Set<NDKR
  */
 function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
   const inboxes = new Set<string>(
-    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'inbox')) ?? '[]')
+    JSON.parse(localStorage.getItem(getRelayStorageKey(user, "inbox")) ?? "[]"),
   );
   const outboxes = new Set<string>(
-    JSON.parse(localStorage.getItem(getRelayStorageKey(user, 'outbox')) ?? '[]')
+    JSON.parse(
+      localStorage.getItem(getRelayStorageKey(user, "outbox")) ?? "[]",
+    ),
   );
 
   return [inboxes, outboxes];
 }
 
 export function clearPersistedRelays(user: NDKUser): void {
-  localStorage.removeItem(getRelayStorageKey(user, 'inbox'));
-  localStorage.removeItem(getRelayStorageKey(user, 'outbox')); 
+  localStorage.removeItem(getRelayStorageKey(user, "inbox"));
+  localStorage.removeItem(getRelayStorageKey(user, "outbox"));
 }
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
   return get(feedType) === FeedType.UserRelays
     ? new NDKRelaySet(
-        new Set(get(inboxRelays).map(relay => new NDKRelay(
-          relay,
-          NDKRelayAuthPolicies.signIn({ ndk }),
-          ndk,
-        ))),
-        ndk
+        new Set(
+          get(inboxRelays).map(
+            (relay) =>
+              new NDKRelay(relay, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          ),
+        ),
+        ndk,
       )
     : new NDKRelaySet(
-        new Set(standardRelays.map(relay => new NDKRelay(
-          relay,
-          NDKRelayAuthPolicies.signIn({ ndk }),
-          ndk,
-        ))),
-        ndk
+        new Set(
+          standardRelays.map(
+            (relay) =>
+              new NDKRelay(relay, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          ),
+        ),
+        ndk,
       );
 }
 
@@ -117,16 +136,18 @@ export function getActiveRelays(ndk: NDK): NDKRelaySet {
  */
 export function initNdk(): NDK {
   const startingPubkey = getPersistedLogin();
-  const [startingInboxes, _] = startingPubkey != null
-    ? getPersistedRelays(new NDKUser({ pubkey: startingPubkey }))
-    : [null, null];
+  const [startingInboxes, _] =
+    startingPubkey != null
+      ? getPersistedRelays(new NDKUser({ pubkey: startingPubkey }))
+      : [null, null];
 
   const ndk = new NDK({
     autoConnectUserRelays: true,
     enableOutboxModel: true,
-    explicitRelayUrls: startingInboxes != null
-      ? Array.from(startingInboxes.values())
-      : standardRelays,
+    explicitRelayUrls:
+      startingInboxes != null
+        ? Array.from(startingInboxes.values())
+        : standardRelays,
   });
 
   // TODO: Should we prompt the user to confirm authentication?
@@ -142,7 +163,9 @@ export function initNdk(): NDK {
  * @throws If sign-in fails.  This may because there is no accessible NIP-07 extension, or because
  * NDK is unable to fetch the user's profile or relay lists.
  */
-export async function loginWithExtension(pubkey?: string): Promise<NDKUser | null> {
+export async function loginWithExtension(
+  pubkey?: string,
+): Promise<NDKUser | null> {
   try {
     const ndk = get(ndkInstance);
     const signer = new NDKNip07Signer();
@@ -150,12 +173,13 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
 
     // TODO: Handle changing pubkeys.
     if (pubkey && signerUser.pubkey !== pubkey) {
-      console.debug('Switching pubkeys from last login.');
+      console.debug("Switching pubkeys from last login.");
     }
 
     activePubkey.set(signerUser.pubkey);
 
-    const [persistedInboxes, persistedOutboxes] = getPersistedRelays(signerUser);
+    const [persistedInboxes, persistedOutboxes] =
+      getPersistedRelays(signerUser);
     for (const relay of persistedInboxes) {
       ndk.addExplicitRelay(relay);
     }
@@ -163,8 +187,12 @@ export async function loginWithExtension(pubkey?: string): Promise<NDKUser | nul
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
     const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
 
-    inboxRelays.set(Array.from(inboxes ?? persistedInboxes).map(relay => relay.url));
-    outboxRelays.set(Array.from(outboxes ?? persistedOutboxes).map(relay => relay.url));
+    inboxRelays.set(
+      Array.from(inboxes ?? persistedInboxes).map((relay) => relay.url),
+    );
+    outboxRelays.set(
+      Array.from(outboxes ?? persistedOutboxes).map((relay) => relay.url),
+    );
 
     persistRelays(signerUser, inboxes, outboxes);
 
@@ -199,14 +227,14 @@ export function logout(user: NDKUser): void {
 async function getUserPreferredRelays(
   ndk: NDK,
   user: NDKUser,
-  fallbacks: readonly string[] = fallbackRelays
+  fallbacks: readonly string[] = fallbackRelays,
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
   const relayList = await ndk.fetchEvent(
     {
       kinds: [10002],
       authors: [user.pubkey],
     },
-    { 
+    {
       groupable: false,
       skipVerification: false,
       skipValidation: false,
@@ -220,22 +248,34 @@ async function getUserPreferredRelays(
   if (relayList == null) {
     const relayMap = await window.nostr?.getRelays?.();
     Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
-      const relay = new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+      const relay = new NDKRelay(
+        url,
+        NDKRelayAuthPolicies.signIn({ ndk }),
+        ndk,
+      );
       if (relayType.read) inboxRelays.add(relay);
       if (relayType.write) outboxRelays.add(relay);
     });
   } else {
-    relayList.tags.forEach(tag => {
+    relayList.tags.forEach((tag) => {
       switch (tag[0]) {
-        case 'r':
-          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+        case "r":
+          inboxRelays.add(
+            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          );
           break;
-        case 'w':
-          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+        case "w":
+          outboxRelays.add(
+            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          );
           break;
         default:
-          inboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
-          outboxRelays.add(new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk));
+          inboxRelays.add(
+            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          );
+          outboxRelays.add(
+            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          );
           break;
       }
     });

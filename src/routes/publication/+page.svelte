@@ -15,25 +15,42 @@
   setContext("asciidoctor", Processor());
 
   // Get publication metadata for OpenGraph tags
-  let title = $derived.by(() => 
-    data.indexEvent?.getMatchingTags("title")[0]?.[1] ||
-    data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
-    "Alexandria Publication"
+  let title = $derived.by(
+    () =>
+      data.indexEvent?.getMatchingTags("title")[0]?.[1] ||
+      data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
+      "Alexandria Publication",
   );
   let currentUrl = data.url?.href ?? "";
 
   // Get image and summary from the event tags if available
   // If image unavailable, use the Alexandria default pic.
-  let image = $derived.by(() => 
-    data.indexEvent?.getMatchingTags("image")[0]?.[1] ||
-    "/screenshots/old_books.jpg"
+  let image = $derived.by(
+    () =>
+      data.indexEvent?.getMatchingTags("image")[0]?.[1] ||
+      "/screenshots/old_books.jpg",
   );
-  let summary = $derived.by(() => 
-    data.indexEvent?.getMatchingTags("summary")[0]?.[1] ||
-    "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages."
+  let summary = $derived.by(
+    () =>
+      data.indexEvent?.getMatchingTags("summary")[0]?.[1] ||
+      "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
   );
 
   onDestroy(() => data.parser.reset());
+
+  function isString(val: unknown): val is string {
+    return typeof val === 'string';
+  }
+
+  const rootId = data.parser.getRootIndexId();
+  const rootAddress = data.indexEvent.tagAddress();
+  const publicationType = data.publicationType;
+
+  const showArticleNav = isString(rootId);
+  const rootIdNarrowed: string = showArticleNav ? rootId : '';
+
+  const showPublication = isString(rootAddress);
+  const rootAddressNarrowed: string = showPublication ? rootAddress : '';
 </script>
 
 <svelte:head>
@@ -57,21 +74,25 @@
 </svelte:head>
 
 {#key data}
-  <ArticleNav
-    publicationType={data.publicationType}
-    rootId={data.parser.getRootIndexId()}
-    indexEvent={data.indexEvent}
-  />
+  {#if isString(rootId) && isString(publicationType)}
+    <ArticleNav
+      publicationType={publicationType}
+      rootId={rootId}
+      indexEvent={data.indexEvent}
+    />
+  {/if}
 {/key}
 
-<main class="publication {data.publicationType}">
+<main class="publication {publicationType}">
   {#await data.waitable}
     <TextPlaceholder divClass="skeleton-leather w-full" size="xxl" />
   {:then}
-    <Publication
-      rootAddress={data.indexEvent.tagAddress()}
-      publicationType={data.publicationType}
-      indexEvent={data.indexEvent}
-    />
+    {#if isString(rootAddress) && isString(publicationType)}
+      <Publication
+        rootAddress={rootAddress}
+        publicationType={publicationType}
+        indexEvent={data.indexEvent}
+      />
+    {/if}
   {/await}
 </main>

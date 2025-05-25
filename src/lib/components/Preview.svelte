@@ -1,11 +1,23 @@
-<script lang='ts'>
-  import { pharosInstance, SiblingSearchDirection } from '$lib/parser';
-  import { Button, ButtonGroup, CloseButton, Input, P, Textarea, Tooltip } from 'flowbite-svelte';
-  import { CaretDownSolid, CaretUpSolid, EditOutline } from 'flowbite-svelte-icons';
-  import Self from './Preview.svelte';
+<script lang="ts">
+  import { pharosInstance, SiblingSearchDirection } from "$lib/parser";
+  import {
+    Button,
+    ButtonGroup,
+    CloseButton,
+    Input,
+    P,
+    Textarea,
+    Tooltip,
+  } from "flowbite-svelte";
+  import {
+    CaretDownSolid,
+    CaretUpSolid,
+    EditOutline,
+  } from "flowbite-svelte-icons";
+  import Self from "./Preview.svelte";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
-  import { getTagValue } from '$lib/utils/eventTags';
-  import { getTagValues } from '$lib/utils/eventTags';
+  import { getTagValue } from "$lib/utils/eventTags";
+  import { getTagValues } from "$lib/utils/eventTags";
 
   // TODO: Fix move between parents.
 
@@ -14,14 +26,14 @@
     depth = 0,
     isSectionStart,
     needsUpdate = $bindable<boolean>(),
-    oncursorcapture, 
+    oncursorcapture,
     oncursorrelease,
     parentId,
     rootId,
     index,
     sectionClass,
     publicationType,
-    onBlogUpdate
+    onBlogUpdate,
   } = $props<{
     allowEditing?: boolean;
     depth?: number;
@@ -39,7 +51,9 @@
 
   let currentContent: string = $state($pharosInstance.getContent(rootId));
   let title: string | undefined = $state($pharosInstance.getIndexTitle(rootId));
-  let orderedChildren: string[] = $state($pharosInstance.getOrderedChildIds(rootId));
+  let orderedChildren: string[] = $state(
+    $pharosInstance.getOrderedChildIds(rootId),
+  );
 
   let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()));
 
@@ -51,13 +65,21 @@
 
   let hasPreviousSibling = $derived.by(() => {
     if (!parentId || !allowEditing) return false;
-    const previousSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+    const previousSibling = $pharosInstance.getNearestSibling(
+      rootId,
+      depth - 1,
+      SiblingSearchDirection.Previous,
+    );
     return !!previousSibling[0];
   });
 
   let hasNextSibling = $derived.by(() => {
     if (!parentId || !allowEditing) return false;
-    const nextSibling = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+    const nextSibling = $pharosInstance.getNearestSibling(
+      rootId,
+      depth - 1,
+      SiblingSearchDirection.Next,
+    );
     return !!nextSibling[0];
   });
 
@@ -70,10 +92,14 @@
   let buttonsVisible: boolean = $derived.by(() => hasCursor && !childHasCursor);
 
   let blogEvent = $derived.by(() => blogEntries[index]?.[1]);
-  let blogAuthor = $derived.by(() => blogEvent ? blogEvent.getTagValue('author') ?? '' : '');
-  let blogImage = $derived.by(() => blogEvent ? blogEvent.getTagValue('image') ?? '' : '');
+  let blogAuthor = $derived.by(() =>
+    blogEvent ? (blogEvent.getTagValue("author") ?? "") : "",
+  );
+  let blogImage = $derived.by(() =>
+    blogEvent ? (blogEvent.getTagValue("image") ?? "") : "",
+  );
   let blogPublishedAt = $derived.by(() => {
-    if (!blogEvent?.created_at) return '';
+    if (!blogEvent?.created_at) return "";
     const date = new Date(blogEvent.created_at * 1000);
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -108,11 +134,11 @@
     return blogEvent;
   }
 
-  function readBlog(rootId:string) {
+  function readBlog(rootId: string) {
     onBlogUpdate?.(rootId);
   }
 
-  function propagateBlogUpdate(rootId:string) {
+  function propagateBlogUpdate(rootId: string) {
     onBlogUpdate?.(rootId);
   }
 
@@ -146,7 +172,6 @@
 
     if (editing && shouldSave) {
       if (orderedChildren.length > 0) {
-
       }
 
       $pharosInstance.updateEventContent(id, currentContent);
@@ -157,7 +182,11 @@
 
   function moveUp(rootId: string, parentId: string) {
     // Get the previous sibling and its index
-    const [prevSiblingId, prevIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Previous);
+    const [prevSiblingId, prevIndex] = $pharosInstance.getNearestSibling(
+      rootId,
+      depth - 1,
+      SiblingSearchDirection.Previous,
+    );
     if (!prevSiblingId || prevIndex == null) {
       return;
     }
@@ -165,11 +194,15 @@
     // Move the current event before the previous sibling.
     $pharosInstance.moveEvent(rootId, prevSiblingId, false);
     needsUpdate = true;
-  };
+  }
 
   function moveDown(rootId: string, parentId: string) {
-    // Get the next sibling and its index 
-    const [nextSiblingId, nextIndex] = $pharosInstance.getNearestSibling(rootId, depth - 1, SiblingSearchDirection.Next);
+    // Get the next sibling and its index
+    const [nextSiblingId, nextIndex] = $pharosInstance.getNearestSibling(
+      rootId,
+      depth - 1,
+      SiblingSearchDirection.Next,
+    );
     if (!nextSiblingId || nextIndex == null) {
       return;
     }
@@ -182,7 +215,9 @@
 
 {#snippet sectionHeading(title: string, depth: number)}
   {@const headingLevel = Math.min(depth + 1, 6)}
-  {@const className = $pharosInstance.isFloatingTitle(rootId) ? 'discrete' : 'h-leather'}
+  {@const className = $pharosInstance.isFloatingTitle(rootId)
+    ? "discrete"
+    : "h-leather"}
 
   <svelte:element this={`h${headingLevel}`} class={className}>
     {title}
@@ -190,16 +225,16 @@
 {/snippet}
 
 {#snippet contentParagraph(content: string, publicationType: string)}
-  {#if publicationType === 'novel'}
-    <P class='whitespace-normal' firstupper={isSectionStart}>
+  {#if publicationType === "novel"}
+    <P class="whitespace-normal" firstupper={isSectionStart}>
       {@html content}
     </P>
-  {:else if publicationType === 'blog'}
-    <P class='whitespace-normal' firstupper={false}>
+  {:else if publicationType === "blog"}
+    <P class="whitespace-normal" firstupper={false}>
       {@html content}
     </P>
   {:else}
-    <P class='whitespace-normal' firstupper={false}>
+    <P class="whitespace-normal" firstupper={false}>
       {@html content}
     </P>
   {/if}
@@ -211,28 +246,31 @@
   class={`note-leather flex space-x-2 justify-between text-wrap break-words ${sectionClass}`}
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
-  aria-label='Publication section'
+  aria-label="Publication section"
 >
   <!-- Section base case -->
   {#if orderedChildren.length === 0 || depth >= 4}
     {#key updateCount}
       {#if isEditing}
-        <form class='w-full'>
-          <Textarea class='textarea-leather w-full whitespace-normal' bind:value={currentContent}>
-            <div slot='footer' class='flex space-x-2 justify-end'>
+        <form class="w-full">
+          <Textarea
+            class="textarea-leather w-full whitespace-normal"
+            bind:value={currentContent}
+          >
+            <div slot="footer" class="flex space-x-2 justify-end">
               <Button
-                type='reset'
-                class='btn-leather min-w-fit'
-                size='sm'
+                type="reset"
+                class="btn-leather min-w-fit"
+                size="sm"
                 outline
                 onclick={() => toggleEditing(rootId, false)}
               >
                 Cancel
               </Button>
               <Button
-                type='submit'
-                class='btn-leather min-w-fit'
-                size='sm'
+                type="submit"
+                class="btn-leather min-w-fit"
+                size="sm"
                 onclick={() => toggleEditing(rootId, true)}
               >
                 Save
@@ -245,32 +283,43 @@
       {/if}
     {/key}
   {:else}
-    <div class='flex flex-col space-y-2 w-full'>
+    <div class="flex flex-col space-y-2 w-full">
       {#if isEditing}
-        <ButtonGroup class='w-full'>
-          <Input type='text' class='input-leather' size='lg' bind:value={title}>
-            <CloseButton slot='right' onclick={() => toggleEditing(rootId, false)} />
+        <ButtonGroup class="w-full">
+          <Input type="text" class="input-leather" size="lg" bind:value={title}>
+            <CloseButton
+              slot="right"
+              onclick={() => toggleEditing(rootId, false)}
+            />
           </Input>
-          <Button class='btn-leather' color='primary' size='lg' onclick={() => toggleEditing(rootId, true)}>
+          <Button
+            class="btn-leather"
+            color="primary"
+            size="lg"
+            onclick={() => toggleEditing(rootId, true)}
+          >
             Save
           </Button>
         </ButtonGroup>
-      {:else}
-        {#if !(publicationType === 'blog' && depth === 1)}
-          {@render sectionHeading(title!, depth)}
-        {/if}
+      {:else if !(publicationType === "blog" && depth === 1)}
+        {@render sectionHeading(title!, depth)}
       {/if}
       <!-- Recurse on child indices and Sections -->
-      {#if publicationType === 'blog' && depth === 1}
-        <BlogHeader event={getBlogEvent(index)} rootId={rootId} onBlogUpdate={readBlog} active={true} />
-      {:else }
+      {#if publicationType === "blog" && depth === 1}
+        <BlogHeader
+          event={getBlogEvent(index)}
+          {rootId}
+          onBlogUpdate={readBlog}
+          active={true}
+        />
+      {:else}
         {#key subtreeUpdateCount}
           {#each orderedChildren as id, index}
             <Self
               rootId={id}
               parentId={rootId}
-              index={index}
-              publicationType={publicationType}
+              {index}
+              {publicationType}
               depth={depth + 1}
               {allowEditing}
               {sectionClass}
@@ -286,21 +335,38 @@
     </div>
   {/if}
   {#if allowEditing && depth > 0}
-    <div class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? 'visible' : 'invisible'}`}>
+    <div
+      class={`flex flex-col space-y-2 justify-start ${buttonsVisible ? "visible" : "invisible"}`}
+    >
       {#if hasPreviousSibling && parentId}
-        <Button class='btn-leather' size='sm' outline onclick={() => moveUp(rootId, parentId)}>
+        <Button
+          class="btn-leather"
+          size="sm"
+          outline
+          onclick={() => moveUp(rootId, parentId)}
+        >
           <CaretUpSolid />
         </Button>
       {/if}
       {#if hasNextSibling && parentId}
-        <Button class='btn-leather' size='sm' outline onclick={() => moveDown(rootId, parentId)}>
+        <Button
+          class="btn-leather"
+          size="sm"
+          outline
+          onclick={() => moveDown(rootId, parentId)}
+        >
           <CaretDownSolid />
         </Button>
       {/if}
-      <Button class='btn-leather' size='sm' outline onclick={() => toggleEditing(rootId)}>
+      <Button
+        class="btn-leather"
+        size="sm"
+        outline
+        onclick={() => toggleEditing(rootId)}
+      >
         <EditOutline />
       </Button>
-      <Tooltip class='tooltip-leather' type='auto' placement='top'>
+      <Tooltip class="tooltip-leather" type="auto" placement="top">
         Edit
       </Tooltip>
     </div>

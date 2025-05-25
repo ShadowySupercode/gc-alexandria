@@ -1,5 +1,4 @@
-<script module lang='ts'>
-
+<script module lang="ts">
   export { contentParagraph, sectionHeading };
 </script>
 
@@ -7,13 +6,17 @@
   {@const headingLevel = Math.min(depth + 1, 6)}
 
   <!-- TODO: Handle floating titles. -->
-  <svelte:element this={`h${headingLevel}`} class='h-leather'>
+  <svelte:element this={`h${headingLevel}`} class="h-leather">
     {title}
   </svelte:element>
 {/snippet}
 
-{#snippet contentParagraph(content: string, publicationType: string, isSectionStart: boolean)}
-  <section class='whitespace-normal publication-leather'>
+{#snippet contentParagraph(
+  content: string,
+  publicationType: string,
+  isSectionStart: boolean,
+)}
+  <section class="whitespace-normal publication-leather">
     {@html content}
   </section>
 {/snippet}

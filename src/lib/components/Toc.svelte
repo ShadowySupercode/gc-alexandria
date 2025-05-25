@@ -1,25 +1,27 @@
 <script lang="ts">
-	import type { NDKEvent } from '@nostr-dev-kit/ndk';
- 	import {nip19} from 'nostr-tools';
-	import { getTagValue, getTagValues } from '$lib/utils/eventTags';
-	export let notes: NDKEvent[] = [];
-    // check if notes is empty
-    if (notes.length === 0) {
-        console.debug('notes is empty');
-    }
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { nip19 } from "nostr-tools";
+  import { getTagValue, getTagValues } from "$lib/utils/eventTags";
+  export let notes: NDKEvent[] = [];
+  // check if notes is empty
+  if (notes.length === 0) {
+    console.debug("notes is empty");
+  }
 </script>
 
 <div class="toc">
-	<h2>Table of contents</h2>
-	<ul>
-		{#each notes as note}
-			<li><a href="#{nip19.noteEncode(note.id)}">{note.getTagValue('title')}</a></li>
-		{/each}
-	</ul>
+  <h2>Table of contents</h2>
+  <ul>
+    {#each notes as note}
+      <li>
+        <a href="#{nip19.noteEncode(note.id)}">{note.getTagValue("title")}</a>
+      </li>
+    {/each}
+  </ul>
 </div>
 
 <style>
-	.toc h2 {
-		text-align: center;
-	}
+  .toc h2 {
+    text-align: center;
+  }
 </style>
