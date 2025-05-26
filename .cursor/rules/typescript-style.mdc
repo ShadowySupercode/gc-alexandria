@@ -1,0 +1,54 @@
+---
+description: 
+globs: *.ts,*.svelte
+alwaysApply: false
+---
+# TypeScript Style
+
+Observe the following style guidelines when writing TypeScript code.
+
+## Naming Conventions
+
+- Use `snake_case` for TypeScript files (`*.ts`).
+- Use `PascalCase` for classes, interfaces, types, enums, and enum members.
+- Use `camelCase` for functions and variables, and class members.
+- Avoid abbreviations in class, enum, function, and variable names.
+- Denote private class members with the `#` prefix, as added in the ECMAScript 2022 (ES2022) specification.
+
+## Type Annotations
+
+- Always use type annotations when declaring class properties.
+- Use type annotations when declaring variables that are not immediately instantiated, or whose type is not apparent from the declaration expression.
+- Type annotations may be omitted when declaring a variable whose value is assigned at declaration time, and whose value can be clearly discerned from this assignment.
+- Always use type annotations when a variable may be `null` or `undefined`.
+- Optional interface members or function parameters may be denoted with `?`.
+- Always annotate the types of function parameters.
+- Always annotate the return types of functions, unless the return type is `void`, in which case the type annotation may be omitted.
+
+## Formatting
+
+- Use an indent of two spaces.
+- Place a semicolon at the end of each complete statement.
+- Use single-quotes by default for string literals, and backticks where single-quotes do not apply.
+- Limit line length to 100 characters.
+- Split expressions across lines when they are too long to fit on a single line.
+- Use the priority-ordered list of directives below to determine where to put line breaks when splitting expressions. Apply the minimum number of rules necessary to fit the expression within the 100-character line length limit.
+  - If the expression contains curly brackets (`{}`), split after the first curly bracket, and place the trailing curly bracket on its own line.
+  - If the expression contains square brackets (`[]`), split after the first square bracket, and place the trailing square bracket on a new line.
+  - If the expression contains parentheses (`()`), split after the first parenthesis, and place the trailing parenthesis on its own line.
+  - If the expression contains comma-separated lists, put each value in the list on its own line.
+  - If the expression contains assignment `=`, put a line break immediately before the assignment operator.
+- Split long ternary expressions across multiple lines, with the `?` and `:` operators at the head of each new line.
+- Always wrap the bodies of control flow blocks (`if`/`else`, `for`, `do`/`while`, `switch`) in curly brackets (`{}`), even when the compiler does not require it.
+- In functions or control flow blocks, place the initial `{` on the same line as the function signature or control flow expression.
+- The `return` statement may be omitted from the end of a function when the function returns `void`.
+
+## Comments
+
+- Use JSDoc comments to describe all functions or variables that are exported by a module or are part of a class's public interface.
+- Use comments sparingly within function bodies.
+- Code should typically be self-documenting, with descriptive names and clear organization.
+- When a long comment is needed to describe a difficult-to-understand bit of code, begin the comment with the name of the developer leaving the comment and the date, e.g.: `// Michael J - 24 May 2025 -`.
+- Use multi-line comments to keep the line length of comments from surpassing the 100-character line length limit for code.
+
+
