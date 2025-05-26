@@ -19,9 +19,7 @@
 
   let searchQuery = $state("");
   let localError = $state<string | null>(null);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
-    {},
-  );
+  let relayStatuses = $state<Record<string, 'pending' | 'found' | 'notfound'>>({});
   let foundEvent = $state<NDKEvent | null>(null);
   let searching = $state(false);
   let useFallbackRelays = $state(false);
@@ -75,6 +73,13 @@
     foundEvent = event;
   });
 
+  $effect(() => {
+    // If there is no searchValue, clear relayStatuses
+    if (!searchValue) {
+      relayStatuses = {};
+    }
+  });
+
   async function updateRelayStatuses(relays: string[]) {
     relayStatuses = Object.fromEntries(
       relays.map((relay) => [relay, "pending"]),
@@ -87,14 +92,9 @@
       abortController = null;
     }
     searching = false;
-    localError = "Search cancelled";
+    localError = 'Search cancelled';
     // Mark all pending relays as not found
-    relayStatuses = Object.fromEntries(
-      Object.entries(relayStatuses).map(([relay, status]) => [
-        relay,
-        status === "pending" ? "notfound" : status,
-      ]),
-    );
+    relayStatuses = {};
 
     if (searchBarComponent) {
       searchBarComponent.stopSearching();
@@ -105,20 +105,25 @@
     // Cancel any ongoing search
     if (searching) {
       cancelSearch();
-      return;
     }
+    // Clear error after canceling previous search
+    localError = null;
 
     // Reset state
-    localError = null;
     relayInfo = null;
     searching = true;
     abortController = new AbortController();
     const signal = abortController.signal;
 
-    const trimmedQuery = query.trim();
+    // Remove 'nostr:' prefix if present
+    let trimmedQuery = query.trim();
+    if (trimmedQuery.startsWith('nostr:')) {
+      trimmedQuery = trimmedQuery.slice(6);
+    }
     if (!trimmedQuery) {
       searching = false;
       abortController = null;
+      relayStatuses = {};
       return;
     }
 
@@ -184,10 +189,9 @@
   }
 
   function handleFoundEvent(event: any) {
+    localError = null;
     const ndk = $ndkInstance;
-    // If event is Immutable, convert to JS
     let rawEvent = event?.toJS ? event.toJS() : event;
-    // Always wrap as NDKEvent
     let wrappedEvent = new NDKEvent(ndk, rawEvent);
     foundEvent = wrappedEvent;
     onEventFound(wrappedEvent);
@@ -202,22 +206,22 @@
       initialValue={searchQuery}
       showFallbackToggle={true}
       bind:useFallbackRelays
-      disabled={loading}
+      searchDisabled={loading}
+      clearDisabled={false}
+      isSearching={searching}
       onDispatchSearch={(query, useFallbackRelays) => startSearch(query, true)}
       onDispatchCancel={cancelSearch}
       onDispatchClear={() => {
-        if (searching) {
-          cancelSearch();
-        }
-        searchQuery = "";
+        searchQuery = '';
         localError = null;
         foundEvent = null;
         relayStatuses = {};
+        goto('/events', { replaceState: true, keepFocus: true, noScroll: true });
       }}
     />
   </div>
 
-  {#if displayError}
+  {#if displayError && !foundEvent}
     <div
       class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
       role="alert"
@@ -250,7 +254,7 @@
     </div>
   {/if}
 
-  {#if !foundEvent}
+  {#if (searchValue || searchQuery) && !foundEvent}
     <div class="mt-4">
       <div class="flex flex-wrap gap-2">
         {#each relayList as { url, status, latency }}

@@ -7,9 +7,12 @@
   } from "flowbite-svelte-icons";
   import ZapOutline from "$components/util/ZapOutline.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { ndkInstance } from "$lib/ndk";
   import { publicationColumnVisibility } from "$lib/stores";
+  import { get } from 'svelte/store';
+
+  console.log('Interactions.svelte script loaded');
 
   const {
     rootId,
@@ -38,34 +41,77 @@
   );
 
   /**
-   * Subscribe to Nostr events of a given kind that reference our root event via e-tag.
+   * Fetch and track Nostr events of a given kind that reference our root event via a-tag.
    * Push new events into the provided array if not already present.
-   * Returns the subscription for later cleanup.
+   * Returns a cleanup function.
    */
   function subscribeCount(kind: number, targetArray: NDKEvent[]) {
-    const sub = $ndkInstance.subscribe({
+    const instance = get(ndkInstance);
+    console.log('NDK instance:', instance, 'Type:', instance?.constructor?.name);
+    if (!instance) {
+      console.error('NDK instance not initialized');
+      return () => {};
+    }
+
+    // Fetch initial events
+    instance.fetchEvents({
       kinds: [kind],
-      "#a": [rootId], // Will this work?
+      '#a': [rootId],
+    }).then((events) => {
+      events.forEach((evt) => {
+        if (!targetArray.find((e) => e.id === evt.id)) {
+          targetArray = [...targetArray, evt];
+        }
+      });
     });
 
-    sub.on("event", (evt: NDKEvent) => {
-      // Only add if we haven't seen this event ID yet
+    // Set up a subscription for new events using the NDK subscription API
+    const sub = instance.subscribe({
+      kinds: [kind],
+      '#a': [rootId],
+    }, {
+      closeOnEose: false,
+      groupable: false,
+    });
+
+    sub.on('event', (evt: NDKEvent) => {
       if (!targetArray.find((e) => e.id === evt.id)) {
-        targetArray.push(evt);
+        targetArray = [...targetArray, evt];
       }
     });
 
-    return sub;
+    return () => {
+      sub.stop();
+    };
   }
 
-  let subs: any[] = [];
+  let subs: (() => void)[] = [];
 
-  onMount(() => {
-    // Subscribe to each kind; store subs for cleanup
-    subs.push(subscribeCount(7, likes)); // likes (Reaction)
-    subs.push(subscribeCount(9735, zaps)); // zaps (Zap Receipts)
-    subs.push(subscribeCount(30023, highlights)); // highlights (custom kind)
-    subs.push(subscribeCount(1, comments)); // comments (Text Notes)
+  onMount(async () => {
+    console.log('Interactions.svelte mounted');
+    const instance = get(ndkInstance);
+    if (!instance) {
+      console.error('NDK instance not initialized');
+      return;
+    }
+
+    try {
+      // Connect to NDK if not already connected
+      await instance.connect();
+      
+      // Subscribe to each kind; store cleanup functions
+      subs.push(subscribeCount(7, likes)); // likes (Reaction)
+      subs.push(subscribeCount(9735, zaps)); // zaps (Zap Receipts)
+      subs.push(subscribeCount(30023, highlights)); // highlights (custom kind)
+      subs.push(subscribeCount(1, comments)); // comments (Text Notes)
+    } catch (error) {
+      console.error('Failed to connect to NDK:', error);
+    }
+  });
+
+  // Cleanup subscriptions on component destruction
+  onDestroy(() => {
+    subs.forEach(cleanup => cleanup());
   });
 
   function showDiscussion() {

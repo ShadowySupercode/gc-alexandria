@@ -9,7 +9,9 @@
     initialValue = "",
     showFallbackToggle = false,
     initialFallbackValue = true,
-    disabled = false,
+    searchDisabled = false,
+    clearDisabled = false,
+    isSearching = false,
     useFallbackRelays = $bindable(initialFallbackValue),
     onDispatchSearch,
     onDispatchCancel,
@@ -19,7 +21,9 @@
     initialValue?: string;
     showFallbackToggle?: boolean;
     initialFallbackValue?: boolean;
-    disabled?: boolean;
+    searchDisabled?: boolean;
+    clearDisabled?: boolean;
+    isSearching?: boolean;
     useFallbackRelays?: boolean;
     onDispatchSearch?: (query: string, useFallbackRelays: boolean) => void;
     onDispatchCancel?: () => void;
@@ -28,7 +32,6 @@
 
   // State from store
   let searchInput = $state(initialValue);
-  let isSearching = $state(false);
   let suggestions = $state<
     Array<{ text: string; type: "title" | "author" | "tag"; score: number }>
   >([]);
@@ -37,7 +40,6 @@
   // Subscribe to store updates
   const unsubscribe = searchStore.subscribe((state) => {
     searchInput = state.query;
-    isSearching = state.isSearching;
     suggestions = state.suggestions;
     searchError = state.error;
   });
@@ -72,7 +74,7 @@
   let searchButtonState = $derived.by(() => ({
     text: isSearching ? "Cancel" : "Search",
     color: isSearching ? "red" : ("primary" as ButtonColor),
-    disabled: !hasQuery && !isSearching,
+    disabled: !hasQuery && !isSearching && !searchDisabled,
   }));
 
   let suggestionItems = $derived.by(() =>
@@ -100,7 +102,7 @@
 
   // Function to perform search
   async function performSearch() {
-    if (!searchInput.trim() || disabled) return;
+    if (!searchInput.trim() || searchDisabled) return;
 
     if (isSearching) {
       onDispatchCancel?.();
@@ -207,10 +209,12 @@
       onblur={() => setTimeout(() => (showSuggestions = false), 200)}
       wrapperClass="relative flex-grow"
     ></Search>
-    <Button onclick={performSearch} {disabled} class="me-1"
-      >{searchButtonState.text}
+    <Button onclick={performSearch} disabled={searchDisabled} class="me-1">
+      {searchButtonState.text}
     </Button>
-    <Button onclick={clearSearch} {disabled} color="light">Clear</Button>
+    <Button onclick={clearSearch} disabled={clearDisabled} color="light">
+      Clear
+    </Button>
   </div>
 
   {#if showSuggestionsPanel}
@@ -238,7 +242,7 @@
     <Checkbox
       bind:checked={useFallbackRelays}
       id="use-fallback-relays"
-      {disabled}
+      disabled={searchDisabled}
     >
       Include fallback relays (may expose your data to additional relay
       operators)

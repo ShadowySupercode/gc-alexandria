@@ -22,6 +22,7 @@
     useFallbackRelays = $bindable(true),
     fallbackRelays,
     isLoggedIn = false,
+    userRelays,
   } = $props<{
     searchQuery?: string;
     useFallbackRelays?: boolean;
@@ -123,7 +124,7 @@
 
     const ndk = $ndkInstance;
     // Use all relays from props as primaryRelays
-    const primaryRelays: string[] = selectRelayGroup();
+    const primaryRelays: string[] = userRelays;
     const fallback: string[] = useFallbackRelays
       ? fallbackRelays.filter((r: string) => !primaryRelays.includes(r))
       : [];

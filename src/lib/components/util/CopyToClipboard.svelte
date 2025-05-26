@@ -45,11 +45,7 @@
     {:else if icon === ClipboardCheckOutline}
       <ClipboardCheckOutline class="inline mr-2" />
     {:else if icon}
-      <!-- render component by name -->
-      <svelte:component
-        this={icon}
-        class="inline !fill-none bg-transparent mr-2"
-      />
+      <icon class="inline mr-2"></icon>
     {/if}
     {displayText}
   {/if}
