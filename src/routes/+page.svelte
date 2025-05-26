@@ -3,7 +3,7 @@
   import { Alert, Button, Dropdown, Radio, Input } from "flowbite-svelte";
   import { ChevronDownOutline, HammerSolid } from "flowbite-svelte-icons";
   import { inboxRelays, ndkSignedIn } from '$lib/ndk';
-  import PublicationFeed from '$lib/components/PublicationFeed.svelte';
+  import PublicationFeed from '$lib/components/publications/PublicationFeed.svelte';
   import { feedType } from '$lib/stores';
 
   $effect(() => {

@@ -3168,6 +3168,13 @@
       "integrity": "sha512-rAbqEGa8ovJy4pyBxZM70hg4pE6gDgaQ0Sl9M3enG3I0d6H4XSAM3GeNGLKnsBpuijUow064sf7ww1nutC5/3w=="
     }
   },
+  "redirects": {
+    "https://esm.sh/bech32": "https://esm.sh/bech32@2.0.0"
+  },
+  "remote": {
+    "https://esm.sh/bech32@2.0.0": "1b943d1583f3708812c3cfccc8236cf92d8f9b191881984e26e0b9decaed9a16",
+    "https://esm.sh/bech32@2.0.0/denonext/bech32.mjs": "80859514ec6ba04858364eba363d5ac73ac8d97086754e0baf14fa31d4f1b63a"
+  },
   "workspace": {
     "dependencies": [
       "npm:@nostr-dev-kit/ndk-cache-dexie@2.5",
@@ -3201,8 +3208,10 @@
         "npm:@types/d3@^7.4.3",
         "npm:@types/he@1.2",
         "npm:@types/node@22",
+        "npm:@types/qrcode@^1.5.5",
         "npm:asciidoctor@3.0",
         "npm:autoprefixer@10",
+        "npm:bech32@2",
         "npm:d3@^7.9.0",
         "npm:eslint-plugin-svelte@2",
         "npm:flowbite-svelte-icons@2.1",
@@ -3217,6 +3226,7 @@
         "npm:postcss@8",
         "npm:prettier-plugin-svelte@3",
         "npm:prettier@3",
+        "npm:qrcode@^1.5.4",
         "npm:svelte-check@4",
         "npm:svelte@5",
         "npm:tailwind-merge@^3.3.0",

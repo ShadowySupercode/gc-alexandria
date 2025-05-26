@@ -2,7 +2,7 @@
   import { ndkInstance } from '$lib/ndk';
   import { naddrEncode } from '$lib/utils';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { standardRelays } from '../consts';
+  import { standardRelays } from '../../consts';
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
