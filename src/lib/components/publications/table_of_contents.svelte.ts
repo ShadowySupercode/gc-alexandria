@@ -8,15 +8,24 @@ export interface TocEntry {
 }
 
 export class TableOfContents {
-  tocRoot = $state<TocEntry | null>(null);
-  tocAddresses = $state<Map<string, TocEntry>>(new Map());
+  #tocRoot: TocEntry | null = null;
+  #addresses = $state<Map<string, TocEntry>>(new Map());
+  #publicationTree: PublicationTree;
+  #pagePathname: string;
 
-  publicationTree: PublicationTree;
-  pagePathname: string;
+  constructor(rootAddress: string, publicationTree: PublicationTree, pagePathname: string) {
+    // TODO: Build out the root entry correctly.
+    this.#tocRoot = {
+      title: '',
+      href: '',
+      expanded: false,
+      children: null,
+    };
 
-  constructor(publicationTree: PublicationTree, pagePathname: string) {
-    this.publicationTree = publicationTree;
-    this.pagePathname = pagePathname;
+    this.#publicationTree = publicationTree;
+    this.#pagePathname = pagePathname;
+
+    this.insertIntoTocFromPublicationTree(rootAddress);
   }
 
   #normalizeHashPath(title: string): string {
@@ -24,15 +33,19 @@ export class TableOfContents {
     return title.toLowerCase().replace(/ /g, '-');
   }
 
+  get addresses(): Map<string, TocEntry> {
+    return this.#addresses;
+  }
+
   async insertIntoTocFromPublicationTree(address: string): Promise<void> {
-    const targetEvent = await this.publicationTree.getEvent(address);
+    const targetEvent = await this.#publicationTree.getEvent(address);
     if (!targetEvent) {
       console.warn(`[ToC] Event ${address} not found.`);
       // TODO: Determine how to handle this case in the UI.
       return;
     }
 
-    const hierarchyEvents = await this.publicationTree.getHierarchy(address);
+    const hierarchyEvents = await this.#publicationTree.getHierarchy(address);
     if (hierarchyEvents.length === 0) {
       // This means we are at root.
       return;
@@ -41,22 +54,22 @@ export class TableOfContents {
     // Michael J 05 May 2025 - In this loop, we assume that the parent of the current event has
     // already been populated into the ToC.  As long as the root is set when the component is
     // initialized, this code will work fine.
-    let currentParentTocNode: TocEntry | null = this.tocRoot;
+    let currentParentTocNode: TocEntry | null = this.#tocRoot;
     for (let i = 0; i < hierarchyEvents.length; i++) {
       const currentEvent = hierarchyEvents[i];
       const currentAddress = currentEvent.tagAddress();
 
-      if (this.tocAddresses.has(currentAddress)) {
+      if (this.#addresses.has(currentAddress)) {
         continue;
       }
 
-      const currentEventChildAddresses = await this.publicationTree.getChildAddresses(currentAddress);
+      const currentEventChildAddresses = await this.#publicationTree.getChildAddresses(currentAddress);
       for (const address of currentEventChildAddresses) {
         if (address === null) {
           continue;
         }
 
-        const childEvent = await this.publicationTree.getEvent(address);
+        const childEvent = await this.#publicationTree.getEvent(address);
         if (!childEvent) {
           console.warn(`[ToC] Event ${address} not found.`);
           continue;
@@ -66,15 +79,15 @@ export class TableOfContents {
 
         const childTocEntry: TocEntry = {
           title: childEvent.getMatchingTags('title')[0][1],
-          href: `${this.pagePathname}#${this.#normalizeHashPath(childEvent.getMatchingTags('title')[0][1])}`,
+          href: `${this.#pagePathname}#${this.#normalizeHashPath(childEvent.getMatchingTags('title')[0][1])}`,
           expanded: false,
           children: null,
         };
         currentParentTocNode!.children.push(childTocEntry);
-        this.tocAddresses.set(address, childTocEntry);
+        this.#addresses.set(address, childTocEntry);
       }
 
-      currentParentTocNode = this.tocAddresses.get(currentAddress)!;
+      currentParentTocNode = this.#addresses.get(currentAddress)!;
     }
   }
 
@@ -91,7 +104,7 @@ export class TableOfContents {
 
         // Only create an entry if the header has an ID and a title.
         if (id && title) {
-          const href = `${this.pagePathname}#${id}`;
+          const href = `${this.#pagePathname}#${id}`;
 
           const tocEntry: TocEntry = {
             title,

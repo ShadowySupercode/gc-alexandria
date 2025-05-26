@@ -1,15 +1,10 @@
 <script lang='ts'>
-  import { page } from '$app/state';
-  import type { PublicationTree } from '$lib/data_structures/publication_tree';
-  import type { TocEntry } from '$lib/components/publications/table_of_contents.svelte';
+  import type { TableOfContents } from '$lib/components/publications/table_of_contents.svelte';
   import { getContext } from 'svelte';
 
   let { rootAddress } = $props<{ rootAddress: string }>();
 
-  let publicationTree = getContext('publicationTree') as PublicationTree;
-
-  let tocAddresses = $state<Map<string, TocEntry>>(new Map());
-  let tocRoot = $state<TocEntry | null>(null);
+  let toc = getContext('toc') as TableOfContents;
 
   // Determine the event kind.
   // If index, use the publication tree to build the table of contents.
