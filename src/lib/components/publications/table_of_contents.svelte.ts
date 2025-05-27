@@ -91,13 +91,26 @@ export class TableOfContents {
     }
   }
 
-  buildTocFromDocument(parentElement: HTMLElement): void {
-    const entries: TocEntry[] = [];
-
+  /**
+   * Builds a table of contents from the DOM subtree rooted at `parentElement`.
+   * 
+   * @param parentElement The root of the DOM subtree containing the content to be added to the
+   * ToC.
+   * @param parentAddress The address of the event corresponding to the DOM subtree root indicated
+   * by `parentElement`.
+   * 
+   * This function is intended for use on segments of HTML markup that are not directly derived
+   * from a structure publication of the kind supported by `PublicationTree`.  It may be used to
+   * produce a table of contents from the contents of a kind `30041` event with AsciiDoc markup, or
+   * from a kind `30023` event with Markdown content.
+   */
+  buildTocFromDocument(
+    parentElement: HTMLElement,
+    parentEntry: TocEntry,
+    depth: number = 1
+  ) {
     parentElement
-      .querySelectorAll<HTMLHeadingElement>(
-        'h1, h2, h3, h4, h5, h6'
-      )
+      .querySelectorAll<HTMLHeadingElement>(`h${depth}`)
       .forEach((header) => {
         const title = header.textContent?.trim();
         const id = header.id;
@@ -112,10 +125,11 @@ export class TableOfContents {
             expanded: false,
             children: null,
           };
-          entries.push(tocEntry);
+          parentEntry.children ??= [];
+          parentEntry.children.push(tocEntry);
+
+          this.buildTocFromDocument(header, tocEntry, depth + 1);
         }
       });
-
-    // TODO: Update ToC state within the component.
   }
 }
