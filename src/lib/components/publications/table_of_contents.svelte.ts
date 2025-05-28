@@ -1,13 +1,13 @@
 import { PublicationTree } from "../../data_structures/publication_tree.ts";
 
 export interface TocEntry {
+  address: string;
   title: string;
   href: string;
+  depth: number;
   expanded: boolean;
   children: Array<TocEntry> | null;
 }
-
-// TODO: Include depth in the `TocEntry` interface, and compute it when adding entries to the ToC.
 
 export class TableOfContents {
   #tocRoot: TocEntry | null = null;
@@ -24,14 +24,6 @@ export class TableOfContents {
    * made available to the entire component tree under that page.
    */
   constructor(rootAddress: string, publicationTree: PublicationTree, pagePathname: string) {
-    // TODO: Build out the root entry correctly.
-    this.#tocRoot = {
-      title: '',
-      href: '',
-      expanded: false,
-      children: null,
-    };
-
     this.#publicationTree = publicationTree;
     this.#pagePathname = pagePathname;
 
@@ -88,8 +80,10 @@ export class TableOfContents {
         currentParentTocNode!.children ??= [];
 
         const childTocEntry: TocEntry = {
+          address,
           title: childEvent.getMatchingTags('title')[0][1],
           href: `${this.#pagePathname}#${this.#normalizeHashPath(childEvent.getMatchingTags('title')[0][1])}`,
+          depth: i + 1,
           expanded: false,
           children: null,
         };
@@ -130,8 +124,10 @@ export class TableOfContents {
           const href = `${this.#pagePathname}#${id}`;
 
           const tocEntry: TocEntry = {
+            address: parentEntry.address,
             title,
             href,
+            depth,
             expanded: false,
             children: null,
           };
