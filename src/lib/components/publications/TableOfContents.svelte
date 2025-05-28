@@ -1,6 +1,7 @@
 <script lang='ts'>
   import type { TableOfContents } from '$lib/components/publications/table_of_contents.svelte';
   import { getContext } from 'svelte';
+  import { Card } from 'flowbite-svelte';
 
   let { rootAddress } = $props<{ rootAddress: string }>();
 
@@ -12,4 +13,8 @@
   // Each rendered `<h>` should receive an entry in the ToC.
 </script>
 
-<!-- TODO: Add contents. -->
+<Card class='flex flex-col space-y-2'>
+  {#each toc as entry}
+    <a href={entry.href}>{entry.title}</a>
+  {/each}
+</Card>

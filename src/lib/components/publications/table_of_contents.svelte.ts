@@ -132,4 +132,25 @@ export class TableOfContents {
         }
       });
   }
+
+  /**
+   * Iterates over all ToC entries in depth-first order.
+   */
+  *[Symbol.iterator](): IterableIterator<TocEntry> {
+    function* traverse(entry: TocEntry | null): IterableIterator<TocEntry> {
+      if (!entry) {
+        return;
+      }
+
+      yield entry;
+
+      if (entry.children) {
+        for (const child of entry.children) {
+          yield* traverse(child);
+        }
+      }
+    }
+
+    yield* traverse(this.#tocRoot);
+  }
 }
