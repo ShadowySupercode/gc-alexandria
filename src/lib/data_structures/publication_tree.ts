@@ -464,6 +464,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #addNode(address: string, parentNode: PublicationTreeNode) {
+    if (this.#nodes.has(address)) {
+      console.debug(`[PublicationTree] Node with address ${address} already exists.`);
+      return;
+    }
+
     const lazyNode = new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode));
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
