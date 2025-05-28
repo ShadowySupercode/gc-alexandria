@@ -13,15 +13,16 @@
   } from "$lib/utils/nostrUtils";
   import { ensureNDKEvent } from "$lib/utils/relayGroupUtils";
   import PublicationHeader from "$components/cards/PublicationHeader.svelte";
-  import { selectRelayGroup } from "$lib/utils/relayGroupUtils";
   import { relayGroup } from "$lib/stores/relayGroup";
-  import { ndkSignedIn } from "$lib/ndk";
+  import { writable } from 'svelte/store';
+  import { naddrEncode } from '$lib/utils/eventEncoding';
+  import CardActions from "$components/util/CardActions.svelte";
 
   let {
     searchQuery = "",
     useFallbackRelays = $bindable(true),
     fallbackRelays,
-    isLoggedIn = false,
+    isLoggedIn = writable(false),
     userRelays,
   } = $props<{
     searchQuery?: string;
@@ -392,20 +393,20 @@
 <!-- Controls White Box -->
 <div class="mx-auto w-full max-w-3xl">
   <!-- Relay Group Selector -->
-  <div class="mb-4 relative">
+  <div class="mb-4 flex items-center gap-4 relative">
     <button
       type="button"
       class="inline-flex items-center px-4 py-2 bg-white dark:bg-brown-800 border border-brown-300 dark:border-brown-700 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brown-400 transition disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200 disabled:dark:bg-brown-900 disabled:dark:text-brown-400 disabled:dark:border-brown-800 disabled:cursor-not-allowed"
       onclick={() => (showRelayDropdown = !showRelayDropdown)}
       aria-haspopup="true"
       aria-expanded={showRelayDropdown}
-      disabled={!$isLoggedIn}
+      disabled={!isLoggedIn}
       aria-label="Relay group selector"
     >
       <span class="font-medium text-gray-900 dark:text-gray-100">
         {$relayGroup === "community" ? "Community Relays" : "Your Relays"}
       </span>
-      {#if $isLoggedIn}
+      {#if isLoggedIn}
         <svg
           class="ml-2 h-5 w-5 text- gray-900 dark:text-gray-100"
           xmlns="http://www.w3.org/2000/svg"
@@ -421,6 +422,17 @@
         >
       {/if}
     </button>
+    <!-- Fallback Checkbox -->
+    <label class="flex items-center text-xs text-gray-700 dark:text-gray-200">
+      <input
+        type="checkbox"
+        class="form-checkbox text-brown-700 focus:ring-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700 mr-2"
+        bind:checked={useFallbackRelays}
+        id="use-fallback-relays"
+      />
+      Include fallback relays
+      <span class="ml-1 text-gray-400">(may expose your data to additional relay operators)</span>
+    </label>
     {#if showRelayDropdown}
       <div
         class="origin-top-right absolute left-0 mt-2 w-64 rounded-lg shadow-lg bg-white dark:bg-brown-900 text-gray-900 dark:text-gray-100 ring-1 ring-black ring-opacity-5 z-10 border border-brown-300 dark:border-brown-700"
@@ -473,8 +485,7 @@
   <SearchBar
     bind:this={searchBarComponent}
     placeholder="Search publications by title or author..."
-    showFallbackToggle={true}
-    bind:useFallbackRelays
+    {useFallbackRelays}
     onDispatchSearch={async (query, useFallbackRelays) => {
       // await abortCurrentSearch();
       console.log(
@@ -512,9 +523,14 @@
     </div>
   {:else if eventsInView.length > 0}
     {#each eventsInView as event (event.id)}
-      <a href={"/publication?id=" + event.tagAddress()} class="block h-full">
-        <PublicationHeader {event} />
-      </a>
+      <div class="relative h-full">
+        <a href="/publication?id={naddrEncode(event)}" class="block h-full">
+          <PublicationHeader {event} />
+        </a>
+        <div class="absolute top-2 right-2 z-10">
+          <CardActions {event} />
+        </div>
+      </div>
     {/each}
     {#if canLoadMore}
       <div class="flex justify-center mt-6 col-span-full">

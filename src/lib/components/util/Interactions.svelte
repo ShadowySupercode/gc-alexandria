@@ -48,6 +48,10 @@
   function subscribeCount(kind: number, targetArray: NDKEvent[]) {
     const instance = get(ndkInstance);
     console.log('NDK instance:', instance, 'Type:', instance?.constructor?.name);
+    console.log('instance:', instance, 'typeof subscribe:', typeof instance?.subscribe);
+    if (typeof instance?.subscribe !== 'function') {
+      console.error('instance.subscribe is not a function!', instance);
+    }
     if (!instance) {
       console.error('NDK instance not initialized');
       return () => {};

@@ -107,6 +107,10 @@
   let unsubscribe: () => void;
   onMount(() => {
     window.addEventListener("scroll", handleScroll);
+    console.log('publicationColumnVisibility:', publicationColumnVisibility, 'typeof subscribe:', typeof publicationColumnVisibility?.subscribe);
+    if (typeof publicationColumnVisibility?.subscribe !== 'function') {
+      console.error('publicationColumnVisibility.subscribe is not a function!', publicationColumnVisibility);
+    }
     unsubscribe = publicationColumnVisibility.subscribe(() => {
       isVisible = true; // show navbar when store changes
     });

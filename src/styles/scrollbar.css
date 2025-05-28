@@ -1,3 +1,7 @@
+/*
+  Global scrollbar styles use vendor-specific selectors for cross-browser compatibility.
+  Some warnings in the browser console can be safely ignored.
+*/
 @layer components {
   /* Global scrollbar styles */
   * {

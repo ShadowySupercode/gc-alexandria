@@ -112,7 +112,9 @@
       </div>
       <div class="flex flex-col justify-start items-center min-w-9">
         {#if showActionsPanel}
-          <CardActions {event} />
+          {#if eventMetadata.title !== "Untitled"}
+            <CardActions {event} />
+          {/if}
         {/if}
       </div>
     </div>

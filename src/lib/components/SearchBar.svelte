@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Button, Checkbox, Search, Tooltip } from "flowbite-svelte";
+  import { Button, Checkbox, Search } from "flowbite-svelte";
   import { onMount, onDestroy } from "svelte";
   import { searchStore } from "$lib/stores/searchStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -38,6 +38,10 @@
   let searchError = $state<{ message: string; code: string } | null>(null);
 
   // Subscribe to store updates
+  console.log('searchStore:', searchStore, 'typeof subscribe:', typeof searchStore?.subscribe);
+  if (typeof searchStore?.subscribe !== 'function') {
+    console.error('searchStore.subscribe is not a function!', searchStore);
+  }
   const unsubscribe = searchStore.subscribe((state) => {
     searchInput = state.query;
     suggestions = state.suggestions;

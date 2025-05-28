@@ -7,7 +7,6 @@
   import { Button, Modal, Popover } from "flowbite-svelte";
   import { standardRelays, FeedType } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { feedType } from "$lib/stores";
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -16,42 +15,6 @@
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
-
-  // Derive metadata from event
-  let title = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "title")?.[1] ?? "",
-  );
-  let summary = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "summary")?.[1] ?? "",
-  );
-  let image = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "image")?.[1] ?? null,
-  );
-  let author = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "author")?.[1] ?? "",
-  );
-  let originalAuthor = $derived.by(
-    () =>
-      event.tags.find((t: string[]) => t[0] === "original_author")?.[1] ?? null,
-  );
-  let version = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "version")?.[1] ?? "",
-  );
-  let source = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "source")?.[1] ?? null,
-  );
-  let type = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "type")?.[1] ?? null,
-  );
-  let language = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "language")?.[1] ?? null,
-  );
-  let publisher = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "publisher")?.[1] ?? null,
-  );
-  let identifier = $derived.by(
-    () => event.tags.find((t: string[]) => t[0] === "identifier")?.[1] ?? null,
-  );
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
@@ -142,9 +105,11 @@
   <Button
     type="button"
     id="dots-{event.id}"
-    class=" hover:bg-primary-0 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
+    class="hover:bg-primary-0 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
     color="none"
     data-popover-target="popover-actions"
+    tabindex={0}
+    on:click={e => e.stopPropagation()}
   >
     <DotsVerticalOutline class="h-6 w-6" />
     <span class="sr-only">Open actions menu</span>
@@ -162,12 +127,12 @@
         <div class="flex flex-col text-nowrap">
           <ul class="space-y-2">
             <li>
-              <button
-                class="btn-leather w-full text-left"
-                onclick={viewDetails}
+              <a
+                href="/events?id={getIdentifier('naddr')}"
+                class="btn-leather w-full text-left inline-flex items-center"
               >
-                <EyeOutline class="inline mr-2" /> View details
-              </button>
+                <EyeOutline class="inline mr-2" /> View event
+              </a>
             </li>
             <li>
               <CopyToClipboard
