@@ -7,12 +7,22 @@ export interface TocEntry {
   children: Array<TocEntry> | null;
 }
 
+// TODO: Include depth in the `TocEntry` interface, and compute it when adding entries to the ToC.
+
 export class TableOfContents {
   #tocRoot: TocEntry | null = null;
   #addresses = $state<Map<string, TocEntry>>(new Map());
   #publicationTree: PublicationTree;
   #pagePathname: string;
 
+  /**
+   * Constructor for the `TableOfContents` class.  The constructed ToC initially contains only the
+   * root entry.  Additional entries must be inserted programmatically using class methods.
+   *
+   * The `TableOfContents` class should be instantiated as a page-scoped singleton so that
+   * `pagePathname` is correct wherever the instance is used.  The singleton should be made
+   * made available to the entire component tree under that page.
+   */
   constructor(rootAddress: string, publicationTree: PublicationTree, pagePathname: string) {
     // TODO: Build out the root entry correctly.
     this.#tocRoot = {
