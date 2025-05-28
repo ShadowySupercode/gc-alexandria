@@ -7,6 +7,8 @@
 
   let toc = getContext('toc') as TableOfContents;
 
+  // TODO: Check root address against ToC root address for correctness.
+
   // Determine the event kind.
   // If index, use the publication tree to build the table of contents.
   // If single event, build the table of contents from the rendered HTML.
