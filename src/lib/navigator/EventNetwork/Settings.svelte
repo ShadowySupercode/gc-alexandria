@@ -1,30 +1,33 @@
-<!--
-  Settings Component
--->
 <script lang="ts">
-  import { Button } from "flowbite-svelte";
+  import { Button, Label } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { fly } from "svelte/transition";
   import { quintOut } from "svelte/easing";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
   import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
   import { networkFetchLimit } from "$lib/state";
+  import { displayLimits } from "$lib/stores/displayLimits";
   import { Toggle, Select } from "flowbite-svelte";
 
   let {
     count = 0,
+    totalCount = 0,
     onupdate,
     starVisualization = $bindable(true),
     showTagAnchors = $bindable(false),
     selectedTagType = $bindable("t"),
     tagExpansionDepth = $bindable(0),
+    onFetchMissing = () => {},
   } = $props<{
     count: number;
+    totalCount: number;
     onupdate: () => void;
+
     starVisualization?: boolean;
     showTagAnchors?: boolean;
     selectedTagType?: string;
     tagExpansionDepth?: number;
+    onFetchMissing?: (ids: string[]) => void;
   }>();
 
   let expanded = $state(false);
@@ -49,6 +52,37 @@
       tagExpansionDepth = 0;
     }
   }
+
+  function handleDisplayLimitInput(event: Event, limitType: 'max30040' | 'max30041') {
+    const input = event.target as HTMLInputElement;
+    const value = input.value.trim();
+    
+    console.log('[Settings] Display limit input changed:', limitType, 'value:', value);
+    
+    if (value === '' || value === '-1') {
+      displayLimits.update(limits => ({
+        ...limits,
+        [limitType]: -1
+      }));
+      console.log('[Settings] Set', limitType, 'to unlimited (-1)');
+    } else {
+      const numValue = parseInt(value);
+      if (!isNaN(numValue) && numValue >= 1) {
+        displayLimits.update(limits => ({
+          ...limits,
+          [limitType]: numValue
+        }));
+        console.log('[Settings] Set', limitType, 'to', numValue);
+      }
+    }
+  }
+
+  function toggleFetchIfNotFound() {
+    displayLimits.update(limits => ({
+      ...limits,
+      fetchIfNotFound: !limits.fetchIfNotFound
+    }));
+  }
 </script>
 
 <div class="leather-legend sm:!right-1 sm:!left-auto">
@@ -72,21 +106,81 @@
   {#if expanded}
     <div class="space-y-4">
       <span class="leather bg-transparent legend-text">
-        Showing {count} events from {$networkFetchLimit} headers
+        Showing {count} of {totalCount} events
       </span>
 
-      <div class="space-y-2">
-        <label
-          class="leather bg-transparent legend-text flex items-center space-x-2"
-        >
-          <Toggle bind:checked={starVisualization} class="text-xs" />
-          <span>Star Network View</span>
-        </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          Toggle between star clusters (on) and linear sequence (off)
-          visualization
-        </p>
+      <!-- Initial Load Settings Section -->
+      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
+        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Initial Load</h4>
+        <EventLimitControl on:update={handleLimitUpdate} />
+        <EventRenderLevelLimit on:update={handleLimitUpdate} />
       </div>
+
+      <!-- Display Limits Section -->
+      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
+        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Display Limits</h4>
+        
+        <div class="space-y-3">
+          <div>
+            <Label for="max-30040" class="text-xs text-gray-600 dark:text-gray-400">
+              Max Publication Indices (30040)
+            </Label>
+            <input
+              type="number"
+              id="max-30040"
+              min="-1"
+              value={$displayLimits.max30040}
+              oninput={(e) => handleDisplayLimitInput(e, 'max30040')}
+              placeholder="-1 for unlimited"
+              class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <Label for="max-30041" class="text-xs text-gray-600 dark:text-gray-400">
+              Max Content Events (30041)
+            </Label>
+            <input
+              type="number"
+              id="max-30041"
+              min="-1"
+              value={$displayLimits.max30041}
+              oninput={(e) => handleDisplayLimitInput(e, 'max30041')}
+              placeholder="-1 for unlimited"
+              class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+            />
+          </div>
+
+          <label class="flex items-center space-x-2">
+            <Toggle 
+              checked={$displayLimits.fetchIfNotFound} 
+              on:click={toggleFetchIfNotFound}
+              class="text-xs" 
+            />
+            <span class="text-xs text-gray-600 dark:text-gray-400">Fetch if not found</span>
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
+            Automatically fetch missing referenced events
+          </p>
+        </div>
+      </div>
+
+      <!-- Visual Settings Section -->
+      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
+        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Visual Settings</h4>
+        
+        <div class="space-y-2">
+          <label
+            class="leather bg-transparent legend-text flex items-center space-x-2"
+          >
+            <Toggle bind:checked={starVisualization} class="text-xs" />
+            <span>Star Network View</span>
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            Toggle between star clusters (on) and linear sequence (off)
+            visualization
+          </p>
+        </div>
 
       <div class="space-y-2">
         <label
@@ -149,10 +243,8 @@
             </div>
           </div>
         {/if}
+        </div>
       </div>
-
-      <EventLimitControl on:update={handleLimitUpdate} />
-      <EventRenderLevelLimit on:update={handleLimitUpdate} />
     </div>
   {/if}
 </div>

@@ -1,5 +1,3 @@
-<!-- Legend Component (Svelte 5, Runes Mode) -->
-
 <script lang="ts">
   import { Button } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
@@ -67,7 +65,8 @@
             </span>
           </div>
           <span class="legend-text"
-            >{eventCounts[30040] || 0} Index events (kind 30040) - Star centers with unique colors</span
+            >{eventCounts[30040] || 0} Index events (kind 30040) - Star centers with
+            unique colors</span
           >
         </li>
 
@@ -79,7 +78,8 @@
             </span>
           </div>
           <span class="legend-text"
-            >{eventCounts[30041] || 0} Content nodes (kind 30041) - Arranged around star centers</span
+            >{eventCounts[30041] || 0} Content nodes (kind 30041) - Arranged around
+            star centers</span
           >
         </li>
 
@@ -109,7 +109,8 @@
             </span>
           </div>
           <span class="legend-text"
-            >{eventCounts[30040] || 0} Index events (kind 30040) - Each with a unique pastel color</span
+            >{eventCounts[30040] || 0} Index events (kind 30040) - Each with a unique
+            pastel color</span
           >
         </li>
 
@@ -121,7 +122,8 @@
             </span>
           </div>
           <span class="legend-text"
-            >{(eventCounts[30041] || 0) + (eventCounts[30818] || 0)} Content events (kinds 30041, 30818) - Publication sections</span
+            >{(eventCounts[30041] || 0) + (eventCounts[30818] || 0)} Content events
+            (kinds 30041, 30818) - Publication sections</span
           >
         </li>
 

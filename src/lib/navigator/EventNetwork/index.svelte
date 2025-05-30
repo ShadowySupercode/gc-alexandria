@@ -58,10 +58,18 @@
   }
 
   // Component props
-  let { events = [], onupdate, onTagExpansionChange } = $props<{
+  let { 
+    events = [], 
+    totalCount = 0,
+    onupdate, 
+    onTagExpansionChange,
+    onFetchMissing = () => {} 
+  } = $props<{
     events?: NDKEvent[];
+    totalCount?: number;
     onupdate: () => void;
     onTagExpansionChange?: (depth: number, tags: string[]) => void;
+    onFetchMissing?: (ids: string[]) => void;
   }>();
 
   // Error state
@@ -848,7 +856,9 @@
     <!-- Settings Panel (shown when settings button is clicked) -->
     <Settings
       count={events.length}
+      {totalCount}
       {onupdate}
+      {onFetchMissing}
       bind:starVisualization
       bind:showTagAnchors
       bind:selectedTagType

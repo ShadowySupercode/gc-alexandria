@@ -11,6 +11,8 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
+  import { displayLimits } from "$lib/stores/displayLimits";
+  import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
   
   // Configuration
@@ -19,7 +21,7 @@
   const CONTENT_EVENT_KINDS = [30041, 30818];
   
   // Props from load function
-  export let data: PageData;
+  let { data } = $props<{ data: PageData }>();
   
   /**
    * Debug logging function that only logs when DEBUG is true
@@ -31,12 +33,14 @@
   }
 
   // State
-  let events: NDKEvent[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let showSettings = false;
-  let tagExpansionDepth = 0;
-  let baseEvents: NDKEvent[] = []; // Store original events before expansion
+  let allEvents = $state<NDKEvent[]>([]); // All fetched events
+  let events = $state<NDKEvent[]>([]); // Events to display (filtered by limits)
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+  let showSettings = $state(false);
+  let tagExpansionDepth = $state(0);
+  let baseEvents = $state<NDKEvent[]>([]); // Store original events before expansion
+  let missingEventIds = $state(new Set<string>()); // Track missing referenced events
 
   /**
    * Fetches events from the Nostr network
@@ -119,14 +123,29 @@
       debug("Fetched content events:", contentEvents.size);
 
       // Step 5: Combine both sets of events
-      events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
-      baseEvents = [...events]; // Store base events for tag expansion
-      debug("Total events for visualization:", events.length);
+      allEvents = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      baseEvents = [...allEvents]; // Store base events for tag expansion
+      
+      // Step 6: Apply display limits
+      events = filterByDisplayLimits(allEvents, $displayLimits);
+      
+      // Step 7: Detect missing events
+      const eventIds = new Set(allEvents.map(e => e.id));
+      missingEventIds = detectMissingEvents(events, eventIds);
+      
+      debug("Total events fetched:", allEvents.length);
+      debug("Events displayed:", events.length);
+      debug("Missing event IDs:", missingEventIds.size);
+      debug("Display limits:", $displayLimits);
+      debug("About to set loading to false");
+      debug("Current loading state:", loading);
     } catch (e) {
       console.error("Error fetching events:", e);
       error = e instanceof Error ? e.message : String(e);
     } finally {
       loading = false;
+      debug("Loading set to false in fetchEvents");
+      debug("Final state check - loading:", loading, "events.length:", events.length, "allEvents.length:", allEvents.length);
     }
   }
 
@@ -139,7 +158,8 @@
     
     if (depth === 0 || tags.length === 0) {
       // Reset to base events only
-      events = [...baseEvents];
+      allEvents = [...baseEvents];
+      events = filterByDisplayLimits(allEvents, $displayLimits);
       return;
     }
     
@@ -167,7 +187,7 @@
       // Extract content event IDs from new publications
       const contentEventIds = new Set<string>();
       const existingContentIds = new Set(
-        baseEvents.filter(e => CONTENT_EVENT_KINDS.includes(e.kind)).map(e => e.id)
+        baseEvents.filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind)).map(e => e.id)
       );
       
       newPublications.forEach((event) => {
@@ -191,17 +211,26 @@
       }
       
       // Combine all events: base events + new publications + new content
-      events = [
+      allEvents = [
         ...baseEvents,
         ...newPublications,
         ...newContentEvents
       ];
       
+      // Apply display limits
+      events = filterByDisplayLimits(allEvents, $displayLimits);
+      
+      // Update missing events detection
+      const eventIds = new Set(allEvents.map(e => e.id));
+      missingEventIds = detectMissingEvents(events, eventIds);
+      
       debug("Events after expansion:", {
         base: baseEvents.length,
         newPubs: newPublications.length,
         newContent: newContentEvents.length,
-        total: events.length
+        totalFetched: allEvents.length,
+        displayed: events.length,
+        missing: missingEventIds.size
       });
       
     } catch (e) {
@@ -209,6 +238,77 @@
       error = e instanceof Error ? e.message : String(e);
     }
   }
+
+  /**
+   * Dynamically fetches missing events when "fetch if not found" is enabled
+   */
+  async function fetchMissingEvents(missingIds: string[]) {
+    if (!$displayLimits.fetchIfNotFound || missingIds.length === 0) {
+      return;
+    }
+    
+    debug("Fetching missing events:", missingIds);
+    debug("Current loading state:", loading);
+    
+    try {
+      // Fetch by event IDs and d-tags
+      const fetchedEvents = await $ndkInstance.fetchEvents({
+        kinds: [...[INDEX_EVENT_KIND], ...CONTENT_EVENT_KINDS],
+        "#d": missingIds, // For parameterized replaceable events
+      });
+      
+      if (fetchedEvents.size === 0) {
+        // Try fetching by IDs directly
+        const eventsByIds = await $ndkInstance.fetchEvents({
+          ids: missingIds
+        });
+        // Add events from the second fetch to the first set
+        eventsByIds.forEach(e => fetchedEvents.add(e));
+      }
+      
+      if (fetchedEvents.size > 0) {
+        debug(`Fetched ${fetchedEvents.size} missing events`);
+        
+        // Add to all events
+        allEvents = [...allEvents, ...Array.from(fetchedEvents)];
+        
+        // Re-apply display limits
+        events = filterByDisplayLimits(allEvents, $displayLimits);
+        
+        // Update missing events list
+        const eventIds = new Set(allEvents.map(e => e.id));
+        missingEventIds = detectMissingEvents(events, eventIds);
+      }
+    } catch (e) {
+      console.error("Error fetching missing events:", e);
+    }
+  }
+
+  // React to display limit changes
+  $effect(() => {
+    debug("Effect triggered: allEvents.length =", allEvents.length, "displayLimits =", $displayLimits);
+    if (allEvents.length > 0) {
+      const newEvents = filterByDisplayLimits(allEvents, $displayLimits);
+      
+      // Only update if actually different to avoid infinite loops
+      if (newEvents.length !== events.length) {
+        debug("Updating events due to display limit change:", events.length, "->", newEvents.length);
+        events = newEvents;
+        
+        // Check for missing events when limits change
+        const eventIds = new Set(allEvents.map(e => e.id));
+        missingEventIds = detectMissingEvents(events, eventIds);
+        
+        debug("Effect: events filtered to", events.length, "missing:", missingEventIds.size);
+      }
+      
+      // Auto-fetch if enabled (but be conservative to avoid infinite loops)
+      if ($displayLimits.fetchIfNotFound && missingEventIds.size > 0 && missingEventIds.size < 20) {
+        debug("Auto-fetching", missingEventIds.size, "missing events");
+        fetchMissingEvents(Array.from(missingEventIds));
+      }
+    }
+  });
 
   // Fetch events when component mounts
   onMount(() => {
@@ -227,6 +327,7 @@
   <!-- Loading spinner -->
   {#if loading}
     <div class="flex justify-center items-center h-64">
+      {debug("TEMPLATE: Loading is true, events.length =", events.length, "allEvents.length =", allEvents.length)}
       <div role="status">
         <svg
           aria-hidden="true"
@@ -266,6 +367,12 @@
   <!-- Network visualization -->
   {:else}
     <!-- Event network visualization -->
-    <EventNetwork {events} onupdate={fetchEvents} onTagExpansionChange={handleTagExpansion} />
+    <EventNetwork 
+      {events} 
+      totalCount={allEvents.length}
+      onupdate={fetchEvents} 
+      onTagExpansionChange={handleTagExpansion}
+      onFetchMissing={fetchMissingEvents}
+    />
   {/if}
 </div>

@@ -32,7 +32,9 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['./tests/unit/**/*.test.ts', './tests/integration/**/*.test.ts']
+    include: ['./tests/unit/**/*.test.ts', './tests/integration/**/*.test.ts'],
+    environment: 'jsdom',
+    setupFiles: ['./tests/vitest-setup.ts']
   },
   define: {
     // Expose the app version as a global variable
