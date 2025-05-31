@@ -2,7 +2,7 @@
   import { Card, Img, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils";
+  import { type NostrProfile, toNpub, signEvent, publishEvent } from "$lib/utils/nostrUtils";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   // @ts-ignore
@@ -10,6 +10,11 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import DualPill from "$components/util/DualPill.svelte";
   import { formatTimestampToDate } from "$lib/utils/dateUtils";
+  import ZapOutline from "$components/util/ZapOutline.svelte";
+  import { ndkInstance } from "$lib/ndk";
+  import { get } from 'svelte/store';
+  import { fallbackRelays } from "$lib/consts";
+  import ZapModal from "$components/util/ZapModal.svelte";
 
   const { event, profile, typeDisplay } = $props<{
     event: NDKEvent;
@@ -18,7 +23,12 @@
   }>();
 
   let lnModalOpen = $state(false);
+  let zapModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
+  let zapAmount = $state(1000); // Default to 1000 sats
+  let zapComment = $state("");
+  let zapInvoice = $state<string | null>(null);
+  let zapError = $state<string | null>(null);
 
   function encodeLnurl(url: string): string | null {
     try {
@@ -73,6 +83,83 @@
       }
     }
   });
+
+  async function requestZapInvoice() {
+    if (!profile?.lud16 || !lnurl) {
+      zapError = "No Lightning address available";
+      return;
+    }
+
+    try {
+      const [name, domain] = profile.lud16.split('@');
+      if (!name || !domain) throw new Error('Malformed LN address');
+      const url = `https://${domain}/.well-known/lnurlp/${name}`;
+      
+      // First get the LNURL pay endpoint info
+      const response = await fetch(url);
+      const lnurlData = await response.json();
+      
+      if (!lnurlData.allowsNostr || !lnurlData.nostrPubkey) {
+        zapError = "This Lightning address doesn't support Nostr zaps";
+        return;
+      }
+
+      // Create zap request event
+      const ndk = get(ndkInstance);
+      if (!ndk?.signer) {
+        zapError = "No signer available";
+        return;
+      }
+
+      const pubkey = ndk.signer.pubkey;
+      if (!pubkey) {
+        zapError = "No pubkey available";
+        return;
+      }
+
+      const zapRequest = {
+        kind: 9734,
+        content: zapComment,
+        pubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ["relays", ...fallbackRelays],
+          ["amount", zapAmount.toString()],
+          ["lnurl", lnurl],
+          ["p", event.pubkey],
+        ],
+      };
+
+      const sig = await signEvent(zapRequest);
+      const zapRequestWithSig = { ...zapRequest, sig };
+      
+      // Send zap request to callback URL
+      const callbackUrl = new URL(lnurlData.callback);
+      callbackUrl.searchParams.set('amount', zapAmount.toString());
+      callbackUrl.searchParams.set('nostr', encodeURIComponent(JSON.stringify(zapRequestWithSig)));
+      callbackUrl.searchParams.set('lnurl', lnurl);
+
+      const zapResponse = await fetch(callbackUrl.toString());
+      const { pr: invoice } = await zapResponse.json();
+      
+      if (!invoice) {
+        zapError = "Failed to get invoice";
+        return;
+      }
+
+      zapInvoice = invoice;
+      zapError = null;
+    } catch (err) {
+      console.error('Error requesting zap invoice:', err);
+      zapError = err instanceof Error ? err.message : 'Unknown error';
+    }
+  }
+
+  function openZapModal() {
+    zapModalOpen = true;
+    zapInvoice = null;
+    zapError = null;
+  }
 </script>
 
 {#if profile}
@@ -161,12 +248,19 @@
             {#if profile.lud16}
               <div class="flex items-center gap-2 mt-4">
                 <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
-                <dd>
+                <dd class="flex items-center gap-2">
                   <Button
                     class="btn-leather"
                     color="primary"
                     outline
                     onclick={openLnModal}>{profile.lud16}</Button>
+                  <Button
+                    class="btn-leather"
+                    color="primary"
+                    onclick={openZapModal}>
+                    <ZapOutline size={16} className="mr-1" />
+                    Zap
+                  </Button>
                 </dd>
               </div>
             {/if}
@@ -205,4 +299,12 @@
       </div>
     {/if}
   </Modal>
+
+  <ZapModal
+    open={zapModalOpen}
+    onClose={() => zapModalOpen = false}
+    lud16={profile?.lud16}
+    lnurl={lnurl}
+    recipientPubkey={event.pubkey}
+  />
 {/if}
