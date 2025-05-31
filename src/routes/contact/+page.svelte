@@ -10,7 +10,7 @@
     Modal,
   } from "flowbite-svelte";
   import { ndkSignedIn, ndkInstance } from "$lib/ndk";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { communityRelays, fallbackRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue
@@ -59,7 +59,7 @@
     "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
 
   // Remove hardcoded relays and use fallbackRelays from consts
-  const allRelays = [...fallbackRelays, ...standardRelays];
+  const allRelays = [...fallbackRelays, ...communityRelays];
 
   // Hard-coded repository owner pubkey and ID from the task
   // These values are extracted from the naddr

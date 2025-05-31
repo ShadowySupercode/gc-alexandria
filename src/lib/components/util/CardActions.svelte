@@ -5,7 +5,7 @@
     EyeOutline,
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
-  import { standardRelays, FeedType } from "$lib/consts";
+  import { communityRelays, FeedType } from "$lib/consts";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { feedType } from "$lib/stores";
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
@@ -27,7 +27,7 @@
    */
   let activeRelays = $derived.by(() => {
     const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
-    const relays = isUserFeed ? $inboxRelays : standardRelays;
+    const relays = isUserFeed ? $inboxRelays : communityRelays;
 
     console.debug("[CardActions] Selected relays:", {
       eventId: event.id,

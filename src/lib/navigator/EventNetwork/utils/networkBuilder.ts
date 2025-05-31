@@ -8,7 +8,7 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { nip19 } from "nostr-tools";
-import { standardRelays } from "$lib/consts";
+import { communityRelays } from "$lib/consts";
 import { getTagValue, getTagValues } from "$lib/utils/eventTags";
 
 // Configuration
@@ -71,13 +71,13 @@ export function createNetworkNode(
         pubkey: event.pubkey,
         identifier: dTag,
         kind: event.kind,
-        relays: standardRelays,
+        relays: communityRelays,
       });
 
       // Create nevent (NIP-19 event reference) for the event
       node.nevent = nip19.neventEncode({
         id: event.id,
-        relays: standardRelays,
+        relays: communityRelays,
         kind: event.kind,
       });
     } catch (error) {

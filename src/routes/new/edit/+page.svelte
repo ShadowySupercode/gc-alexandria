@@ -13,7 +13,7 @@
   } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { pharosInstance } from "$lib/parser";
-  import { ndkInstance } from "$lib/ndk";
+  import { ndkInstance, getActiveUser } from "$lib/ndk";
   import { goto } from "$app/navigation";
   let someIndexValue = 0;
 
@@ -53,7 +53,8 @@
       return;
     }
 
-    $pharosInstance.generate($ndkInstance.activeUser?.pubkey!);
+    const user = getActiveUser();
+    $pharosInstance.generate(user?.pubkey!);
     goto("/new/compose");
   };
 </script>

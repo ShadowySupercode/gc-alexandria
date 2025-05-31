@@ -9,7 +9,8 @@
   } from "$lib/utils/nostrUtils";
   import RelayDisplay from "./RelayDisplay.svelte";
   import { getConnectedRelays, getEventRelays } from "$lib/utils/relayUtils";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { communityRelays, fallbackRelays } from "$lib/consts";
+  import { getActiveUser } from '$lib/ndk';
 
   const { event } = $props<{
     event: NDKEvent;
@@ -27,7 +28,7 @@
 
   // Convert state variables to derived values
   let allRelays = $derived.by(() => {
-    const standard = standardRelays;
+    const standard = communityRelays;
     const fallback = fallbackRelays;
     const connected = getConnectedRelays();
     return [...new Set([...standard, ...fallback, ...connected])];
@@ -44,7 +45,8 @@
   </svg>`;
 
   async function broadcastEvent() {
-    if (!event || !$ndkInstance?.activeUser) return;
+    const user = getActiveUser();
+    if (!event || !user) return;
     broadcasting = true;
     broadcastSuccess = false;
     broadcastError = null;
@@ -58,7 +60,7 @@
       // Create a new event with the same content
       const newEvent = createNDKEvent($ndkInstance, {
         ...event.rawEvent(),
-        pubkey: $ndkInstance.activeUser.pubkey,
+        pubkey: user.pubkey,
         created_at: Math.floor(Date.now() / 1000),
         sig: "",
       });
@@ -88,7 +90,7 @@
     const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(
       (r) => r.url,
     );
-    allRelays = [...standardRelays, ...userRelays, ...fallbackRelays].filter(
+    allRelays = [...communityRelays, ...userRelays, ...fallbackRelays].filter(
       (url, idx, arr) => arr.indexOf(url) === idx,
     );
     relaySearchResults = Object.fromEntries(
@@ -123,7 +125,7 @@
     Where can I find this event?
   </Button>
 
-  {#if $ndkInstance?.activeUser}
+  {#if getActiveUser()}
     <Button
       onclick={broadcastEvent}
       disabled={broadcasting}
@@ -185,7 +187,7 @@
       >
       <h2 class="text-lg font-semibold mb-4">Relay Search Results</h2>
       <div class="flex flex-col gap-4 max-h-96 overflow-y-auto">
-        {#each Object.entries( { "Standard Relays": standardRelays, "User Relays": Array.from($ndkInstance?.pool?.relays.values() || []).map((r) => r.url), "Fallback Relays": fallbackRelays }, ) as [groupName, groupRelays]}
+        {#each Object.entries( { "Standard Relays": communityRelays, "User Relays": Array.from($ndkInstance?.pool?.relays.values() || []).map((r) => r.url), "Fallback Relays": fallbackRelays }, ) as [groupName, groupRelays]}
           {#if groupRelays.length > 0}
             <div class="flex flex-col gap-2">
               <h3

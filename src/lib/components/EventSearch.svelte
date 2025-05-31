@@ -97,7 +97,7 @@
     relayStatuses = {};
 
     if (searchBarComponent) {
-      searchBarComponent.stopSearching();
+      // Removed call to stopSearching, as it does not exist
     }
   }
 
@@ -204,12 +204,11 @@
       bind:this={searchBarComponent}
       placeholder="Enter event ID, nevent, or naddr..."
       initialValue={searchQuery}
-      showFallbackToggle={true}
-      bind:useFallbackRelays
+      showFallbackToggle={false}
       searchDisabled={loading}
       clearDisabled={false}
       isSearching={searching}
-      onDispatchSearch={(query, useFallbackRelays) => startSearch(query, true)}
+      onDispatchSearch={(query) => startSearch(query, true)}
       onDispatchCancel={cancelSearch}
       onDispatchClear={() => {
         searchQuery = '';

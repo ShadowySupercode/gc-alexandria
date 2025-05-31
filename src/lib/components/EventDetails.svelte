@@ -4,7 +4,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { communityRelays } from "$lib/consts";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import EventTag from "./EventTag.svelte";
@@ -72,14 +72,14 @@
       // nprofile
       ids.push({
         label: "nprofile",
-        value: nprofileEncode(event.pubkey, standardRelays),
-        link: `/events?id=${nprofileEncode(event.pubkey, standardRelays)}`,
+        value: nprofileEncode(event.pubkey, communityRelays),
+        link: `/events?id=${nprofileEncode(event.pubkey, communityRelays)}`,
       });
       // nevent
       ids.push({
         label: "nevent",
-        value: neventEncode(event, standardRelays),
-        link: `/events?id=${neventEncode(event, standardRelays)}`,
+        value: neventEncode(event, communityRelays),
+        link: `/events?id=${neventEncode(event, communityRelays)}`,
       });
       // hex pubkey
       ids.push({ label: "pubkey", value: event.pubkey });
@@ -87,12 +87,12 @@
       // nevent
       ids.push({
         label: "nevent",
-        value: neventEncode(event, standardRelays),
-        link: `/events?id=${neventEncode(event, standardRelays)}`,
+        value: neventEncode(event, communityRelays),
+        link: `/events?id=${neventEncode(event, communityRelays)}`,
       });
       // naddr (if addressable)
       try {
-        const naddr = naddrEncode(event, standardRelays);
+        const naddr = naddrEncode(event, communityRelays);
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
       // hex id

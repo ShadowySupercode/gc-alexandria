@@ -9,7 +9,7 @@
     type NostrProfile,
     publishEvent,
   } from "$lib/utils/nostrUtils";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { communityRelays, fallbackRelays } from "$lib/consts";
   import { userRelays } from "$lib/stores/relayStore";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
@@ -177,9 +177,9 @@
       };
 
       // Determine which relays to use
-      let relays = props.userRelayPreference ? get(userRelays) : standardRelays;
+      let relays = props.userRelayPreference ? get(userRelays) : communityRelays;
       if (useOtherRelays) {
-        relays = props.userRelayPreference ? standardRelays : get(userRelays);
+        relays = props.userRelayPreference ? communityRelays : get(userRelays);
       }
       if (useFallbackRelays) {
         relays = fallbackRelays;

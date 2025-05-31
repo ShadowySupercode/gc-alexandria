@@ -5,7 +5,7 @@ import { ndkInstance } from "$lib/ndk";
 import { npubCache } from "./npubCache";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { standardRelays, fallbackRelays } from "$lib/consts";
+import { communityRelays, fallbackRelays } from "$lib/consts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
@@ -163,7 +163,7 @@ export async function createProfileLinkWithVerification(
     (r) => r.url,
   );
   const allRelays = [
-    ...standardRelays,
+    ...communityRelays,
     ...userRelays,
     ...fallbackRelays,
   ].filter((url, idx, arr) => arr.indexOf(url) === idx);
@@ -813,7 +813,7 @@ export async function publishEvent(
   } = {},
 ): Promise<{ success: boolean; relay?: string; error?: string }> {
   const {
-    relays = standardRelays,
+    relays = communityRelays,
     useFallbackRelays = false,
     timeoutMs = 5000,
   } = options;
@@ -864,7 +864,7 @@ export async function publishEvent(
   }
 
   // If we get here, we failed to publish to any of the primary relays
-  if (useFallbackRelays && relays === standardRelays) {
+  if (useFallbackRelays && relays === communityRelays) {
     // Try fallback relays
     const fallbackResult = await publishEvent(event, {
       ...options,

@@ -1,14 +1,15 @@
 <script lang="ts">
-  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { logout, ndkInstance } from "$lib/ndk";
+  import { logout, ndkInstance, getActiveUser } from "$lib/ndk";
   import {
     ArrowRightToBracketOutline,
     UserOutline,
     ClipboardCleanOutline,
+    CogOutline,
   } from "flowbite-svelte-icons";
-  import { Avatar, Popover } from "flowbite-svelte";
+  import { Avatar, Popover, Button } from "flowbite-svelte";
   import type { NostrProfile } from "$lib/utils/nostrUtils";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
+  import SettingsModal from "$lib/components/SettingsModal.svelte";
 
   const externalProfileDestination = "./events?id=";
 
@@ -17,10 +18,13 @@
   let profile = $state<NostrProfile | null>(null);
   let pfp = $derived.by(() => profile?.picture);
   let username = $derived.by(() => profile?.display_name || profile?.name);
-  let tag = $derived.by(() => username);
+  let nip05 = $derived.by(() => profile?.nip05);
   let npub = $derived.by(
     () => $ndkInstance.getUser({ pubkey: pubkey ?? undefined })?.npub,
   );
+  let showSettings = $state(false);
+  let copied = $state(false);
+  let showNpubPopover = $state(false);
 
   $effect(() => {
     const user = $ndkInstance.getUser({ pubkey: pubkey ?? undefined });
@@ -32,7 +36,10 @@
   });
 
   async function handleSignOutClick() {
-    logout($ndkInstance.activeUser!);
+    const user = getActiveUser();
+    if (user) {
+      logout(user);
+    }
     profile = null;
     // Clear all Alexandria/Nostr-related localStorage/sessionStorage
     localStorage.clear(); // or selectively remove only Alexandria keys if you want
@@ -44,6 +51,14 @@
   function shortenNpub(long: string | undefined) {
     if (!long) return "";
     return long.slice(0, 8) + "…" + long.slice(-4);
+  }
+
+  function handleCopyNpub() {
+    if (npub) {
+      navigator.clipboard.writeText(npub);
+      copied = true;
+      setTimeout(() => (copied = false), 1000);
+    }
   }
 </script>
 
@@ -57,60 +72,61 @@
         alt={username}
         id="profile-avatar"
       />
-      {#key username || tag}
+      {#key username || nip05}
         <Popover
           placement="bottom"
           triggeredBy="#profile-avatar"
-          class="popover-leather w-[180px]"
+          class="popover-leather w-80"
           trigger="hover"
         >
-          <div class="flex flex-row justify-between space-x-4">
-            <div class="flex flex-col">
-              {#if username}
-                <h3 class="text-lg font-bold">{username}</h3>
-                <h4 class="text-base">@{tag}</h4>
+          <div class="flex flex-col gap-1 text-left w-full">
+            {#if username}
+              <div class="font-bold text-lg text-primary-700 dark:text-primary-400 mb-2 w-full inline-block transition-colors hover:text-primary-400 dark:hover:text-primary-500">{username}</div>
+              {#if nip05}
+                <div class="text-base text-primary-700 dark:text-primary-400 mb-2 break-all w-full inline-block transition-colors hover:text-primary-400 dark:hover:text-primary-500 cursor-pointer">{nip05}</div>
               {/if}
-              <ul class="space-y-2 mt-2">
-                <li>
-                  <CopyToClipboard
-                    icon={ClipboardCleanOutline}
-                    displayText={shortenNpub(npub)}
-                    copyText={npub}
-                  />
-                </li>
-                <li>
-                  <a
-                    class="hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0"
-                    href="{externalProfileDestination}{npub}"
-                  >
-                    <UserOutline
-                      class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
-                    /><span class="underline">View profile</span>
-                  </a>
-                </li>
-                <li>
-                  <button
-                    id="sign-out-button"
-                    class="btn-leather text-nowrap mt-3 flex w-full self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500"
-                    onclick={handleSignOutClick}
-                  >
-                    <ArrowRightToBracketOutline
-                      class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
-                    /> Sign out
-                  </button>
-                </li>
-                <!-- li>
-                <button
-                  class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                >
-                  <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                </button>
-              </li -->
-              </ul>
+            {/if}
+            <div class="relative w-full mb-1">
+              <Button
+                color="none"
+                class="flex items-center justify-start gap-2 px-2 py-2 rounded text-gray-900 font-medium w-full text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 break-all whitespace-normal"
+                onclick={handleCopyNpub}
+              >
+                <ClipboardCleanOutline class="h-5 w-5 text-gray-500" />
+                <span class="transition-colors hover:text-primary-400 dark:hover:text-primary-500">
+                  {copied ? 'Copied!' : npub}
+                </span>
+              </Button>
             </div>
+            <Button
+              color="none"
+              class="flex items-center justify-start gap-2 px-2 py-2 rounded text-gray-900 font-medium w-full text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100"
+              href={`${externalProfileDestination}${npub}`}
+            >
+              <UserOutline class="h-5 w-5 text-gray-500" />
+              <span class="transition-colors hover:text-primary-400 dark:hover:text-primary-500">View profile</span>
+            </Button>
+            <Button
+              color="none"
+              class="flex items-center justify-start gap-2 px-2 py-2 rounded text-gray-900 font-medium w-full text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100"
+              onclick={() => (showSettings = true)}
+            >
+              <CogOutline class="h-5 w-5 text-gray-500" />
+              <span class="transition-colors hover:text-primary-400 dark:hover:text-primary-500">Settings</span>
+            </Button>
+            <Button
+              color="none"
+              class="flex items-center justify-start gap-2 px-2 py-2 rounded text-gray-900 font-medium w-full text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100"
+              onclick={handleSignOutClick}
+            >
+              <ArrowRightToBracketOutline class="h-5 w-5 text-gray-500" />
+              <span class="transition-colors hover:text-primary-400 dark:hover:text-primary-500">Sign out</span>
+            </Button>
           </div>
         </Popover>
       {/key}
     </div>
   {/if}
 </div>
+
+<SettingsModal show={showSettings} onClose={() => (showSettings = false)} />

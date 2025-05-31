@@ -1,9 +1,9 @@
 import type { NDKEvent } from "$lib/utils/nostrUtils";
 import { get } from "svelte/store";
 import { ndkInstance } from "$lib/ndk";
-import { standardRelays } from "$lib/consts";
+import { communityRelays } from "$lib/consts";
 
-// Get relays from event (prefer event.relay or event.relays, fallback to standardRelays)
+// Get relays from event (prefer event.relay or event.relays, fallback to communityRelays)
 export function getEventRelays(event: NDKEvent): string[] {
   if (event && (event as any).relay) {
     const relay = (event as any).relay;
@@ -14,7 +14,7 @@ export function getEventRelays(event: NDKEvent): string[] {
       typeof r === "string" ? r : r.url,
     );
   }
-  return standardRelays;
+  return communityRelays;
 }
 
 export function getConnectedRelays(): string[] {

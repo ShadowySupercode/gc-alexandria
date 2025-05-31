@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { ndkInstance } from "$lib/ndk";
+  import { getActiveUser } from "$lib/ndk";
   import { naddrEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { standardRelays } from "../consts";
+  import { communityRelays } from "../consts";
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -10,7 +10,7 @@
   const { event } = $props<{ event: NDKEvent }>();
 
   const relays = $derived.by(
-    () => $ndkInstance.activeUser?.relayUrls ?? standardRelays,
+    () => getActiveUser()?.relayUrls ?? communityRelays,
   );
 
   const href = $derived.by(() => {

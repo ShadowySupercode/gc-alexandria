@@ -15,7 +15,7 @@ export const ssr = false;
 export const load: LayoutLoad = () => {
   const initialFeedType =
     (localStorage.getItem(feedTypeStorageKey) as FeedType) ??
-    FeedType.StandardRelays;
+    FeedType.communityRelays;
   feedType.set(initialFeedType);
 
   const ndk = initNdk();

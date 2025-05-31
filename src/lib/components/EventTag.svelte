@@ -1,6 +1,6 @@
 <script lang="ts">
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { communityRelays } from "$lib/consts";
   import DualPill from "$components/util/DualPill.svelte";
   import { ensureNDKEvent } from "$lib/utils/relayGroupUtils";
 
@@ -17,7 +17,7 @@
         id: "",
         sig: "",
       });
-      return `/events?id=${naddrEncode(ndkEvent, standardRelays)}`;
+      return `/events?id=${naddrEncode(ndkEvent, communityRelays)}`;
     } else if (tag[0] === "e" && tag.length > 1) {
       const ndkEvent = ensureNDKEvent({
         id: tag[1],
@@ -27,7 +27,7 @@
         pubkey: "",
         sig: "",
       });
-      return `/events?id=${neventEncode(ndkEvent, standardRelays)}`;
+      return `/events?id=${neventEncode(ndkEvent, communityRelays)}`;
     }
     return null;
   }

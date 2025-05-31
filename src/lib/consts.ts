@@ -1,8 +1,11 @@
 export const wikiKind = 30818;
 export const indexKind = 30040;
 export const SectionKinds = [30041, 30818];
-export const communityRelay = ["wss://theforest.nostr1.com"];
-export const standardRelays = [
+
+export const socialRelays = [
+  "wss://theforest.nostr1.com"
+];
+export const communityRelays = [
   "wss://thecitadel.nostr1.com",
   "wss://theforest.nostr1.com",
 ];
@@ -16,10 +19,16 @@ export const fallbackRelays = [
   "wss://nostr.wine",
   "wss://nostr.land",
 ];
+export const localRelays = [
+  "ws://localhost:4869",
+  "ws://localhost:8080",
+  "ws://localhost:8735",
+];
 
 export enum FeedType {
-  StandardRelays = "standard",
+  SocialRelays = "social",
   UserRelays = "user",
+  CommunityRelays = "community"
 }
 
 export const loginStorageKey = "alexandria/login/pubkey";

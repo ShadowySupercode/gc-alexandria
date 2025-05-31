@@ -392,125 +392,38 @@
 
 <!-- Controls White Box -->
 <div class="mx-auto w-full max-w-3xl">
-  <!-- Relay Group Selector -->
-  <div class="mb-4 flex items-center gap-4 relative">
-    <button
-      type="button"
-      class="inline-flex items-center px-4 py-2 bg-white dark:bg-brown-800 border border-brown-300 dark:border-brown-700 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brown-400 transition disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200 disabled:dark:bg-brown-900 disabled:dark:text-brown-400 disabled:dark:border-brown-800 disabled:cursor-not-allowed"
-      onclick={() => (showRelayDropdown = !showRelayDropdown)}
-      aria-haspopup="true"
-      aria-expanded={showRelayDropdown}
-      disabled={!isLoggedIn}
-      aria-label="Relay group selector"
-    >
-      <span class="font-medium text-gray-900 dark:text-gray-100">
-        {$relayGroup === "community" ? "Community Relays" : "Your Relays"}
-      </span>
-      {#if isLoggedIn}
-        <svg
-          class="ml-2 h-5 w-5 text- gray-900 dark:text-gray-100"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 9l-7 7-7-7"
-          /></svg
-        >
-      {/if}
-    </button>
-    <!-- Fallback Checkbox -->
-    <label class="flex items-center text-xs text-gray-700 dark:text-gray-200">
-      <input
-        type="checkbox"
-        class="form-checkbox text-brown-700 focus:ring-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700 mr-2"
-        bind:checked={useFallbackRelays}
-        id="use-fallback-relays"
+  <!-- Search Bar, Search and Clear Buttons -->
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-2">
+      <SearchBar
+        bind:this={searchBarComponent}
+        placeholder="Search publications..."
+        initialValue={searchQuery}
+        showFallbackToggle={false}
+        searchDisabled={loading}
+        clearDisabled={false}
+        isSearching={isSearching}
+        onDispatchSearch={(query) => {
+          searchQuery = query;
+          searchError = null;
+          allEvents = [];
+          getEvents(undefined, query, true);
+        }}
+        onDispatchCancel={() => {
+          searchQuery = '';
+          searchError = null;
+          allEvents = [];
+          getEvents(undefined, '', true);
+        }}
+        onDispatchClear={() => {
+          searchQuery = '';
+          searchError = null;
+          allEvents = [];
+          getEvents(undefined, '', true);
+        }}
       />
-      Include fallback relays
-      <span class="ml-1 text-gray-400">(may expose your data to additional relay operators)</span>
-    </label>
-    {#if showRelayDropdown}
-      <div
-        class="origin-top-right absolute left-0 mt-2 w-64 rounded-lg shadow-lg bg-white dark:bg-brown-900 text-gray-900 dark:text-gray-100 ring-1 ring-black ring-opacity-5 z-10 border border-brown-300 dark:border-brown-700"
-      >
-        <div class="py-2">
-          <label
-            class="flex items-center px-4 py-2 cursor-pointer hover:bg-brown-100 dark:hover:bg-brown-800 text-gray-900 dark:text-gray-100"
-          >
-            <input
-              type="radio"
-              class="form-radio text-brown-700 focus:ring-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700"
-              name="relayGroup"
-              value="community"
-              checked={$relayGroup === "community"}
-              onchange={() => {
-                relayGroup.set("community");
-                showRelayDropdown = false;
-              }}
-              aria-label="Select Alexandria's Relays"
-            />
-            <span class="ml-3 text-gray-900 dark:text-gray-100"
-              >Alexandria's Relays</span
-            >
-          </label>
-          <label
-            class="flex items-center px-4 py-2 cursor-pointer hover:bg-brown-100 dark:hover:bg-brown-800 text-gray-900 dark:text-gray-100"
-          >
-            <input
-              type="radio"
-              class="form-radio text-brown-700 focus:ring-brown-400 bg-white dark:bg-brown-800 border-brown-300 dark:border-brown-700"
-              name="relayGroup"
-              value="user"
-              checked={$relayGroup === "user"}
-              onchange={() => {
-                relayGroup.set("user");
-                showRelayDropdown = false;
-              }}
-              aria-label="Select Your Relays"
-            />
-            <span class="ml-3 text-gray-900 dark:text-gray-100"
-              >Your Relays</span
-            >
-          </label>
-        </div>
-      </div>
-    {/if}
+    </div>
   </div>
-
-  <!-- Search Bar, Fallback Toggle, Search and Clear Buttons -->
-  <SearchBar
-    bind:this={searchBarComponent}
-    placeholder="Search publications by title or author..."
-    {useFallbackRelays}
-    onDispatchSearch={async (query, useFallbackRelays) => {
-      // await abortCurrentSearch();
-      console.log(
-        "Searching for:",
-        query,
-        "with fallback relays:",
-        useFallbackRelays,
-      );
-      searchAbortController = new AbortController();
-      isSearching = true;
-      eventsInView = [];
-      await getEvents(undefined, query, true, searchAbortController.signal);
-      isSearching = false;
-    }}
-    onDispatchCancel={async () => {
-      await abortCurrentSearch();
-      isSearching = false;
-    }}
-    onDispatchClear={async () => {
-      await abortCurrentSearch();
-      isSearching = false;
-      eventsInView = [];
-      await getEvents(undefined, "", true);
-    }}
-  />
 </div>
 
 <!-- Publication Cards Grid and Results (outside the white box) -->

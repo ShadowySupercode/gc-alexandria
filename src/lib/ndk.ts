@@ -10,7 +10,7 @@ import {
   fallbackRelays,
   FeedType,
   loginStorageKey,
-  standardRelays,
+  communityRelays,
 } from "./consts";
 import { feedType } from "./stores";
 
@@ -120,7 +120,7 @@ export function getActiveRelays(ndk: NDK): NDKRelaySet {
       )
     : new NDKRelaySet(
         new Set(
-          standardRelays.map(
+          communityRelays.map(
             (relay) =>
               new NDKRelay(relay, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
           ),
@@ -147,7 +147,7 @@ export function initNdk(): NDK {
     explicitRelayUrls:
       startingInboxes != null
         ? Array.from(startingInboxes.values())
-        : standardRelays,
+        : communityRelays,
   });
 
   // TODO: Should we prompt the user to confirm authentication?
@@ -224,7 +224,7 @@ export function logout(user: NDKUser): void {
  * relay sets.
  * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.
  */
-async function getUserPreferredRelays(
+export async function getUserPreferredRelays(
   ndk: NDK,
   user: NDKUser,
   fallbacks: readonly string[] = fallbackRelays,
@@ -282,4 +282,14 @@ async function getUserPreferredRelays(
   }
 
   return [inboxRelays, outboxRelays];
+}
+
+/**
+ * Returns the current active NDKUser, or null if not available.
+ */
+export function getActiveUser(): NDKUser | null {
+  const ndk = get(ndkInstance);
+  const pubkey = get(activePubkey);
+  if (!ndk || !pubkey) return null;
+  return ndk.getUser({ pubkey });
 }

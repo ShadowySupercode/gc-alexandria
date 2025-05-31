@@ -1,28 +1,34 @@
 import { get } from "svelte/store";
 import { relayGroup } from "$lib/stores/relayGroup";
-import { standardRelays } from "$lib/consts";
+import { communityRelays } from "$lib/consts";
 import { userRelays } from "$lib/stores/relayStore";
 import { ndkInstance, ndkSignedIn } from "$lib/ndk";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
 /**
  * Returns the currently selected relay list based on the global relay group store.
- * Only allows user relays if the user is signed in.
+ * Supports both community and user relays if both are selected.
  */
 export function selectRelayGroup(): string[] {
-  const group = get(relayGroup);
-  if (group === "community" || !get(ndkSignedIn)) {
-    return standardRelays;
-  } else {
-    return get(userRelays);
+  const groupArr = get(relayGroup);
+  const isCommunity = groupArr.includes('community');
+  const isUser = groupArr.includes('user') && get(ndkSignedIn);
+  let relays: string[] = [];
+  if (isCommunity) {
+    relays = relays.concat(communityRelays);
   }
+  if (isUser) {
+    relays = relays.concat(get(userRelays));
+  }
+  // Remove duplicates
+  return Array.from(new Set(relays));
 }
 
 /**
- * Sets the relay group globally.
+ * Sets the relay group globally (legacy single value).
  */
 export function setRelayGroup(group: "community" | "user") {
-  relayGroup.set(group);
+  relayGroup.set([group]);
 }
 
 /**
