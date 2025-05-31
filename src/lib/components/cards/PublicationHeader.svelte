@@ -8,9 +8,8 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { formatTimestampToDate } from "$lib/utils/dateUtils.ts";
   import CardImage from "./CardImage.svelte";
-  import DisplayType from "$components/cards/DisplayType.svelte";
-
-  const { event } = $props<{ event: NDKEvent }>();
+  
+  let { event, warnings = [] }: { event: NDKEvent, warnings?: string[] } = $props();
 
   const relays = $derived.by(
     () => getActiveUser()?.relayUrls ?? communityRelays,
@@ -30,15 +29,12 @@
   const eventMetadata = {
     title: event.getTagValue("title") || "Untitled",
     author: event.getTagValue("author") || "Unknown Author",
-    type: event.getTagValue("type") || "Unknown Type",
+    type: (event.getTagValue("type") || "book").toLowerCase(),
     summary: event.getTagValue("summary") || "",
-    hashtags: event.getTagValues("t"),
     publishedAt: formatTimestampToDate(event.created_at),
   };
 
   let showSummary = $derived.by(() => eventMetadata.summary.length > 0);
-
-  let showHashtags = $derived.by(() => eventMetadata.hashtags.length > 0);
 
   let showActionsPanel = $derived.by(
     () => showActions && eventMetadata.title !== "Untitled",
@@ -49,7 +45,7 @@
 
 {#if eventMetadata.title != null && href != null}
   <Card
-    class="ArticleBox card-leather w-full max-w-md flex flex-col space-y-2 min-h-96"
+    class="ArticleBox card-leather w-full max-w-md flex flex-col space-y-2 min-h-96 h-72"
     onmouseenter={() => (showActions = true)}
     onmouseleave={() => (showActions = false)}
     aria-label="Publication card"
@@ -68,27 +64,28 @@
             >
               {event.getTagValue("title") || "Untitled"}
             </h2>
-            <h3 class="text-base font-normal">
+            <h3 class="text-base font-normal flex items-center gap-2">
               by
-              {#if event.getTagValue("p") != null}
+              {#if event.getTagValue("p")}
                 {@render userBadge(
-                  event.getTagValue("p"),
-                  eventMetadata.author,
+                  event.getTagValue("p") || '',
+                  eventMetadata.author || '',
                 )}
               {:else}
                 {eventMetadata.author}
+              {/if}
+              {#if warnings.length > 0}
+                <span class="text-yellow-500" title={warnings.join('\n')}>
+                  ⚠️
+                </span>
               {/if}
             </h3>
             <p class="text-sm text-gray-600 dark:text-gray-400">
               {event.getTagValue("published_on") || eventMetadata.publishedAt}
             </p>
-
-            {#if eventMetadata.type && eventMetadata.type !== "Unknown Type"}
-              <div class="text-xs text-primary-800 dark:text-primary-200 mb-1">
-                <DisplayType type={eventMetadata.type} />
-              </div>
-            {/if}
-
+            <div class="text-xs text-primary-800 dark:text-primary-200 mb-1">
+              type: {eventMetadata.type}
+            </div>
             {#if showSummary}
               <p
                 class="mt-2 text-gray-700 dark:text-gray-300 line-clamp-4"
@@ -100,14 +97,6 @@
           </div>
 
           <div class="flex-grow"></div>
-
-          {#if event && showHashtags}
-            <div class="tags">
-              {#each typeof event.getTagValues === "function" ? event.getTagValues("t") : [] as tag}
-                <span>#{tag}</span>
-              {/each}
-            </div>
-          {/if}
         </a>
       </div>
       <div class="flex flex-col justify-start items-center min-w-9">

@@ -39,11 +39,12 @@ export function getTagValue<T = string>(
   const matches = event.tags.filter((tag) => tag[0] === tagName);
 
   if (matches.length > 1) {
-    console.error(
+    console.warn(
       `Multiple ${tagName} tags found in event ${event.id}. Tags:`,
       event.tags,
     );
-    throw new Error(`Multiple ${tagName} tags found in event ${event.id}`);
+    // Do not throw; just return the first value
+    return matches[0]?.[1] as T | undefined;
   }
 
   return matches[0]?.[1] as T | undefined;

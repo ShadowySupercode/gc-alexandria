@@ -13,7 +13,6 @@
   } from "$lib/utils/nostrUtils";
   import { ensureNDKEvent } from "$lib/utils/relayGroupUtils";
   import PublicationHeader from "$components/cards/PublicationHeader.svelte";
-  import { relayGroup } from "$lib/stores/relayGroup";
   import { writable } from 'svelte/store';
   import { naddrEncode } from '$lib/utils/eventEncoding';
   import CardActions from "$components/util/CardActions.svelte";
@@ -388,6 +387,29 @@
   $effect(() => {
     getEvents(undefined, searchQuery, true);
   });
+
+  function getPublicationWarnings(event: NDKEvent): string[] {
+    const warnings: string[] = [];
+    if (event.getMatchingTags('author').length > 1) {
+      warnings.push(`Multiple author tags found in event ${event.id}`);
+    }
+    if (!event.getTagValue('title')) {
+      warnings.push('Missing required title tag');
+    }
+    // Add more checks as needed
+    return warnings;
+  }
+
+  let eventWarnings = $derived.by(() => {
+    const map: Record<string, string[]> = {};
+    for (const event of eventsInView) {
+      const warnings = getPublicationWarnings(event);
+      if (warnings.length) {
+        map[event.id] = warnings;
+      }
+    }
+    return map;
+  });
 </script>
 
 <!-- Controls White Box -->
@@ -438,7 +460,7 @@
     {#each eventsInView as event (event.id)}
       <div class="relative h-full">
         <a href="/publication?id={naddrEncode(event)}" class="block h-full">
-          <PublicationHeader {event} />
+          <PublicationHeader {event} warnings={eventWarnings[event.id] ?? []} />
         </a>
         <div class="absolute top-2 right-2 z-10">
           <CardActions {event} />

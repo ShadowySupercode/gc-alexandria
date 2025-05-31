@@ -23,6 +23,7 @@ export const localRelays = [
   "ws://localhost:4869",
   "ws://localhost:8080",
   "ws://localhost:8735",
+  "ws://localhost:8081",
 ];
 
 export enum FeedType {
