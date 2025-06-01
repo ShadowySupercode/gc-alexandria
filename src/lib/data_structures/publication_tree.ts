@@ -1,7 +1,7 @@
-import type NDK from "@nostr-dev-kit/ndk";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { Lazy } from "./lazy.ts";
-import { findIndexAsync as _findIndexAsync } from '../utils.ts';
+import type NDK from '@nostr-dev-kit/ndk';
+import type { NDKEvent } from '@nostr-dev-kit/ndk';
+import { Lazy } from './lazy.ts';
+import { SvelteSet } from "svelte/reactivity";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -22,6 +22,14 @@ interface PublicationTreeNode {
 }
 
 export class PublicationTree implements AsyncIterable<NDKEvent | null> {
+  // TODO: Abstract this into a `SveltePublicationTree` wrapper class.
+  /**
+   * A reactive set of addresses of the events that have been resolved (loaded) into the tree.
+   * Svelte components can use this set in reactive code blocks to trigger updates when new nodes
+   * are added to the tree.
+   */
+  resolvedAddresses: SvelteSet<string> = new SvelteSet();
+
   /**
    * The root node of the tree.
    */
@@ -51,6 +59,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * The NDK instance used to fetch events.
    */
   #ndk: NDK;
+
+  #onNodeResolvedCallbacks: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
@@ -183,6 +193,16 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   setBookmark(address: string) {
     this.#bookmark = address;
     this.#cursor.tryMoveTo(address);
+  }
+
+  /**
+   * Registers an observer function that is invoked whenever a new node is resolved.  Nodes are
+   * added lazily.
+   * 
+   * @param observer The observer function.
+   */
+  onNodeResolved(observer: (address: string) => void) {
+    this.#onNodeResolvedCallbacks.push(observer);
   }
 
   // #region Iteration Cursor
@@ -504,6 +524,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     }
 
     this.#events.set(address, event);
+    this.resolvedAddresses.add(address);
 
     const childAddresses = event.tags.filter(tag => tag[0] === 'a').map(tag => tag[1]);
     
@@ -518,6 +539,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     for (const address of childAddresses) {
       this.addEventByAddress(address, event);
     }
+
+    // TODO: We may need to move this to `#addNode`, so the observer is notified more eagerly.
+    this.#onNodeResolvedCallbacks.forEach(observer => observer(address));
 
     return node;
   }
