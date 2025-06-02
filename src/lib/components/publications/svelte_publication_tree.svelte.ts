@@ -16,6 +16,10 @@ export class SveltePublicationTree {
 
   // #region Proxied Public Methods
 
+  getChildAddresses(address: string): Promise<Array<string | null>> {
+    return this.#publicationTree.getChildAddresses(address);
+  }
+
   getEvent(address: string): Promise<NDKEvent | null> {
     return this.#publicationTree.getEvent(address);
   }
