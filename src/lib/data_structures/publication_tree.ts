@@ -52,6 +52,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   #ndk: NDK;
 
+  #onNodeAddedCallbacks: Array<(address: string) => void> = [];
+
   #onNodeResolvedCallbacks: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
@@ -185,6 +187,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   setBookmark(address: string) {
     this.#bookmark = address;
     this.#cursor.tryMoveTo(address);
+  }
+
+  onNodeAdded(observer: (address: string) => void) {
+    this.#onNodeAddedCallbacks.push(observer);
   }
 
   /**
@@ -479,6 +485,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     const lazyNode = new Lazy<PublicationTreeNode>(() => this.#resolveNode(address, parentNode));
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
+
+    this.#onNodeAddedCallbacks.forEach(observer => observer(address));
   }
 
   /**
