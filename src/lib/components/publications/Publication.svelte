@@ -15,13 +15,13 @@
   } from "flowbite-svelte-icons";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
-  import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import Details from "$components/util/Details.svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
   import { pharosInstance } from '$lib/parser';
+  import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -29,7 +29,7 @@
     indexEvent: NDKEvent;
   }>();
 
-  const publicationTree = getContext("publicationTree") as PublicationTree;
+  const publicationTree = getContext("publicationTree") as SveltePublicationTree;
 
   // #region Loading
 

@@ -6,7 +6,8 @@
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from '$lib/utils/nostrUtils';
-
+  import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
+  
   let {
     address,
     rootAddress,
@@ -19,7 +20,7 @@
     ref: (ref: HTMLElement) => void,
   } = $props();
 
-  const publicationTree: PublicationTree = getContext('publicationTree');
+  const publicationTree: SveltePublicationTree = getContext('publicationTree');
   const asciidoctor: Asciidoctor = getContext('asciidoctor');
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(async () => 

@@ -3,13 +3,12 @@
   import { TextPlaceholder } from "flowbite-svelte";
   import type { PageProps } from "./$types";
   import { onDestroy, setContext } from "svelte";
-  import { PublicationTree } from "$lib/data_structures/publication_tree";
   import Processor from "asciidoctor";
   import ArticleNav from "$components/util/ArticleNav.svelte";
-
+  import { SveltePublicationTree } from "$lib/components/publications/svelte_publication_tree.svelte";
   let { data }: PageProps = $props();
 
-  const publicationTree = new PublicationTree(data.indexEvent, data.ndk);
+  const publicationTree = new SveltePublicationTree(data.indexEvent, data.ndk);
 
   setContext("publicationTree", publicationTree);
   setContext("asciidoctor", Processor());

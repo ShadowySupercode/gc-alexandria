@@ -22,14 +22,6 @@ interface PublicationTreeNode {
 }
 
 export class PublicationTree implements AsyncIterable<NDKEvent | null> {
-  // TODO: Abstract this into a `SveltePublicationTree` wrapper class.
-  /**
-   * A reactive set of addresses of the events that have been resolved (loaded) into the tree.
-   * Svelte components can use this set in reactive code blocks to trigger updates when new nodes
-   * are added to the tree.
-   */
-  resolvedAddresses: SvelteSet<string> = new SvelteSet();
-
   /**
    * The root node of the tree.
    */
@@ -524,7 +516,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     }
 
     this.#events.set(address, event);
-    this.resolvedAddresses.add(address);
 
     const childAddresses = event.tags.filter(tag => tag[0] === 'a').map(tag => tag[1]);
     
