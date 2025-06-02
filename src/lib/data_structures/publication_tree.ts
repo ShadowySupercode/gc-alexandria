@@ -1,7 +1,6 @@
 import type NDK from '@nostr-dev-kit/ndk';
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Lazy } from './lazy.ts';
-import { SvelteSet } from "svelte/reactivity";
 
 enum PublicationTreeNodeType {
   Branch,
