@@ -1,4 +1,4 @@
-import { PublicationTree } from "../../data_structures/publication_tree.ts";
+import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
 
 export interface TocEntry {
   address: string;
@@ -12,7 +12,7 @@ export interface TocEntry {
 export class TableOfContents {
   #tocRoot: TocEntry | null = null;
   #addresses = $state<Map<string, TocEntry>>(new Map());
-  #publicationTree: PublicationTree;
+  #publicationTree: SveltePublicationTree;
   #pagePathname: string;
 
   /**
@@ -23,7 +23,7 @@ export class TableOfContents {
    * `pagePathname` is correct wherever the instance is used.  The singleton should be made
    * made available to the entire component tree under that page.
    */
-  constructor(rootAddress: string, publicationTree: PublicationTree, pagePathname: string) {
+  constructor(rootAddress: string, publicationTree: SveltePublicationTree, pagePathname: string) {
     this.#publicationTree = publicationTree;
     this.#pagePathname = pagePathname;
 
