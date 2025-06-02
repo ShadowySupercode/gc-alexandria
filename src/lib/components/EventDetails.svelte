@@ -1,17 +1,30 @@
 <script lang="ts">
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { getMimeTags } from "$lib/utils/mime";
+  import { parseBasicmarkup } from "$lib/utils";
+  import { getMimeTags } from "$lib/utils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { toNpub } from "$lib/utils/nostrUtils";
-  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+  import type { NostrEvent } from "$lib/types/nostr";
+  import type { NostrProfile } from "$lib/utils/types";
+  import { toNpub } from "$lib/utils/profileUtils";
+  import { getTagValue, getTagValues } from "$lib/utils/eventUtils";
+  import { 
+    neventEncode, 
+    naddrEncode, 
+    nprofileEncode 
+  } from "$lib/utils/identifierUtils";
   import { communityRelays } from "$lib/consts";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import EventTag from "./EventTag.svelte";
-  import { Accordion, AccordionItem } from "flowbite-svelte";
+  import { Accordion, AccordionItem, Button } from "flowbite-svelte";
 
-  const { event, profile = null, searchValue = null } = $props();
+  // --- Props ---
+  const props = $props<{
+    event: NostrEvent;
+    profile?: NostrProfile | null;
+    searchValue?: string | null;
+  }>();
+  const { event, profile = null, searchValue = null } = props;
 
+  // --- State ---
   let showFullContent = $state(false);
   let parsedContentPromise = $derived.by(async () => {
     if (event && event.kind !== 0 && event.content) {
@@ -21,50 +34,52 @@
   });
   let parsedContent = $state("");
 
-  // Convert more state variables to derived values
+  // --- Helpers ---
+  function highlightSearchTerms(text: string, searchTerm: string | null): string {
+    if (!searchTerm || !text) return text;
+    
+    // Escape special regex characters in searchTerm
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+    
+    // Replace matches with highlighted spans
+    return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>');
+  }
+
+  // --- Derived Values ---
   let displayContent = $derived.by(() => {
     if (!parsedContent) return "";
-    return showFullContent ? parsedContent : parsedContent.slice(0, 250);
+    const content = showFullContent ? parsedContent : parsedContent.slice(0, 250);
+    return searchValue ? highlightSearchTerms(content, searchValue) : content;
   });
 
   let hasMoreContent = $derived.by(() => parsedContent.length > 250);
-
-  let showReadMoreButton = $derived.by(
-    () => hasMoreContent && !showFullContent,
-  );
-
+  let showReadMoreButton = $derived.by(() => hasMoreContent && !showFullContent);
   let showReadLessButton = $derived.by(() => hasMoreContent && showFullContent);
 
-  let eventMetadata = $derived.by(() => ({
-    title: eventTitle,
-    summary: eventSummary,
-    hashtags: eventHashtags,
-    type: eventTypeDisplay,
-  }));
+  let eventTitle = $derived.by(() => getTagValue(event, "title") || "Untitled");
+  let eventSummary = $derived.by(() => getTagValue(event, "summary") || "");
+  let eventHashtags = $derived.by(() => getTagValues(event, "t"));
+  let eventTypeDisplay = $derived.by(() => {
+    const [mTag, MTag] = getMimeTags(event.kind || 0);
+    return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
+  });
 
-  // Update parsedContent when the promise resolves
+  // --- Effects ---
   $effect(() => {
     parsedContentPromise.then((content) => {
       parsedContent = content;
     });
   });
 
-  let eventTitle = $derived.by(() => event.getTagValue("title") || "Untitled");
-  let eventSummary = $derived.by(() => event.getTagValue("summary") || "");
-  let eventHashtags = $derived.by(() => event.getTagValues("t"));
-  let eventTypeDisplay = $derived.by(() => {
-    const [mTag, MTag] = getMimeTags(event.kind || 0);
-    return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
-  });
-
   function getIdentifiers(
-    event: NDKEvent,
-    profile: any,
+    event: NostrEvent,
+    profile: NostrProfile | null,
   ): { label: string; value: string; link?: string }[] {
     const ids: { label: string; value: string; link?: string }[] = [];
     if (event.kind === 0) {
       // NIP-05
-      const nip05 = profile?.nip05 || event.getTagValue("nip05");
+      const nip05 = profile?.nip05 || getTagValue(event, "nip05");
       // npub
       const npub = toNpub(event.pubkey);
       if (npub)
@@ -104,18 +119,21 @@
 
 {#key event.id}
   <div class="flex flex-col space-y-4">
-    <!--Will be in the event card header-->
-    <!--{#if event.kind !== 0 && eventTitle}-->
-    <!--  <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>-->
-    <!--{/if}-->
+    {#if event.kind !== 0 && eventTitle}
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
+    {/if}
 
-    <!--<div class="flex items-center space-x-2">-->
-    <!--  {#if toNpub(event.pubkey)}-->
-    <!--    <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>-->
-    <!--  {:else}-->
-    <!--    <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>-->
-    <!--  {/if}-->
-    <!--</div>-->
+    <div class="flex items-center space-x-2">
+      {#if toNpub(event.pubkey)}
+        <span class="text-gray-600 dark:text-gray-400">
+          Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}
+        </span>
+      {:else}
+        <span class="text-gray-600 dark:text-gray-400">
+          Author: {profile?.display_name || event.pubkey}
+        </span>
+      {/if}
+    </div>
 
     {#if eventSummary}
       <div class="flex flex-col space-y-1">
@@ -145,20 +163,30 @@
         <div class="prose dark:prose-invert max-w-none">
           {@html displayContent}
           {#if showReadMoreButton}
-            <button
-              class="text-primary-600 hover:text-primary-700 mt-2"
+            <Button
+              color="alternative"
+              size="xs"
+              class="mt-2"
               onclick={() => (showFullContent = true)}
+              aria-expanded="false"
+              aria-controls="event-content"
             >
-              Read more...
-            </button>
+              Read more
+              <span class="sr-only">of {eventTitle}</span>
+            </Button>
           {/if}
           {#if showReadLessButton}
-            <button
-              class="text-primary-600 hover:text-primary-700 mt-2"
+            <Button
+              color="alternative"
+              size="xs"
+              class="mt-2"
               onclick={() => (showFullContent = false)}
+              aria-expanded="true"
+              aria-controls="event-content"
             >
               Show less
-            </button>
+              <span class="sr-only">of {eventTitle}</span>
+            </Button>
           {/if}
         </div>
       {/if}
@@ -184,11 +212,15 @@
               <div class="flex gap-2">
                 <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
                 <dd class="break-all">
-                  {#if id.link}<a
+                  {#if id.link}
+                    <a
                       href={id.link}
                       class="underline text-primary-700 dark:text-primary-200 break-all"
                       >{id.value}</a
-                    >{:else}{id.value}{/if}
+                    >
+                  {:else}
+                    {id.value}
+                  {/if}
                 </dd>
               </div>
             {/each}
@@ -213,8 +245,8 @@
         <svelte:fragment slot="header">Raw Event JSON</svelte:fragment>
         <pre
           class="overflow-x-auto text-sm bg-highlight dark:bg-primary-900 rounded p-2 font-mono">
-        {JSON.stringify(event.rawEvent(), null, 2)}
-      </pre>
+          {JSON.stringify(event, null, 2)}
+        </pre>
       </AccordionItem>
     </Accordion>
   </div>

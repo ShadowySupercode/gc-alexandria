@@ -6,11 +6,10 @@
     AnnotationOutline,
   } from "flowbite-svelte-icons";
   import ZapOutline from "$components/util/ZapOutline.svelte";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import type { NostrEvent } from '$lib/types/nostr';
   import { onMount, onDestroy } from "svelte";
-  import { ndkInstance } from "$lib/ndk";
+  import { getNostrClient } from "$lib/nostr/client";
   import { publicationColumnVisibility } from "$lib/stores";
-  import { get } from 'svelte/store';
 
   console.log('Interactions.svelte script loaded');
 
@@ -18,13 +17,13 @@
     rootId,
     event,
     direction = "row",
-  } = $props<{ rootId: string; event?: NDKEvent; direction?: string }>();
+  } = $props<{ rootId: string; event?: NostrEvent; direction?: string }>();
 
   // Reactive arrays to hold incoming events
-  let likes: NDKEvent[] = [];
-  let zaps: NDKEvent[] = [];
-  let highlights: NDKEvent[] = [];
-  let comments: NDKEvent[] = [];
+  let likes: NostrEvent[] = [];
+  let zaps: NostrEvent[] = [];
+  let highlights: NostrEvent[] = [];
+  let comments: NostrEvent[] = [];
 
   let interactionOpen: boolean = $state(false);
 
@@ -45,20 +44,15 @@
    * Push new events into the provided array if not already present.
    * Returns a cleanup function.
    */
-  function subscribeCount(kind: number, targetArray: NDKEvent[]) {
-    const instance = get(ndkInstance);
-    console.log('NDK instance:', instance, 'Type:', instance?.constructor?.name);
-    console.log('instance:', instance, 'typeof subscribe:', typeof instance?.subscribe);
-    if (typeof instance?.subscribe !== 'function') {
-      console.error('instance.subscribe is not a function!', instance);
-    }
-    if (!instance) {
-      console.error('NDK instance not initialized');
+  function subscribeCount(kind: number, targetArray: NostrEvent[]) {
+    const client = getNostrClient();
+    if (!client) {
+      console.error('Nostr client not initialized');
       return () => {};
     }
 
     // Fetch initial events
-    instance.fetchEvents({
+    client.fetchEvents({
       kinds: [kind],
       '#a': [rootId],
     }).then((events) => {
@@ -69,8 +63,8 @@
       });
     });
 
-    // Set up a subscription for new events using the NDK subscription API
-    const sub = instance.subscribe({
+    // Set up a subscription for new events
+    const sub = client.subscribe({
       kinds: [kind],
       '#a': [rootId],
     }, {
@@ -78,9 +72,22 @@
       groupable: false,
     });
 
-    sub.on('event', (evt: NDKEvent) => {
-      if (!targetArray.find((e) => e.id === evt.id)) {
-        targetArray = [...targetArray, evt];
+    sub.on('event', (evt) => {
+      if (!evt.sig) {
+        console.warn(`Event ${evt.id} has no signature, skipping`);
+        return;
+      }
+      const nostrEvent: NostrEvent = {
+        id: evt.id,
+        pubkey: evt.pubkey,
+        created_at: evt.created_at,
+        kind: evt.kind,
+        tags: evt.tags as string[][],
+        content: evt.content,
+        sig: evt.sig
+      };
+      if (!targetArray.find((e) => e.id === nostrEvent.id)) {
+        targetArray = [...targetArray, nostrEvent];
       }
     });
 
@@ -93,15 +100,15 @@
 
   onMount(async () => {
     console.log('Interactions.svelte mounted');
-    const instance = get(ndkInstance);
-    if (!instance) {
-      console.error('NDK instance not initialized');
+    const client = getNostrClient();
+    if (!client) {
+      console.error('Nostr client not initialized');
       return;
     }
 
     try {
-      // Connect to NDK if not already connected
-      await instance.connect();
+      // Connect to client if not already connected
+      await client.connect();
       
       // Subscribe to each kind; store cleanup functions
       subs.push(subscribeCount(7, likes)); // likes (Reaction)
@@ -109,7 +116,7 @@
       subs.push(subscribeCount(30023, highlights)); // highlights (custom kind)
       subs.push(subscribeCount(1, comments)); // comments (Text Notes)
     } catch (error) {
-      console.error('Failed to connect to NDK:', error);
+      console.error('Failed to connect to Nostr client:', error);
     }
   });
 

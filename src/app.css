@@ -212,6 +212,11 @@ html {
   .network-node-content {
     @apply fill-primary-100;
   }
+
+  /* Ensure mark elements inherit text color in prose context */
+  .prose mark {
+    @apply text-inherit;
+  }
 }
 
 /* Utilities can be applied via the @apply directive. */

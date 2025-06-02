@@ -1,6 +1,6 @@
-import { processNostrIdentifiers } from "../nostrUtils";
+import { processNostrIdentifiers } from '$lib/utils';
 import * as emoji from "node-emoji";
-import { nip19 } from "nostr-tools";
+import { getNostrClient } from '$lib/nostr/client';
 
 /* Regex constants for basic markup parsing */
 
@@ -26,8 +26,8 @@ const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX =
   /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
 
-// Add this helper function near the top:
 function replaceAlexandriaNostrLinks(text: string): string {
+  const client = getNostrClient();
   // Regex for Alexandria/localhost URLs
   const alexandriaPattern =
     /^https?:\/\/((next-)?alexandria\.gitcitadel\.(eu|com)|localhost(:\d+)?)/i;
@@ -45,7 +45,7 @@ function replaceAlexandriaNostrLinks(text: string): string {
         const hexMatch = url.match(hexPattern);
         if (hexMatch) {
           try {
-            const nevent = nip19.neventEncode({ id: hexMatch[0] });
+            const nevent = client.encoding.encodeNevent({ id: hexMatch[0] });
             return `nostr:${nevent}`;
           } catch {
             return match;
@@ -67,7 +67,7 @@ function replaceAlexandriaNostrLinks(text: string): string {
       const hexMatch = url.match(hexPattern);
       if (hexMatch) {
         try {
-          const nevent = nip19.neventEncode({ id: hexMatch[0] });
+          const nevent = client.encoding.encodeNevent({ id: hexMatch[0] });
           return `nostr:${nevent}`;
         } catch {
           return url;
@@ -82,7 +82,7 @@ function replaceAlexandriaNostrLinks(text: string): string {
     const hexMatch = url.match(hexPattern);
     if (hexMatch) {
       try {
-        const nevent = nip19.neventEncode({ id: hexMatch[0] });
+        const nevent = client.encoding.encodeNevent({ id: hexMatch[0] });
         return `${url} (View here: nostr:${nevent})`;
       } catch {
         return url;

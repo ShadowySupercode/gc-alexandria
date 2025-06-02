@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { nip19 } from "nostr-tools";
-  import { getTagValue, getTagValues } from "$lib/utils/eventTags";
-  export let notes: NDKEvent[] = [];
+  import type { NostrEvent } from '$lib/types/nostr';
+  import { neventEncode } from '$lib/utils/identifierUtils';
+  import { communityRelays } from '$lib/consts';
+  import { getTagValue } from '$lib/utils/eventUtils';
+  export let notes: NostrEvent[] = [];
   // check if notes is empty
   if (notes.length === 0) {
     console.debug("notes is empty");
@@ -14,7 +15,7 @@
   <ul>
     {#each notes as note}
       <li>
-        <a href="#{nip19.noteEncode(note.id)}">{note.getTagValue("title")}</a>
+        <a href="#{neventEncode(note, communityRelays)}">{getTagValue(note, "title")}</a>
       </li>
     {/each}
   </ul>

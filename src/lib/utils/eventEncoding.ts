@@ -1,7 +1,8 @@
-import type { NDKEvent } from '@nostr-dev-kit/ndk';
-import * as nip19 from 'nostr-tools/nip19';
+import type { NostrEvent } from '$lib/types/nostr';
 import { get } from 'svelte/store';
 import type { Readable } from 'svelte/store';
+import { getTagValue } from './eventUtils';
+import { neventEncode as encodeNevent, naddrEncode as encodeNaddr } from './identifierUtils';
 
 type RelayInput = string[] | Readable<string[]> | undefined;
 
@@ -22,12 +23,9 @@ function getRelayUrls(relays: RelayInput): string[] | undefined {
  * @param relays Optional array of relay URLs to include
  * @returns The encoded nevent identifier
  */
-export function neventEncode(event: NDKEvent, relays?: RelayInput): string {
+export function neventEncode(event: NostrEvent, relays?: RelayInput): string {
   const relayUrls = getRelayUrls(relays);
-  return nip19.neventEncode({
-    id: event.id,
-    relays: relayUrls,
-  });
+  return encodeNevent(event, relayUrls ?? []);
 }
 
 /**
@@ -36,16 +34,11 @@ export function neventEncode(event: NDKEvent, relays?: RelayInput): string {
  * @param relays Optional array of relay URLs to include
  * @returns The encoded naddr identifier
  */
-export function naddrEncode(event: NDKEvent, relays?: RelayInput): string {
+export function naddrEncode(event: NostrEvent, relays?: RelayInput): string {
   const relayUrls = getRelayUrls(relays);
-  const dTag = event.getTagValue('d');
+  const dTag = getTagValue(event, 'd');
   if (!dTag) {
     throw new Error('Event must have a d-tag to be encoded as naddr');
   }
-  return nip19.naddrEncode({
-    kind: event.kind,
-    pubkey: event.pubkey,
-    identifier: dTag,
-    relays: relayUrls,
-  });
+  return encodeNaddr(event, relayUrls ?? []);
 } 

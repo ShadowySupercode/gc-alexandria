@@ -5,7 +5,7 @@
  * graph visualization of Nostr events.
  */
 
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NostrEvent } from "$lib/types/nostr";
 
 /**
  * Base interface for nodes in a D3 force simulation
@@ -37,7 +37,7 @@ export interface SimulationLinkDatum<NodeType> {
  */
 export interface NetworkNode extends SimulationNodeDatum {
   id: string; // Unique identifier (event ID)
-  event?: NDKEvent; // Reference to the original NDK event
+  event?: NostrEvent; // Reference to the original Nostr event
   level: number; // Hierarchy level in the network
   kind: number; // Nostr event kind (30040 for index, 30041/30818 for content)
   title: string; // Event title
@@ -74,6 +74,6 @@ export interface GraphData {
 export interface GraphState {
   nodeMap: Map<string, NetworkNode>; // Maps event IDs to nodes
   links: NetworkLink[]; // All links in the graph
-  eventMap: Map<string, NDKEvent>; // Maps event IDs to original events
+  eventMap: Map<string, NostrEvent>; // Maps event IDs to original events
   referencedIds: Set<string>; // Set of event IDs referenced by other events
 }

@@ -1,8 +1,9 @@
-import type NDK from "@nostr-dev-kit/ndk";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { Lazy } from "./lazy.ts";
-import { findIndexAsync as _findIndexAsync } from "../utils.ts";
-import { getTagValues } from "$lib/utils/eventTags";
+import type { NostrEvent, NostrUser } from '$lib/types/nostr';
+import { getTagAddress } from '$lib/utils/eventUtils';
+import { Lazy } from './lazy';
+import { findIndexAsync as _findIndexAsync } from '../utils';
+import { getNostrClient } from '$lib/nostr/client';
+import { derived, writable } from 'svelte/store';
 
 enum PublicationTreeNodeType {
   Branch,
@@ -22,7 +23,13 @@ interface PublicationTreeNode {
   children?: Array<Lazy<PublicationTreeNode>>;
 }
 
-export class PublicationTree implements AsyncIterable<NDKEvent | null> {
+// Create a writable store for the client
+const clientStore = writable(getNostrClient());
+
+// Create a derived store for the active user
+const userStore = derived(clientStore, ($client) => $client.getActiveUser());
+
+export class PublicationTree {
   /**
    * The root node of the tree.
    */
@@ -36,7 +43,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   /**
    * A map of addresses in the tree to their corresponding events.
    */
-  #events: Map<string, NDKEvent>;
+  #events: Map<string, NostrEvent>;
 
   /**
    * An ordered list of the addresses of the leaves of the tree.
@@ -49,29 +56,162 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   #bookmark?: string;
 
   /**
-   * The NDK instance used to fetch events.
+   * The NostrClient instance used to fetch events.
    */
-  #ndk: NDK;
+  #client: ReturnType<typeof getNostrClient>;
 
-  constructor(rootEvent: NDKEvent, ndk: NDK) {
-    const rootAddress = rootEvent.tagAddress();
+  /**
+   * Whether the tree is currently being updated.
+   */
+  #isUpdating: boolean = false;
+
+  /**
+   * A promise that resolves when the current update is complete.
+   */
+  #updatePromise?: Promise<void>;
+
+  constructor(rootEvent: NostrEvent) {
+    const rootAddress = getTagAddress(rootEvent);
     this.#root = {
       type: this.#getNodeType(rootEvent),
       status: PublicationTreeNodeStatus.Resolved,
       address: rootAddress,
       children: [],
     };
-
     this.#nodes = new Map<string, Lazy<PublicationTreeNode>>();
     this.#nodes.set(
       rootAddress,
       new Lazy<PublicationTreeNode>(() => Promise.resolve(this.#root)),
     );
-
-    this.#events = new Map<string, NDKEvent>();
+    this.#events = new Map<string, NostrEvent>();
     this.#events.set(rootAddress, rootEvent);
+    this.#client = getNostrClient();
 
-    this.#ndk = ndk;
+    // Subscribe to user changes
+    userStore.subscribe((user) => {
+      if (user) {
+        this.#handleUserUpdate(user);
+      }
+    });
+  }
+
+  /**
+   * Updates the tree to use a new NDK instance.
+   * @param relay The new NDK instance to use.
+   */
+  async updateFromRelay(relay: any): Promise<void> {
+    if (this.#isUpdating) {
+      await this.#updatePromise;
+    }
+
+    this.#isUpdating = true;
+    this.#updatePromise = this.#performRelayUpdate();
+    
+    try {
+      await this.#updatePromise;
+    } finally {
+      this.#isUpdating = false;
+      this.#updatePromise = undefined;
+    }
+  }
+
+  /**
+   * Performs the actual relay update operation.
+   */
+  async #performRelayUpdate(): Promise<void> {
+    // Re-fetch all events in the tree
+    const addresses = Array.from(this.#events.keys());
+    const newEvents = await Promise.all(
+      addresses.map(async (address) => {
+        const [kind, pubkey, dTag] = address.split(':');
+        return await this.#client.fetchEvent({
+          kinds: [parseInt(kind)],
+          authors: [pubkey],
+          '#d': [dTag],
+        });
+      })
+    );
+
+    // Update events map with new events
+    for (let i = 0; i < addresses.length; i++) {
+      const newEvent = newEvents[i];
+      if (newEvent) {
+        this.#events.set(addresses[i], newEvent);
+      }
+    }
+  }
+
+  /**
+   * Handles updates when the user changes.
+   * @param user The new user.
+   */
+  async #handleUserUpdate(user: NostrUser): Promise<void> {
+    // If the user is the author of any events in the tree, we might want to re-fetch
+    const userPubkey = user.pubkey;
+    const userEvents = Array.from(this.#events.values()).filter(
+      event => event.pubkey === userPubkey
+    );
+
+    if (userEvents.length > 0) {
+      // Re-fetch user's events
+      await Promise.all(
+        userEvents.map(async (event) => {
+          const address = getTagAddress(event);
+          const [kind, pubkey, dTag] = address.split(':');
+          const newEvent = await this.#client.fetchEvent({
+            kinds: [parseInt(kind)],
+            authors: [pubkey],
+            '#d': [dTag],
+          });
+          if (newEvent) {
+            this.#events.set(address, newEvent);
+          }
+        })
+      );
+    }
+  }
+
+  /**
+   * Handles updates to an event in the tree.
+   * @param event The updated event.
+   */
+  async onEventUpdate(event: NostrEvent): Promise<void> {
+    const address = getTagAddress(event);
+    if (this.#events.has(address)) {
+      this.#events.set(address, event);
+      
+      // If this is a branch node, we might need to update its children
+      if (this.#getNodeType(event) === PublicationTreeNodeType.Branch) {
+        const node = await this.#nodes.get(address)?.value();
+        if (node) {
+          // Update children if needed
+          const childAddresses = event.tags
+            .filter((tag: string[]) => tag[0] === "a")
+            .map((tag: string[]) => tag[1]);
+          for (const childAddress of childAddresses) {
+            if (!this.#nodes.has(childAddress)) {
+              await this.#addNode(childAddress, node);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Cleans up the tree, removing all state and unsubscribing from stores.
+   */
+  async cleanup(): Promise<void> {
+    // Clear all state
+    this.#nodes.clear();
+    this.#events.clear();
+    this.#leaves = [];
+    this.#bookmark = undefined;
+    
+    // Unsubscribe from stores
+    const unsubscribeUser = userStore.subscribe(() => {});
+    
+    unsubscribeUser();
   }
 
   /**
@@ -82,9 +222,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * @description The parent event must already be in the tree. Use
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
-  async addEvent(event: NDKEvent, parentEvent: NDKEvent) {
-    const address = event.tagAddress();
-    const parentAddress = parentEvent.tagAddress();
+  async addEvent(event: NostrEvent, parentEvent: NostrEvent) {
+    const address = getTagAddress(event);
+    const parentAddress = getTagAddress(parentEvent);
     const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
@@ -114,8 +254,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * @description The parent event must already be in the tree. Use
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
-  async addEventByAddress(address: string, parentEvent: NDKEvent) {
-    const parentAddress = parentEvent.tagAddress();
+  async addEventByAddress(address: string, parentEvent: NostrEvent) {
+    const parentAddress = getTagAddress(parentEvent);
     const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
@@ -132,7 +272,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * @param address The address of the event to retrieve.
    * @returns The event, or null if the event is not found.
    */
-  async getEvent(address: string): Promise<NDKEvent | null> {
+  async getEvent(address: string): Promise<NostrEvent | null> {
     let event = this.#events.get(address) ?? null;
     if (!event) {
       event = await this.#depthFirstRetrieve(address);
@@ -166,7 +306,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * @returns Returns an array of events in the addressed event's hierarchy, beginning with the
    * root and ending with the addressed event.
    */
-  async getHierarchy(address: string): Promise<NDKEvent[]> {
+  async getHierarchy(address: string): Promise<NostrEvent[]> {
     let node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(
@@ -174,7 +314,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       );
     }
 
-    const hierarchy: NDKEvent[] = [this.#events.get(address)!];
+    const hierarchy: NostrEvent[] = [this.#events.get(address)!];
 
     while (node.parent) {
       hierarchy.push(this.#events.get(node.parent.address)!);
@@ -207,9 +347,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     async tryMoveTo(address?: string) {
       if (!address) {
         const startEvent = await this.#tree.#depthFirstRetrieve();
-        this.target = await this.#tree.#nodes
-          .get(startEvent!.tagAddress())
-          ?.value();
+        if (startEvent) {
+          const startAddress = getTagAddress(startEvent);
+          this.target = await this.#tree.#nodes
+            .get(startAddress)
+            ?.value();
+        }
       } else {
         this.target = await this.#tree.#nodes.get(address)?.value();
       }
@@ -335,13 +478,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
   // #region Async Iterator Implementation
 
-  [Symbol.asyncIterator](): AsyncIterator<NDKEvent | null> {
+  [Symbol.asyncIterator](): AsyncIterator<NostrEvent | null> {
     return this;
   }
 
   // TODO: Add `previous()` method.
 
-  async next(): Promise<IteratorResult<NDKEvent | null>> {
+  async next(): Promise<IteratorResult<NostrEvent | null>> {
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
         const event = await this.getEvent(this.#cursor.target!.address);
@@ -374,7 +517,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return { done: true, value: null };
   }
 
-  async previous(): Promise<IteratorResult<NDKEvent | null>> {
+  async previous(): Promise<IteratorResult<NostrEvent | null>> {
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
         const event = await this.getEvent(this.#cursor.target!.address);
@@ -417,14 +560,14 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * will return the first leaf in the tree.
    * @returns The event, or null if the event is not found.
    */
-  async #depthFirstRetrieve(address?: string): Promise<NDKEvent | null> {
+  async #depthFirstRetrieve(address?: string): Promise<NostrEvent | null> {
     if (address && this.#nodes.has(address)) {
       return this.#events.get(address)!;
     }
 
     const stack: string[] = [this.#root.address];
     let currentNode: PublicationTreeNode | null | undefined = this.#root;
-    let currentEvent: NDKEvent | null | undefined = this.#events.get(
+    let currentEvent: NostrEvent | null | undefined = this.#events.get(
       this.#root.address,
     )!;
     while (stack.length > 0) {
@@ -449,8 +592,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
 
       const currentChildAddresses = currentEvent.tags
-        .filter((tag) => tag[0] === "a")
-        .map((tag) => tag[1]);
+        .filter((tag: string[]) => tag[0] === "a")
+        .map((tag: string[]) => tag[1]);
 
       // If the current event has no children, it is a leaf.
       if (currentChildAddresses.length === 0) {
@@ -503,7 +646,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     parentNode: PublicationTreeNode,
   ): Promise<PublicationTreeNode> {
     const [kind, pubkey, dTag] = address.split(":");
-    const event = await this.#ndk.fetchEvent({
+    const event = await this.#client.fetchEvent({
       kinds: [parseInt(kind)],
       authors: [pubkey],
       "#d": [dTag],
@@ -526,8 +669,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     this.#events.set(address, event);
 
     const childAddresses = event.tags
-      .filter((tag) => tag[0] === "a")
-      .map((tag) => tag[1]);
+      .filter((tag: string[]) => tag[0] === "a")
+      .map((tag: string[]) => tag[1]);
 
     const node: PublicationTreeNode = {
       type: this.#getNodeType(event),
@@ -544,8 +687,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return node;
   }
 
-  #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    if (event.kind === 30040 && getTagValues(event, "a").length > 0) {
+  #getNodeType(event: NostrEvent): PublicationTreeNodeType {
+    if (event.kind === 30040 && event.tags.filter((tag) => tag[0] === "a").length > 0) {
       return PublicationTreeNodeType.Branch;
     }
 

@@ -2,16 +2,9 @@
   import { Alert } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
   import PublicationFeed from "$lib/components/PublicationFeed.svelte";
-  import { relayGroup } from "$lib/stores/relayGroup";
-  import { setRelayGroup, selectRelayGroup } from "$lib/utils/relayGroupUtils";
-  import { ndkSignedIn } from "$lib/ndk";
-  import { fallbackRelays } from "$lib/consts";
 
   let searchQuery = $state("");
 
-  function handleRelayGroupChange(group: "community" | "user") {
-    setRelayGroup(group);
-  }
 </script>
 
 <Alert
@@ -27,11 +20,7 @@
 </Alert>
 
 <main class="leather flex flex-col flex-grow-0 space-y-4 p-4">
-  
   <PublicationFeed
-    userRelays={selectRelayGroup()}
-    {fallbackRelays}
     {searchQuery}
-    isLoggedIn={$ndkSignedIn}
   />
 </main>

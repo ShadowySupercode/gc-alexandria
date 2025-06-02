@@ -4,7 +4,7 @@ import { writable } from "svelte/store";
  * Global relay group selection for the user. Now supports multiple selections.
  * At least one of 'community' or 'user' must be present.
  */
-export type RelayGroupOption = 'community' | 'user';
+export type RelayGroupOption = 'community' | 'user' | 'both' | 'localOnly';
 export const relayGroup = writable<RelayGroupOption[]>(['community']);
 
 export function setRelayGroupArray(groups: RelayGroupOption[]) {

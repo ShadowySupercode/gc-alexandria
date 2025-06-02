@@ -7,29 +7,44 @@
   } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import type { NostrEvent } from '$lib/types/nostr';
   import { onDestroy, onMount } from "svelte";
+  import { getUserMetadata } from '$lib/utils';
+
+  // Helper function to get tag values from a NostrEvent
+  function getMatchingTags(event: NostrEvent, tagName: string): string[][] {
+    return event.tags.filter(tag => tag[0] === tagName);
+  }
 
   let { publicationType, indexEvent } = $props<{
     rootId: string;
     publicationType: string;
-    indexEvent: NDKEvent;
+    indexEvent: NostrEvent;
   }>();
 
   let title: string = $derived.by(
-    () => indexEvent.getMatchingTags("title")[0]?.[1],
+    () => getMatchingTags(indexEvent, "title")[0]?.[1] ?? "Untitled",
   );
   let author: string = $derived.by(
-    () => indexEvent.getMatchingTags(event, "author")[0]?.[1] ?? "unknown",
+    () => getMatchingTags(indexEvent, "author")[0]?.[1] ?? "unknown",
   );
   let pubkey: string = $derived.by(
-    () => indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
+    () => getMatchingTags(indexEvent, "p")[0]?.[1] ?? indexEvent.pubkey,
   );
   let isLeaf: boolean = $derived.by(() => indexEvent.kind === 30041);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
+
+  let displayName = $state<string | undefined>(undefined);
+
+  $effect(() => {
+    if (pubkey) {
+      getUserMetadata(pubkey).then(profile => {
+        displayName = profile.display_name || profile.name;
+      });
+    }
+  });
 
   // Function to toggle column visibility
   function toggleColumn(column: "toc" | "blog" | "inner" | "discussion") {
@@ -169,9 +184,9 @@
     <div class="flex flex-grow text justify-center items-center">
       <p class="max-w-[60vw] line-ellipsis">
         <b class="text-nowrap">{title}</b>
-        <span class="whitespace-nowrap"
-          >by {@render userBadge(pubkey, author)}</span
-        >
+        <span class="whitespace-nowrap">
+          by {author}
+        </span>
       </p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">

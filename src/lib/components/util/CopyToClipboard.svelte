@@ -3,7 +3,7 @@
     ClipboardCheckOutline,
     ClipboardCleanOutline,
   } from "flowbite-svelte-icons";
-  import { withTimeout } from "$lib/utils/nostrUtils";
+  import { withTimeout } from '$lib/utils';
   import type { Component } from "svelte";
 
   let {

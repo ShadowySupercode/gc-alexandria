@@ -1,4 +1,4 @@
-import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NostrEvent } from '$lib/types/nostr';
 import asciidoctor from "asciidoctor";
 import type {
   AbstractBlock,
@@ -12,9 +12,17 @@ import type {
 } from "asciidoctor";
 import he from "he";
 import { writable, type Writable } from "svelte/store";
-import { SectionKinds } from "./consts.ts";
-import { getTagValue, getTagValues } from "$lib/utils/eventTags";
-import { _fetchEventByDTag } from "../routes/publication/+page.ts";
+import { SectionKinds } from "./consts";
+import { 
+  getTagValue, 
+  getTagValues, 
+  fetchEventByDTag,
+  getEventHash
+} from '$lib/utils';
+import type { EventSearchResult } from '$lib/utils';
+
+// Create a writable store for the Pharos instance
+export const pharosInstance: Writable<Pharos> = writable();
 
 interface IndexMetadata {
   authors?: string[];
@@ -70,8 +78,6 @@ export default class Pharos {
 
   private pharosExtensions: Extensions.Registry;
 
-  private ndk: NDK;
-
   private contextCounters: Map<string, number> = new Map<string, number>();
 
   /**
@@ -97,7 +103,7 @@ export default class Pharos {
   /**
    * A map of event d tags to the events themselves.
    */
-  private events: Map<string, NDKEvent> = new Map<string, NDKEvent>();
+  private events: Map<string, NostrEvent> = new Map<string, NostrEvent>();
 
   /**
    * A map of event d tags to the context name assigned to each event's originating node by the
@@ -131,7 +137,7 @@ export default class Pharos {
   /**
    * A map of blog entries
    */
-  private blogEntries: Map<string, NDKEvent> = new Map<string, NDKEvent>();
+  private blogEntries: Map<string, NostrEvent> = new Map<string, NostrEvent>();
 
   /**
    * When `true`, `getEvents()` should regenerate the event tree to propagate updates.
@@ -140,11 +146,9 @@ export default class Pharos {
 
   // #region Public API
 
-  constructor(ndk: NDK) {
+  constructor() {
     this.asciidoctor = asciidoctor();
     this.pharosExtensions = this.asciidoctor.Extensions.create();
-
-    this.ndk = ndk;
 
     const pharos = this;
     this.pharosExtensions.treeProcessor(function () {
@@ -176,16 +180,15 @@ export default class Pharos {
    * publication's root index.
    * @param event The event or event ID of the publication's root index.
    */
-  async fetch(event: NDKEvent | string): Promise<void> {
+  async fetch(event: NostrEvent | string): Promise<void> {
     let content: string;
 
     if (typeof event === "string") {
-      const index = await this.ndk.fetchEvent({ ids: [event] });
-      if (!index) {
+      const result = await fetchEventByDTag(30040, "", event);
+      if (!result.event) {
         throw new Error("Failed to fetch publication.");
       }
-
-      content = await this.getPublicationContent(index);
+      content = await this.getPublicationContent(result.event);
     } else {
       content = await this.getPublicationContent(event);
     }
@@ -218,7 +221,7 @@ export default class Pharos {
    * @remarks This method returns the events as they are currently stored in the parser.  If none
    * are stored, they will be freshly generated.
    */
-  getEvents(pubkey: string): NDKEvent[] {
+  getEvents(pubkey: string): NostrEvent[] {
     if (this.shouldUpdateEventTree) {
       const stack = this.stackEventNodes();
       return this.generateEvents(stack, pubkey);
@@ -320,7 +323,7 @@ export default class Pharos {
    * tree is expensive.  Thus, the event tree will not be regenerated until the consumer next
    * invokes `getEvents()`.
    */
-  updateEventContent(dTag: string, content: string): NDKEvent {
+  updateEventContent(dTag: string, content: string): NostrEvent {
     const event = this.events.get(dTag);
     if (!event) {
       throw new Error(`No event found for #d:${dTag}.`);
@@ -477,15 +480,13 @@ export default class Pharos {
     this.indexToChildEventsMap.get(destinationParent)?.delete(targetDTag);
 
     // Get the index of the destination event among the children of its parent.
-    const destinationIndex = Array.from(
-      this.indexToChildEventsMap.get(destinationParent) ?? [],
-    ).indexOf(destinationDTag);
-
-    // Insert next to the index of the destination event, either before or after as specified by
-    // the insertAfter flag.
     const destinationChildren = Array.from(
       this.indexToChildEventsMap.get(destinationParent) ?? [],
     );
+    const destinationIndex = destinationChildren.indexOf(destinationDTag);
+
+    // Insert next to the index of the destination event, either before or after as specified by
+    // the insertAfter flag.
     insertAfter
       ? destinationChildren.splice(destinationIndex + 1, 0, targetDTag)
       : destinationChildren.splice(destinationIndex, 0, targetDTag);
@@ -650,14 +651,14 @@ export default class Pharos {
   }
 
   /**
-   * Uses the NDK to crawl the event tree of a publication and return its content as a string.
-   * @param event The root index event of the publication.
+   * Uses the NostrClient to crawl the event tree of a publication and return its content as a string.
+   * @param event The root event to start crawling from
    * @returns The content of the publication as a string.
    * @remarks This function does a depth-first crawl of the event tree using the relays specified
-   * on the NDK instance.
+   * on the NostrClient instance.
    */
   private async getPublicationContent(
-    event: NDKEvent,
+    event: NostrEvent,
     depth: number = 0,
   ): Promise<string> {
     let content: string = "";
@@ -683,21 +684,23 @@ export default class Pharos {
     }
 
     // Recursive case: The event is an index.
-    const childEvents = await Promise.all(
-      tags.map((tag) => _fetchEventByDTag(this.ndk, tag[1])),
+    const childResults = await Promise.all(
+      tags.map((tag) => {
+        const [_, dTag] = tag;
+        return fetchEventByDTag(event.kind ?? -1, event.pubkey, dTag);
+      })
     );
 
-    // if a blog, save complete events for later
-    if (event.getTagValue("type") === "blog") {
-      childEvents.forEach((child) => {
-        if (child) {
-          const dTag = getTagValue(child, "d");
-          if (dTag) {
-            this.blogEntries.set(dTag, child);
-          }
+    const childEvents = childResults.map((result: EventSearchResult) => result?.event ?? null);
+
+    childEvents.forEach((child: NostrEvent | null) => {
+      if (child) {
+        const dTag = getTagValue(child, "d");
+        if (dTag) {
+          this.blogEntries.set(dTag, child);
         }
-      });
-    }
+      }
+    });
 
     // populate metadata
     if (event.created_at) {
@@ -705,8 +708,9 @@ export default class Pharos {
         event.created_at * 1000,
       ).toDateString();
     }
-    if (!!event.getTagValue("image")) {
-      this.rootIndexMetadata.coverImage = event.getTagValue("image");
+    const imageTag = getTagValue(event, "image");
+    if (imageTag) {
+      this.rootIndexMetadata.coverImage = imageTag;
     }
 
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
@@ -715,12 +719,10 @@ export default class Pharos {
     const childContentPromises: Promise<string>[] = [];
     for (let i = 0; i < childEvents.length; i++) {
       const childEvent = childEvents[i];
-
       if (!childEvent) {
-        console.warn(`NDK could not find event ${tags[i][1]}.`);
+        console.warn(`Could not find event ${tags[i][1]}.`);
         continue;
       }
-
       childContentPromises.push(
         this.getPublicationContent(childEvent, depth + 1),
       );
@@ -767,8 +769,8 @@ export default class Pharos {
    * @param pubkey The public key (as a hex string) of the user generating the events.
    * @returns An array of Nostr events.
    */
-  private generateEvents(nodeIdStack: string[], pubkey: string): NDKEvent[] {
-    const events: NDKEvent[] = [];
+  private generateEvents(nodeIdStack: string[], pubkey: string): NostrEvent[] {
+    const events: NostrEvent[] = [];
 
     while (nodeIdStack.length > 0) {
       const nodeId = nodeIdStack.pop();
@@ -795,22 +797,24 @@ export default class Pharos {
    * @param nodeId The ID of the AsciiDoc document node from which to generate an index event.  The
    * node ID will be used as the event's unique d tag identifier.
    * @param pubkey The public key (not encoded in npub form) of the user generating the events.
-   * @returns An unsigned NDKEvent with the requisite tags, including e tags pointing to each of its
+   * @returns An unsigned NostrEvent with the requisite tags, including a tags pointing to each of its
    * children, and dated to the present moment.
    */
-  private generateIndexEvent(nodeId: string, pubkey: string): NDKEvent {
+  private generateIndexEvent(nodeId: string, pubkey: string): NostrEvent {
     const title = (this.nodes.get(nodeId)! as AbstractBlock).getTitle();
-    // TODO: Use a tags as per NIP-62.
     const childTags = Array.from(this.indexToChildEventsMap.get(nodeId)!).map(
-      (id) => ["#e", this.eventIds.get(id)!],
+      (id) => ["a", `${this.eventToKindMap.get(id)}:${pubkey}:${id}`],
     );
 
-    const event = new NDKEvent(this.ndk);
-    event.kind = 30040;
-    event.content = "";
-    event.tags = [["title", title!], ["#d", nodeId], ...childTags];
-    event.created_at = Date.now();
-    event.pubkey = pubkey;
+    const event: NostrEvent = {
+      kind: 30040,
+      content: "",
+      tags: [["title", title!], ["d", nodeId], ...childTags],
+      created_at: Math.floor(Date.now() / 1000),
+      pubkey: pubkey,
+      id: "",
+      sig: "",
+    };
 
     // Add optional metadata to the root index event.
     if (nodeId === this.rootNodeId) {
@@ -850,7 +854,7 @@ export default class Pharos {
     }
 
     // Event ID generation must be the last step.
-    const eventId = event.getEventHash();
+    const eventId = getEventHash(event);
     this.eventIds.set(nodeId, eventId);
     event.id = eventId;
 
@@ -864,26 +868,29 @@ export default class Pharos {
    * @param nodeId The ID of the AsciiDoc document node from which to generate an index event.  The
    * node ID will be used as the event's unique d tag identifier.
    * @param pubkey The public key (not encoded in npub form) of the user generating the events.
-   * @returns An unsigned NDKEvent containing the content of the Section, the requisite tags, and
+   * @returns An unsigned NostrEvent containing the content of the Section, the requisite tags, and
    * dated to the present moment.
    */
-  private generateSectionEvent(nodeId: string, pubkey: string): NDKEvent {
+  private generateSectionEvent(nodeId: string, pubkey: string): NostrEvent {
     const title = (this.nodes.get(nodeId)! as Block).getTitle();
     const content = (this.nodes.get(nodeId)! as Block).getSource(); // AsciiDoc source content.
 
-    const event = new NDKEvent(this.ndk);
-    event.kind = 30041;
-    event.content = content!;
-    event.tags = [
-      ["title", title!],
-      ["#d", nodeId],
-      ...this.extractAndNormalizeWikilinks(content!),
-    ];
-    event.created_at = Date.now();
-    event.pubkey = pubkey;
+    const event: NostrEvent = {
+      kind: 30041,
+      content: content!,
+      tags: [
+        ["title", title!],
+        ["d", nodeId],
+        ...this.extractAndNormalizeWikilinks(content!),
+      ],
+      created_at: Math.floor(Date.now() / 1000),
+      pubkey: pubkey,
+      id: "",
+      sig: "",
+    };
 
     // Event ID generation must be the last step.
-    const eventId = event.getEventHash();
+    const eventId = getEventHash(event);
     this.eventIds.set(nodeId, eventId);
     event.id = eventId;
 
@@ -1026,190 +1033,135 @@ export default class Pharos {
         blockId = `${documentId}-quote-${blockNumber++}`;
         this.contextCounters.set("quote", blockNumber);
         break;
-
-      case "section":
-        blockNumber = this.contextCounters.get("section") ?? 0;
-        blockId = `${documentId}-section-${blockNumber++}`;
-        this.contextCounters.set("section", blockNumber);
-        break;
-
-      case "sidebar":
-        blockNumber = this.contextCounters.get("sidebar") ?? 0;
-        blockId = `${documentId}-sidebar-${blockNumber++}`;
-        this.contextCounters.set("sidebar", blockNumber);
-        break;
-
-      case "table":
-        blockNumber = this.contextCounters.get("table") ?? 0;
-        blockId = `${documentId}-table-${blockNumber++}`;
-        this.contextCounters.set("table", blockNumber);
-        break;
-
-      case "table_cell":
-        blockNumber = this.contextCounters.get("table_cell") ?? 0;
-        blockId = `${documentId}-table-cell-${blockNumber++}`;
-        this.contextCounters.set("table_cell", blockNumber);
-        break;
-
-      case "thematic_break":
-        blockNumber = this.contextCounters.get("thematic_break") ?? 0;
-        blockId = `${documentId}-thematic-break-${blockNumber++}`;
-        this.contextCounters.set("thematic_break", blockNumber);
-        break;
-
-      case "toc":
-        blockNumber = this.contextCounters.get("toc") ?? 0;
-        blockId = `${documentId}-toc-${blockNumber++}`;
-        this.contextCounters.set("toc", blockNumber);
-        break;
-
-      case "ulist":
-        blockNumber = this.contextCounters.get("ulist") ?? 0;
-        blockId = `${documentId}-ulist-${blockNumber++}`;
-        this.contextCounters.set("ulist", blockNumber);
-        break;
-
-      case "verse":
-        blockNumber = this.contextCounters.get("verse") ?? 0;
-        blockId = `${documentId}-verse-${blockNumber++}`;
-        this.contextCounters.set("verse", blockNumber);
-        break;
-
-      case "video":
-        blockNumber = this.contextCounters.get("video") ?? 0;
-        blockId = `${documentId}-video-${blockNumber++}`;
-        this.contextCounters.set("video", blockNumber);
-        break;
-
-      default:
-        blockNumber = this.contextCounters.get("block") ?? 0;
-        blockId = `${documentId}-block-${blockNumber++}`;
-        this.contextCounters.set("block", blockNumber);
-        break;
     }
-
-    block.setId(blockId);
-    this.eventToContextMap.set(blockId, context);
 
     return blockId;
   }
 
-  private normalizeId(input?: string): string | null {
-    if (input == null || input.length === 0) {
-      return null;
+  /**
+   * Normalizes an ID string by converting it to lowercase, replacing spaces with hyphens,
+   * and removing any non-alphanumeric characters except hyphens and underscores.
+   * @param id The ID string to normalize.
+   * @returns The normalized ID string, or empty string if the input is null or empty.
+   */
+  private normalizeId(id: string | null | undefined): string {
+    if (!id) {
+      return '';
     }
-
-    return he
-      .decode(input)
+    return id
       .toLowerCase()
-      .replace(/[_]/g, " ") // Replace underscores with spaces.
-      .trim()
-      .replace(/\s+/g, "-") // Replace spaces with dashes.
-      .replace(/[^a-z0-9\-]/g, ""); // Remove non-alphanumeric characters except dashes.
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-_]/g, '');
   }
 
-  private updateEventByContext(dTag: string, value: string, context: string) {
-    switch (context) {
-      case "document":
-      case "section":
-        this.updateEventTitle(dTag, value);
-        break;
-
-      default:
-        this.updateEventBody(dTag, value);
-        break;
-    }
-  }
-
-  private updateEventTitle(dTag: string, value: string) {
-    const event = this.events.get(dTag);
-    this.events.delete(dTag);
-    this.events.set(value, event!);
-    this.rehashEvent(dTag, event!);
-  }
-
-  private updateEventBody(dTag: string, value: string) {
-    const event = this.events.get(dTag);
-    event!.content = value;
-    this.rehashEvent(dTag, event!);
-  }
-
-  private rehashEvent(dTag: string, event: NDKEvent) {
-    event.id = event.getEventHash();
-    this.eventIds.set(dTag, event.id);
-    this.shouldUpdateEventTree = true;
-  }
-
+  /**
+   * Extracts and normalizes wikilinks from content.
+   * @param content The content to extract wikilinks from.
+   * @returns An array of normalized wikilink tags.
+   */
   private extractAndNormalizeWikilinks(content: string): string[][] {
-    const wikilinkPattern = /\[\[([^\]]+)\]\]/g;
-    const wikilinks: string[][] = [];
-    let match: RegExpExecArray | null;
+    const wikilinkRegex = /\[\[([^\]]+)\]\]/g;
+    const matches = content.matchAll(wikilinkRegex);
+    const tags: string[][] = [];
 
-    // TODO: Match custom-named wikilinks as defined in NIP-54.
-    while ((match = wikilinkPattern.exec(content)) !== null) {
-      const linkName = match[1];
-      const normalizedText = this.normalizeId(linkName);
-      wikilinks.push(["wikilink", normalizedText!]);
+    for (const match of matches) {
+      const linkText = match[1];
+      const normalizedId = this.normalizeId(linkText);
+      if (normalizedId) {
+        tags.push(['r', normalizedId]);
+      }
     }
 
-    return wikilinks;
+    return tags;
   }
 
-  // TODO: Add search-based wikilink resolution.
+  /**
+   * Updates an event's content based on its context.
+   * @param dTag The d tag of the event to update.
+   * @param content The new content to assign to the event.
+   * @param context The context of the event's originating node.
+   */
+  private updateEventByContext(dTag: string, content: string, context: string): void {
+    const event = this.events.get(dTag);
+    if (!event) {
+      throw new Error(`No event found for #d:${dTag}.`);
+    }
+
+    // Update the event's content based on its context
+    switch (context) {
+      case 'paragraph':
+        event.content = content;
+        break;
+      default:
+        // For other contexts, we need to update the source content
+        const node = this.nodes.get(dTag);
+        if (node && 'getSource' in node) {
+          // Since we can't modify the source directly, we'll just update the event content
+          event.content = content;
+        }
+        break;
+    }
+
+    // Update the event's ID since its content has changed
+    const eventId = getEventHash(event);
+    this.eventIds.set(dTag, eventId);
+    event.id = eventId;
+  }
 
   // #endregion
 }
 
-export const pharosInstance: Writable<Pharos> = writable();
-
-export const tocUpdate = writable(0);
-
-// Whenever you update the publication tree, call:
-tocUpdate.update((n) => n + 1);
-
+/**
+ * Ensures that the content has a valid AsciiDoc header and doctype.
+ * @param content The content to validate and potentially modify.
+ * @returns The content with a valid header if needed.
+ */
 function ensureAsciiDocHeader(content: string): string {
-  const lines = content.split(/\r?\n/);
-  let headerIndex = -1;
-  let hasDoctype = false;
+  // If content already has a doctype, return as is
+  if (content.trim().startsWith('= ')) {
+    return content;
+  }
 
-  // Find the first non-empty line as header
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === "") continue;
-    if (lines[i].trim().startsWith("=")) {
-      headerIndex = i;
-      console.debug("[Pharos] AsciiDoc document header:", lines[i].trim());
-      break;
-    } else {
-      throw new Error("AsciiDoc document is missing a header at the top.");
+  // Add doctype and a default title if none exists
+  return `= Untitled Document
+:doctype: book
+
+${content}`;
+}
+
+/**
+ * Normalizes an ID string by converting it to lowercase, replacing spaces with hyphens,
+ * and removing any non-alphanumeric characters except hyphens and underscores.
+ * @param id The ID string to normalize.
+ * @returns The normalized ID string, or null if the input is null or empty.
+ */
+function normalizeId(id: string | null | undefined): string | null {
+  if (!id) {
+    return null;
+  }
+  return id
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '');
+}
+
+/**
+ * Extracts and normalizes wikilinks from content.
+ * @param content The content to extract wikilinks from.
+ * @returns An array of normalized wikilink tags.
+ */
+function extractAndNormalizeWikilinks(content: string): string[][] {
+  const wikilinkRegex = /\[\[([^\]]+)\]\]/g;
+  const matches = content.matchAll(wikilinkRegex);
+  const tags: string[][] = [];
+
+  for (const match of matches) {
+    const linkText = match[1];
+    const normalizedId = normalizeId(linkText);
+    if (normalizedId) {
+      tags.push(['r', normalizedId]);
     }
   }
 
-  if (headerIndex === -1) {
-    throw new Error("AsciiDoc document is missing a header.");
-  }
-
-  // Check for doctype in the next non-empty line after header
-  let nextLine = headerIndex + 1;
-  while (nextLine < lines.length && lines[nextLine].trim() === "") {
-    nextLine++;
-  }
-  if (
-    nextLine < lines.length &&
-    lines[nextLine].trim().startsWith(":doctype:")
-  ) {
-    hasDoctype = true;
-  }
-
-  // Insert doctype immediately after header if not present
-  if (!hasDoctype) {
-    lines.splice(headerIndex + 1, 0, ":doctype: book");
-  }
-
-  // Log the state of the lines before returning
-  console.debug(
-    "[Pharos] AsciiDoc lines after header/doctype normalization:",
-    lines.slice(0, 5),
-  );
-
-  return lines.join("\n");
+  return tags;
 }

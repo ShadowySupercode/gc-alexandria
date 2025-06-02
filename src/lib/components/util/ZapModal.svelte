@@ -2,13 +2,13 @@
   import { Modal, Button, P } from "flowbite-svelte";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { signEvent } from "$lib/utils/nostrUtils";
-  import { ndkInstance } from "$lib/ndk";
-  import { get } from 'svelte/store';
+  import { signEvent, getEventHash } from '$lib/utils';
+  import { getNostrClient } from "$lib/nostr/client";
   import { fallbackRelays } from "$lib/consts";
+  import { getTagValue } from "$lib/utils/eventUtils";
+  import type { NostrEvent } from "$lib/types/nostr";
   // @ts-ignore
   import { bech32 } from "https://esm.sh/bech32";
-  import type { NDKEvent } from '@nostr-dev-kit/ndk';
 
   interface LNURLPayResponse {
     allowsNostr: boolean;
@@ -64,7 +64,7 @@
   let zapInvoice = $state<string | null>(null);
   let zapError = $state<string | null>(null);
   let lnurlPayInfo = $state<LNURLPayResponse | null>(null);
-  let zapReceiptSub: any = null;
+  let zapReceiptSub: { stop: () => void } | undefined;
   let zapReceived = $state(false);
   let zapReceivedTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -108,14 +108,15 @@
       if (recipientTag) {
         // Fetch the recipient's profile from the specified relay
         try {
-          const ndk = get(ndkInstance);
-          if (!ndk) return null;
+          const client = getNostrClient([recipientTag.relay]);
+          if (!client) return null;
 
-          const profile = await ndk.fetchEvent({
+          const events = await client.fetchEvents({
             kinds: [0],
             authors: [recipientTag.pubkey],
-          }, { relayUrls: [recipientTag.relay] });
+          });
 
+          const profile = events[0];
           if (profile) {
             const metadata = JSON.parse(profile.content);
             if (metadata.lud16) {
@@ -207,51 +208,28 @@
     }
   });
 
-  async function requestZapInvoice() {
-    if (!lnurlPayInfo) {
-      zapError = "No valid Lightning address info available";
-      return;
-    }
-
+  async function createZapRequest(
+    event: NostrEvent,
+    recipientPubkey: string,
+    amount: number,
+    comment: string
+  ): Promise<NostrEvent | null> {
     try {
-      // Create zap request event
-      const ndk = get(ndkInstance);
-      if (!ndk?.signer) {
-        zapError = "No signer available";
-        return;
-      }
-
-      const pubkey = ndk.signer.pubkey;
-      if (!pubkey) {
-        zapError = "No pubkey available";
-        return;
-      }
-
-      // Validate amount is within allowed range
-      const amountMsats = zapAmount * 1000;
-      if (amountMsats < lnurlPayInfo.minSendable || amountMsats > lnurlPayInfo.maxSendable) {
-        zapError = `Amount must be between ${lnurlPayInfo.minSendable / 1000} and ${lnurlPayInfo.maxSendable / 1000} sats`;
-        return;
-      }
-
-      // Build tags array based on what we're zapping
+      const amountMsats = amount * 1000;
       const tags: string[][] = [
         ["relays", ...fallbackRelays],
         ["amount", amountMsats.toString()],
         ["p", recipientPubkey],
       ];
 
-      // Add event tag if we're zapping an event
-      if (eventId) {
-        tags.push(["e", eventId]);
+      if (event.id) {
+        tags.push(["e", event.id]);
       }
 
-      // Add event coordinate tag if we're zapping an addressable event
       if (eventCoordinate) {
         tags.push(["a", eventCoordinate]);
       }
 
-      // Add zap tags if available
       if (zapTags) {
         zapTags.forEach((tag: ZapTag) => {
           if (tag.weight) {
@@ -262,36 +240,108 @@
         });
       }
 
-      const zapRequest = {
+      const zapRequest: Omit<NostrEvent, 'id' | 'sig'> = {
         kind: 9734,
-        content: zapComment,
-        pubkey,
+        content: comment,
+        pubkey: recipientPubkey,
         created_at: Math.floor(Date.now() / 1000),
         tags,
       };
 
-      const sig = await signEvent(zapRequest);
-      const zapRequestWithSig = { ...zapRequest, sig };
-      
-      // Send zap request to callback URL
-      const callbackUrl = new URL(lnurlPayInfo.callback);
-      callbackUrl.searchParams.set('amount', amountMsats.toString());
-      callbackUrl.searchParams.set('nostr', encodeURIComponent(JSON.stringify(zapRequestWithSig)));
+      const id = getEventHash(zapRequest);
+      const sig = await signEvent(zapRequest, id);
 
-      const zapResponse = await fetch(callbackUrl.toString());
-      const { pr: invoice } = await zapResponse.json();
-      
-      if (!invoice) {
-        zapError = "Failed to get invoice";
-        return;
-      }
+      return {
+        ...zapRequest,
+        id,
+        sig: sig.toString()
+      };
+    } catch (error) {
+      console.error('Error creating zap request:', error);
+      return null;
+    }
+  }
 
-      zapInvoice = invoice;
-      zapError = null;
-      subscribeForZapReceipt();
-    } catch (err) {
-      console.error('Error requesting zap invoice:', err);
-      zapError = err instanceof Error ? err.message : 'Unknown error';
+  async function requestZapInvoice() {
+    if (!lnurl || !recipientPubkey || !eventId) return;
+
+    try {
+      const client = getNostrClient();
+      if (!client) return;
+
+      const zapRequest = await createZapRequest(
+        { 
+          id: eventId, 
+          kind: 1, 
+          pubkey: recipientPubkey, 
+          created_at: Math.floor(Date.now() / 1000), 
+          content: '', 
+          tags: [], 
+          sig: '' 
+        },
+        recipientPubkey,
+        zapAmount,
+        zapComment
+      );
+      if (!zapRequest) return;
+
+      await client.publish(zapRequest);
+
+      const bolt11 = getTagValue(zapRequest, 'bolt11');
+      if (!bolt11) return;
+
+      zapInvoice = bolt11;
+      await subscribeForZapReceipt(zapRequest);
+    } catch (error) {
+      console.error('Error requesting zap invoice:', error);
+      zapError = 'Failed to request zap invoice';
+    }
+  }
+
+  async function subscribeForZapReceipt(zapRequest: NostrEvent) {
+    if (!zapReceiptSub) {
+      const client = getNostrClient();
+      if (!client) return;
+
+      const subscription = client.subscribe(
+        {
+          kinds: [9735],
+          '#e': [zapRequest.id],
+          since: Math.floor(Date.now() / 1000)
+        },
+        { closeOnEose: false }
+      );
+
+      subscription.on('event', (event: NostrEvent) => {
+        const bolt11 = getTagValue(event, 'bolt11');
+        const preimage = getTagValue(event, 'preimage');
+        const description = getTagValue(event, 'description');
+
+        if (bolt11 && preimage && description) {
+          try {
+            const zapRequest = JSON.parse(description) as NostrEvent;
+            const zapRequestBolt11 = getTagValue(zapRequest, 'bolt11');
+
+            if (zapRequestBolt11 === bolt11) {
+              console.log('Zap receipt received:', event);
+              // Handle successful zap
+              subscription.stop();
+              zapReceiptSub = undefined;
+              isOpen = false;
+              zapReceived = true;
+              if (zapReceivedTimeout) clearTimeout(zapReceivedTimeout);
+              zapReceivedTimeout = setTimeout(() => {
+                isOpen = false;
+                zapReceived = false;
+              }, 2000);
+            }
+          } catch (error) {
+            console.error('Error parsing zap request:', error);
+          }
+        }
+      });
+
+      zapReceiptSub = subscription;
     }
   }
 
@@ -306,48 +356,8 @@
     onClose();
     if (zapReceiptSub) {
       zapReceiptSub.stop();
-      zapReceiptSub = null;
+      zapReceiptSub = undefined;
     }
-  }
-
-  function subscribeForZapReceipt() {
-    // Clean up any previous subscription
-    if (zapReceiptSub) {
-      zapReceiptSub.stop();
-      zapReceiptSub = null;
-    }
-
-    const ndk = get(ndkInstance);
-    if (!ndk) return;
-
-    // Subscribe for zap receipts (kind 9735) for this pubkey or event
-    const filter: any = {
-      kinds: [9735],
-      '#p': [recipientPubkey],
-    };
-    if (eventId) {
-      filter['#e'] = [eventId];
-    }
-
-    zapReceiptSub = ndk.subscribe(filter, { closeOnEose: false, groupable: false });
-    zapReceiptSub.on('event', (evt: NDKEvent) => {
-      console.log('Received zap receipt:', evt);
-      const bolt11Tag = evt.tags.find(tag => tag[0] === 'bolt11');
-      console.log('bolt11Tag:', bolt11Tag, 'zapInvoice:', zapInvoice);
-      if (bolt11Tag && bolt11Tag[1] === zapInvoice) {
-        // Show confirmation
-        zapReceived = true;
-        // Clean up the subscription
-        zapReceiptSub.stop();
-        zapReceiptSub = null;
-        // Close the modal after 2 seconds
-        if (zapReceivedTimeout) clearTimeout(zapReceivedTimeout);
-        zapReceivedTimeout = setTimeout(() => {
-          isOpen = false;
-          zapReceived = false;
-        }, 2000);
-      }
-    });
   }
 </script>
 
@@ -355,7 +365,7 @@
   class="modal-leather"
   title="Send Zap"
   bind:open={isOpen}
-  on:close={handleClose}
+  onclose={handleClose}
   outsideclose
   size="sm"
 >

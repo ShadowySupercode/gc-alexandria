@@ -13,7 +13,7 @@
   } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { pharosInstance } from "$lib/parser";
-  import { ndkInstance, getActiveUser } from "$lib/ndk";
+  import { getNostrClient } from "$lib/nostr/client";
   import { goto } from "$app/navigation";
   let someIndexValue = 0;
 
@@ -26,13 +26,13 @@
 
   const showPreview = () => {
     try {
-      $pharosInstance ??= new Pharos($ndkInstance);
+      if (!$pharosInstance) {
+        pharosInstance.set(new Pharos());
+      }
       $pharosInstance.reset();
       $pharosInstance.parse(editorText);
-    } catch (e) {
-      console.error(e);
-      // TODO: Indicate error in UI.
-      return;
+    } catch (error) {
+      console.error("Error parsing document:", error);
     }
 
     rootIndexId = $pharosInstance.getRootIndexId();
@@ -53,9 +53,11 @@
       return;
     }
 
-    const user = getActiveUser();
-    $pharosInstance.generate(user?.pubkey!);
-    goto("/new/compose");
+    const activeUser = getNostrClient().getActiveUser();
+    if (activeUser?.pubkey) {
+      $pharosInstance.generate(activeUser.pubkey);
+      goto("/new/compose");
+    }
   };
 </script>
 

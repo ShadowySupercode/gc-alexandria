@@ -3,33 +3,28 @@
   import CardActions from "$components/util/CardActions.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
-  import { getTagValue, getTagValues } from "$lib/utils/eventTags";
+  import { getTagValue, getTagValues } from '$lib/utils/eventUtils';
   import DisplayType from "$components/cards/DisplayType.svelte";
+  import type { NostrEvent } from "$lib/types/nostr";
 
   // isModal
   //  - don't show interactions in modal view
   //  - don't show all the details when _not_ in modal view
-  let { event, isModal = false } = $props();
+  let { event, isModal = false } = $props<{ event: NostrEvent, isModal?: boolean }>();
 
-  let title: string = $derived.by(() => event.getTagValue("title"));
-  let author: string = $derived.by(
-    () => event.getTagValue("author") ?? "unknown",
-  );
-  let version: string = $derived.by(() => event.getTagValue("version") ?? "1");
-  let image: string = $derived.by(() => event.getTagValue("image") ?? null);
-  let originalAuthor: string = $derived.by(
-    () => event.getTagValue("p") ?? null,
-  );
-  let summary: string = $derived.by(() => event.getTagValue("summary") ?? null);
-  let type: string = $derived.by(() => event.getTagValue("type") ?? null);
-  let language: string = $derived.by(() => event.getTagValue("l") ?? null);
-  let source: string = $derived.by(() => event.getTagValue("source") ?? null);
-  let publisher: string = $derived.by(
-    () => event.getTagValue("published_by") ?? null,
-  );
-  let identifier: string = $derived.by(() => event.getTagValue("i") ?? null);
-  let hashtags: string[] = $derived.by(() => event.getTagValues("t"));
-  let rootId: string = $derived.by(() => event.getTagValue("d") ?? null);
+  let title = $derived.by(() => getTagValue(event, 'title') ?? '');
+  let author = $derived.by(() => getTagValue(event, 'author') ?? 'unknown');
+  let version = $derived.by(() => getTagValue(event, 'version') ?? '1');
+  let image = $derived.by(() => getTagValue(event, 'image') ?? '');
+  let originalAuthor = $derived.by(() => getTagValue(event, 'p') ?? '');
+  let summary = $derived.by(() => getTagValue(event, 'summary') ?? '');
+  let type = $derived.by(() => getTagValue(event, 'type') ?? '');
+  let language = $derived.by(() => getTagValue(event, 'l') ?? '');
+  let source = $derived.by(() => getTagValue(event, 'source') ?? '');
+  let publisher = $derived.by(() => getTagValue(event, 'published_by') ?? '');
+  let identifier = $derived.by(() => getTagValue(event, 'i') ?? '');
+  let hashtags = $derived.by(() => getTagValues(event, 't'));
+  let rootId = $derived.by(() => getTagValue(event, 'd') ?? '');
   let kind = $derived.by(() => event.kind);
 </script>
 

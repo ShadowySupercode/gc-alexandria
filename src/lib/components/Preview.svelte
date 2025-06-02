@@ -16,8 +16,8 @@
   } from "flowbite-svelte-icons";
   import Self from "./Preview.svelte";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
-  import { getTagValue } from "$lib/utils/eventTags";
-  import { getTagValues } from "$lib/utils/eventTags";
+  import type { NostrEvent } from '$lib/types/nostr';
+  import { getTagValue } from '$lib/utils/eventUtils';
 
   // TODO: Fix move between parents.
 
@@ -55,7 +55,7 @@
     $pharosInstance.getOrderedChildIds(rootId),
   );
 
-  let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()));
+  let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()).filter(([_, event]) => event !== null) as [string, NostrEvent][]);
 
   let isEditing: boolean = $state(false);
   let hasCursor: boolean = $state(false);
@@ -93,10 +93,10 @@
 
   let blogEvent = $derived.by(() => blogEntries[index]?.[1]);
   let blogAuthor = $derived.by(() =>
-    blogEvent ? (blogEvent.getTagValue("author") ?? "") : "",
+    blogEvent ? (getTagValue(blogEvent, "author") ?? "") : "",
   );
   let blogImage = $derived.by(() =>
-    blogEvent ? (blogEvent.getTagValue("image") ?? "") : "",
+    blogEvent ? (getTagValue(blogEvent, "image") ?? "") : "",
   );
   let blogPublishedAt = $derived.by(() => {
     if (!blogEvent?.created_at) return "";

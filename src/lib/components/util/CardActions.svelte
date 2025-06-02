@@ -5,35 +5,36 @@
     EyeOutline,
   } from "flowbite-svelte-icons";
   import { Button, Modal, Popover } from "flowbite-svelte";
-  import { communityRelays, FeedType } from "$lib/consts";
-  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { neventEncode, naddrEncode } from "$lib/utils/identifierUtils";
   import { feedType } from "$lib/stores";
-  import { inboxRelays, ndkSignedIn } from "$lib/ndk";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { getNostrClient } from '$lib/nostr/client';
+  import type { NostrEvent } from "$lib/types/nostr";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import Details from "$components/util/Details.svelte";
+  import { selectRelayGroup } from '$lib/utils';
 
   // Component props
-  let { event } = $props<{ event: NDKEvent }>();
+  let { event } = $props<{ event: NostrEvent }>();
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
   let isOpen: boolean = $state(false);
 
+  // Get the Nostr client
+  const client = getNostrClient();
+
   /**
-   * Selects the appropriate relay set based on user state and feed type
-   * - Uses user's inbox relays when signed in and viewing personal feed
-   * - Falls back to standard relays for anonymous users or standard feed
+   * Selects the appropriate relay set based on user settings
+   * Uses the selectRelayGroup utility to determine which relays to use
    */
   let activeRelays = $derived.by(() => {
-    const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
-    const relays = isUserFeed ? $inboxRelays : communityRelays;
+    const relays = selectRelayGroup('inbox');
+    const user = client.getActiveUser();
 
     console.debug("[CardActions] Selected relays:", {
       eventId: event.id,
-      isSignedIn: $ndkSignedIn,
+      isSignedIn: !!user,
       feedType: $feedType,
-      isUserFeed,
       relayCount: relays.length,
       relayUrls: relays,
     });
@@ -64,7 +65,7 @@
    * @param type - The type of identifier to get ('nevent' or 'naddr')
    * @returns The encoded identifier string
    */
-  function getIdentifier(type: "nevent" | "naddr"): string {
+  function getIdentifier(type: 'nevent' | 'naddr'): string {
     const encodeFn = type === "nevent" ? neventEncode : naddrEncode;
     const identifier = encodeFn(event, activeRelays);
     console.debug(
@@ -80,8 +81,8 @@
   function viewDetails() {
     console.debug("[CardActions] Opening details modal", {
       eventId: event.id,
-      title: event.title,
-      author: event.author,
+      title: event.tags.find((tag: string[]) => tag[0] === 'title')?.[1],
+      author: event.tags.find((tag: string[]) => tag[0] === 'author')?.[1],
     });
     detailsModalOpen = true;
   }
@@ -91,8 +92,8 @@
     eventId: event.id,
     kind: event.kind,
     pubkey: event.pubkey,
-    title: event.title,
-    author: event.author,
+    title: event.tags.find((tag: string[]) => tag[0] === 'title')?.[1],
+    author: event.tags.find((tag: string[]) => tag[0] === 'author')?.[1],
   });
 </script>
 

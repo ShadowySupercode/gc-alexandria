@@ -1,118 +1,109 @@
-import { error } from "@sveltejs/kit";
-import type { Load } from "@sveltejs/kit";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { nip19 } from "nostr-tools";
-import { getActiveRelays } from "$lib/ndk";
-import { getTagValue } from "$lib/utils/eventTags";
+import { error } from '@sveltejs/kit';
+import type { Load } from '@sveltejs/kit';
+import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
+import { searchEventByIdentifier, fetchEventWithFallback } from '$lib/utils';
+import { wikiKind, indexKind, SectionKinds } from '$lib/consts';
+import type { NostrEvent } from '$lib/types/nostr';
 
 /**
- * Decodes an naddr identifier and returns a filter object
+ * Type definition for the page data returned by the loader
  */
-function decodeNaddr(id: string) {
-  try {
-    if (!id.startsWith("naddr")) return {};
-
-    const decoded = nip19.decode(id);
-    if (decoded.type !== "naddr") return {};
-
-    const data = decoded.data;
-    return {
-      kinds: [data.kind],
-      authors: [data.pubkey],
-      "#d": [data.identifier],
-    };
-  } catch (e) {
-    console.error("Failed to decode naddr:", e);
-    return null;
-  }
+interface PublicationPageData {
+  parser: any; // TODO: Replace with proper parser type
+  indexEvent: NostrEvent;
+  url: URL;
+  publicationType: string;
+  waitable: Promise<any>; // TODO: Replace with proper waitable type
 }
 
 /**
- * Fetches an event by ID or filter
+ * Loads publication data based on the provided identifier or d-tag
+ * @param url The URL containing search parameters
+ * @param parent The parent loader function
+ * @returns Publication data including the index event and parser
+ * @throws {Error} If no valid identifier is provided or if the event cannot be found
  */
-async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
-  const filter = decodeNaddr(id);
-
-  // Handle the case where filter is null (decoding error)
-  if (filter === null) {
-    // If we can't decode the naddr, try using the raw ID
-    try {
-      const event = await ndk.fetchEvent(id);
-      if (!event) {
-        throw new Error(`Event not found for ID: ${id}`);
-      }
-      return event;
-    } catch (err) {
-      throw error(404, `Failed to fetch publication root event.\n${err}`);
-    }
-  }
-
-  const hasFilter = Object.keys(filter).length > 0;
-
-  try {
-    const event = await (hasFilter
-      ? ndk.fetchEvent(filter)
-      : ndk.fetchEvent(id));
-
-    if (!event) {
-      throw new Error(`Event not found for ID: ${id}`);
-    }
-    return event;
-  } catch (err) {
-    throw error(404, `Failed to fetch publication root event.\n${err}`);
-  }
-}
-
-/**
- * Fetches an event by d tag
- */
-export async function _fetchEventByDTag(
-  ndk: any,
-  dTag: string,
-): Promise<NDKEvent> {
-  try {
-    const event = await ndk.fetchEvent(
-      { "#d": [dTag] },
-      { closeOnEose: false },
-      getActiveRelays(ndk),
-    );
-
-    if (!event) {
-      throw new Error(`Event not found for d tag: ${dTag}`);
-    }
-    return event;
-  } catch (err) {
-    throw error(404, `Failed to fetch publication root event.\n${err}`);
-  }
-}
-
-export const load: Load = async ({
+export const load = (async ({
   url,
   parent,
-}: {
-  url: URL;
-  parent: () => Promise<any>;
 }) => {
-  const id = url.searchParams.get("id");
-  const dTag = url.searchParams.get("d");
-  const { ndk, parser } = await parent();
+  let id = url.searchParams.get('id');
+  let dTag = url.searchParams.get('d');
+  const { parser } = await parent();
 
-  if (!id && !dTag) {
-    throw error(400, "No publication root event ID or d tag provided.");
+  // Use the relays from the user's current settings
+  const relays = selectRelayGroup('inbox');
+
+  console.log('[Publication Loader] Fetching event', { id, dTag, relays });
+
+  // Normalize id and dTag
+  if (Array.isArray(id)) id = id[0];
+  if (Array.isArray(dTag)) dTag = dTag[0];
+
+  if ((id && typeof id !== 'string') || (dTag && typeof dTag !== 'string')) {
+    throw error(400, 'Identifier and dTag must be strings.');
   }
 
-  // Fetch the event based on available parameters
-  const indexEvent = id
-    ? await fetchEventById(ndk, id)
-    : await _fetchEventByDTag(ndk, dTag!);
+  if (!id && !dTag) {
+    throw error(400, 'No publication root event ID or d tag provided.');
+  }
 
-  const publicationType = getTagValue(indexEvent, "type");
-  const fetchPromise = parser.fetch(indexEvent);
+  try {
+    let result;
+    if (id) {
+      // Use searchEventByIdentifier for string IDs (naddr, nevent, etc.)
+      result = await searchEventByIdentifier(id, {
+        timeoutMs: 3000,
+        useFallbackRelays: true,
+        relays
+      });
+    } else if (dTag) {
+      // Use fetchEventWithFallback for d-tag searches
+      result = await fetchEventWithFallback(
+        { '#d': [dTag] },
+        {
+          relays,
+          useFallbackRelays: true,
+          timeout: 3000
+        }
+      );
+    } else {
+      throw new Error('No valid identifier provided');
+    }
 
-  return {
-    waitable: fetchPromise,
-    publicationType,
-    indexEvent,
-    url,
-  };
-};
+    if (!result.event) {
+      throw new Error(`Event not found for identifier: ${id || dTag}`);
+    }
+
+    const indexEvent = result.event;
+
+    // Determine publication type from event kind
+    let publicationType: string;
+    if (indexEvent.kind === 30023) {
+      publicationType = 'article';
+    } else if (indexEvent.kind === wikiKind) {
+      publicationType = 'wiki';
+    } else if (indexEvent.kind === indexKind) {
+      publicationType = 'book';
+    } else if (SectionKinds.includes(indexEvent.kind)) {
+      publicationType = 'section';
+    } else {
+      publicationType = 'unknown';
+    }
+
+    // Create a waitable promise that resolves when the parser is ready
+    const waitable = parser.fetch(indexEvent);
+
+    return {
+      parser,
+      indexEvent,
+      url,
+      publicationType,
+      waitable
+    } satisfies PublicationPageData;
+  } catch (err: unknown) {
+    // User-friendly error message
+    const message = err instanceof Error ? err.message : 'Unknown error occurred';
+    throw error(404, { message });
+  }
+}) satisfies Load;

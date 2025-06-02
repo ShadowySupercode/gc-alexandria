@@ -1,56 +1,64 @@
 <script lang="ts">
   import Publication from "$lib/components/Publication.svelte";
   import { TextPlaceholder } from "flowbite-svelte";
-  import type { PageProps } from "./$types";
-  import { onDestroy, setContext } from "svelte";
+  import { onDestroy, onMount, setContext } from "svelte";
   import { PublicationTree } from "$lib/data_structures/publication_tree";
   import Processor from "asciidoctor";
   import ArticleNav from "$components/util/ArticleNav.svelte";
+  import { getTagAddress, getTagValue } from '$lib/utils/eventUtils';
+  import type { NostrEvent } from '$lib/types/nostr';
 
-  let { data }: PageProps = $props();
+  let {
+    data,
+  }: {
+    data: {
+      indexEvent: NostrEvent;
+      ndk: any;
+      parser: any;
+      url: URL;
+      publicationType: string;
+      waitable: Promise<any>;
+    };
+  } = $props();
 
-  const publicationTree = new PublicationTree(data.indexEvent, data.ndk);
-
+  const publicationTree = new PublicationTree(data.indexEvent);
   setContext("publicationTree", publicationTree);
   setContext("asciidoctor", Processor());
 
-  // Get publication metadata for OpenGraph tags
-  let title = $derived.by(
-    () =>
-      data.indexEvent?.getMatchingTags("title")[0]?.[1] ||
-      data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
-      "Alexandria Publication",
-  );
-  let currentUrl = data.url?.href ?? "";
+  onMount(async () => {
+    await publicationTree.updateFromRelay(data.ndk);
+  });
 
-  // Get image and summary from the event tags if available
-  // If image unavailable, use the Alexandria default pic.
-  let image = $derived.by(
-    () =>
-      data.indexEvent?.getMatchingTags("image")[0]?.[1] ||
-      "/screenshots/old_books.jpg",
-  );
-  let summary = $derived.by(
-    () =>
-      data.indexEvent?.getMatchingTags("summary")[0]?.[1] ||
-      "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
+  let title = $derived.by(() =>
+    getTagValue(data.indexEvent, "title") ||
+    data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
+    "Alexandria Publication"
   );
 
-  onDestroy(() => data.parser.reset());
+  let image = $derived.by(() =>
+    getTagValue(data.indexEvent, "image") ||
+    "/screenshots/old_books.jpg"
+  );
+
+  let summary = $derived.by(() =>
+    getTagValue(data.indexEvent, "summary") ||
+    "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages."
+  );
+
+  const rootId = data.parser.getRootIndexId();
+  const rootAddress = getTagAddress(data.indexEvent);
+  const currentUrl = data.url?.href ?? "";
+  const showArticleNav = typeof rootId === 'string';
+  const showPublication = typeof rootAddress === 'string';
 
   function isString(val: unknown): val is string {
     return typeof val === 'string';
   }
 
-  const rootId = data.parser.getRootIndexId();
-  const rootAddress = data.indexEvent.tagAddress();
-  const publicationType = data.publicationType;
-
-  const showArticleNav = isString(rootId);
-  const rootIdNarrowed: string = showArticleNav ? rootId : '';
-
-  const showPublication = isString(rootAddress);
-  const rootAddressNarrowed: string = showPublication ? rootAddress : '';
+  onDestroy(() => {
+    data.parser.reset();
+    publicationTree.cleanup();
+  });
 </script>
 
 <svelte:head>
@@ -74,23 +82,23 @@
 </svelte:head>
 
 {#key data}
-  {#if isString(rootId) && isString(publicationType)}
+  {#if showArticleNav && isString(data.publicationType)}
     <ArticleNav
-      publicationType={publicationType}
+      publicationType={data.publicationType}
       rootId={rootId}
       indexEvent={data.indexEvent}
     />
   {/if}
 {/key}
 
-<main class="publication {publicationType}">
+<main class="publication {data.publicationType}">
   {#await data.waitable}
     <TextPlaceholder divClass="skeleton-leather w-full" size="xxl" />
   {:then}
-    {#if isString(rootAddress) && isString(publicationType)}
+    {#if showPublication && isString(data.publicationType)}
       <Publication
         rootAddress={rootAddress}
-        publicationType={publicationType}
+        publicationType={data.publicationType}
         indexEvent={data.indexEvent}
       />
     {/if}

@@ -1,7 +1,8 @@
 <script lang="ts">
   export let relay: string;
   export let showStatus = false;
-  export let status: "pending" | "found" | "notfound" | null = null;
+  export let timing: string | undefined = undefined;
+  export let status: "pending" | "found" | "notfound" | "timeout" | "error" | null = null;
 
   // Use a static fallback icon for all relays
   function relayFavicon(relay: string): string {
@@ -41,8 +42,15 @@
       </svg>
     {:else if status === "found"}
       <span class="text-green-600">&#10003;</span>
+    {:else if status === "timeout"}
+      <span class="text-yellow-600" title="Timed out">&#9200;</span>
+    {:else if status === "error"}
+      <span class="text-red-600" title="Error">&#9888;</span>
     {:else}
       <span class="text-red-500">&#10007;</span>
     {/if}
+  {/if}
+  {#if timing}
+    <span class="ml-2 text-xs text-gray-500">{timing}</span>
   {/if}
 </div>

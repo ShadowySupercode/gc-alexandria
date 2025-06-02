@@ -2,22 +2,22 @@
   import { Card, Img, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { type NostrProfile, toNpub, signEvent, publishEvent } from "$lib/utils/nostrUtils";
+  import { type NostrProfile } from '$lib/utils';
+  import { toNpub, getEventHash } from '$lib/utils';
+  import type { NostrEvent } from '$lib/types/nostr';
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   // @ts-ignore
   import { bech32 } from "https://esm.sh/bech32";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import DualPill from "$components/util/DualPill.svelte";
-  import { formatTimestampToDate } from "$lib/utils/dateUtils";
+  import { formatTimestampToDate } from "$lib/utils";
   import ZapOutline from "$components/util/ZapOutline.svelte";
-  import { ndkInstance } from "$lib/ndk";
-  import { get } from 'svelte/store';
+  import { getNostrClient } from '$lib/nostr/client';
   import { fallbackRelays } from "$lib/consts";
   import ZapModal from "$components/util/ZapModal.svelte";
 
   const { event, profile, typeDisplay } = $props<{
-    event: NDKEvent;
+    event: NostrEvent;
     profile: NostrProfile;
     typeDisplay: any;
   }>();
@@ -105,22 +105,16 @@
       }
 
       // Create zap request event
-      const ndk = get(ndkInstance);
-      if (!ndk?.signer) {
-        zapError = "No signer available";
-        return;
-      }
-
-      const pubkey = ndk.signer.pubkey;
-      if (!pubkey) {
-        zapError = "No pubkey available";
+      const client = getNostrClient();
+      if (!client) {
+        zapError = "No Nostr client available";
         return;
       }
 
       const zapRequest = {
         kind: 9734,
         content: zapComment,
-        pubkey,
+        pubkey: event.pubkey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ["relays", ...fallbackRelays],
@@ -130,8 +124,17 @@
         ],
       };
 
-      const sig = await signEvent(zapRequest);
-      const zapRequestWithSig = { ...zapRequest, sig };
+      const id = getEventHash(zapRequest);
+      if (!window.nostr) {
+        zapError = "Nostr WebExtension not found";
+        return;
+      }
+      const signedEvent = await window.nostr.signEvent(zapRequest);
+      const zapRequestWithSig = {
+        ...zapRequest,
+        id: signedEvent.id,
+        sig: signedEvent.sig
+      };
       
       // Send zap request to callback URL
       const callbackUrl = new URL(lnurlData.callback);

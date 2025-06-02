@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "flowbite-svelte";
-  import { loginWithExtension, ndkSignedIn } from "$lib/ndk";
+  import { getNostrClient } from '$lib/nostr/client';
+  import type { NostrUser } from '$lib/types/nostr';
 
   const {
     show = false,
@@ -17,8 +18,11 @@
     signInFailed ? "Failed to sign in. Please try again." : "",
   );
 
+  // Get the Nostr client
+  const client = getNostrClient();
+
   $effect(() => {
-    if ($ndkSignedIn && show) {
+    if (client.getActiveUser() && show) {
       onLoginSuccess();
       onClose();
     }
@@ -28,10 +32,23 @@
     try {
       signInFailed = false;
 
-      const user = await loginWithExtension();
-      if (!user) {
-        throw new Error("The NIP-07 extension did not return a user.");
+      if (!window.nostr) {
+        throw new Error("Nostr WebExtension not found. Please install a Nostr WebExtension like Alby or nos2x.");
       }
+
+      // Get the user's public key from the WebExtension
+      const pubkey = await window.nostr.getPublicKey();
+      if (!pubkey) {
+        throw new Error("The NIP-07 extension did not return a public key.");
+      }
+
+      // Create a user object and set it as active
+      const user: NostrUser = {
+        pubkey,
+        validateNip05: async () => false // Default to false, can be updated later
+      };
+      client.setActiveUser(user);
+
     } catch (e: unknown) {
       console.error(e);
       signInFailed = true;

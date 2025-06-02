@@ -7,7 +7,7 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getTagValues } from "$lib/utils/eventTags";
+  import { getTagValues } from '$lib/utils';
 
   // Component props
   let {

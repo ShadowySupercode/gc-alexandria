@@ -1,36 +1,32 @@
 <script lang="ts">
-  import { getActiveUser } from "$lib/ndk";
-  import { naddrEncode } from "$lib/utils";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { communityRelays } from "../../consts.ts";
+  import { getNostrClient } from "$lib/nostr/client";
+  import { naddrEncode } from "$lib/utils/identifierUtils";
+  import { getTagValue } from "$lib/utils/eventUtils";
+  import type { NostrEvent } from "$lib/types/nostr";
+  import { communityRelays } from "../../consts";
   import { Card } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { formatTimestampToDate } from "$lib/utils/dateUtils.ts";
+  import { formatTimestampToDate } from "$lib/utils";
   import CardImage from "./CardImage.svelte";
   
-  let { event, warnings = [] }: { event: NDKEvent, warnings?: string[] } = $props();
+  let { event, warnings = [] }: { event: NostrEvent, warnings?: string[] } = $props();
+
+  const activeUser = getNostrClient().getActiveUser();
 
   const relays = $derived.by(
-    () => getActiveUser()?.relayUrls ?? communityRelays,
+    () => activeUser?.relayUrls ?? communityRelays,
   );
 
-  const href = $derived.by(() => {
-    const d = event.getTagValue("d");
-    if (d != null) {
-      return `publication?d=${d}`;
-    } else {
-      return `publication?id=${naddrEncode(event, relays)}`;
-    }
-  });
+  const href = $derived.by(() => `publication?id=${naddrEncode(event, relays)}`);
 
   let showActions = $state(false);
 
   const eventMetadata = {
-    title: event.getTagValue("title") || "Untitled",
-    author: event.getTagValue("author") || "Unknown Author",
-    type: (event.getTagValue("type") || "book").toLowerCase(),
-    summary: event.getTagValue("summary") || "",
+    title: getTagValue(event, 'title') || "Untitled",
+    author: getTagValue(event, 'author') || "Unknown Author",
+    type: (getTagValue(event, 'type') || "book").toLowerCase(),
+    summary: getTagValue(event, 'summary') || "",
     publishedAt: formatTimestampToDate(event.created_at),
   };
 
@@ -51,7 +47,7 @@
     aria-label="Publication card"
   >
     <CardImage
-      imageUrl={event.getTagValue("image")}
+      imageUrl={getTagValue(event, 'image')}
       title={eventMetadata.title}
     />
     <div class="flex flex-row flex-1">
@@ -60,15 +56,15 @@
           <div class="flex flex-col space-y-2">
             <h2
               class="text-lg font-bold line-clamp-2"
-              title={event.getTagValue("title") || "Untitled"}
+              title={getTagValue(event, 'title') || "Untitled"}
             >
-              {event.getTagValue("title") || "Untitled"}
+              {getTagValue(event, 'title') || "Untitled"}
             </h2>
             <h3 class="text-base font-normal flex items-center gap-2">
               by
-              {#if event.getTagValue("p")}
+              {#if getTagValue(event, 'p')}
                 {@render userBadge(
-                  event.getTagValue("p") || '',
+                  getTagValue(event, 'p') || '',
                   eventMetadata.author || '',
                 )}
               {:else}
@@ -81,7 +77,7 @@
               {/if}
             </h3>
             <p class="text-sm text-gray-600 dark:text-gray-400">
-              {event.getTagValue("published_on") || eventMetadata.publishedAt}
+              {getTagValue(event, 'published_on') || eventMetadata.publishedAt}
             </p>
             <div class="text-xs text-primary-800 dark:text-primary-200 mb-1">
               type: {eventMetadata.type}

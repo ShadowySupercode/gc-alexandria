@@ -7,8 +7,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
-  import { ndkInstance } from "$lib/ndk";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { getNostrClient } from '$lib/nostr/client';
+  import type { NostrEvent } from '$lib/types/nostr';
+  import type { NostrClient } from '$lib/nostr/client';
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
 
@@ -16,6 +17,15 @@
   const DEBUG = false; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
+
+  // State
+  let events: NostrEvent[] = $state([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+  let showSettings = $state(false);
+
+  // Get the Nostr client
+  let client = $derived.by(() => getNostrClient() as NostrClient);
 
   /**
    * Debug logging function that only logs when DEBUG is true
@@ -26,17 +36,8 @@
     }
   }
 
-  // State
-  let events: NDKEvent[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let showSettings = false;
-
   /**
    * Fetches events from the Nostr network
-   *
-   * This function fetches index events and their referenced content events,
-   * filters them according to NIP-62, and combines them for visualization.
    */
   async function fetchEvents() {
     debug("Fetching events with limit:", $networkFetchLimit);
@@ -44,32 +45,29 @@
       loading = true;
       error = null;
 
+      if (!client) {
+        throw new Error("Nostr client not initialized");
+      }
+
       // Step 1: Fetch index events
       debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
-      const indexEvents = await $ndkInstance.fetchEvents(
-        {
-          kinds: [INDEX_EVENT_KIND],
-          limit: $networkFetchLimit,
-        },
-        {
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
-      );
-      debug("Fetched index events:", indexEvents.size);
+      const indexEvents = await client.fetchEvents({
+        kinds: [INDEX_EVENT_KIND],
+        limit: $networkFetchLimit,
+      }) as NostrEvent[];
+      debug("Fetched index events:", indexEvents.length);
 
       // Step 2: Filter valid index events according to NIP-62
-      const validIndexEvents = filterValidIndexEvents(indexEvents);
+      const validIndexEvents = filterValidIndexEvents(new Set(indexEvents));
       debug("Valid index events after filtering:", validIndexEvents.size);
 
       // Step 3: Extract content event IDs from index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
-        const aTags = event.getMatchingTags("a");
+        const aTags = event.tags.filter((tag: string[]) => tag[0] === 'a');
         debug(`Event ${event.id} has ${aTags.length} a-tags`);
 
-        aTags.forEach((tag) => {
+        aTags.forEach((tag: string[]) => {
           const eventId = tag[3];
           if (eventId) {
             contentEventIds.add(eventId);
@@ -82,33 +80,24 @@
       debug(
         `Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(", ")})`,
       );
-      const contentEvents = await $ndkInstance.fetchEvents(
-        {
-          kinds: CONTENT_EVENT_KINDS,
-          ids: Array.from(contentEventIds),
-        },
-        {
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
-      );
-      debug("Fetched content events:", contentEvents.size);
+      const contentEvents = await client.fetchEvents({
+        kinds: CONTENT_EVENT_KINDS,
+        ids: Array.from(contentEventIds),
+      }) as NostrEvent[];
+      debug("Fetched content events:", contentEvents.length);
 
       // Step 5: Combine both sets of events
-      events = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      events = [...Array.from(validIndexEvents), ...contentEvents];
       debug("Total events for visualization:", events.length);
-    } catch (e) {
-      console.error("Error fetching events:", e);
-      error = e instanceof Error ? e.message : String(e);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      error = err instanceof Error ? err.message : "Failed to fetch events";
     } finally {
       loading = false;
     }
   }
 
-  // Fetch events when component mounts
   onMount(() => {
-    debug("Component mounted");
     fetchEvents();
   });
 </script>

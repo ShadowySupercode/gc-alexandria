@@ -9,216 +9,139 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkSignedIn, ndkInstance } from "$lib/ndk";
   import { communityRelays, fallbackRelays } from "$lib/consts";
-  import type NDK from "@nostr-dev-kit/ndk";
-  import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+  import { selectRelayGroup } from '$lib/utils';
+  import { getNostrClient } from '$lib/nostr/client';
+  import { publishToRelays } from '$lib/utils/relayUtils';
+  import { parseAdvancedmarkup } from '$lib/utils';
+  import { getMimeTags } from '$lib/utils';
+  import { userBadge } from '$lib/snippets/UserSnippets.svelte';
+  import { getEventHash } from '$lib/utils/eventUtils';
+  import type { NostrEvent } from '$lib/types/nostr';
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from "$lib/components/LoginModal.svelte";
-  import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
-  import { nip19 } from "nostr-tools";
-  import { getMimeTags } from "$lib/utils/mime";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { selectRelayGroup } from "$lib/utils/relayGroupUtils";
 
-  // Function to close the success message
-  function closeSuccessMessage() {
-    submissionSuccess = false;
-    submittedEvent = null;
-  }
+  // Get the active user from the Nostr client
+  const client = getNostrClient();
+  const user = client.getActiveUser();
 
-  function clearForm() {
-    subject = "";
-    content = "";
-    submissionError = "";
-    isExpanded = false;
-    activeTab = "write";
-  }
+  // Define props immediately after imports
+  let {
+    onClose,
+  }: {
+    onClose?: () => void,
+  } = $props();
 
-  let subject = $state("");
-  let content = $state("");
+  // Component state
+  let subject = $state('');
+  let content = $state('');
   let isSubmitting = $state(false);
   let showLoginModal = $state(false);
   let submissionSuccess = $state(false);
-  let submissionError = $state("");
-  let submittedEvent = $state<NDKEvent | null>(null);
-  let issueLink = $state("");
+  let submissionError = $state('');
+  let submittedEvent = $state<NostrEvent | null>(null);
+  let issueLink = $state('');
   let successfulRelays = $state<string[]>([]);
   let isExpanded = $state(false);
-  let activeTab = $state("write");
+  let activeTab = $state('write');
   let showConfirmDialog = $state(false);
+  let savedFormData = $state<{ subject: string; content: string } | null>(null);
 
-  // Store form data when user needs to login
-  let savedFormData = {
-    subject: "",
-    content: "",
-  };
+  // Derived state
+  let isLoggedIn = $derived(!!user);
 
-  // Repository event address from the task
-  const repoAddress =
-    "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
-
-  // Remove hardcoded relays and use fallbackRelays from consts
+  // Constants
+  const REPO_ADDRESS = 'naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr';
+  const REPO_OWNER_PUBKEY = 'fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1';
+  const REPO_ID = 'Alexandria';
   const allRelays = [...fallbackRelays, ...communityRelays];
 
-  // Hard-coded repository owner pubkey and ID from the task
-  // These values are extracted from the naddr
-  const repoOwnerPubkey =
-    "fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1";
-  const repoId = "Alexandria";
-
-  // Function to normalize relay URLs by removing trailing slashes
-  function normalizeRelayUrl(url: string): string {
-    return url.replace(/\/+$/, "");
+  // Function to close the success message
+  function closeSuccessMessage(): void {
+    submissionSuccess = false;
   }
 
-  function toggleSize() {
+  function clearForm(): void {
+    subject = '';
+    content = '';
+    isExpanded = false;
+  }
+
+  function toggleSize(): void {
     isExpanded = !isExpanded;
   }
 
-  async function handleSubmit(e: Event) {
-    // Prevent form submission
+  function normalizeRelayUrl(url: string): string {
+    return url.replace(/\/+$/, '');
+  }
+
+  // Function to handle form submission
+  async function handleSubmit(e: Event): Promise<void> {
     e.preventDefault();
 
     if (!subject || !content) {
-      submissionError = "Please fill in all fields";
+      submissionError = 'Please fill in all fields';
       return;
     }
 
-    // Check if user is logged in
-    if (!$ndkSignedIn) {
-      // Save form data
-      savedFormData = {
-        subject,
-        content,
-      };
-
-      // Show login modal
+    if (!user) {
+      savedFormData = { subject, content };
       showLoginModal = true;
       return;
     }
 
-    // Show confirmation dialog
     showConfirmDialog = true;
   }
 
-  async function confirmSubmit() {
+  async function confirmSubmit(): Promise<void> {
     showConfirmDialog = false;
     await submitIssue();
   }
 
-  function cancelSubmit() {
+  function cancelSubmit(): void {
     showConfirmDialog = false;
   }
 
-  /**
-   * Publish event to relays with retry logic
-   */
-  async function publishToRelays(
-    event: NDKEvent,
-    ndk: NDK,
+  async function publishToRelaysWithRetry(
+    event: NostrEvent,
     relays: Set<string>,
-    maxRetries: number = 3,
-    timeout: number = 10000,
+    maxRetries = 3,
+    timeout = 5000
   ): Promise<string[]> {
-    const successfulRelays: string[] = [];
-    const relaySet = NDKRelaySet.fromRelayUrls(Array.from(relays), ndk);
-
-    // Set up listeners for successful publishes
-    const publishPromises = Array.from(relays).map((relayUrl) => {
-      return new Promise<void>((resolve) => {
-        const relay = ndk.pool?.getRelay(relayUrl);
-        if (relay) {
-          relay.on("published", (publishedEvent: NDKEvent) => {
-            if (publishedEvent.id === event.id) {
-              successfulRelays.push(relayUrl);
-              resolve();
-            }
-          });
-        } else {
-          resolve(); // Resolve if relay not available
-        }
-      });
-    });
-
-    // Try publishing with retries
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        // Start publishing with timeout
-        const publishPromise = event.publish(relaySet);
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Publish timeout")), timeout);
-        });
-
-        await Promise.race([
-          publishPromise,
-          Promise.allSettled(publishPromises),
-          timeoutPromise,
-        ]);
-
-        if (successfulRelays.length > 0) {
-          break; // Exit retry loop if we have successful publishes
-        }
-
-        if (attempt < maxRetries) {
-          // Wait before retrying (exponential backoff)
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 1000),
-          );
-        }
-      } catch (error) {
-        if (attempt === maxRetries && successfulRelays.length === 0) {
-          throw new Error(
-            "Failed to publish to any relays after multiple attempts",
-          );
-        }
-      }
-    }
-
-    return successfulRelays;
+    return publishToRelays(event, Array.from(relays), maxRetries, timeout);
   }
 
-  async function submitIssue() {
+  async function submitIssue(): Promise<void> {
     isSubmitting = true;
-    submissionError = "";
+    submissionError = '';
     submissionSuccess = false;
 
     try {
-      // Get NDK instance
-      const ndk = $ndkInstance;
-      if (!ndk) {
-        throw new Error("NDK instance not available");
+      if (!user) {
+        throw new Error('No active user found. Please sign in.');
       }
 
-      if (!ndk.signer) {
-        throw new Error("No signer available. Make sure you are logged in.");
+      if (!window.nostr) {
+        throw new Error('Nostr WebExtension not found. Please install a Nostr WebExtension like Alby or nos2x.');
       }
 
-      // Create and prepare the event
-      const event = await createIssueEvent(ndk);
-
-      // Use relay group utility for relays
-      const relays = new Set(selectRelayGroup().map(normalizeRelayUrl));
+      const event = await createIssueEvent(client);
+      const relays = new Set(selectRelayGroup('outbox'));
 
       try {
-        // Publish to relays with retry logic
-        successfulRelays = await publishToRelays(event, ndk, relays);
-
-        // Store the submitted event and create issue link
+        successfulRelays = await publishToRelaysWithRetry(event, relays);
         submittedEvent = event;
 
-        // Create the issue link using the repository address
-        const noteId = nip19.noteEncode(event.id);
-        issueLink = `https://gitcitadel.com/r/${repoAddress}/issues/${noteId}`;
+        const noteId = client.encoding.encodeNote(event.id);
+        issueLink = `https://gitcitadel.com/r/${REPO_ADDRESS}/issues/${noteId}`;
 
-        // Clear form and show success message
         clearForm();
         submissionSuccess = true;
       } catch (error) {
-        throw new Error("Failed to publish event");
+        throw new Error('Failed to publish event');
       }
     } catch (error: any) {
-      submissionError = `Error submitting issue: ${error.message || "Unknown error"}`;
+      submissionError = `Error submitting issue: ${error.message || 'Unknown error'}`;
     } finally {
       isSubmitting = false;
     }
@@ -227,44 +150,55 @@
   /**
    * Create and sign a new issue event
    */
-  async function createIssueEvent(ndk: NDK): Promise<NDKEvent> {
-    const event = new NDKEvent(ndk);
-    event.kind = 1621; // issue_kind
-    event.tags.push(["subject", subject]);
-    event.tags.push(["alt", `git repository issue: ${subject}`]);
-
-    // Add repository reference with proper format
-    const aTagValue = `30617:${repoOwnerPubkey}:${repoId}`;
-    event.tags.push(["a", aTagValue, "", "root"]);
-
-    // Add repository owner as p tag with proper value
-    event.tags.push(["p", repoOwnerPubkey]);
-
-    // Add MIME tags
-    const mimeTags = getMimeTags(1621);
-    event.tags.push(...mimeTags);
-
-    // Set content
-    event.content = content;
-
-    // Sign the event
-    try {
-      await event.sign();
-    } catch (error) {
-      throw new Error("Failed to sign event");
+  async function createIssueEvent(client: ReturnType<typeof getNostrClient>): Promise<NostrEvent> {
+    const user = client.getActiveUser();
+    if (!user) {
+      throw new Error('No active user found');
     }
 
-    return event;
+    if (!window.nostr) {
+      throw new Error('Nostr WebExtension not found');
+    }
+
+    // Create the unsigned event
+    const unsignedEvent: Omit<NostrEvent, 'id' | 'sig'> = {
+      pubkey: user.pubkey,
+      kind: 30023, // Long-form content
+      content: content,
+      tags: [
+        ['d', subject],
+        ['title', subject],
+        ['t', 'issue'],
+        ['a', REPO_ADDRESS],
+        ...getMimeTags(30023)
+      ],
+      created_at: Math.floor(Date.now() / 1000)
+    };
+
+    // Calculate event ID
+    const eventId = getEventHash(unsignedEvent);
+
+    // Sign the event using the WebExtension
+    const signedEvent = await window.nostr.signEvent(unsignedEvent);
+
+    // Return the complete signed event
+    return {
+      ...unsignedEvent,
+      id: eventId,
+      sig: signedEvent.sig
+    };
   }
 
   // Handle login completion
   $effect(() => {
-    if ($ndkSignedIn && showLoginModal) {
+    if (isLoggedIn && showLoginModal) {
       showLoginModal = false;
 
       // Restore saved form data
-      if (savedFormData.subject) subject = savedFormData.subject;
-      if (savedFormData.content) content = savedFormData.content;
+      if (savedFormData) {
+        subject = savedFormData.subject;
+        content = savedFormData.content;
+      }
 
       // Submit the issue
       submitIssue();
@@ -580,8 +514,10 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
   onClose={() => (showLoginModal = false)}
   onLoginSuccess={() => {
     // Restore saved form data
-    if (savedFormData.subject) subject = savedFormData.subject;
-    if (savedFormData.content) content = savedFormData.content;
+    if (savedFormData) {
+      subject = savedFormData.subject;
+      content = savedFormData.content;
+    }
 
     // Submit the issue
     submitIssue();

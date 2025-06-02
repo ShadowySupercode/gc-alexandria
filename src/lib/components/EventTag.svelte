@@ -1,33 +1,35 @@
 <script lang="ts">
-  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { neventEncode, naddrEncode } from "$lib/utils/identifierUtils";
   import { communityRelays } from "$lib/consts";
   import DualPill from "$components/util/DualPill.svelte";
-  import { ensureNDKEvent } from "$lib/utils/relayGroupUtils";
+  import type { NostrEvent } from "$lib/types/nostr";
 
   export let tag: string[];
 
   function getTagLink() {
     if (tag[0] === "a" && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(":");
-      const ndkEvent = ensureNDKEvent({
+      const event: NostrEvent = {
         kind: +kind,
         pubkey,
         tags: [["d", d]],
         content: "",
         id: "",
         sig: "",
-      });
-      return `/events?id=${naddrEncode(ndkEvent, communityRelays)}`;
+        created_at: Math.floor(Date.now() / 1000),
+      };
+      return `/events?id=${naddrEncode(event, communityRelays)}`;
     } else if (tag[0] === "e" && tag.length > 1) {
-      const ndkEvent = ensureNDKEvent({
+      const event: NostrEvent = {
         id: tag[1],
         kind: 1,
         content: "",
         tags: [],
         pubkey: "",
         sig: "",
-      });
-      return `/events?id=${neventEncode(ndkEvent, communityRelays)}`;
+        created_at: Math.floor(Date.now() / 1000),
+      };
+      return `/events?id=${neventEncode(event, communityRelays)}`;
     }
     return null;
   }

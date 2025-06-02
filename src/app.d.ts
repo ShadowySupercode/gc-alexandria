@@ -1,6 +1,7 @@
 // See https://kit.svelte.dev/docs/types#app
 
-import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NostrEvent } from './lib/types/nostr';
+import type { NostrClient } from './lib/types/nostr';
 import Pharos from "./lib/parser.ts";
 
 // for information about these interfaces
@@ -9,10 +10,12 @@ declare global {
     // interface Error {}
     // interface Locals {}
     interface PageData {
-      waitable?: Promise<any>;
-      publicationType?: string;
-      indexEvent?: NDKEvent;
-      url?: URL;
+      client: NostrClient;
+      parser: Pharos;
+      indexEvent: NostrEvent;
+      url: URL;
+      publicationType: string;
+      waitable: Promise<void>;
     }
     // interface Platform {}
   }

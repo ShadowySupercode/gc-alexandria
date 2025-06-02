@@ -1,96 +1,86 @@
 <script lang="ts">
   import { Button, Textarea, Alert } from "flowbite-svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { nip19 } from "nostr-tools";
+  import { parseBasicmarkup } from "$lib/utils";
   import {
     getEventHash,
     signEvent,
     getUserMetadata,
     type NostrProfile,
     publishEvent,
-  } from "$lib/utils/nostrUtils";
-  import { communityRelays, fallbackRelays } from "$lib/consts";
-  import { userRelays } from "$lib/stores/relayStore";
+    toNpub,
+    type NostrEvent,
+  } from "$lib/utils";
+  import { neventEncode } from "$lib/utils/identifierUtils";
+  import { fallbackRelays } from "$lib/consts";
+  import { userOutboxRelays } from "$lib/stores/relayStore";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { onMount } from "svelte";
+  import { getNostrClient } from "$lib/nostr/client";
+  import { publishToRelays } from '$lib/utils/relayUtils';
+  import type { NostrUser } from '$lib/types/nostr';
 
-  const props = $props<{
-    event: NDKEvent;
-    userPubkey: string;
-    userRelayPreference: boolean;
+  // Component props
+  let { event: parentEvent, userPubkey, userRelayPreference } = $props<{
+    event: NostrEvent;
+    userPubkey: string | null;
+    userRelayPreference: string[];
   }>();
 
+  // UI state
   let content = $state("");
   let previewContent = $state("");
   let isSubmitting = $state(false);
+  let submissionError = $state("");
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
+  let lastEvent = $state<NostrEvent | null>(null);
 
-  // Update relay visibility based on user relays and preferences
-  $effect(() => {
-    showOtherRelays = $userRelays.length > 0;
-    showFallbackRelays = !props.userRelayPreference;
-  });
+  // Get the Nostr client
+  const client = getNostrClient();
 
-  // Update preview content when content changes
-  $effect(() => {
-    if (content) {
-      parseBasicmarkup(content).then((parsed) => {
-        previewContent = parsed;
-      });
-    } else {
-      previewContent = "";
-    }
-  });
+  // --- Helpers ---
+  function safeNpub(pubkey: string | undefined | null): string {
+    const npub = pubkey ? toNpub(pubkey) : '';
+    return npub ? npub.slice(0, 8) + '...' : '';
+  }
 
-  // Fetch user profile on mount
-  onMount(async () => {
-    if (props.userPubkey) {
-      const npub = nip19.npubEncode(props.userPubkey);
-      userProfile = await getUserMetadata(npub);
-    }
-  });
+  // Helper function to get tag value from NostrEvent
+  function getTagValue<T = string>(event: NostrEvent, tagName: string): T | undefined {
+    const matches = event.tags.filter((tag) => tag[0] === tagName);
+    return matches[0]?.[1] as T | undefined;
+  }
 
-  // Markup buttons
-  const markupButtons = [
-    { label: "Bold", action: () => insertMarkup("**", "**") },
-    { label: "Italic", action: () => insertMarkup("_", "_") },
-    { label: "Strike", action: () => insertMarkup("~~", "~~") },
-    { label: "Link", action: () => insertMarkup("[", "](url)") },
-    { label: "Image", action: () => insertMarkup("![", "](url)") },
-    { label: "Quote", action: () => insertMarkup("> ", "") },
-    { label: "List", action: () => insertMarkup("- ", "") },
-    { label: "Numbered List", action: () => insertMarkup("1. ", "") },
-    { label: "Hashtag", action: () => insertMarkup("#", "") },
-  ];
+  // Helper function to get d-tag value from NostrEvent, ensuring it returns a string
+  function getDTag(event: NostrEvent): string {
+    return getTagValue<string>(event, "d") ?? "";
+  }
 
   async function insertMarkup(prefix: string, suffix: string) {
     const textarea = document.querySelector("textarea");
-    if (!textarea) return;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = content.substring(start, end);
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
+      content =
+        content.substring(0, start) +
+        prefix +
+        selectedText +
+        suffix +
+        content.substring(end);
 
-    content =
-      content.substring(0, start) +
-      prefix +
-      selectedText +
-      suffix +
-      content.substring(end);
-
-    // Update preview and set cursor position after the inserted markup
-    await parseBasicmarkup(content).then((parsed) => {
-      previewContent = parsed;
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd =
-        start + prefix.length + selectedText.length + suffix.length;
-    });
+      // Update preview and set cursor position after the inserted markup
+      await parseBasicmarkup(content).then((parsed) => {
+        previewContent = parsed;
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd =
+          start + prefix.length + selectedText.length + suffix.length;
+      });
+    }
   }
 
   function clearForm() {
@@ -113,107 +103,108 @@
       .replace(/#(\w+)/g, "$1");
   }
 
-  async function handleSubmit(
-    useOtherRelays = false,
-    useFallbackRelays = false,
-  ) {
-    isSubmitting = true;
-    error = null;
-    success = null;
+  // --- Effects ---
+  $effect(() => {
+    showOtherRelays = $userOutboxRelays.length > 0;
+    showFallbackRelays = userRelayPreference.length === 0;
+  });
+
+  $effect(() => {
+    if (userPubkey) {
+      // Get user profile
+      const npub = toNpub(userPubkey);
+      if (npub) {
+        getUserMetadata(npub).then((metadata) => {
+          userProfile = metadata;
+        });
+      }
+    }
+  });
+
+  $effect(() => {
+    if (content) {
+      parseBasicmarkup(content).then((parsed) => {
+        previewContent = parsed;
+      });
+    } else {
+      previewContent = "";
+    }
+  });
+
+  // --- Markup Buttons ---
+  const markupButtons = [
+    { label: "Bold", action: () => insertMarkup("**", "**") },
+    { label: "Italic", action: () => insertMarkup("_", "_") },
+    { label: "Strike", action: () => insertMarkup("~~", "~~") },
+    { label: "Link", action: () => insertMarkup("[", "](url)") },
+    { label: "Image", action: () => insertMarkup("![", "](url)") },
+    { label: "Quote", action: () => insertMarkup("> ", "") },
+    { label: "List", action: () => insertMarkup("- ", "") },
+    { label: "Numbered List", action: () => insertMarkup("1. ", "") },
+    { label: "Hashtag", action: () => insertMarkup("#", "") },
+  ];
+
+  // --- Main Action ---
+  async function submitComment() {
+    if (!userPubkey || !content.trim()) return;
 
     try {
-      if (!props.event.kind) {
-        throw new Error("Invalid event: missing kind");
+      isSubmitting = true;
+      submissionError = "";
+
+      const client = getNostrClient();
+      if (!client) {
+        throw new Error("Nostr client not initialized");
       }
 
-      const kind = props.event.kind === 1 ? 1 : 1111;
-      const tags: string[][] = [];
-
-      if (kind === 1) {
-        // NIP-10 reply
-        tags.push(["e", props.event.id, "", "reply"]);
-        tags.push(["p", props.event.pubkey]);
-        if (props.event.tags) {
-          const rootTag = props.event.tags.find(
-            (t: string[]) => t[0] === "e" && t[3] === "root",
-          );
-          if (rootTag) {
-            tags.push(["e", rootTag[1], "", "root"]);
-          }
-          // Add all p tags from the parent event
-          props.event.tags
-            .filter((t: string[]) => t[0] === "p")
-            .forEach((t: string[]) => {
-              if (!tags.some((pt: string[]) => pt[1] === t[1])) {
-                tags.push(["p", t[1]]);
-              }
-            });
-        }
-      } else {
-        // NIP-22 comment
-        tags.push(["E", props.event.id, "", props.event.pubkey]);
-        tags.push(["K", props.event.kind.toString()]);
-        tags.push(["P", props.event.pubkey]);
-        tags.push(["e", props.event.id, "", props.event.pubkey]);
-        tags.push(["k", props.event.kind.toString()]);
-        tags.push(["p", props.event.pubkey]);
+      const user = client.getActiveUser();
+      if (!user) {
+        throw new Error("No active user found");
       }
 
-      const eventToSign = {
-        kind,
-        created_at: Math.floor(Date.now() / 1000),
-        tags,
-        content,
-        pubkey: props.userPubkey,
+      if (!window.nostr) {
+        throw new Error("Nostr WebExtension not found. Please install a Nostr WebExtension like Alby or nos2x.");
+      }
+
+      // Create the event
+      const commentEvent: Omit<NostrEvent, 'id' | 'sig'> = {
+        pubkey: userPubkey,
+        kind: 1, // Text note
+        content: content.trim(),
+        tags: [
+          ['e', parentEvent.id],
+          ['p', parentEvent.pubkey]
+        ],
+        created_at: Math.floor(Date.now() / 1000)
       };
 
-      const id = getEventHash(eventToSign);
-      const sig = await signEvent(eventToSign);
+      // Calculate event ID
+      const eventId = getEventHash(commentEvent);
 
-      const signedEvent = {
-        ...eventToSign,
-        id,
-        sig,
+      // Sign the event using the WebExtension
+      const signedEvent = await window.nostr.signEvent(commentEvent);
+
+      // Publish the event using NostrClient
+      const publishedEvent = {
+        ...commentEvent,
+        id: eventId,
+        sig: signedEvent.sig
       };
 
-      // Determine which relays to use
-      let relays = props.userRelayPreference ? get(userRelays) : communityRelays;
-      if (useOtherRelays) {
-        relays = props.userRelayPreference ? communityRelays : get(userRelays);
-      }
-      if (useFallbackRelays) {
-        relays = fallbackRelays;
-      }
+      await client.publish(publishedEvent);
 
-      // Try to publish the event
-      const result = await publishEvent(signedEvent, {
-        relays,
-        useFallbackRelays: !useFallbackRelays && !useOtherRelays,
-      });
+      // Clear the form
+      content = "";
+      isSubmitting = false;
 
-      if (result.success) {
-        success = { relay: result.relay!, eventId: signedEvent.id };
-        // Navigate to the event page
-        const nevent = nip19.neventEncode({ id: signedEvent.id });
-        goto(`/events?id=${nevent}`);
-      } else {
-        if (!useOtherRelays && !useFallbackRelays) {
-          showOtherRelays = true;
-          error =
-            "Failed to publish to primary relays. Would you like to try the other relays?";
-        } else if (useOtherRelays && !useFallbackRelays) {
-          showFallbackRelays = true;
-          error =
-            "Failed to publish to other relays. Would you like to try the fallback relays?";
-        } else {
-          error =
-            result.error ||
-            "Failed to publish to any relays. Please try again later.";
-        }
-      }
-    } catch (e) {
-      error = e instanceof Error ? e.message : "An error occurred";
-    } finally {
+      // Store the event for later use
+      lastEvent = publishedEvent;
+      // Navigate to the event page
+      const nevent = neventEncode(publishedEvent, userRelayPreference);
+      goto(`/events?id=${nevent}`);
+    } catch (error) {
+      console.error('Failed to submit comment:', error);
+      submissionError = error instanceof Error ? error.message : 'Failed to submit comment';
       isSubmitting = false;
     }
   }
@@ -244,18 +235,14 @@
     </div>
   </div>
 
-  {#if error}
+  {#if submissionError}
     <Alert color="red" dismissable>
-      {error}
+      {submissionError}
       {#if showOtherRelays}
-        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}
-          >Try Other Relays</Button
-        >
+        <Button size="xs" class="mt-2" onclick={() => submitComment()}>Try Other Relays</Button>
       {/if}
       {#if showFallbackRelays}
-        <Button size="xs" class="mt-2" onclick={() => handleSubmit(false, true)}
-          >Try Fallback Relays</Button
-        >
+        <Button size="xs" class="mt-2" onclick={() => submitComment()}>Try Fallback Relays</Button>
       {/if}
     </Alert>
   {/if}
@@ -263,22 +250,25 @@
   {#if success}
     <Alert color="green" dismissable>
       Comment published successfully to {success.relay}!
-      <a
-        href="/events?id={nip19.neventEncode({ id: success.eventId })}"
-        class="text-primary-600 dark:text-primary-500 hover:underline"
-      >
-        View your comment
-      </a>
+      {#if lastEvent}
+        <a
+          href="/events?id={neventEncode(lastEvent, userRelayPreference)}"
+          class="text-primary-600 dark:text-primary-500 hover:underline"
+        >
+          View comment
+        </a>
+      {/if}
     </Alert>
   {/if}
 
   <div class="flex justify-end items-center gap-4">
     {#if userProfile}
+      {@const { picture, name, displayName } = userProfile}
       <div class="flex items-center gap-2 text-sm">
-        {#if userProfile.picture}
+        {#if picture}
           <img
-            src={userProfile.picture}
-            alt={userProfile.name || "Profile"}
+            src={picture}
+            alt={name ?? 'Profile'}
             class="w-8 h-8 rounded-full"
             onerror={(e) => {
               const img = e.target as HTMLImageElement;
@@ -287,18 +277,20 @@
           />
         {/if}
         <span class="text-gray-700 dark:text-gray-300">
-          {userProfile.displayName ||
-            userProfile.name ||
-            nip19.npubEncode(props.userPubkey).slice(0, 8) + "..."}
+          {(displayName ?? name) || safeNpub(userPubkey)}
         </span>
       </div>
+    {:else}
+      <span class="text-gray-700 dark:text-gray-300">
+        {safeNpub(userPubkey)}
+      </span>
     {/if}
     <Button
-      onclick={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !props.userPubkey}
+      onclick={() => submitComment()}
+      disabled={isSubmitting || !content.trim() || !userPubkey}
       class="w-full md:w-auto"
     >
-      {#if !props.userPubkey}
+      {#if !userPubkey}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -308,7 +300,7 @@
     </Button>
   </div>
 
-  {#if !props.userPubkey}
+  {#if !userPubkey}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

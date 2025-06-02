@@ -5,11 +5,13 @@
  * It handles the creation of nodes and links, and the processing of event relationships.
  */
 
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NostrEvent } from "$lib/types/nostr";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
-import { nip19 } from "nostr-tools";
 import { communityRelays } from "$lib/consts";
-import { getTagValue, getTagValues } from "$lib/utils/eventTags";
+import { getTagValue, getTagValues } from '$lib/utils';
+import { naddrEncode } from '$lib/utils/eventEncoding';
+import { toNostrEvent } from '$lib/utils';
+import { getNostrClient } from '$lib/nostr/client';
 
 // Configuration
 const DEBUG = false; // Set to true to enable debug logging
@@ -26,7 +28,7 @@ function debug(...args: any[]) {
 }
 
 /**
- * Creates a NetworkNode from an NDKEvent
+ * Creates a NetworkNode from a NostrEvent
  *
  * Extracts relevant information from the event and creates a node representation
  * for the visualization.
@@ -36,7 +38,7 @@ function debug(...args: any[]) {
  * @returns A NetworkNode object representing the event
  */
 export function createNetworkNode(
-  event: NDKEvent,
+  event: NostrEvent,
   level: number = 0,
 ): NetworkNode {
   debug("Creating network node", {
@@ -54,7 +56,7 @@ export function createNetworkNode(
     event,
     isContainer,
     level,
-    title: event.getTagValue("title") || "Untitled",
+    title: getTagValue(event, "title") || "Untitled",
     content: event.content || "",
     author: event.pubkey || "",
     kind: event.kind || CONTENT_EVENT_KIND, // Default to content event kind if undefined
@@ -64,21 +66,15 @@ export function createNetworkNode(
   // Add NIP-19 identifiers if possible
   if (event.kind && event.pubkey) {
     try {
-      const dTag = event.getTagValue("d") || "";
-
+      const client = getNostrClient();
+      
       // Create naddr (NIP-19 address) for the event
-      node.naddr = nip19.naddrEncode({
-        pubkey: event.pubkey,
-        identifier: dTag,
-        kind: event.kind,
-        relays: communityRelays,
-      });
+      node.naddr = naddrEncode(event, communityRelays);
 
       // Create nevent (NIP-19 event reference) for the event
-      node.nevent = nip19.neventEncode({
+      node.nevent = client.encoding.encodeNevent({
         id: event.id,
         relays: communityRelays,
-        kind: event.kind,
       });
     } catch (error) {
       console.warn("Failed to generate identifiers for node:", error);
@@ -94,10 +90,10 @@ export function createNetworkNode(
  * @param events - Array of Nostr events
  * @returns Map of event IDs to events
  */
-export function createEventMap(events: NDKEvent[]): Map<string, NDKEvent> {
+export function createEventMap(events: NostrEvent[]): Map<string, NostrEvent> {
   debug("Creating event map", { eventCount: events.length });
 
-  const eventMap = new Map<string, NDKEvent>();
+  const eventMap = new Map<string, NostrEvent>();
   events.forEach((event) => {
     if (event.id) {
       eventMap.set(event.id, event);
@@ -148,7 +144,7 @@ export function getEventColor(eventId: string): string {
  * @param events - Array of Nostr events
  * @returns Initial graph state
  */
-export function initializeGraphState(events: NDKEvent[]): GraphState {
+export function initializeGraphState(events: NostrEvent[]): GraphState {
   debug("Initializing graph state", { eventCount: events.length });
 
   const nodeMap = new Map<string, NetworkNode>();
@@ -165,14 +161,14 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
   // Build set of referenced event IDs to identify root events
   const referencedIds = new Set<string>();
   events.forEach((event) => {
-    const aTags = event.getTagValues("a");
+    const aTags = getTagValues(event, "a");
     debug("Processing a-tags for event", {
       eventId: event.id,
       aTagCount: aTags.length,
     });
 
-    aTags.forEach((tag) => {
-      const id = extractDTagFromATag(tag);
+    aTags.forEach((tagValue: string) => {
+      const id = extractDTagFromATag(tagValue);
       if (id) referencedIds.add(id);
     });
   });
@@ -200,7 +196,7 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
  */
 export function processSequence(
   sequence: NetworkNode[],
-  indexEvent: NDKEvent,
+  indexEvent: NostrEvent,
   level: number,
   state: GraphState,
   maxLevel: number,
@@ -278,7 +274,7 @@ export function processNestedIndex(
  * @param maxLevel - Maximum hierarchy level to process
  */
 export function processIndexEvent(
-  indexEvent: NDKEvent,
+  indexEvent: NostrEvent,
   level: number,
   state: GraphState,
   maxLevel: number,
@@ -286,9 +282,8 @@ export function processIndexEvent(
   if (level >= maxLevel) return;
 
   // Extract the sequence of nodes referenced by this index
-  const sequence = indexEvent
-    .getTagValues("a")
-    .map((tag: string) => extractDTagFromATag(tag))
+  const sequence = getTagValues(indexEvent, "a")
+    .map((tagValue: string) => extractDTagFromATag(tagValue))
     .filter((id: string | null): id is string => id !== null)
     .map((id: string) => state.nodeMap.get(id))
     .filter(
@@ -308,7 +303,7 @@ export function processIndexEvent(
  * @param maxLevel - Maximum hierarchy level to process
  * @returns Complete graph data for visualization
  */
-export function generateGraph(events: NDKEvent[], maxLevel: number): GraphData {
+export function generateGraph(events: NostrEvent[], maxLevel: number): GraphData {
   debug("Generating graph", { eventCount: events.length, maxLevel });
 
   // Initialize the graph state
@@ -329,7 +324,7 @@ export function generateGraph(events: NDKEvent[], maxLevel: number): GraphData {
   rootIndices.forEach((rootIndex) => {
     debug("Processing root index", {
       rootId: rootIndex.id,
-      aTags: rootIndex.getTagValues("a").length,
+      aTags: getTagValues(rootIndex, "a").length,
     });
     processIndexEvent(rootIndex, 0, state, maxLevel);
   });

@@ -4,10 +4,11 @@
     contentParagraph,
     sectionHeading,
   } from "$lib/snippets/PublicationSnippets.svelte";
-  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import { TextPlaceholder } from "flowbite-svelte";
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
+  import type { NostrEvent } from '$lib/types/nostr';
+  import { getTagAddress } from '$lib/utils/eventUtils';
 
   let {
     address,
@@ -17,44 +18,46 @@
   }: {
     address: string;
     rootAddress: string;
-    leaves: Array<NDKEvent | null>;
+    leaves: Array<NostrEvent | null>;
     ref: (ref: HTMLElement) => void;
   } = $props();
 
   const publicationTree: PublicationTree = getContext("publicationTree");
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
 
-  let leafEvent: Promise<NDKEvent | null> = $derived.by(
+  let leafEvent: Promise<NostrEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(address),
   );
 
-  let rootEvent: Promise<NDKEvent | null> = $derived.by(
+  let rootEvent: Promise<NostrEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(rootAddress),
   );
 
-  let publicationType: Promise<string | undefined> = $derived.by(async () =>
-    (await rootEvent)?.getTagValue("type"),
-  );
+  let publicationType: Promise<string | undefined> = $derived.by(async () => {
+    const event = await rootEvent;
+    return event ? getTagValue(event, 'type') : undefined;
+  });
 
-  let leafHierarchy: Promise<NDKEvent[]> = $derived.by(
+  let leafHierarchy: Promise<NostrEvent[]> = $derived.by(
     async () => await publicationTree.getHierarchy(address),
   );
 
-  let leafTitle: Promise<string | undefined> = $derived.by(async () =>
-    (await leafEvent)?.getTagValue("title"),
-  );
+  let leafTitle: Promise<string | undefined> = $derived.by(async () => {
+    const event = await leafEvent;
+    return event ? getTagValue(event, 'title') : undefined;
+  });
 
   let leafContent: Promise<string | Document> = $derived.by(async () =>
     asciidoctor.convert((await leafEvent)?.content ?? ""),
   );
 
-  let previousLeafEvent: NDKEvent | null = $derived.by(() => {
+  let previousLeafEvent: NostrEvent | null = $derived.by(() => {
     let index: number;
-    let event: NDKEvent | null = null;
+    let event: NostrEvent | null = null;
     let decrement = 1;
 
     do {
-      index = leaves.findIndex((leaf) => leaf?.tagAddress() === address);
+      index = leaves.findIndex((leaf) => leaf && getTagAddress(leaf) === address);
       if (index === 0) {
         return null;
       }
@@ -64,12 +67,12 @@
     return event;
   });
 
-  let previousLeafHierarchy: Promise<NDKEvent[] | null> = $derived.by(
+  let previousLeafHierarchy: Promise<NostrEvent[] | null> = $derived.by(
     async () => {
       if (!previousLeafEvent) {
         return null;
       }
-      return await publicationTree.getHierarchy(previousLeafEvent.tagAddress());
+      return await publicationTree.getHierarchy(getTagAddress(previousLeafEvent));
     },
   );
 
@@ -79,7 +82,7 @@
       previousLeafHierarchy,
     ]);
 
-    const branches: [NDKEvent, number][] = [];
+    const branches: [NostrEvent, number][] = [];
 
     if (!previousLeafHierarchyValue) {
       for (let i = 0; i < leafHierarchyValue.length - 1; i++) {
@@ -97,8 +100,8 @@
     let divergingIndex = 0;
     while (
       divergingIndex < minLength &&
-      leafHierarchyValue[divergingIndex].tagAddress() ===
-        previousLeafHierarchyValue[divergingIndex].tagAddress()
+      getTagAddress(leafHierarchyValue[divergingIndex]) ===
+        getTagAddress(previousLeafHierarchyValue[divergingIndex])
     ) {
       divergingIndex++;
     }
@@ -120,6 +123,18 @@
 
     ref(sectionRef);
   });
+
+  /**
+   * Gets the first matching tag value for a given tag name from a NostrEvent.
+   */
+  function getTagValue<T = string>(event: NostrEvent, tagName: string): T | undefined {
+    const matches = event.tags.filter((tag) => tag[0] === tagName);
+    if (matches.length > 1) {
+      // Do not throw; just return the first value
+      return matches[0]?.[1] as T | undefined;
+    }
+    return matches[0]?.[1] as T | undefined;
+  }
 </script>
 
 <section
@@ -131,7 +146,7 @@
     <TextPlaceholder size="xxl" />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {#each divergingBranches as [branch, depth]}
-      {@render sectionHeading(branch.getTagValue("title") ?? "", depth)}
+      {@render sectionHeading(getTagValue(branch, 'title') ?? "", depth)}
     {/each}
     {#if leafTitle}
       {@const leafDepth = leafHierarchy.length - 1}

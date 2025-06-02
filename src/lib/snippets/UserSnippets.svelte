@@ -3,7 +3,8 @@
     createProfileLink,
     createProfileLinkWithVerification,
     toNpub,
-  } from "$lib/utils/nostrUtils";
+    getUserMetadata,
+  } from "$lib/utils";
 
   export { userBadge };
 </script>

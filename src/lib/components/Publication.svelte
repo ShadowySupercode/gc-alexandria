@@ -13,7 +13,7 @@
     CloseOutline,
     ExclamationCircleOutline,
   } from "flowbite-svelte-icons";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import type { NostrEvent } from '$lib/types/nostr';
   import PublicationSection from "./PublicationSection.svelte";
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import Details from "$components/util/Details.svelte";
@@ -22,11 +22,12 @@
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
   import { pharosInstance } from "$lib/parser";
+  import { getTagAddress } from '$lib/utils/eventUtils';
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
     publicationType: string;
-    indexEvent: NDKEvent;
+    indexEvent: NostrEvent;
   }>();
 
   const publicationTree = getContext("publicationTree") as PublicationTree;
@@ -35,12 +36,13 @@
 
   // TODO: Test load handling.
 
-  let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state<boolean>(false);
   let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
 
   let observer: IntersectionObserver;
+
+  let leaves = $state<Array<NostrEvent | null>>([]);
 
   async function loadMore(count: number) {
     isLoading = true;
@@ -86,7 +88,7 @@
   let currentBlog: null | string = $state(null);
   let currentBlogEvent = $derived.by(() => {
     if (!currentBlog || leaves.length === 0) return null;
-    return leaves.find((i) => i && i.tagAddress() === currentBlog) ?? null;
+    return leaves.find((i: NostrEvent | null) => i && getTagAddress(i) === currentBlog) ?? null;
   });
   const isLeaf = $derived.by(() => indexEvent.kind === 30041);
 
@@ -178,8 +180,8 @@
       {:else}
         <PublicationSection
           {rootAddress}
-          {leaves}
-          address={leaf.tagAddress()}
+          leaves={leaves as Array<NostrEvent | null>}
+          address={getTagAddress(leaf)}
           ref={(el) => setLastElementRef(el, i)}
         />
       {/if}
@@ -213,7 +215,7 @@
     {#each leaves as leaf, i}
       {#if leaf}
         <BlogHeader
-          rootId={leaf.tagAddress()}
+          rootId={getTagAddress(leaf)}
           event={leaf}
           onBlogUpdate={loadBlog}
           active={!isInnerActive}
@@ -229,17 +231,17 @@
       class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-146px)] sticky top-[146px]"
     >
       {#each leaves as leaf, i}
-        {#if leaf && leaf.tagAddress() === currentBlog}
+        {#if leaf && getTagAddress(leaf) === currentBlog}
           <div
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
-            <Details event={leaf} />
+            <Details event={leaf as NostrEvent} />
           </div>
 
           <PublicationSection
             {rootAddress}
-            {leaves}
-            address={leaf.tagAddress()}
+            leaves={leaves as Array<NostrEvent | null>}
+            address={getTagAddress(leaf)}
             ref={(el) => setLastElementRef(el, i)}
           />
 
@@ -270,7 +272,7 @@
           {#if showBlogHeader && currentBlog && currentBlogEvent}
             <BlogHeader
               rootId={currentBlog}
-              event={currentBlogEvent}
+              event={currentBlogEvent as NostrEvent}
               onBlogUpdate={loadBlog}
               active={true}
             />

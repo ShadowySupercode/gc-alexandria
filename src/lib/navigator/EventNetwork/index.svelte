@@ -8,7 +8,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import * as d3 from "d3";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import type { NostrEvent } from "$lib/types/nostr";
   import { levelsToRender } from "$lib/state";
   import { generateGraph, getEventColor } from "./utils/networkBuilder";
   import {
@@ -23,6 +23,7 @@
   import type { NetworkNode, NetworkLink } from "./types";
   import Settings from "./Settings.svelte";
   import { Button } from "flowbite-svelte";
+  import { toNostrEvent } from "$lib/utils";
 
   // Type alias for D3 selections
   type Selection = any;
@@ -46,7 +47,7 @@
 
   // Component props
   let { events = [], onupdate } = $props<{
-    events?: NDKEvent[];
+    events?: NostrEvent[];
     onupdate: () => void;
   }>();
 

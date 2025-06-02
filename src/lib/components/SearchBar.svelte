@@ -1,16 +1,28 @@
 <script lang="ts">
   import { Button, Input } from "flowbite-svelte";
+  import { relayGroup, useFallbackRelays } from "$lib/stores/relayGroup";
+  import { selectRelayGroup } from "$lib/utils";
+  import { fallbackRelays } from "$lib/consts";
+  import { onDestroy, onMount } from "svelte";
+  import type { NostrEvent } from '$lib/types/nostr';
 
+  // Constants
+  const SEARCH_TIMEOUT = 10000; // 10 seconds timeout for overall search operation
+  const RELAY_TIMEOUT = 2500; // 2.5 seconds timeout for individual relay fetches
+
+  // Props
   const {
     placeholder = "Search...",
     initialValue = "",
-    showFallbackToggle = false,
     searchDisabled = false,
     clearDisabled = false,
     isSearching = false,
-    onDispatchSearch = (query: string) => {},
+    onDispatchSearch = (query: string, relays: string[], signal: AbortSignal, options: { relayTimeout?: number } = {}) => {},
     onDispatchCancel = () => {},
     onDispatchClear = () => {},
+    onSearchResults = (events: NostrEvent[]) => {},
+    onSearchError = (error: { message: string; code: string } | null) => {},
+    onSearchProgress = (progress: { processed: number; total: number; percentage: number } | null) => {},
   } = $props<{
     placeholder?: string;
     initialValue?: string;
@@ -18,39 +30,121 @@
     searchDisabled?: boolean;
     clearDisabled?: boolean;
     isSearching?: boolean;
-    onDispatchSearch?: (query: string) => void;
+    onDispatchSearch?: (query: string, relays: string[], signal: AbortSignal, options?: { relayTimeout?: number }) => void;
     onDispatchCancel?: () => void;
     onDispatchClear?: () => void;
+    onSearchResults?: (events: NostrEvent[]) => void;
+    onSearchError?: (error: { message: string; code: string } | null) => void;
+    onSearchProgress?: (progress: { processed: number; total: number; percentage: number } | null) => void;
   }>();
 
+  // State
   let searchValue = $state(initialValue);
-  let useFallbackRelays = $state(false);
+  let searchTimeout: number | null = $state(null);
+  let searchAbortController: AbortController | null = $state(null);
 
-  // Load saved preferences from localStorage
-  $effect(() => {
-    if (typeof window !== 'undefined') {
-      useFallbackRelays = localStorage.getItem('useFallbackRelays') === 'true';
-    }
+  // Derived values
+  let activeRelays = $derived.by(() => {
+    const primaryRelays = selectRelayGroup('inbox');
+    const fallback = $useFallbackRelays
+      ? fallbackRelays.filter((r) => !primaryRelays.includes(r))
+      : [];
+    return [...primaryRelays, ...fallback];
   });
 
+  // Functions
   function handleSearch() {
     if (searchValue.trim()) {
-      onDispatchSearch(searchValue.trim());
+      const query = searchValue.trim();
+      console.log(`[Search] Starting search for "${query}"`);
+      console.log(`[Search] Using relays:`, activeRelays);
+
+      // Cancel any ongoing search
+      if (searchAbortController) {
+        searchAbortController.abort();
+      }
+      searchAbortController = new AbortController();
+
+      // Set search timeout
+      if (searchTimeout) {
+        window.clearTimeout(searchTimeout);
+      }
+      searchTimeout = window.setTimeout(() => {
+        if (searchAbortController) {
+          const error = {
+            message: "Search operation timed out",
+            code: "TIMEOUT",
+          };
+          onSearchError(error);
+          searchAbortController.abort();
+          searchAbortController = null;
+        }
+      }, SEARCH_TIMEOUT);
+
+      // Start search with relay timeout option
+      onDispatchSearch(query, activeRelays, searchAbortController.signal, { relayTimeout: RELAY_TIMEOUT });
     }
   }
 
   function handleClear() {
+    console.log('[Search] Clearing search');
+    if (searchTimeout) {
+      window.clearTimeout(searchTimeout);
+      searchTimeout = null;
+    }
+    if (searchAbortController) {
+      searchAbortController.abort();
+      searchAbortController = null;
+    }
     searchValue = "";
     onDispatchClear();
+  }
+
+  function handleCancel() {
+    console.log('[Search] Cancelling search');
+    if (searchTimeout) {
+      window.clearTimeout(searchTimeout);
+      searchTimeout = null;
+    }
+    if (searchAbortController) {
+      searchAbortController.abort();
+      searchAbortController = null;
+    }
+    onDispatchCancel();
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Enter") {
       handleSearch();
     } else if (event.key === "Escape") {
-      onDispatchCancel();
+      handleCancel();
     }
   }
+
+  // Effects
+  $effect(() => {
+    console.log('[Search] Relay configuration updated:', {
+      relayGroup: $relayGroup,
+      useFallbackRelays: $useFallbackRelays,
+      activeRelays
+    });
+  });
+
+  // Lifecycle
+  onMount(() => {
+    if (initialValue) {
+      handleSearch();
+    }
+  });
+
+  onDestroy(() => {
+    if (searchTimeout) {
+      window.clearTimeout(searchTimeout);
+    }
+    if (searchAbortController) {
+      searchAbortController.abort();
+    }
+  });
 </script>
 
 <div class="flex flex-col gap-2">

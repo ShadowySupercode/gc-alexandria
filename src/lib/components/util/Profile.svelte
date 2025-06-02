@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { logout, ndkInstance, getActiveUser } from "$lib/ndk";
+  import { getNostrClient } from '$lib/nostr/client';
   import {
     ArrowRightToBracketOutline,
     UserOutline,
@@ -7,8 +7,8 @@
     CogOutline,
   } from "flowbite-svelte-icons";
   import { Avatar, Popover, Button } from "flowbite-svelte";
-  import type { NostrProfile } from "$lib/utils/nostrUtils";
-  import { getUserMetadata } from "$lib/utils/nostrUtils";
+  import type { NostrProfile } from '$lib/utils/types';
+  import { getUserMetadata, toNpub } from '$lib/utils';
   import SettingsModal from "$lib/components/SettingsModal.svelte";
 
   const externalProfileDestination = "./events?id=";
@@ -19,27 +19,27 @@
   let pfp = $derived.by(() => profile?.picture);
   let username = $derived.by(() => profile?.display_name || profile?.name);
   let nip05 = $derived.by(() => profile?.nip05);
-  let npub = $derived.by(
-    () => $ndkInstance.getUser({ pubkey: pubkey ?? undefined })?.npub,
-  );
+  let npub = $derived.by(() => pubkey ? toNpub(pubkey) : undefined);
   let showSettings = $state(false);
   let copied = $state(false);
   let showNpubPopover = $state(false);
 
+  // Get the Nostr client
+  const client = getNostrClient();
+
   $effect(() => {
-    const user = $ndkInstance.getUser({ pubkey: pubkey ?? undefined });
-    if (user?.npub) {
-      getUserMetadata(user.npub).then((metadata) => {
-        profile = metadata;
-      });
+    if (pubkey) {
+      const npub = toNpub(pubkey);
+      if (npub) {
+        getUserMetadata(npub).then((metadata) => {
+          profile = metadata;
+        });
+      }
     }
   });
 
   async function handleSignOutClick() {
-    const user = getActiveUser();
-    if (user) {
-      logout(user);
-    }
+    client.setActiveUser(null);
     profile = null;
     // Clear all Alexandria/Nostr-related localStorage/sessionStorage
     localStorage.clear(); // or selectively remove only Alexandria keys if you want

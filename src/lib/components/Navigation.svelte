@@ -9,6 +9,8 @@
   import Login from "./Login.svelte";
 
   let { class: className = "" } = $props();
+
+  console.log('[Navigation] Navigation.svelte loaded');
 </script>
 
 <Navbar class={`Navbar navbar-leather navbar-main ${className}`}>

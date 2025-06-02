@@ -2,32 +2,52 @@
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import type { NDKEvent, NostrProfile } from "$lib/utils/nostrUtils";
+  import type { NostrEvent } from '$lib/types/nostr';
+  import type { NostrProfile } from '$lib/utils/types';
   import EventSearch from "$lib/components/EventSearch.svelte";
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
+  import { selectRelayGroup } from '$lib/utils';
 
-  let loading = false;
-  let error: string | null = null;
-  let searchValue: string | null = null;
-  let event: NDKEvent | null = null;
-  let profile: NostrProfile | null = null;
-  let userPubkey: string | null = null;
-  let userRelayPreference = false;
+  // Define props
+  let {
+    address,
+    publicationType,
+    ref,
+  }: {
+    address: string,
+    publicationType: string,
+    ref: (ref: HTMLElement) => void,
+  } = $props();
 
-  let searchTerm = "";
+  // Component state using runes
+  let loading = $state(false);
+  let error = $state<string | null>(null);
+  let searchValue = $state<string | null>(null);
+  let event = $state<NostrEvent | null>(null);
+  let profile = $state<NostrProfile | null>(null);
+  let userPubkey = $state<string | null>(null);
+  let searchTerm = $state("");
 
-  $: {
-    const urlSearchTerm = $page.url.searchParams.get("id") || "";
+  // Derived state
+  let urlSearchTerm = $derived($page.url.searchParams.get("id") || "");
+  let userRelayPreference = $derived.by(() => {
+    const useUserRelays = localStorage.getItem("useUserRelays") === "true";
+    return useUserRelays ? selectRelayGroup('inbox') : [];
+  });
+
+  // Effects
+  $effect(() => {
     if (urlSearchTerm) {
       searchValue = urlSearchTerm;
       error = null;
       loading = true;
     }
-  }
+  });
 
-  function handleEventFound(newEvent: NDKEvent) {
+  // Callback props
+  let handleEventFound = (newEvent: NostrEvent) => {
     event = newEvent;
     loading = false;
     if (newEvent.kind === 0) {
@@ -39,21 +59,20 @@
     } else {
       profile = null;
     }
-  }
+  };
 
-  onMount(() => {
-    // Get user's pubkey and relay preference from localStorage
-    userPubkey = localStorage.getItem("userPubkey");
-    userRelayPreference = localStorage.getItem("useUserRelays") === "true";
-  });
-
-  function onSubmit() {
+  let onSubmit = () => {
     if (searchTerm.trim()) {
       searchValue = searchTerm.trim();
       error = null;
       loading = true;
     }
-  }
+  };
+
+  // Lifecycle hooks
+  onMount(() => {
+    userPubkey = localStorage.getItem("userPubkey");
+  });
 </script>
 
 <div class="w-full flex justify-center">

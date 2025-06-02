@@ -1,28 +1,30 @@
 <script lang="ts">
   import { Badge } from "flowbite-svelte";
-  import { ndkInstance } from "$lib/ndk";
-  import { searchEventByIdentifier } from "$lib/utils/nostrUtils";
+  import { searchEventByIdentifier, selectedRelayGroup } from '$lib/utils';
   import { goto } from "$app/navigation";
-  import { NDKEvent } from "@nostr-dev-kit/ndk";
+  import type { NostrEvent } from "$lib/types/nostr";
   import RelayDisplay from "./RelayDisplay.svelte";
-  import { fallbackRelays } from "$lib/consts";
   import SearchBar from "./SearchBar.svelte";
-  import { selectRelayGroup } from "$lib/utils/relayGroupUtils";
 
-  const { loading, error, searchValue, onEventFound, event } = $props<{
+  let {
+    loading,
+    error,
+    searchValue,
+    onEventFound,
+    event,
+  } = $props<{
     loading: boolean;
     error: string | null;
     searchValue: string | null;
-    onEventFound: (event: NDKEvent) => void;
-    event: NDKEvent | null;
+    onEventFound: (event: NostrEvent) => void;
+    event: NostrEvent | null;
   }>();
 
   let searchQuery = $state("");
   let localError = $state<string | null>(null);
   let relayStatuses = $state<Record<string, 'pending' | 'found' | 'notfound'>>({});
-  let foundEvent = $state<NDKEvent | null>(null);
+  let foundEvent = $state<NostrEvent | null>(null);
   let searching = $state(false);
-  let useFallbackRelays = $state(false);
   let relayInfo = $state<{
     url: string;
     latency: number;
@@ -30,8 +32,6 @@
   } | null>(null);
   let abortController = $state<AbortController | null>(null);
   let lastSearchedValue = $state<string | null>(null);
-  let currentRelayGroup = $state<"primary" | "fallback">("primary");
-  let searchBarComponent: SearchBar;
 
   let displayError = $derived.by(() => localError || error);
   let showNjumpLink = $derived.by(
@@ -49,9 +49,9 @@
   });
 
   let relayList = $derived.by(() => {
-    return selectRelayGroup().map((url) => ({
+    return Object.entries(relayStatuses).map(([url, status]) => ({
       url,
-      status: relayStatuses[url] || "pending",
+      status,
       latency: relayInfo?.url === url ? relayInfo.latency : null,
     }));
   });
@@ -80,60 +80,18 @@
     }
   });
 
-  async function updateRelayStatuses(relays: string[]) {
-    relayStatuses = Object.fromEntries(
-      relays.map((relay) => [relay, "pending"]),
-    );
-  }
-
-  function cancelSearch() {
-    if (abortController) {
-      abortController.abort();
-      abortController = null;
+  async function startSearch(query: string, clearInput: boolean = true, signal?: AbortSignal, options: { relayTimeout?: number } = {}) {
+    if (!query.trim()) {
+      searching = false;
+      relayStatuses = {};
+      return;
     }
-    searching = false;
-    localError = 'Search cancelled';
-    // Mark all pending relays as not found
-    relayStatuses = {};
-
-    if (searchBarComponent) {
-      // Removed call to stopSearching, as it does not exist
-    }
-  }
-
-  async function startSearch(query: string, clearInput: boolean = true) {
-    // Cancel any ongoing search
-    if (searching) {
-      cancelSearch();
-    }
-    // Clear error after canceling previous search
-    localError = null;
-
-    // Reset state
-    relayInfo = null;
-    searching = true;
-    abortController = new AbortController();
-    const signal = abortController.signal;
 
     // Remove 'nostr:' prefix if present
     let trimmedQuery = query.trim();
     if (trimmedQuery.startsWith('nostr:')) {
       trimmedQuery = trimmedQuery.slice(6);
     }
-    if (!trimmedQuery) {
-      searching = false;
-      abortController = null;
-      relayStatuses = {};
-      return;
-    }
-
-    // Get relays to search
-    const ndk = $ndkInstance;
-    const primaryRelays = selectRelayGroup();
-    const fallback = useFallbackRelays
-      ? fallbackRelays.filter((r) => !primaryRelays.includes(r))
-      : [];
-    await updateRelayStatuses([...primaryRelays, ...fallback]);
 
     // Only update the URL if this is a manual search
     if (clearInput) {
@@ -147,13 +105,14 @@
     }
 
     try {
-      const result = await searchEventByIdentifier(ndk, trimmedQuery, {
-        timeoutMs: 10000,
-        useFallbackRelays,
+      const result = await searchEventByIdentifier(trimmedQuery, {
+        timeoutMs: options.relayTimeout || 10000, // Use timeout from SearchBar or default to 10s
+        useFallbackRelays: true,
         signal,
+        relays: $selectedRelayGroup.inbox,
       });
 
-      if (signal.aborted) {
+      if (signal?.aborted) {
         throw new Error("Search cancelled");
       }
 
@@ -167,49 +126,70 @@
       }
       handleFoundEvent(result.event);
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        console.log("[Events] Search cancelled");
+      // Filter out cancellation errors
+      if (
+        (err instanceof Error && err.name === 'AbortError') ||
+        (err instanceof Error && err.message === 'Search cancelled')
+      ) {
+        console.log('[Events] Search cancelled');
         return;
       }
       console.error(
-        "[Events] Error searching for event:",
+        '[Events] Error searching for event:',
         err,
-        "Query:",
+        'Query:',
         trimmedQuery,
       );
-      localError = err instanceof Error ? err.message : "Unknown error";
+      localError = err instanceof Error ? err.message : 'Unknown error';
       // Mark all relays as not found
       relayStatuses = Object.fromEntries(
-        Object.keys(relayStatuses).map((relay) => [relay, "notfound"]),
+        Object.keys(relayStatuses).map((relay) => [relay, 'notfound']),
       );
     } finally {
       searching = false;
-      abortController = null;
     }
   }
 
-  function handleFoundEvent(event: any) {
+  function handleFoundEvent(event: NostrEvent) {
     localError = null;
-    const ndk = $ndkInstance;
-    let rawEvent = event?.toJS ? event.toJS() : event;
-    let wrappedEvent = new NDKEvent(ndk, rawEvent);
-    foundEvent = wrappedEvent;
-    onEventFound(wrappedEvent);
+    foundEvent = event;
+    onEventFound(event);
+  }
+
+  function handleSearchError(error: { message: string; code: string } | null) {
+    if (error) {
+      localError = error.message;
+    }
+  }
+
+  function handleSearchProgress(progress: { processed: number; total: number; percentage: number } | null) {
+    // Update relay statuses based on progress if needed
+    if (progress) {
+      searching = true;
+    }
   }
 </script>
 
 <div class="flex flex-col space-y-6">
   <div class="flex flex-col gap-4">
     <SearchBar
-      bind:this={searchBarComponent}
       placeholder="Enter event ID, nevent, or naddr..."
       initialValue={searchQuery}
-      showFallbackToggle={false}
       searchDisabled={loading}
       clearDisabled={false}
       isSearching={searching}
-      onDispatchSearch={(query) => startSearch(query, true)}
-      onDispatchCancel={cancelSearch}
+      onDispatchSearch={(query, _, signal, options) => {
+        searchQuery = query;
+        searching = true;
+        localError = null;
+        startSearch(query, true, signal, options);
+      }}
+      onDispatchCancel={() => {
+        searchQuery = '';
+        localError = 'Search cancelled';
+        searching = false;
+        relayStatuses = {};
+      }}
       onDispatchClear={() => {
         searchQuery = '';
         localError = null;
@@ -217,6 +197,8 @@
         relayStatuses = {};
         goto('/events', { replaceState: true, keepFocus: true, noScroll: true });
       }}
+      onSearchError={handleSearchError}
+      onSearchProgress={handleSearchProgress}
     />
   </div>
 
