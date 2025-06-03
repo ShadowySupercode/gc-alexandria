@@ -3,11 +3,10 @@ import type {
   NostrFilter, 
   NostrUser, 
   NostrRelaySet as INostrRelaySet,
-  NostrEncoding,
   NostrRelay
 } from '$lib/types/nostr';
 import { getEventHash } from '$lib/utils/eventUtils';
-import { bech32 } from '@scure/base';
+import { NostrEncodingImpl } from '$lib/utils/identifierUtils';
 
 // Discriminated union type for NIP-19 input
 export type NoteIdInput = 
@@ -31,8 +30,11 @@ class WebSocketRelay implements NostrRelay {
   private isConnecting = false;
   private authRequired = false;
   private authPromise: Promise<void> | null = null;
+  private client: NostrClient;
 
-  constructor(public url: string) {}
+  constructor(public url: string, client: NostrClient) {
+    this.client = client;
+  }
 
   get status(): 'connected' | 'disconnected' | 'connecting' {
     if (!this.ws) return 'disconnected';
@@ -47,8 +49,7 @@ class WebSocketRelay implements NostrRelay {
 
     try {
       // Get the active user
-      const client = getNostrClient();
-      const user = client.getActiveUser();
+      const user = this.client.getActiveUser();
       if (!user) {
         throw new Error('No active user found');
       }
@@ -224,10 +225,12 @@ class WebSocketRelay implements NostrRelay {
 // WebSocket-based relay set implementation
 class WebSocketRelaySet implements INostrRelaySet {
   private relayMap: Map<string, WebSocketRelay> = new Map();
+  private client: NostrClient;
 
-  constructor(relayUrls: string[]) {
+  constructor(relayUrls: string[], client: NostrClient) {
+    this.client = client;
     relayUrls.forEach(url => {
-      this.relayMap.set(url, new WebSocketRelay(url));
+      this.relayMap.set(url, new WebSocketRelay(url, client));
     });
   }
 
@@ -261,7 +264,7 @@ export class NostrClient {
   private userCache: Map<string, NostrUser> = new Map();
 
   constructor(relays: string[] = []) {
-    this.relaySet = new WebSocketRelaySet(relays);
+    this.relaySet = new WebSocketRelaySet(relays, this);
   }
 
   // Connection management
@@ -368,7 +371,7 @@ export class NostrClient {
   }
 
   getRelaySet(relays: string[]): INostrRelaySet {
-    return new WebSocketRelaySet(relays);
+    return new WebSocketRelaySet(relays, this);
   }
 
   // User management
@@ -521,76 +524,7 @@ export class NostrClient {
   }
 
   // Encoding utilities
-  encoding: NostrEncoding = {
-    encodeNpub: (pubkey: string): string => {
-      const words = bech32.toWords(hexToBytes(pubkey));
-      return bech32.encode('npub', words);
-    },
-
-    encodeNote: (noteId: string): string => {
-      const words = bech32.toWords(hexToBytes(noteId));
-      return bech32.encode('note', words);
-    },
-
-    encodeNevent: (params: { id: string; relays?: string[] }): string => {
-      const words = bech32.toWords(hexToBytes(params.id));
-      const data = { type: 'nevent', data: { id: params.id, relays: params.relays } };
-      return bech32.encode('nevent', words);
-    },
-
-    encodeNprofile: (params: { pubkey: string; relays?: string[] }): string => {
-      const words = bech32.toWords(hexToBytes(params.pubkey));
-      const data = { type: 'nprofile', data: { pubkey: params.pubkey, relays: params.relays } };
-      return bech32.encode('nprofile', words);
-    },
-
-    encodeNaddr: (params: { 
-      pubkey: string; 
-      kind: number; 
-      identifier: string; 
-      relays?: string[] 
-    }): string => {
-      const data = {
-        type: 'naddr',
-        data: {
-          pubkey: params.pubkey,
-          kind: params.kind,
-          identifier: params.identifier,
-          relays: params.relays
-        }
-      };
-      const words = bech32.toWords(hexToBytes(JSON.stringify(data)));
-      return bech32.encode('naddr', words);
-    },
-
-    decode: (input: string) => {
-      try {
-        // Type assertion to satisfy bech32's type system
-        const bech32Input = input as `${string}1${string}`;
-        const decoded = bech32.decode(bech32Input);
-        if (!decoded) throw new Error('Invalid bech32 string');
-        
-        const { prefix, words } = decoded;
-        const data = new TextDecoder().decode(bech32.fromWords(words));
-        try {
-          const parsed = JSON.parse(data);
-          return {
-            type: parsed.type,
-            data: parsed.data
-          };
-        } catch {
-          // If not JSON, it's a simple encoded value
-          return {
-            type: prefix as 'note' | 'npub' | 'nevent' | 'nprofile' | 'naddr',
-            data: bytesToHex(new Uint8Array(bech32.fromWords(words)))
-          };
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Failed to decode bech32 string: ${message}`);
-      }
-    }
-  };
+  encoding = NostrEncodingImpl;
 
   /**
    * Decodes a NIP-19 identifier into its components.
@@ -634,16 +568,6 @@ export class NostrClient {
   }
 }
 
-// Export a singleton instance
-let client: NostrClient | null = null;
-
-export function getNostrClient(relays: string[] = []): NostrClient {
-  if (!client) {
-    client = new NostrClient(relays);
-  }
-  return client;
-}
-
 function hexToBytes(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) throw new Error('Invalid hex string');
   const arr = new Uint8Array(hex.length / 2);
@@ -655,4 +579,22 @@ function hexToBytes(hex: string): Uint8Array {
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Singleton instance
+let nostrClientInstance: NostrClient | null = null;
+
+/**
+ * Gets a NostrClient instance, creating one if it doesn't exist
+ * @param relays Optional list of relay URLs to connect to
+ * @returns A NostrClient instance
+ */
+export function getNostrClient(relays: string[] = []): NostrClient {
+  if (!nostrClientInstance) {
+    nostrClientInstance = new NostrClient(relays);
+  } else if (relays.length > 0) {
+    // Update relays if provided
+    nostrClientInstance = new NostrClient(relays);
+  }
+  return nostrClientInstance;
 } 

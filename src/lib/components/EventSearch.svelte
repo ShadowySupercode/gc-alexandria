@@ -1,13 +1,12 @@
 <script lang="ts">
   import { Badge } from "flowbite-svelte";
-  import { searchEventByIdentifier, selectedRelayGroup, logCurrentRelays } from '$lib/utils';
+  import { searchEventByIdentifier } from '$lib/utils/identifierUtils';
+  import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
+  import { logCurrentRelays } from '$lib/utils/relayLog';
   import { goto } from "$app/navigation";
   import type { NostrEvent } from "$lib/types/nostr";
   import RelayDisplay from "./RelayDisplay.svelte";
   import SearchBar from "./SearchBar.svelte";
-  import { userInboxRelays, userOutboxRelays } from '$lib/stores/relayStore';
-  import { includeLocalRelays } from '$lib/stores/relayGroup';
-  import { responsiveLocalRelays } from '$lib/stores/relayStore';
 
   let {
     loading,
@@ -121,7 +120,7 @@
         timeoutMs: options.relayTimeout || 10000, // Use timeout from SearchBar or default to 10s
         useFallbackRelays: true,
         signal,
-        relays: $selectedRelayGroup.inbox,
+        relays: $state.snapshot($selectedRelayGroup.inbox),
       });
 
       if (signal?.aborted) {
@@ -137,7 +136,8 @@
         relayStatuses = { ...relayStatuses, [relayInfo.url]: "found" };
       }
       handleFoundEvent(result.event);
-      console.log('Searching for', query, 'on relays:', $selectedRelayGroup.inbox);
+      const relays = $state.snapshot($selectedRelayGroup.inbox).map(String);
+      console.log('Searching for', query, 'on relays:', relays);
     } catch (err) {
       // Filter out cancellation errors
       if (

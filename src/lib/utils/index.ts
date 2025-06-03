@@ -1,9 +1,9 @@
-import { getNostrClient } from '$lib/nostr/client';
+import { getNostrClient } from '$lib/nostr/nostr_client_singleton';
 import type { NostrUser } from '$lib/types/nostr';
 import { browser } from '$app/environment';
 import { selectedRelayGroup } from './relayGroupUtils';
 import { get } from 'svelte/store';
-import { logCurrentRelays } from '$lib/utils';
+import { logCurrentRelays } from './relayLog';
 
 const STORAGE_KEYS = {
   LOGIN: 'nostr_login',
@@ -172,6 +172,82 @@ export async function initNostrClient(relays: string[] = []): Promise<void> {
 }
 
 // Export the NostrClient for use throughout the application
-export { getNostrClient } from '$lib/nostr/client';
+export { getNostrClient } from '$lib/nostr/nostr_client_singleton';
 
-export { publishEvent, fetchEventWithFallback } from './relayUtils'; 
+// Explicitly export searchEventByIdentifier from identifierUtils to avoid ambiguity
+export { searchEventByIdentifier } from './identifierUtils';
+// Export all other eventUtils exports except searchEventByIdentifier
+export {
+  getEventHash,
+  signEventHash,
+  toNostrEvent,
+  getTagAddress,
+  getNodeType,
+  isParentPublication,
+  isTopLevelParent,
+  fetchEventByDTag,
+  filterValidIndexEvents,
+  getTagValue,
+  getTagValues,
+  validateEvent,
+  verifySignature,
+  signEvent,
+  createEvent,
+} from './eventUtils';
+export {
+  getUserMetadata,
+  createProfileLink,
+  createProfileLinkWithVerification,
+  getNpubFromNip05,
+  toNpub,
+  createNoteLink,
+} from './profileUtils';
+export {
+  getEventRelays,
+  fetchEventFromRelay,
+  fetchEventFromRelays,
+  publishToRelays,
+  publishEvent,
+  fetchEventWithFallback,
+  findEventExpandingWaves,
+} from './relayUtils';
+export { logCurrentRelays } from './relayLog';
+export {
+  NOSTR_PROFILE_REGEX,
+  NOSTR_NOTE_REGEX,
+  processNostrIdentifiers,
+  neventEncode,
+  naddrEncode,
+  nprofileEncode,
+  noteEncode,
+  npubEncode,
+  getRelayHints,
+  NostrEncodingImpl,
+} from './identifierUtils';
+export {
+  withTimeout,
+  escapeHtml,
+  next,
+  findIndexAsync,
+  debounce,
+} from './commonUtils';
+export {
+  formatTimestampToDate,
+  formatDate,
+  formatRelativeTime,
+} from './dateUtils';
+export {
+  scrollTabIntoView,
+  isElementInViewport,
+} from './uiUtils';
+export { npubCache } from './npubCache';
+export {
+  getEventType,
+  getMimeTags,
+} from './mime';
+export { selectRelayGroup } from './relayGroupUtils';
+export { selectedRelayGroup } from './relayGroupUtils';
+
+// Export markup parsers
+export { parseBasicmarkup } from './markup/basicMarkupParser';
+export { parseAdvancedmarkup } from './markup/advancedMarkupParser'; 

@@ -6,6 +6,7 @@ import { getNostrClient } from '$lib/nostr/client';
 import type { EventSearchResult } from './types';
 import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
 import { get } from 'svelte/store';
+import { withTimeout } from './commonUtils';
 
 function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -118,11 +119,19 @@ export async function fetchEventByDTag(
   relays: string[] = get(selectedRelayGroup).inbox
 ): Promise<EventSearchResult> {
   const client = getNostrClient(relays);
-  const events = await client.fetchEvents({
-    kinds: [kind],
-    authors: [author],
-    "#d": [dTag],
-  });
+  let events: NostrEvent[] = [];
+  try {
+    events = await withTimeout(
+      client.fetchEvents({
+        kinds: [kind],
+        authors: [author],
+        "#d": [dTag],
+      }),
+      5000
+    );
+  } catch (err) {
+    return { event: null };
+  }
   return { event: events[0] || null };
 }
 
@@ -172,7 +181,15 @@ export async function searchEventByIdentifier(
     try {
       const decoded = client.decodeNoteId(identifier);
       if (decoded.type === 'note') {
-        const events = await client.fetchEvents({ ids: [decoded.value] });
+        let events: NostrEvent[] = [];
+        try {
+          events = await withTimeout(
+            client.fetchEvents({ ids: [decoded.value] }),
+            5000
+          );
+        } catch {
+          events = [];
+        }
         if (events.length > 0) {
           return { event: events[0] };
         }
@@ -185,7 +202,15 @@ export async function searchEventByIdentifier(
     try {
       const decoded = client.decodeNoteId(identifier);
       if (decoded.type === 'nevent') {
-        const events = await client.fetchEvents({ ids: [decoded.id] });
+        let events: NostrEvent[] = [];
+        try {
+          events = await withTimeout(
+            client.fetchEvents({ ids: [decoded.id] }),
+            5000
+          );
+        } catch {
+          events = [];
+        }
         if (events.length > 0) {
           return { event: events[0] };
         }
@@ -198,11 +223,19 @@ export async function searchEventByIdentifier(
     try {
       const decoded = client.decodeNoteId(identifier);
       if (decoded.type === 'naddr') {
-        const events = await client.fetchEvents({
-          kinds: [decoded.kind],
-          authors: [decoded.pubkey],
-          "#d": [decoded.identifier],
-        });
+        let events: NostrEvent[] = [];
+        try {
+          events = await withTimeout(
+            client.fetchEvents({
+              kinds: [decoded.kind],
+              authors: [decoded.pubkey],
+              "#d": [decoded.identifier],
+            }),
+            5000
+          );
+        } catch {
+          events = [];
+        }
         if (events.length > 0) {
           return { event: events[0] };
         }

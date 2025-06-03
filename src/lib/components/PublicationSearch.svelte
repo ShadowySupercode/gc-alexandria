@@ -3,10 +3,10 @@
   import { getNostrClient } from '$lib/nostr/client';
   import { filterValidIndexEvents } from "$lib/utils";
   import { onDestroy, onMount } from "svelte";
-  import { selectedRelayGroup } from '$lib/utils';
+  import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
   import SearchBar from "./SearchBar.svelte";
   import type { NostrEvent } from '$lib/types/nostr';
-  import { isParentPublication, isTopLevelParent } from '$lib/utils';
+  import { isParentPublication, isTopLevelParent } from '$lib/utils/eventUtils';
   import type { NostrFilter } from '$lib/types/nostr';
 
   let {
@@ -156,8 +156,8 @@
   });
 </script>
 
-<div class="flex flex-col gap-4">
-  <div class="flex flex-col gap-2">
+<div class="flex flex-col gap-4 w-full max-w-2xl mx-auto">
+  <div class="flex flex-col gap-2 w-full">
     <SearchBar
       placeholder="Search publications..."
       initialValue={searchQuery}

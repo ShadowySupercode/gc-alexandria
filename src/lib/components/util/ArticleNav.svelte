@@ -16,9 +16,10 @@
     return event.tags.filter(tag => tag[0] === tagName);
   }
 
-  let { publicationType, indexEvent } = $props<{
+  let { contentType, indexEvent } = $props<{
     rootId: string;
     publicationType: string;
+    contentType: string;
     indexEvent: NostrEvent;
   }>();
 
@@ -81,7 +82,7 @@
       updated.discussion = false;
       updated.toc = false;
 
-      if (publicationType === "blog") {
+      if (contentType === "blog") {
         updated.inner = true;
         updated.blog = false;
       } else {
@@ -121,8 +122,23 @@
 
   let unsubscribe: () => void;
   onMount(() => {
+    // Set current columns depending on the content type
+    const isBlog = contentType === "blog";
+    publicationColumnVisibility.update((v) => ({
+      ...v,
+      main: !isBlog,
+      blog: isBlog,
+    }));
+    if (isLeaf || isBlog) {
+      publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
+    }
     window.addEventListener("scroll", handleScroll);
-    console.log('publicationColumnVisibility:', publicationColumnVisibility, 'typeof subscribe:', typeof publicationColumnVisibility?.subscribe);
+    console.log(
+      'publicationColumnVisibility:',
+      $state.snapshot(publicationColumnVisibility),
+      'typeof subscribe:',
+      typeof publicationColumnVisibility?.subscribe
+    );
     if (typeof publicationColumnVisibility?.subscribe !== 'function') {
       console.error('publicationColumnVisibility.subscribe is not a function!', publicationColumnVisibility);
     }
@@ -156,7 +172,7 @@
         </Button>
       {/if}
       {#if !isLeaf}
-        {#if publicationType === "blog"}
+        {#if contentType === "blog"}
           <Button
             class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog
               ? 'active'
@@ -201,7 +217,7 @@
           >
         </Button>
       {/if}
-      {#if publicationType !== "blog" && !$publicationColumnVisibility.discussion}
+      {#if contentType !== "blog" && !$publicationColumnVisibility.discussion}
         <Button
           class="btn-leather !hidden sm:flex !w-auto"
           outline={true}

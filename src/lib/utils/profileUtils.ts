@@ -2,7 +2,7 @@ import { npubCache } from './npubCache';
 import { communityRelays, fallbackRelays } from '$lib/consts';
 import { fetchEventWithFallback } from './relayUtils';
 import { escapeHtml } from './commonUtils';
-import type { NostrProfile, NostrClient, NostrUser } from '$lib/types/nostr';
+import type { NostrProfile, NostrUser } from '$lib/types/nostr';
 import { getNostrClient } from '$lib/nostr/client';
 
 const badgeCheckSvg =
@@ -19,10 +19,10 @@ export async function getUserMetadata(
 ): Promise<NostrProfile> {
   // Remove nostr: prefix if present
   if (typeof identifier !== 'string' || !identifier) {
-    throw new Error('Identifier must be a string');
+    throw new Error('Identifier (npub) must be a string');
   }
   const cleanId = identifier.replace(/^nostr:/, '');
-  console.log('identifier:', identifier, typeof identifier, cleanId);
+  console.log('Currently logged in user:', cleanId);
 
   if (npubCache.has(cleanId)) {
     return npubCache.get(cleanId)!;

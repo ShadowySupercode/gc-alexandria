@@ -7,9 +7,10 @@
   import { toNpub } from "$lib/utils/profileUtils";
   import { getTagValue, getTagValues } from "$lib/utils/eventUtils";
   import { 
-    neventEncode, 
-    naddrEncode, 
-    nprofileEncode 
+    neventEncode,
+    nprofileEncode,
+    naddrEncode,
+    getRelayHints
   } from "$lib/utils/identifierUtils";
   import { communityRelays } from "$lib/consts";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
@@ -21,8 +22,9 @@
     event: NostrEvent;
     profile?: NostrProfile | null;
     searchValue?: string | null;
+    relayResults?: Record<string, any>;
   }>();
-  const { event, profile = null, searchValue = null } = props;
+  const { event, profile = null, searchValue = null, relayResults = {} } = props;
 
   // --- State ---
   let showFullContent = $state(false);
@@ -33,6 +35,14 @@
     return "";
   });
   let parsedContent = $state("");
+
+  // --- Relay List ---
+  let relayList = $derived.by(() => {
+    if (typeof relayResults === 'object' && relayResults !== null) {
+      return Object.keys(relayResults).filter((r) => relayResults[r]);
+    }
+    return [];
+  });
 
   // --- Helpers ---
   function highlightSearchTerms(text: string, searchTerm: string | null): string {
@@ -75,8 +85,8 @@
   function getIdentifiers(
     event: NostrEvent,
     profile: NostrProfile | null,
-  ): { label: string; value: string; link?: string }[] {
-    const ids: { label: string; value: string; link?: string }[] = [];
+  ): { label: string; value: string; link?: string; warning?: string }[] {
+    const ids: { label: string; value: string; link?: string; warning?: string }[] = [];
     if (event.kind === 0) {
       // NIP-05
       const nip05 = profile?.nip05 || getTagValue(event, "nip05");
@@ -106,10 +116,10 @@
         link: `/events?id=${neventEncode(event, communityRelays)}`,
       });
       // naddr (if addressable)
-      try {
-        const naddr = naddrEncode(event, communityRelays);
-        ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
-      } catch {}
+      const relayHints = getRelayHints(event) ?? communityRelays;
+      const naddr = naddrEncode(event, relayHints);
+      const warning = undefined;
+      ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}`, warning });
       // hex id
       ids.push({ label: "id", value: event.id });
     }
@@ -122,18 +132,6 @@
     {#if event.kind !== 0 && eventTitle}
       <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
     {/if}
-
-    <div class="flex items-center space-x-2">
-      {#if toNpub(event.pubkey)}
-        <span class="text-gray-600 dark:text-gray-400">
-          Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}
-        </span>
-      {:else}
-        <span class="text-gray-600 dark:text-gray-400">
-          Author: {profile?.display_name || event.pubkey}
-        </span>
-      {/if}
-    </div>
 
     {#if eventSummary}
       <div class="flex flex-col space-y-1">
@@ -209,9 +207,9 @@
         <div class="flex flex-col space-y-2">
           <dl>
             {#each getIdentifiers(event, profile) as id}
-              <div class="flex gap-2">
+              <div class="flex gap-2 items-center">
                 <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
-                <dd class="break-all">
+                <dd class="break-all flex items-center gap-1">
                   {#if id.link}
                     <a
                       href={id.link}
@@ -220,6 +218,9 @@
                     >
                   {:else}
                     {id.value}
+                  {/if}
+                  {#if id.label === 'naddr' && id.warning}
+                    <span class="text-yellow-500 cursor-help" title={id.warning}>⚠️</span>
                   {/if}
                 </dd>
               </div>
@@ -249,5 +250,16 @@
         </pre>
       </AccordionItem>
     </Accordion>
+
+    <div class="text-sm text-gray-700 dark:text-gray-300">
+      <strong>Found on:</strong>
+      {#if relayList.length > 0}
+        {#each relayList as relay, i}
+          {relay}{#if i < relayList.length - 1}, {/if}
+        {/each}
+      {:else}
+        <span>None</span>
+      {/if}
+    </div>
   </div>
 {/key}

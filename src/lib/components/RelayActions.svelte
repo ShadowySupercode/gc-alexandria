@@ -3,11 +3,10 @@
   import { get } from "svelte/store";
   import type { NostrEvent, NostrUnsignedEvent } from '$lib/types/nostr';
   import RelayDisplay from "./RelayDisplay.svelte";
-  import { communityRelays, fallbackRelays } from "$lib/consts";
-  import { responsiveLocalRelays } from "$lib/stores/relayStore";
   import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
   import { getNostrClient } from '$lib/nostr/client';
-  import { getEventHash } from '$lib/utils';
+  import { getEventHash } from '$lib/utils/eventUtils';
+  import { fetchEventFromRelays, publishToRelays } from '$lib/utils/relayUtils'
 
   const { event } = $props<{
     event: NostrEvent;
@@ -18,30 +17,21 @@
   let broadcasting = $state(false);
   let broadcastSuccess = $state(false);
   let broadcastError = $state<string | null>(null);
-  let showRelayModal = $state(false);
-  let relaySearchResults = $state<Record<string, RelaySearchStatus>>({});
-  let relayTimings = $state<Record<string, string>>({});
-
-  // Define types for better type safety
-  type RelaySearchStatus = 'pending' | 'found' | 'notfound' | 'timeout' | 'error';
-  type RelayGroup = 'Standard Relays' | 'User Relays' | 'Fallback Relays';
 
   // Get the Nostr client
-  let client = $derived.by(() => getNostrClient(get(selectedRelayGroup).inbox));
+  let client = $derived.by(() => getNostrClient(get(selectedRelayGroup).outbox));
 
   // Helper to validate relay URLs (basic check)
   function isValidRelay(relay: string): boolean {
     return typeof relay === 'string' && relay.trim().length > 0 && relay.startsWith('ws');
   }
 
-  // Get all available relays
-  let allRelays = $derived.by(() => {
-    return [
-      ...communityRelays,
-      ...fallbackRelays,
-      ...$responsiveLocalRelays,
-      ...$selectedRelayGroup.inbox,
-    ].filter((url, idx, arr) => arr.indexOf(url) === idx && isValidRelay(url));
+  // Use only selected relay group for inbox and outbox
+  let searchRelays = $derived.by(() => {
+    return ($selectedRelayGroup.inbox ?? []).filter(isValidRelay);
+  });
+  let publishRelays = $derived.by(() => {
+    return ($selectedRelayGroup.outbox ?? []).filter(isValidRelay);
   });
 
   // Magnifying glass icon SVG
@@ -71,7 +61,7 @@
     broadcastError = null;
 
     try {
-      if (allRelays.length === 0) {
+      if (publishRelays.length === 0) {
         throw new Error('No relays available');
       }
 
@@ -107,7 +97,8 @@
         sig: signedEvent.sig,
       };
 
-      await client.publish(publishedEvent);
+      // Publish to all outbox relays using utility
+      await publishToRelays(publishedEvent, publishRelays);
       broadcastSuccess = true;
     } catch (err) {
       console.error('Error broadcasting event:', err);
@@ -117,61 +108,23 @@
     }
   }
 
-  async function openRelayModal() {
-    showRelayModal = true;
-    relaySearchResults = {};
-    searchAllRelaysLive();
-  }
-
-  async function searchAllRelaysLive(): Promise<void> {
-    if (!client) {
-      console.error('Nostr client not initialized');
+  $effect(() => {
+    if (!event?.id || !searchRelays.length) {
+      foundRelays = [];
       return;
     }
-
-    const user = client.getActiveUser();
-    if (!user) {
-      console.error('No active user found');
-      return;
-    }
-
-    // Reset relay statuses
-    relaySearchResults = Object.fromEntries(
-      allRelays.map((r: string) => [r, 'pending' as RelaySearchStatus]),
-    );
-
-    // Try all relays
-    await Promise.allSettled(
-      allRelays.map(async (relay: string) => {
-        const start = performance.now();
-        try {
-          // Simulate a search operation
-          await Promise.race([
-            new Promise((resolve) => setTimeout(resolve, 100)),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000)),
-          ]);
-          const end = performance.now();
-          relayTimings[relay] = `${Math.round(end - start)}ms`;
-          relaySearchResults = { ...relaySearchResults, [relay]: 'found' };
-        } catch (err) {
-          console.error(`Error searching relay ${relay}:`, err);
-          relaySearchResults = { ...relaySearchResults, [relay]: 'error' };
-        }
-      }),
-    );
-  }
-
-  function closeRelayModal() {
-    showRelayModal = false;
-  }
+    console.log('[RelayActions] Searching for event', event.id, 'on relays:', searchRelays);
+    const start = performance.now();
+    (async () => {
+      const results = await fetchEventFromRelays({ ids: [event.id] }, searchRelays, 4000);
+      foundRelays = results.map(r => r.relay);
+      const runtime = performance.now() - start;
+      console.log('[RelayActions] Search complete. Found on:', foundRelays, `(${runtime.toFixed(1)}ms)`);
+    })();
+  });
 </script>
 
 <div class="mt-4 flex flex-wrap gap-2">
-  <Button onclick={openRelayModal} class="flex items-center">
-    {@html searchIcon}
-    Where can I find this event?
-  </Button>
-
   {#if client?.getActiveUser()}
     <Button
       onclick={broadcastEvent}
@@ -199,7 +152,7 @@
   <div class="mt-2 p-2 bg-green-100 text-green-700 rounded">
     Event broadcast successfully to:
     <div class="flex flex-wrap gap-2 mt-1">
-      {#each allRelays as relay}
+      {#each publishRelays as relay}
         <RelayDisplay {relay} />
       {/each}
     </div>
@@ -209,62 +162,5 @@
 {#if broadcastError}
   <div class="mt-2 p-2 bg-red-100 text-red-700 rounded">
     {broadcastError}
-  </div>
-{/if}
-
-<div class="mt-2">
-  <span class="font-semibold">Found on:</span>
-  <div class="flex flex-wrap gap-2 mt-1">
-    {#each allRelays as relay}
-      <RelayDisplay {relay} showStatus={true} status={relaySearchResults[relay] || null} timing={relayTimings[relay]} />
-    {/each}
-  </div>
-</div>
-
-{#if showRelayModal}
-  <div
-    class="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center"
-  >
-    <div
-      class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-lg relative"
-    >
-      <button
-        class="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
-        onclick={closeRelayModal}>&times;</button
-      >
-      <h2 class="text-lg font-semibold mb-4">Relay Search Results</h2>
-      <div class="flex flex-col gap-4 max-h-96 overflow-y-auto">
-        {#each Object.entries({
-          'Standard Relays': communityRelays,
-          'User Relays': $selectedRelayGroup.inbox,
-          'Fallback Relays': fallbackRelays,
-        }) as [groupName, groupRelays]}
-          {#if groupRelays.length > 0}
-            <div class="flex flex-col gap-2">
-              <h3
-                class="font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-white dark:bg-gray-900 py-2"
-              >
-                {groupName}
-              </h3>
-              {#each groupRelays as relay}
-                {#if isValidRelay(relay)}
-                  <RelayDisplay
-                    {relay}
-                    showStatus={true}
-                    status={relaySearchResults[relay] ?? null}
-                    timing={relayTimings[relay]}
-                  />
-                {:else}
-                  <div class="text-gray-400 italic">Invalid relay</div>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-        {/each}
-      </div>
-      <div class="mt-4 flex justify-end">
-        <Button onclick={closeRelayModal}>Close</Button>
-      </div>
-    </div>
   </div>
 {/if}

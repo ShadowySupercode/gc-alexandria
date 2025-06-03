@@ -10,6 +10,7 @@
   import { onMount, onDestroy } from "svelte";
   import { getNostrClient } from "$lib/nostr/client";
   import { publicationColumnVisibility } from "$lib/stores";
+  import { withTimeout } from '$lib/utils/commonUtils';
 
   console.log('Interactions.svelte script loaded');
 
@@ -52,15 +53,20 @@
     }
 
     // Fetch initial events
-    client.fetchEvents({
-      kinds: [kind],
-      '#a': [rootId],
-    }).then((events) => {
+    withTimeout(
+      client.fetchEvents({
+        kinds: [kind],
+        '#a': [rootId],
+      }),
+      5000
+    ).then((events) => {
       events.forEach((evt) => {
         if (!targetArray.find((e) => e.id === evt.id)) {
           targetArray = [...targetArray, evt];
         }
       });
+    }).catch(() => {
+      // Timeout or error: treat as no events found
     });
 
     // Set up a subscription for new events

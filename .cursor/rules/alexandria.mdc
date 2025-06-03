@@ -19,9 +19,7 @@ In reader mode, Alexandria loads a document tree from a root publication index e
 
 Svelte components in Alexandria use TypeScript exclusively over plain JavaScript.  Styles are defined via Tailwind 4 utility classes, and some custom utility classes are defined in [app.css](mdc:src/app.css).  The app runs on Deno, but maintains compatibility with Node.js.
 
-Avoid using imports from NDK or nostr-tools libraries directly, only use our custom utilities. This is because we are going to later change out the libraries for one of our own, and need everything in one place.
-
-We have created stores for users and relay selections, so make sure to always refer to those.
+We have created stores for users and relay selections, so make sure to always refer to those. Any interactions with servers, especially relays, should be setup to timeout, to keep the client from hanging.
 
 ## General Guidelines
 

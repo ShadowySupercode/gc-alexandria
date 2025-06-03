@@ -9,9 +9,9 @@
   import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
   import { onMount } from 'svelte';
   import { indexKind } from '$lib/consts';
-  import { filterValidIndexEvents } from '$lib/utils';
-  import { getTagValue } from '$lib/utils/eventUtils';
+  import { filterValidIndexEvents } from '$lib/utils/eventUtils';
   import type { NostrFilter } from '$lib/types/nostr';
+  import { withTimeout } from '$lib/utils/commonUtils';
 
   let {
     searchQuery = "",
@@ -26,36 +26,19 @@
   let searchError = $state<{ message: string; code: string } | null>(null);
   let searchProgress = $state<{ processed: number; total: number; percentage: number } | null>(null);
   let lastEventTimestamp: number | undefined = $state(undefined);
+  let totalPublications = $state<number | null>(null);
 
   // Convert more state variables to derived values
   let isLoading = $derived.by(() => loading || loadingMore);
   let canLoadMore = $derived.by(() => !endOfFeed && !isLoading);
+  let currentRange = $derived.by(() => {
+    if (eventsInView.length === 0) return '';
+    if (eventsInView.length === 1) return '1';
+    return `1-${eventsInView.length}`;
+  });
 
   // Get the active relay set based on user settings
   let activeRelays = $derived.by(() => $selectedRelayGroup.inbox);
-
-  function getPublicationWarnings(event: NostrEvent): string[] {
-    const warnings: string[] = [];
-    const authorTags = event.tags.filter(tag => tag[0] === 'author');
-    if (authorTags.length > 1) {
-      warnings.push(`Multiple author tags found in event ${event.id}`);
-    }
-    if (!getTagValue(event, 'title')) {
-      warnings.push('Missing required title tag');
-    }
-    return warnings;
-  }
-
-  let eventWarnings = $derived.by(() => {
-    const map: Record<string, string[]> = {};
-    for (const event of eventsInView) {
-      const warnings = getPublicationWarnings(event);
-      if (warnings.length) {
-        map[event.id] = warnings;
-      }
-    }
-    return map;
-  });
 
   async function fetchFeedEvents(until?: number) {
     const client = getNostrClient($selectedRelayGroup.inbox);
@@ -68,7 +51,12 @@
         until,
       };
 
-      const events = await client.fetchEvents(filter);
+      let events: NostrEvent[] = [];
+      try {
+        events = await withTimeout(client.fetchEvents(filter), 5000);
+      } catch (err) {
+        events = [];
+      }
       const validEvents = filterValidIndexEvents(new Set(events));
       const sortedEvents = Array.from(validEvents).sort((a, b) => b.created_at - a.created_at);
 
@@ -78,6 +66,8 @@
           eventsInView = [...eventsInView, ...sortedEvents];
         } else {
           eventsInView = sortedEvents;
+          // Set total count on initial load
+          totalPublications = sortedEvents.length;
         }
         endOfFeed = sortedEvents.length < 20;
       } else {
@@ -94,6 +84,7 @@
 
   function handleSearchResults(events: NostrEvent[]) {
     eventsInView = events;
+    totalPublications = events.length;
     loading = false;
     endOfFeed = true; // Disable load more when searching
   }
@@ -124,11 +115,13 @@
       // Let PublicationSearch handle the search
       loading = true;
       endOfFeed = true;
+      totalPublications = null;
     } else {
       // Reset and fetch feed
       eventsInView = [];
       lastEventTimestamp = undefined;
       endOfFeed = false;
+      totalPublications = null;
       fetchFeedEvents();
     }
   });
@@ -151,7 +144,13 @@
         search,
       };
 
-      const events = await client.fetchEvents(filter);
+      let events: NostrEvent[] = [];
+      try {
+        events = await withTimeout(client.fetchEvents(filter), 5000);
+      } catch (err) {
+        events = [];
+      }
+      const validEvents = filterValidIndexEvents(new Set(events));
       return Array.from(filterValidIndexEvents(new Set(events)));
     } catch (err) {
       console.error('Error searching events:', err);
@@ -170,6 +169,19 @@
   />
 </div>
 
+<!-- Publication Count and Range Display -->
+{#if !loading && eventsInView.length > 0}
+  <div class="max-w-6xl mx-auto mt-4 px-4">
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      {#if searchQuery}
+        Found {totalPublications} publication{#if totalPublications !== 1}s{/if} matching "{searchQuery}"
+      {:else}
+        Showing publications {currentRange} of {totalPublications}
+      {/if}
+    </p>
+  </div>
+{/if}
+
 <!-- Publication Cards Grid and Results (outside the white box) -->
 <div
   class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto mt-8"
@@ -182,7 +194,7 @@
     {#each eventsInView as event (event.id)}
       <div class="relative h-full">
         <a href="/publication?id={naddrEncode(event, activeRelays)}" class="block h-full">
-          <PublicationHeader {event} warnings={eventWarnings[event.id] ?? []} />
+          <PublicationHeader {event} />
         </a>
         <div class="absolute top-2 right-2 z-10">
           <CardActions {event} />

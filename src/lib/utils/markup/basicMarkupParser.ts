@@ -1,4 +1,4 @@
-import { processNostrIdentifiers } from '$lib/utils';
+import { processNostrIdentifiers } from '$lib/utils/identifierUtils';
 import * as emoji from "node-emoji";
 import { getNostrClient } from '$lib/nostr/client';
 import { escapeHtml } from '$lib/utils/commonUtils';

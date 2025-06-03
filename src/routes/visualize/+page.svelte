@@ -12,6 +12,7 @@
   import type { NostrClient } from '$lib/nostr/client';
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
+  import { withTimeout } from '$lib/utils/commonUtils';
 
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging
@@ -51,10 +52,18 @@
 
       // Step 1: Fetch index events
       debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
-      const indexEvents = await client.fetchEvents({
-        kinds: [INDEX_EVENT_KIND],
-        limit: $networkFetchLimit,
-      }) as NostrEvent[];
+      let indexEvents: NostrEvent[] = [];
+      try {
+        indexEvents = await withTimeout(
+          client.fetchEvents({
+            kinds: [INDEX_EVENT_KIND],
+            limit: $networkFetchLimit,
+          }),
+          5000
+        );
+      } catch (err) {
+        indexEvents = [];
+      }
       debug("Fetched index events:", indexEvents.length);
 
       // Step 2: Filter valid index events according to NIP-62
@@ -80,10 +89,18 @@
       debug(
         `Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(", ")})`,
       );
-      const contentEvents = await client.fetchEvents({
-        kinds: CONTENT_EVENT_KINDS,
-        ids: Array.from(contentEventIds),
-      }) as NostrEvent[];
+      let contentEvents: NostrEvent[] = [];
+      try {
+        contentEvents = await withTimeout(
+          client.fetchEvents({
+            kinds: CONTENT_EVENT_KINDS,
+            ids: Array.from(contentEventIds),
+          }),
+          5000
+        );
+      } catch (err) {
+        contentEvents = [];
+      }
       debug("Fetched content events:", contentEvents.length);
 
       // Step 5: Combine both sets of events

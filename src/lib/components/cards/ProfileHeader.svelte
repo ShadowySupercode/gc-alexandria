@@ -2,8 +2,9 @@
   import { Card, Img, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { type NostrProfile } from '$lib/utils';
-  import { toNpub, getEventHash } from '$lib/utils';
+  import type { NostrProfile } from '$lib/types/nostr';
+  import { toNpub } from '$lib/utils/profileUtils';
+  import { getEventHash } from '$lib/utils/eventUtils';
   import type { NostrEvent } from '$lib/types/nostr';
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";

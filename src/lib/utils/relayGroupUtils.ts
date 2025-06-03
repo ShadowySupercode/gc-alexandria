@@ -1,8 +1,8 @@
 import { derived, get } from 'svelte/store';
 import { relayGroup, includeLocalRelays, useFallbackRelays } from '$lib/stores/relayGroup';
 import { communityRelays, fallbackRelays } from '$lib/consts';
-import { userInboxRelays, userOutboxRelays, responsiveLocalRelays } from '$lib/stores/relayStore';
-import { getNostrClient } from '$lib/nostr/client';
+import { userInboxRelays, userOutboxRelays, responsiveLocalRelays, filterBlockedRelays, blockedRelaysHydrated } from '$lib/stores/relayStore';
+import { getNostrClient } from '$lib/nostr/nostr_client_singleton';
 import type { NostrEvent, NostrRelaySet } from '$lib/types/nostr';
 
 interface RelayGroupState {
@@ -20,10 +20,11 @@ export const selectedRelayGroup = derived<[
   typeof userOutboxRelays,
   typeof responsiveLocalRelays,
   typeof includeLocalRelays,
-  typeof useFallbackRelays
+  typeof useFallbackRelays,
+  typeof blockedRelaysHydrated
 ], RelayGroupState>(
-  [relayGroup, userInboxRelays, userOutboxRelays, responsiveLocalRelays, includeLocalRelays, useFallbackRelays],
-  ([$relayGroup, $userInboxRelays, $userOutboxRelays, $liveLocalRelays, $includeLocalRelays, $useFallbackRelays], set) => {
+  [relayGroup, userInboxRelays, userOutboxRelays, responsiveLocalRelays, includeLocalRelays, useFallbackRelays, blockedRelaysHydrated],
+  ([$relayGroup, $userInboxRelays, $userOutboxRelays, $liveLocalRelays, $includeLocalRelays, $useFallbackRelays, $blockedRelaysHydrated], set) => {
     const getRelays = (kind: 'inbox' | 'outbox'): string[] => {
       const relayGroupSelection = $relayGroup[0];
       const userRelays = kind === 'inbox' ? $userInboxRelays : $userOutboxRelays;
@@ -47,8 +48,10 @@ export const selectedRelayGroup = derived<[
         relays = [...relays, ...fallbackRelays];
       }
 
-      // Remove duplicates and normalize
-      return Array.from(new Set(relays.map(url => url.replace(/\/+$/, ''))));
+      // Remove duplicates, normalize, and filter out blocked relays
+      return filterBlockedRelays(
+        Array.from(new Set(relays.map(url => url.replace(/\/+$/, ''))))
+      );
     };
 
     set({
@@ -148,8 +151,14 @@ export function selectRelayGroup(type: 'inbox' | 'outbox' | 'all' = 'all'): stri
     return outbox;
   }
 
-  // For 'all' type, combine all available relays
-  return [...new Set([...userRelays, ...userOutbox, ...localRelays, ...communityRelays, ...fallbackRelays])];
+  // For 'all' type, combine all available relays and filter out blocked relays
+  return filterBlockedRelays([
+    ...userRelays,
+    ...userOutbox,
+    ...localRelays,
+    ...communityRelays,
+    ...fallbackRelays
+  ]);
 }
 
 /**

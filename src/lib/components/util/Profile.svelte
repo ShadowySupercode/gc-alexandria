@@ -8,7 +8,7 @@
   } from "flowbite-svelte-icons";
   import { Avatar, Popover, Button } from "flowbite-svelte";
   import type { NostrProfile } from '$lib/utils/types';
-  import { getUserMetadata, toNpub } from '$lib/utils';
+  import { getUserMetadata, toNpub } from '$lib/utils/profileUtils';
   import SettingsModal from "$lib/components/SettingsModal.svelte";
 
   const externalProfileDestination = "./events?id=";

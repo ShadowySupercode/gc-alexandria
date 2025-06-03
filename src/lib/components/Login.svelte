@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getNostrClient } from '$lib/nostr/client';
+  import { getNostrClient } from '$lib/nostr/nostr_client_singleton';
   import type { NostrUser } from '$lib/types/nostr';
   import { Avatar, Button, Popover } from "flowbite-svelte";
   import Profile from "$components/util/Profile.svelte";
@@ -22,7 +22,6 @@
 
   async function handleSignInClick() {
     try {
-      console.log('[Login] Sign-in button clicked');
       signInFailed = false;
 
       if (!window.nostr) {
@@ -30,11 +29,8 @@
         throw new Error("Nostr WebExtension not found. Please install a Nostr WebExtension like Alby or nos2x.");
       }
 
-      console.log('[Login] Nostr extension detected:', window.nostr);
-
       // Get the user's public key from the WebExtension
       const pubkey = await window.nostr.getPublicKey();
-      console.log('[Login] Received pubkey from extension:', pubkey);
       if (!pubkey) {
         console.error('[Login] No pubkey returned from extension');
         throw new Error("The NIP-07 extension did not return a public key.");
@@ -61,8 +57,7 @@
         nip05 // optionally store nip05 on the user object
       };
       userStore.set(user);
-      console.log('[Login] Set user in store:', user);
-
+      
       // validate immediately and show result
       if (nip05) {
         const isValid = await user.validateNip05(nip05);

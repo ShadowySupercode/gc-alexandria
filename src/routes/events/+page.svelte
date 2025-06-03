@@ -8,7 +8,7 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
-  import { selectRelayGroup } from '$lib/utils';
+  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
 
   // Define props
   let {

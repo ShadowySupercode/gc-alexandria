@@ -3,7 +3,7 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { logCurrentRelays } from '$lib/utils';
+  import { logCurrentRelays } from '$lib/utils/relayLog';
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";

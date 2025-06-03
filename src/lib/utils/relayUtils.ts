@@ -5,6 +5,8 @@ import { selectedRelayGroup } from './relayGroupUtils';
 import type { EventSearchResult } from './types';
 import { withTimeout } from './commonUtils';
 import { get } from 'svelte/store';
+import { getRelayHints } from './identifierUtils';
+import { filterBlockedRelays } from '$lib/stores/relayStore';
 
 interface RelaySearchResult {
   event: NostrEvent | null;
@@ -208,7 +210,7 @@ export async function fetchEventWithFallback(
 
   // If not found and fallback is enabled, try fallback relays
   if (useFallbackRelays) {
-    const fallbackResults = await fetchEventFromRelays(filter, fallbackRelays, timeout);
+    const fallbackResults = await fetchEventFromRelays(filter, filterBlockedRelays(fallbackRelays), timeout);
     if (fallbackResults.length > 0) {
       const fastestResult = fallbackResults.reduce((fastest, current) => 
         current.latency < fastest.latency ? current : fastest
@@ -225,5 +227,98 @@ export async function fetchEventWithFallback(
   }
 
   // Not found in any relay
+  return { event: null };
+}
+
+/**
+ * Searches for an event in expanding waves of relays: local, group, hints, fallback.
+ * Each wave is searched in parallel; only proceeds to the next if not found.
+ * Logs the relay and time spent when found.
+ */
+export async function findEventExpandingWaves(
+  filter: NostrFilter,
+  options: {
+    localRelays?: string[];
+    event?: NostrEvent;
+    useFallbackRelays?: boolean;
+    timeout?: number;
+  } = {}
+): Promise<EventSearchResult> {
+  const { localRelays = [], event, useFallbackRelays = true, timeout = 5000 } = options;
+  const waves: string[][] = [];
+
+  if (localRelays.length > 0) waves.push(localRelays);
+  const groupRelays = get(selectedRelayGroup).inbox;
+  if (groupRelays.length > 0) waves.push(groupRelays);
+  const hints = event ? getRelayHints(event) : undefined;
+  if (hints && hints.length > 0) waves.push(hints);
+  if (useFallbackRelays) waves.push(filterBlockedRelays(fallbackRelays));
+
+  const startTime = performance.now();
+  let adaptiveTimeout = Math.max(1500, Math.floor(timeout * 0.5));
+  const timeoutStep = Math.max(1000, Math.floor(timeout * 0.5));
+
+  for (const relays of waves) {
+    // Each relay gets its own AbortController
+    const controllers = relays.map(() => new AbortController());
+
+    // Create a promise for each relay that resolves to a RelaySearchResult or null
+    const relayPromises = relays.map((relay, i) =>
+      (async (): Promise<RelaySearchResult | null> => {
+        try {
+          const client = getNostrClient(get(selectedRelayGroup).inbox);
+          const relaySet = client.getRelaySet([relay]);
+          const relayInstance = relaySet.getRelay(relay);
+          if (!relayInstance) return null;
+          const start = performance.now();
+          const event = await withTimeout(
+            new Promise<NostrEvent | null>((resolve) => {
+              const subscriptionId = relayInstance.subscribe(filter, (event) => {
+                relayInstance.unsubscribe(subscriptionId);
+                resolve(event);
+              });
+              setTimeout(() => {
+                relayInstance.unsubscribe(subscriptionId);
+                resolve(null);
+              }, adaptiveTimeout);
+              controllers[i].signal.addEventListener('abort', () => {
+                relayInstance.unsubscribe(subscriptionId);
+                resolve(null);
+              });
+            }),
+            adaptiveTimeout
+          );
+          const latency = performance.now() - start;
+          if (event) {
+            // Abort all other requests in this wave
+            controllers.forEach(ctrl => ctrl.abort());
+            return { event, relay, latency, group: 'wave' };
+          }
+        } catch {
+          // Ignore errors
+        }
+        return null;
+      })()
+    );
+
+    // Wait for the first non-null result, or all to finish
+    const result = await Promise.race(relayPromises);
+
+    if (result && result.event) {
+      const elapsed = performance.now() - startTime;
+      console.log(
+        `[ExpandingWaves] Found event on relay: ${result.relay} (latency: ${result.latency.toFixed(1)}ms, total search: ${elapsed.toFixed(1)}ms)`
+      );
+      return {
+        event: result.event,
+        relayInfo: {
+          url: result.relay,
+          latency: result.latency,
+          group: result.group,
+        },
+      };
+    }
+    adaptiveTimeout += timeoutStep;
+  }
   return { event: null };
 }

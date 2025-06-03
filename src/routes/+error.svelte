@@ -49,6 +49,11 @@
           {#if showDetails}
             <pre class="bg-stone-100 text-xs p-3 rounded border border-stone-200 overflow-x-auto transition-all duration-300 mt-2">
 {page.error?.message}
+{#if (page.error as any)?.stack}
+
+Stack trace:
+{(page.error as any).stack}
+{/if}
             </pre>
           {/if}
         </div>

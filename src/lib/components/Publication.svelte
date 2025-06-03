@@ -24,9 +24,10 @@
   import { pharosInstance } from "$lib/parser";
   import { getTagAddress } from '$lib/utils/eventUtils';
 
-  let { rootAddress, publicationType, indexEvent } = $props<{
+  let { rootAddress, contentType, indexEvent } = $props<{
     rootAddress: string;
     publicationType: string;
+    contentType: string;
     indexEvent: NostrEvent;
   }>();
 
@@ -124,8 +125,8 @@
   });
 
   onMount(() => {
-    // Set current columns depending on the publication type
-    const isBlog = publicationType === "blog";
+    // Set current columns depending on the content type
+    const isBlog = contentType === "blog";
     publicationColumnVisibility.update((v) => ({
       ...v,
       main: !isBlog,
@@ -158,7 +159,7 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== "blog" || !isLeaf}
+{#if contentType !== "blog" || !isLeaf}
   <TocToggle {rootId} />
 {/if}
 

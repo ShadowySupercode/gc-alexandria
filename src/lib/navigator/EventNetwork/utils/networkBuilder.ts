@@ -8,9 +8,9 @@
 import type { NostrEvent } from "$lib/types/nostr";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { communityRelays } from "$lib/consts";
-import { getTagValue, getTagValues } from '$lib/utils';
-import { naddrEncode } from '$lib/utils/eventEncoding';
-import { toNostrEvent } from '$lib/utils';
+import { getTagValue, getTagValues } from '$lib/utils/eventUtils';
+import { naddrEncode } from '$lib/utils/identifierUtils';
+import { toNostrEvent } from '$lib/utils/eventUtils';
 import { getNostrClient } from '$lib/nostr/client';
 
 // Configuration

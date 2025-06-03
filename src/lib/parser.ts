@@ -14,12 +14,22 @@ import he from "he";
 import { writable, type Writable } from "svelte/store";
 import { SectionKinds } from "./consts";
 import { 
-  getTagValue, 
-  getTagValues, 
+  getEventHash,
+  getTagValue,
+  getTagValues,
   fetchEventByDTag,
-  getEventHash
-} from '$lib/utils';
-import type { EventSearchResult } from '$lib/utils';
+  getTagAddress,
+  getNodeType,
+  isParentPublication,
+  isTopLevelParent,
+  filterValidIndexEvents,
+  validateEvent,
+  verifySignature,
+  signEvent,
+  createEvent,
+} from '$lib/utils/eventUtils';
+import { getEventType, getMimeTags } from '$lib/utils/mime';
+import type { EventSearchResult } from '$lib/utils/types';
 
 // Create a writable store for the Pharos instance
 export const pharosInstance: Writable<Pharos> = writable();

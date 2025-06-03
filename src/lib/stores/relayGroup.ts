@@ -5,7 +5,18 @@ import { writable } from "svelte/store";
  * At least one of 'community' or 'user' must be present.
  */
 export type RelayGroupOption = 'community' | 'user' | 'both' | 'localOnly';
-export const relayGroup = writable<RelayGroupOption[]>(['community']);
+function getInitialRelayGroup(): RelayGroupOption[] {
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('relayGroup');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {}
+    }
+  }
+  return ['community'];
+}
+export const relayGroup = writable<RelayGroupOption[]>(getInitialRelayGroup());
 
 export function setRelayGroupArray(groups: RelayGroupOption[]) {
   // Ensure at least one group is always selected
@@ -61,3 +72,9 @@ includeLocalRelays.subscribe((value) => {
 export function setIncludeLocalRelays(value: boolean) {
   includeLocalRelays.set(value);
 }
+
+relayGroup.subscribe((value) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('relayGroup', JSON.stringify(value));
+  }
+});

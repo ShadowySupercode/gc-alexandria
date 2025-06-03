@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { NostrUser } from '$lib/types/nostr';
-import { getNostrClient } from '$lib/nostr/client';
+import { getNostrClient } from '$lib/nostr/nostr_client_singleton';
 import { getUserMetadata } from '$lib/utils/profileUtils';
 import { userInboxRelays, userOutboxRelays } from '$lib/stores/relayStore';
 import type { NostrProfile } from '$lib/utils/types';
@@ -35,6 +35,8 @@ export const userStore = writable<NostrUser | null>(getInitialUser());
 // Create a derived store for the user's profile
 export const userProfile = writable<NostrProfile | null>(null);
 
+export const userHydrated = writable(false);
+
 // Subscribe to changes and persist to localStorage
 userStore.subscribe((user) => {
   if (typeof localStorage === 'undefined') {
@@ -66,6 +68,7 @@ userStore.subscribe(async (user) => {
       // Fetch and set user profile
       const metadata = await getUserMetadata(user.pubkey);
       userProfile.set(metadata);
+      userHydrated.set(true);
     } catch (error) {
       console.error('[userStore] Failed to rehydrate user session:', error);
       // Reset stores on error
@@ -73,11 +76,13 @@ userStore.subscribe(async (user) => {
       userProfile.set(null);
       userInboxRelays.set([]);
       userOutboxRelays.set([]);
+      userHydrated.set(true);
     }
   } else if (!user) {
     // Clear all user-related stores when user is null
     userProfile.set(null);
     userInboxRelays.set([]);
     userOutboxRelays.set([]);
+    userHydrated.set(true);
   }
 });

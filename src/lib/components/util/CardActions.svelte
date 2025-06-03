@@ -11,7 +11,7 @@
   import type { NostrEvent } from "$lib/types/nostr";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import Details from "$components/util/Details.svelte";
-  import { selectRelayGroup } from '$lib/utils';
+  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
 
   // Component props
   let { event } = $props<{ event: NostrEvent }>();

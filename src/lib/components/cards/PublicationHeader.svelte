@@ -18,7 +18,27 @@
     () => activeUser?.relayUrls ?? communityRelays,
   );
 
-  const href = $derived.by(() => `publication?id=${naddrEncode(event, relays)}`);
+  const href = $derived.by(() => {
+    const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
+    if (!dTag) {
+      return null;
+    }
+    console.log('Event tags:', event.tags);
+    console.log('DTag:', dTag);
+    console.log('Event kind:', event.kind);
+    console.log('Event pubkey:', event.pubkey);
+    const naddrData = {
+      kind: event.kind,
+      pubkey: event.pubkey,
+      tags: [['d', dTag]],
+      content: '',
+      created_at: event.created_at,
+      id: event.id,
+      sig: event.sig
+    };
+    console.log('Naddr data:', naddrData);
+    return `publication?id=${naddrEncode(naddrData, relays)}`;
+  });
 
   let showActions = $state(false);
 
@@ -36,7 +56,18 @@
     () => showActions && eventMetadata.title !== "Untitled",
   );
 
-  console.log("PublicationHeader event:", event);
+  let tags = Array.isArray(event.tags)
+    ? event.tags
+    : Array.from(event.tags ?? []);
+
+  console.log("PublicationHeader event:", {
+    id: event.id,
+    kind: event.kind,
+    tagsLength: tags.length,
+    tags,
+    contentLength: event.content?.length,
+    content: event.content?.slice?.(0, 200),
+  });
 </script>
 
 {#if eventMetadata.title != null && href != null}
@@ -71,7 +102,7 @@
                 {eventMetadata.author}
               {/if}
               {#if warnings.length > 0}
-                <span class="text-yellow-500" title={warnings.join('\n')}>
+                <span class="text-yellow-500 cursor-help" title={warnings.join('\n')}>
                   ⚠️
                 </span>
               {/if}

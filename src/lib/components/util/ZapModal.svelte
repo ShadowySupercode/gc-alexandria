@@ -2,7 +2,7 @@
   import { Modal, Button, P } from "flowbite-svelte";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { signEvent, getEventHash } from '$lib/utils';
+  import { signEvent, getEventHash } from '$lib/utils/eventUtils';
   import { getNostrClient } from "$lib/nostr/client";
   import { fallbackRelays } from "$lib/consts";
   import { getTagValue } from "$lib/utils/eventUtils";

@@ -5,6 +5,9 @@ export const SectionKinds = [30041, 30818];
 export const socialRelays = [
   "wss://theforest.nostr1.com"
 ];
+export const documentRelays = [
+  "wss://thecitadel.nostr1.com"
+];
 export const communityRelays = [
   "wss://thecitadel.nostr1.com",
   "wss://theforest.nostr1.com",
@@ -28,6 +31,7 @@ export const localRelays = [
 
 export enum FeedType {
   SocialRelays = "social",
+  DocumentRelays = "document",
   UserRelays = "user",
   CommunityRelays = "community"
 }

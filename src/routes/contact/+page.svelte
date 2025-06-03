@@ -10,11 +10,11 @@
     Modal,
   } from "flowbite-svelte";
   import { communityRelays, fallbackRelays } from "$lib/consts";
-  import { selectRelayGroup } from '$lib/utils';
+  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
   import { getNostrClient } from '$lib/nostr/client';
   import { publishToRelays } from '$lib/utils/relayUtils';
-  import { parseAdvancedmarkup } from '$lib/utils';
-  import { getMimeTags } from '$lib/utils';
+  import { parseAdvancedmarkup } from '$lib/utils/markup/advancedMarkupParser';
+  import { getMimeTags } from '$lib/utils/mime';
   import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   import { getEventHash } from '$lib/utils/eventUtils';
   import type { NostrEvent } from '$lib/types/nostr';
