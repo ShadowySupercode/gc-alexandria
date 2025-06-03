@@ -4,7 +4,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
   import { getTagValue, getTagValues } from '$lib/utils/eventUtils';
-  import DisplayType from "$components/cards/DisplayType.svelte";
+  import DisplayType from "$components/cards/partial/DisplayType.svelte";
   import type { NostrEvent } from "$lib/types/nostr";
 
   // isModal

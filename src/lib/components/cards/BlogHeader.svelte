@@ -5,7 +5,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { formatTimestampToDate } from "$lib/utils";
-  import CardImage from "$lib/components/cards/CardImage.svelte";
+  import CardImage from "$components/cards/partial/CardImage.svelte";
 
   // Helper functions to get tag values from a NostrEvent
   function getTagValue<T = string>(event: NostrEvent, tagName: string): T | undefined {

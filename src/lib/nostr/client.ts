@@ -89,7 +89,6 @@ class WebSocketRelay implements NostrRelay {
 
   async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) return;
-    if (this.isConnecting) return;
 
     this.isConnecting = true;
     return new Promise((resolve, reject) => {

@@ -38,9 +38,22 @@
 </script>
 
 {#if link}
-  <a href={link} class="underline text-primary-700">
+  <a href={link} class="underline break-all text-primary-700">
     {tag[0]}:{tag[1]}
   </a>
 {:else}
-  <DualPill left={tag[0]} right={tag[1]} />
+  {#if tag.length === 2}
+    <DualPill left={tag[0]} right={tag[1]} />
+  {:else}
+    <!-- loop over the tag array -->
+    <ul class="mb-2">
+      {#each tag as item, index}
+        {#if index === 0}
+          <li class="font-bold">{item}:</li>
+        {:else}
+          <li class="break-all">{item}</li>
+        {/if}
+      {/each}
+    </ul>
+  {/if}
 {/if}
