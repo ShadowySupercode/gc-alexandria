@@ -12,6 +12,16 @@ enum PublicationTreeNodeStatus {
   Error,
 }
 
+export enum TreeTraversalMode {
+  Leaves,
+  All,
+}
+
+enum TreeTraversalDirection {
+  Forward,
+  Backward,
+}
+
 interface PublicationTreeNode {
   type: PublicationTreeNodeType;
   status: PublicationTreeNodeStatus;
@@ -344,9 +354,39 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return this;
   }
 
-  // TODO: Add `previous()` method.
+  /**
+   * Return the next event in the tree for the given traversal mode.
+   * 
+   * @param mode The traversal mode. Can be {@link TreeTraversalMode.Leaves} or
+   * {@link TreeTraversalMode.All}.
+   * @returns The next event in the tree, or null if the tree is empty.
+   */
+  async next(
+    mode: TreeTraversalMode = TreeTraversalMode.Leaves
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    if (!this.#cursor.target) {
+      if (await this.#cursor.tryMoveTo(this.#bookmark)) {
+        return this.#yieldEventAtCursor(false);
+      }
+    }
 
-  async next(): Promise<IteratorResult<NDKEvent | null>> {
+    if (mode === TreeTraversalMode.Leaves) {
+      return this.#walkLeaves(TreeTraversalDirection.Forward);
+    }
+
+    return this.#preorderWalkAll(TreeTraversalDirection.Forward);
+  }
+
+  /**
+   * Return the previous event in the tree for the given traversal mode.
+   * 
+   * @param mode The traversal mode. Can be {@link TreeTraversalMode.Leaves} or
+   * {@link TreeTraversalMode.All}.
+   * @returns The previous event in the tree, or null if the tree is empty.
+   */
+  async previous(
+    mode: TreeTraversalMode = TreeTraversalMode.Leaves
+  ): Promise<IteratorResult<NDKEvent | null>> {
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
         const event = await this.getEvent(this.#cursor.target!.address);
@@ -354,11 +394,40 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     }
 
-    // Based on Raymond Chen's tree traversal algorithm example.
-    // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
+    if (mode === TreeTraversalMode.Leaves) {
+      return this.#walkLeaves(TreeTraversalDirection.Backward);
+    }
+
+    return this.#preorderWalkAll(TreeTraversalDirection.Backward);
+  }
+
+  async #yieldEventAtCursor(done: boolean): Promise<IteratorResult<NDKEvent | null>> {
+    const value = (await this.getEvent(this.#cursor.target!.address)) ?? null;
+    return { done, value };
+  }
+
+  /**
+   * Walks the tree in the given direction, yielding the event at each leaf.
+   * 
+   * @param direction The direction to walk the tree.
+   * @returns The event at the leaf, or null if the tree is empty.
+   * 
+   * Based on Raymond Chen's tree traversal algorithm example.
+   * https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
+   */
+  async #walkLeaves(
+    direction: TreeTraversalDirection = TreeTraversalDirection.Forward
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    const tryMoveToSibling: () => Promise<boolean> = direction === TreeTraversalDirection.Forward
+      ? this.#cursor.tryMoveToNextSibling.bind(this.#cursor)
+      : this.#cursor.tryMoveToPreviousSibling.bind(this.#cursor);
+    const tryMoveToChild: () => Promise<boolean> = direction === TreeTraversalDirection.Forward
+      ? this.#cursor.tryMoveToFirstChild.bind(this.#cursor)
+      : this.#cursor.tryMoveToLastChild.bind(this.#cursor);
+    
     do {
-      if (await this.#cursor.tryMoveToNextSibling()) {
-        while (await this.#cursor.tryMoveToFirstChild()) {
+      if (await tryMoveToSibling()) {
+        while (await tryMoveToChild()) {
           continue;
         }
 
@@ -366,8 +435,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
           return { done: false, value: null };
         }
 
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
+        return this.#yieldEventAtCursor(false);
       }
     } while (this.#cursor.tryMoveToParent());
 
@@ -379,36 +447,20 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return { done: true, value: null };
   }
 
-  async previous(): Promise<IteratorResult<NDKEvent | null>> {
-    if (!this.#cursor.target) {
-      if (await this.#cursor.tryMoveTo(this.#bookmark)) {
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
-      }
-    }
-    
-    // Based on Raymond Chen's tree traversal algorithm example.
-    // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
-    do {
-      if (await this.#cursor.tryMoveToPreviousSibling()) {
-        while (await this.#cursor.tryMoveToLastChild()) {
-          continue;
-        }
-
-        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
-          return { done: false, value: null };
-        }
-
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
-      }
-    } while (this.#cursor.tryMoveToParent());
-
-    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
-      return { done: false, value: null };
-    }
-
-    return { done: true, value: null };
+  /**
+   * Walks the tree in the given direction, yielding the event at each node.
+   * 
+   * @param direction The direction to walk the tree.
+   * @returns The event at the node, or null if the tree is empty.
+   * 
+   * Based on Raymond Chen's preorder walk algorithm example.
+   * https://devblogs.microsoft.com/oldnewthing/20200107-00/?p=103304
+   */
+  async #preorderWalkAll(
+    direction: TreeTraversalDirection = TreeTraversalDirection.Forward
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    // TODO: Implement this.
+    return { done: false, value: null };
   }
 
   // #endregion
