@@ -74,7 +74,7 @@
   $effect(() => {
     if (lnurl) {
       try {
-        const { words } = bech32.decode(lnurl);
+        const { words } = bech32.decode(lnurl, false);
         const urlBytes = bech32.fromWords(words);
         const decodedUrl = new TextDecoder().decode(new Uint8Array(urlBytes));
       } catch (err) {
@@ -289,11 +289,11 @@
         <div class="flex flex-col items-center mt-3 space-y-4">
           <QrCode value={lnurl ?? profile.lud16} />
           {#if lnurl}
-            <P class="text-xs text-gray-600 dark:text-gray-400">
+            <P class="text-xs text-info-600 dark:text-info-400">
               This is a bech32-encoded LNURL for your Lightning address.
             </P>
           {:else}
-            <P class="text-xs text-yellow-700 dark:text-yellow-300">
+            <P class="text-xs text-warning-700 dark:text-warning-300">
               Unable to generate a valid LNURL for this Lightning address. The QR code and copy button use the Lightning address directly, which most wallets support.
             </P>
           {/if}

@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { Load } from '@sveltejs/kit';
 import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
-import { searchEventByIdentifier, fetchEventWithFallback } from '$lib/utils';
+import { searchEventByIdentifier, fetchEventWithFallback, getTagValue } from "$lib/utils";
 import { wikiKind, indexKind, SectionKinds } from '$lib/consts';
 import type { NostrEvent } from '$lib/types/nostr';
 
@@ -84,7 +84,9 @@ export const load = (async ({
     } else if (indexEvent.kind === wikiKind) {
       publicationType = 'wiki';
     } else if (indexEvent.kind === indexKind) {
-      publicationType = 'book';
+      // Default to 'book' for index events
+      // If existing, derive from tag
+      publicationType = getTagValue(indexEvent, 'type') ?? 'book';
     } else if (SectionKinds.includes(indexEvent.kind)) {
       publicationType = 'section';
     } else {

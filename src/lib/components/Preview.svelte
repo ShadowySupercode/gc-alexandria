@@ -55,6 +55,7 @@
     $pharosInstance.getOrderedChildIds(rootId),
   );
 
+  let type = $derived.by(() => getTagValue(index, 'type') ?? '');
   let blogEntries = $state(Array.from($pharosInstance.getBlogEntries()).filter(([_, event]) => event !== null) as [string, NostrEvent][]);
 
   let isEditing: boolean = $state(false);

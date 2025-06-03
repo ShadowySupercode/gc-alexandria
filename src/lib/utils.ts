@@ -27,6 +27,7 @@ export * from './utils/uiUtils';
 export * from './utils/types';
 export * from './utils/eventEncoding';
 export * from './utils/mime';
+export * from './utils/imeta';
 export * from './utils/npubCache';
 export * from './utils/relayGroupUtils';
 // Export markup parsers

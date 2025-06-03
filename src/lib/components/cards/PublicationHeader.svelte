@@ -8,7 +8,7 @@
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { formatTimestampToDate } from "$lib/utils";
-  import CardImage from "./CardImage.svelte";
+  import CardImage from "./partial/CardImage.svelte";
   
   let { event, warnings = [] }: { event: NostrEvent, warnings?: string[] } = $props();
 

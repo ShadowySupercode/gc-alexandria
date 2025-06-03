@@ -88,7 +88,6 @@ class WebSocketRelay implements NostrRelay {
 
   async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) return;
-    if (this.isConnecting) return;
 
     this.isConnecting = true;
     return new Promise((resolve, reject) => {
@@ -559,15 +558,17 @@ export class NostrClient {
           relays: params.relays
         }
       };
-      const words = bech32.toWords(hexToBytes(JSON.stringify(data)));
-      return bech32.encode('naddr', words);
+      const jsonString = JSON.stringify(data);
+      const bytes = new TextEncoder().encode(jsonString);
+      const words = bech32.toWords(bytes);
+      return bech32.encode("naddr", words, false);
     },
 
     decode: (input: string) => {
       try {
         // Type assertion to satisfy bech32's type system
         const bech32Input = input as `${string}1${string}`;
-        const decoded = bech32.decode(bech32Input);
+        const decoded = bech32.decode(bech32Input, false);
         if (!decoded) throw new Error('Invalid bech32 string');
         
         const { prefix, words } = decoded;

@@ -15,6 +15,7 @@
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import EventTag from "./EventTag.svelte";
   import { Accordion, AccordionItem, Button } from "flowbite-svelte";
+  import GalleryHeader from "$components/cards/GalleryHeader.svelte";
 
   // --- Props ---
   const props = $props<{
@@ -118,83 +119,88 @@
 </script>
 
 {#key event.id}
-  <div class="flex flex-col space-y-4">
-    {#if event.kind !== 0 && eventTitle}
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
-    {/if}
 
-    <div class="flex items-center space-x-2">
-      {#if toNpub(event.pubkey)}
+    {#if event.kind === 0}     <!-- If event is profile -->
+      <ProfileHeader {event} {profile} typeDisplay={eventTypeDisplay} />
+    {:else if event.kind === 20}     <!-- If event is gallery -->
+      <GalleryHeader {event} typeDisplay={eventTypeDisplay} content={parsedContent} />
+    {:else}     <!-- Generic -->
+
+      <div class="flex flex-col space-y-4">
+        {#if event.kind !== 0 && eventTitle}
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
+        {/if}
+
+        <div class="flex items-center space-x-2">
+          {#if toNpub(event.pubkey)}
         <span class="text-gray-600 dark:text-gray-400">
           Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}
         </span>
-      {:else}
+          {:else}
         <span class="text-gray-600 dark:text-gray-400">
           Author: {profile?.display_name || event.pubkey}
         </span>
-      {/if}
-    </div>
+          {/if}
+        </div>
 
-    {#if eventSummary}
-      <div class="flex flex-col space-y-1">
-        <span class="text-gray-600 dark:text-gray-400">Summary:</span>
-        <p class="text-gray-800 dark:text-gray-200">{eventSummary}</p>
-      </div>
-    {/if}
+        {#if eventSummary}
+          <div class="flex flex-col space-y-1">
+            <span class="text-gray-600 dark:text-gray-400">Summary:</span>
+            <p class="text-gray-800 dark:text-gray-200">{eventSummary}</p>
+          </div>
+        {/if}
 
-    {#if eventHashtags.length}
-      <div class="flex flex-col space-y-1">
-        <span class="text-gray-600 dark:text-gray-400">Tags:</span>
-        <div class="flex flex-wrap gap-2">
-          {#each eventHashtags as tag}
+        {#if eventHashtags.length}
+          <div class="flex flex-col space-y-1">
+            <span class="text-gray-600 dark:text-gray-400">Tags:</span>
+            <div class="flex flex-wrap gap-2">
+              {#each eventHashtags as tag}
             <span
               class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-sm font-medium"
-              >#{tag}</span
+            >#{tag}</span
             >
-          {/each}
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Content -->
+        <div class="flex flex-col space-y-1">
+          {#if event.kind !== 0}
+            <span class="text-gray-600 dark:text-gray-400">Content:</span>
+            <div class="prose dark:prose-invert max-w-none">
+              {@html displayContent}
+              {#if showReadMoreButton}
+                <Button
+                  color="alternative"
+                  size="xs"
+                  class="mt-2"
+                  onclick={() => (showFullContent = true)}
+                  aria-expanded="false"
+                  aria-controls="event-content"
+                >
+                  Read more
+                  <span class="sr-only">of {eventTitle}</span>
+                </Button>
+              {/if}
+              {#if showReadLessButton}
+                <Button
+                  color="alternative"
+                  size="xs"
+                  class="mt-2"
+                  onclick={() => (showFullContent = false)}
+                  aria-expanded="true"
+                  aria-controls="event-content"
+                >
+                  Show less
+                  <span class="sr-only">of {eventTitle}</span>
+                </Button>
+              {/if}
+            </div>
+          {/if}
         </div>
       </div>
-    {/if}
 
-    <!-- Content -->
-    <div class="flex flex-col space-y-1">
-      {#if event.kind !== 0}
-        <span class="text-gray-600 dark:text-gray-400">Content:</span>
-        <div class="prose dark:prose-invert max-w-none">
-          {@html displayContent}
-          {#if showReadMoreButton}
-            <Button
-              color="alternative"
-              size="xs"
-              class="mt-2"
-              onclick={() => (showFullContent = true)}
-              aria-expanded="false"
-              aria-controls="event-content"
-            >
-              Read more
-              <span class="sr-only">of {eventTitle}</span>
-            </Button>
-          {/if}
-          {#if showReadLessButton}
-            <Button
-              color="alternative"
-              size="xs"
-              class="mt-2"
-              onclick={() => (showFullContent = false)}
-              aria-expanded="true"
-              aria-controls="event-content"
-            >
-              Show less
-              <span class="sr-only">of {eventTitle}</span>
-            </Button>
-          {/if}
-        </div>
-      {/if}
-    </div>
-
-    <!-- If event is profile -->
-    {#if event.kind === 0}
-      <ProfileHeader {event} {profile} typeDisplay={eventTypeDisplay} />
     {/if}
 
     <!-- Event Technical details -->
@@ -249,5 +255,4 @@
         </pre>
       </AccordionItem>
     </Accordion>
-  </div>
 {/key}
