@@ -71,10 +71,6 @@
     isExpanded = !isExpanded;
   }
 
-  function normalizeRelayUrl(url: string): string {
-    return url.replace(/\/+$/, '');
-  }
-
   // Function to handle form submission
   async function handleSubmit(e: Event): Promise<void> {
     e.preventDefault();

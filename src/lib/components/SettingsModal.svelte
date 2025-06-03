@@ -188,7 +188,6 @@
 
   $effect(() => {
     // Persist fallback relays selection (already handled in store, but ensure on mount)
-    // This is a no-op if already handled by the store, but ensures consistencyimage.png
     localStorage.setItem('useFallbackRelays', $useFallbackRelays.toString());
   });
 

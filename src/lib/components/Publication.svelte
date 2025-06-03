@@ -280,12 +280,8 @@
           <div class="flex flex-col w-full space-y-4">
             <Card class="ArticleBox card-leather w-full grid max-w-xl">
               <div class="flex flex-col my-2">
-                <span>Unknown</span>
-                <span class="text-gray-500">1.1.1970</span>
-              </div>
-              <div class="flex flex-col flex-grow space-y-4">
-                This is a very intelligent comment placeholder that applies to
-                all the content equally well.
+                <span>No comments yet</span>
+                <span class="text-gray-500">Be the first to comment</span>
               </div>
             </Card>
           </div>

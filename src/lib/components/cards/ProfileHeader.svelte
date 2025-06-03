@@ -57,17 +57,16 @@
     }
   });
 
-  // Fix 1: Use display_name consistently
-  // Fix 2: Move image error handlers to functions
   function handleBannerError(e: Event) {
     const target = e.target as HTMLImageElement;
     target.style.display = 'none';
   }
+
   function handleAvatarError(e: Event) {
     const target = e.target as HTMLImageElement;
     target.src = '/favicon.png';
   }
-  // Fix 3: Move Button click handler to a function
+
   function openLnModal() {
     lnModalOpen = true;
   }

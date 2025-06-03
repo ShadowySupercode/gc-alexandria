@@ -103,7 +103,7 @@ export function createProfileLink(
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
 
-  return `<a href="./events?id=${escapedId}" class="npub-badge" target="_blank">@${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="npub-badge">@${escapedText}</a>`;
 }
 
 /**
@@ -177,11 +177,11 @@ export async function createProfileLinkWithVerification(
   const type = nip05.endsWith("edu") ? "edu" : "standard";
   switch (type) {
     case "edu":
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
     case "standard":
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
     default:
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
 

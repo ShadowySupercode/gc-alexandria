@@ -1,6 +1,7 @@
 import { processNostrIdentifiers } from '$lib/utils';
 import * as emoji from "node-emoji";
 import { getNostrClient } from '$lib/nostr/client';
+import { escapeHtml } from '$lib/utils/commonUtils';
 
 /* Regex constants for basic markup parsing */
 
@@ -423,4 +424,18 @@ export async function parseBasicmarkup(text: string): Promise<string> {
     console.error("Error in parseBasicmarkup:", e);
     return `<div class="text-red-500">Error processing markup: ${(e as Error)?.message ?? "Unknown error"}</div>`;
   }
+}
+
+export function createNoteLink(identifier: string): string {
+  if (typeof identifier !== 'string' || !identifier) {
+    throw new Error('Identifier must be a string');
+  }
+  const cleanId = identifier.replace(/^nostr:/, '');
+  console.log('identifier:', identifier, typeof identifier, cleanId);
+
+  const shortId = `${cleanId.slice(0, 12)}...${cleanId.slice(-8)}`;
+  const escapedId = escapeHtml(cleanId);
+  const escapedText = escapeHtml(shortId);
+
+  return `<a href="./events?id=${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline break-all">${escapedText}</a>`;
 }

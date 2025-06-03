@@ -167,4 +167,6 @@ export async function initNostrClient(relays: string[] = []): Promise<void> {
 }
 
 // Export the NostrClient for use throughout the application
-export { getNostrClient } from '$lib/nostr/client'; 
+export { getNostrClient } from '$lib/nostr/client';
+
+export { publishEvent, fetchEventWithFallback } from './relayUtils'; 

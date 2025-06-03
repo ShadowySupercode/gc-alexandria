@@ -7,8 +7,6 @@
   import { ArrowRightToBracketOutline, CogOutline } from 'flowbite-svelte-icons';
   import { userStore } from '$lib/stores/userStore';
 
-  console.log('[Login] Login.svelte component loaded');
-
   let showSettings = $state(false);
 
   let signInFailed = $state<boolean>(false);
