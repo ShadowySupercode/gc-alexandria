@@ -3,7 +3,7 @@
   import { Modal, Button, Heading } from "flowbite-svelte";
 
   // State and relay group management
-  import { setRelayGroupArray, useFallbackRelays, setUseFallbackRelays } from "$lib/stores/relayGroup";
+  import { useFallbackRelays, setUseFallbackRelays } from "$lib/stores/relayGroup";
   import type { RelayGroupOption } from "$lib/stores/relayGroup";
   import { userInboxRelays, userOutboxRelays, responsiveLocalRelays, updateResponsiveLocalRelays } from '$lib/stores/relayStore';
   import { getNostrClient } from '$lib/nostr/client';
@@ -24,7 +24,6 @@
   let includeLocalRelays = $state(
     localStorage.getItem('includeLocalRelays') === 'true'
   );
-  let showTooltip = $state<number | string | null>(null);
   let localRelaysResponsive = $state(true);
 
   // Get the Nostr client
@@ -117,12 +116,6 @@
   theme.subscribe(value => {
     localStorage.setItem('theme', value);
     document.documentElement.classList.toggle('dark', value === 'dark');
-  });
-
-  // Update relay group array whenever configuration changes
-  $effect(() => {
-    const { groups, inboxRelays, outboxRelays } = currentRelayConfig.effectiveRelays;
-    setRelayGroupArray(groups);
   });
 
   // Ensure local relays are disabled when local-only is selected

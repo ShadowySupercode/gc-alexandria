@@ -1,4 +1,4 @@
-import { writable, get } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { NostrUser } from '$lib/types/nostr';
 import { getNostrClient } from '$lib/nostr/client';
 import { getUserMetadata } from '$lib/utils/profileUtils';

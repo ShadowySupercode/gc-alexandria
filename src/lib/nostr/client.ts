@@ -6,7 +6,7 @@ import type {
   NostrEncoding,
   NostrRelay
 } from '$lib/types/nostr';
-import { getEventHash, signEvent, createEvent } from '$lib/utils/eventUtils';
+import { getEventHash } from '$lib/utils/eventUtils';
 import { bech32 } from '@scure/base';
 
 // Discriminated union type for NIP-19 input
@@ -23,17 +23,6 @@ export type DecodedNoteId =
   | { type: 'nprofile'; pubkey: string; relays?: string[] }
   | { type: 'naddr'; kind: number; pubkey: string; identifier: string; relays?: string[] };
 
-type Nip19Decoded = {
-  type: 'note' | 'npub' | 'nevent' | 'nprofile' | 'naddr';
-  data: string | {
-    id?: string;
-    pubkey?: string;
-    kind?: number;
-    identifier?: string;
-    relays?: string[];
-  };
-};
-
 // WebSocket-based relay implementation
 class WebSocketRelay implements NostrRelay {
   private ws: WebSocket | null = null;
@@ -41,7 +30,6 @@ class WebSocketRelay implements NostrRelay {
   private pendingMessages: string[] = [];
   private isConnecting = false;
   private authRequired = false;
-  private authChallenge: string | null = null;
   private authPromise: Promise<void> | null = null;
 
   constructor(public url: string) {}
@@ -121,7 +109,6 @@ class WebSocketRelay implements NostrRelay {
           this.isConnecting = false;
           this.ws = null;
           this.authRequired = false;
-          this.authChallenge = null;
           this.authPromise = null;
           // Attempt to reconnect after a delay
           setTimeout(() => this.connect(), 5000);
@@ -150,7 +137,6 @@ class WebSocketRelay implements NostrRelay {
               case 'AUTH': {
                 const challenge = rest[0];
                 this.authRequired = true;
-                this.authChallenge = challenge;
                 if (!this.authPromise) {
                   this.authPromise = this.handleAuth(challenge);
                 }
@@ -158,7 +144,7 @@ class WebSocketRelay implements NostrRelay {
                 break;
               }
               case 'OK': {
-                const [eventId, success, message] = rest;
+                const [success, message] = rest;
                 if (!success && message === 'auth-required') {
                   this.authRequired = true;
                   // The relay will send an AUTH message with the challenge
@@ -412,16 +398,22 @@ export class NostrClient {
     if (relayList) {
       relayList.tags.forEach(tag => {
         if (tag[0] === 'r') {
-          inbox.add(tag[1]);
-        } else if (tag[0] === 'w') {
-          outbox.add(tag[1]);
-        } else {
-          inbox.add(tag[1]);
-          outbox.add(tag[1]);
+          const url = tag[1];
+          const marker = tag[2];
+          if (marker === 'read') {
+            inbox.add(url);
+          } else if (marker === 'write') {
+            outbox.add(url);
+          } else {
+            // No marker: both read and write
+            inbox.add(url);
+            outbox.add(url);
+          }
         }
       });
     }
-
+    console.log('inbox', Array.from(inbox));
+    console.log('outbox', Array.from(outbox));
     return [inbox, outbox];
   }
 

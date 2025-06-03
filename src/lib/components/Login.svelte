@@ -1,18 +1,14 @@
 <script lang="ts">
-  import type { NostrProfile } from '$lib/utils/types';
-  import { getUserMetadata } from '$lib/utils';
   import { getNostrClient } from '$lib/nostr/client';
   import type { NostrUser } from '$lib/types/nostr';
   import { Avatar, Button, Popover } from "flowbite-svelte";
   import Profile from "$components/util/Profile.svelte";
   import SettingsModal from "$components/SettingsModal.svelte";
   import { ArrowRightToBracketOutline, CogOutline } from 'flowbite-svelte-icons';
-  import { userInboxRelays, userOutboxRelays } from '$lib/stores/relayStore';
   import { userStore } from '$lib/stores/userStore';
 
   console.log('[Login] Login.svelte component loaded');
 
-  let profile = $state<NostrProfile | null>(null);
   let showSettings = $state(false);
 
   let signInFailed = $state<boolean>(false);
@@ -25,18 +21,6 @@
 
   // Track login state
   let isLoggedIn = $derived(() => !!$userStore);
-
-  $effect(() => {
-    if (isLoggedIn()) {
-      const user = client.getActiveUser();
-      if (user?.pubkey) {
-        getUserMetadata(user.pubkey).then((metadata) => {
-          console.log('[Login] Profile metadata:', metadata);
-          profile = metadata;
-        });
-      }
-    }
-  });
 
   async function handleSignInClick() {
     try {
@@ -58,27 +42,34 @@
         throw new Error("The NIP-07 extension did not return a public key.");
       }
 
-      // Create a user object and set it as active
+      // Fetch user metadata
+      const userMetadataEvent = await client.fetchEvent({ kinds: [0], authors: [pubkey] });
+      let nip05 = '';
+      if (userMetadataEvent) {
+        try {
+          const content = JSON.parse(userMetadataEvent.content);
+          nip05 = content.nip05 || '';
+        } catch (e) {
+          nip05 = '';
+        }
+      }
+
+      // Create a user object and set it in the store
       const user: NostrUser = {
         pubkey,
-        validateNip05: async () => false // Default to false, can be updated later
+        validateNip05: async (nip05ToCheck: string) => {
+          return client.validateNip05(nip05ToCheck, pubkey);
+        },
+        nip05 // optionally store nip05 on the user object
       };
-      client.setActiveUser(user);
       userStore.set(user);
-      console.log('[Login] Set active user:', user);
+      console.log('[Login] Set user in store:', user);
 
-      // Fetch and set user relays
-      const [inboxSet, outboxSet] = await client.getUserPreferredRelays(user);
-      console.log('[Login] User relays fetched:', { inbox: Array.from(inboxSet), outbox: Array.from(outboxSet) });
-      userInboxRelays.set(Array.from(inboxSet));
-      userOutboxRelays.set(Array.from(outboxSet));
-
-      // Get user metadata
-      const metadata = await getUserMetadata(pubkey);
-      console.log('[Login] User metadata fetched:', metadata);
-      profile = metadata;
-
-      console.log('[Login] Sign-in flow completed successfully');
+      // validate immediately and show result
+      if (nip05) {
+        const isValid = await user.validateNip05(nip05);
+        console.log('NIP-05 validation result:', isValid);
+      }
     } catch (e) {
       console.error('[Login] Sign-in failed:', e);
       signInFailed = true;
