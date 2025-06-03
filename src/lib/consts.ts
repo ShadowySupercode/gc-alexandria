@@ -14,7 +14,6 @@ export const communityRelays = [
 ];
 export const fallbackRelays = [
   "wss://purplepag.es",
-  "wss://indexer.coracle.social",
   "wss://relay.noswhere.com",
   "wss://relay.damus.io",
   "wss://relay.nostr.band",

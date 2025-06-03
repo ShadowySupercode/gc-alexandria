@@ -1,4 +1,16 @@
 <script lang="ts">
+  import { Buffer } from 'buffer';
+
+  if (typeof global === 'undefined' && typeof window !== 'undefined') {
+    // @ts-ignore
+    window.global = window;
+  }
+
+  if (typeof window !== 'undefined') {
+    // @ts-ignore
+    window.Buffer = Buffer;
+  }
+
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";

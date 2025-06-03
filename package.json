@@ -17,12 +17,12 @@
     "@noble/curves": "^1.9.1",
     "@noble/hashes": "^1.8.0",
     "@popperjs/core": "2.11.x",
-    "@scure/base": "^1.2.6",
     "@tailwindcss/forms": "0.5.x",
     "@tailwindcss/typography": "0.5.x",
     "@types/ws": "^8.18.1",
     "asciidoctor": "3.0.x",
     "bech32": "^2.0.0",
+    "buffer": "^6.0.3",
     "d3": "^7.9.0",
     "he": "1.2.x",
     "highlight.js": "^11.11.1",
@@ -39,7 +39,7 @@
     "@sveltejs/vite-plugin-svelte": "4.x",
     "@types/d3": "^7.4.3",
     "@types/he": "1.2.x",
-    "@types/node": "22.x",
+    "@types/node": "^22.15.29",
     "@types/qrcode": "^1.5.5",
     "autoprefixer": "10.x",
     "eslint-plugin-svelte": "2.x",
@@ -58,6 +58,7 @@
     "tslib": "2.8.x",
     "typescript": "5.7.x",
     "vite": "5.x",
+    "vite-plugin-node-polyfills": "^0.23.0",
     "vitest": "^3.1.3"
   }
 }

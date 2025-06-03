@@ -7,6 +7,7 @@ import { feedType } from '$lib/stores';
 import { nostrClient } from '$lib/stores/nostr';
 import type { LayoutLoad } from './$types';
 import type { NostrEvent } from '$lib/types/nostr';
+import { Buffer } from 'buffer';
 
 // Store for the persisted login state
 interface PersistedLogin {

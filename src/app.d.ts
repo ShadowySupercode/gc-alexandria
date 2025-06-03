@@ -2,7 +2,7 @@
 
 import type { NostrEvent } from './lib/types/nostr';
 import type { NostrClient } from './lib/types/nostr';
-import Pharos from "./lib/parser.ts";
+import Pharos from './lib/parser.ts';
 
 // for information about these interfaces
 declare global {

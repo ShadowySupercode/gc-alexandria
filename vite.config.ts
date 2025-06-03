@@ -1,6 +1,7 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import { execSync } from "child_process";
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 // Function to get the latest git tag
 function getAppVersionString() {
@@ -23,16 +24,22 @@ function getAppVersionString() {
 }
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit(),
+    nodePolyfills({
+      protocolImports: true
+    })
+  ],
   resolve: {
     alias: {
       $lib: "./src/lib",
       $components: "./src/components",
+      buffer: 'buffer',
     },
   },
   build: {
     rollupOptions: {
-      external: ["bech32"],
+      external: [],
     },
   },
   test: {

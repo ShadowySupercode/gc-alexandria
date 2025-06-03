@@ -6,7 +6,7 @@ import { createProfileLink } from './profileUtils';
 import { createNoteLink } from './profileUtils';
 import { get } from 'svelte/store';
 import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
-import { bech32 } from '@scure/base';
+import { bech32 } from 'bech32';
 import { hexToBytes } from '@noble/hashes/utils';
 import { documentRelays } from '../consts';
 
@@ -207,15 +207,38 @@ export function neventEncode(event: NostrEvent, relays: string[] = []): string {
  * Encodes an event as an naddr string
  */
 export function naddrEncode(event: NostrEvent, relays: string[] = []): string {
+  if (!Array.isArray(relays)) {
+    throw new Error('relays must be a string array');
+  }
   const client = getNostrClient();
   const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
-  if (!dTag) throw new Error('Event has no d tag');
-  return client.encoding.encodeNaddr({
-    pubkey: event.pubkey,
-    kind: event.kind,
-    identifier: dTag,
-    relays,
-  });
+  if (typeof dTag !== 'string') {
+    throw new Error('Event has no d tag');
+  }
+  const canonicalId = normalizeIdentifier(dTag);
+  const idBytes = new TextEncoder().encode(canonicalId);
+  console.log('canonicalId:', canonicalId, 'idBytes length:', idBytes.length);
+  console.log('naddrEncode pubkey:', event.pubkey);
+  console.log('naddrEncode kind:', event.kind);
+  console.log('naddrEncode identifier:', dTag, dTag.length);
+  console.log('naddrEncode relays:', relays, Array.isArray(relays));
+  const pubkeyBytes = hexToBytes(event.pubkey);
+  const kindBytes = new Uint8Array(4);
+  new DataView(kindBytes.buffer).setUint32(0, event.kind, false);
+  const tlv: number[] = [];
+  tlv.push(0, pubkeyBytes.length, ...pubkeyBytes);
+  tlv.push(1, 4, ...kindBytes);
+  tlv.push(2, idBytes.length, ...idBytes);
+  let tlvBytes = Uint8Array.from(tlv);
+  if (relays && relays.length > 0) {
+    const relay = relays[0];
+    if (relay) {
+      const relayBytes = new TextEncoder().encode(relay);
+      tlvBytes = Uint8Array.from([...tlv, 3, relayBytes.length, ...relayBytes]);
+    }
+  }
+  const words = bech32.toWords(Buffer.from(tlvBytes));
+  return bech32.encode('naddr', words, 1023);
 }
 
 /**
@@ -261,8 +284,8 @@ export function getRelayHints(event: NostrEvent): string[] | undefined {
 export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
   encodeNpub: (pubkey: string): string => {
     const bytes = hexToBytes(pubkey);
-    const words = bech32.toWords(bytes);
-    return bech32.encode('npub', words);
+    const words = bech32.toWords(Buffer.from(bytes));
+    return bech32.encode('npub', words, 1023);
   },
   encodeNote: (noteId: string): string => {
     // TODO: Implement
@@ -294,19 +317,17 @@ export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
     // identifier (type 2)
     const idBytes = new TextEncoder().encode(params.identifier);
     tlv.push(2, idBytes.length, ...idBytes);
-    // Only include the first document relay
-    const relay = documentRelays[0];
-    if (relay) {
-      const relayBytes = new TextEncoder().encode(relay);
-      tlv.push(3, relayBytes.length, ...relayBytes);
+    // relay (type 3) - only if provided and fits
+    let tlvBytes = Uint8Array.from(tlv);
+    if (params.relays && params.relays.length > 0) {
+      const relay = params.relays[0];
+      if (relay) {
+        const relayBytes = new TextEncoder().encode(relay);
+        tlvBytes = Uint8Array.from([...tlv, 3, relayBytes.length, ...relayBytes]);
+      }
     }
-    const tlvBytes = Uint8Array.from(tlv);
-    const words = bech32.toWords(tlvBytes);
-    const naddr = bech32.encode('naddr', words);
-    if (tlvBytes.length > 90) {
-      throw new Error(`naddr TLV payload exceeds 90 bytes (actual: ${tlvBytes.length}). naddr: ${naddr}`);
-    }
-    return naddr;
+    const words = bech32.toWords(Buffer.from(tlvBytes));
+    return bech32.encode('naddr', words, 1023);
   },
   decode: (input: string): {
     type: 'npub' | 'nprofile' | 'note' | 'nevent' | 'naddr';
@@ -314,9 +335,8 @@ export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
   } => {
     // Remove nostr: prefix if present
     const clean = input.replace(/^nostr:/, '');
-    // @ts-expect-error: bech32.decode prefix type is stricter than needed for NIP-19
-    const { prefix, words } = bech32.decode(clean, 2000);
-    const data = bech32.fromWords(words);
+    const { prefix, words } = bech32.decode(clean, 1023);
+    const data = Buffer.from(bech32.fromWords(words));
     switch (prefix) {
       case 'npub': {
         if (data.length !== 32) throw new Error('Invalid npub length');
@@ -387,4 +407,23 @@ export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
 // Utility to convert bytes to hex
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const canonicalId = 'anarchistic-knowledge-the-art-of-thinking-without-permission';
+const idBytes = new TextEncoder().encode(canonicalId);
+console.log('canonicalId:', canonicalId, 'idBytes length:', idBytes.length);
+
+function normalizeIdentifier(identifier: string): string {
+  if (!identifier) return '';
+  // Replace all Unicode dash-like characters with ASCII hyphen-minus
+  let ascii = identifier.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
+  // Remove all non-ASCII characters
+  ascii = ascii.replace(/[^\x20-\x7E]/g, '');
+  // Remove all whitespace (including invisible and zero-width spaces)
+  ascii = ascii.replace(/\s+/g, '');
+  // Collapse multiple consecutive hyphens into a single hyphen
+  ascii = ascii.replace(/-+/g, '-');
+  // Trim leading and trailing hyphens
+  ascii = ascii.replace(/^-+|-+$/g, '');
+  return ascii;
 } 
