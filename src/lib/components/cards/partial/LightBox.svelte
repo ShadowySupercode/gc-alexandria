@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Img } from "flowbite-svelte";
-  import { type ImageMeta } from "$lib/utils";
+  import type { ImageMeta } from "$lib/utils/imeta";
 
   export let images: ImageMeta[] = [];
   let selectedImage: ImageMeta | null = null;

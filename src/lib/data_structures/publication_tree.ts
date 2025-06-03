@@ -2,7 +2,7 @@ import type { NostrEvent, NostrUser } from '$lib/types/nostr';
 import { getTagAddress } from '$lib/utils/eventUtils';
 import { Lazy } from './lazy';
 import { findIndexAsync as _findIndexAsync } from '../utils';
-import { getNostrClient } from '$lib/nostr/client';
+import { getNostrClient, type NostrClient } from '$lib/nostr/client';
 import { derived, writable } from 'svelte/store';
 
 enum PublicationTreeNodeType {
@@ -33,17 +33,17 @@ export class PublicationTree {
   /**
    * The root node of the tree.
    */
-  #root: PublicationTreeNode;
+  #root!: PublicationTreeNode;
 
   /**
    * A map of addresses in the tree to their corresponding nodes.
    */
-  #nodes: Map<string, Lazy<PublicationTreeNode>>;
+  #nodes!: Map<string, Lazy<PublicationTreeNode>>;
 
   /**
    * A map of addresses in the tree to their corresponding events.
    */
-  #events: Map<string, NostrEvent>;
+  #events!: Map<string, NostrEvent>;
 
   /**
    * An ordered list of the addresses of the leaves of the tree.
@@ -51,14 +51,14 @@ export class PublicationTree {
   #leaves: string[] = [];
 
   /**
-   * The address of the last-visited node.  Used for iteration and progressive retrieval.
+   * The address of the last-visited node. Used for iteration and progressive retrieval.
    */
   #bookmark?: string;
 
   /**
    * The NostrClient instance used to fetch events.
    */
-  #client: ReturnType<typeof getNostrClient>;
+  #client!: NostrClient;
 
   /**
    * Whether the tree is currently being updated.
@@ -70,7 +70,21 @@ export class PublicationTree {
    */
   #updatePromise?: Promise<void>;
 
-  constructor(rootEvent: NostrEvent) {
+  /**
+   * A promise that resolves when the tree is fully initialized.
+   */
+  #initializationPromise: Promise<void>;
+
+  /**
+   * The unsubscribe function for the user store subscription.
+   */
+  #unsubscribeUser: (() => void) | null = null;
+
+  /**
+   * Initializes the tree with a root event.
+   * @param rootEvent The root event to use for the tree.
+   */
+  #initializeTree(rootEvent: NostrEvent): void {
     const rootAddress = getTagAddress(rootEvent);
     this.#root = {
       type: this.#getNodeType(rootEvent),
@@ -85,27 +99,70 @@ export class PublicationTree {
     );
     this.#events = new Map<string, NostrEvent>();
     this.#events.set(rootAddress, rootEvent);
-    this.#client = getNostrClient();
-
-    // Subscribe to user changes
-    userStore.subscribe((user) => {
-      if (user) {
-        this.#handleUserUpdate(user);
-      }
-    });
   }
 
   /**
-   * Updates the tree to use a new NDK instance.
-   * @param relay The new NDK instance to use.
+   * Creates a new PublicationTree instance.
+   * @param client The NostrClient instance to use for fetching events.
+   * @param rootEvent The root event to use for the tree. If not provided, it will be fetched using the client.
    */
-  async updateFromRelay(relay: any): Promise<void> {
+  constructor(client: NostrClient, rootEvent?: NostrEvent) {
+    // Set client first
+    this.#client = client;
+    
+    // Create initialization promise
+    this.#initializationPromise = (async () => {
+      try {
+        if (!rootEvent) {
+          // Fetch the root event (kind 30040) from the client
+          const event = await this.#client.fetchEvent({
+            kinds: [30040],
+            limit: 1
+          });
+          if (!event) {
+            throw new Error('Failed to fetch root event');
+          }
+          this.#initializeTree(event);
+        } else {
+          this.#initializeTree(rootEvent);
+        }
+
+        // Set up user store subscription after initialization
+        this.#unsubscribeUser = userStore.subscribe((user) => {
+          if (user) {
+            this.#handleUserUpdate(user).catch(error => {
+              console.error('Error handling user update:', error);
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error initializing PublicationTree:', error);
+        throw error;
+      }
+    })();
+  }
+
+  /**
+   * Ensures the tree is initialized before proceeding with an operation.
+   * @throws Error if initialization failed
+   */
+  async #ensureInitialized(): Promise<void> {
+    await this.#initializationPromise;
+  }
+
+  /**
+   * Updates the tree to use a new client instance.
+   * @param client The new NostrClient instance to use.
+   */
+  async updateFromClient(client: NostrClient): Promise<void> {
+    await this.#ensureInitialized();
+    
     if (this.#isUpdating) {
       await this.#updatePromise;
     }
 
     this.#isUpdating = true;
-    this.#updatePromise = this.#performRelayUpdate();
+    this.#updatePromise = this.#performClientUpdate(client);
     
     try {
       await this.#updatePromise;
@@ -116,29 +173,27 @@ export class PublicationTree {
   }
 
   /**
-   * Performs the actual relay update operation.
+   * Performs the actual client update operation.
+   * @param client The NostrClient instance to use for the update.
    */
-  async #performRelayUpdate(): Promise<void> {
-    // Re-fetch all events in the tree
-    const addresses = Array.from(this.#events.keys());
-    const newEvents = await Promise.all(
-      addresses.map(async (address) => {
-        const [kind, pubkey, dTag] = address.split(':');
-        return await this.#client.fetchEvent({
-          kinds: [parseInt(kind)],
-          authors: [pubkey],
-          '#d': [dTag],
-        });
-      })
-    );
-
-    // Update events map with new events
-    for (let i = 0; i < addresses.length; i++) {
-      const newEvent = newEvents[i];
-      if (newEvent) {
-        this.#events.set(addresses[i], newEvent);
+  async #performClientUpdate(client: NostrClient): Promise<void> {
+    // Update the client reference
+    this.#client = client;
+    
+    // Re-fetch all events with the new client
+    const eventPromises = Array.from(this.#events.entries()).map(async ([address, _]) => {
+      const [kind, pubkey, dTag] = address.split(':');
+      const event = await this.#client.fetchEvent({
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        '#d': [dTag],
+      });
+      if (event) {
+        this.#events.set(address, event);
       }
-    }
+    });
+
+    await Promise.all(eventPromises);
   }
 
   /**
@@ -202,6 +257,9 @@ export class PublicationTree {
    * Cleans up the tree, removing all state and unsubscribing from stores.
    */
   async cleanup(): Promise<void> {
+    // Wait for initialization to complete before cleanup
+    await this.#ensureInitialized();
+
     // Clear all state
     this.#nodes.clear();
     this.#events.clear();
@@ -209,9 +267,10 @@ export class PublicationTree {
     this.#bookmark = undefined;
     
     // Unsubscribe from stores
-    const unsubscribeUser = userStore.subscribe(() => {});
-    
-    unsubscribeUser();
+    if (this.#unsubscribeUser) {
+      this.#unsubscribeUser();
+      this.#unsubscribeUser = null;
+    }
   }
 
   /**
@@ -273,11 +332,11 @@ export class PublicationTree {
    * @returns The event, or null if the event is not found.
    */
   async getEvent(address: string): Promise<NostrEvent | null> {
+    await this.#ensureInitialized();
     let event = this.#events.get(address) ?? null;
     if (!event) {
       event = await this.#depthFirstRetrieve(address);
     }
-
     return event;
   }
 
@@ -287,6 +346,7 @@ export class PublicationTree {
    * @returns An array of addresses of any loaded child nodes.
    */
   async getChildAddresses(address: string): Promise<Array<string | null>> {
+    await this.#ensureInitialized();
     const node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(
@@ -307,6 +367,7 @@ export class PublicationTree {
    * root and ending with the addressed event.
    */
   async getHierarchy(address: string): Promise<NostrEvent[]> {
+    await this.#ensureInitialized();
     let node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(
@@ -314,10 +375,23 @@ export class PublicationTree {
       );
     }
 
-    const hierarchy: NostrEvent[] = [this.#events.get(address)!];
+    const hierarchy: NostrEvent[] = [];
+    let currentEvent = this.#events.get(address);
+    if (!currentEvent) {
+      throw new Error(
+        `PublicationTree: Event with address ${address} not found.`,
+      );
+    }
+    hierarchy.push(currentEvent);
 
     while (node.parent) {
-      hierarchy.push(this.#events.get(node.parent.address)!);
+      currentEvent = this.#events.get(node.parent.address);
+      if (!currentEvent) {
+        throw new Error(
+          `PublicationTree: Event with address ${node.parent.address} not found.`,
+        );
+      }
+      hierarchy.push(currentEvent);
       node = node.parent;
     }
 

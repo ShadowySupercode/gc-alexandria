@@ -3,22 +3,14 @@
   import { parseBasicmarkup } from "$lib/utils";
   import {
     getEventHash,
-    signEvent,
     getUserMetadata,
-    type NostrProfile,
-    publishEvent,
     toNpub,
-    type NostrEvent,
   } from "$lib/utils";
   import { neventEncode } from "$lib/utils/identifierUtils";
-  import { fallbackRelays } from "$lib/consts";
   import { userOutboxRelays } from "$lib/stores/relayStore";
-  import { get } from "svelte/store";
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
   import { getNostrClient } from "$lib/nostr/client";
-  import { publishToRelays } from '$lib/utils/relayUtils';
-  import type { NostrUser } from '$lib/types/nostr';
+  import type { NostrProfile, NostrEvent } from '$lib/types/nostr';
 
   // Component props
   let { event: parentEvent, userPubkey, userRelayPreference } = $props<{
@@ -50,7 +42,7 @@
 
   // Helper function to get tag value from NostrEvent
   function getTagValue<T = string>(event: NostrEvent, tagName: string): T | undefined {
-    const matches = event.tags.filter((tag) => tag[0] === tagName);
+    const matches = event.tags.filter((tag: string[]) => tag[0] === tagName);
     return matches[0]?.[1] as T | undefined;
   }
 
@@ -182,12 +174,18 @@
       const eventId = getEventHash(commentEvent);
 
       // Sign the event using the WebExtension
-      const signedEvent = await window.nostr.signEvent(commentEvent);
+      const signedEvent = await window.nostr.signEvent({
+        kind: commentEvent.kind,
+        created_at: commentEvent.created_at,
+        tags: commentEvent.tags,
+        content: commentEvent.content,
+        pubkey: commentEvent.pubkey
+      });
 
-      // Publish the event using NostrClient
-      const publishedEvent = {
+      // Combine the signed event with the original event data
+      const publishedEvent: NostrEvent = {
         ...commentEvent,
-        id: eventId,
+        id: signedEvent.id,
         sig: signedEvent.sig
       };
 

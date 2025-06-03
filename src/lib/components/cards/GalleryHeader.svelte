@@ -7,7 +7,8 @@
   import DualPill from "$components/util/DualPill.svelte";
   import { formatTimestampToDate } from "$lib/utils";
   import LightBox from "$components/cards/partial/LightBox.svelte";
-  import { extractImageMeta, type ImageMeta } from "$lib/utils";
+  import type { ImageMeta } from "$lib/utils/imeta";
+  import { extractImageMeta } from "$lib/utils/imeta";
 
   const { event, typeDisplay, content } = $props<{
     event: NostrEvent;

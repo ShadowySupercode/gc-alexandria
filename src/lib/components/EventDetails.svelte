@@ -85,7 +85,7 @@
 
   function getIdentifiers(
     event: NostrEvent,
-    profile: NostrProfile | null,
+    profile: NostrProfile | null
   ): { label: string; value: string; link?: string; warning?: string }[] {
     const ids: { label: string; value: string; link?: string; warning?: string }[] = [];
     if (event.kind === 0) {
@@ -129,13 +129,12 @@
 </script>
 
 {#key event.id}
-
+  <div class="flex flex-col space-y-4">
     {#if event.kind === 0}     <!-- If event is profile -->
       <ProfileHeader {event} {profile} typeDisplay={eventTypeDisplay} />
     {:else if event.kind === 20}     <!-- If event is gallery -->
       <GalleryHeader {event} typeDisplay={eventTypeDisplay} content={parsedContent} />
     {:else}     <!-- Generic -->
-
       <div class="flex flex-col space-y-4">
         {#if event.kind !== 0 && eventTitle}
           <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{eventTitle}</h2>
@@ -143,13 +142,13 @@
 
         <div class="flex items-center space-x-2">
           {#if toNpub(event.pubkey)}
-        <span class="text-gray-600 dark:text-gray-400">
-          Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}
-        </span>
+            <span class="text-gray-600 dark:text-gray-400">
+              Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}
+            </span>
           {:else}
-        <span class="text-gray-600 dark:text-gray-400">
-          Author: {profile?.display_name || event.pubkey}
-        </span>
+            <span class="text-gray-600 dark:text-gray-400">
+              Author: {profile?.display_name || event.pubkey}
+            </span>
           {/if}
         </div>
 
@@ -165,10 +164,7 @@
             <span class="text-gray-600 dark:text-gray-400">Tags:</span>
             <div class="flex flex-wrap gap-2">
               {#each eventHashtags as tag}
-            <span
-              class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-sm font-medium"
-            >#{tag}</span
-            >
+                <span class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-sm font-medium">#{tag}</span>
               {/each}
             </div>
           </div>
@@ -210,7 +206,6 @@
           {/if}
         </div>
       </div>
-
     {/if}
 
     <!-- Event Technical details -->
@@ -232,8 +227,7 @@
                     <a
                       href={id.link}
                       class="underline text-primary-700 dark:text-primary-200 break-all"
-                      >{id.value}</a
-                    >
+                    >{id.value}</a>
                   {:else}
                     {id.value}
                   {/if}
@@ -262,8 +256,7 @@
       </AccordionItem>
       <AccordionItem borderClass="!border-primary-900">
         <svelte:fragment slot="header">Raw Event JSON</svelte:fragment>
-        <pre
-          class="overflow-x-auto text-sm bg-highlight dark:bg-primary-900 rounded p-2 font-mono">
+        <pre class="overflow-x-auto text-sm bg-highlight dark:bg-primary-900 rounded p-2 font-mono">
           {JSON.stringify(event, null, 2)}
         </pre>
       </AccordionItem>
