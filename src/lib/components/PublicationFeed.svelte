@@ -58,7 +58,7 @@
   });
 
   async function fetchFeedEvents(until?: number) {
-    const client = getNostrClient(activeRelays);
+    const client = getNostrClient($selectedRelayGroup.inbox);
     if (!client) return;
 
     try {
@@ -140,7 +140,7 @@
     signal?: AbortSignal,
     options: { relayTimeout?: number } = {},
   ) {
-    const client = getNostrClient(relays);
+    const client = getNostrClient($selectedRelayGroup.inbox);
     if (!client) return [];
 
     try {

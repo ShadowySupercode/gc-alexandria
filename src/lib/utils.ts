@@ -32,3 +32,4 @@ export * from './utils/relayGroupUtils';
 // Export markup parsers
 export * from './utils/markup/basicMarkupParser';
 export * from './utils/markup/advancedMarkupParser';
+export { logCurrentRelays } from './utils/relayLog';

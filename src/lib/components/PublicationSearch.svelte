@@ -26,6 +26,8 @@
   let searchError = $state<{ message: string; code: string } | null>(null);
   let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>({});
   let allEvents = $state<NostrEvent[]>([]);
+  let searchProgress = $state<{ processed: number; total: number; percentage: number } | null>(null);
+  let searchSuccess = $state(false);
 
   async function search(
     before: number | undefined = undefined,
@@ -46,7 +48,7 @@
     loading = true;
     isSearching = true;
 
-    const client = getNostrClient(relays);
+    const client = getNostrClient($selectedRelayGroup.inbox);
     if (!client) {
       searchError = { message: 'Failed to initialize client', code: 'CLIENT_ERROR' };
       onSearchError(searchError);
@@ -56,12 +58,12 @@
     }
 
     relayStatuses = Object.fromEntries(
-      relays.map((r: string) => [r, "pending"] as const),
+      $selectedRelayGroup.inbox.map((r: string) => [r, "pending"] as const),
     );
 
     // Try all relays
     const primaryResults = await Promise.allSettled(
-      relays.map(async (relay: string) => {
+      $selectedRelayGroup.inbox.map(async (relay: string) => {
         if (signal?.aborted) return;
 
         try {
@@ -134,6 +136,16 @@
     isSearching = false;
   }
 
+  function handleSearchProgress(
+    progress: { processed: number; total: number; percentage: number } | null
+  ) {
+    searchProgress = progress;
+    if (progress && progress.percentage === 100) {
+      searchSuccess = true;
+      setTimeout(() => { searchSuccess = false; }, 2000);
+    }
+  }
+
   onMount(() => {
     if (searchQuery) {
       search(undefined, searchQuery);
@@ -141,14 +153,6 @@
   });
 
   onDestroy(() => {
-  });
-
-  $effect(() => {
-    if (searchQuery) {
-      const controller = new AbortController();
-      search(undefined, searchQuery, undefined, controller.signal);
-      return () => controller.abort();
-    }
   });
 </script>
 
@@ -182,7 +186,20 @@
         search(undefined, '', [], undefined);
       }}
       onSearchError={onSearchError}
-      onSearchProgress={onSearchProgress}
+      onSearchProgress={handleSearchProgress}
     />
   </div>
+  {#if searchProgress}
+    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+      <div
+        class="bg-green-500 h-2.5 rounded-full transition-all duration-300"
+        style="width: {searchProgress.percentage}%"
+      ></div>
+    </div>
+  {/if}
+  {#if searchSuccess}
+    <div class="text-green-700 bg-green-100 rounded px-2 py-1 mb-2 text-sm">
+      Search complete!
+    </div>
+  {/if}
 </div> 

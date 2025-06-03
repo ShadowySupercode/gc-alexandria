@@ -412,8 +412,6 @@ export class NostrClient {
         }
       });
     }
-    console.log('inbox', Array.from(inbox));
-    console.log('outbox', Array.from(outbox));
     return [inbox, outbox];
   }
 

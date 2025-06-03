@@ -1,6 +1,9 @@
 import { getNostrClient } from '$lib/nostr/client';
 import type { NostrUser } from '$lib/types/nostr';
 import { browser } from '$app/environment';
+import { selectedRelayGroup } from './relayGroupUtils';
+import { get } from 'svelte/store';
+import { logCurrentRelays } from '$lib/utils';
 
 const STORAGE_KEYS = {
   LOGIN: 'nostr_login',
@@ -9,7 +12,7 @@ const STORAGE_KEYS = {
 
 // User management
 export async function getActiveUser(): Promise<NostrUser | null> {
-  const client = getNostrClient();
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
   return client.getActiveUser();
 }
 
@@ -37,7 +40,7 @@ export async function loginWithExtension(): Promise<void> {
     }
 
     // Get user metadata
-    const client = getNostrClient();
+    const client = getNostrClient(get(selectedRelayGroup).inbox);
     const user = await client.getUser(pubkey);
     if (!user) {
       throw new Error('Failed to fetch user metadata');
@@ -54,6 +57,7 @@ export async function loginWithExtension(): Promise<void> {
     persistLogin();
     persistRelays(userRelays);
 
+    logCurrentRelays('login');
     return;
   } catch (error) {
     console.error('WebExtension login failed:', error);
@@ -66,6 +70,7 @@ export function logout(): void {
   client.setActiveUser(null);
   clearLogin();
   clearPersistedRelays();
+  logCurrentRelays('logout');
 }
 
 // Persistence
@@ -141,7 +146,7 @@ export function getPersistedRelays(): string[] {
 }
 
 export function getActiveRelays(): string[] {
-  return getNostrClient().getConnectedRelays();
+  return getNostrClient(get(selectedRelayGroup).inbox).getConnectedRelays();
 }
 
 /**
@@ -149,7 +154,7 @@ export function getActiveRelays(): string[] {
  * @param relays Optional list of relay URLs to connect to
  */
 export async function initNostrClient(relays: string[] = []): Promise<void> {
-  const client = getNostrClient(relays);
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
   
   // Try to restore persisted login
   const persistedLogin = getPersistedLogin();

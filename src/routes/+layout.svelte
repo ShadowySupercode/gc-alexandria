@@ -1,8 +1,9 @@
-<script>
+<script lang="ts">
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import { logCurrentRelays } from '$lib/utils';
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
@@ -16,6 +17,7 @@
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
+    logCurrentRelays('page open');
   });
 </script>
 

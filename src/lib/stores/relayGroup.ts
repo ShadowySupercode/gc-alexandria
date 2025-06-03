@@ -18,7 +18,7 @@ export function setRelayGroupArray(groups: RelayGroupOption[]) {
 /**
  * Global fallback relays toggle. True if fallback relays should be included.
  */
-function getInitialFallbackRelays(): boolean {
+function getInitialUseFallbackRelays(): boolean {
   if (typeof localStorage !== 'undefined') {
     const stored = localStorage.getItem('useFallbackRelays');
     if (stored !== null) {
@@ -28,7 +28,7 @@ function getInitialFallbackRelays(): boolean {
   return false;
 }
 
-export const useFallbackRelays = writable<boolean>(getInitialFallbackRelays());
+export const useFallbackRelays = writable<boolean>(getInitialUseFallbackRelays());
 
 useFallbackRelays.subscribe((value) => {
   if (typeof localStorage !== 'undefined') {
@@ -38,4 +38,26 @@ useFallbackRelays.subscribe((value) => {
 
 export function setUseFallbackRelays(value: boolean) {
   useFallbackRelays.set(value);
+}
+
+function getInitialIncludeLocalRelays(): boolean {
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('includeLocalRelays');
+    if (stored !== null) {
+      return stored === 'true';
+    }
+  }
+  return false;
+}
+
+export const includeLocalRelays = writable<boolean>(getInitialIncludeLocalRelays());
+
+includeLocalRelays.subscribe((value) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('includeLocalRelays', value.toString());
+  }
+});
+
+export function setIncludeLocalRelays(value: boolean) {
+  includeLocalRelays.set(value);
 }

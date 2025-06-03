@@ -1,5 +1,5 @@
 import { derived, get } from 'svelte/store';
-import { relayGroup } from '$lib/stores/relayGroup';
+import { relayGroup, includeLocalRelays, useFallbackRelays } from '$lib/stores/relayGroup';
 import { communityRelays, fallbackRelays } from '$lib/consts';
 import { userInboxRelays, userOutboxRelays, responsiveLocalRelays } from '$lib/stores/relayStore';
 import { getNostrClient } from '$lib/nostr/client';
@@ -14,16 +14,18 @@ interface RelayGroupState {
  * Derived store that provides the currently selected relay list for reading/searching (inbox relays) 
  * or publishing (outbox relays). Respects relay group, local relays, and fallback relays settings.
  */
-export const selectedRelayGroup = derived<[typeof relayGroup, typeof userInboxRelays, typeof userOutboxRelays, typeof responsiveLocalRelays], RelayGroupState>(
-  [relayGroup, userInboxRelays, userOutboxRelays, responsiveLocalRelays],
-  ([$relayGroup, $userInboxRelays, $userOutboxRelays, $liveLocalRelays], set) => {
+export const selectedRelayGroup = derived<[
+  typeof relayGroup,
+  typeof userInboxRelays,
+  typeof userOutboxRelays,
+  typeof responsiveLocalRelays,
+  typeof includeLocalRelays,
+  typeof useFallbackRelays
+], RelayGroupState>(
+  [relayGroup, userInboxRelays, userOutboxRelays, responsiveLocalRelays, includeLocalRelays, useFallbackRelays],
+  ([$relayGroup, $userInboxRelays, $userOutboxRelays, $liveLocalRelays, $includeLocalRelays, $useFallbackRelays], set) => {
     const getRelays = (kind: 'inbox' | 'outbox'): string[] => {
       const relayGroupSelection = $relayGroup[0];
-      const useFallback = typeof localStorage !== 'undefined' && 
-        localStorage.getItem('useFallbackRelays') === 'true';
-      const useLocal = typeof localStorage !== 'undefined' && 
-        localStorage.getItem('includeLocalRelays') === 'true';
-
       const userRelays = kind === 'inbox' ? $userInboxRelays : $userOutboxRelays;
       let relays: string[] = [];
 
@@ -37,11 +39,11 @@ export const selectedRelayGroup = derived<[typeof relayGroup, typeof userInboxRe
         relays = $liveLocalRelays;
       }
 
-      if (useLocal && relayGroupSelection !== 'localOnly') {
+      if ($includeLocalRelays && relayGroupSelection !== 'localOnly') {
         relays = [...relays, ...$liveLocalRelays];
       }
 
-      if (useFallback) {
+      if ($useFallbackRelays) {
         relays = [...relays, ...fallbackRelays];
       }
 
@@ -156,7 +158,7 @@ export function selectRelayGroup(type: 'inbox' | 'outbox' | 'all' = 'all'): stri
  * @returns A NostrRelaySet instance
  */
 export function createRelaySet(type: 'inbox' | 'outbox' | 'all' = 'all'): NostrRelaySet {
-  const client = getNostrClient();
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
   const relayUrls = selectRelayGroup(type);
   return client.getRelaySet(relayUrls);
 }

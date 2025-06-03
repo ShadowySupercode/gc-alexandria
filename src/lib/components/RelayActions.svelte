@@ -2,13 +2,10 @@
   import { Button } from "flowbite-svelte";
   import { get } from "svelte/store";
   import type { NostrEvent, NostrUnsignedEvent } from '$lib/types/nostr';
-  import {
-    publishEvent,
-  } from "$lib/utils";
   import RelayDisplay from "./RelayDisplay.svelte";
   import { communityRelays, fallbackRelays } from "$lib/consts";
-  import { userInboxRelays, userOutboxRelays, responsiveLocalRelays } from "$lib/stores/relayStore";
-  import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
+  import { responsiveLocalRelays } from "$lib/stores/relayStore";
+  import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
   import { getNostrClient } from '$lib/nostr/client';
   import { getEventHash } from '$lib/utils';
 
@@ -30,7 +27,7 @@
   type RelayGroup = 'Standard Relays' | 'User Relays' | 'Fallback Relays';
 
   // Get the Nostr client
-  let client = $derived.by(() => getNostrClient());
+  let client = $derived.by(() => getNostrClient(get(selectedRelayGroup).inbox));
 
   // Helper to validate relay URLs (basic check)
   function isValidRelay(relay: string): boolean {
@@ -39,12 +36,11 @@
 
   // Get all available relays
   let allRelays = $derived.by(() => {
-    const userRelays = selectRelayGroup('inbox');
     return [
       ...communityRelays,
       ...fallbackRelays,
       ...$responsiveLocalRelays,
-      ...userRelays,
+      ...$selectedRelayGroup.inbox,
     ].filter((url, idx, arr) => arr.indexOf(url) === idx && isValidRelay(url));
   });
 
@@ -240,7 +236,7 @@
       <div class="flex flex-col gap-4 max-h-96 overflow-y-auto">
         {#each Object.entries({
           'Standard Relays': communityRelays,
-          'User Relays': selectRelayGroup('inbox'),
+          'User Relays': $selectedRelayGroup.inbox,
           'Fallback Relays': fallbackRelays,
         }) as [groupName, groupRelays]}
           {#if groupRelays.length > 0}

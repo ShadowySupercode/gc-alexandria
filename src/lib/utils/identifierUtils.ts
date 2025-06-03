@@ -4,6 +4,8 @@ import type { EventSearchResult } from './types';
 import { getUserMetadata } from './profileUtils';
 import { createProfileLink } from './profileUtils';
 import { createNoteLink } from './profileUtils';
+import { get } from 'svelte/store';
+import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
 
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX =
@@ -23,7 +25,9 @@ export async function searchEventByIdentifier(
     relays?: string[];
   } = {},
 ): Promise<EventSearchResult> {
-  const client = getNostrClient(options.relays);
+  const relayList = options.relays ?? get(selectedRelayGroup).inbox;
+  const client = getNostrClient(relayList);
+  const { timeoutMs = 3000, useFallbackRelays = false, signal } = options;
   if (typeof identifier !== 'string' || !identifier) {
     throw new Error('Identifier must be a string');
   }

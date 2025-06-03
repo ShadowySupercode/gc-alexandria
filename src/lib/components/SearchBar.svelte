@@ -1,10 +1,12 @@
 <script lang="ts">
   import { Button, Input } from "flowbite-svelte";
-  import { relayGroup, useFallbackRelays } from "$lib/stores/relayGroup";
-  import { selectRelayGroup } from "$lib/utils";
+  import { relayGroup, useFallbackRelays, includeLocalRelays } from "$lib/stores/relayGroup";
+  import { responsiveLocalRelays } from "$lib/stores/relayStore";
+  import { selectedRelayGroup } from "$lib/utils/relayGroupUtils";
   import { fallbackRelays } from "$lib/consts";
   import { onDestroy, onMount } from "svelte";
   import type { NostrEvent } from '$lib/types/nostr';
+  import { get } from 'svelte/store';
 
   // Constants
   const SEARCH_TIMEOUT = 10000; // 10 seconds timeout for overall search operation
@@ -45,7 +47,7 @@
 
   // Derived values
   let activeRelays = $derived.by(() => {
-    const primaryRelays = selectRelayGroup('inbox');
+    const primaryRelays = $selectedRelayGroup.inbox;
     const fallback = $useFallbackRelays
       ? fallbackRelays.filter((r) => !primaryRelays.includes(r))
       : [];
@@ -120,15 +122,6 @@
       handleCancel();
     }
   }
-
-  // Effects
-  $effect(() => {
-    console.log('[Search] Relay configuration updated:', {
-      relayGroup: $relayGroup,
-      useFallbackRelays: $useFallbackRelays,
-      activeRelays
-    });
-  });
 
   // Lifecycle
   onMount(() => {

@@ -4,6 +4,8 @@ import { getNostrClient } from '$lib/nostr/client';
 import { getUserMetadata } from '$lib/utils/profileUtils';
 import { userInboxRelays, userOutboxRelays } from '$lib/stores/relayStore';
 import type { NostrProfile } from '$lib/utils/types';
+import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
+import { get } from 'svelte/store';
 
 /**
  * Gets the initial user state from localStorage if available
@@ -48,7 +50,7 @@ userStore.subscribe((user) => {
 
 // Subscribe to user changes and update client state
 userStore.subscribe(async (user) => {
-  const client = getNostrClient();
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
   
   // If userStore is set but client.getActiveUser() is not, rehydrate session
   if (user && !client.getActiveUser()) {

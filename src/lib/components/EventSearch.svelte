@@ -1,10 +1,13 @@
 <script lang="ts">
   import { Badge } from "flowbite-svelte";
-  import { searchEventByIdentifier, selectedRelayGroup } from '$lib/utils';
+  import { searchEventByIdentifier, selectedRelayGroup, logCurrentRelays } from '$lib/utils';
   import { goto } from "$app/navigation";
   import type { NostrEvent } from "$lib/types/nostr";
   import RelayDisplay from "./RelayDisplay.svelte";
   import SearchBar from "./SearchBar.svelte";
+  import { userInboxRelays, userOutboxRelays } from '$lib/stores/relayStore';
+  import { includeLocalRelays } from '$lib/stores/relayGroup';
+  import { responsiveLocalRelays } from '$lib/stores/relayStore';
 
   let {
     loading,
@@ -30,8 +33,9 @@
     latency: number;
     group: string;
   } | null>(null);
-  let abortController = $state<AbortController | null>(null);
   let lastSearchedValue = $state<string | null>(null);
+  let searchProgress = $state<{ processed: number; total: number; percentage: number } | null>(null);
+  let searchSuccess = $state(false);
 
   let displayError = $derived.by(() => localError || error);
   let showNjumpLink = $derived.by(
@@ -62,9 +66,12 @@
     return `https://njump.me/${encodedQuery}`;
   });
 
+  let showFallbackWarning = $derived(() => $selectedRelayGroup.inbox.length === 0);
+
   $effect(() => {
     if (searchValue && searchValue !== lastSearchedValue) {
       lastSearchedValue = searchValue;
+      logCurrentRelays('event_search');
       startSearch(searchValue, false);
     }
   });
@@ -85,6 +92,11 @@
       searching = false;
       relayStatuses = {};
       return;
+    }
+
+    // Log relay status when manually searching
+    if (clearInput) {
+      logCurrentRelays('event_search');
     }
 
     // Remove 'nostr:' prefix if present
@@ -125,6 +137,7 @@
         relayStatuses = { ...relayStatuses, [relayInfo.url]: "found" };
       }
       handleFoundEvent(result.event);
+      console.log('Searching for', query, 'on relays:', $selectedRelayGroup.inbox);
     } catch (err) {
       // Filter out cancellation errors
       if (
@@ -163,14 +176,21 @@
   }
 
   function handleSearchProgress(progress: { processed: number; total: number; percentage: number } | null) {
-    // Update relay statuses based on progress if needed
-    if (progress) {
-      searching = true;
+    searchProgress = progress;
+    if (progress && progress.percentage === 100) {
+      searchSuccess = true;
+      setTimeout(() => { searchSuccess = false; }, 2000);
     }
   }
 </script>
 
 <div class="flex flex-col space-y-6">
+  {#if showFallbackWarning()}
+    <div class="p-4 mb-2 text-sm text-yellow-800 bg-yellow-100 rounded-lg" role="alert">
+      <strong>Info:</strong> No user relays are loaded, so the search will use community relays.
+      Please ensure you are logged in and your relay settings are correct, if you wish to include your own relays.
+    </div>
+  {/if}
   <div class="flex flex-col gap-4">
     <SearchBar
       placeholder="Enter event ID, nevent, or naddr..."
@@ -245,6 +265,20 @@
       {#if relayStatusMessage}
         <div class="text-gray-500 mt-2">{relayStatusMessage}</div>
       {/if}
+    </div>
+  {/if}
+
+  {#if searchProgress}
+    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+      <div
+        class="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
+        style="width: {searchProgress.percentage}%"
+      ></div>
+    </div>
+  {/if}
+  {#if searchSuccess}
+    <div class="text-blue-700 bg-blue-100 rounded px-2 py-1 mb-2 text-sm">
+      Search complete!
     </div>
   {/if}
 </div>

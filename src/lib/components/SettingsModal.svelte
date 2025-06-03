@@ -1,13 +1,15 @@
 <script lang="ts">
   // UI and Svelte imports
   import { Modal, Button, Heading } from "flowbite-svelte";
+  import { get } from 'svelte/store';
 
   // State and relay group management
-  import { useFallbackRelays, setUseFallbackRelays } from "$lib/stores/relayGroup";
+  import { useFallbackRelays, setUseFallbackRelays, setRelayGroupArray, relayGroup } from "$lib/stores/relayGroup";
   import type { RelayGroupOption } from "$lib/stores/relayGroup";
   import { userInboxRelays, userOutboxRelays, responsiveLocalRelays, updateResponsiveLocalRelays } from '$lib/stores/relayStore';
   import { getNostrClient } from '$lib/nostr/client';
   import { fallbackRelays, communityRelays } from "$lib/consts";
+  import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
 
   // Theme store
   import { writable } from 'svelte/store';
@@ -18,16 +20,13 @@
     onClose?: () => void;
   }>();
 
-  let relayGroupSelection = $state<'community' | 'user' | 'both' | 'localOnly'>(
-    localStorage.getItem('relayGroupSelection') as any || 'community'
-  );
   let includeLocalRelays = $state(
     localStorage.getItem('includeLocalRelays') === 'true'
   );
   let localRelaysResponsive = $state(true);
 
   // Get the Nostr client
-  const client = getNostrClient();
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
 
   // Track login state
   let isLoggedIn = $state(false);
@@ -37,7 +36,7 @@
 
   // Add derived state for current relay configuration
   let currentRelayConfig = $derived({
-    groupSelection: relayGroupSelection,
+    groupSelection: $relayGroup[0],
     includeLocal: includeLocalRelays && localRelaysResponsive,
     useFallback: $useFallbackRelays,
     effectiveRelays: (() => {
@@ -46,14 +45,14 @@
       let allOutboxRelays: string[] = [];
 
       // Community relays
-      if (relayGroupSelection === 'community' || relayGroupSelection === 'both') {
+      if ($relayGroup[0] === 'community' || $relayGroup[0] === 'both') {
         groups.push('community');
         allInboxRelays = allInboxRelays.concat(communityRelays);
         allOutboxRelays = allOutboxRelays.concat(communityRelays);
       }
 
       // User relays
-      if (relayGroupSelection === 'user' || relayGroupSelection === 'both') {
+      if ($relayGroup[0] === 'user' || $relayGroup[0] === 'both') {
         groups.push('user');
         allInboxRelays = allInboxRelays.concat(
           $userInboxRelays.filter(r => typeof r === 'string' && r.startsWith('ws'))
@@ -76,7 +75,7 @@
       }
 
       // Local only
-      if (relayGroupSelection === 'localOnly') {
+      if ($relayGroup[0] === 'localOnly') {
         const normalized = Array.from(
           new Set($responsiveLocalRelays.map(normalizeRelayUrl))
         );
@@ -120,7 +119,7 @@
 
   // Ensure local relays are disabled when local-only is selected
   $effect(() => {
-    if (relayGroupSelection === 'localOnly') {
+    if ($relayGroup[0] === 'localOnly') {
       includeLocalRelays = false;
       setUseFallbackRelays(false);
     }
@@ -182,7 +181,7 @@
 
   $effect(() => {
     // Persist relay group and local relays selection
-    localStorage.setItem('relayGroupSelection', relayGroupSelection);
+    localStorage.setItem('relayGroupSelection', $relayGroup[0]);
     localStorage.setItem('includeLocalRelays', includeLocalRelays.toString());
   });
 
@@ -190,9 +189,6 @@
     // Persist fallback relays selection (already handled in store, but ensure on mount)
     localStorage.setItem('useFallbackRelays', $useFallbackRelays.toString());
   });
-
-  // Import selectedRelayGroup from $lib/utils/relayGroupUtils
-  import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
 
   /**
    * Normalize a relay URL for deduplication and display.
@@ -202,6 +198,8 @@
   function normalizeRelayUrl(url: string): string {
     return url.trim().replace(/\/+$/, '').toLowerCase();
   }
+
+  import { logCurrentRelays } from '$lib/utils';
 </script>
 
 <Modal
@@ -285,34 +283,21 @@
           <div class="flex flex-col space-y-2">
             <div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Relay Group</div>
             {#each [
-              { value: 'community', label: "Community's Relays", info: communityRelays, showIcon: true },
-              { value: 'user', label: "Your Relays", info: $userInboxRelays.filter(r => typeof r === 'string' && r.startsWith('ws')), showIcon: true },
-              { value: 'both', label: 'Use both groups', info: [], showIcon: false },
-              { value: 'localOnly', label: 'Only use local relays', info: [], showIcon: false, disabled: !localRelaysResponsive }
-            ].filter(opt =>
-              isLoggedIn || opt.value === 'community' || opt.value === 'localOnly'
-            ) as opt, i}
+              { value: 'community', label: "Community's Relays" },
+              { value: 'user', label: 'Your Relays' },
+              { value: 'both', label: 'Use both groups' },
+              { value: 'localOnly', label: 'Only use local relays' }
+            ] as opt}
               <label class="flex items-center space-x-2 relative">
                 <input
                   type="radio"
                   name="relayGroup"
                   value={opt.value}
-                  checked={relayGroupSelection === opt.value}
-                  onchange={(e) => {
-                    const target = e.target as HTMLInputElement | null;
-                    if (target && typeof target.value === 'string') {
-                      relayGroupSelection = target.value as 'community' | 'user' | 'both' | 'localOnly';
-                    }
-                  }}
-                  disabled={opt.disabled || (opt.value === 'user' || opt.value === 'both'
-                    ? !isLoggedIn
-                    : false)}
+                  checked={$relayGroup[0] === opt.value}
+                  onchange={() => setRelayGroupArray([opt.value as RelayGroupOption])}
                   class="accent-amber-700 dark:accent-amber-400"
                 />
-                <span class={!localRelaysResponsive && opt.value === 'localOnly' ? 'text-gray-400' : ''}>
-                  {opt.label}
-                  {!localRelaysResponsive && opt.value === 'localOnly' ? ' (unavailable)' : ''}
-                </span>
+                <span>{opt.label}</span>
               </label>
             {/each}
           </div>
@@ -328,9 +313,17 @@
                   const target = e.target as HTMLInputElement | null;
                   if (target && typeof target.checked === 'boolean') {
                     includeLocalRelays = target.checked;
+                    // If user wants local relays and relay group is 'user', ensure store is updated
+                    if (includeLocalRelays && $relayGroup[0] === 'user') {
+                      setRelayGroupArray(['user']);
+                    }
+                    // If user disables local relays, just update the store with current relay group
+                    if (!includeLocalRelays) {
+                      setRelayGroupArray([$relayGroup[0]]);
+                    }
                   }
                 }}
-                disabled={relayGroupSelection === 'localOnly' || !localRelaysResponsive}
+                disabled={$relayGroup[0] === 'localOnly' || !localRelaysResponsive}
                 style="accent-color: #c6a885 !important"
               />
               <span class={!localRelaysResponsive ? 'text-gray-400' : ''}>
@@ -348,7 +341,7 @@
                     setUseFallbackRelays(target.checked);
                   }
                 }}
-                disabled={relayGroupSelection === 'localOnly'}
+                disabled={$relayGroup[0] === 'localOnly'}
                 class="accent-amber-700 dark:accent-amber-400"
               />
               <span>Include fallback relays</span>
@@ -385,19 +378,9 @@
       </div>
       <div class="mt-auto flex justify-end">
         <Button onclick={() => {
-          // Log final settings summary
-          console.log('[Settings] Final relay configuration:', {
-            groupSelection: currentRelayConfig.groupSelection,
-            includeLocal: currentRelayConfig.includeLocal,
-            useFallback: currentRelayConfig.useFallback,
-            effectiveGroups: currentRelayConfig.effectiveRelays.groups,
-            localRelays: currentRelayConfig.effectiveRelays.localRelays,
-            fallbackRelays: currentRelayConfig.effectiveRelays.fallbackRelays,
-            inboxRelays: currentRelayConfig.effectiveRelays.inboxRelays,
-            outboxRelays: currentRelayConfig.effectiveRelays.outboxRelays
-          });
+          logCurrentRelays('settings close');
           props.onClose();
-        }}>Apply</Button>
+        }}>Close</Button>
       </div>
     </main>
   </div>

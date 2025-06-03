@@ -1,9 +1,10 @@
-import type { NostrEvent, NostrFilter, NostrRelaySet } from '$lib/types/nostr';
+import type { NostrEvent, NostrFilter } from '$lib/types/nostr';
 import { getNostrClient } from '$lib/nostr/client';
-import { communityRelays, fallbackRelays } from '$lib/consts';
-import { selectRelayGroup, createRelaySet } from './relayGroupUtils';
+import { fallbackRelays } from '$lib/consts';
+import { selectedRelayGroup } from './relayGroupUtils';
 import type { EventSearchResult } from './types';
 import { withTimeout } from './commonUtils';
+import { get } from 'svelte/store';
 
 interface RelaySearchResult {
   event: NostrEvent | null;
@@ -12,7 +13,7 @@ interface RelaySearchResult {
   group: string;
 }
 
-// Get relays from event (prefer event.relay or event.relays, fallback to communityRelays)
+// Get relays from event (prefer event.relay or event.relays, fallback to selectedRelayGroup.inbox)
 export function getEventRelays(event: NostrEvent): string[] {
   const eventWithRelays = event as NostrEvent & {
     relay?: string;
@@ -25,7 +26,7 @@ export function getEventRelays(event: NostrEvent): string[] {
   if (eventWithRelays.relays?.length) {
     return eventWithRelays.relays;
   }
-  return communityRelays;
+  return get(selectedRelayGroup).inbox;
 }
 
 /**
@@ -36,7 +37,7 @@ export async function fetchEventFromRelay(
   filter: NostrFilter,
   timeout = 5000
 ): Promise<EventSearchResult> {
-  const client = getNostrClient();
+  const client = getNostrClient(get(selectedRelayGroup).inbox);
   const relaySet = client.getRelaySet([relay]);
   const relayInstance = relaySet.getRelay(relay);
   
@@ -76,7 +77,7 @@ export async function fetchEventFromRelays(
   relays: string[] = [],
   timeout = 5000
 ): Promise<RelaySearchResult[]> {
-  const relayUrls = relays && relays.length > 0 ? relays : selectRelayGroup('inbox');
+  const relayUrls = relays && relays.length > 0 ? relays : get(selectedRelayGroup).inbox;
   const results = await Promise.all(
     relayUrls.map(async (relay) => {
       const startTime = performance.now();
@@ -104,8 +105,8 @@ export async function publishToRelays(
   maxRetries = 3,
   timeout = 5000
 ): Promise<string[]> {
-  const client = getNostrClient();
-  const relayUrls = relays && relays.length > 0 ? relays : selectRelayGroup('outbox');
+  const client = getNostrClient(get(selectedRelayGroup).outbox);
+  const relayUrls = relays && relays.length > 0 ? relays : get(selectedRelayGroup).outbox;
   const relaySet = client.getRelaySet(relayUrls);
   const successfulRelays: string[] = [];
 

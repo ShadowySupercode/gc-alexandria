@@ -4,6 +4,8 @@ import { schnorr } from '@noble/curves/secp256k1';
 import type { NostrEvent } from '$lib/types/nostr';
 import { getNostrClient } from '$lib/nostr/client';
 import type { EventSearchResult } from './types';
+import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
+import { get } from 'svelte/store';
 
 function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -112,9 +114,10 @@ export function isTopLevelParent(
 export async function fetchEventByDTag(
   kind: number,
   author: string,
-  dTag: string
+  dTag: string,
+  relays: string[] = get(selectedRelayGroup).inbox
 ): Promise<EventSearchResult> {
-  const client = getNostrClient();
+  const client = getNostrClient(relays);
   const events = await client.fetchEvents({
     kinds: [kind],
     authors: [author],
@@ -160,7 +163,8 @@ export async function searchEventByIdentifier(
     relays?: string[];
   } = {},
 ): Promise<EventSearchResult> {
-  const client = getNostrClient(options.relays);
+  const relayList = options.relays ?? get(selectedRelayGroup).inbox;
+  const client = getNostrClient(relayList);
   const { timeoutMs = 3000, useFallbackRelays = false, signal } = options;
 
   try {
