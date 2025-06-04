@@ -24,12 +24,14 @@
   import { pharosInstance } from "$lib/parser";
   import { getTagAddress } from '$lib/utils/eventUtils';
 
-  let { rootAddress, contentType, indexEvent } = $props<{
+  let { rootAddress, contentType, indexEvent, publicationType } = $props<{
     rootAddress: string;
     publicationType: string;
     contentType: string;
     indexEvent: NostrEvent;
   }>();
+
+  console.log('Publication component loaded', { rootAddress, publicationType, contentType, indexEvent });
 
   const publicationTree = getContext("publicationTree") as PublicationTree;
 
@@ -47,20 +49,26 @@
 
   async function loadMore(count: number) {
     isLoading = true;
+    try {
+      for (let i = 0; i < count; i++) {
+        const iterResult = await publicationTree.next();
+        const { done, value } = iterResult;
 
-    for (let i = 0; i < count; i++) {
-      const iterResult = await publicationTree.next();
-      const { done, value } = iterResult;
+        if (done) {
+          isDone = true;
+          break;
+        }
 
-      if (done) {
-        isDone = true;
-        break;
+        leaves.push(value);
       }
-
-      leaves.push(value);
+    } catch (error) {
+      // Mark as done so the UI can show the fallback
+      isDone = true;
+      // Optionally, log or store the error for display
+      console.error('Error loading publication section:', error);
+    } finally {
+      isLoading = false;
     }
-
-    isLoading = false;
   }
 
   function setLastElementRef(el: HTMLElement, i: number) {
@@ -171,13 +179,16 @@
     >
       <Details event={indexEvent} />
     </div>
-    <!-- Publication sections/cards -->
+    {#if leaves.length === 0 && isDone}
+      <div class="text-gray-400 text-sm italic my-2">
+        No sections found for this publication.
+      </div>
+    {/if}
     {#each leaves as leaf, i}
       {#if leaf == null}
-        <Alert class="flex space-x-2">
-          <ExclamationCircleOutline class="w-5 h-5" />
-          Error loading content. One or more events could not be loaded.
-        </Alert>
+        <div class="text-gray-400 text-sm italic my-2">
+          Section missing or failed to load.
+        </div>
       {:else}
         <PublicationSection
           {rootAddress}

@@ -7,8 +7,6 @@ import { createNoteLink } from './profileUtils';
 import { get } from 'svelte/store';
 import { selectedRelayGroup } from '$lib/utils/relayGroupUtils';
 import { bech32 } from 'bech32';
-import { hexToBytes } from '@noble/hashes/utils';
-import { documentRelays } from '../consts';
 
 // Regular expressions for Nostr identifiers - match the entire identifier including any prefix
 export const NOSTR_PROFILE_REGEX =
@@ -204,39 +202,48 @@ export function neventEncode(event: NostrEvent, relays: string[] = []): string {
 }
 
 /**
- * Encodes an event as an naddr string
+ * Encodes a Nostr event as a NIP-19 naddr string.
+ *
+ * NIP-19 naddr encoding uses a TLV (Type-Length-Value) structure:
+ *   0: identifier (d tag, UTF-8)
+ *   1: relay(s) (UTF-8, can be repeated for multiple relays)
+ *   2: pubkey (32 bytes, hex)
+ *   3: kind (4 bytes, big-endian unsigned integer)
+ *
+ * The TLV is then bech32-encoded with the 'naddr' prefix.
+ *
+ * @param event   The Nostr event to encode (must have kind, pubkey, and a d tag)
+ * @param relays  Array of relay URLs to include as hints (optional, can be empty)
+ * @returns       The bech32-encoded naddr string
  */
 export function naddrEncode(event: NostrEvent, relays: string[] = []): string {
-  if (!Array.isArray(relays)) {
-    throw new Error('relays must be a string array');
-  }
-  const client = getNostrClient();
+  // Extract the d tag (identifier) from the event
   const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
   if (typeof dTag !== 'string') {
     throw new Error('Event has no d tag');
   }
-  const canonicalId = normalizeIdentifier(dTag);
-  const idBytes = new TextEncoder().encode(canonicalId);
-  console.log('canonicalId:', canonicalId, 'idBytes length:', idBytes.length);
-  console.log('naddrEncode pubkey:', event.pubkey);
-  console.log('naddrEncode kind:', event.kind);
-  console.log('naddrEncode identifier:', dTag, dTag.length);
-  console.log('naddrEncode relays:', relays, Array.isArray(relays));
-  const pubkeyBytes = hexToBytes(event.pubkey);
+  // Convert pubkey, kind, and identifier to bytes
+  const pubkeyBytes = hexToBytes(event.pubkey); // 32 bytes
   const kindBytes = new Uint8Array(4);
-  new DataView(kindBytes.buffer).setUint32(0, event.kind, false);
-  const tlv: number[] = [];
-  tlv.push(0, pubkeyBytes.length, ...pubkeyBytes);
-  tlv.push(1, 4, ...kindBytes);
-  tlv.push(2, idBytes.length, ...idBytes);
-  let tlvBytes = Uint8Array.from(tlv);
-  if (relays && relays.length > 0) {
-    const relay = relays[0];
-    if (relay) {
-      const relayBytes = new TextEncoder().encode(relay);
-      tlvBytes = Uint8Array.from([...tlv, 3, relayBytes.length, ...relayBytes]);
-    }
+  new DataView(kindBytes.buffer).setUint32(0, event.kind, false); // big-endian
+  const idBytes = new TextEncoder().encode(dTag); // UTF-8 bytes
+
+  // Build the TLV array in NIP-19 order: 0=identifier, 1=relays, 2=pubkey, 3=kind
+  let tlv: number[] = [];
+  // identifier (type 0)
+  tlv.push(0, idBytes.length, ...idBytes);
+  // relays (type 1, can be multiple)
+  for (const relay of relays) {
+    const relayBytes = new TextEncoder().encode(relay);
+    tlv.push(1, relayBytes.length, ...relayBytes);
   }
+  // pubkey (type 2)
+  tlv.push(2, pubkeyBytes.length, ...pubkeyBytes);
+  // kind (type 3)
+  tlv.push(3, kindBytes.length, ...kindBytes);
+
+  // Convert TLV array to Uint8Array, bech32-encode, and return
+  const tlvBytes = Uint8Array.from(tlv);
   const words = bech32.toWords(Buffer.from(tlvBytes));
   return bech32.encode('naddr', words, 1023);
 }
@@ -317,14 +324,11 @@ export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
     // identifier (type 2)
     const idBytes = new TextEncoder().encode(params.identifier);
     tlv.push(2, idBytes.length, ...idBytes);
-    // relay (type 3) - only if provided and fits
+    // relay (type 3)
     let tlvBytes = Uint8Array.from(tlv);
     if (params.relays && params.relays.length > 0) {
-      const relay = params.relays[0];
-      if (relay) {
-        const relayBytes = new TextEncoder().encode(relay);
-        tlvBytes = Uint8Array.from([...tlv, 3, relayBytes.length, ...relayBytes]);
-      }
+      const relayBytes = new TextEncoder().encode(params.relays[0]);
+      tlvBytes = Uint8Array.from([...tlv, 3, relayBytes.length, ...relayBytes]);
     }
     const words = bech32.toWords(Buffer.from(tlvBytes));
     return bech32.encode('naddr', words, 1023);
@@ -379,24 +383,24 @@ export const NostrEncodingImpl: import('$lib/types/nostr').NostrEncoding = {
         return { type: 'nevent', data: { id, relays } };
       }
       case 'naddr': {
-        // TLV: 0=pubkey, 1=kind, 2=identifier, 3=relay
-        let pubkey;
-        let kind;
+        // TLV: 0=identifier, 1=relay(s), 2=pubkey, 3=kind
         let identifier;
         let relays: string[] = [];
+        let pubkey;
+        let kind;
         let i = 0;
         while (i < data.length) {
           const t = data[i];
           const l = data[i + 1];
           const v = data.slice(i + 2, i + 2 + l);
-          if (t === 0) pubkey = bytesToHex(v);
-          if (t === 1) kind = new DataView(Uint8Array.from(v).buffer).getUint32(0, false);
-          if (t === 2) identifier = new TextDecoder().decode(v);
-          if (t === 3) relays.push(new TextDecoder().decode(v));
+          if (t === 0) identifier = new TextDecoder().decode(v);
+          if (t === 1) relays.push(new TextDecoder().decode(v));
+          if (t === 2) pubkey = bytesToHex(v);
+          if (t === 3) kind = new DataView(Uint8Array.from(v).buffer).getUint32(0, false);
           i += 2 + l;
         }
-        if (!pubkey || kind === undefined || !identifier) throw new Error('naddr missing fields');
-        return { type: 'naddr', data: { pubkey, kind, identifier, relays } };
+        if (!identifier || !pubkey || kind === undefined) throw new Error('naddr missing fields');
+        return { type: 'naddr', data: { identifier, pubkey, kind, relays } };
       }
       default:
         throw new Error(`Unknown NIP-19 prefix: ${prefix}`);
@@ -426,4 +430,195 @@ function normalizeIdentifier(identifier: string): string {
   // Trim leading and trailing hyphens
   ascii = ascii.replace(/^-+|-+$/g, '');
   return ascii;
+}
+
+// NIP-19 Unified Encoding/Decoding Module
+// This module provides encoding and decoding for all NIP-19 bech32 types: npub, nsec, note, nevent, nprofile, naddr.
+// It uses shared TLV and bech32 helpers for maintainability and clarity.
+
+// --- Shared Utilities ---
+
+/**
+ * Converts a hex string to a Uint8Array.
+ */
+function hexToBytes(hex: string): Uint8Array {
+  return Uint8Array.from(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+}
+
+/**
+ * Encodes a buffer as bech32 with the given prefix.
+ */
+function encodeBech32(prefix: string, bytes: Uint8Array): string {
+  const words = bech32.toWords(Buffer.from(bytes));
+  return bech32.encode(prefix, words, 1023);
+}
+
+/**
+ * Decodes a bech32 string, returning prefix and bytes.
+ */
+function decodeBech32(bech32str: string): { prefix: string, bytes: Uint8Array } {
+  const { prefix, words } = bech32.decode(bech32str, 1023);
+  return { prefix, bytes: Buffer.from(bech32.fromWords(words)) };
+}
+
+/**
+ * Encodes a TLV (Type-Length-Value) object to a Uint8Array.
+ * Each entry: [type, length, ...value]
+ */
+function encodeTLV(tlv: Record<number, Uint8Array[]>): Uint8Array {
+  const entries: Uint8Array[] = [];
+  Object.entries(tlv).forEach(([t, vs]) => {
+    vs.forEach((v) => {
+      const entry = new Uint8Array(v.length + 2);
+      entry[0] = Number(t);
+      entry[1] = v.length;
+      entry.set(v, 2);
+      entries.push(entry);
+    });
+  });
+  return concatBytes(...entries);
+}
+
+/**
+ * Parses a TLV-encoded Uint8Array into a Record<number, Uint8Array[]>.
+ */
+function parseTLV(data: Uint8Array): Record<number, Uint8Array[]> {
+  const result: Record<number, Uint8Array[]> = {};
+  let i = 0;
+  while (i < data.length) {
+    const t = data[i];
+    const l = data[i + 1];
+    const v = data.slice(i + 2, i + 2 + l);
+    if (v.length < l) throw new Error(`not enough data to read on TLV ${t}`);
+    result[t] = result[t] || [];
+    result[t].push(v);
+    i += 2 + l;
+  }
+  return result;
+}
+
+/**
+ * Concatenates multiple Uint8Arrays into one.
+ */
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+  let total = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  let result = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder('utf-8');
+
+// --- NIP-19 Encoders ---
+
+/**
+ * Encodes a pubkey as npub.
+ */
+export function encodeNpub(pubkey: string): string {
+  return encodeBech32('npub', hexToBytes(pubkey));
+}
+
+/**
+ * Encodes a secret key as nsec.
+ */
+export function encodeNsec(seckey: string): string {
+  return encodeBech32('nsec', hexToBytes(seckey));
+}
+
+/**
+ * Encodes a note/event id as note.
+ */
+export function encodeNote(noteId: string): string {
+  return encodeBech32('note', hexToBytes(noteId));
+}
+
+/**
+ * Encodes a Nostr profile as nprofile (pubkey + relays).
+ */
+export function encodeNprofile({ pubkey, relays = [] }: { pubkey: string, relays?: string[] }): string {
+  const tlv: Record<number, Uint8Array[]> = {
+    0: [hexToBytes(pubkey)],
+    1: relays.map(r => utf8Encoder.encode(r)),
+  };
+  return encodeBech32('nprofile', encodeTLV(tlv));
+}
+
+/**
+ * Encodes a Nostr event reference as nevent (id + relays + optional author/kind).
+ */
+export function encodeNevent({ id, relays = [], author, kind }: { id: string, relays?: string[], author?: string, kind?: number }): string {
+  const tlv: Record<number, Uint8Array[]> = {
+    0: [hexToBytes(id)],
+    1: relays.map(r => utf8Encoder.encode(r)),
+  };
+  if (author) tlv[2] = [hexToBytes(author)];
+  if (kind !== undefined) {
+    const kindBytes = new Uint8Array(4);
+    new DataView(kindBytes.buffer).setUint32(0, kind, false);
+    tlv[3] = [kindBytes];
+  }
+  return encodeBech32('nevent', encodeTLV(tlv));
+}
+
+/**
+ * Encodes a Nostr address as naddr (identifier + relays + pubkey + kind).
+ */
+export function encodeNaddr({ identifier, pubkey, kind, relays = [] }: { identifier: string, pubkey: string, kind: number, relays?: string[] }): string {
+  const kindBytes = new Uint8Array(4);
+  new DataView(kindBytes.buffer).setUint32(0, kind, false);
+  const tlv: Record<number, Uint8Array[]> = {
+    0: [utf8Encoder.encode(identifier)],
+    1: relays.map(r => utf8Encoder.encode(r)),
+    2: [hexToBytes(pubkey)],
+    3: [kindBytes],
+  };
+  return encodeBech32('naddr', encodeTLV(tlv));
+}
+
+// --- NIP-19 Decoders ---
+
+/**
+ * Decodes any NIP-19 bech32 string and returns its type and data.
+ */
+export function decodeNip19(bech32str: string): { type: string, data: any } {
+  const { prefix, bytes } = decodeBech32(bech32str);
+  switch (prefix) {
+    case 'npub':
+    case 'nsec':
+    case 'note':
+      if (bytes.length !== 32) throw new Error(`Invalid ${prefix} length`);
+      return { type: prefix, data: bytesToHex(bytes) };
+    case 'nprofile': {
+      const tlv = parseTLV(bytes);
+      const pubkey = tlv[0]?.[0] ? bytesToHex(tlv[0][0]) : undefined;
+      const relays = tlv[1] ? tlv[1].map(d => utf8Decoder.decode(d)) : [];
+      if (!pubkey) throw new Error('nprofile missing pubkey');
+      return { type: 'nprofile', data: { pubkey, relays } };
+    }
+    case 'nevent': {
+      const tlv = parseTLV(bytes);
+      const id = tlv[0]?.[0] ? bytesToHex(tlv[0][0]) : undefined;
+      const relays = tlv[1] ? tlv[1].map(d => utf8Decoder.decode(d)) : [];
+      const author = tlv[2]?.[0] ? bytesToHex(tlv[2][0]) : undefined;
+      const kind = tlv[3]?.[0] ? new DataView(tlv[3][0].buffer).getUint32(0, false) : undefined;
+      if (!id) throw new Error('nevent missing id');
+      return { type: 'nevent', data: { id, relays, author, kind } };
+    }
+    case 'naddr': {
+      const tlv = parseTLV(bytes);
+      const identifier = tlv[0]?.[0] ? utf8Decoder.decode(tlv[0][0]) : undefined;
+      const relays = tlv[1] ? tlv[1].map(d => utf8Decoder.decode(d)) : [];
+      const pubkey = tlv[2]?.[0] ? bytesToHex(tlv[2][0]) : undefined;
+      const kind = tlv[3]?.[0] ? new DataView(tlv[3][0].buffer).getUint32(0, false) : undefined;
+      if (!identifier || !pubkey || kind === undefined) throw new Error('naddr missing fields');
+      return { type: 'naddr', data: { identifier, pubkey, kind, relays } };
+    }
+    default:
+      throw new Error(`Unknown NIP-19 prefix: ${prefix}`);
+  }
 } 

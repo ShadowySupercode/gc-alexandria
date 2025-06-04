@@ -4,14 +4,17 @@
   import { blockedRelaysHydrated } from '$lib/stores/relayStore';
   import { selectRelayGroup } from '$lib/utils/relayGroupUtils';
   import { searchEventByIdentifier } from '$lib/utils/identifierUtils';
-  import { fetchEventWithFallback, fetchEventFromRelay } from '$lib/utils/relayUtils';
+  import { fetchEventFromRelay } from '$lib/utils/relayUtils';
   import Publication from '$lib/components/Publication.svelte';
-  import Processor from 'asciidoctor';
+  import Pharos from '$lib/parser';
   import ArticleNav from "$components/util/ArticleNav.svelte";
   import { getTagAddress, getTagValue } from '$lib/utils/eventUtils';
-  import type { NostrEvent } from '$lib/types/nostr';
-  import RelayDisplay from '$lib/components/RelayDisplay.svelte';
   import { unresponsiveRelays } from '$lib/stores/unresponsiveRelaysStore';
+  import { setContext } from 'svelte';
+  import { PublicationTree } from '$lib/data_structures/publication_tree';
+  import { getNostrClient } from '$lib/nostr/client';
+  import type { NostrEvent } from '$lib/types/nostr';
+  import asciidoctor from 'asciidoctor';
 
   const { data } = $props<{ data: { id?: string, dTag?: string, url: URL } }>();
 
@@ -60,64 +63,100 @@
   let unresponsive: string[] = [];
   unresponsiveRelays.subscribe((val) => { unresponsive = val; });
 
+  const asciidoctorInstance = asciidoctor();
+  setContext('asciidoctor', asciidoctorInstance);
+
   $effect(() => {
+    console.log('EFFECT RUNNING', { ready, data, $userHydrated, $blockedRelaysHydrated });
     if (ready && (data.id || data.dTag)) {
       (async () => {
-        const allRelays = selectRelayGroup('inbox');
-        const relays = allRelays.filter(
-          relay => !unresponsive.includes(relay)
-        );
-        relayStatuses = Object.fromEntries(relays.map(r => [r, 'pending']));
-        relayResults = {};
         indexEvent = null;
         errorMsg = '';
         parser = null;
-
-        const filter = data.id
-          ? { ids: [data.id] }
-          : data.dTag
-            ? { '#d': [data.dTag] }
-            : {};
-
-        const fetchPromises = relays.map(relay =>
-          fetchEventFromRelay(relay, filter, 3000)
-            .then(result => {
-              if (result.event) {
-                relayStatuses = { ...relayStatuses, [relay]: 'success' };
-                relayResults = { ...relayResults, [relay]: result.event };
-                if (!indexEvent) {
-                  indexEvent = result.event;
-                  parser = Processor();
-                  waitable = parser.fetch(indexEvent);
-                  if (indexEvent.kind === 30023) {
-                    contentType = 'article';
-                  } else if (indexEvent.kind === 30818) {
-                    contentType = 'wiki';
-                  } else if (indexEvent.kind === 30040) {
-                    contentType = 'book';
-                  } else if (indexEvent.kind === 30041) {
-                    contentType = 'section';
-                  } else {
-                    contentType = 'unknown';
+        relayStatuses = {};
+        relayResults = {};
+        let event: NostrEvent | null = null;
+        let id = data.id;
+        if (id && !/^[a-f0-9]{64}$/i.test(id)) {
+          // Not a hex id, try to decode as naddr/nevent/etc
+          console.log('[Publication] Decoding identifier:', id);
+          const result = await searchEventByIdentifier(id);
+          console.log('searchEventByIdentifier result:', result);
+          event = result.event ?? null;
+          if (event) {
+            console.log('[Publication] Loaded event from identifier:', event);
+          } else {
+            errorMsg = 'Event not found';
+          }
+        } else if (id) {
+          // Hex id, fetch as before
+          const allRelays = selectRelayGroup('inbox');
+          const relays = allRelays.filter(relay => !unresponsive.includes(relay));
+          relayStatuses = Object.fromEntries(relays.map(r => [r, 'pending']));
+          relayResults = {};
+          const filter = { ids: [id] };
+          const fetchPromises = relays.map(relay =>
+            fetchEventFromRelay(relay, filter, 3000)
+              .then(result => {
+                if (result.event) {
+                  relayStatuses = { ...relayStatuses, [relay]: 'success' };
+                  relayResults = { ...relayResults, [relay]: result.event };
+                  if (!event) {
+                    event = result.event;
                   }
+                } else {
+                  relayStatuses = { ...relayStatuses, [relay]: 'timeout' };
+                  relayResults = { ...relayResults, [relay]: null };
                 }
-              } else {
-                relayStatuses = { ...relayStatuses, [relay]: 'timeout' };
+              })
+              .catch(() => {
+                relayStatuses = { ...relayStatuses, [relay]: 'error' };
                 relayResults = { ...relayResults, [relay]: null };
-              }
-            })
-            .catch(() => {
-              relayStatuses = { ...relayStatuses, [relay]: 'error' };
-              relayResults = { ...relayResults, [relay]: null };
-              unresponsiveRelays.add(relay);
-            })
-        );
-
-        await Promise.allSettled(fetchPromises);
-        if (!indexEvent) {
+                unresponsiveRelays.add(relay);
+              })
+          );
+          await Promise.allSettled(fetchPromises);
+          console.log('relayResults after fetch:', relayResults);
+        }
+        console.log('event before if:', event);
+        if (event) {
+          indexEvent = event;
+          console.log('indexEvent set:', indexEvent);
+          parser = new Pharos();
+          console.log('About to call parser.fetch');
+          waitable = parser.fetch(indexEvent);
+          console.log('Called parser.fetch, got promise:', waitable);
+          waitable.then(() => console.log('parser.fetch resolved')).catch(e => console.error('parser.fetch error', e));
+          if (indexEvent.kind === 30023) {
+            contentType = 'article';
+          } else if (indexEvent.kind === 30818) {
+            contentType = 'wiki';
+          } else if (indexEvent.kind === 30040) {
+            contentType = 'book';
+          } else if (indexEvent.kind === 30041) {
+            contentType = 'section';
+          } else {
+            contentType = 'unknown';
+          }
+        } else if (!errorMsg) {
           errorMsg = 'Event not found';
         }
       })();
+    }
+  });
+
+  $effect(() => {
+    console.log('waitable resolved');
+    console.log('showPublication:', showPublication);
+    console.log('contentType:', contentType, 'isString:', isString(contentType));
+    console.log('indexEvent:', indexEvent);
+  });
+
+  $effect(() => {
+    if (indexEvent) {
+      const client = getNostrClient();
+      const publicationTree = new PublicationTree(client, indexEvent);
+      setContext('publicationTree', publicationTree);
     }
   });
 
@@ -185,17 +224,4 @@
       {/if}
     {/await}
   </main>
-  <div class="mb-4">
-    <h3 class="font-semibold mb-2">Relay Status</h3>
-    <div class="flex flex-wrap gap-2">
-      {#each Object.entries(relayStatuses) as [relay, status]}
-        <RelayDisplay
-          {relay}
-          showStatus={true}
-          status={status === 'success' ? 'found' : status}
-          timing={undefined}
-        />
-      {/each}
-    </div>
-  </div>
 {/if}

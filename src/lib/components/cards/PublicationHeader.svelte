@@ -27,17 +27,7 @@
     console.log('DTag:', dTag);
     console.log('Event kind:', event.kind);
     console.log('Event pubkey:', event.pubkey);
-    const naddrData = {
-      kind: event.kind,
-      pubkey: event.pubkey,
-      tags: [['d', dTag]],
-      content: '',
-      created_at: event.created_at,
-      id: event.id,
-      sig: event.sig
-    };
-    console.log('Naddr data:', naddrData);
-    return `publication?id=${naddrEncode(naddrData, relays)}`;
+    return `publication?id=${naddrEncode(event, relays)}`;
   });
 
   let showActions = $state(false);

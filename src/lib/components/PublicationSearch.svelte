@@ -189,6 +189,20 @@
       onSearchProgress={handleSearchProgress}
     />
   </div>
+  {#if loading}
+    <div class='flex justify-center items-center py-8'>
+      <span class='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500'></span>
+      <span class='ml-2 text-gray-600 dark:text-gray-300'>Loading...</span>
+    </div>
+  {:else if searchError}
+    <div class='text-red-600 bg-red-100 rounded px-2 py-1 mb-2 text-sm'>
+      {searchError.message}
+    </div>
+  {:else if !isSearching && allEvents.length === 0 && searchQuery.trim()}
+    <div class='text-gray-700 dark:text-gray-300 text-center py-8'>
+      No results found for "{searchQuery}".
+    </div>
+  {/if}
   {#if searchProgress}
     <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
       <div

@@ -76,7 +76,7 @@ class WebSocketRelay implements NostrRelay {
 
       // Send the auth event
       const message = JSON.stringify(['AUTH', completeEvent]);
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      if (message && this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(message);
       } else {
         this.pendingMessages.push(message);
@@ -100,7 +100,9 @@ class WebSocketRelay implements NostrRelay {
           // Send any pending messages
           while (this.pendingMessages.length > 0) {
             const msg = this.pendingMessages.shift();
-            if (msg) this.ws?.send(msg);
+            if (msg && this.ws && this.ws.readyState === WebSocket.OPEN) {
+              this.ws.send(msg);
+            }
           }
           resolve();
         };
@@ -286,26 +288,58 @@ export class NostrClient {
     );
   }
 
+  /**
+   * Fetches events from all relays matching the given filter.
+   * Adds robust timeout, error handling, and logging.
+   * @param filter The Nostr filter to use for event subscription
+   * @returns Array of unique NostrEvents
+   */
   async fetchEvents(filter: NostrFilter): Promise<NostrEvent[]> {
+    console.log('[NostrClient] fetchEvents: started', filter);
     const events = new Map<string, NostrEvent>();
-    const promises = this.relaySet.relays.map(relay => 
+    const relayResults: { relay: string; error?: unknown }[] = [];
+    const promises = this.relaySet.relays.map(relay =>
       new Promise<void>((resolve) => {
-        const subscriptionId = relay.subscribe(filter, (event) => {
-          if (!events.has(event.id)) {
-            events.set(event.id, event);
-          }
-        });
-        
-        // Set a timeout to close the subscription
-        setTimeout(() => {
-          relay.unsubscribe(subscriptionId);
+        let resolved = false;
+        try {
+          console.log(`[NostrClient] Subscribing to relay: ${relay.url}`);
+          const subscriptionId = relay.subscribe(filter, (event) => {
+            if (!events.has(event.id)) {
+              events.set(event.id, event);
+              console.log(`[NostrClient] Event received from ${relay.url}:`, event.id);
+            }
+          });
+          // Set a timeout to close the subscription
+          setTimeout(() => {
+            if (!resolved) {
+              relay.unsubscribe(subscriptionId);
+              resolved = true;
+              resolve();
+              console.log(`[NostrClient] Timeout: Unsubscribed from relay: ${relay.url}`);
+            }
+          }, 5000); // 5 second timeout
+        } catch (err) {
+          relayResults.push({ relay: relay.url, error: err });
+          console.error(`[NostrClient] Error subscribing to relay: ${relay.url}`, err);
           resolve();
-        }, 5000); // 5 second timeout
+        }
       })
     );
-
-    await Promise.all(promises);
-    return Array.from(events.values());
+    try {
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('[NostrClient] fetchEvents: error in Promise.all', err);
+    }
+    if (relayResults.length === this.relaySet.relays.length) {
+      console.warn('[NostrClient] fetchEvents: All relays failed', relayResults);
+    }
+    const result = Array.from(events.values());
+    if (result.length === 0) {
+      console.warn('[NostrClient] fetchEvents: No events found for filter', filter);
+    } else {
+      console.log(`[NostrClient] fetchEvents: Completed, found ${result.length} events.`);
+    }
+    return result;
   }
 
   async fetchEvent(filter: NostrFilter): Promise<NostrEvent | null> {
