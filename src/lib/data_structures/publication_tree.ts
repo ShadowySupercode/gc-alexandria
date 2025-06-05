@@ -154,8 +154,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
   /**
    * Retrieves the addresses of the loaded children, if any, of the node with the given address.
+   * 
    * @param address The address of the parent node.
    * @returns An array of addresses of any loaded child nodes.
+   * 
+   * Note that this method resolves all children of the node.
    */
   async getChildAddresses(address: string): Promise<Array<string | null>> {
     const node = await this.#nodes.get(address)?.value();
