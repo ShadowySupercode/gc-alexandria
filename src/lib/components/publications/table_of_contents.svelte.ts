@@ -11,6 +11,13 @@ export interface TocEntry {
   depth: number;
 }
 
+/**
+ * Maintains a table of contents (ToC) for a `SveltePublicationTree`.  Since publication trees are
+ * conceptually infinite and lazy-loading, the ToC represents only the portion of the tree that has
+ * been "discovered".  The ToC is updated as new nodes are resolved within the publication tree.
+ * 
+ * @see SveltePublicationTree
+ */
 export class TableOfContents {
   public addressMap: SvelteMap<string, TocEntry> = new SvelteMap();
   
