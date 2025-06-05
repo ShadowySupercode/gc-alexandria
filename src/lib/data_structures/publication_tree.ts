@@ -370,11 +370,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     }
 
-    if (mode === TreeTraversalMode.Leaves) {
+    switch (mode) {
+    case TreeTraversalMode.Leaves:
       return this.#walkLeaves(TreeTraversalDirection.Forward);
+    case TreeTraversalMode.All:
+      return this.#preorderWalkAll(TreeTraversalDirection.Forward);
     }
-
-    return this.#preorderWalkAll(TreeTraversalDirection.Forward);
   }
 
   /**
@@ -394,11 +395,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     }
 
-    if (mode === TreeTraversalMode.Leaves) {
+    switch (mode) {
+    case TreeTraversalMode.Leaves:
       return this.#walkLeaves(TreeTraversalDirection.Backward);
+    case TreeTraversalMode.All:
+      return this.#preorderWalkAll(TreeTraversalDirection.Backward);
     }
-
-    return this.#preorderWalkAll(TreeTraversalDirection.Backward);
   }
 
   async #yieldEventAtCursor(done: boolean): Promise<IteratorResult<NDKEvent | null>> {
@@ -459,8 +461,29 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   async #preorderWalkAll(
     direction: TreeTraversalDirection = TreeTraversalDirection.Forward
   ): Promise<IteratorResult<NDKEvent | null>> {
-    // TODO: Implement this.
-    return { done: false, value: null };
+    const tryMoveToSibling: () => Promise<boolean> = direction === TreeTraversalDirection.Forward
+      ? this.#cursor.tryMoveToNextSibling.bind(this.#cursor)
+      : this.#cursor.tryMoveToPreviousSibling.bind(this.#cursor);
+    const tryMoveToChild: () => Promise<boolean> = direction === TreeTraversalDirection.Forward
+      ? this.#cursor.tryMoveToFirstChild.bind(this.#cursor)
+      : this.#cursor.tryMoveToLastChild.bind(this.#cursor);
+    
+    if (await tryMoveToChild()) {
+      return this.#yieldEventAtCursor(false);
+    }
+
+    do {
+      if (await tryMoveToSibling()) {
+        return this.#yieldEventAtCursor(false);
+      }
+    } while (this.#cursor.tryMoveToParent());
+
+    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+      return { done: false, value: null };
+    }
+
+    // If we get to this point, we're at the root node (can't move up any more).
+    return this.#yieldEventAtCursor(true);
   }
 
   // #endregion
