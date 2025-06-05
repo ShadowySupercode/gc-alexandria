@@ -1,98 +1,52 @@
-import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
+import { SvelteMap } from 'svelte/reactivity';
+import type { SveltePublicationTree } from './svelte_publication_tree.svelte.ts';
+import type { NDKEvent } from '../../utils/nostrUtils.ts';
 
 export interface TocEntry {
   address: string;
   title: string;
-  href: string;
+  href?: string;
+  children: TocEntry[];
+  parent?: TocEntry;
   depth: number;
-  expanded: boolean;
-  children: Array<TocEntry> | null;
 }
 
 export class TableOfContents {
-  #tocRoot: TocEntry | null = null;
-  #addresses = $state<Map<string, TocEntry>>(new Map());
+  public addressMap: SvelteMap<string, TocEntry> = new SvelteMap();
+  
+  #root: TocEntry | null = null;
   #publicationTree: SveltePublicationTree;
   #pagePathname: string;
 
   /**
-   * Constructor for the `TableOfContents` class.  The constructed ToC initially contains only the
-   * root entry.  Additional entries must be inserted programmatically using class methods.
-   *
-   * The `TableOfContents` class should be instantiated as a page-scoped singleton so that
-   * `pagePathname` is correct wherever the instance is used.  The singleton should be made
-   * made available to the entire component tree under that page.
+   * Constructs a `TableOfContents` from a `SveltePublicationTree`.
+   * 
+   * @param rootAddress The address of the root event.
+   * @param publicationTree The SveltePublicationTree instance.
+   * @param pagePathname The current page pathname for href generation.
    */
   constructor(rootAddress: string, publicationTree: SveltePublicationTree, pagePathname: string) {
     this.#publicationTree = publicationTree;
     this.#pagePathname = pagePathname;
-
-    this.insertIntoTocFromPublicationTree(rootAddress);
+    void this.#initRoot(rootAddress);
+    this.#publicationTree.onNodeResolved((address: string) => {
+      void this.#handleNodeResolved(address);
+    });
   }
 
-  #normalizeHashPath(title: string): string {
-    // TODO: Confirm this uses good normalization logic to produce unique hrefs within the page.
-    return title.toLowerCase().replace(/ /g, '-');
+  // #region Public Methods
+
+  /**
+   * Returns the root entry of the ToC.
+   * 
+   * @returns The root entry of the ToC, or `null` if the ToC has not been initialized.
+   */
+  getRootEntry(): TocEntry | null {
+    return this.#root;
   }
 
-  get addresses(): Map<string, TocEntry> {
-    return this.#addresses;
-  }
-
-  async insertIntoTocFromPublicationTree(address: string): Promise<void> {
-    const targetEvent = await this.#publicationTree.getEvent(address);
-    if (!targetEvent) {
-      console.warn(`[ToC] Event ${address} not found.`);
-      // TODO: Determine how to handle this case in the UI.
-      return;
-    }
-
-    const hierarchyEvents = await this.#publicationTree.getHierarchy(address);
-    if (hierarchyEvents.length === 0) {
-      // This means we are at root.
-      return;
-    }
-
-    // Michael J 05 May 2025 - In this loop, we assume that the parent of the current event has
-    // already been populated into the ToC.  As long as the root is set when the component is
-    // initialized, this code will work fine.
-    let currentParentTocNode: TocEntry | null = this.#tocRoot;
-    for (let i = 0; i < hierarchyEvents.length; i++) {
-      const currentEvent = hierarchyEvents[i];
-      const currentAddress = currentEvent.tagAddress();
-
-      if (this.#addresses.has(currentAddress)) {
-        continue;
-      }
-
-      const currentEventChildAddresses = await this.#publicationTree.getChildAddresses(currentAddress);
-      for (const address of currentEventChildAddresses) {
-        if (address === null) {
-          continue;
-        }
-
-        const childEvent = await this.#publicationTree.getEvent(address);
-        if (!childEvent) {
-          console.warn(`[ToC] Event ${address} not found.`);
-          continue;
-        }
-
-        currentParentTocNode!.children ??= [];
-
-        const childTocEntry: TocEntry = {
-          address,
-          title: childEvent.getMatchingTags('title')[0][1],
-          href: `${this.#pagePathname}#${this.#normalizeHashPath(childEvent.getMatchingTags('title')[0][1])}`,
-          depth: i + 1,
-          expanded: false,
-          children: null,
-        };
-        currentParentTocNode!.children.push(childTocEntry);
-        this.#addresses.set(address, childTocEntry);
-      }
-
-      currentParentTocNode = this.#addresses.get(currentAddress)!;
-    }
+  getEntry(address: string): TocEntry | undefined {
+    return this.addressMap.get(address);
   }
 
   /**
@@ -128,16 +82,18 @@ export class TableOfContents {
             title,
             href,
             depth,
-            expanded: false,
-            children: null,
+            children: [],
           };
-          parentEntry.children ??= [];
           parentEntry.children.push(tocEntry);
 
           this.buildTocFromDocument(header, tocEntry, depth + 1);
         }
       });
   }
+
+  // #endregion
+
+  // #region Iterator Methods
 
   /**
    * Iterates over all ToC entries in depth-first order.
@@ -157,6 +113,92 @@ export class TableOfContents {
       }
     }
 
-    yield* traverse(this.#tocRoot);
+    yield* traverse(this.#root);
   }
+
+  // #endregion
+
+  // #region Private Methods
+
+  async #initRoot(rootAddress: string) {
+    const rootEvent = await this.#publicationTree.getEvent(rootAddress);
+    if (!rootEvent) {
+      throw new Error(`[ToC] Root event ${rootAddress} not found.`);
+    }
+
+    this.#root = {
+      address: rootAddress,
+      title: this.#getTitle(rootEvent),
+      children: [],
+      depth: 0,
+    };
+
+    this.addressMap.set(rootAddress, this.#root);
+    // Handle any other nodes that have already been resolved.
+    await this.#handleNodeResolved(rootAddress);
+  }
+
+  async #handleNodeResolved(address: string) {
+    if (this.addressMap.has(address)) {
+      return;
+    }
+    const event = await this.#publicationTree.getEvent(address);
+    if (!event) {
+      return;
+    }
+
+    const parentEvent = await this.#publicationTree.getParent(address);
+    const parentAddress = parentEvent?.tagAddress();
+    if (!parentAddress) {
+      // All non-root nodes must have a parent.
+      if (!this.#root || address !== this.#root.address) {
+        throw new Error(`[ToC] Parent not found for address ${address}`);
+      }
+      return;
+    }
+
+    const parentEntry = this.addressMap.get(parentAddress);
+    if (!parentEntry) {
+      throw new Error(`[ToC] Parent ToC entry not found for address ${address}`);
+    }
+
+    const entry: TocEntry = {
+      address,
+      title: this.#getTitle(event),
+      children: [],
+      parent: parentEntry,
+      depth: parentEntry.depth + 1,
+    };
+
+    // Michael J - 05 June 2025 - The `getChildAddresses` method forces node resolution on the
+    // publication tree.  This is acceptable here, because the tree is always resolved top-down.
+    // Therefore, by the time we handle a node's resolution, its parent and siblings have already
+    // been resolved.
+    const childAddresses = await this.#publicationTree.getChildAddresses(parentAddress);
+    const filteredChildAddresses = childAddresses.filter((a): a is string => !!a);
+    const insertIndex = filteredChildAddresses.findIndex(a => a === address);
+    if (insertIndex === -1 || insertIndex > parentEntry.children.length) {
+      parentEntry.children.push(entry);
+    } else {
+      parentEntry.children.splice(insertIndex, 0, entry);
+    }
+    
+    this.addressMap.set(address, entry);
+  }
+
+  #getTitle(event: NDKEvent | null): string {
+    if (!event) {
+      // TODO: What do we want to return in this case?
+      return '[untitled]';
+    }
+    const titleTag = event.getMatchingTags?.('title')?.[0]?.[1];
+    return titleTag || event.tagAddress() || '[untitled]';
+  }
+
+  #normalizeHashPath(title: string): string {
+    // TODO: Confirm this uses good normalization logic to produce unique hrefs within the page.
+    return title.toLowerCase().replace(/ /g, '-');
+  }
+
+  // #endregion
 }
