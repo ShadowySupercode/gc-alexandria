@@ -28,6 +28,14 @@ export class SveltePublicationTree {
     return this.#publicationTree.getHierarchy(address);
   }
 
+  async getParent(address: string): Promise<NDKEvent | null> {
+    const hierarchy = await this.getHierarchy(address);
+
+    // The last element in the hierarchy is the event with the given address, so the parent is the
+    // second to last element.
+    return hierarchy.at(-2) ?? null;
+  }
+
   setBookmark(address: string) {
     this.#publicationTree.setBookmark(address);
   }
