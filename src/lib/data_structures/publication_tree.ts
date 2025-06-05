@@ -61,9 +61,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   #ndk: NDK;
 
-  #onNodeAddedCallbacks: Array<(address: string) => void> = [];
+  #nodeAddedObservers: Array<(address: string) => void> = [];
 
-  #onNodeResolvedCallbacks: Array<(address: string) => void> = [];
+  #nodeResolvedObservers: Array<(address: string) => void> = [];
+
+  #bookmarkMovedObservers: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
@@ -195,11 +197,16 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   setBookmark(address: string) {
     this.#bookmark = address;
+    this.#bookmarkMovedObservers.forEach(observer => observer(address));
     this.#cursor.tryMoveTo(address);
   }
 
+  onBookmarkMoved(observer: (address: string) => void) {
+    this.#bookmarkMovedObservers.push(observer);
+  }
+
   onNodeAdded(observer: (address: string) => void) {
-    this.#onNodeAddedCallbacks.push(observer);
+    this.#nodeAddedObservers.push(observer);
   }
 
   /**
@@ -209,7 +216,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * @param observer The observer function.
    */
   onNodeResolved(observer: (address: string) => void) {
-    this.#onNodeResolvedCallbacks.push(observer);
+    this.#nodeResolvedObservers.push(observer);
   }
 
   // #region Iteration Cursor
@@ -560,7 +567,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
 
-    this.#onNodeAddedCallbacks.forEach(observer => observer(address));
+    this.#nodeAddedObservers.forEach(observer => observer(address));
   }
 
   /**
@@ -614,7 +621,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     }
 
     // TODO: We may need to move this to `#addNode`, so the observer is notified more eagerly.
-    this.#onNodeResolvedCallbacks.forEach(observer => observer(address));
+    this.#nodeResolvedObservers.forEach(observer => observer(address));
 
     return node;
   }
