@@ -7,6 +7,7 @@ export class SveltePublicationTree {
   resolvedAddresses: SvelteSet<string> = new SvelteSet();
 
   #publicationTree: PublicationTree;
+  #nodeResolvedObservers: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     this.#publicationTree = new PublicationTree(rootEvent, ndk);
@@ -40,6 +41,14 @@ export class SveltePublicationTree {
     this.#publicationTree.setBookmark(address);
   }
 
+  /**
+   * Registers an observer function that is invoked whenever a new node is resolved.
+   * @param observer The observer function.
+   */
+  onNodeResolved(observer: (address: string) => void) {
+    this.#nodeResolvedObservers.push(observer);
+  }
+
   // #endregion
 
   // #region Proxied Async Iterator Methods
@@ -60,8 +69,19 @@ export class SveltePublicationTree {
 
   // #region Private Methods
 
-  #handleNodeResolved(address: string) {
+  /**
+   * Observer function that is invoked whenever a new node is resolved on the publication tree.
+   * 
+   * @param address The address of the resolved node.
+   * 
+   * This member is declared as an arrow function to ensure that the correct `this` context is
+   * used when the function is invoked in this class's constructor.
+   */
+  #handleNodeResolved = (address: string) => {
     this.resolvedAddresses.add(address);
+    for (const observer of this.#nodeResolvedObservers) {
+      observer(address);
+    }
   }
 
   // #endregion
