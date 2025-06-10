@@ -19,7 +19,6 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
-  import { pharosInstance } from '$lib/parser';
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
 
@@ -153,9 +152,6 @@
       observer.disconnect();
     };
   });
-
-  // Whenever the publication changes, update rootId
-  let rootId = $derived($pharosInstance.getRootIndexId());
 </script>
 
 <!-- Table of contents -->
