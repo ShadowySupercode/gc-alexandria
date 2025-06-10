@@ -2,12 +2,11 @@
   import { Button, Textarea, Alert } from 'flowbite-svelte';
   import { parseBasicmarkup } from '$lib/utils/markup/basicMarkupParser';
   import { nip19 } from 'nostr-tools';
-  import { getEventHash, signEvent, getUserMetadata, type NostrProfile } from '$lib/utils/nostrUtils';
+  import { getEventHash, signEvent, getUserMetadata, type NostrProfile, type NDKEvent } from '$lib/utils/nostrUtils';
   import { standardRelays, fallbackRelays } from '$lib/consts';
   import { userRelays } from '$lib/stores/relayStore';
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
-  import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { onMount } from 'svelte';
 
   const props = $props<{

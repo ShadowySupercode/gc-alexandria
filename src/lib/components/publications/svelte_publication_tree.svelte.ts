@@ -1,7 +1,6 @@
 import { SvelteSet } from "svelte/reactivity";
 import { PublicationTree } from "../../data_structures/publication_tree.ts";
-import { NDKEvent } from "../../utils/nostrUtils.ts";
-import NDK from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 
 export class SveltePublicationTree {
   resolvedAddresses: SvelteSet<string> = new SvelteSet();
