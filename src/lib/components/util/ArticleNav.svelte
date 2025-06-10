@@ -113,34 +113,46 @@
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if shouldShowBack()}
         <Button class='btn-leather !w-auto sm:hidden' outline={true} onclick={backToMain}>
-          <CaretLeftOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Back</span>
+          <CaretLeftOutline class="!fill-none inline mr-1" />
+          <span class="hidden sm:inline">Back</span>
         </Button>
       {/if}
       {#if !isLeaf}
         {#if publicationType === 'blog'}
-          <Button class="btn-leather hidden sm:flex !w-auto {$publicationColumnVisibility.blog ? 'active' : ''}"
-                  outline={true} onclick={() => toggleColumn('blog')} >
-            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+          <Button
+            class={`btn-leather hidden sm:flex !w-auto ${$publicationColumnVisibility.blog ? 'active' : ''}`}
+            outline={true}
+            onclick={() => toggleColumn('blog')}
+          >
+            <BookOutline class="!fill-none inline mr-1" />
+            <span class="hidden sm:inline">Table of Contents</span>
           </Button>
         {:else if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
-          <Button class='btn-leather !w-auto' outline={true} onclick={() => toggleColumn('toc')}>
-            <BookOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Table of Contents</span>
+          <Button
+            class={`btn-leather !w-auto ${$publicationColumnVisibility.toc ? 'active' : ''}`}
+            outline={true}
+            onclick={() => toggleColumn('toc')}
+          >
+            <BookOutline class="!fill-none inline mr-1" />
+            <span class="hidden sm:inline">Table of Contents</span>
           </Button>
         {/if}
       {/if}
     </div>
     <div class="flex flex-grow text justify-center items-center">
-        <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b> <span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
+      <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b><span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}
         <Button class='btn-leather !w-auto hidden sm:flex' outline={true} onclick={backToBlog}>
-          <CloseOutline class="!fill-none inline mr-1" /><span class="hidden sm:inline">Close</span>
+          <CloseOutline class="!fill-none inline mr-1" />
+          <span class="hidden sm:inline">Close</span>
         </Button>
       {/if}
       {#if publicationType !== 'blog' && !$publicationColumnVisibility.discussion}
         <Button class="btn-leather !hidden sm:flex !w-auto" outline={true} onclick={() => toggleColumn('discussion')} >
-          <GlobeOutline class="!fill-none inline mr-1"  /><span class="hidden sm:inline">Discussion</span>
+          <GlobeOutline class="!fill-none inline mr-1" />
+          <span class="hidden sm:inline">Discussion</span>
         </Button>
       {/if}
     </div>
