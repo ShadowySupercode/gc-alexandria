@@ -19,9 +19,9 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
-  import TocToggle from "$components/util/TocToggle.svelte";
   import { pharosInstance } from '$lib/parser';
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
+  import TableOfContents from "./TableOfContents.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -160,7 +160,12 @@
 
 <!-- Table of contents -->
 {#if publicationType !== "blog" || !isLeaf}
-  <TocToggle {rootId} />
+  <TableOfContents 
+    depth={0}
+    onSectionFocused={(address: string) => {
+      publicationTree.setBookmark(address);
+    }}
+  />
 {/if}
 
 <!-- Default publications -->
