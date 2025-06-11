@@ -5,8 +5,10 @@
   import { quintOut } from "svelte/easing";
   import EventLimitControl from "$lib/components/EventLimitControl.svelte";
   import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
-  import { networkFetchLimit } from "$lib/state";
+  import EventKindFilter from "$lib/components/EventKindFilter.svelte";
+  import { networkFetchLimit, levelsToRender } from "$lib/state";
   import { displayLimits } from "$lib/stores/displayLimits";
+  import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { Toggle, Select } from "flowbite-svelte";
 
   let {
@@ -31,9 +33,34 @@
   }>();
 
   let expanded = $state(false);
+  let eventTypesExpanded = $state(true);
+  let initialLoadExpanded = $state(true);
+  let displayLimitsExpanded = $state(true);
+  let graphTraversalExpanded = $state(true);
+  let visualSettingsExpanded = $state(true);
 
   function toggle() {
     expanded = !expanded;
+  }
+  
+  function toggleEventTypes() {
+    eventTypesExpanded = !eventTypesExpanded;
+  }
+  
+  function toggleInitialLoad() {
+    initialLoadExpanded = !initialLoadExpanded;
+  }
+  
+  function toggleDisplayLimits() {
+    displayLimitsExpanded = !displayLimitsExpanded;
+  }
+  
+  function toggleGraphTraversal() {
+    graphTraversalExpanded = !graphTraversalExpanded;
+  }
+  
+  function toggleVisualSettings() {
+    visualSettingsExpanded = !visualSettingsExpanded;
   }
   /**
    * Handles updates to visualization settings
@@ -108,44 +135,105 @@
       <span class="leather bg-transparent legend-text">
         Showing {count} of {totalCount} events
       </span>
+      
+      <!-- Event Kind Filter Section -->
+      <div class="settings-section">
+        <div class="settings-section-header" onclick={toggleEventTypes}>
+          <h4 class="settings-section-title">Event Types <span class="text-orange-500 text-xs font-normal">(not tested)</span></h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if eventTypesExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        {#if eventTypesExpanded}
+          <EventKindFilter />
+        {/if}
+      </div>
 
       <!-- Initial Load Settings Section -->
-      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
-        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Initial Load</h4>
-        <EventLimitControl on:update={handleLimitUpdate} />
-        <EventRenderLevelLimit on:update={handleLimitUpdate} />
+      <div class="settings-section">
+        <div class="settings-section-header" onclick={toggleInitialLoad}>
+          <h4 class="settings-section-title">Initial Load</h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if initialLoadExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        {#if initialLoadExpanded}
+          <div>
+            <EventLimitControl on:update={handleLimitUpdate} />
+            <EventRenderLevelLimit on:update={handleLimitUpdate} />
+          </div>
+        {/if}
       </div>
 
       <!-- Display Limits Section -->
-      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
-        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Display Limits</h4>
+      <div class="settings-section">
+        <div class="settings-section-header" onclick={toggleDisplayLimits}>
+          <h4 class="settings-section-title">Display Limits</h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if displayLimitsExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        {#if displayLimitsExpanded}
         
         <div class="space-y-3">
           <div>
-            <Label for="max-30040" class="text-xs text-gray-600 dark:text-gray-400">
+            <Label for="max-pub-indices" class="text-xs text-gray-600 dark:text-gray-400">
               Max Publication Indices (30040)
             </Label>
             <input
               type="number"
-              id="max-30040"
+              id="max-pub-indices"
               min="-1"
-              value={$displayLimits.max30040}
-              oninput={(e) => handleDisplayLimitInput(e, 'max30040')}
+              value={$visualizationConfig.maxPublicationIndices}
+              oninput={(e) => {
+                const value = parseInt(e.currentTarget.value) || -1;
+                visualizationConfig.setMaxPublicationIndices(value);
+              }}
               placeholder="-1 for unlimited"
               class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
             />
           </div>
 
           <div>
-            <Label for="max-30041" class="text-xs text-gray-600 dark:text-gray-400">
-              Max Content Events (30041)
+            <Label for="max-per-index" class="text-xs text-gray-600 dark:text-gray-400">
+              Max Events per Index
             </Label>
             <input
               type="number"
-              id="max-30041"
+              id="max-per-index"
               min="-1"
-              value={$displayLimits.max30041}
-              oninput={(e) => handleDisplayLimitInput(e, 'max30041')}
+              value={$visualizationConfig.maxEventsPerIndex}
+              oninput={(e) => {
+                const value = parseInt(e.currentTarget.value) || -1;
+                visualizationConfig.setMaxEventsPerIndex(value);
+              }}
               placeholder="-1 for unlimited"
               class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
             />
@@ -154,26 +242,82 @@
           <label class="flex items-center space-x-2">
             <Toggle 
               checked={$displayLimits.fetchIfNotFound} 
-              on:click={toggleFetchIfNotFound}
+              onclick={toggleFetchIfNotFound}
               class="text-xs" 
             />
-            <span class="text-xs text-gray-600 dark:text-gray-400">Fetch if not found</span>
+            <span class="text-xs text-gray-600 dark:text-gray-400">Fetch if not found <span class="text-orange-500 font-normal">(not tested)</span></span>
           </label>
           <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
             Automatically fetch missing referenced events
           </p>
         </div>
+        {/if}
+      </div>
+
+      <!-- Graph Traversal Section -->
+      <div class="settings-section">
+        <div class="settings-section-header" onclick={toggleGraphTraversal}>
+          <h4 class="settings-section-title">Graph Traversal <span class="text-orange-500 text-xs font-normal">(not tested)</span></h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if graphTraversalExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        {#if graphTraversalExpanded}
+        
+        <label class="flex items-center space-x-2">
+          <Toggle 
+            checked={$visualizationConfig.searchThroughFetched} 
+            onclick={() => visualizationConfig.toggleSearchThroughFetched()}
+            class="text-xs" 
+          />
+          <span class="text-xs text-gray-600 dark:text-gray-400">Search through already fetched</span>
+        </label>
+        <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
+          When enabled, graph expansion will only use events already loaded
+        </p>
+        {/if}
       </div>
 
       <!-- Visual Settings Section -->
-      <div class="border-t border-gray-300 dark:border-gray-700 pt-3">
-        <h4 class="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Visual Settings</h4>
+      <div class="settings-section">
+        <div class="settings-section-header" onclick={toggleVisualSettings}>
+          <h4 class="settings-section-title">Visual Settings</h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if visualSettingsExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        {#if visualSettingsExpanded}
         
         <div class="space-y-2">
           <label
             class="leather bg-transparent legend-text flex items-center space-x-2"
           >
-            <Toggle bind:checked={starVisualization} class="text-xs" />
+            <Toggle 
+              checked={starVisualization} 
+              onchange={(e: Event) => {
+                const target = e.target as HTMLInputElement;
+                starVisualization = target.checked;
+              }}
+              class="text-xs" 
+            />
             <span>Star Network View</span>
           </label>
           <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -186,7 +330,14 @@
         <label
           class="leather bg-transparent legend-text flex items-center space-x-2"
         >
-          <Toggle bind:checked={showTagAnchors} class="text-xs" />
+          <Toggle 
+            checked={showTagAnchors} 
+            onchange={(e: Event) => {
+              const target = e.target as HTMLInputElement;
+              showTagAnchors = target.checked;
+            }}
+            class="text-xs"
+          />
           <span>Show Tag Anchors</span>
         </label>
         <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -222,7 +373,7 @@
                 <label
                   for="tag-depth-input"
                   class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
-                  >Expansion Depth:</label
+                  >Expansion Depth: <span class="text-red-500 font-semibold">(not functional)</span></label
                 >
                 <input
                   type="number"
@@ -244,7 +395,56 @@
           </div>
         {/if}
         </div>
+        {/if}
       </div>
     </div>
   {/if}
 </div>
+
+<style>
+  .settings-section {
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .settings-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    margin-bottom: 0.75rem;
+  }
+
+  .settings-section-header:hover {
+    background-color: #f9fafb;
+    border-radius: 0.375rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .settings-section-title {
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  :global(.dark) .settings-section-header:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  :global(.dark) .settings-section-title {
+    color: #d1d5db;
+  }
+
+  :global(.dark) .settings-section {
+    border-bottom-color: #374151;
+  }
+</style>

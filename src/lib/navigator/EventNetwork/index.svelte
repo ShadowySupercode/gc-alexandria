@@ -41,7 +41,7 @@
   type Selection = any;
 
   // Configuration
-  const DEBUG = true; // Set to true to enable debug logging
+  const DEBUG = false; // Set to true to enable debug logging
   const NODE_RADIUS = 20;
   const LINK_DISTANCE = 10;
   const ARROW_DISTANCE = 10;
@@ -125,6 +125,9 @@
   
   // Event counts by kind
   let eventCounts = $state<{ [kind: number]: number }>({});
+  
+  // Disabled tags state for interactive legend
+  let disabledTags = $state(new Set<string>());
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -206,7 +209,13 @@
    * Generates the graph from events, creates the simulation, and renders nodes and links
    */
   function updateGraph() {
-    debug("Updating graph");
+    debug("updateGraph called", {
+      eventCount: events?.length,
+      starVisualization,
+      showTagAnchors,
+      selectedTagType,
+      disabledTagsCount: disabledTags.size
+    });
     errorMessage = null;
 
     // Create variables to hold our selections
@@ -295,10 +304,38 @@
       nodes = graphData.nodes;
       links = graphData.links;
       
+      // Filter out links to disabled tag anchors
+      if (showTagAnchors && disabledTags.size > 0) {
+        links = links.filter((link: NetworkLink) => {
+          const source = link.source as NetworkNode;
+          const target = link.target as NetworkNode;
+          
+          // Check if either node is a disabled tag anchor
+          if (source.isTagAnchor) {
+            const tagId = `${source.tagType}-${source.title}`;
+            if (disabledTags.has(tagId)) return false;
+          }
+          if (target.isTagAnchor) {
+            const tagId = `${target.tagType}-${target.title}`;
+            if (disabledTags.has(tagId)) return false;
+          }
+          
+          return true;
+        });
+        
+        debug("Filtered links for disabled tags", {
+          originalCount: graphData.links.length,
+          filteredCount: links.length,
+          disabledTags: Array.from(disabledTags)
+        });
+      }
+      
       // Count events by kind
       const counts: { [kind: number]: number } = {};
-      events.forEach(event => {
-        counts[event.kind] = (counts[event.kind] || 0) + 1;
+      events.forEach((event: NDKEvent) => {
+        if (event.kind !== undefined) {
+          counts[event.kind] = (counts[event.kind] || 0) + 1;
+        }
       });
       eventCounts = counts;
       
@@ -457,6 +494,14 @@
           }
           // Index nodes get unique pastel colors in both modes
           return getEventColor(d.id);
+        })
+        .attr("opacity", (d: NetworkNode) => {
+          // Dim disabled tag anchors
+          if (d.isTagAnchor) {
+            const tagId = `${d.tagType}-${d.title}`;
+            return disabledTags.has(tagId) ? 0.3 : 1;
+          }
+          return 1;
         })
         .attr("r", (d: NetworkNode) => {
           // Tag anchors are smaller
@@ -712,6 +757,7 @@
         const __ = starVisualization;
         const ___ = showTagAnchors;
         const ____ = selectedTagType;
+        const _____ = disabledTags.size;
         updateGraph();
       }
     } catch (error) {
@@ -824,6 +870,22 @@
       graphInteracted = true;
     }
   }
+  
+  /**
+   * Handles toggling tag visibility in the legend
+   */
+  function handleTagToggle(tagId: string) {
+    const newDisabledTags = new Set(disabledTags);
+    if (newDisabledTags.has(tagId)) {
+      newDisabledTags.delete(tagId);
+    } else {
+      newDisabledTags.add(tagId);
+    }
+    disabledTags = newDisabledTags;
+    
+    // Trigger graph update to apply visibility changes
+    updateGraph();
+  }
 </script>
 
 <div class="network-container">
@@ -851,6 +913,8 @@
       showTags={showTagAnchors}
       tagAnchors={tagAnchorInfo}
       eventCounts={eventCounts}
+      {disabledTags}
+      onTagToggle={handleTagToggle}
     />
 
     <!-- Settings Panel (shown when settings button is clicked) -->

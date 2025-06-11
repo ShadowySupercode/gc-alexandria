@@ -12,11 +12,12 @@
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
   import { displayLimits } from "$lib/stores/displayLimits";
+  import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
   
   // Configuration
-  const DEBUG = true; // Set to true to enable debug logging
+  const DEBUG = false; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
   
@@ -92,38 +93,143 @@
         debug("Valid index events after filtering:", validIndexEvents.size);
       }
 
-      // Step 3: Extract content event IDs from index events
-      const contentEventIds = new Set<string>();
+      // Step 3: Extract content event references from index events
+      const contentReferences = new Map<string, { kind: number; pubkey: string; dTag: string }>();
       validIndexEvents.forEach((event) => {
         const aTags = event.getMatchingTags("a");
         debug(`Event ${event.id} has ${aTags.length} a-tags`);
         
         aTags.forEach((tag) => {
-          const eventId = tag[3];
-          if (eventId) {
-            contentEventIds.add(eventId);
+          // Parse the 'a' tag identifier: kind:pubkey:d-tag
+          if (tag[1]) {
+            const parts = tag[1].split(':');
+            if (parts.length >= 3) {
+              const kind = parseInt(parts[0]);
+              const pubkey = parts[1];
+              const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
+              
+              // Only add if it's a content event kind we're interested in
+              if (CONTENT_EVENT_KINDS.includes(kind)) {
+                const key = `${kind}:${pubkey}:${dTag}`;
+                contentReferences.set(key, { kind, pubkey, dTag });
+              }
+            }
           }
         });
       });
-      debug("Content event IDs to fetch:", contentEventIds.size);
+      debug("Content references to fetch:", contentReferences.size);
 
-      // Step 4: Fetch the referenced content events
+      // Step 4: Fetch the referenced content events with author filter
       debug(`Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(', ')})`);
-      const contentEvents = await $ndkInstance.fetchEvents(
-        {
-          kinds: CONTENT_EVENT_KINDS,
-          ids: Array.from(contentEventIds),
-        },
-        {
-          groupable: true,
-          skipVerification: false,
-          skipValidation: false,
-        },
+      
+      // Group by author to make more efficient queries
+      const referencesByAuthor = new Map<string, Array<{ kind: number; dTag: string }>>();
+      contentReferences.forEach(({ kind, pubkey, dTag }) => {
+        if (!referencesByAuthor.has(pubkey)) {
+          referencesByAuthor.set(pubkey, []);
+        }
+        referencesByAuthor.get(pubkey)!.push({ kind, dTag });
+      });
+      
+      // Fetch events for each author
+      const contentEventPromises = Array.from(referencesByAuthor.entries()).map(
+        async ([author, refs]) => {
+          const dTags = [...new Set(refs.map(r => r.dTag))]; // Dedupe d-tags
+          return $ndkInstance.fetchEvents({
+            kinds: CONTENT_EVENT_KINDS,
+            authors: [author],
+            "#d": dTags,
+          });
+        }
       );
-      debug("Fetched content events:", contentEvents.size);
+      
+      const contentEventSets = await Promise.all(contentEventPromises);
+      
+      // Deduplicate by keeping only the most recent version of each d-tag per author
+      const eventsByCoordinate = new Map<string, NDKEvent>();
+      
+      contentEventSets.forEach((eventSet, idx) => {
+        eventSet.forEach(event => {
+          const dTag = event.tagValue("d");
+          const author = event.pubkey;
+          const kind = event.kind;
+          
+          if (dTag && author && kind) {
+            const coordinate = `${kind}:${author}:${dTag}`;
+            const existing = eventsByCoordinate.get(coordinate);
+            
+            // Keep the most recent event (highest created_at)
+            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
+              eventsByCoordinate.set(coordinate, event);
+              debug(`Keeping newer version of ${coordinate}, created_at: ${event.created_at}`);
+            } else if (existing) {
+              debug(`Skipping older version of ${coordinate}, created_at: ${event.created_at} vs ${existing.created_at}`);
+            }
+          }
+        });
+      });
+      
+      const contentEvents = new Set(eventsByCoordinate.values());
+      debug("Fetched content events after deduplication:", contentEvents.size);
 
-      // Step 5: Combine both sets of events
-      allEvents = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      // Step 5: Combine both sets of events with coordinate-based deduplication
+      // First, build coordinate map for replaceable events
+      const coordinateMap = new Map<string, NDKEvent>();
+      const allEventsToProcess = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      
+      // First pass: identify the most recent version of each replaceable event
+      allEventsToProcess.forEach(event => {
+        if (!event.id) return;
+        
+        // For replaceable events (30000-39999), track by coordinate
+        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+          const dTag = event.tagValue("d");
+          const author = event.pubkey;
+          
+          if (dTag && author) {
+            const coordinate = `${event.kind}:${author}:${dTag}`;
+            const existing = coordinateMap.get(coordinate);
+            
+            // Keep the most recent version
+            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
+              coordinateMap.set(coordinate, event);
+            }
+          }
+        }
+      });
+      
+      // Second pass: build final event map
+      const finalEventMap = new Map<string, NDKEvent>();
+      const seenCoordinates = new Set<string>();
+      
+      allEventsToProcess.forEach(event => {
+        if (!event.id) return;
+        
+        // For replaceable events, only add if it's the chosen version
+        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+          const dTag = event.tagValue("d");
+          const author = event.pubkey;
+          
+          if (dTag && author) {
+            const coordinate = `${event.kind}:${author}:${dTag}`;
+            const chosenEvent = coordinateMap.get(coordinate);
+            
+            // Only add this event if it's the chosen one for this coordinate
+            if (chosenEvent && chosenEvent.id === event.id) {
+              if (!seenCoordinates.has(coordinate)) {
+                finalEventMap.set(event.id, event);
+                seenCoordinates.add(coordinate);
+              }
+            }
+            return;
+          }
+        }
+        
+        // Non-replaceable events are added directly
+        finalEventMap.set(event.id, event);
+      });
+      
+      allEvents = Array.from(finalEventMap.values());
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
       // Step 6: Apply display limits
@@ -154,7 +260,7 @@
    * Handles tag expansion to fetch related publications
    */
   async function handleTagExpansion(depth: number, tags: string[]) {
-    debug("Handling tag expansion", { depth, tags });
+    debug("Handling tag expansion", { depth, tags, searchThroughFetched: $visualizationConfig.searchThroughFetched });
     
     if (depth === 0 || tags.length === 0) {
       // Reset to base events only
@@ -170,52 +276,167 @@
       // Keep track of existing event IDs to avoid duplicates
       const existingEventIds = new Set(baseEvents.map(e => e.id));
       
-      // Fetch publications that have any of the specified tags
-      const taggedPublications = await $ndkInstance.fetchEvents({
-        kinds: [INDEX_EVENT_KIND],
-        "#t": tags, // Match any of these tags
-        limit: 30 * depth // Reasonable limit based on depth
-      });
-      
-      debug("Found tagged publications:", taggedPublications.size);
-      
-      // Filter to avoid duplicates
-      const newPublications = Array.from(taggedPublications).filter(
-        event => !existingEventIds.has(event.id)
-      );
-      
-      // Extract content event IDs from new publications
-      const contentEventIds = new Set<string>();
-      const existingContentIds = new Set(
-        baseEvents.filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind)).map(e => e.id)
-      );
-      
-      newPublications.forEach((event) => {
-        const aTags = event.getMatchingTags("a");
-        aTags.forEach((tag) => {
-          const eventId = tag[3];
-          if (eventId && !existingContentIds.has(eventId)) {
-            contentEventIds.add(eventId);
-          }
-        });
-      });
-      
-      // Fetch the content events
+      let newPublications: NDKEvent[] = [];
       let newContentEvents: NDKEvent[] = [];
-      if (contentEventIds.size > 0) {
-        const contentEventsSet = await $ndkInstance.fetchEvents({
-          kinds: CONTENT_EVENT_KINDS,
-          ids: Array.from(contentEventIds),
+      
+      if ($visualizationConfig.searchThroughFetched) {
+        // Search through already fetched events only
+        debug("Searching through already fetched events for tags:", tags);
+        
+        // Find publications in allEvents that have the specified tags
+        const taggedPublications = allEvents.filter(event => {
+          if (event.kind !== INDEX_EVENT_KIND) return false;
+          if (existingEventIds.has(event.id)) return false; // Skip base events
+          
+          // Check if event has any of the specified tags
+          const eventTags = event.getMatchingTags("t").map(tag => tag[1]);
+          return tags.some(tag => eventTags.includes(tag));
         });
-        newContentEvents = Array.from(contentEventsSet);
+        
+        newPublications = taggedPublications;
+        debug("Found", newPublications.length, "publications in fetched events");
+        
+        // For content events, also search in allEvents
+        const existingContentDTags = new Set(
+          baseEvents
+            .filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind))
+            .map(e => e.tagValue("d"))
+            .filter(d => d !== undefined)
+        );
+        
+        const contentEventDTags = new Set<string>();
+        newPublications.forEach((event) => {
+          const aTags = event.getMatchingTags("a");
+          aTags.forEach((tag) => {
+            // Parse the 'a' tag identifier: kind:pubkey:d-tag
+            if (tag[1]) {
+              const parts = tag[1].split(':');
+              if (parts.length >= 3) {
+                const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
+                if (!existingContentDTags.has(dTag)) {
+                  contentEventDTags.add(dTag);
+                }
+              }
+            }
+          });
+        });
+        
+        // Find content events in allEvents
+        newContentEvents = allEvents.filter(event => {
+          if (!CONTENT_EVENT_KINDS.includes(event.kind || 0)) return false;
+          const dTag = event.tagValue("d");
+          return dTag !== undefined && contentEventDTags.has(dTag);
+        });
+        
+      } else {
+        // Fetch from relays as before
+        debug("Fetching from relays for tags:", tags);
+        
+        // Fetch publications that have any of the specified tags
+        const taggedPublications = await $ndkInstance.fetchEvents({
+          kinds: [INDEX_EVENT_KIND],
+          "#t": tags, // Match any of these tags
+          limit: 30 * depth // Reasonable limit based on depth
+        });
+        
+        debug("Found tagged publications from relays:", taggedPublications.size);
+        
+        // Filter to avoid duplicates
+        newPublications = Array.from(taggedPublications).filter(
+          event => !existingEventIds.has(event.id)
+        );
+        
+        // Extract content event d-tags from new publications
+        const contentEventDTags = new Set<string>();
+        const existingContentDTags = new Set(
+          baseEvents
+            .filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind))
+            .map(e => e.tagValue("d"))
+            .filter(d => d !== undefined)
+        );
+        
+        newPublications.forEach((event) => {
+          const aTags = event.getMatchingTags("a");
+          aTags.forEach((tag) => {
+            // Parse the 'a' tag identifier: kind:pubkey:d-tag
+            if (tag[1]) {
+              const parts = tag[1].split(':');
+              if (parts.length >= 3) {
+                const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
+                if (!existingContentDTags.has(dTag)) {
+                  contentEventDTags.add(dTag);
+                }
+              }
+            }
+          });
+        });
+        
+        // Fetch the content events
+        if (contentEventDTags.size > 0) {
+          const contentEventsSet = await $ndkInstance.fetchEvents({
+            kinds: CONTENT_EVENT_KINDS,
+            "#d": Array.from(contentEventDTags), // Use d-tag filter
+          });
+          newContentEvents = Array.from(contentEventsSet);
+        }
       }
       
-      // Combine all events: base events + new publications + new content
-      allEvents = [
-        ...baseEvents,
-        ...newPublications,
-        ...newContentEvents
-      ];
+      // Combine all events with coordinate-based deduplication
+      // First, build coordinate map for replaceable events
+      const coordinateMap = new Map<string, NDKEvent>();
+      const allEventsToProcess = [...baseEvents, ...newPublications, ...newContentEvents];
+      
+      // First pass: identify the most recent version of each replaceable event
+      allEventsToProcess.forEach(event => {
+        if (!event.id) return;
+        
+        // For replaceable events (30000-39999), track by coordinate
+        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+          const dTag = event.tagValue("d");
+          const author = event.pubkey;
+          
+          if (dTag && author) {
+            const coordinate = `${event.kind}:${author}:${dTag}`;
+            const existing = coordinateMap.get(coordinate);
+            
+            // Keep the most recent version
+            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
+              coordinateMap.set(coordinate, event);
+            }
+          }
+        }
+      });
+      
+      // Second pass: build final event map
+      const finalEventMap = new Map<string, NDKEvent>();
+      const seenCoordinates = new Set<string>();
+      
+      allEventsToProcess.forEach(event => {
+        if (!event.id) return;
+        
+        // For replaceable events, only add if it's the chosen version
+        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+          const dTag = event.tagValue("d");
+          const author = event.pubkey;
+          
+          if (dTag && author) {
+            const coordinate = `${event.kind}:${author}:${dTag}`;
+            const chosenEvent = coordinateMap.get(coordinate);
+            
+            // Only add this event if it's the chosen one for this coordinate
+            if (chosenEvent && chosenEvent.id === event.id && !seenCoordinates.has(coordinate)) {
+              finalEventMap.set(event.id, event);
+              seenCoordinates.add(coordinate);
+            }
+            return;
+          }
+        }
+        
+        // Non-replaceable events are added directly
+        finalEventMap.set(event.id, event);
+      });
+      
+      allEvents = Array.from(finalEventMap.values());
       
       // Apply display limits
       events = filterByDisplayLimits(allEvents, $displayLimits);
@@ -230,7 +451,8 @@
         newContent: newContentEvents.length,
         totalFetched: allEvents.length,
         displayed: events.length,
-        missing: missingEventIds.size
+        missing: missingEventIds.size,
+        searchMode: $visualizationConfig.searchThroughFetched ? "fetched" : "relays"
       });
       
     } catch (e) {
