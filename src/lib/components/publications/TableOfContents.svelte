@@ -57,7 +57,7 @@
 
 <!-- TODO: Href doesn't work with query params. -->
 {#if displayMode === 'accordion'}
-  <Accordion flush multiple>
+  <Accordion multiple>
     {#each entries as entry}
       {@const address = entry.address}
       <AccordionItem 
@@ -70,7 +70,12 @@
           <span class="text-gray-800 dark:text-gray-300">{entry.title}</span>
         {/snippet}
         {#if entry.children.length > 0}
-          <Self rootAddress={entry.address} depth={depth + 1} onSectionFocused={onSectionFocused} />
+          <Self
+            displayMode={displayMode}
+            rootAddress={entry.address}
+            depth={depth + 1}
+            onSectionFocused={onSectionFocused}
+          />
         {/if}
       </AccordionItem>
     {/each}
