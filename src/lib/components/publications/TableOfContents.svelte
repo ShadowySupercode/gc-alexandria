@@ -23,50 +23,49 @@
   let publicationTree = getContext('publicationTree') as SveltePublicationTree;
   let toc = new TableOfContents(rootAddress, publicationTree, page.url.pathname ?? "");
 
-  let entries = $derived.by(() => {
-    console.debug("[ToC] Filtering entries for depth", depth);
-    const entries = Array
+  let entries = $derived(
+    Array
       .from(toc.addressMap.values())
-      .filter((entry) => entry.depth === depth);
-    console.debug("[ToC] Filtered entries", entries.map((e) => e.title));
-    return entries;
-  });
+      .filter((entry) => entry.depth === depth)
+  );
 
-  // Track the currently visible section for highlighting
-  let currentSection = $state<string | null>(null);
+  function getEntryExpanded(address: string) {
+    return toc.getEntry(address)?.expanded;
+  }
 
-  // Handle section visibility changes from the IntersectionObserver
-  function handleSectionVisibility(address: string, isVisible: boolean) {
-    if (isVisible) {
-      currentSection = address;
+  function setEntryExpanded(address: string, expanded: boolean = false) {
+    const entry = toc.getEntry(address);
+    if (!entry) {
+      return;
+    }
+
+    entry.expanded = expanded;
+    if (entry.childrenResolved) {
+      return;
+    }
+
+    if (expanded) {
+      entry.resolveChildren();
     }
   }
 
-  // Toggle expansion of a ToC entry
-  async function toggleExpansion(entry: TocEntry) {
-    // Update the current section in the ToC
-    const tocEntry = toc.getEntry(entry.address);
-    if (tocEntry) {
-      // Ensure the parent sections are expanded
-      let parent = tocEntry.parent;
-      while (parent) {
-        parent.expanded = true;
-        parent = parent.parent;
-      }
-    }
-
-    entry.expanded = !entry.expanded;
-    if (entry.expanded && !entry.childrenResolved) {
-      onSectionFocused?.(entry.address);
-      await entry.resolveChildren();
-    }
+  function handleEntryClick(address: string, expanded: boolean = false) {
+    setEntryExpanded(address, expanded);
+    onSectionFocused?.(address);
   }
 </script>
 
+<!-- TODO: Href doesn't work with query params. -->
 {#if displayMode === 'accordion'}
   <Accordion flush multiple>
     {#each entries as entry}
-      <AccordionItem open={entry.expanded}>
+      {@const address = entry.address}
+      <AccordionItem 
+        bind:open={
+          () => getEntryExpanded(address),
+          (open) => setEntryExpanded(address, open)
+        }
+      >
         {#snippet header()}
           <span class="text-gray-800 dark:text-gray-300">{entry.title}</span>
         {/snippet}
@@ -79,8 +78,15 @@
 {:else}
   <SidebarGroup>
     {#each entries as entry}
+      {@const address = entry.address}
       {#if entry.children.length > 0}
-        <SidebarDropdownWrapper label={entry.title}>
+        <SidebarDropdownWrapper
+          label={entry.title}
+          bind:isOpen={
+            () => getEntryExpanded(address),
+            (open) => setEntryExpanded(address, open)
+          }
+        >
           <Self
             displayMode={displayMode}
             rootAddress={entry.address}
@@ -89,7 +95,11 @@
           />
         </SidebarDropdownWrapper>
       {:else}
-        <SidebarItem label={entry.title} href={entry.href} />
+        <!-- TODO: Add href -->
+        <SidebarItem
+          label={entry.title}
+          onclick={() => handleEntryClick(address, !getEntryExpanded(address))}
+        />
       {/if}
     {/each}
   </SidebarGroup>
