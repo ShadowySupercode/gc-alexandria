@@ -233,7 +233,7 @@
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
       // Step 6: Apply display limits
-      events = filterByDisplayLimits(allEvents, $displayLimits);
+      events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
       
       // Step 7: Detect missing events
       const eventIds = new Set(allEvents.map(e => e.id));
@@ -265,7 +265,7 @@
     if (depth === 0 || tags.length === 0) {
       // Reset to base events only
       allEvents = [...baseEvents];
-      events = filterByDisplayLimits(allEvents, $displayLimits);
+      events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
       return;
     }
     
@@ -506,11 +506,11 @@
     }
   }
 
-  // React to display limit changes
+  // React to display limit and allowed kinds changes
   $effect(() => {
-    debug("Effect triggered: allEvents.length =", allEvents.length, "displayLimits =", $displayLimits);
+    debug("Effect triggered: allEvents.length =", allEvents.length, "displayLimits =", $displayLimits, "allowedKinds =", $visualizationConfig.allowedKinds);
     if (allEvents.length > 0) {
-      const newEvents = filterByDisplayLimits(allEvents, $displayLimits);
+      const newEvents = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
       
       // Only update if actually different to avoid infinite loops
       if (newEvents.length !== events.length) {

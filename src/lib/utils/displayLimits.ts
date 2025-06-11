@@ -1,23 +1,31 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { DisplayLimits } from '$lib/stores/displayLimits';
+import type { VisualizationConfig } from '$lib/stores/visualizationConfig';
 
 /**
- * Filters events based on display limits
+ * Filters events based on display limits and allowed kinds
  * @param events - All available events
  * @param limits - Display limit settings
+ * @param config - Visualization configuration (optional)
  * @returns Filtered events that should be displayed
  */
-export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits): NDKEvent[] {
-  if (limits.max30040 === -1 && limits.max30041 === -1) {
-    // No limits, return all events
-    return events;
-  }
-
+export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits, config?: VisualizationConfig): NDKEvent[] {
   const result: NDKEvent[] = [];
   let count30040 = 0;
   let count30041 = 0;
 
   for (const event of events) {
+    // First check if the event kind is allowed and not disabled
+    if (config && event.kind !== undefined) {
+      if (!config.allowedKinds.includes(event.kind)) {
+        continue; // Skip events with disallowed kinds
+      }
+      if (config.disabledKinds.includes(event.kind)) {
+        continue; // Skip temporarily disabled kinds
+      }
+    }
+
+    // Then apply the count limits
     if (event.kind === 30040) {
       if (limits.max30040 === -1 || count30040 < limits.max30040) {
         result.push(event);
@@ -29,7 +37,7 @@ export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits)
         count30041++;
       }
     } else {
-      // Other event kinds always pass through
+      // Other allowed event kinds pass through
       result.push(event);
     }
 

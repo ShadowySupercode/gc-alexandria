@@ -3,6 +3,7 @@ import { writable, derived } from 'svelte/store';
 export interface VisualizationConfig {
   // Event filtering
   allowedKinds: number[];  // Using array for ordered display
+  disabledKinds: number[]; // Kinds that are temporarily disabled but not removed
   allowFreeEvents: boolean;
   
   // Display limits (moving from displayLimits store)
@@ -16,6 +17,7 @@ export interface VisualizationConfig {
 function createVisualizationConfig() {
   const { subscribe, set, update } = writable<VisualizationConfig>({
     allowedKinds: [30040, 30041, 30818],
+    disabledKinds: [30041, 30818], // 30041 and 30818 disabled by default
     allowFreeEvents: false,
     maxPublicationIndices: -1,
     maxEventsPerIndex: -1,
@@ -27,6 +29,7 @@ function createVisualizationConfig() {
     update,
     reset: () => set({
       allowedKinds: [30040, 30041, 30818],
+      disabledKinds: [30041, 30818], // 30041 and 30818 disabled by default
       allowFreeEvents: false,
       maxPublicationIndices: -1,
       maxEventsPerIndex: -1,
@@ -57,14 +60,30 @@ function createVisualizationConfig() {
     toggleSearchThroughFetched: () => update(config => ({
       ...config,
       searchThroughFetched: !config.searchThroughFetched
-    }))
+    })),
+    toggleKind: (kind: number) => update(config => {
+      const isDisabled = config.disabledKinds.includes(kind);
+      if (isDisabled) {
+        // Re-enable it
+        return {
+          ...config,
+          disabledKinds: config.disabledKinds.filter(k => k !== kind)
+        };
+      } else {
+        // Disable it
+        return {
+          ...config,
+          disabledKinds: [...config.disabledKinds, kind]
+        };
+      }
+    })
   };
 }
 
 export const visualizationConfig = createVisualizationConfig();
 
-// Helper to check if a kind is allowed
+// Helper to check if a kind is allowed and enabled
 export const isKindAllowed = derived(
   visualizationConfig,
-  $config => (kind: number) => $config.allowedKinds.includes(kind)
+  $config => (kind: number) => $config.allowedKinds.includes(kind) && !$config.disabledKinds.includes(kind)
 );
