@@ -10,14 +10,8 @@
   let { data }: PageProps = $props();
 
   const publicationTree = new SveltePublicationTree(data.indexEvent, data.ndk);
-  const toc = new TableOfContents(
-    data.indexEvent.tagAddress(),
-    publicationTree,
-    data.url?.pathname ?? "",
-  );
 
   setContext("publicationTree", publicationTree);
-  setContext("toc", toc);
   setContext("asciidoctor", Processor());
 
   // Get publication metadata for OpenGraph tags
