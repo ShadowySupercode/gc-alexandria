@@ -154,7 +154,7 @@
           </Button>
         </div>
         {#if eventTypesExpanded}
-          <EventKindFilter />
+          <EventKindFilter onReload={onupdate} />
         {/if}
       </div>
 

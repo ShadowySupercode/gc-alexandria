@@ -37,7 +37,7 @@
     type="number"
     id="event-limit"
     min="1"
-    max="50"
+    max="200"
     class="w-20 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
     bind:value={inputValue}
     on:input={handleInput}

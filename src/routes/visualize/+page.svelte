@@ -6,6 +6,7 @@
 -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -57,6 +58,14 @@
       error = null;
 
       let validIndexEvents: Set<NDKEvent>;
+      
+      // Check if index events (30040) are enabled
+      // Use get() to read store value in non-reactive context
+      const config = get(visualizationConfig);
+      const enabledKinds = config.allowedKinds.filter(
+        kind => !config.disabledKinds.includes(kind)
+      );
+      const shouldFetchIndex = enabledKinds.includes(INDEX_EVENT_KIND);
 
       if (data.eventId) {
         // Fetch specific publication
@@ -72,6 +81,9 @@
         }
         
         validIndexEvents = new Set([event]);
+      } else if (!shouldFetchIndex) {
+        debug("Index events (30040) are disabled, skipping fetch");
+        validIndexEvents = new Set();
       } else {
         // Original behavior: fetch all publications
         debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
@@ -120,15 +132,20 @@
       debug("Content references to fetch:", contentReferences.size);
 
       // Step 4: Fetch the referenced content events with author filter
-      debug(`Fetching content events (kinds ${CONTENT_EVENT_KINDS.join(', ')})`);
+      // Only fetch content kinds that are enabled
+      const enabledContentKinds = CONTENT_EVENT_KINDS.filter(kind => enabledKinds.includes(kind));
+      debug(`Fetching content events (enabled kinds: ${enabledContentKinds.join(', ')})`);
       
       // Group by author to make more efficient queries
       const referencesByAuthor = new Map<string, Array<{ kind: number; dTag: string }>>();
       contentReferences.forEach(({ kind, pubkey, dTag }) => {
-        if (!referencesByAuthor.has(pubkey)) {
-          referencesByAuthor.set(pubkey, []);
+        // Only include references for enabled kinds
+        if (enabledContentKinds.includes(kind)) {
+          if (!referencesByAuthor.has(pubkey)) {
+            referencesByAuthor.set(pubkey, []);
+          }
+          referencesByAuthor.get(pubkey)!.push({ kind, dTag });
         }
-        referencesByAuthor.get(pubkey)!.push({ kind, dTag });
       });
       
       // Fetch events for each author
@@ -136,7 +153,7 @@
         async ([author, refs]) => {
           const dTags = [...new Set(refs.map(r => r.dTag))]; // Dedupe d-tags
           return $ndkInstance.fetchEvents({
-            kinds: CONTENT_EVENT_KINDS,
+            kinds: enabledContentKinds, // Only fetch enabled kinds
             authors: [author],
             "#d": dTags,
           });
