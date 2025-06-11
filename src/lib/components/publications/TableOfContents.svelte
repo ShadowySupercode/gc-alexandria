@@ -1,24 +1,36 @@
 <script lang='ts'>
-  import type { TableOfContents, TocEntry } from '$lib/components/publications/table_of_contents.svelte';
+  import { TableOfContents, type TocEntry } from '$lib/components/publications/table_of_contents.svelte';
   import { getContext } from 'svelte';
-  import { Accordion, AccordionItem, Card } from 'flowbite-svelte';
+  import { Accordion, AccordionItem, Card, SidebarDropdownWrapper, SidebarGroup, SidebarItem } from 'flowbite-svelte';
   import Self from './TableOfContents.svelte';
+  import type { SveltePublicationTree } from './svelte_publication_tree.svelte';
+  import { page } from '$app/state';
 
-  let { 
+  export type TocDisplayMode = 'accordion' | 'sidebar';
+
+  let {
+    displayMode = 'accordion',
+    rootAddress,
     depth,
     onSectionFocused,
   } = $props<{ 
+    displayMode?: TocDisplayMode;
+    rootAddress: string;
     depth: number;
     onSectionFocused?: (address: string) => void;
   }>();
 
-  let toc = getContext('toc') as TableOfContents;
+  let publicationTree = getContext('publicationTree') as SveltePublicationTree;
+  let toc = new TableOfContents(rootAddress, publicationTree, page.url.pathname ?? "");
 
-  let entries = $derived(
-    Array
+  let entries = $derived.by(() => {
+    console.debug("[ToC] Filtering entries for depth", depth);
+    const entries = Array
       .from(toc.addressMap.values())
-      .filter((entry) => entry.depth === depth)
-  );
+      .filter((entry) => entry.depth === depth);
+    console.debug("[ToC] Filtered entries", entries.map((e) => e.title));
+    return entries;
+  });
 
   // Track the currently visible section for highlighting
   let currentSection = $state<string | null>(null);
@@ -51,13 +63,34 @@
   }
 </script>
 
-<Accordion flush class='overflow-y-auto w-64 p-4'>
-  {#each entries as entry}
-    <AccordionItem open={entry.expanded}>
-      <h3 class='text-lg font-bold'>{entry.title}</h3>
+{#if displayMode === 'accordion'}
+  <Accordion flush multiple>
+    {#each entries as entry}
+      <AccordionItem open={entry.expanded}>
+        {#snippet header()}
+          <span class="text-gray-800 dark:text-gray-300">{entry.title}</span>
+        {/snippet}
+        {#if entry.children.length > 0}
+          <Self rootAddress={entry.address} depth={depth + 1} onSectionFocused={onSectionFocused} />
+        {/if}
+      </AccordionItem>
+    {/each}
+  </Accordion>
+{:else}
+  <SidebarGroup>
+    {#each entries as entry}
       {#if entry.children.length > 0}
-        <Self depth={depth + 1} onSectionFocused={onSectionFocused} />
+        <SidebarDropdownWrapper label={entry.title}>
+          <Self
+            displayMode={displayMode}
+            rootAddress={entry.address}
+            depth={depth + 1}
+            onSectionFocused={onSectionFocused}
+          />
+        </SidebarDropdownWrapper>
+      {:else}
+        <SidebarItem label={entry.title} href={entry.href} />
       {/if}
-    </AccordionItem>
-  {/each}
-</Accordion>
+    {/each}
+  </SidebarGroup>
+{/if}

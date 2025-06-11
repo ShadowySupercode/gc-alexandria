@@ -7,6 +7,7 @@
     SidebarGroup,
     SidebarWrapper,
     Heading,
+    CloseButton,
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
@@ -90,6 +91,10 @@
     return currentBlog !== null && $publicationColumnVisibility.inner;
   }
 
+  function closeToc() {
+    publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
+  }
+
   function closeDiscussion() {
     publicationColumnVisibility.update((v) => ({ ...v, discussion: false }));
   }
@@ -155,13 +160,20 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== "blog" || !isLeaf}
-  <TableOfContents 
-    depth={0}
-    onSectionFocused={(address: string) => {
-      publicationTree.setBookmark(address);
-    }}
-  />
+{#if publicationType !== 'blog' || !isLeaf}
+  {#if $publicationColumnVisibility.toc}
+    <Sidebar class='sidebar-leather left-0 md:!pr-8'>
+      <CloseButton onclick={closeToc} class='btn-leather absolute top-0 right-0' />
+      <TableOfContents
+        displayMode='sidebar'
+        rootAddress={rootAddress}
+        depth={2}
+        onSectionFocused={(address: string) => {
+          publicationTree.setBookmark(address);
+        }}
+      />
+    </Sidebar>
+  {/if}
 {/if}
 
 <!-- Default publications -->
@@ -205,9 +217,7 @@
 <!-- Blog list -->
 {#if $publicationColumnVisibility.blog}
   <div
-    class="flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1
-        {isInnerActive() ? 'discreet' : ''}
-  "
+    class={`flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1 ${isInnerActive() ? 'discreet' : ''}`}
   >
     <div
       class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
