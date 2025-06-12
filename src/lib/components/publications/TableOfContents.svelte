@@ -40,13 +40,7 @@
     }
 
     entry.expanded = expanded;
-    if (entry.childrenResolved) {
-      return;
-    }
-
-    if (expanded) {
-      entry.resolveChildren();
-    }
+    entry.resolveChildren();
   }
 
   function handleEntryClick(address: string, expanded: boolean = false) {

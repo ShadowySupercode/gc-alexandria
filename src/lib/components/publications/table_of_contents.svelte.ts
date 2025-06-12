@@ -148,8 +148,8 @@ export class TableOfContents {
     });
 
     // Set up an observer to handle progressive resolution of the publication tree.
-    this.#publicationTree.onNodeResolved(async (address: string) => {
-      await this.#buildTocEntryFromResolvedNode(address);
+    this.#publicationTree.onNodeResolved((address: string) => {
+      this.#buildTocEntryFromResolvedNode(address);
     });
   }
 

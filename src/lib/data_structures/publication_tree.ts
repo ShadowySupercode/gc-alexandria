@@ -623,7 +623,6 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       this.addEventByAddress(address, event);
     }
 
-    // TODO: We may need to move this to `#addNode`, so the observer is notified more eagerly.
     this.#nodeResolvedObservers.forEach(observer => observer(address));
 
     return node;
