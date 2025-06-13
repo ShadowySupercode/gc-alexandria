@@ -20,6 +20,7 @@
     selectedTagType = $bindable("t"),
     tagExpansionDepth = $bindable(0),
     onFetchMissing = () => {},
+    eventCounts = {},
   } = $props<{
     count: number;
     totalCount: number;
@@ -30,6 +31,7 @@
     selectedTagType?: string;
     tagExpansionDepth?: number;
     onFetchMissing?: (ids: string[]) => void;
+    eventCounts?: { [kind: number]: number };
   }>();
 
   let expanded = $state(false);
@@ -154,7 +156,7 @@
           </Button>
         </div>
         {#if eventTypesExpanded}
-          <EventKindFilter onReload={onupdate} />
+          <EventKindFilter onReload={onupdate} {eventCounts} />
         {/if}
       </div>
 

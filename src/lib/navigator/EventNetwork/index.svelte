@@ -927,6 +927,7 @@
       bind:showTagAnchors
       bind:selectedTagType
       bind:tagExpansionDepth
+      {eventCounts}
     />
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->

@@ -4,9 +4,11 @@
   import { CloseCircleOutline } from 'flowbite-svelte-icons';
   
   let {
-    onReload = () => {}
+    onReload = () => {},
+    eventCounts = {}
   } = $props<{
     onReload?: () => void;
+    eventCounts?: { [kind: number]: number };
   }>();
   
   let newKind = $state('');
@@ -76,16 +78,21 @@
   <div class="flex flex-wrap gap-2 items-center">
     {#each $visualizationConfig.allowedKinds as kind}
       {@const isDisabled = $visualizationConfig.disabledKinds.includes(kind)}
+      {@const isLoaded = (eventCounts[kind] || 0) > 0}
+      {@const borderColor = isLoaded ? 'border-green-500' : 'border-red-500'}
       <button
-        class="badge-container {isDisabled ? 'disabled' : ''}"
+        class="badge-container {isDisabled ? 'disabled' : ''} {isLoaded ? 'loaded' : 'not-loaded'}"
         onclick={() => toggleKind(kind)}
         title={isDisabled ? `Click to enable ${getKindName(kind)}` : `Click to disable ${getKindName(kind)}`}
       >
         <Badge 
           color="dark" 
-          class="flex items-center gap-1 px-2 py-1 {isDisabled ? 'opacity-40' : ''}"
+          class="flex items-center gap-1 px-2 py-1 {isDisabled ? 'opacity-40' : ''} border-2 {borderColor}"
         >
           <span class="text-xs">{kind}</span>
+          {#if isLoaded}
+            <span class="text-xs text-gray-400">({eventCounts[kind]})</span>
+          {/if}
           <button
             onclick={(e) => {
               e.stopPropagation();
@@ -156,6 +163,17 @@
       </svg>
       <span>Reload</span>
     </Button>
+  </div>
+  
+  <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+    <p class="flex items-center gap-2">
+      <span class="inline-block w-3 h-3 border-2 border-green-500 rounded"></span>
+      <span>Green border = Events loaded</span>
+    </p>
+    <p class="flex items-center gap-2">
+      <span class="inline-block w-3 h-3 border-2 border-red-500 rounded"></span>
+      <span>Red border = Not loaded (click Reload to fetch)</span>
+    </p>
   </div>
   
   <label class="flex items-center gap-2 text-xs">
