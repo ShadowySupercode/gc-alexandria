@@ -11,6 +11,7 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { levelsToRender } from "$lib/state";
   import { generateGraph, getEventColor } from "./utils/networkBuilder";
+  import { getEventKindColor } from "$lib/utils/eventColors";
   import {
     generateStarGraph,
     applyStarLayout,
@@ -123,11 +124,25 @@
   let componentId = Math.random();
   debug("Component created with ID:", componentId);
   
-  // Event counts by kind
-  let eventCounts = $state<{ [kind: number]: number }>({});
+  // Event counts by kind - derived from events
+  let eventCounts = $derived.by(() => {
+    const counts: { [kind: number]: number } = {};
+    events.forEach((event: NDKEvent) => {
+      if (event.kind !== undefined) {
+        counts[event.kind] = (counts[event.kind] || 0) + 1;
+      }
+    });
+    return counts;
+  });
   
   // Disabled tags state for interactive legend
   let disabledTags = $state(new Set<string>());
+  
+  // Track if we've auto-disabled tags
+  let autoDisabledTags = $state(false);
+  
+  // Maximum number of tag anchors before auto-disabling
+  const MAX_TAG_ANCHORS = 20;
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -304,8 +319,18 @@
       nodes = graphData.nodes;
       links = graphData.links;
       
-      // Filter out links to disabled tag anchors
+      // Filter out disabled tag anchors from nodes and links
       if (showTagAnchors && disabledTags.size > 0) {
+        // Filter out disabled tag anchor nodes
+        nodes = nodes.filter((node: NetworkNode) => {
+          if (node.isTagAnchor) {
+            const tagId = `${node.tagType}-${node.title}`;
+            return !disabledTags.has(tagId);
+          }
+          return true;
+        });
+        
+        // Filter out links to disabled tag anchors
         links = links.filter((link: NetworkLink) => {
           const source = link.source as NetworkNode;
           const target = link.target as NetworkNode;
@@ -330,14 +355,8 @@
         });
       }
       
-      // Count events by kind
-      const counts: { [kind: number]: number } = {};
-      events.forEach((event: NDKEvent) => {
-        if (event.kind !== undefined) {
-          counts[event.kind] = (counts[event.kind] || 0) + 1;
-        }
-      });
-      eventCounts = counts;
+      // Event counts are now derived, no need to set them here
+      debug("Event counts by kind:", eventCounts);
       
       // Restore positions for existing nodes
       let restoredCount = 0;
@@ -462,12 +481,18 @@
 
             return nodeEnter;
           },
-          (update: any) => update,
+          (update: any) => {
+            // Ensure drag handler is applied to updated nodes
+            update.call(dragHandler);
+            return update;
+          },
           (exit: any) => exit.remove(),
         );
 
       // Update node appearances
       debug("Updating node appearances");
+      
+      // Update visual properties for ALL nodes (both new and existing)
       node
         .select("circle.visual-circle")
         .attr("class", (d: NetworkNode) => {
@@ -483,26 +508,16 @@
           }
           return baseClasses;
         })
-        .attr("fill", (d: NetworkNode) => {
+        .style("fill", (d: NetworkNode) => {
           // Tag anchors get their specific colors
           if (d.isTagAnchor) {
             return getTagAnchorColor(d.tagType || "");
           }
-          // Use consistent colors for both modes
-          if (!d.isContainer) {
-            return isDarkMode ? CONTENT_COLOR_DARK : CONTENT_COLOR_LIGHT;
-          }
-          // Index nodes get unique pastel colors in both modes
-          return getEventColor(d.id);
+          // Use deterministic color based on event kind
+          const color = getEventKindColor(d.kind);
+          return color;
         })
-        .attr("opacity", (d: NetworkNode) => {
-          // Dim disabled tag anchors
-          if (d.isTagAnchor) {
-            const tagId = `${d.tagType}-${d.title}`;
-            return disabledTags.has(tagId) ? 0.3 : 1;
-          }
-          return 1;
-        })
+        .attr("opacity", 1)
         .attr("r", (d: NetworkNode) => {
           // Tag anchors are smaller
           if (d.isTagAnchor) {
@@ -529,8 +544,8 @@
           if (d.isTagAnchor) {
             return d.tagType === "t" ? "#" : "T";
           }
-          // Always use I for index and C for content
-          return d.isContainer ? "I" : "C";
+          // No text for regular nodes - just show the colored circle
+          return "";
         })
         .attr("font-size", (d: NetworkNode) => {
           if (d.isTagAnchor) {
@@ -696,13 +711,12 @@
               svgGroup
                 .selectAll("g.node")
                 .select("circle.visual-circle")
-                .attr("fill", (d: NetworkNode) =>
-                  !d.isContainer
-                    ? newIsDarkMode
-                      ? CONTENT_COLOR_DARK
-                      : CONTENT_COLOR_LIGHT
-                    : getEventColor(d.id),
-                );
+                .style("fill", (d: NetworkNode) => {
+                  if (d.isTagAnchor) {
+                    return getTagAnchorColor(d.tagType || "");
+                  }
+                  return getEventKindColor(d.kind);
+                });
             }
           }
         }
@@ -743,7 +757,12 @@
   /**
    * Watch for changes that should trigger a graph update
    */
+  let isUpdating = false;
+  
   $effect(() => {
+    // Prevent recursive updates
+    if (isUpdating) return;
+    
     debug("Effect triggered", {
       hasSvg: !!svg,
       eventCount: events?.length,
@@ -752,17 +771,23 @@
 
     try {
       if (svg && events?.length) {
-        // Include all relevant state in the effect dependencies
-        const _ = currentLevels;
-        const __ = starVisualization;
-        const ___ = showTagAnchors;
-        const ____ = selectedTagType;
-        const _____ = disabledTags.size;
+        // Track dependencies
+        const deps = {
+          levels: currentLevels,
+          star: starVisualization,
+          tags: showTagAnchors,
+          tagType: selectedTagType,
+          disabled: disabledTags.size
+        };
+        
+        isUpdating = true;
         updateGraph();
+        isUpdating = false;
       }
     } catch (error) {
       console.error("Error in effect:", error);
       errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
+      isUpdating = false;
     }
   });
 
@@ -812,6 +837,42 @@
       });
       
       onTagExpansionChange(tagExpansionDepth, Array.from(tags));
+    }
+  });
+  
+  /**
+   * Watch for tag anchor count and auto-disable if exceeds threshold
+   */
+  $effect(() => {
+    // Only check when tag anchors are shown and we have tags
+    if (showTagAnchors && tagAnchorInfo.length > 0) {
+      // If we have more than MAX_TAG_ANCHORS and haven't auto-disabled yet
+      if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
+        debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
+        
+        // Disable all tags
+        const newDisabledTags = new Set<string>();
+        tagAnchorInfo.forEach(anchor => {
+          const tagId = `${anchor.type}-${anchor.label}`;
+          newDisabledTags.add(tagId);
+        });
+        
+        disabledTags = newDisabledTags;
+        autoDisabledTags = true;
+        
+        // Optional: Show a notification to the user
+        console.info(`[EventNetwork] Auto-disabled ${tagAnchorInfo.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+      }
+      
+      // Reset auto-disabled flag if tag count goes back down
+      if (tagAnchorInfo.length <= MAX_TAG_ANCHORS && autoDisabledTags) {
+        autoDisabledTags = false;
+      }
+    }
+    
+    // Reset when tag anchors are hidden
+    if (!showTagAnchors && autoDisabledTags) {
+      autoDisabledTags = false;
     }
   });
 
@@ -883,8 +944,7 @@
     }
     disabledTags = newDisabledTags;
     
-    // Trigger graph update to apply visibility changes
-    updateGraph();
+    // Don't call updateGraph() here - the effect will handle it
   }
 </script>
 
@@ -915,6 +975,7 @@
       eventCounts={eventCounts}
       {disabledTags}
       onTagToggle={handleTagToggle}
+      {autoDisabledTags}
     />
 
     <!-- Settings Panel (shown when settings button is clicked) -->

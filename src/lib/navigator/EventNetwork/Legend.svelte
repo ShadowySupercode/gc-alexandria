@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
+  import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
 
   // TODO: Move this to settings panel for user control
   const TAG_LEGEND_COLUMNS = 4; // Number of columns for tag anchor table
@@ -13,6 +14,7 @@
     eventCounts = {},
     disabledTags = new Set<string>(),
     onTagToggle = (tagId: string) => {},
+    autoDisabledTags = false,
   } = $props<{
     collapsedOnInteraction: boolean;
     className: string;
@@ -22,6 +24,7 @@
     eventCounts?: { [kind: number]: number };
     disabledTags?: Set<string>;
     onTagToggle?: (tagId: string) => void;
+    autoDisabledTags?: boolean;
   }>();
 
   let expanded = $state(true);
@@ -87,94 +90,45 @@
         
         {#if nodeTypesExpanded}
           <ul class="legend-list">
-      {#if starMode}
-        <!-- Star center node -->
-        <li class="legend-item">
-          <div class="legend-icon">
-            <span
-              class="legend-circle"
-              style="background-color: hsl(200, 70%, 75%)"
-            >
-              <span class="legend-letter">I</span>
-            </span>
-          </div>
-          <span class="legend-text"
-            >{eventCounts[30040] || 0} Index events (kind 30040) - Star centers with
-            unique colors</span
-          >
-        </li>
+            <!-- Dynamic event kinds -->
+            {#each Object.entries(eventCounts).sort(([a], [b]) => Number(a) - Number(b)) as [kindStr, count]}
+              {@const kind = Number(kindStr)}
+              {@const color = getEventKindColor(kind)}
+              {@const name = getEventKindName(kind)}
+              {#if count > 0}
+                <li class="legend-item">
+                  <div class="legend-icon">
+                    <span
+                      class="legend-circle"
+                      style="background-color: {color}"
+                    >
+                    </span>
+                  </div>
+                  <span class="legend-text">
+                    {kind} - {name} ({count})
+                  </span>
+                </li>
+              {/if}
+            {/each}
 
-        <!-- Content event node -->
-        <li class="legend-item">
-          <div class="legend-icon">
-            <span class="legend-circle content">
-              <span class="legend-letter">C</span>
-            </span>
-          </div>
-          <span class="legend-text"
-            >{eventCounts[30041] || 0} Content nodes (kind 30041) - Arranged around
-            star centers</span
-          >
-        </li>
-
-        <!-- Star links -->
-        <li class="legend-item">
-          <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
-            <path
-              d="M12 4l8 8-8 8M12 4l-8 8 8 8"
-              class="network-link-leather"
-              stroke-width="2"
-              fill="none"
-            />
-          </svg>
-          <span class="legend-text"
-            >Radial connections from star centers to content</span
-          >
-        </li>
-      {:else}
-        <!-- Index event node -->
-        <li class="legend-item">
-          <div class="legend-icon">
-            <span
-              class="legend-circle"
-              style="background-color: hsl(200, 70%, 75%)"
-            >
-              <span class="legend-letter">I</span>
-            </span>
-          </div>
-          <span class="legend-text"
-            >{eventCounts[30040] || 0} Index events (kind 30040) - Each with a unique
-            pastel color</span
-          >
-        </li>
-
-        <!-- Content event node -->
-        <li class="legend-item">
-          <div class="legend-icon">
-            <span class="legend-circle content">
-              <span class="legend-letter">C</span>
-            </span>
-          </div>
-          <span class="legend-text"
-            >{(eventCounts[30041] || 0) + (eventCounts[30818] || 0)} Content events
-            (kinds 30041, 30818) - Publication sections</span
-          >
-        </li>
-
-        <!-- Link arrow -->
-        <li class="legend-item">
-          <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
-            <path
-              d="M4 12h16M16 6l6 6-6 6"
-              class="network-link-leather"
-              stroke-width="2"
-              fill="none"
-            />
-          </svg>
-          <span class="legend-text">Arrows indicate reading/sequence order</span
-          >
-        </li>
-      {/if}
+            <!-- Connection lines -->
+            <li class="legend-item">
+              <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
+                <path
+                  d="M4 12h16M16 6l6 6-6 6"
+                  class="network-link-leather"
+                  stroke-width="2"
+                  fill="none"
+                />
+              </svg>
+              <span class="legend-text">
+                {#if starMode}
+                  Radial connections from centers to related events
+                {:else}
+                  Arrows indicate relationships and sequence
+                {/if}
+              </span>
+            </li>
           </ul>
         {/if}
       </div>
@@ -199,6 +153,11 @@
           </div>
           
           {#if tagAnchorsExpanded}
+            {#if autoDisabledTags}
+              <div class="text-xs text-amber-600 dark:text-amber-400 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
+                <strong>Note:</strong> All {tagAnchors.length} tags were auto-disabled to prevent graph overload. Click individual tags below to enable them.
+              </div>
+            {/if}
             <div
               class="tag-grid"
               style="grid-template-columns: repeat({TAG_LEGEND_COLUMNS}, 1fr);"
@@ -209,7 +168,7 @@
                 <button
                   class="tag-grid-item {isDisabled ? 'disabled' : ''}"
                   onclick={() => onTagToggle(tagId)}
-                  title={isDisabled ? `Click to enable ${anchor.label}` : `Click to disable ${anchor.label}`}
+                  title={isDisabled ? `Click to show ${anchor.label}` : `Click to hide ${anchor.label}`}
                 >
                   <div class="legend-icon">
                     <span
@@ -227,7 +186,9 @@
                   </div>
                   <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
                     {anchor.label}
-                    <span class="text-gray-500">({anchor.count})</span>
+                    {#if !isDisabled}
+                      <span class="text-gray-500">({anchor.count})</span>
+                    {/if}
                   </span>
                 </button>
               {/each}
