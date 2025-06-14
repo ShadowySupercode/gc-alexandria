@@ -9,6 +9,7 @@
   import { onMount } from "svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
+  import { getDisplayNameSync, replacePubkeysWithDisplayNames } from "$lib/utils/profileCache";
 
   // Component props
   let {
@@ -45,7 +46,11 @@
     if (node.event) {
       const authorTags = getMatchingTags(node.event, "author");
       if (authorTags.length > 0) {
-        return authorTags[0][1];
+        return getDisplayNameSync(authorTags[0][1]);
+      }
+      // Fallback to event pubkey
+      if (node.event.pubkey) {
+        return getDisplayNameSync(node.event.pubkey);
       }
     }
     return "Unknown";
@@ -231,7 +236,7 @@
           Tags: {node.event.tags.length}
           {#if node.event.tags.length <= 3}
             {#each node.event.tags as tag}
-              <span class="text-xs">· {tag[0]}{tag[1] ? `: ${tag[1].substring(0, 20)}${tag[1].length > 20 ? '...' : ''}` : ''}</span>
+              <span class="text-xs">· {tag[0]}{tag[1] ? `: ${tag[0] === 'p' ? getDisplayNameSync(tag[1]) : tag[1].substring(0, 20)}${tag[1].length > 20 && tag[0] !== 'p' ? '...' : ''}` : ''}</span>
             {/each}
           {/if}
         </div>

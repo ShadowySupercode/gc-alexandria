@@ -10,6 +10,7 @@ import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { nip19 } from "nostr-tools";
 import { standardRelays } from "$lib/consts";
 import { getMatchingTags } from '$lib/utils/nostrUtils';
+import { getDisplayNameSync } from '$lib/utils/profileCache';
 
 // Configuration
 const DEBUG = false; // Set to true to enable debug logging
@@ -42,7 +43,7 @@ export function createNetworkNode(
     debug("Creating network node", { eventId: event.id, kind: event.kind, level });
     
     const isContainer = event.kind === INDEX_EVENT_KIND;
-    const nodeType = isContainer ? "Index" : "Content";
+    const nodeType = isContainer ? "Index" : event.kind === CONTENT_EVENT_KIND || event.kind === 30818 ? "Content" : `Kind ${event.kind}`;
 
     // Create the base node with essential properties
     const node: NetworkNode = {
@@ -52,8 +53,8 @@ export function createNetworkNode(
         level,
         title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
         content: event.content || "",
-        author: event.pubkey || "",
-        kind: event.kind || CONTENT_EVENT_KIND, // Default to content event kind if undefined
+        author: event.pubkey ? getDisplayNameSync(event.pubkey) : "",
+        kind: event.kind !== undefined ? event.kind : CONTENT_EVENT_KIND, // Default to content event kind only if truly undefined
         type: nodeType,
     };
 
@@ -307,23 +308,30 @@ export function generateGraph(
     // Initialize the graph state
     const state = initializeGraphState(events);
 
-    // Find root index events (those not referenced by other events)
-    const rootIndices = events.filter(
-        (e) => e.kind === INDEX_EVENT_KIND && e.id && !state.referencedIds.has(e.id)
+    // Find root events (index events not referenced by others, and all non-publication events)
+    const publicationKinds = [30040, 30041, 30818];
+    const rootEvents = events.filter(
+        (e) => e.id && (
+            // Index events not referenced by others
+            (e.kind === INDEX_EVENT_KIND && !state.referencedIds.has(e.id)) ||
+            // All non-publication events are treated as roots
+            (e.kind !== undefined && !publicationKinds.includes(e.kind))
+        )
     );
     
-    debug("Found root indices", { 
-        rootCount: rootIndices.length,
-        rootIds: rootIndices.map(e => e.id)
+    debug("Found root events", { 
+        rootCount: rootEvents.length,
+        rootIds: rootEvents.map(e => e.id)
     });
     
-    // Process each root index
-    rootIndices.forEach((rootIndex) => {
-        debug("Processing root index", { 
-            rootId: rootIndex.id,
-            aTags: getMatchingTags(rootIndex, "a").length
+    // Process each root event
+    rootEvents.forEach((rootEvent) => {
+        debug("Processing root event", { 
+            rootId: rootEvent.id,
+            kind: rootEvent.kind,
+            aTags: getMatchingTags(rootEvent, "a").length
         });
-        processIndexEvent(rootIndex, 0, state, maxLevel);
+        processIndexEvent(rootEvent, 0, state, maxLevel);
     });
 
     // Create the final graph data

@@ -16,6 +16,8 @@
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
+  import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
+  import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
   
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging
@@ -43,6 +45,8 @@
   let tagExpansionDepth = $state(0);
   let baseEvents = $state<NDKEvent[]>([]); // Store original events before expansion
   let missingEventIds = $state(new Set<string>()); // Track missing referenced events
+  let loadingEventKinds = $state<Array<{kind: number, limit: number}>>([]);  // Track what kinds are being loaded
+  let isFetching = false; // Guard against concurrent fetches
 
   /**
    * Fetches events from the Nostr network
@@ -51,21 +55,69 @@
    * filters them according to NIP-62, and combines them for visualization.
    */
   async function fetchEvents() {
+    // Prevent concurrent fetches
+    if (isFetching) {
+      debug("Fetch already in progress, skipping");
+      return;
+    }
+    
     debug("Fetching events with limit:", $networkFetchLimit);
     debug("Event ID from URL:", data.eventId);
+    
     try {
+      isFetching = true;
       loading = true;
       error = null;
 
-      let validIndexEvents: Set<NDKEvent>;
-      
-      // Check if index events (30040) are enabled
-      // Use get() to read store value in non-reactive context
+      // Get enabled event configurations
       const config = get(visualizationConfig);
-      const enabledKinds = config.allowedKinds.filter(
-        kind => !config.disabledKinds.includes(kind)
+      const enabledConfigs = config.eventConfigs.filter(
+        ec => !(config.disabledKinds?.includes(ec.kind))
       );
-      const shouldFetchIndex = enabledKinds.includes(INDEX_EVENT_KIND);
+      
+      debug("Enabled event configs:", enabledConfigs);
+      
+      // Set loading event kinds for display
+      loadingEventKinds = enabledConfigs.map(ec => ({
+        kind: ec.kind,
+        limit: ec.limit
+      }));
+      
+      // Separate publication kinds from other kinds
+      const publicationKinds = [30040, 30041, 30818];
+      const publicationConfigs = enabledConfigs.filter(ec => publicationKinds.includes(ec.kind));
+      const otherConfigs = enabledConfigs.filter(ec => !publicationKinds.includes(ec.kind));
+      
+      let allFetchedEvents: NDKEvent[] = [];
+      
+      // First, fetch non-publication events (like kind 0, 1, etc.)
+      if (otherConfigs.length > 0) {
+        debug("Fetching non-publication events:", otherConfigs);
+        
+        for (const config of otherConfigs) {
+          try {
+            const fetchedEvents = await $ndkInstance.fetchEvents(
+              { 
+                kinds: [config.kind], 
+                limit: config.limit 
+              },
+              {
+                groupable: true,
+                skipVerification: false,
+                skipValidation: false,
+              }
+            );
+            debug(`Fetched ${fetchedEvents.size} events of kind ${config.kind}`);
+            allFetchedEvents.push(...Array.from(fetchedEvents));
+          } catch (e) {
+            console.error(`Error fetching kind ${config.kind}:`, e);
+          }
+        }
+      }
+      
+      // Then handle publication events as before
+      let validIndexEvents: Set<NDKEvent> = new Set();
+      const shouldFetchIndex = publicationConfigs.some(ec => ec.kind === INDEX_EVENT_KIND);
 
       if (data.eventId) {
         // Fetch specific publication
@@ -87,10 +139,13 @@
       } else {
         // Original behavior: fetch all publications
         debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
+        const indexConfig = publicationConfigs.find(ec => ec.kind === INDEX_EVENT_KIND);
+        const indexLimit = indexConfig?.limit || 20;
+        
         const indexEvents = await $ndkInstance.fetchEvents(
           { 
             kinds: [INDEX_EVENT_KIND], 
-            limit: $networkFetchLimit 
+            limit: indexLimit
           },
           {
             groupable: true,
@@ -133,7 +188,8 @@
 
       // Step 4: Fetch the referenced content events with author filter
       // Only fetch content kinds that are enabled
-      const enabledContentKinds = CONTENT_EVENT_KINDS.filter(kind => enabledKinds.includes(kind));
+      const enabledPublicationKinds = publicationConfigs.map(ec => ec.kind);
+      const enabledContentKinds = CONTENT_EVENT_KINDS.filter(kind => enabledPublicationKinds.includes(kind));
       debug(`Fetching content events (enabled kinds: ${enabledContentKinds.join(', ')})`);
       
       // Group by author to make more efficient queries
@@ -189,10 +245,14 @@
       const contentEvents = new Set(eventsByCoordinate.values());
       debug("Fetched content events after deduplication:", contentEvents.size);
 
-      // Step 5: Combine both sets of events with coordinate-based deduplication
+      // Step 5: Combine all events (non-publication + publication events)
       // First, build coordinate map for replaceable events
       const coordinateMap = new Map<string, NDKEvent>();
-      const allEventsToProcess = [...Array.from(validIndexEvents), ...Array.from(contentEvents)];
+      const allEventsToProcess = [
+        ...allFetchedEvents, // Non-publication events fetched earlier
+        ...Array.from(validIndexEvents), 
+        ...Array.from(contentEvents)
+      ];
       
       // First pass: identify the most recent version of each replaceable event
       allEventsToProcess.forEach(event => {
@@ -249,10 +309,16 @@
       allEvents = Array.from(finalEventMap.values());
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
-      // Step 6: Apply display limits
+      // Step 6: Fetch profiles for all pubkeys in events
+      debug("Fetching profiles for pubkeys in events");
+      const pubkeys = extractPubkeysFromEvents(allEvents);
+      await batchFetchProfiles(Array.from(pubkeys));
+      debug("Profile fetch complete for", pubkeys.size, "pubkeys");
+      
+      // Step 7: Apply display limits
       events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
       
-      // Step 7: Detect missing events
+      // Step 8: Detect missing events
       const eventIds = new Set(allEvents.map(e => e.id));
       missingEventIds = detectMissingEvents(events, eventIds);
       
@@ -267,6 +333,7 @@
       error = e instanceof Error ? e.message : String(e);
     } finally {
       loading = false;
+      isFetching = false;
       debug("Loading set to false in fetchEvents");
       debug("Final state check - loading:", loading, "events.length:", events.length, "allEvents.length:", allEvents.length);
     }
@@ -455,6 +522,13 @@
       
       allEvents = Array.from(finalEventMap.values());
       
+      // Fetch profiles for new events
+      const newPubkeys = extractPubkeysFromEvents([...newPublications, ...newContentEvents]);
+      if (newPubkeys.size > 0) {
+        debug("Fetching profiles for", newPubkeys.size, "new pubkeys from tag expansion");
+        await batchFetchProfiles(Array.from(newPubkeys));
+      }
+      
       // Apply display limits
       events = filterByDisplayLimits(allEvents, $displayLimits);
       
@@ -508,8 +582,16 @@
       if (fetchedEvents.size > 0) {
         debug(`Fetched ${fetchedEvents.size} missing events`);
         
+        // Fetch profiles for the new events
+        const newEvents = Array.from(fetchedEvents);
+        const newPubkeys = extractPubkeysFromEvents(newEvents);
+        if (newPubkeys.size > 0) {
+          debug("Fetching profiles for", newPubkeys.size, "pubkeys from missing events");
+          await batchFetchProfiles(Array.from(newPubkeys));
+        }
+        
         // Add to all events
-        allEvents = [...allEvents, ...Array.from(fetchedEvents)];
+        allEvents = [...allEvents, ...newEvents];
         
         // Re-apply display limits
         events = filterByDisplayLimits(allEvents, $displayLimits);
@@ -548,6 +630,37 @@
       }
     }
   });
+  
+  // TEMPORARILY DISABLED: Track previous disabled kinds without using $state to avoid infinite loops
+  // let previousDisabledKinds: number[] = [];
+  // let hasInitialized = false;
+  
+  // $effect(() => {
+  //   const currentDisabledKinds = $visualizationConfig.disabledKinds || [];
+    
+  //   // Initialize on first run
+  //   if (!hasInitialized) {
+  //     previousDisabledKinds = [...currentDisabledKinds];
+  //     hasInitialized = true;
+  //     return;
+  //   }
+    
+  //   // Check if any kinds were re-enabled (were in previous but not in current)
+  //   const reEnabledKinds = previousDisabledKinds.filter(
+  //     kind => !currentDisabledKinds.includes(kind)
+  //   );
+    
+  //   if (reEnabledKinds.length > 0) {
+  //     debug("Event kinds re-enabled:", reEnabledKinds);
+  //     // Update tracking before fetch to prevent re-trigger
+  //     previousDisabledKinds = [...currentDisabledKinds];
+  //     // Trigger a fresh fetch to include the newly enabled kinds
+  //     fetchEvents();
+  //   } else {
+  //     // Just update tracking
+  //     previousDisabledKinds = [...currentDisabledKinds];
+  //   }
+  // });
 
   // Fetch events when component mounts
   onMount(() => {
@@ -565,7 +678,7 @@
   </div>
   <!-- Loading spinner -->
   {#if loading}
-    <div class="flex justify-center items-center h-64">
+    <div class="flex flex-col justify-center items-center h-64 gap-4">
       {debug("TEMPLATE: Loading is true, events.length =", events.length, "allEvents.length =", allEvents.length)}
       <div role="status">
         <svg
@@ -585,6 +698,24 @@
           />
         </svg>
         <span class="sr-only">Loading...</span>
+      </div>
+      
+      <!-- Loading message with event kinds -->
+      <div class="text-center">
+        <p class="text-gray-600 dark:text-gray-400 mb-2">Loading</p>
+        <div class="flex flex-wrap justify-center gap-2 max-w-md">
+          {#each loadingEventKinds as config}
+            <div class="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800">
+              <span 
+                class="w-3 h-3 rounded-full inline-block"
+                style="background-color: {getEventKindColor(config.kind)};"
+              ></span>
+              <span class="text-sm text-gray-700 dark:text-gray-300">
+                {getEventKindName(config.kind)}: {config.limit}
+              </span>
+            </div>
+          {/each}
+        </div>
       </div>
     </div>
   <!-- Error message -->
