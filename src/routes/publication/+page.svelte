@@ -7,11 +7,14 @@
   import ArticleNav from "$components/util/ArticleNav.svelte";
   import { SveltePublicationTree } from "$lib/components/publications/svelte_publication_tree.svelte";
   import { TableOfContents } from "$lib/components/publications/table_of_contents.svelte";
+  import { page } from "$app/state";
   let { data }: PageProps = $props();
 
   const publicationTree = new SveltePublicationTree(data.indexEvent, data.ndk);
+  const toc = new TableOfContents(data.indexEvent.tagAddress(), publicationTree, page.url.pathname ?? "");
 
   setContext("publicationTree", publicationTree);
+  setContext("toc", toc);
   setContext("asciidoctor", Processor());
 
   // Get publication metadata for OpenGraph tags

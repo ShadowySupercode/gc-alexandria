@@ -143,8 +143,8 @@ export class TableOfContents {
 
     // TODO: Parallelize this.
     // Handle any other nodes that have already been resolved.
-    this.#publicationTree.resolvedAddresses.forEach(async (address) => {
-      await this.#buildTocEntryFromResolvedNode(address);
+    this.#publicationTree.resolvedAddresses.forEach((address) => {
+      this.#buildTocEntryFromResolvedNode(address);
     });
 
     // Set up an observer to handle progressive resolution of the publication tree.
@@ -170,6 +170,12 @@ export class TableOfContents {
   async #buildTocEntry(address: string): Promise<TocEntry> {
     const resolver = async () => {
       if (entry.childrenResolved) {
+        return;
+      }
+
+      const event = await this.#publicationTree.getEvent(entry.address);
+      if (event?.kind !== indexKind) {
+        // TODO: Build ToC entries from HTML markup in this case.
         return;
       }
 
@@ -214,13 +220,14 @@ export class TableOfContents {
     return entry;
   }
 
-  async #buildTocEntryFromResolvedNode(address: string) {
+  #buildTocEntryFromResolvedNode(address: string) {
     if (this.addressMap.has(address)) {
       return;
     }
 
-    const entry = await this.#buildTocEntry(address);
-    this.addressMap.set(address, entry);
+    this.#buildTocEntry(address).then((entry) => {
+      this.addressMap.set(address, entry);
+    });
   }
 
   // #endregion

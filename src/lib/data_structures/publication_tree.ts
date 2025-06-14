@@ -70,7 +70,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
     this.#root = {
-      type: this.#getNodeType(rootEvent),
+      type: PublicationTreeNodeType.Branch,
       status: PublicationTreeNodeStatus.Resolved,
       address: rootAddress,
       children: [],

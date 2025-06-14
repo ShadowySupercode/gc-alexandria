@@ -1,16 +1,13 @@
 <script lang='ts'>
   import { TableOfContents, type TocEntry } from '$lib/components/publications/table_of_contents.svelte';
   import { getContext } from 'svelte';
-  import { Accordion, AccordionItem, Card, SidebarDropdownWrapper, SidebarGroup, SidebarItem } from 'flowbite-svelte';
+  import { Accordion, AccordionItem, SidebarDropdownWrapper, SidebarGroup, SidebarItem } from 'flowbite-svelte';
   import Self from './TableOfContents.svelte';
-  import type { SveltePublicationTree } from './svelte_publication_tree.svelte';
-  import { page } from '$app/state';
 
   export type TocDisplayMode = 'accordion' | 'sidebar';
 
   let {
     displayMode = 'accordion',
-    rootAddress,
     depth,
     onSectionFocused,
   } = $props<{ 
@@ -20,14 +17,22 @@
     onSectionFocused?: (address: string) => void;
   }>();
 
-  let publicationTree = getContext('publicationTree') as SveltePublicationTree;
-  let toc = new TableOfContents(rootAddress, publicationTree, page.url.pathname ?? "");
+  let toc = getContext('toc') as TableOfContents;
 
+  let entries = $derived.by<TocEntry[]>(() => {
   let entries = $derived(
     Array
-      .from(toc.addressMap.values())
-      .filter((entry) => entry.depth === depth)
-  );
+    const newEntries = [];
+    for (const [_, entry] of toc.addressMap) {
+      if (entry.depth !== depth) {
+        continue;
+      }
+
+      newEntries.push(entry);
+    }
+
+    return newEntries;
+  });
 
   function getEntryExpanded(address: string) {
     return toc.getEntry(address)?.expanded;
@@ -76,20 +81,23 @@
   </Accordion>
 {:else}
   <SidebarGroup>
+    <!-- TODO: Clicks on entries aren't reactive. -->
     {#each entries as entry}
       {@const address = entry.address}
       {#if entry.children.length > 0}
+        {@const expanded = getEntryExpanded(address)}
+        {@const childDepth = depth + 1}
         <SidebarDropdownWrapper
           label={entry.title}
           bind:isOpen={
-            () => getEntryExpanded(address),
+            () => expanded,
             (open) => setEntryExpanded(address, open)
           }
         >
           <Self
             displayMode={displayMode}
-            rootAddress={entry.address}
-            depth={depth + 1}
+            rootAddress={address}
+            depth={childDepth}
             onSectionFocused={onSectionFocused}
           />
         </SidebarDropdownWrapper>
