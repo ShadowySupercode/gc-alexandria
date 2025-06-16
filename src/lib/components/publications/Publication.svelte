@@ -162,7 +162,7 @@
 <!-- Table of contents -->
 {#if publicationType !== 'blog' || !isLeaf}
   {#if $publicationColumnVisibility.toc}
-    <Sidebar class='sidebar-leather left-0 md:!pr-8'>
+    <Sidebar class='sidebar-leather left-0 md:!pr-8 overflow-y-auto'>
       <CloseButton onclick={closeToc} class='btn-leather absolute top-0 right-0' />
       <TableOfContents
         displayMode='sidebar'
