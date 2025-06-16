@@ -1,6 +1,7 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { ndkInstance } from "$lib/ndk";
 import { get } from "svelte/store";
+import { nip19 } from "nostr-tools";
 
 interface ProfileData {
   display_name?: string;
@@ -72,31 +73,58 @@ export async function getDisplayName(pubkey: string): Promise<string> {
 /**
  * Batch fetches profiles for multiple pubkeys
  * @param pubkeys - Array of public keys to fetch profiles for
+ * @param onProgress - Optional callback for progress updates
  */
-export async function batchFetchProfiles(pubkeys: string[]): Promise<void> {
+export async function batchFetchProfiles(
+  pubkeys: string[], 
+  onProgress?: (fetched: number, total: number) => void
+): Promise<void> {
   // Filter out already cached pubkeys
   const uncachedPubkeys = pubkeys.filter(pk => !profileCache.has(pk));
   
   if (uncachedPubkeys.length === 0) {
+    if (onProgress) onProgress(pubkeys.length, pubkeys.length);
     return;
   }
 
   try {
     const ndk = get(ndkInstance);
-    const profileEvents = await ndk.fetchEvents({
-      kinds: [0],
-      authors: uncachedPubkeys
-    });
+    
+    // Report initial progress
+    const cachedCount = pubkeys.length - uncachedPubkeys.length;
+    if (onProgress) onProgress(cachedCount, pubkeys.length);
+    
+    // Batch fetch in chunks to avoid overwhelming relays
+    const CHUNK_SIZE = 50;
+    let fetchedCount = cachedCount;
+    
+    for (let i = 0; i < uncachedPubkeys.length; i += CHUNK_SIZE) {
+      const chunk = uncachedPubkeys.slice(i, Math.min(i + CHUNK_SIZE, uncachedPubkeys.length));
+      
+      const profileEvents = await ndk.fetchEvents({
+        kinds: [0],
+        authors: chunk
+      });
 
-    // Process each profile event
-    profileEvents.forEach((event: NDKEvent) => {
-      try {
-        const content = JSON.parse(event.content);
-        profileCache.set(event.pubkey, content as ProfileData);
-      } catch (e) {
-        console.error("Failed to parse profile content:", e);
+      // Process each profile event
+      profileEvents.forEach((event: NDKEvent) => {
+        try {
+          const content = JSON.parse(event.content);
+          profileCache.set(event.pubkey, content as ProfileData);
+          fetchedCount++;
+        } catch (e) {
+          console.error("Failed to parse profile content:", e);
+        }
+      });
+      
+      // Update progress
+      if (onProgress) {
+        onProgress(fetchedCount, pubkeys.length);
       }
-    });
+    }
+    
+    // Final progress update
+    if (onProgress) onProgress(pubkeys.length, pubkeys.length);
   } catch (e) {
     console.error("Failed to batch fetch profiles:", e);
   }

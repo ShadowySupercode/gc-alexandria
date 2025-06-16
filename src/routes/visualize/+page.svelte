@@ -13,11 +13,12 @@
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
   import { displayLimits } from "$lib/stores/displayLimits";
-  import { visualizationConfig } from "$lib/stores/visualizationConfig";
+  import { visualizationConfig, type EventKindConfig } from "$lib/stores/visualizationConfig";
   import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
+  import { activePubkey } from "$lib/ndk";
   
   // Configuration
   const DEBUG = false; // Set to true to enable debug logging
@@ -47,6 +48,152 @@
   let missingEventIds = $state(new Set<string>()); // Track missing referenced events
   let loadingEventKinds = $state<Array<{kind: number, limit: number}>>([]);  // Track what kinds are being loaded
   let isFetching = false; // Guard against concurrent fetches
+  let followListEvents = $state<NDKEvent[]>([]); // Store follow list events separately
+  
+  // Profile loading progress
+  let profileLoadingProgress = $state<{current: number, total: number} | null>(null);
+  let profileLoadingMessage = $derived(
+    profileLoadingProgress 
+      ? `Loading profiles: ${profileLoadingProgress.current}/${profileLoadingProgress.total}`
+      : null
+  );
+
+  /**
+   * Fetches follow lists (kind 3) with depth expansion
+   */
+  async function fetchFollowLists(config: EventKindConfig): Promise<NDKEvent[]> {
+    const depth = config.depth || 0;
+    const allFollowEvents: NDKEvent[] = [];
+    const processedPubkeys = new Set<string>();
+    
+    debug(`Fetching kind 3 follow lists with depth ${depth}, addFollowLists: ${config.addFollowLists}`);
+    
+    // Get the current user's pubkey
+    const currentUserPubkey = get(activePubkey);
+    if (!currentUserPubkey) {
+      console.warn("No logged-in user, cannot fetch user's follow list");
+      return [];
+    }
+    
+    // If limit is 1, only fetch the current user's follow list
+    if (config.limit === 1) {
+      const userFollowList = await $ndkInstance.fetchEvents({
+        kinds: [3],
+        authors: [currentUserPubkey],
+        limit: 1
+      });
+      
+      if (userFollowList.size === 0) {
+        console.warn("User has no follow list");
+        return [];
+      }
+      
+      const userFollowEvent = Array.from(userFollowList)[0];
+      allFollowEvents.push(userFollowEvent);
+      processedPubkeys.add(currentUserPubkey);
+      
+      debug(`Fetched user's follow list`);
+    } else {
+      // If limit > 1, fetch the user's follow list plus additional ones from people they follow
+      const userFollowList = await $ndkInstance.fetchEvents({
+        kinds: [3],
+        authors: [currentUserPubkey],
+        limit: 1
+      });
+      
+      if (userFollowList.size === 0) {
+        console.warn("User has no follow list");
+        return [];
+      }
+      
+      const userFollowEvent = Array.from(userFollowList)[0];
+      allFollowEvents.push(userFollowEvent);
+      processedPubkeys.add(currentUserPubkey);
+      
+      // Extract followed pubkeys
+      const followedPubkeys: string[] = [];
+      userFollowEvent.tags.forEach(tag => {
+        if (tag[0] === 'p' && tag[1]) {
+          followedPubkeys.push(tag[1]);
+        }
+      });
+      
+      debug(`User follows ${followedPubkeys.length} people`);
+      
+      // Fetch additional follow lists from people you follow
+      if (followedPubkeys.length > 0) {
+        const additionalLimit = config.limit - 1; // We already have the user's
+        const pubkeysToFetch = followedPubkeys.slice(0, additionalLimit);
+        
+        debug(`Fetching ${pubkeysToFetch.length} additional follow lists (total limit: ${config.limit})`);
+        
+        const additionalFollowLists = await $ndkInstance.fetchEvents({
+          kinds: [3],
+          authors: pubkeysToFetch
+        });
+        
+        allFollowEvents.push(...Array.from(additionalFollowLists));
+        
+        // Mark these as processed
+        additionalFollowLists.forEach(event => {
+          processedPubkeys.add(event.pubkey);
+        });
+        
+        debug(`Fetched ${additionalFollowLists.size} additional follow lists`);
+      }
+    }
+    
+    // If depth > 0, we need to fetch follow lists of follows (recursively)
+    if (depth > 0) {
+      // Start with all pubkeys from fetched follow lists
+      let currentLevelPubkeys: string[] = [];
+      allFollowEvents.forEach(event => {
+        event.tags.forEach(tag => {
+          if (tag[0] === 'p' && tag[1] && !processedPubkeys.has(tag[1])) {
+            currentLevelPubkeys.push(tag[1]);
+          }
+        });
+      });
+      
+      // Fetch additional levels based on depth
+      for (let level = 1; level <= depth; level++) {
+        if (currentLevelPubkeys.length === 0) break;
+        
+        debug(`Fetching level ${level} follow lists for ${currentLevelPubkeys.length} pubkeys`);
+        
+        // Fetch follow lists for this level
+        const levelFollowLists = await $ndkInstance.fetchEvents({
+          kinds: [3],
+          authors: currentLevelPubkeys
+        });
+        
+        const nextLevelPubkeys: string[] = [];
+        
+        levelFollowLists.forEach(event => {
+          allFollowEvents.push(event);
+          processedPubkeys.add(event.pubkey);
+          
+          // Extract pubkeys for next level
+          if (level < depth) {
+            event.tags.forEach(tag => {
+              if (tag[0] === 'p' && tag[1] && !processedPubkeys.has(tag[1])) {
+                nextLevelPubkeys.push(tag[1]);
+              }
+            });
+          }
+        });
+        
+        currentLevelPubkeys = nextLevelPubkeys;
+      }
+    }
+    
+    debug(`Fetched ${allFollowEvents.length} follow lists total`);
+    
+    // Store follow lists separately for tag anchor use
+    followListEvents = [...allFollowEvents];
+    
+    return allFollowEvents;
+  }
 
   /**
    * Fetches events from the Nostr network
@@ -90,25 +237,31 @@
       
       let allFetchedEvents: NDKEvent[] = [];
       
-      // First, fetch non-publication events (like kind 0, 1, etc.)
+      // First, fetch non-publication events (like kind 0, 1, 3, etc.)
       if (otherConfigs.length > 0) {
         debug("Fetching non-publication events:", otherConfigs);
         
         for (const config of otherConfigs) {
           try {
-            const fetchedEvents = await $ndkInstance.fetchEvents(
-              { 
-                kinds: [config.kind], 
-                limit: config.limit 
-              },
-              {
-                groupable: true,
-                skipVerification: false,
-                skipValidation: false,
-              }
-            );
-            debug(`Fetched ${fetchedEvents.size} events of kind ${config.kind}`);
-            allFetchedEvents.push(...Array.from(fetchedEvents));
+            // Special handling for kind 3 (follow lists)
+            if (config.kind === 3) {
+              const followEvents = await fetchFollowLists(config);
+              allFetchedEvents.push(...followEvents);
+            } else {
+              const fetchedEvents = await $ndkInstance.fetchEvents(
+                { 
+                  kinds: [config.kind], 
+                  limit: config.limit 
+                },
+                {
+                  groupable: true,
+                  skipVerification: false,
+                  skipValidation: false,
+                }
+              );
+              debug(`Fetched ${fetchedEvents.size} events of kind ${config.kind}`);
+              allFetchedEvents.push(...Array.from(fetchedEvents));
+            }
           } catch (e) {
             console.error(`Error fetching kind ${config.kind}:`, e);
           }
@@ -306,14 +459,77 @@
         finalEventMap.set(event.id, event);
       });
       
-      allEvents = Array.from(finalEventMap.values());
+      // Handle append mode
+      if ($visualizationConfig.appendMode && allEvents.length > 0) {
+        // Merge existing events with new events
+        const existingEventMap = new Map(allEvents.map(e => [e.id, e]));
+        
+        // Add new events to existing map (new events override old ones)
+        finalEventMap.forEach((event, id) => {
+          existingEventMap.set(id, event);
+        });
+        
+        allEvents = Array.from(existingEventMap.values());
+        
+        // Note: followListEvents are already accumulated in fetchFollowLists
+      } else {
+        // Replace mode (default)
+        allEvents = Array.from(finalEventMap.values());
+        // Clear follow lists in replace mode
+        if (!$visualizationConfig.appendMode) {
+          followListEvents = [];
+        }
+      }
+      
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
-      // Step 6: Fetch profiles for all pubkeys in events
-      debug("Fetching profiles for pubkeys in events");
-      const pubkeys = extractPubkeysFromEvents(allEvents);
-      await batchFetchProfiles(Array.from(pubkeys));
-      debug("Profile fetch complete for", pubkeys.size, "pubkeys");
+      // Step 6: Fetch profiles (kind 0)
+      debug("Fetching profiles for events");
+      
+      // Get kind 0 config to respect its limit
+      const profileConfig = enabledConfigs.find(ec => ec.kind === 0);
+      const profileLimit = profileConfig?.limit || 50;
+      
+      // Collect all pubkeys that need profiles
+      const allPubkeys = new Set<string>();
+      
+      // Add event authors (these are the main content creators)
+      allEvents.forEach(event => {
+        if (event.pubkey) {
+          allPubkeys.add(event.pubkey);
+        }
+      });
+      
+      // Add pubkeys from follow lists (for tag anchors)
+      if (followListEvents.length > 0) {
+        followListEvents.forEach(event => {
+          event.tags.forEach(tag => {
+            if (tag[0] === 'p' && tag[1]) {
+              allPubkeys.add(tag[1]);
+            }
+          });
+        });
+      }
+      
+      // Limit the number of profiles to fetch based on kind 0 limit
+      const pubkeysArray = Array.from(allPubkeys);
+      const pubkeysToFetch = profileLimit === -1 
+        ? pubkeysArray 
+        : pubkeysArray.slice(0, profileLimit);
+      
+      debug("Profile fetch strategy:", {
+        totalPubkeys: allPubkeys.size,
+        profileLimit,
+        pubkeysToFetch: pubkeysToFetch.length,
+        followListsLoaded: followListEvents.length
+      });
+      
+      profileLoadingProgress = { current: 0, total: pubkeysToFetch.length };
+      await batchFetchProfiles(pubkeysToFetch, (fetched, total) => {
+        profileLoadingProgress = { current: fetched, total };
+      });
+      profileLoadingProgress = null; // Clear progress when done
+      debug("Profile fetch complete for", pubkeysToFetch.length, "pubkeys");
       
       // Step 7: Apply display limits
       events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
@@ -526,7 +742,11 @@
       const newPubkeys = extractPubkeysFromEvents([...newPublications, ...newContentEvents]);
       if (newPubkeys.size > 0) {
         debug("Fetching profiles for", newPubkeys.size, "new pubkeys from tag expansion");
-        await batchFetchProfiles(Array.from(newPubkeys));
+        profileLoadingProgress = { current: 0, total: newPubkeys.size };
+        await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
+          profileLoadingProgress = { current: fetched, total };
+        });
+        profileLoadingProgress = null;
       }
       
       // Apply display limits
@@ -587,7 +807,11 @@
         const newPubkeys = extractPubkeysFromEvents(newEvents);
         if (newPubkeys.size > 0) {
           debug("Fetching profiles for", newPubkeys.size, "pubkeys from missing events");
-          await batchFetchProfiles(Array.from(newPubkeys));
+          profileLoadingProgress = { current: 0, total: newPubkeys.size };
+          await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
+            profileLoadingProgress = { current: fetched, total };
+          });
+          profileLoadingProgress = null;
         }
         
         // Add to all events
@@ -662,6 +886,20 @@
   //   }
   // });
 
+  /**
+   * Clears all accumulated events
+   */
+  function clearEvents() {
+    allEvents = [];
+    events = [];
+    baseEvents = [];
+    followListEvents = [];
+    missingEventIds = new Set();
+    
+    // Clear node positions cache in EventNetwork
+    // This will be handled by the component when events change
+  }
+
   // Fetch events when component mounts
   onMount(() => {
     debug("Component mounted");
@@ -716,6 +954,21 @@
             </div>
           {/each}
         </div>
+        
+        <!-- Profile loading progress bar -->
+        {#if profileLoadingProgress}
+          <div class="mt-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              {profileLoadingMessage}
+            </p>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div 
+                class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style="width: {(profileLoadingProgress.current / profileLoadingProgress.total) * 100}%"
+              ></div>
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   <!-- Error message -->
@@ -736,11 +989,30 @@
     </div>
   <!-- Network visualization -->
   {:else}
+    <!-- Profile loading progress bar (overlay when loading profiles after initial load) -->
+    {#if profileLoadingProgress}
+      <div class="absolute top-0 left-0 right-0 z-10 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            {profileLoadingMessage}
+          </p>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div 
+              class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style="width: {(profileLoadingProgress.current / profileLoadingProgress.total) * 100}%"
+            ></div>
+          </div>
+        </div>
+      </div>
+    {/if}
+    
     <!-- Event network visualization -->
     <EventNetwork 
-      {events} 
+      {events}
+      {followListEvents}
       totalCount={allEvents.length}
-      onupdate={fetchEvents} 
+      onupdate={fetchEvents}
+      onclear={clearEvents}
       onTagExpansionChange={handleTagExpansion}
       onFetchMissing={fetchMissingEvents}
     />

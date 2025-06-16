@@ -7,6 +7,7 @@
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData } from "../types";
+import { getDisplayNameSync } from "$lib/utils/profileCache";
 
 // Configuration
 const TAG_ANCHOR_RADIUS = 15;
@@ -59,6 +60,8 @@ export function getTagAnchorColor(tagType: string): string {
       return "#F59E0B"; // Yellow for events
     case "a":
       return "#EF4444"; // Red for articles
+    case "kind3":
+      return "#06B6D4"; // Cyan for follow lists
     default:
       return "#6B7280"; // Gray for others
   }
@@ -113,12 +116,16 @@ export function createTagAnchorNodes(
 
   // Calculate positions for tag anchors randomly within radius
   // For single publication view, show all tags. For network view, only show tags with 2+ events
-  const minEventCount = tagMap.size <= 10 ? 1 : 2;
-  const validTags = Array.from(tagMap.entries()).filter(
+  // Exception: for "p" tags, always use minEventCount of 1 to show all people
+  const minEventCount = tagType === "p" ? 1 : (tagMap.size <= 10 ? 1 : 2);
+  let validTags = Array.from(tagMap.entries()).filter(
     ([_, eventIds]) => eventIds.size >= minEventCount,
   );
 
   if (validTags.length === 0) return [];
+  
+  // Sort all tags by number of connections (events) descending
+  validTags.sort((a, b) => b[1].size - a[1].size);
 
   validTags.forEach(([tagValue, eventIds]) => {
     // Position anchors randomly within a radius from the center
@@ -142,8 +149,8 @@ export function createTagAnchorNodes(
     } else if (tagType === "author") {
       displayTitle = tagValue;
     } else if (tagType === "p") {
-      // Truncate pubkey for display
-      displayTitle = `${tagValue.substring(0, 8)}...`;
+      // Use display name for pubkey
+      displayTitle = getDisplayNameSync(tagValue);
     }
 
     const anchorNode: NetworkNode = {
@@ -207,12 +214,21 @@ export function enhanceGraphWithTags(
   tagType: string,
   width: number,
   height: number,
+  displayLimit?: number,
 ): GraphData {
   // Extract unique tags for the specified type
   const tagMap = extractUniqueTagsForType(events, tagType);
 
   // Create tag anchor nodes
-  const tagAnchors = createTagAnchorNodes(tagMap, tagType, width, height);
+  let tagAnchors = createTagAnchorNodes(tagMap, tagType, width, height);
+  
+  // Apply display limit if provided
+  if (displayLimit && displayLimit > 0 && tagAnchors.length > displayLimit) {
+    console.log(`[TagBuilder] Limiting display to ${displayLimit} tag anchors out of ${tagAnchors.length}`);
+    // Sort by connection count (already done in createTagAnchorNodes)
+    // and take only the top ones up to the limit
+    tagAnchors = tagAnchors.slice(0, displayLimit);
+  }
 
   // Create links between anchors and nodes
   const tagLinks = createTagLinks(tagAnchors, graphData.nodes);

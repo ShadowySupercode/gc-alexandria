@@ -15,8 +15,14 @@
   let showAddInput = $state(false);
   let inputError = $state('');
   
-  function validateKind(value: string): number | null {
-    const kind = parseInt(value.trim());
+  function validateKind(value: string | number): number | null {
+    // Convert to string for consistent handling
+    const strValue = String(value);
+    if (!strValue || strValue.trim() === '') {
+      inputError = '';
+      return null;
+    }
+    const kind = parseInt(strValue.trim());
     if (isNaN(kind)) {
       inputError = 'Must be a number';
       return null;
@@ -34,9 +40,16 @@
   }
   
   function handleAddKind() {
+    console.log('[EventKindFilter] handleAddKind called with:', newKind);
     const kind = validateKind(newKind);
+    console.log('[EventKindFilter] Validation result:', kind);
     if (kind !== null) {
+      console.log('[EventKindFilter] Before adding, allowedKinds:', $visualizationConfig.allowedKinds);
       visualizationConfig.addKind(kind);
+      // Force a small delay to ensure store update propagates
+      setTimeout(() => {
+        console.log('[EventKindFilter] After adding, allowedKinds:', $visualizationConfig.allowedKinds);
+      }, 10);
       newKind = '';
       showAddInput = false;
       inputError = '';
@@ -107,39 +120,7 @@
       </button>
     {/each}
     
-    {#if showAddInput}
-      <div class="flex items-center gap-1">
-        <div class="relative">
-          <input
-            bind:value={newKind}
-            type="number"
-            placeholder="Kind"
-            class="w-20 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600"
-            onkeydown={handleKeydown}
-            oninput={() => validateKind(newKind)}
-          />
-          {#if inputError}
-            <div class="absolute top-full left-0 mt-1 text-xs text-red-500 whitespace-nowrap">
-              {inputError}
-            </div>
-          {/if}
-        </div>
-        <Button size="xs" onclick={handleAddKind} disabled={!!inputError}>
-          Add
-        </Button>
-        <Button 
-          size="xs" 
-          color="light" 
-          onclick={() => {
-            showAddInput = false;
-            newKind = '';
-            inputError = '';
-          }}
-        >
-          ×
-        </Button>
-      </div>
-    {:else}
+    {#if !showAddInput}
       <Button 
         size="xs" 
         color="light" 
@@ -164,6 +145,41 @@
       <span>Reload</span>
     </Button>
   </div>
+  
+  {#if showAddInput}
+    <div class="flex items-center gap-2">
+      <input
+        bind:value={newKind}
+        type="number"
+        placeholder="Enter event kind number (e.g. 1)"
+        class="flex-1 px-3 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        onkeydown={handleKeydown}
+        oninput={(e) => {
+          const value = (e.target as HTMLInputElement).value;
+          validateKind(value);
+        }}
+      />
+      <Button size="xs" onclick={handleAddKind} disabled={!newKind}>
+        Add
+      </Button>
+      <Button 
+        size="xs" 
+        color="light" 
+        onclick={() => {
+          showAddInput = false;
+          newKind = '';
+          inputError = '';
+        }}
+      >
+        Cancel
+      </Button>
+    </div>
+    {#if inputError}
+      <p class="text-xs text-red-500 -mt-2">
+        {inputError}
+      </p>
+    {/if}
+  {/if}
   
   <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
     <p class="flex items-center gap-2">

@@ -37,6 +37,8 @@
     getTagAnchorColor,
   } from "./utils/tagNetworkBuilder";
   import { Button } from "flowbite-svelte";
+  import { visualizationConfig } from "$lib/stores/visualizationConfig";
+  import { get } from "svelte/store";
 
   // Type alias for D3 selections
   type Selection = any;
@@ -61,14 +63,18 @@
   // Component props
   let { 
     events = [], 
+    followListEvents = [],
     totalCount = 0,
     onupdate, 
+    onclear = () => {},
     onTagExpansionChange,
     onFetchMissing = () => {} 
   } = $props<{
     events?: NDKEvent[];
+    followListEvents?: NDKEvent[];
     totalCount?: number;
     onupdate: () => void;
+    onclear?: () => void;
     onTagExpansionChange?: (depth: number, tags: string[]) => void;
     onFetchMissing?: (ids: string[]) => void;
   }>();
@@ -119,6 +125,7 @@
   let selectedTagType = $state("t"); // Default to hashtags
   let tagAnchorInfo = $state<any[]>([]);
   let tagExpansionDepth = $state(0); // Default to no expansion
+  let requirePublications = $state(true); // Default to only showing people with publications
   
   // Store initial state to detect if component is being recreated
   let componentId = Math.random();
@@ -275,12 +282,130 @@
           height
         });
         
+        // For "p" tags, we need to extract pubkeys from follow lists
+        // but only show anchors for pubkeys that have events in the visualization
+        let eventsForTags = events;
+        
+        if (selectedTagType === "p" && followListEvents.length > 0) {
+          // Extract all pubkeys from follow lists
+          const followedPubkeys = new Set<string>();
+          followListEvents.forEach(event => {
+            event.tags.forEach(tag => {
+              if (tag[0] === "p" && tag[1]) {
+                followedPubkeys.add(tag[1]);
+              }
+            });
+          });
+          
+          const syntheticEvents: NDKEvent[] = [];
+          
+          // Create a map to track which events each followed pubkey is connected to
+          const pubkeyToEvents = new Map<string, Set<string>>();
+          
+          // Find all connections for followed pubkeys
+          followedPubkeys.forEach(pubkey => {
+            const connectedEventIds = new Set<string>();
+            
+            // Find events they authored
+            events.forEach(event => {
+              if (event.pubkey === pubkey && event.id) {
+                connectedEventIds.add(event.id);
+              }
+            });
+            
+            // Find events where they're tagged with "p"
+            events.forEach(event => {
+              if (event.id && event.tags) {
+                event.tags.forEach(tag => {
+                  if (tag[0] === 'p' && tag[1] === pubkey) {
+                    connectedEventIds.add(event.id);
+                  }
+                });
+              }
+            });
+            
+            if (connectedEventIds.size > 0) {
+              pubkeyToEvents.set(pubkey, connectedEventIds);
+            }
+          });
+          
+          if (requirePublications) {
+            // Only show people who have connections to events
+            pubkeyToEvents.forEach((eventIds, pubkey) => {
+              // Create synthetic events for each connection
+              eventIds.forEach(eventId => {
+                const syntheticEvent = {
+                  id: eventId, // Use the actual event's ID so it connects properly
+                  tags: [["p", pubkey]],
+                  pubkey: "",
+                  created_at: 0,
+                  kind: 0,
+                  content: "",
+                  sig: ""
+                } as NDKEvent;
+                syntheticEvents.push(syntheticEvent);
+              });
+            });
+          } else {
+            // Show all people from follow lists
+            let syntheticId = 0;
+            
+            // First, add people who have event connections
+            pubkeyToEvents.forEach((eventIds, pubkey) => {
+              eventIds.forEach(eventId => {
+                const syntheticEvent = {
+                  id: eventId, // Use the actual event's ID so it connects properly
+                  tags: [["p", pubkey]],
+                  pubkey: "",
+                  created_at: 0,
+                  kind: 0,
+                  content: "",
+                  sig: ""
+                } as NDKEvent;
+                syntheticEvents.push(syntheticEvent);
+              });
+            });
+            
+            // Then, add remaining people without any connections
+            followedPubkeys.forEach(pubkey => {
+              if (!pubkeyToEvents.has(pubkey)) {
+                const syntheticEvent = {
+                  id: `synthetic-p-${syntheticId++}`, // Create unique IDs for those without events
+                  tags: [["p", pubkey]],
+                  pubkey: "",
+                  created_at: 0,
+                  kind: 0,
+                  content: "",
+                  sig: ""
+                } as NDKEvent;
+                syntheticEvents.push(syntheticEvent);
+              }
+            });
+          }
+          
+          eventsForTags = syntheticEvents;
+          debug("Created synthetic events for p tags", {
+            followedPubkeys: followedPubkeys.size,
+            requirePublications,
+            syntheticEvents: syntheticEvents.length
+          });
+        }
+        
+        // Get the display limit based on tag type
+        let displayLimit: number | undefined;
+        if (selectedTagType === "p") {
+          // For people tags, use kind 0 (profiles) limit
+          const kind0Config = get(visualizationConfig).eventConfigs.find(ec => ec.kind === 0);
+          displayLimit = kind0Config?.limit || 50;
+        }
+        
         graphData = enhanceGraphWithTags(
           graphData,
-          events,
+          eventsForTags,
           selectedTagType,
           width,
           height,
+          displayLimit,
         );
 
         // Extract tag anchor info for legend
@@ -297,6 +422,11 @@
             count: n.connectedNodes?.length || 0,
             color: getTagAnchorColor(n.tagType || ""),
           }));
+          
+        // Add a message if People tag type is selected but no follow lists are loaded
+        if (selectedTagType === "p" && followListEvents.length === 0 && tagAnchors.length === 0) {
+          console.warn("[EventNetwork] No follow lists loaded. Enable kind 3 events with appropriate depth to see people tag anchors.");
+        }
       } else {
         tagAnchorInfo = [];
       }
@@ -846,6 +976,7 @@
   $effect(() => {
     // Only check when tag anchors are shown and we have tags
     if (showTagAnchors && tagAnchorInfo.length > 0) {
+      
       // If we have more than MAX_TAG_ANCHORS and haven't auto-disabled yet
       if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
         debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
@@ -983,11 +1114,13 @@
       count={events.length}
       {totalCount}
       {onupdate}
+      {onclear}
       {onFetchMissing}
       bind:starVisualization
       bind:showTagAnchors
       bind:selectedTagType
       bind:tagExpansionDepth
+      bind:requirePublications
       {eventCounts}
     />
 

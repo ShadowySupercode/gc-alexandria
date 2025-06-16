@@ -129,9 +129,15 @@ export function createStarNetworks(
     referencedIds: new Set<string>()
   };
 
-  // Find all index events
+  // Find all index events and non-publication events
+  const publicationKinds = [30040, 30041, 30818];
   const indexEvents = events.filter(event => event.kind === INDEX_EVENT_KIND);
+  const nonPublicationEvents = events.filter(event => 
+    event.kind !== undefined && !publicationKinds.includes(event.kind)
+  );
+  
   debug("Found index events", { count: indexEvents.length });
+  debug("Found non-publication events", { count: nonPublicationEvents.length });
 
   const starNetworks: StarNetwork[] = [];
   const processedIndices = new Set<string>();
@@ -149,6 +155,23 @@ export function createStarNetworks(
         peripheralCount: star.peripheralNodes.length
       });
     }
+  });
+  
+  // Add non-publication events as standalone nodes (stars with no peripherals)
+  nonPublicationEvents.forEach(event => {
+    if (!event.id || !nodeMap.has(event.id)) return;
+    
+    const node = nodeMap.get(event.id)!;
+    const star: StarNetwork = {
+      center: node,
+      peripheralNodes: [],
+      links: []
+    };
+    starNetworks.push(star);
+    debug("Created standalone star for non-publication event", { 
+      eventId: event.id,
+      kind: event.kind
+    });
   });
 
   return starNetworks;

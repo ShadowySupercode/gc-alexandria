@@ -159,7 +159,7 @@
               </div>
             {/if}
             <div
-              class="tag-grid"
+              class="tag-grid {tagAnchors.length > 20 ? 'scrollable' : ''}"
               style="grid-template-columns: repeat({TAG_LEGEND_COLUMNS}, 1fr);"
             >
               {#each tagAnchors as anchor}
@@ -271,6 +271,35 @@
     background-color: rgba(0, 0, 0, 0.02);
   }
   
+  .tag-grid {
+    display: grid;
+    gap: 0.25rem;
+  }
+  
+  .tag-grid.scrollable {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+  }
+  
+  .tag-grid.scrollable::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .tag-grid.scrollable::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  .tag-grid.scrollable::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .tag-grid.scrollable::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+  
   :global(.dark) .legend-section-header:hover {
     background-color: rgba(255, 255, 255, 0.05);
   }
@@ -289,5 +318,17 @@
   
   :global(.dark) .tag-grid-item:hover.disabled {
     background-color: rgba(255, 255, 255, 0.02);
+  }
+  
+  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-track {
+    background: #374151;
+  }
+  
+  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-thumb {
+    background: #6b7280;
+  }
+  
+  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
   }
 </style>

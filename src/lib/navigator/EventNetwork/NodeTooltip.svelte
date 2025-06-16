@@ -201,10 +201,22 @@
       {/if}
     </div>
 
-    <!-- Author -->
+    <!-- Pub Author -->
     <div class="tooltip-metadata">
-      Author: {getAuthorTag(node)}
+      Pub Author: {getAuthorTag(node)}
     </div>
+
+    <!-- Published by (from node.author) -->
+    {#if node.author}
+      <div class="tooltip-metadata">
+        published_by: {node.author}
+      </div>
+    {:else}
+      <!-- Fallback to author tag -->
+      <div class="tooltip-metadata">
+        published_by: {getAuthorTag(node)}
+      </div>
+    {/if}
 
     {#if isPublicationEvent(node.kind)}
       <!-- Summary (for publication index nodes) -->

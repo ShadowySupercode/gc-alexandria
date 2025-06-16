@@ -3,10 +3,7 @@
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { fly } from "svelte/transition";
   import { quintOut } from "svelte/easing";
-  import EventLimitControl from "$lib/components/EventLimitControl.svelte";
-  import EventRenderLevelLimit from "$lib/components/EventRenderLevelLimit.svelte";
-  import EventKindFilter from "$lib/components/EventKindFilter.svelte";
-  import { networkFetchLimit, levelsToRender } from "$lib/state";
+  import EventTypeConfig from "$lib/components/EventTypeConfig.svelte";
   import { displayLimits } from "$lib/stores/displayLimits";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { Toggle, Select } from "flowbite-svelte";
@@ -15,28 +12,31 @@
     count = 0,
     totalCount = 0,
     onupdate,
+    onclear = () => {},
     starVisualization = $bindable(true),
     showTagAnchors = $bindable(false),
     selectedTagType = $bindable("t"),
     tagExpansionDepth = $bindable(0),
+    requirePublications = $bindable(true),
     onFetchMissing = () => {},
     eventCounts = {},
   } = $props<{
     count: number;
     totalCount: number;
     onupdate: () => void;
+    onclear?: () => void;
 
     starVisualization?: boolean;
     showTagAnchors?: boolean;
     selectedTagType?: string;
     tagExpansionDepth?: number;
+    requirePublications?: boolean;
     onFetchMissing?: (ids: string[]) => void;
     eventCounts?: { [kind: number]: number };
   }>();
 
   let expanded = $state(false);
   let eventTypesExpanded = $state(true);
-  let initialLoadExpanded = $state(true);
   let displayLimitsExpanded = $state(true);
   let graphTraversalExpanded = $state(true);
   let visualSettingsExpanded = $state(true);
@@ -47,10 +47,6 @@
   
   function toggleEventTypes() {
     eventTypesExpanded = !eventTypesExpanded;
-  }
-  
-  function toggleInitialLoad() {
-    initialLoadExpanded = !initialLoadExpanded;
   }
   
   function toggleDisplayLimits() {
@@ -138,10 +134,10 @@
         Showing {count} of {totalCount} events
       </span>
       
-      <!-- Event Kind Filter Section -->
+      <!-- Event Configuration Section (combines types and limits) -->
       <div class="settings-section">
         <div class="settings-section-header" onclick={toggleEventTypes}>
-          <h4 class="settings-section-title">Event Types <span class="text-orange-500 text-xs font-normal">(not tested)</span></h4>
+          <h4 class="settings-section-title">Event Configuration</h4>
           <Button
             color="none"
             outline
@@ -156,32 +152,7 @@
           </Button>
         </div>
         {#if eventTypesExpanded}
-          <EventKindFilter onReload={onupdate} {eventCounts} />
-        {/if}
-      </div>
-
-      <!-- Initial Load Settings Section -->
-      <div class="settings-section">
-        <div class="settings-section-header" onclick={toggleInitialLoad}>
-          <h4 class="settings-section-title">Initial Load</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
-            {#if initialLoadExpanded}
-              <CaretUpOutline class="w-3 h-3" />
-            {:else}
-              <CaretDownOutline class="w-3 h-3" />
-            {/if}
-          </Button>
-        </div>
-        {#if initialLoadExpanded}
-          <div>
-            <EventLimitControl on:update={handleLimitUpdate} />
-            <EventRenderLevelLimit on:update={handleLimitUpdate} />
-          </div>
+          <EventTypeConfig onReload={onupdate} {eventCounts} />
         {/if}
       </div>
 
@@ -286,6 +257,33 @@
         <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
           When enabled, graph expansion will only use events already loaded
         </p>
+        
+        <label class="flex items-center space-x-2 mt-3">
+          <Toggle 
+            checked={$visualizationConfig.appendMode} 
+            onclick={() => visualizationConfig.toggleAppendMode()}
+            class="text-xs" 
+          />
+          <span class="text-xs text-gray-600 dark:text-gray-400">Append mode (accumulate events)</span>
+        </label>
+        <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
+          When enabled, new fetches will add to existing graph instead of replacing it
+        </p>
+        
+        {#if $visualizationConfig.appendMode && count > 0}
+          <Button 
+            size="xs" 
+            color="red" 
+            onclick={onclear}
+            class="gap-1 mt-3"
+            title="Clear all accumulated events"
+          >
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            <span>Clear Graph ({count} events)</span>
+          </Button>
+        {/if}
         {/if}
       </div>
 
@@ -362,12 +360,33 @@
               >
                 <option value="t">Hashtags</option>
                 <option value="author">Authors</option>
-                <option value="p">People (Pubkeys)</option>
+                <option value="p">People (from follow lists)</option>
                 <option value="e">Event References</option>
                 <!-- <option value="a">Article References</option> -->
                 <option value="title">Titles</option>
                 <option value="summary">Summaries</option>
               </Select>
+              
+              {#if selectedTagType === "p" && (!eventCounts[3] || eventCounts[3] === 0)}
+                <p class="text-xs text-orange-500 mt-1">
+                  ⚠️ No follow lists loaded. Enable kind 3 events to see people tag anchors.
+                </p>
+              {/if}
+              
+              {#if selectedTagType === "p" && eventCounts[3] > 0}
+                <label class="flex items-center space-x-2 mt-2">
+                  <Toggle 
+                    checked={requirePublications} 
+                    onchange={(e: Event) => {
+                      const target = e.target as HTMLInputElement;
+                      requirePublications = target.checked;
+                    }}
+                    size="sm"
+                    class="text-xs" 
+                  />
+                  <span class="text-xs text-gray-600 dark:text-gray-400">Only show people with publications</span>
+                </label>
+              {/if}
             </div>
 
             <div class="space-y-1">
@@ -375,7 +394,7 @@
                 <label
                   for="tag-depth-input"
                   class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
-                  >Expansion Depth: <span class="text-red-500 font-semibold">(not functional)</span></label
+                  >Expansion Depth:</label
                 >
                 <input
                   type="number"
