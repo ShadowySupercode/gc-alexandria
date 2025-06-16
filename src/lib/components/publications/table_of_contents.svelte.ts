@@ -10,7 +10,6 @@ export interface TocEntry {
   children: TocEntry[];
   parent?: TocEntry;
   depth: number;
-  expanded: boolean;
   childrenResolved: boolean;
   resolveChildren: () => Promise<void>;
 }
@@ -24,7 +23,8 @@ export interface TocEntry {
  */
 export class TableOfContents {
   public addressMap: SvelteMap<string, TocEntry> = new SvelteMap();
-  
+  public expandedMap: SvelteMap<string, boolean> = new SvelteMap();
+
   #root: TocEntry | null = null;
   #publicationTree: SveltePublicationTree;
   #pagePathname: string;
@@ -92,11 +92,11 @@ export class TableOfContents {
             href,
             depth,
             children: [],
-            expanded: false,
             childrenResolved: true,
             resolveChildren: () => Promise.resolve(),
           };
           parentEntry.children.push(tocEntry);
+          this.expandedMap.set(tocEntry.address, false);
 
           this.buildTocFromDocument(header, tocEntry, depth + 1);
         }
@@ -213,10 +213,10 @@ export class TableOfContents {
       href: `${this.#pagePathname}#${address}`,
       children: [],
       depth,
-      expanded: false,
       childrenResolved: false,
       resolveChildren: resolver,
     };
+    this.expandedMap.set(address, false);
   
     return entry;
   }

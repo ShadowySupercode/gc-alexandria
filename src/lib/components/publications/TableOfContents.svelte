@@ -32,17 +32,13 @@
     return newEntries;
   });
 
-  function getEntryExpanded(address: string) {
-    return toc.getEntry(address)?.expanded;
-  }
-
   function setEntryExpanded(address: string, expanded: boolean = false) {
     const entry = toc.getEntry(address);
     if (!entry) {
       return;
     }
 
-    entry.expanded = expanded;
+    toc.expandedMap.set(address, expanded);
     entry.resolveChildren();
   }
 
@@ -57,9 +53,10 @@
   <Accordion multiple>
     {#each entries as entry}
       {@const address = entry.address}
+      {@const expanded = toc.expandedMap.get(address) ?? false}
       <AccordionItem 
         bind:open={
-          () => getEntryExpanded(address),
+          () => expanded,
           (open) => setEntryExpanded(address, open)
         }
       >
@@ -82,8 +79,8 @@
     <!-- TODO: Clicks on entries aren't reactive. -->
     {#each entries as entry}
       {@const address = entry.address}
+      {@const expanded = toc.expandedMap.get(address) ?? false}
       {#if entry.children.length > 0}
-        {@const expanded = getEntryExpanded(address)}
         {@const childDepth = depth + 1}
         <SidebarDropdownWrapper
           label={entry.title}
@@ -103,7 +100,7 @@
         <!-- TODO: Add href -->
         <SidebarItem
           label={entry.title}
-          onclick={() => handleEntryClick(address, !getEntryExpanded(address))}
+          onclick={() => handleEntryClick(address, !expanded)}
         />
       {/if}
     {/each}
