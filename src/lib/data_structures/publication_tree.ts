@@ -163,7 +163,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   async getChildAddresses(address: string): Promise<Array<string | null>> {
     const node = await this.#nodes.get(address)?.value();
     if (!node) {
-      throw new Error(`PublicationTree: Node with address ${address} not found.`);
+      throw new Error(`[PublicationTree] Node with address ${address} not found.`);
     }
 
     return Promise.all(
@@ -181,7 +181,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   async getHierarchy(address: string): Promise<NDKEvent[]> {
     let node = await this.#nodes.get(address)?.value();
     if (!node) {
-      throw new Error(`PublicationTree: Node with address ${address} not found.`);
+      throw new Error(`[PublicationTree] Node with address ${address} not found.`);
     }
 
     const hierarchy: NDKEvent[] = [this.#events.get(address)!];
@@ -250,7 +250,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToFirstChild(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug("[Publication Tree Cursor] Target node is null or undefined.");
         return false;
       }
 
@@ -268,7 +268,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToLastChild(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug("[Publication Tree Cursor] Target node is null or undefined.");
         return false;
       }
  
@@ -286,7 +286,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToNextSibling(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug("[Publication Tree Cursor] Target node is null or undefined.");
         return false;
       }
 
@@ -314,7 +314,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToPreviousSibling(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug("[Publication Tree Cursor] Target node is null or undefined.");
         return false;
       }
  
@@ -342,7 +342,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     tryMoveToParent(): boolean {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug("[Publication Tree Cursor] Target node is null or undefined.");
         return false;
       }
 
@@ -519,12 +519,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       const currentAddress = stack.pop();
       currentNode = await this.#nodes.get(currentAddress!)?.value();
       if (!currentNode) {
-        throw new Error(`PublicationTree: Node with address ${currentAddress} not found.`);
+        throw new Error(`[PublicationTree] Node with address ${currentAddress} not found.`);
       }
 
       currentEvent = this.#events.get(currentAddress!);
       if (!currentEvent) {
-        throw new Error(`PublicationTree: Event with address ${currentAddress} not found.`);
+        throw new Error(`[PublicationTree] Event with address ${currentAddress} not found.`);
       }
 
       // Stop immediately if the target of the search is found.
@@ -595,7 +595,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     if (!event) {
       console.debug(
-        `PublicationTree: Event with address ${address} not found.`
+        `[PublicationTree] Event with address ${address} not found.`
       );
 
       return {
