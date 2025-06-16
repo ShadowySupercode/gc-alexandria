@@ -76,7 +76,6 @@
   </Accordion>
 {:else}
   <SidebarGroup>
-    <!-- TODO: Clicks on entries aren't reactive. -->
     {#each entries as entry}
       {@const address = entry.address}
       {@const expanded = toc.expandedMap.get(address) ?? false}
