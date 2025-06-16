@@ -1,6 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import { SveltePublicationTree } from './svelte_publication_tree.svelte.ts';
 import type { NDKEvent } from '../../utils/nostrUtils.ts';
+import { indexKind } from '../../consts.ts';
 
 export interface TocEntry {
   address: string;

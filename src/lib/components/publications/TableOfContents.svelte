@@ -20,8 +20,6 @@
   let toc = getContext('toc') as TableOfContents;
 
   let entries = $derived.by<TocEntry[]>(() => {
-  let entries = $derived(
-    Array
     const newEntries = [];
     for (const [_, entry] of toc.addressMap) {
       if (entry.depth !== depth) {
