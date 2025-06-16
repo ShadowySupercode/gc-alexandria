@@ -41,14 +41,10 @@
     toc.expandedMap.set(address, expanded);
     entry.resolveChildren();
   }
-
-  function handleEntryClick(address: string, expanded: boolean = false) {
-    setEntryExpanded(address, expanded);
-    onSectionFocused?.(address);
-  }
 </script>
 
 <!-- TODO: Href doesn't work with query params. -->
+<!-- Michael J - 16 June 2025 - Accordion mode is untested. -->
 {#if displayMode === 'accordion'}
   <Accordion multiple>
     {#each entries as entry}
@@ -79,7 +75,14 @@
     {#each entries as entry}
       {@const address = entry.address}
       {@const expanded = toc.expandedMap.get(address) ?? false}
-      {#if entry.children.length > 0}
+      {@const isLeaf = toc.leaves.has(address)}
+      {#if isLeaf}
+        <!-- TODO: Add href -->
+        <SidebarItem
+          label={entry.title}
+          onclick={() => onSectionFocused?.(address)}
+        />
+      {:else}
         {@const childDepth = depth + 1}
         <SidebarDropdownWrapper
           label={entry.title}
@@ -95,12 +98,6 @@
             onSectionFocused={onSectionFocused}
           />
         </SidebarDropdownWrapper>
-      {:else}
-        <!-- TODO: Add href -->
-        <SidebarItem
-          label={entry.title}
-          onclick={() => handleEntryClick(address, !expanded)}
-        />
       {/if}
     {/each}
   </SidebarGroup>
