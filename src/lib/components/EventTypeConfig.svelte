@@ -71,6 +71,10 @@
     const limit = parseInt(value);
     if (!isNaN(limit) && limit > 0) {
       visualizationConfig.updateEventLimit(kind, limit);
+      // Update profile stats display limit if it's kind 0
+      if (kind === 0) {
+        profileStats = { ...profileStats, displayLimit: limit };
+      }
     }
   }
   
@@ -128,7 +132,7 @@
         {#if config.kind === 0}
           <input
             type="number"
-            value={profileStats.displayLimit}
+            value={config.limit}
             min="1"
             max={profileStats.totalFetched || 1000}
             class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"

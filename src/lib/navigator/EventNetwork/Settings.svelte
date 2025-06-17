@@ -16,6 +16,7 @@
     starVisualization = $bindable(true),
     onFetchMissing = () => {},
     eventCounts = {},
+    profileStats = { totalFetched: 0, displayLimit: 50 },
   } = $props<{
     count: number;
     totalCount: number;
@@ -25,6 +26,7 @@
     starVisualization?: boolean;
     onFetchMissing?: (ids: string[]) => void;
     eventCounts?: { [kind: number]: number };
+    profileStats?: { totalFetched: number; displayLimit: number };
   }>();
 
   let expanded = $state(false);
@@ -134,7 +136,7 @@
           </Button>
         </div>
         {#if eventTypesExpanded}
-          <EventTypeConfig onReload={onupdate} {eventCounts} />
+          <EventTypeConfig onReload={onupdate} {eventCounts} {profileStats} />
         {/if}
       </div>
 

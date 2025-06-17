@@ -57,6 +57,12 @@
       ? `Loading profiles: ${profileLoadingProgress.current}/${profileLoadingProgress.total}`
       : null
   );
+  
+  // Profile stats for EventTypeConfig
+  let profileStats = $state<{totalFetched: number, displayLimit: number}>({
+    totalFetched: 0,
+    displayLimit: 50
+  });
 
   /**
    * Fetches follow lists (kind 3) with depth expansion
@@ -528,14 +534,11 @@
         profileLoadingProgress = null;
         debug("Profile fetch complete");
         
-        // Store the total count for display
-        // The limit in kind0Config now controls display, not fetch
-        if (typeof window !== 'undefined' && window.profileStats) {
-          window.profileStats = {
-            totalFetched: allPubkeys.size,
-            displayLimit: kind0Config.limit
-          };
-        }
+        // Update profile stats for display
+        profileStats = {
+          totalFetched: allPubkeys.size,
+          displayLimit: kind0Config.limit
+        };
       }
       
       // Step 7: Apply display limits
@@ -1022,6 +1025,7 @@
       onclear={clearEvents}
       onTagExpansionChange={handleTagExpansion}
       onFetchMissing={fetchMissingEvents}
+      {profileStats}
     />
   {/if}
 </div>

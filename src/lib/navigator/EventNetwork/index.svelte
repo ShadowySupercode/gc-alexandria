@@ -74,7 +74,8 @@
     onupdate, 
     onclear = () => {},
     onTagExpansionChange,
-    onFetchMissing = () => {} 
+    onFetchMissing = () => {},
+    profileStats = { totalFetched: 0, displayLimit: 50 }
   } = $props<{
     events?: NDKEvent[];
     followListEvents?: NDKEvent[];
@@ -83,6 +84,7 @@
     onclear?: () => void;
     onTagExpansionChange?: (depth: number, tags: string[]) => void;
     onFetchMissing?: (ids: string[]) => void;
+    profileStats?: { totalFetched: number; displayLimit: number };
   }>();
 
   // Error state
@@ -1215,6 +1217,7 @@
       {onFetchMissing}
       bind:starVisualization
       {eventCounts}
+      {profileStats}
     />
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->
