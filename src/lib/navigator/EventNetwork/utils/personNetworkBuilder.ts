@@ -10,6 +10,7 @@ import { getDisplayNameSync } from "$lib/utils/profileCache";
 
 const PERSON_ANCHOR_RADIUS = 15;
 const PERSON_ANCHOR_PLACEMENT_RADIUS = 1000;
+const MAX_PERSON_NODES = 20; // Default limit for person nodes
 
 /**
  * Simple seeded random number generator
@@ -40,25 +41,52 @@ function createSeed(str: string): number {
   return Math.abs(hash);
 }
 
+export interface PersonConnection {
+  signedByEventIds: Set<string>;
+  referencedInEventIds: Set<string>;
+}
+
 /**
  * Extracts unique persons (pubkeys) from events
+ * Tracks both signed-by (event.pubkey) and referenced (["p", pubkey] tags)
  */
 export function extractUniquePersons(
   events: NDKEvent[]
-): Map<string, Set<string>> {
-  // Map of pubkey -> Set of event IDs
-  const personMap = new Map<string, Set<string>>();
+): Map<string, PersonConnection> {
+  // Map of pubkey -> PersonConnection
+  const personMap = new Map<string, PersonConnection>();
   
   console.log(`[PersonBuilder] Extracting persons from ${events.length} events`);
 
   events.forEach((event) => {
-    if (!event.pubkey || !event.id) return;
+    if (!event.id) return;
 
-    if (!personMap.has(event.pubkey)) {
-      personMap.set(event.pubkey, new Set());
+    // Track signed-by connections
+    if (event.pubkey) {
+      if (!personMap.has(event.pubkey)) {
+        personMap.set(event.pubkey, {
+          signedByEventIds: new Set(),
+          referencedInEventIds: new Set()
+        });
+      }
+      personMap.get(event.pubkey)!.signedByEventIds.add(event.id);
     }
 
-    personMap.get(event.pubkey)!.add(event.id);
+    // Track referenced connections from "p" tags
+    if (event.tags) {
+      event.tags.forEach(tag => {
+        if (tag[0] === "p" && tag[1]) {
+          const referencedPubkey = tag[1];
+          if (!personMap.has(referencedPubkey)) {
+            personMap.set(referencedPubkey, {
+              signedByEventIds: new Set(),
+              referencedInEventIds: new Set()
+            });
+          }
+          personMap.get(referencedPubkey)!.referencedInEventIds.add(event.id);
+        }
+      });
+    }
   });
   
   console.log(`[PersonBuilder] Found ${personMap.size} unique persons`);
@@ -70,16 +98,56 @@ export function extractUniquePersons(
  * Creates person anchor nodes
  */
 export function createPersonAnchorNodes(
-  personMap: Map<string, Set<string>>,
+  personMap: Map<string, PersonConnection>,
   width: number,
-  height: number
-): NetworkNode[] {
+  height: number,
+  showSignedBy: boolean,
+  showReferenced: boolean,
+  limit: number = MAX_PERSON_NODES
+): { nodes: NetworkNode[], totalCount: number } {
   const anchorNodes: NetworkNode[] = [];
 
   const centerX = width / 2;
   const centerY = height / 2;
 
-  Array.from(personMap.entries()).forEach(([pubkey, eventIds]) => {
+  // Calculate eligible persons and their connection counts
+  const eligiblePersons: Array<{
+    pubkey: string;
+    connection: PersonConnection;
+    connectedEventIds: Set<string>;
+    totalConnections: number;
+  }> = [];
+
+  Array.from(personMap.entries()).forEach(([pubkey, connection]) => {
+    // Get all connected event IDs based on filters
+    const connectedEventIds = new Set<string>();
+    
+    if (showSignedBy) {
+      connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
+    }
+    
+    if (showReferenced) {
+      connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
+    }
+    
+    // Skip if no connections match the filter
+    if (connectedEventIds.size === 0) return;
+
+    eligiblePersons.push({
+      pubkey,
+      connection,
+      connectedEventIds,
+      totalConnections: connectedEventIds.size
+    });
+  });
+
+  // Sort by total connections (descending) and take only top N
+  eligiblePersons.sort((a, b) => b.totalConnections - a.totalConnections);
+  const limitedPersons = eligiblePersons.slice(0, limit);
+
+  // Create nodes for the limited set
+  limitedPersons.forEach(({ pubkey, connection, connectedEventIds }) => {
+
     // Create seeded random generator for consistent positioning
     const rng = new SeededRandom(createSeed(pubkey));
 
@@ -95,7 +163,7 @@ export function createPersonAnchorNodes(
     const anchorNode: NetworkNode = {
       id: `person-anchor-${pubkey}`,
       title: displayName,
-      content: `${eventIds.size} events`,
+      content: `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
       author: "",
       kind: 0, // Special kind for anchors
       type: "PersonAnchor",
@@ -103,7 +171,7 @@ export function createPersonAnchorNodes(
       isPersonAnchor: true,
       pubkey,
       displayName,
-      connectedNodes: Array.from(eventIds),
+      connectedNodes: Array.from(connectedEventIds),
       x,
       y,
       fx: x, // Fix position
@@ -113,29 +181,50 @@ export function createPersonAnchorNodes(
     anchorNodes.push(anchorNode);
   });
 
-  return anchorNodes;
+  return {
+    nodes: anchorNodes,
+    totalCount: eligiblePersons.length
+  };
+}
+
+export interface PersonLink extends NetworkLink {
+  connectionType?: "signed-by" | "referenced";
 }
 
 /**
  * Creates links between person anchors and their events
+ * Adds connection type for coloring
  */
 export function createPersonLinks(
   personAnchors: NetworkNode[],
-  nodes: NetworkNode[]
-): NetworkLink[] {
-  const links: NetworkLink[] = [];
+  nodes: NetworkNode[],
+  personMap: Map<string, PersonConnection>
+): PersonLink[] {
+  const links: PersonLink[] = [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   personAnchors.forEach((anchor) => {
-    if (!anchor.connectedNodes) return;
+    if (!anchor.connectedNodes || !anchor.pubkey) return;
+
+    const connection = personMap.get(anchor.pubkey);
+    if (!connection) return;
 
     anchor.connectedNodes.forEach((nodeId) => {
       const node = nodeMap.get(nodeId);
       if (node) {
+        // Determine connection type
+        let connectionType: "signed-by" | "referenced" | undefined;
+        if (connection.signedByEventIds.has(nodeId)) {
+          connectionType = "signed-by";
+        } else if (connection.referencedInEventIds.has(nodeId)) {
+          connectionType = "referenced";
+        }
+
         links.push({
           source: anchor,
           target: node,
           isSequential: false,
+          connectionType,
         });
       }
     });
@@ -150,18 +239,24 @@ export function createPersonLinks(
 export interface PersonAnchorInfo {
   pubkey: string;
   displayName: string;
-  eventCount: number;
+  signedByCount: number;
+  referencedCount: number;
 }
 
 /**
  * Extracts person info for Legend display
  */
 export function extractPersonAnchorInfo(
-  personAnchors: NetworkNode[]
+  personAnchors: NetworkNode[],
+  personMap: Map<string, PersonConnection>
 ): PersonAnchorInfo[] {
-  return personAnchors.map(anchor => ({
-    pubkey: anchor.pubkey || "",
-    displayName: anchor.displayName || "",
-    eventCount: anchor.connectedNodes?.length || 0,
-  }));
+  return personAnchors.map(anchor => {
+    const connection = personMap.get(anchor.pubkey || "");
+    return {
+      pubkey: anchor.pubkey || "",
+      displayName: anchor.displayName || "",
+      signedByCount: connection?.signedByEventIds.size || 0,
+      referencedCount: connection?.referencedInEventIds.size || 0,
+    };
+  });
 }

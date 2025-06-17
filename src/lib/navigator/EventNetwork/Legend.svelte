@@ -18,13 +18,16 @@
     showTagAnchors = $bindable(false),
     selectedTagType = $bindable("t"),
     tagExpansionDepth = $bindable(0),
-    requirePublications = $bindable(true),
     onTagSettingsChange = () => {},
     showPersonNodes = $bindable(false),
     personAnchors = [],
     disabledPersons = new Set<string>(),
     onPersonToggle = (pubkey: string) => {},
     onPersonSettingsChange = () => {},
+    showSignedBy = $bindable(true),
+    showReferenced = $bindable(true),
+    totalPersonCount = 0,
+    displayedPersonCount = 0,
   } = $props<{
     collapsedOnInteraction: boolean;
     className: string;
@@ -38,13 +41,16 @@
     showTagAnchors?: boolean;
     selectedTagType?: string;
     tagExpansionDepth?: number;
-    requirePublications?: boolean;
     onTagSettingsChange?: () => void;
     showPersonNodes?: boolean;
     personAnchors?: any[];
     disabledPersons?: Set<string>;
     onPersonToggle?: (pubkey: string) => void;
     onPersonSettingsChange?: () => void;
+    showSignedBy?: boolean;
+    showReferenced?: boolean;
+    totalPersonCount?: number;
+    displayedPersonCount?: number;
   }>();
 
   let expanded = $state(true);
@@ -200,32 +206,11 @@
                 >
                   <option value="t">Hashtags</option>
                   <option value="author">Authors</option>
-                  <option value="p">People (from follow lists)</option>
                   <option value="e">Event References</option>
                   <option value="title">Titles</option>
                   <option value="summary">Summaries</option>
                 </select>
                 
-                {#if selectedTagType === "p" && (!eventCounts[3] || eventCounts[3] === 0)}
-                  <p class="text-xs text-orange-500 mt-1">
-                    ⚠️ No follow lists loaded. Enable kind 3 events to see people tag anchors.
-                  </p>
-                {/if}
-                
-                {#if selectedTagType === "p" && eventCounts[3] > 0}
-                  <div class="flex items-center space-x-2 mt-2">
-                    <button
-                      onclick={() => {
-                        requirePublications = !requirePublications;
-                        onTagSettingsChange();
-                      }}
-                      class="toggle-button small {requirePublications ? 'active' : ''}"
-                    >
-                      {requirePublications ? 'ON' : 'OFF'}
-                    </button>
-                    <span class="text-xs text-gray-600 dark:text-gray-400">Only show people with publications</span>
-                  </div>
-                {/if}
               </div>
               
               <!-- Expansion Depth -->
@@ -336,22 +321,51 @@
         {#if personVisualizerExpanded}
           <div class="space-y-3">
             <!-- Show Person Nodes Toggle -->
-            <div class="flex items-center space-x-2">
-              <button
-                onclick={() => {
-                  showPersonNodes = !showPersonNodes;
-                  onPersonSettingsChange();
-                }}
-                class="toggle-button {showPersonNodes ? 'active' : ''}"
-              >
-                {showPersonNodes ? 'ON' : 'OFF'}
-              </button>
-              <span class="text-sm">Show Person Nodes</span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <button
+                  onclick={() => {
+                    showPersonNodes = !showPersonNodes;
+                    onPersonSettingsChange();
+                  }}
+                  class="toggle-button {showPersonNodes ? 'active' : ''}"
+                >
+                  {showPersonNodes ? 'ON' : 'OFF'}
+                </button>
+                <span class="text-sm">Show Person Nodes</span>
+              </div>
+              
+              {#if showPersonNodes}
+                <div class="flex items-center space-x-3 text-xs">
+                  <label class="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      bind:checked={showSignedBy}
+                      onchange={onPersonSettingsChange}
+                      class="w-3 h-3"
+                    />
+                    <span>Signed by</span>
+                  </label>
+                  <label class="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      bind:checked={showReferenced}
+                      onchange={onPersonSettingsChange}
+                      class="w-3 h-3"
+                    />
+                    <span>Referenced</span>
+                  </label>
+                </div>
+              {/if}
             </div>
             
             {#if showPersonNodes && personAnchors.length > 0}
               <p class="text-xs text-gray-600 dark:text-gray-400">
-                {personAnchors.length} people found. Click to toggle visibility:
+                {#if totalPersonCount > displayedPersonCount}
+                  Displaying {displayedPersonCount} of {totalPersonCount} people found. Click to toggle visibility:
+                {:else}
+                  {personAnchors.length} people found. Click to toggle visibility:
+                {/if}
               </p>
               <div
                 class="tag-grid {personAnchors.length > 20 ? 'scrollable' : ''}"
@@ -361,8 +375,13 @@
                   {@const isDisabled = disabledPersons.has(person.pubkey)}
                   <button
                     class="tag-grid-item {isDisabled ? 'disabled' : ''}"
-                    onclick={() => onPersonToggle(person.pubkey)}
-                    title={isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
+                    onclick={() => {
+                      if (showPersonNodes) {
+                        onPersonToggle(person.pubkey);
+                      }
+                    }}
+                    disabled={!showPersonNodes}
+                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
                   >
                     <div class="legend-icon">
                       <span
@@ -372,8 +391,10 @@
                     </div>
                     <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
                       {person.displayName || person.pubkey.slice(0, 8) + '...'}
-                      {#if !isDisabled && person.eventCount}
-                        <span class="text-gray-500">({person.eventCount})</span>
+                      {#if !isDisabled}
+                        <span class="text-gray-500">
+                          ({person.signedByCount || 0}s/{person.referencedCount || 0}r)
+                        </span>
                       {/if}
                     </span>
                   </button>

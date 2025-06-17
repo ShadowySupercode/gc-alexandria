@@ -210,6 +210,20 @@
   .network-node-content {
     @apply fill-primary-100;
   }
+  
+  /* Person link colors */
+  .person-link-signed {
+    @apply stroke-green-500;
+  }
+  
+  .person-link-referenced {
+    @apply stroke-blue-400;
+  }
+  
+  /* Person anchor node */
+  .person-anchor-node {
+    @apply fill-green-400 stroke-green-600;
+  }
 }
 
 /* Utilities can be applied via the @apply directive. */

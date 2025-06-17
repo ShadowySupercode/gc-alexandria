@@ -131,7 +131,6 @@
   let selectedTagType = $state("t"); // Default to hashtags
   let tagAnchorInfo = $state<any[]>([]);
   let tagExpansionDepth = $state(0); // Default to no expansion
-  let requirePublications = $state(true); // Default to only showing people with publications
   
   // Store initial state to detect if component is being recreated
   let componentId = Math.random();
@@ -161,6 +160,11 @@
   let showPersonNodes = $state(false);
   let personAnchorInfo = $state<any[]>([]);
   let disabledPersons = $state(new Set<string>());
+  let showSignedBy = $state(true);
+  let showReferenced = $state(true);
+  let personMap = $state<Map<string, any>>(new Map());
+  let totalPersonCount = $state(0);
+  let displayedPersonCount = $state(0);
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -293,126 +297,12 @@
           height
         });
         
-        // For "p" tags, we need to extract pubkeys from follow lists
-        // but only show anchors for pubkeys that have events in the visualization
-        let eventsForTags = events;
-        
-        if (selectedTagType === "p" && followListEvents.length > 0) {
-          // Extract all pubkeys from follow lists
-          const followedPubkeys = new Set<string>();
-          followListEvents.forEach(event => {
-            event.tags.forEach(tag => {
-              if (tag[0] === "p" && tag[1]) {
-                followedPubkeys.add(tag[1]);
-              }
-            });
-          });
-          
-          const syntheticEvents: NDKEvent[] = [];
-          
-          // Create a map to track which events each followed pubkey is connected to
-          const pubkeyToEvents = new Map<string, Set<string>>();
-          
-          // Find all connections for followed pubkeys
-          followedPubkeys.forEach(pubkey => {
-            const connectedEventIds = new Set<string>();
-            
-            // Find events they authored
-            events.forEach(event => {
-              if (event.pubkey === pubkey && event.id) {
-                connectedEventIds.add(event.id);
-              }
-            });
-            
-            // Find events where they're tagged with "p"
-            events.forEach(event => {
-              if (event.id && event.tags) {
-                event.tags.forEach(tag => {
-                  if (tag[0] === 'p' && tag[1] === pubkey) {
-                    connectedEventIds.add(event.id);
-                  }
-                });
-              }
-            });
-            
-            if (connectedEventIds.size > 0) {
-              pubkeyToEvents.set(pubkey, connectedEventIds);
-            }
-          });
-          
-          if (requirePublications) {
-            // Only show people who have connections to events
-            pubkeyToEvents.forEach((eventIds, pubkey) => {
-              // Create synthetic events for each connection
-              eventIds.forEach(eventId => {
-                const syntheticEvent = {
-                  id: eventId, // Use the actual event's ID so it connects properly
-                  tags: [["p", pubkey]],
-                  pubkey: "",
-                  created_at: 0,
-                  kind: 0,
-                  content: "",
-                  sig: ""
-                } as NDKEvent;
-                syntheticEvents.push(syntheticEvent);
-              });
-            });
-          } else {
-            // Show all people from follow lists
-            let syntheticId = 0;
-            
-            // First, add people who have event connections
-            pubkeyToEvents.forEach((eventIds, pubkey) => {
-              eventIds.forEach(eventId => {
-                const syntheticEvent = {
-                  id: eventId, // Use the actual event's ID so it connects properly
-                  tags: [["p", pubkey]],
-                  pubkey: "",
-                  created_at: 0,
-                  kind: 0,
-                  content: "",
-                  sig: ""
-                } as NDKEvent;
-                syntheticEvents.push(syntheticEvent);
-              });
-            });
-            
-            // Then, add remaining people without any connections
-            followedPubkeys.forEach(pubkey => {
-              if (!pubkeyToEvents.has(pubkey)) {
-                const syntheticEvent = {
-                  id: `synthetic-p-${syntheticId++}`, // Create unique IDs for those without events
-                  tags: [["p", pubkey]],
-                  pubkey: "",
-                  created_at: 0,
-                  kind: 0,
-                  content: "",
-                  sig: ""
-                } as NDKEvent;
-                syntheticEvents.push(syntheticEvent);
-              }
-            });
-          }
-          
-          eventsForTags = syntheticEvents;
-          debug("Created synthetic events for p tags", {
-            followedPubkeys: followedPubkeys.size,
-            requirePublications,
-            syntheticEvents: syntheticEvents.length
-          });
-        }
-        
         // Get the display limit based on tag type
         let displayLimit: number | undefined;
-        if (selectedTagType === "p") {
-          // For people tags, use kind 0 (profiles) limit
-          const kind0Config = get(visualizationConfig).eventConfigs.find(ec => ec.kind === 0);
-          displayLimit = kind0Config?.limit || 50;
-        }
         
         graphData = enhanceGraphWithTags(
           graphData,
-          eventsForTags,
+          events,
           selectedTagType,
           width,
           height,
@@ -433,11 +323,6 @@
             count: n.connectedNodes?.length || 0,
             color: getTagAnchorColor(n.tagType || ""),
           }));
-          
-        // Add a message if People tag type is selected but no follow lists are loaded
-        if (selectedTagType === "p" && followListEvents.length === 0 && tagAnchors.length === 0) {
-          console.warn("[EventNetwork] No follow lists loaded. Enable kind 3 events with appropriate depth to see people tag anchors.");
-        }
       } else {
         tagAnchorInfo = [];
       }
@@ -447,31 +332,45 @@
         debug("Creating person anchor nodes");
         
         // Extract unique persons from events
-        const personMap = extractUniquePersons(events);
+        personMap = extractUniquePersons(events);
         
-        // Create person anchor nodes
-        const personAnchors = createPersonAnchorNodes(personMap, width, height);
+        // Create person anchor nodes based on filters
+        const personResult = createPersonAnchorNodes(
+          personMap, 
+          width, 
+          height, 
+          showSignedBy, 
+          showReferenced
+        );
+        
+        const personAnchors = personResult.nodes;
+        totalPersonCount = personResult.totalCount;
+        displayedPersonCount = personAnchors.length;
         
         // Create links between person anchors and their events
-        const personLinks = createPersonLinks(personAnchors, graphData.nodes);
+        const personLinks = createPersonLinks(personAnchors, graphData.nodes, personMap);
         
         // Add person anchors to the graph
         graphData.nodes = [...graphData.nodes, ...personAnchors];
         graphData.links = [...graphData.links, ...personLinks];
         
         // Extract person info for legend
-        personAnchorInfo = extractPersonAnchorInfo(personAnchors);
+        personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
         
-        // Auto-disable all person nodes by default
-        personAnchors.forEach(anchor => {
-          if (anchor.pubkey) {
-            disabledPersons.add(anchor.pubkey);
-          }
-        });
+        // Auto-disable all person nodes by default (only on first show)
+        if (disabledPersons.size === 0) {
+          personAnchors.forEach(anchor => {
+            if (anchor.pubkey) {
+              disabledPersons.add(anchor.pubkey);
+            }
+          });
+        }
         
         debug("Person anchors created", {
           count: personAnchors.length,
-          disabled: disabledPersons.size
+          disabled: disabledPersons.size,
+          showSignedBy,
+          showReferenced
         });
       } else {
         personAnchorInfo = [];
@@ -618,10 +517,26 @@
           (enter: any) =>
             enter
               .append("path")
-              .attr("class", "link network-link-leather")
+              .attr("class", (d: any) => {
+                let classes = "link network-link-leather";
+                if (d.connectionType === "signed-by") {
+                  classes += " person-link-signed";
+                } else if (d.connectionType === "referenced") {
+                  classes += " person-link-referenced";
+                }
+                return classes;
+              })
               .attr("stroke-width", 2)
               .attr("marker-end", "url(#arrowhead)"),
-          (update: any) => update,
+          (update: any) => update.attr("class", (d: any) => {
+            let classes = "link network-link-leather";
+            if (d.connectionType === "signed-by") {
+              classes += " person-link-signed";
+            } else if (d.connectionType === "referenced") {
+              classes += " person-link-referenced";
+            }
+            return classes;
+          }),
           (exit: any) => exit.remove(),
         );
 
@@ -1013,7 +928,9 @@
           tagType: selectedTagType,
           disabled: disabledTags.size,
           persons: showPersonNodes,
-          disabledPersons: disabledPersons.size
+          disabledPersons: disabledPersons.size,
+          showSignedBy,
+          showReferenced
         };
         
         isUpdating = true;
@@ -1234,7 +1151,6 @@
       bind:showTagAnchors
       bind:selectedTagType
       bind:tagExpansionDepth
-      bind:requirePublications
       onTagSettingsChange={() => {
         // Trigger graph update when tag settings change
         if (svg && events?.length) {
@@ -1251,6 +1167,10 @@
           updateGraph();
         }
       }}
+      bind:showSignedBy
+      bind:showReferenced
+      {totalPersonCount}
+      {displayedPersonCount}
     />
 
     <!-- Settings Panel (shown when settings button is clicked) -->
