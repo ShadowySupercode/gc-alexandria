@@ -74,17 +74,20 @@ export async function getDisplayName(pubkey: string): Promise<string> {
  * Batch fetches profiles for multiple pubkeys
  * @param pubkeys - Array of public keys to fetch profiles for
  * @param onProgress - Optional callback for progress updates
+ * @returns Array of profile events
  */
 export async function batchFetchProfiles(
   pubkeys: string[], 
   onProgress?: (fetched: number, total: number) => void
-): Promise<void> {
+): Promise<NDKEvent[]> {
+  const allProfileEvents: NDKEvent[] = [];
+  
   // Filter out already cached pubkeys
   const uncachedPubkeys = pubkeys.filter(pk => !profileCache.has(pk));
   
   if (uncachedPubkeys.length === 0) {
     if (onProgress) onProgress(pubkeys.length, pubkeys.length);
-    return;
+    return allProfileEvents;
   }
 
   try {
@@ -111,6 +114,7 @@ export async function batchFetchProfiles(
         try {
           const content = JSON.parse(event.content);
           profileCache.set(event.pubkey, content as ProfileData);
+          allProfileEvents.push(event);
           fetchedCount++;
         } catch (e) {
           console.error("Failed to parse profile content:", e);
@@ -128,6 +132,8 @@ export async function batchFetchProfiles(
   } catch (e) {
     console.error("Failed to batch fetch profiles:", e);
   }
+  
+  return allProfileEvents;
 }
 
 /**

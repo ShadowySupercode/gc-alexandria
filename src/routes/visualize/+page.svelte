@@ -518,13 +518,14 @@
       });
       
       // Fetch ALL profiles if kind 0 is enabled
+      let profileEvents: NDKEvent[] = [];
       if (kind0Config) {
         debug("Fetching profiles for all discovered pubkeys");
         
         // Update progress during fetch
         profileLoadingProgress = { current: 0, total: allPubkeys.size };
         
-        await batchFetchProfiles(
+        profileEvents = await batchFetchProfiles(
           Array.from(allPubkeys),
           (fetched, total) => {
             profileLoadingProgress = { current: fetched, total };
@@ -532,11 +533,14 @@
         );
         
         profileLoadingProgress = null;
-        debug("Profile fetch complete");
+        debug("Profile fetch complete, fetched", profileEvents.length, "profiles");
+        
+        // Add profile events to allEvents
+        allEvents = [...allEvents, ...profileEvents];
         
         // Update profile stats for display
         profileStats = {
-          totalFetched: allPubkeys.size,
+          totalFetched: profileEvents.length,
           displayLimit: kind0Config.limit
         };
       }
@@ -815,17 +819,25 @@
         // Fetch profiles for the new events
         const newEvents = Array.from(fetchedEvents);
         const newPubkeys = extractPubkeysFromEvents(newEvents);
-        if (newPubkeys.size > 0) {
+        let newProfileEvents: NDKEvent[] = [];
+        
+        if (newPubkeys.size > 0 && $visualizationConfig.eventConfigs.some(ec => ec.kind === 0 && !$visualizationConfig.disabledKinds?.includes(0))) {
           debug("Fetching profiles for", newPubkeys.size, "pubkeys from missing events");
           profileLoadingProgress = { current: 0, total: newPubkeys.size };
-          await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
+          newProfileEvents = await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
             profileLoadingProgress = { current: fetched, total };
           });
           profileLoadingProgress = null;
+          
+          // Update profile stats
+          profileStats = {
+            totalFetched: profileStats.totalFetched + newProfileEvents.length,
+            displayLimit: profileStats.displayLimit
+          };
         }
         
         // Add to all events
-        allEvents = [...allEvents, ...newEvents];
+        allEvents = [...allEvents, ...newEvents, ...newProfileEvents];
         
         // Re-apply display limits
         events = filterByDisplayLimits(allEvents, $displayLimits);
