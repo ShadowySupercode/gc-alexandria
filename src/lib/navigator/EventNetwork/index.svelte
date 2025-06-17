@@ -36,6 +36,12 @@
     enhanceGraphWithTags,
     getTagAnchorColor,
   } from "./utils/tagNetworkBuilder";
+  import {
+    extractUniquePersons,
+    createPersonAnchorNodes,
+    createPersonLinks,
+    extractPersonAnchorInfo,
+  } from "./utils/personNetworkBuilder";
   import { Button } from "flowbite-svelte";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { get } from "svelte/store";
@@ -150,6 +156,11 @@
   
   // Maximum number of tag anchors before auto-disabling
   const MAX_TAG_ANCHORS = 20;
+  
+  // Person nodes state
+  let showPersonNodes = $state(false);
+  let personAnchorInfo = $state<any[]>([]);
+  let disabledPersons = $state(new Set<string>());
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -431,6 +442,41 @@
         tagAnchorInfo = [];
       }
 
+      // Add person nodes if enabled
+      if (showPersonNodes) {
+        debug("Creating person anchor nodes");
+        
+        // Extract unique persons from events
+        const personMap = extractUniquePersons(events);
+        
+        // Create person anchor nodes
+        const personAnchors = createPersonAnchorNodes(personMap, width, height);
+        
+        // Create links between person anchors and their events
+        const personLinks = createPersonLinks(personAnchors, graphData.nodes);
+        
+        // Add person anchors to the graph
+        graphData.nodes = [...graphData.nodes, ...personAnchors];
+        graphData.links = [...graphData.links, ...personLinks];
+        
+        // Extract person info for legend
+        personAnchorInfo = extractPersonAnchorInfo(personAnchors);
+        
+        // Auto-disable all person nodes by default
+        personAnchors.forEach(anchor => {
+          if (anchor.pubkey) {
+            disabledPersons.add(anchor.pubkey);
+          }
+        });
+        
+        debug("Person anchors created", {
+          count: personAnchors.length,
+          disabled: disabledPersons.size
+        });
+      } else {
+        personAnchorInfo = [];
+      }
+
       // Save current node positions before updating
       if (simulation && nodes.length > 0) {
         nodes.forEach(node => {
@@ -449,23 +495,26 @@
       nodes = graphData.nodes;
       links = graphData.links;
       
-      // Filter out disabled tag anchors from nodes and links
-      if (showTagAnchors && disabledTags.size > 0) {
-        // Filter out disabled tag anchor nodes
+      // Filter out disabled tag anchors and person nodes from nodes and links
+      if ((showTagAnchors && disabledTags.size > 0) || (showPersonNodes && disabledPersons.size > 0)) {
+        // Filter out disabled nodes
         nodes = nodes.filter((node: NetworkNode) => {
           if (node.isTagAnchor) {
             const tagId = `${node.tagType}-${node.title}`;
             return !disabledTags.has(tagId);
           }
+          if (node.isPersonAnchor && node.pubkey) {
+            return !disabledPersons.has(node.pubkey);
+          }
           return true;
         });
         
-        // Filter out links to disabled tag anchors
+        // Filter out links to disabled nodes
         links = links.filter((link: NetworkLink) => {
           const source = link.source as NetworkNode;
           const target = link.target as NetworkNode;
           
-          // Check if either node is a disabled tag anchor
+          // Check if either node is disabled
           if (source.isTagAnchor) {
             const tagId = `${source.tagType}-${source.title}`;
             if (disabledTags.has(tagId)) return false;
@@ -473,6 +522,12 @@
           if (target.isTagAnchor) {
             const tagId = `${target.tagType}-${target.title}`;
             if (disabledTags.has(tagId)) return false;
+          }
+          if (source.isPersonAnchor && source.pubkey) {
+            if (disabledPersons.has(source.pubkey)) return false;
+          }
+          if (target.isPersonAnchor && target.pubkey) {
+            if (disabledPersons.has(target.pubkey)) return false;
           }
           
           return true;
@@ -591,12 +646,27 @@
               .attr("stroke", "transparent")
               .style("cursor", "move");
 
-            // Visible circle
-            nodeEnter
-              .append("circle")
-              .attr("class", "visual-circle")
-              .attr("r", NODE_RADIUS)
-              .attr("stroke-width", 2);
+            // Add shape based on node type
+            nodeEnter.each(function(d: NetworkNode) {
+              const g = d3.select(this);
+              if (d.isPersonAnchor) {
+                // Diamond shape for person anchors
+                g.append("rect")
+                  .attr("class", "visual-shape visual-diamond")
+                  .attr("width", NODE_RADIUS * 1.5)
+                  .attr("height", NODE_RADIUS * 1.5)
+                  .attr("x", -NODE_RADIUS * 0.75)
+                  .attr("y", -NODE_RADIUS * 0.75)
+                  .attr("transform", "rotate(45)")
+                  .attr("stroke-width", 2);
+              } else {
+                // Circle for other nodes
+                g.append("circle")
+                  .attr("class", "visual-shape visual-circle")
+                  .attr("r", NODE_RADIUS)
+                  .attr("stroke-width", 2);
+              }
+            });
 
             // Node label
             nodeEnter
@@ -624,9 +694,13 @@
       
       // Update visual properties for ALL nodes (both new and existing)
       node
-        .select("circle.visual-circle")
+        .select(".visual-shape")
         .attr("class", (d: NetworkNode) => {
-          const baseClasses = "visual-circle network-node-leather";
+          const shapeClass = d.isPersonAnchor ? "visual-diamond" : "visual-circle";
+          const baseClasses = `visual-shape ${shapeClass} network-node-leather`;
+          if (d.isPersonAnchor) {
+            return `${baseClasses} person-anchor-node`;
+          }
           if (d.isTagAnchor) {
             return `${baseClasses} tag-anchor-node`;
           }
@@ -639,6 +713,10 @@
           return baseClasses;
         })
         .style("fill", (d: NetworkNode) => {
+          // Person anchors are green
+          if (d.isPersonAnchor) {
+            return "#10B981";
+          }
           // Tag anchors get their specific colors
           if (d.isTagAnchor) {
             return getTagAnchorColor(d.tagType || "");
@@ -649,6 +727,8 @@
         })
         .attr("opacity", 1)
         .attr("r", (d: NetworkNode) => {
+          // Only set radius for circles
+          if (d.isPersonAnchor) return null;
           // Tag anchors are smaller
           if (d.isTagAnchor) {
             return NODE_RADIUS * 0.75;
@@ -659,7 +739,31 @@
           }
           return NODE_RADIUS;
         })
+        .attr("width", (d: NetworkNode) => {
+          // Only set width/height for diamonds
+          if (!d.isPersonAnchor) return null;
+          return NODE_RADIUS * 1.5;
+        })
+        .attr("height", (d: NetworkNode) => {
+          // Only set width/height for diamonds
+          if (!d.isPersonAnchor) return null;
+          return NODE_RADIUS * 1.5;
+        })
+        .attr("x", (d: NetworkNode) => {
+          // Only set x/y for diamonds
+          if (!d.isPersonAnchor) return null;
+          return -NODE_RADIUS * 0.75;
+        })
+        .attr("y", (d: NetworkNode) => {
+          // Only set x/y for diamonds
+          if (!d.isPersonAnchor) return null;
+          return -NODE_RADIUS * 0.75;
+        })
         .attr("stroke-width", (d: NetworkNode) => {
+          // Person anchors have thicker stroke
+          if (d.isPersonAnchor) {
+            return 3;
+          }
           // Tag anchors have thicker stroke
           if (d.isTagAnchor) {
             return 3;
@@ -907,7 +1011,9 @@
           star: starVisualization,
           tags: showTagAnchors,
           tagType: selectedTagType,
-          disabled: disabledTags.size
+          disabled: disabledTags.size,
+          persons: showPersonNodes,
+          disabledPersons: disabledPersons.size
         };
         
         isUpdating = true;
@@ -1008,6 +1114,38 @@
   });
 
   /**
+   * Handles toggling tag visibility
+   */
+  function handleTagToggle(tagId: string) {
+    if (disabledTags.has(tagId)) {
+      const newDisabledTags = new Set(disabledTags);
+      newDisabledTags.delete(tagId);
+      disabledTags = newDisabledTags;
+    } else {
+      const newDisabledTags = new Set(disabledTags);
+      newDisabledTags.add(tagId);
+      disabledTags = newDisabledTags;
+    }
+    // Update graph will be triggered by the effect
+  }
+  
+  /**
+   * Handles toggling person node visibility
+   */
+  function handlePersonToggle(pubkey: string) {
+    if (disabledPersons.has(pubkey)) {
+      const newDisabledPersons = new Set(disabledPersons);
+      newDisabledPersons.delete(pubkey);
+      disabledPersons = newDisabledPersons;
+    } else {
+      const newDisabledPersons = new Set(disabledPersons);
+      newDisabledPersons.add(pubkey);
+      disabledPersons = newDisabledPersons;
+    }
+    // Update graph will be triggered by the effect
+  }
+
+  /**
    * Handles tooltip close event
    */
   function handleTooltipClose() {
@@ -1063,20 +1201,6 @@
     }
   }
   
-  /**
-   * Handles toggling tag visibility in the legend
-   */
-  function handleTagToggle(tagId: string) {
-    const newDisabledTags = new Set(disabledTags);
-    if (newDisabledTags.has(tagId)) {
-      newDisabledTags.delete(tagId);
-    } else {
-      newDisabledTags.add(tagId);
-    }
-    disabledTags = newDisabledTags;
-    
-    // Don't call updateGraph() here - the effect will handle it
-  }
 </script>
 
 <div class="network-container">
@@ -1113,6 +1237,16 @@
       bind:requirePublications
       onTagSettingsChange={() => {
         // Trigger graph update when tag settings change
+        if (svg && events?.length) {
+          updateGraph();
+        }
+      }}
+      bind:showPersonNodes
+      personAnchors={personAnchorInfo}
+      {disabledPersons}
+      onPersonToggle={handlePersonToggle}
+      onPersonSettingsChange={() => {
+        // Trigger graph update when person settings change
         if (svg && events?.length) {
           updateGraph();
         }

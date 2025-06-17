@@ -20,6 +20,11 @@
     tagExpansionDepth = $bindable(0),
     requirePublications = $bindable(true),
     onTagSettingsChange = () => {},
+    showPersonNodes = $bindable(false),
+    personAnchors = [],
+    disabledPersons = new Set<string>(),
+    onPersonToggle = (pubkey: string) => {},
+    onPersonSettingsChange = () => {},
   } = $props<{
     collapsedOnInteraction: boolean;
     className: string;
@@ -35,12 +40,18 @@
     tagExpansionDepth?: number;
     requirePublications?: boolean;
     onTagSettingsChange?: () => void;
+    showPersonNodes?: boolean;
+    personAnchors?: any[];
+    disabledPersons?: Set<string>;
+    onPersonToggle?: (pubkey: string) => void;
+    onPersonSettingsChange?: () => void;
   }>();
 
   let expanded = $state(true);
   let nodeTypesExpanded = $state(true);
   let tagAnchorsExpanded = $state(true);
   let tagControlsExpanded = $state(true);
+  let personVisualizerExpanded = $state(true);
 
   $effect(() => {
     if (collapsedOnInteraction) {
@@ -303,6 +314,79 @@
           {/if}
         </div>
       {/if}
+      
+      <!-- Person Visualizer Section -->
+      <div class="legend-section">
+        <div class="legend-section-header" onclick={() => personVisualizerExpanded = !personVisualizerExpanded}>
+          <h4 class="legend-section-title">Person Visualizer</h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if personVisualizerExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        
+        {#if personVisualizerExpanded}
+          <div class="space-y-3">
+            <!-- Show Person Nodes Toggle -->
+            <div class="flex items-center space-x-2">
+              <button
+                onclick={() => {
+                  showPersonNodes = !showPersonNodes;
+                  onPersonSettingsChange();
+                }}
+                class="toggle-button {showPersonNodes ? 'active' : ''}"
+              >
+                {showPersonNodes ? 'ON' : 'OFF'}
+              </button>
+              <span class="text-sm">Show Person Nodes</span>
+            </div>
+            
+            {#if showPersonNodes && personAnchors.length > 0}
+              <p class="text-xs text-gray-600 dark:text-gray-400">
+                {personAnchors.length} people found. Click to toggle visibility:
+              </p>
+              <div
+                class="tag-grid {personAnchors.length > 20 ? 'scrollable' : ''}"
+                style="grid-template-columns: repeat(2, 1fr);"
+              >
+                {#each personAnchors as person}
+                  {@const isDisabled = disabledPersons.has(person.pubkey)}
+                  <button
+                    class="tag-grid-item {isDisabled ? 'disabled' : ''}"
+                    onclick={() => onPersonToggle(person.pubkey)}
+                    title={isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
+                  >
+                    <div class="legend-icon">
+                      <span
+                        class="legend-diamond"
+                        style="background-color: #10B981; opacity: {isDisabled ? 0.3 : 1};"
+                      />
+                    </div>
+                    <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
+                      {person.displayName || person.pubkey.slice(0, 8) + '...'}
+                      {#if !isDisabled && person.eventCount}
+                        <span class="text-gray-500">({person.eventCount})</span>
+                      {/if}
+                    </span>
+                  </button>
+                {/each}
+              </div>
+            {:else if showPersonNodes}
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                No people found in the current events.
+              </p>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -490,5 +574,13 @@
   
   :global(.dark) .toggle-button.active:hover {
     background-color: #2563eb;
+  }
+  
+  .legend-diamond {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    transform: rotate(45deg);
+    border: 2px solid white;
   }
 </style>
