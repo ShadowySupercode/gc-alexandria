@@ -165,6 +165,7 @@
   let personMap = $state<Map<string, any>>(new Map());
   let totalPersonCount = $state(0);
   let displayedPersonCount = $state(0);
+  let hasInitializedPersons = $state(false);
 
   // Debug function - call from browser console: window.debugTagAnchors()
   if (typeof window !== "undefined") {
@@ -357,13 +358,14 @@
         // Extract person info for legend
         personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
         
-        // Auto-disable all person nodes by default (only on first show)
-        if (disabledPersons.size === 0) {
+        // Auto-disable all person nodes by default (only on first time showing)
+        if (!hasInitializedPersons && personAnchors.length > 0) {
           personAnchors.forEach(anchor => {
             if (anchor.pubkey) {
               disabledPersons.add(anchor.pubkey);
             }
           });
+          hasInitializedPersons = true;
         }
         
         debug("Person anchors created", {
@@ -374,6 +376,11 @@
         });
       } else {
         personAnchorInfo = [];
+        // Reset initialization flag when person nodes are hidden
+        if (hasInitializedPersons && personAnchorInfo.length === 0) {
+          hasInitializedPersons = false;
+          disabledPersons.clear();
+        }
       }
 
       // Save current node positions before updating

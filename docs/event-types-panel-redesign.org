@@ -16,19 +16,19 @@ Clean implementation plan for the event network visualization, focusing on perfo
 * Implementation Phases
 
 ** Phase 1: Tag Anchor Controls Migration
-- Move tag type selection from Settings to Legend
-- Move expansion depth control from Settings to Legend  
-- Move requirePublications checkbox from Settings to Legend
-- Use native HTML button instead of flowbite Toggle component
-- Clean up Settings panel
+- +Move tag type selection from Settings to Legend+
+- +Move expansion depth control from Settings to Legend+
+- +Move requirePublications checkbox from Settings to Legend+
+- +Use native HTML button instead of flowbite Toggle component+
+- +Clean up Settings panel+
 
 ** Phase 2: Person Visualizer
-- Add collapsible "Person Visualizer" section in Legend
-- Display all event authors (pubkeys) as list items
-- Fetch display names from kind 0 events
-- Render person nodes as diamond shapes in graph
-- Default all person nodes to disabled state
-- Click to toggle individual person visibility
+- +Add collapsible "Person Visualizer" section in Legend+
+- +Display all event authors (pubkeys) as list items+
+- +Fetch display names from kind 0 events+
+- +Render person nodes as diamond shapes in graph+
+- +Default all person nodes to disabled state+
+- +Click to toggle individual person visibility+
 
 ** Phase 3: State Management Fixes
 - Replace reactive Set with object/map for disabled states

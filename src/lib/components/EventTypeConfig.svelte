@@ -6,10 +6,12 @@
   
   let {
     onReload = () => {},
-    eventCounts = {}
+    eventCounts = {},
+    profileStats = { totalFetched: 0, displayLimit: 50 }
   } = $props<{
     onReload?: () => void;
     eventCounts?: { [kind: number]: number };
+    profileStats?: { totalFetched: number; displayLimit: number };
   }>();
   
   let newKind = $state('');
@@ -122,16 +124,32 @@
           <CloseCircleOutline class="w-4 h-4" />
         </button>
         
-        <!-- Limit input for all kinds -->
-        <input
-          type="number"
-          value={config.limit}
-          min="1"
-          max="1000"
-          class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          oninput={(e) => handleLimitChange(config.kind, e.currentTarget.value)}
-          title="Max to display"
-        />
+        <!-- Special format for kind 0 (profiles) -->
+        {#if config.kind === 0}
+          <input
+            type="number"
+            value={profileStats.displayLimit}
+            min="1"
+            max={profileStats.totalFetched || 1000}
+            class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            oninput={(e) => handleLimitChange(config.kind, e.currentTarget.value)}
+            title="Max profiles to display"
+          />
+          <span class="text-xs text-gray-600 dark:text-gray-400">
+            of {profileStats.totalFetched} fetched
+          </span>
+        {:else}
+          <!-- Limit input for other kinds -->
+          <input
+            type="number"
+            value={config.limit}
+            min="1"
+            max="1000"
+            class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            oninput={(e) => handleLimitChange(config.kind, e.currentTarget.value)}
+            title="Max to display"
+          />
+        {/if}
         
         <!-- Nested levels for 30040 -->
         {#if config.kind === 30040}
@@ -162,11 +180,11 @@
         {/if}
         
         <!-- Load indicator -->
-        {#if isLoaded}
+        {#if config.kind !== 0 && isLoaded}
           <span class="text-xs text-green-600 dark:text-green-400">
             ({eventCounts[config.kind]})
           </span>
-        {:else}
+        {:else if config.kind !== 0}
           <span class="text-xs text-red-600 dark:text-red-400">
             (not loaded)
           </span>

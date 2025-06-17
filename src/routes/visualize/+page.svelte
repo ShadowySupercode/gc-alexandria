@@ -237,11 +237,15 @@
       
       let allFetchedEvents: NDKEvent[] = [];
       
-      // First, fetch non-publication events (like kind 0, 1, 3, etc.)
-      if (otherConfigs.length > 0) {
-        debug("Fetching non-publication events:", otherConfigs);
+      // First, fetch non-publication events (like kind 1, 3, etc. but NOT kind 0)
+      // We'll fetch kind 0 profiles after we know which pubkeys we need
+      const kind0Config = otherConfigs.find(c => c.kind === 0);
+      const nonProfileConfigs = otherConfigs.filter(c => c.kind !== 0);
+      
+      if (nonProfileConfigs.length > 0) {
+        debug("Fetching non-publication events (excluding profiles):", nonProfileConfigs);
         
-        for (const config of otherConfigs) {
+        for (const config of nonProfileConfigs) {
           try {
             // Special handling for kind 3 (follow lists)
             if (config.kind === 3) {
@@ -483,26 +487,16 @@
       
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
-      // Step 6: Fetch profiles (kind 0)
-      debug("Fetching profiles for events");
+      // Step 6: Extract all pubkeys and fetch profiles
+      debug("Extracting pubkeys from all events");
       
-      // Get kind 0 config to respect its limit
-      const profileConfig = enabledConfigs.find(ec => ec.kind === 0);
-      const profileLimit = profileConfig?.limit || 50;
+      // Use the utility function to extract ALL pubkeys (authors + p tags + content)
+      const allPubkeys = extractPubkeysFromEvents(allEvents);
       
-      // Collect all pubkeys that need profiles
-      const allPubkeys = new Set<string>();
-      
-      // Add event authors (these are the main content creators)
-      allEvents.forEach(event => {
-        if (event.pubkey) {
-          allPubkeys.add(event.pubkey);
-        }
-      });
-      
-      // Add pubkeys from follow lists (for tag anchors)
+      // Add pubkeys from follow lists if present
       if (followListEvents.length > 0) {
         followListEvents.forEach(event => {
+          if (event.pubkey) allPubkeys.add(event.pubkey);
           event.tags.forEach(tag => {
             if (tag[0] === 'p' && tag[1]) {
               allPubkeys.add(tag[1]);
@@ -511,25 +505,38 @@
         });
       }
       
-      // Limit the number of profiles to fetch based on kind 0 limit
-      const pubkeysArray = Array.from(allPubkeys);
-      const pubkeysToFetch = profileLimit === -1 
-        ? pubkeysArray 
-        : pubkeysArray.slice(0, profileLimit);
-      
-      debug("Profile fetch strategy:", {
+      debug("Profile extraction complete:", {
         totalPubkeys: allPubkeys.size,
-        profileLimit,
-        pubkeysToFetch: pubkeysToFetch.length,
-        followListsLoaded: followListEvents.length
+        fromEvents: allEvents.length,
+        fromFollowLists: followListEvents.length
       });
       
-      profileLoadingProgress = { current: 0, total: pubkeysToFetch.length };
-      await batchFetchProfiles(pubkeysToFetch, (fetched, total) => {
-        profileLoadingProgress = { current: fetched, total };
-      });
-      profileLoadingProgress = null; // Clear progress when done
-      debug("Profile fetch complete for", pubkeysToFetch.length, "pubkeys");
+      // Fetch ALL profiles if kind 0 is enabled
+      if (kind0Config) {
+        debug("Fetching profiles for all discovered pubkeys");
+        
+        // Update progress during fetch
+        profileLoadingProgress = { current: 0, total: allPubkeys.size };
+        
+        await batchFetchProfiles(
+          Array.from(allPubkeys),
+          (fetched, total) => {
+            profileLoadingProgress = { current: fetched, total };
+          }
+        );
+        
+        profileLoadingProgress = null;
+        debug("Profile fetch complete");
+        
+        // Store the total count for display
+        // The limit in kind0Config now controls display, not fetch
+        if (typeof window !== 'undefined' && window.profileStats) {
+          window.profileStats = {
+            totalFetched: allPubkeys.size,
+            displayLimit: kind0Config.limit
+          };
+        }
+      }
       
       // Step 7: Apply display limits
       events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
