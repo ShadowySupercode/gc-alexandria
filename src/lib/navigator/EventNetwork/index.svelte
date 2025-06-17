@@ -907,40 +907,51 @@
    * Watch for changes that should trigger a graph update
    */
   let isUpdating = false;
+  let updateTimer: ReturnType<typeof setTimeout> | null = null;
+  
+  // Create a derived state that combines all dependencies
+  const graphDependencies = $derived({
+    levels: currentLevels,
+    star: starVisualization,
+    tags: showTagAnchors,
+    tagType: selectedTagType,
+    disabled: disabledTags.size,
+    persons: showPersonNodes,
+    disabledPersons: disabledPersons.size,
+    showSignedBy,
+    showReferenced,
+    eventsLength: events?.length || 0
+  });
+  
+  // Debounced update function
+  function scheduleGraphUpdate() {
+    if (updateTimer) {
+      clearTimeout(updateTimer);
+    }
+    
+    updateTimer = setTimeout(() => {
+      if (!isUpdating && svg && events?.length > 0) {
+        debug("Scheduled graph update executing", graphDependencies);
+        isUpdating = true;
+        try {
+          updateGraph();
+        } catch (error) {
+          console.error("Error updating graph:", error);
+          errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
+        } finally {
+          isUpdating = false;
+          updateTimer = null;
+        }
+      }
+    }, 100); // 100ms debounce
+  }
   
   $effect(() => {
-    // Prevent recursive updates
-    if (isUpdating) return;
+    // Just track the dependencies and schedule update
+    const deps = graphDependencies;
     
-    debug("Effect triggered", {
-      hasSvg: !!svg,
-      eventCount: events?.length,
-      currentLevels,
-    });
-
-    try {
-      if (svg && events?.length) {
-        // Track dependencies
-        const deps = {
-          levels: currentLevels,
-          star: starVisualization,
-          tags: showTagAnchors,
-          tagType: selectedTagType,
-          disabled: disabledTags.size,
-          persons: showPersonNodes,
-          disabledPersons: disabledPersons.size,
-          showSignedBy,
-          showReferenced
-        };
-        
-        isUpdating = true;
-        updateGraph();
-        isUpdating = false;
-      }
-    } catch (error) {
-      console.error("Error in effect:", error);
-      errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
-      isUpdating = false;
+    if (svg && events?.length > 0) {
+      scheduleGraphUpdate();
     }
   });
 
@@ -996,37 +1007,52 @@
   /**
    * Watch for tag anchor count and auto-disable if exceeds threshold
    */
+  let autoDisableTimer: ReturnType<typeof setTimeout> | null = null;
+  
   $effect(() => {
+    // Clear any pending timer
+    if (autoDisableTimer) {
+      clearTimeout(autoDisableTimer);
+      autoDisableTimer = null;
+    }
+    
     // Only check when tag anchors are shown and we have tags
     if (showTagAnchors && tagAnchorInfo.length > 0) {
       
       // If we have more than MAX_TAG_ANCHORS and haven't auto-disabled yet
       if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
-        debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
-        
-        // Disable all tags
-        const newDisabledTags = new Set<string>();
-        tagAnchorInfo.forEach(anchor => {
-          const tagId = `${anchor.type}-${anchor.label}`;
-          newDisabledTags.add(tagId);
-        });
-        
-        disabledTags = newDisabledTags;
-        autoDisabledTags = true;
-        
-        // Optional: Show a notification to the user
-        console.info(`[EventNetwork] Auto-disabled ${tagAnchorInfo.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+        // Defer the state update to break the sync cycle
+        autoDisableTimer = setTimeout(() => {
+          debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
+          
+          // Disable all tags
+          const newDisabledTags = new Set<string>();
+          tagAnchorInfo.forEach(anchor => {
+            const tagId = `${anchor.type}-${anchor.label}`;
+            newDisabledTags.add(tagId);
+          });
+          
+          disabledTags = newDisabledTags;
+          autoDisabledTags = true;
+          
+          // Optional: Show a notification to the user
+          console.info(`[EventNetwork] Auto-disabled ${tagAnchorInfo.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+        }, 0);
       }
       
       // Reset auto-disabled flag if tag count goes back down
       if (tagAnchorInfo.length <= MAX_TAG_ANCHORS && autoDisabledTags) {
-        autoDisabledTags = false;
+        autoDisableTimer = setTimeout(() => {
+          autoDisabledTags = false;
+        }, 0);
       }
     }
     
     // Reset when tag anchors are hidden
     if (!showTagAnchors && autoDisabledTags) {
-      autoDisabledTags = false;
+      autoDisableTimer = setTimeout(() => {
+        autoDisabledTags = false;
+      }, 0);
     }
   });
 
