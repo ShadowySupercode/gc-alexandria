@@ -44,6 +44,7 @@ function createSeed(str: string): number {
 export interface PersonConnection {
   signedByEventIds: Set<string>;
   referencedInEventIds: Set<string>;
+  isFromFollowList?: boolean; // Track if this person comes from follow lists
 }
 
 /**
@@ -51,12 +52,33 @@ export interface PersonConnection {
  * Tracks both signed-by (event.pubkey) and referenced (["p", pubkey] tags)
  */
 export function extractUniquePersons(
-  events: NDKEvent[]
+  events: NDKEvent[],
+  followListEvents?: NDKEvent[]
 ): Map<string, PersonConnection> {
   // Map of pubkey -> PersonConnection
   const personMap = new Map<string, PersonConnection>();
   
   console.log(`[PersonBuilder] Extracting persons from ${events.length} events`);
+  
+  // First collect pubkeys from follow list events
+  const followListPubkeys = new Set<string>();
+  if (followListEvents && followListEvents.length > 0) {
+    console.log(`[PersonBuilder] Processing ${followListEvents.length} follow list events`);
+    followListEvents.forEach((event) => {
+      // Follow list author
+      if (event.pubkey) {
+        followListPubkeys.add(event.pubkey);
+      }
+      // People in follow lists (p tags)
+      if (event.tags) {
+        event.tags.forEach(tag => {
+          if (tag[0] === "p" && tag[1]) {
+            followListPubkeys.add(tag[1]);
+          }
+        });
+      }
+    });
+  }
 
   events.forEach((event) => {
     if (!event.id) return;
@@ -66,7 +88,8 @@ export function extractUniquePersons(
       if (!personMap.has(event.pubkey)) {
         personMap.set(event.pubkey, {
           signedByEventIds: new Set(),
-          referencedInEventIds: new Set()
+          referencedInEventIds: new Set(),
+          isFromFollowList: followListPubkeys.has(event.pubkey)
         });
       }
       personMap.get(event.pubkey)!.signedByEventIds.add(event.id);
@@ -80,7 +103,8 @@ export function extractUniquePersons(
           if (!personMap.has(referencedPubkey)) {
             personMap.set(referencedPubkey, {
               signedByEventIds: new Set(),
-              referencedInEventIds: new Set()
+              referencedInEventIds: new Set(),
+              isFromFollowList: followListPubkeys.has(referencedPubkey)
             });
           }
           personMap.get(referencedPubkey)!.referencedInEventIds.add(event.id);
@@ -90,6 +114,7 @@ export function extractUniquePersons(
   });
   
   console.log(`[PersonBuilder] Found ${personMap.size} unique persons`);
+  console.log(`[PersonBuilder] ${followListPubkeys.size} are from follow lists`);
 
   return personMap;
 }
@@ -172,6 +197,7 @@ export function createPersonAnchorNodes(
       pubkey,
       displayName,
       connectedNodes: Array.from(connectedEventIds),
+      isFromFollowList: connection.isFromFollowList,
       x,
       y,
       fx: x, // Fix position
@@ -241,6 +267,7 @@ export interface PersonAnchorInfo {
   displayName: string;
   signedByCount: number;
   referencedCount: number;
+  isFromFollowList: boolean;
 }
 
 /**
@@ -257,6 +284,7 @@ export function extractPersonAnchorInfo(
       displayName: anchor.displayName || "",
       signedByCount: connection?.signedByEventIds.size || 0,
       referencedCount: connection?.referencedInEventIds.size || 0,
+      isFromFollowList: connection?.isFromFollowList || false,
     };
   });
 }

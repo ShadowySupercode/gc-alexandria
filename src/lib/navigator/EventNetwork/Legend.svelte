@@ -386,7 +386,7 @@
                     <div class="legend-icon">
                       <span
                         class="legend-diamond"
-                        style="background-color: #10B981; opacity: {isDisabled ? 0.3 : 1};"
+                        style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
                       />
                     </div>
                     <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">

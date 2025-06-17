@@ -336,8 +336,8 @@
       if (showPersonNodes) {
         debug("Creating person anchor nodes");
         
-        // Extract unique persons from events
-        personMap = extractUniquePersons(events);
+        // Extract unique persons from events and follow lists
+        personMap = extractUniquePersons(events, followListEvents);
         
         // Create person anchor nodes based on filters
         const personResult = createPersonAnchorNodes(
@@ -639,8 +639,13 @@
           return baseClasses;
         })
         .style("fill", (d: NetworkNode) => {
-          // Person anchors are green
+          // Person anchors - color based on source
           if (d.isPersonAnchor) {
+            // If from follow list, use kind 3 color
+            if (d.isFromFollowList) {
+              return getEventKindColor(3);
+            }
+            // Otherwise green for event authors
             return "#10B981";
           }
           // Tag anchors get their specific colors
@@ -870,8 +875,17 @@
             if (svgGroup) {
               svgGroup
                 .selectAll("g.node")
-                .select("circle.visual-circle")
+                .select(".visual-shape")
                 .style("fill", (d: NetworkNode) => {
+                  // Person anchors - color based on source
+                  if (d.isPersonAnchor) {
+                    // If from follow list, use kind 3 color
+                    if (d.isFromFollowList) {
+                      return getEventKindColor(3);
+                    }
+                    // Otherwise green for event authors
+                    return "#10B981";
+                  }
                   if (d.isTagAnchor) {
                     return getTagAnchorColor(d.tagType || "");
                   }

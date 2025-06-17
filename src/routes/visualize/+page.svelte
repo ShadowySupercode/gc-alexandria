@@ -509,8 +509,13 @@
       // Use the utility function to extract ALL pubkeys (authors + p tags + content)
       const allPubkeys = extractPubkeysFromEvents(allEvents);
       
-      // Add pubkeys from follow lists if present
-      if (followListEvents.length > 0) {
+      // Check if follow list is configured with limit > 0
+      const followListConfig = allConfigs.find(c => c.kind === 3);
+      const shouldIncludeFollowPubkeys = followListConfig && followListConfig.limit > 0;
+      
+      // Add pubkeys from follow lists only if follow list limit > 0
+      if (shouldIncludeFollowPubkeys && followListEvents.length > 0) {
+        debug("Including pubkeys from follow lists (limit > 0)");
         followListEvents.forEach(event => {
           if (event.pubkey) allPubkeys.add(event.pubkey);
           event.tags.forEach(tag => {
@@ -519,6 +524,8 @@
             }
           });
         });
+      } else if (!shouldIncludeFollowPubkeys && followListEvents.length > 0) {
+        debug("Excluding follow list pubkeys (limit = 0, only fetching event authors)");
       }
       
       debug("Profile extraction complete:", {
