@@ -44,11 +44,11 @@ Clean implementation plan for the event network visualization, focusing on perfo
 - Cache profile data to avoid re-fetching
 
 ** Phase 5: Load-Once Architecture
-- Fetch ALL tag anchors and person nodes upfront
-- Store complete dataset in memory
-- Only render nodes that are enabled
-- Toggle operations just change visibility, no re-fetch
-- Prevents UI freezing on toggle operations
+- +Fetch ALL configured event kinds upfront (regardless of enabled state)+
+- +Store complete dataset in memory+
+- +Only render nodes that are enabled+
+- +Toggle operations just change visibility, no re-fetch+
+- +Prevents UI freezing on toggle operations+
 
 * Technical Details
 

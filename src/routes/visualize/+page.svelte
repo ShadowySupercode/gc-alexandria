@@ -233,24 +233,23 @@
       loading = true;
       error = null;
 
-      // Get enabled event configurations
+      // Get ALL event configurations (Phase 5: fetch all, display enabled)
       const config = get(visualizationConfig);
-      const enabledConfigs = config.eventConfigs.filter(
-        ec => !(config.disabledKinds?.includes(ec.kind))
-      );
+      const allConfigs = config.eventConfigs;
       
-      debug("Enabled event configs:", enabledConfigs);
+      debug("All event configs:", allConfigs);
+      debug("Disabled kinds:", config.disabledKinds);
       
-      // Set loading event kinds for display
-      loadingEventKinds = enabledConfigs.map(ec => ({
+      // Set loading event kinds for display (show all being loaded)
+      loadingEventKinds = allConfigs.map(ec => ({
         kind: ec.kind,
         limit: ec.limit
       }));
       
       // Separate publication kinds from other kinds
       const publicationKinds = [30040, 30041, 30818];
-      const publicationConfigs = enabledConfigs.filter(ec => publicationKinds.includes(ec.kind));
-      const otherConfigs = enabledConfigs.filter(ec => !publicationKinds.includes(ec.kind));
+      const publicationConfigs = allConfigs.filter(ec => publicationKinds.includes(ec.kind));
+      const otherConfigs = allConfigs.filter(ec => !publicationKinds.includes(ec.kind));
       
       let allFetchedEvents: NDKEvent[] = [];
       
