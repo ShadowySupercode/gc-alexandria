@@ -55,7 +55,7 @@ export function createNetworkNode(
         content: event.content || "",
         author: event.pubkey ? getDisplayNameSync(event.pubkey) : "",
         kind: event.kind !== undefined ? event.kind : CONTENT_EVENT_KIND, // Default to content event kind only if truly undefined
-        type: nodeType,
+        type: nodeType as "Index" | "Content" | "TagAnchor",
     };
 
     // Add NIP-19 identifiers if possible

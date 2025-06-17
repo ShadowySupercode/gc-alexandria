@@ -1107,6 +1107,16 @@
       {disabledTags}
       onTagToggle={handleTagToggle}
       {autoDisabledTags}
+      bind:showTagAnchors
+      bind:selectedTagType
+      bind:tagExpansionDepth
+      bind:requirePublications
+      onTagSettingsChange={() => {
+        // Trigger graph update when tag settings change
+        if (svg && events?.length) {
+          updateGraph();
+        }
+      }}
     />
 
     <!-- Settings Panel (shown when settings button is clicked) -->
@@ -1117,10 +1127,6 @@
       {onclear}
       {onFetchMissing}
       bind:starVisualization
-      bind:showTagAnchors
-      bind:selectedTagType
-      bind:tagExpansionDepth
-      bind:requirePublications
       {eventCounts}
     />
 

@@ -1,0 +1,92 @@
+#+TITLE: Navigation Visualization Clean Implementation Plan
+#+DATE: [2025-01-17]
+#+AUTHOR: gc-alexandria team
+
+* Overview
+
+Clean implementation plan for the event network visualization, focusing on performance and stability.
+
+* Core Principles
+
+1. **Load once, render many**: Fetch all data upfront, toggle visibility without re-fetching
+2. **Simple state management**: Avoid reactive Sets and circular dependencies
+3. **Batched operations**: Minimize network requests by combining queries
+4. **Clean separation**: UI controls in Legend, visualization logic in index.svelte
+
+* Implementation Phases
+
+** Phase 1: Tag Anchor Controls Migration
+- Move tag type selection from Settings to Legend
+- Move expansion depth control from Settings to Legend  
+- Move requirePublications checkbox from Settings to Legend
+- Use native HTML button instead of flowbite Toggle component
+- Clean up Settings panel
+
+** Phase 2: Person Visualizer
+- Add collapsible "Person Visualizer" section in Legend
+- Display all event authors (pubkeys) as list items
+- Fetch display names from kind 0 events
+- Render person nodes as diamond shapes in graph
+- Default all person nodes to disabled state
+- Click to toggle individual person visibility
+
+** Phase 3: State Management Fixes
+- Replace reactive Set with object/map for disabled states
+- Use $derived for computed values to avoid circular updates
+- Defer state updates with setTimeout where needed
+- Simplify $effect dependencies
+- Ensure clean data flow without loops
+
+** Phase 4: Fetch Optimization
+- Batch multiple event kinds into single queries
+- Combine 30041 and 30818 content fetches
+- Pre-fetch all person profiles on initial load
+- Cache profile data to avoid re-fetching
+
+** Phase 5: Load-Once Architecture
+- Fetch ALL tag anchors and person nodes upfront
+- Store complete dataset in memory
+- Only render nodes that are enabled
+- Toggle operations just change visibility, no re-fetch
+- Prevents UI freezing on toggle operations
+
+* Technical Details
+
+** State Structure
+#+BEGIN_SRC typescript
+// Avoid Sets for reactive state
+let disabledTagsMap = $state<Record<string, boolean>>({});
+let disabledPersonsMap = $state<Record<string, boolean>>({});
+
+// Derived for compatibility
+const disabledTags = $derived(new Set(Object.keys(disabledTagsMap).filter(k => disabledTagsMap[k])));
+const disabledPersons = $derived(new Set(Object.keys(disabledPersonsMap).filter(k => disabledPersonsMap[k])));
+#+END_SRC
+
+** Person Node Structure
+#+BEGIN_SRC typescript
+interface PersonAnchor extends NetworkNode {
+  type: "PersonAnchor";
+  isPersonAnchor: true;
+  pubkey: string;
+  displayName?: string;
+}
+#+END_SRC
+
+** Batch Fetch Example
+#+BEGIN_SRC typescript
+// Instead of separate queries
+const contentEvents = await $ndkInstance.fetchEvents({
+  kinds: [30041, 30818], // Batch multiple kinds
+  "#d": Array.from(dTags),
+  limit: combinedLimit
+});
+#+END_SRC
+
+* Benefits
+
+1. **Performance**: No re-fetching on toggle operations
+2. **Stability**: Avoids infinite loops and reactive state issues  
+3. **UX**: Smooth, instant toggle without freezing
+4. **Maintainability**: Clear separation of concerns
+5. **Scalability**: Handles large numbers of nodes efficiently

@@ -15,6 +15,11 @@
     disabledTags = new Set<string>(),
     onTagToggle = (tagId: string) => {},
     autoDisabledTags = false,
+    showTagAnchors = $bindable(false),
+    selectedTagType = $bindable("t"),
+    tagExpansionDepth = $bindable(0),
+    requirePublications = $bindable(true),
+    onTagSettingsChange = () => {},
   } = $props<{
     collapsedOnInteraction: boolean;
     className: string;
@@ -25,11 +30,17 @@
     disabledTags?: Set<string>;
     onTagToggle?: (tagId: string) => void;
     autoDisabledTags?: boolean;
+    showTagAnchors?: boolean;
+    selectedTagType?: string;
+    tagExpansionDepth?: number;
+    requirePublications?: boolean;
+    onTagSettingsChange?: () => void;
   }>();
 
   let expanded = $state(true);
   let nodeTypesExpanded = $state(true);
   let tagAnchorsExpanded = $state(true);
+  let tagControlsExpanded = $state(true);
 
   $effect(() => {
     if (collapsedOnInteraction) {
@@ -130,6 +141,102 @@
               </span>
             </li>
           </ul>
+        {/if}
+      </div>
+
+      <!-- Tag Anchor Controls Section -->
+      <div class="legend-section">
+        <div class="legend-section-header" onclick={() => tagControlsExpanded = !tagControlsExpanded}>
+          <h4 class="legend-section-title">Tag Anchor Controls</h4>
+          <Button
+            color="none"
+            outline
+            size="xs"
+            class="rounded-full p-1"
+          >
+            {#if tagControlsExpanded}
+              <CaretUpOutline class="w-3 h-3" />
+            {:else}
+              <CaretDownOutline class="w-3 h-3" />
+            {/if}
+          </Button>
+        </div>
+        
+        {#if tagControlsExpanded}
+          <div class="space-y-3">
+            <!-- Show Tag Anchors Toggle -->
+            <div class="flex items-center space-x-2">
+              <button
+                onclick={() => {
+                  showTagAnchors = !showTagAnchors;
+                  onTagSettingsChange();
+                }}
+                class="toggle-button {showTagAnchors ? 'active' : ''}"
+              >
+                {showTagAnchors ? 'ON' : 'OFF'}
+              </button>
+              <span class="text-sm">Show Tag Anchors</span>
+            </div>
+            
+            {#if showTagAnchors}
+              <!-- Tag Type Selection -->
+              <div>
+                <label class="text-xs text-gray-600 dark:text-gray-400">Tag Type:</label>
+                <select
+                  bind:value={selectedTagType}
+                  onchange={onTagSettingsChange}
+                  class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white mt-1"
+                >
+                  <option value="t">Hashtags</option>
+                  <option value="author">Authors</option>
+                  <option value="p">People (from follow lists)</option>
+                  <option value="e">Event References</option>
+                  <option value="title">Titles</option>
+                  <option value="summary">Summaries</option>
+                </select>
+                
+                {#if selectedTagType === "p" && (!eventCounts[3] || eventCounts[3] === 0)}
+                  <p class="text-xs text-orange-500 mt-1">
+                    ⚠️ No follow lists loaded. Enable kind 3 events to see people tag anchors.
+                  </p>
+                {/if}
+                
+                {#if selectedTagType === "p" && eventCounts[3] > 0}
+                  <div class="flex items-center space-x-2 mt-2">
+                    <button
+                      onclick={() => {
+                        requirePublications = !requirePublications;
+                        onTagSettingsChange();
+                      }}
+                      class="toggle-button small {requirePublications ? 'active' : ''}"
+                    >
+                      {requirePublications ? 'ON' : 'OFF'}
+                    </button>
+                    <span class="text-xs text-gray-600 dark:text-gray-400">Only show people with publications</span>
+                  </div>
+                {/if}
+              </div>
+              
+              <!-- Expansion Depth -->
+              <div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-gray-600 dark:text-gray-400">Expansion Depth:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    bind:value={tagExpansionDepth}
+                    onchange={onTagSettingsChange}
+                    class="w-16 text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+                  />
+                  <span class="text-xs text-gray-500 dark:text-gray-400">(0-10)</span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Fetch publications sharing tags
+                </p>
+              </div>
+            {/if}
+          </div>
         {/if}
       </div>
 
@@ -330,5 +437,58 @@
   
   :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
+  }
+  
+  .toggle-button {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 3rem;
+  }
+  
+  .toggle-button.small {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    min-width: 2.5rem;
+  }
+  
+  .toggle-button:hover {
+    background-color: #e5e7eb;
+  }
+  
+  .toggle-button.active {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+  
+  .toggle-button.active:hover {
+    background-color: #2563eb;
+  }
+  
+  :global(.dark) .toggle-button {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #9ca3af;
+  }
+  
+  :global(.dark) .toggle-button:hover {
+    background-color: #4b5563;
+  }
+  
+  :global(.dark) .toggle-button.active {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+  }
+  
+  :global(.dark) .toggle-button.active:hover {
+    background-color: #2563eb;
   }
 </style>

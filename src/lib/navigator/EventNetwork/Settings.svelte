@@ -6,7 +6,7 @@
   import EventTypeConfig from "$lib/components/EventTypeConfig.svelte";
   import { displayLimits } from "$lib/stores/displayLimits";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
-  import { Toggle, Select } from "flowbite-svelte";
+  import { Toggle } from "flowbite-svelte";
 
   let {
     count = 0,
@@ -14,10 +14,6 @@
     onupdate,
     onclear = () => {},
     starVisualization = $bindable(true),
-    showTagAnchors = $bindable(false),
-    selectedTagType = $bindable("t"),
-    tagExpansionDepth = $bindable(0),
-    requirePublications = $bindable(true),
     onFetchMissing = () => {},
     eventCounts = {},
   } = $props<{
@@ -27,10 +23,6 @@
     onclear?: () => void;
 
     starVisualization?: boolean;
-    showTagAnchors?: boolean;
-    selectedTagType?: string;
-    tagExpansionDepth?: number;
-    requirePublications?: boolean;
     onFetchMissing?: (ids: string[]) => void;
     eventCounts?: { [kind: number]: number };
   }>();
@@ -67,16 +59,6 @@
     onupdate();
   }
 
-  function handleDepthInput(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const value = parseInt(input.value);
-    // Ensure value is between 0 and 10
-    if (!isNaN(value) && value >= 0 && value <= 10) {
-      tagExpansionDepth = value;
-    } else if (input.value === "") {
-      tagExpansionDepth = 0;
-    }
-  }
 
   function handleDisplayLimitInput(event: Event, limitType: 'max30040' | 'max30041') {
     const input = event.target as HTMLInputElement;
@@ -326,96 +308,6 @@
           </p>
         </div>
 
-      <div class="space-y-2">
-        <label
-          class="leather bg-transparent legend-text flex items-center space-x-2"
-        >
-          <Toggle 
-            checked={showTagAnchors} 
-            onchange={(e: Event) => {
-              const target = e.target as HTMLInputElement;
-              showTagAnchors = target.checked;
-            }}
-            class="text-xs"
-          />
-          <span>Show Tag Anchors</span>
-        </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          Display tag anchors that attract nodes with matching tags
-        </p>
-
-        {#if showTagAnchors}
-          <div class="mt-2 space-y-3">
-            <div>
-              <label
-                for="tag-type-select"
-                class="text-xs text-gray-600 dark:text-gray-400"
-                >Tag Type:</label
-              >
-              <Select
-                id="tag-type-select"
-                bind:value={selectedTagType}
-                size="sm"
-                class="text-xs mt-1"
-              >
-                <option value="t">Hashtags</option>
-                <option value="author">Authors</option>
-                <option value="p">People (from follow lists)</option>
-                <option value="e">Event References</option>
-                <!-- <option value="a">Article References</option> -->
-                <option value="title">Titles</option>
-                <option value="summary">Summaries</option>
-              </Select>
-              
-              {#if selectedTagType === "p" && (!eventCounts[3] || eventCounts[3] === 0)}
-                <p class="text-xs text-orange-500 mt-1">
-                  ⚠️ No follow lists loaded. Enable kind 3 events to see people tag anchors.
-                </p>
-              {/if}
-              
-              {#if selectedTagType === "p" && eventCounts[3] > 0}
-                <label class="flex items-center space-x-2 mt-2">
-                  <Toggle 
-                    checked={requirePublications} 
-                    onchange={(e: Event) => {
-                      const target = e.target as HTMLInputElement;
-                      requirePublications = target.checked;
-                    }}
-                    size="sm"
-                    class="text-xs" 
-                  />
-                  <span class="text-xs text-gray-600 dark:text-gray-400">Only show people with publications</span>
-                </label>
-              {/if}
-            </div>
-
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <label
-                  for="tag-depth-input"
-                  class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
-                  >Expansion Depth:</label
-                >
-                <input
-                  type="number"
-                  id="tag-depth-input"
-                  min="0"
-                  max="10"
-                  value={tagExpansionDepth}
-                  oninput={handleDepthInput}
-                  class="w-16 text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
-                />
-                <span class="text-xs text-gray-500 dark:text-gray-400">
-                  (0-10)
-                </span>
-              </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Fetch publications sharing tags
-              </p>
-            </div>
-          </div>
-        {/if}
-        </div>
         {/if}
       </div>
     </div>
