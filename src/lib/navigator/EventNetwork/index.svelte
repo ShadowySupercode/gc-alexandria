@@ -75,7 +75,8 @@
     onclear = () => {},
     onTagExpansionChange,
     onFetchMissing = () => {},
-    profileStats = { totalFetched: 0, displayLimit: 50 }
+    profileStats = { totalFetched: 0, displayLimit: 50 },
+    allEventCounts = {}
   } = $props<{
     events?: NDKEvent[];
     followListEvents?: NDKEvent[];
@@ -85,6 +86,7 @@
     onTagExpansionChange?: (depth: number, tags: string[]) => void;
     onFetchMissing?: (ids: string[]) => void;
     profileStats?: { totalFetched: number; displayLimit: number };
+    allEventCounts?: { [kind: number]: number };
   }>();
 
   // Error state
@@ -1216,7 +1218,7 @@
       {onclear}
       {onFetchMissing}
       bind:starVisualization
-      {eventCounts}
+      eventCounts={allEventCounts}
       {profileStats}
     />
 

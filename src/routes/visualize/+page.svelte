@@ -63,6 +63,17 @@
     totalFetched: 0,
     displayLimit: 50
   });
+  
+  // Event counts from all events (not just filtered)
+  let allEventCounts = $derived.by(() => {
+    const counts: { [kind: number]: number } = {};
+    allEvents.forEach((event: NDKEvent) => {
+      if (event.kind !== undefined) {
+        counts[event.kind] = (counts[event.kind] || 0) + 1;
+      }
+    });
+    return counts;
+  });
 
   /**
    * Fetches follow lists (kind 3) with depth expansion
@@ -1038,6 +1049,7 @@
       onTagExpansionChange={handleTagExpansion}
       onFetchMissing={fetchMissingEvents}
       {profileStats}
+      {allEventCounts}
     />
   {/if}
 </div>
