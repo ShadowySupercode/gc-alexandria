@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { Button, Label } from "flowbite-svelte";
+  import { Button } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { fly } from "svelte/transition";
   import { quintOut } from "svelte/easing";
   import EventTypeConfig from "$lib/components/EventTypeConfig.svelte";
-  import { displayLimits } from "$lib/stores/displayLimits";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { Toggle } from "flowbite-svelte";
 
@@ -31,7 +30,6 @@
 
   let expanded = $state(false);
   let eventTypesExpanded = $state(true);
-  let displayLimitsExpanded = $state(true);
   let graphTraversalExpanded = $state(true);
   let visualSettingsExpanded = $state(true);
 
@@ -41,10 +39,6 @@
   
   function toggleEventTypes() {
     eventTypesExpanded = !eventTypesExpanded;
-  }
-  
-  function toggleDisplayLimits() {
-    displayLimitsExpanded = !displayLimitsExpanded;
   }
   
   function toggleGraphTraversal() {
@@ -59,38 +53,6 @@
    */
   function handleLimitUpdate() {
     onupdate();
-  }
-
-
-  function handleDisplayLimitInput(event: Event, limitType: 'max30040' | 'max30041') {
-    const input = event.target as HTMLInputElement;
-    const value = input.value.trim();
-    
-    console.log('[Settings] Display limit input changed:', limitType, 'value:', value);
-    
-    if (value === '' || value === '-1') {
-      displayLimits.update(limits => ({
-        ...limits,
-        [limitType]: -1
-      }));
-      console.log('[Settings] Set', limitType, 'to unlimited (-1)');
-    } else {
-      const numValue = parseInt(value);
-      if (!isNaN(numValue) && numValue >= 1) {
-        displayLimits.update(limits => ({
-          ...limits,
-          [limitType]: numValue
-        }));
-        console.log('[Settings] Set', limitType, 'to', numValue);
-      }
-    }
-  }
-
-  function toggleFetchIfNotFound() {
-    displayLimits.update(limits => ({
-      ...limits,
-      fetchIfNotFound: !limits.fetchIfNotFound
-    }));
   }
 </script>
 
@@ -140,76 +102,6 @@
         {/if}
       </div>
 
-      <!-- Display Limits Section -->
-      <div class="settings-section">
-        <div class="settings-section-header" onclick={toggleDisplayLimits}>
-          <h4 class="settings-section-title">Display Limits</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
-            {#if displayLimitsExpanded}
-              <CaretUpOutline class="w-3 h-3" />
-            {:else}
-              <CaretDownOutline class="w-3 h-3" />
-            {/if}
-          </Button>
-        </div>
-        {#if displayLimitsExpanded}
-        
-        <div class="space-y-3">
-          <div>
-            <Label for="max-pub-indices" class="text-xs text-gray-600 dark:text-gray-400">
-              Max Publication Indices (30040)
-            </Label>
-            <input
-              type="number"
-              id="max-pub-indices"
-              min="-1"
-              value={$visualizationConfig.maxPublicationIndices}
-              oninput={(e) => {
-                const value = parseInt(e.currentTarget.value) || -1;
-                visualizationConfig.setMaxPublicationIndices(value);
-              }}
-              placeholder="-1 for unlimited"
-              class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label for="max-per-index" class="text-xs text-gray-600 dark:text-gray-400">
-              Max Events per Index
-            </Label>
-            <input
-              type="number"
-              id="max-per-index"
-              min="-1"
-              value={$visualizationConfig.maxEventsPerIndex}
-              oninput={(e) => {
-                const value = parseInt(e.currentTarget.value) || -1;
-                visualizationConfig.setMaxEventsPerIndex(value);
-              }}
-              placeholder="-1 for unlimited"
-              class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
-            />
-          </div>
-
-          <label class="flex items-center space-x-2">
-            <Toggle 
-              checked={$displayLimits.fetchIfNotFound} 
-              onclick={toggleFetchIfNotFound}
-              class="text-xs" 
-            />
-            <span class="text-xs text-gray-600 dark:text-gray-400">Fetch if not found <span class="text-orange-500 font-normal">(not tested)</span></span>
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
-            Automatically fetch missing referenced events
-          </p>
-        </div>
-        {/if}
-      </div>
 
       <!-- Graph Traversal Section -->
       <div class="settings-section">
