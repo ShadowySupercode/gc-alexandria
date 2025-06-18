@@ -27,8 +27,8 @@ export interface VisualizationConfig {
 
 // Default configurations for common event kinds
 const DEFAULT_EVENT_CONFIGS: EventKindConfig[] = [
-  { kind: 0, limit: 50 }, // Metadata events (profiles) - controls how many profiles to fetch
-  { kind: 3, limit: 1, depth: 0 }, // Follow lists - limit 1 = just user's, higher = user's + from follows
+  { kind: 0, limit: 50 }, // Metadata events (profiles) - controls how many profiles to display
+  { kind: 3, limit: 0, depth: 0 }, // Follow lists - limit 0 = don't fetch, >0 = fetch follow lists
   { kind: 30040, limit: 20, nestedLevels: 1 },
   { kind: 30041, limit: 20 },
   { kind: 30818, limit: 20 },

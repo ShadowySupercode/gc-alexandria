@@ -83,7 +83,13 @@
     const allFollowEvents: NDKEvent[] = [];
     const processedPubkeys = new Set<string>();
     
-    debug(`Fetching kind 3 follow lists with depth ${depth}, addFollowLists: ${config.addFollowLists}`);
+    debug(`Fetching kind 3 follow lists with limit ${config.limit}, depth ${depth}`);
+    
+    // If limit is 0, don't fetch any follow lists
+    if (config.limit === 0) {
+      debug("Follow list limit is 0, skipping fetch");
+      return [];
+    }
     
     // Get the current user's pubkey
     const currentUserPubkey = get(activePubkey);
