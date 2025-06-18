@@ -157,6 +157,36 @@
                 {/if}
               </span>
             </li>
+            
+            <!-- Edge colors for person connections -->
+            {#if showPersonNodes && personAnchors.length > 0}
+              <li class="legend-item">
+                <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
+                  <path
+                    d="M4 12h16"
+                    class="person-link-signed"
+                    stroke-width="2"
+                    fill="none"
+                  />
+                </svg>
+                <span class="legend-text text-xs">
+                  Authored by person
+                </span>
+              </li>
+              <li class="legend-item">
+                <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
+                  <path
+                    d="M4 12h16"
+                    class="person-link-referenced"
+                    stroke-width="2"
+                    fill="none"
+                  />
+                </svg>
+                <span class="legend-text text-xs">
+                  References person
+                </span>
+              </li>
+            {/if}
           </ul>
         {/if}
       </div>
