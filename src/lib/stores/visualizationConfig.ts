@@ -13,7 +13,7 @@ export interface VisualizationConfig {
 
   // Graph traversal
   searchThroughFetched: boolean;
-  
+
   // Append mode - add new events to existing graph instead of replacing
   appendMode?: boolean;
 
@@ -27,7 +27,7 @@ export interface VisualizationConfig {
 
 // Default configurations for common event kinds
 const DEFAULT_EVENT_CONFIGS: EventKindConfig[] = [
-  { kind: 0, limit: 50 }, // Metadata events (profiles) - controls how many profiles to display
+  { kind: 0, limit: 5 }, // Metadata events (profiles) - controls how many profiles to display
   { kind: 3, limit: 0, depth: 0 }, // Follow lists - limit 0 = don't fetch, >0 = fetch follow lists
   { kind: 30040, limit: 20, nestedLevels: 1 },
   { kind: 30041, limit: 20 },
@@ -41,8 +41,8 @@ function createVisualizationConfig() {
     searchThroughFetched: true,
     appendMode: false,
     // Legacy properties
-    allowedKinds: DEFAULT_EVENT_CONFIGS.map(ec => ec.kind),
-    disabledKinds: [30041, 30818],
+    allowedKinds: DEFAULT_EVENT_CONFIGS.map((ec) => ec.kind),
+    disabledKinds: [30041, 30818], // Kind 0 not disabled so it shows as green when profiles are fetched
     allowFreeEvents: false,
     maxPublicationIndices: -1,
     maxEventsPerIndex: -1,
@@ -147,7 +147,6 @@ function createVisualizationConfig() {
         ),
       })),
 
-
     // Get config for a specific kind
     getEventConfig: (kind: number) => {
       let config: EventKindConfig | undefined;
@@ -162,7 +161,7 @@ function createVisualizationConfig() {
         ...config,
         searchThroughFetched: !config.searchThroughFetched,
       })),
-      
+
     toggleAppendMode: () =>
       update((config) => ({
         ...config,

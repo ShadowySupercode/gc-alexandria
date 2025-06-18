@@ -21,7 +21,7 @@
   import { activePubkey } from "$lib/ndk";
   
   // Configuration
-  const DEBUG = false; // Set to true to enable debug logging
+  const DEBUG = true; // Set to true to enable debug logging
   const INDEX_EVENT_KIND = 30040;
   const CONTENT_EVENT_KINDS = [30041, 30818];
   
@@ -72,6 +72,7 @@
         counts[event.kind] = (counts[event.kind] || 0) + 1;
       }
     });
+    debug("All event counts:", counts);
     return counts;
   });
 
@@ -562,8 +563,9 @@
         allEvents = [...allEvents, ...profileEvents];
         
         // Update profile stats for display
+        // Use the total number of pubkeys, not just newly fetched profiles
         profileStats = {
-          totalFetched: profileEvents.length,
+          totalFetched: allPubkeys.size,
           displayLimit: kind0Config.limit
         };
       }
@@ -854,7 +856,7 @@
           
           // Update profile stats
           profileStats = {
-            totalFetched: profileStats.totalFetched + newProfileEvents.length,
+            totalFetched: profileStats.totalFetched + newPubkeys.size,
             displayLimit: profileStats.displayLimit
           };
         }
