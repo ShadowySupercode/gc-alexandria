@@ -247,8 +247,8 @@ export function createStarDragHandler(
   function dragended(event: any, d: NetworkNode) {
     if (!event.active) simulation.alphaTarget(0);
     
-    // Tag anchors and star centers stay fixed after dragging
-    if (d.isTagAnchor || d.kind === 30040) {
+    // Tag anchors, person anchors, and star centers stay fixed after dragging
+    if (d.isTagAnchor || d.isPersonAnchor || d.kind === 30040) {
       d.fx = event.x;
       d.fy = event.y;
     } else {

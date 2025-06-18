@@ -102,8 +102,8 @@ export function applyGlobalLogGravity(
     centerY: number,
     alpha: number,
 ) {
-    // Tag anchors should not be affected by gravity
-    if (node.isTagAnchor) return;
+    // Tag anchors and person anchors should not be affected by gravity
+    if (node.isTagAnchor || node.isPersonAnchor) return;
     
     const dx = (node.x ?? 0) - centerX;
     const dy = (node.y ?? 0) - centerY;
@@ -130,14 +130,14 @@ export function applyConnectedGravity(
     links: NetworkLink[],
     alpha: number,
 ) {
-    // Tag anchors should not be affected by connected gravity
-    if (node.isTagAnchor) return;
+    // Tag anchors and person anchors should not be affected by connected gravity
+    if (node.isTagAnchor || node.isPersonAnchor) return;
     
-    // Find all nodes connected to this node (excluding tag anchors)
+    // Find all nodes connected to this node (excluding tag anchors and person anchors)
     const connectedNodes = links
         .filter(link => link.source.id === node.id || link.target.id === node.id)
         .map(link => link.source.id === node.id ? link.target : link.source)
-        .filter(n => !n.isTagAnchor);
+        .filter(n => !n.isTagAnchor && !n.isPersonAnchor);
 
     if (connectedNodes.length === 0) return;
 
@@ -175,8 +175,13 @@ export function setupDragHandlers(
     return d3
         .drag()
         .on("start", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
-            // Tag anchors should never be draggable
-            if (d.isTagAnchor) return;
+            // Tag anchors and person anchors retain their anchor behavior
+            if (d.isTagAnchor || d.isPersonAnchor) {
+                // Still allow dragging but maintain anchor status
+                d.fx = d.x;
+                d.fy = d.y;
+                return;
+            }
             
             // Warm up simulation if it's cooled down
             if (!event.active) {
@@ -187,24 +192,29 @@ export function setupDragHandlers(
             d.fy = d.y;
         })
         .on("drag", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
-            // Tag anchors should never be draggable
-            if (d.isTagAnchor) return;
+            // Update position for all nodes including anchors
             
             // Update fixed position to mouse position
             d.fx = event.x;
             d.fy = event.y;
         })
         .on("end", (event: D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) => {
-            // Tag anchors should never be draggable
-            if (d.isTagAnchor) return;
             
             // Cool down simulation when drag ends
             if (!event.active) {
                 simulation.alphaTarget(0);
             }
-            // Release fixed position
-            d.fx = null;
-            d.fy = null;
+            
+            // Person anchors should remain fixed after dragging
+            if (d.isPersonAnchor) {
+                // Keep the new position fixed
+                d.fx = d.x;
+                d.fy = d.y;
+            } else {
+                // Release fixed position for other nodes
+                d.fx = null;
+                d.fy = null;
+            }
         });
 }
 

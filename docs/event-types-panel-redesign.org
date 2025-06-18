@@ -90,3 +90,16 @@ const contentEvents = await $ndkInstance.fetchEvents({
 3. **UX**: Smooth, instant toggle without freezing
 4. **Maintainability**: Clear separation of concerns
 5. **Scalability**: Handles large numbers of nodes efficiently
+
+* Additional Improvements
+
+** Profile Fetching Optimization
+- When follow list limit is 0, only fetch profiles from event authors
+- Excludes follow list pubkeys from profile fetching when not needed
+- Reduces unnecessary network requests
+
+** Person Node Visual Distinction
+- Green diamonds (#10B981) for authors of displayed events
+- Kind 3 color for people from follow lists
+- Visual clarity on social graph relationships
+- Legend updates to match graph coloring
