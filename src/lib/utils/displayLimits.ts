@@ -31,8 +31,15 @@ export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits,
     const eventConfig = config?.eventConfigs.find(ec => ec.kind === kind);
     const limit = eventConfig?.limit;
 
-    // If there's a limit configured for this kind, check it
-    if (limit !== undefined) {
+    // Special handling for content kinds (30041, 30818) with showAll option
+    if ((kind === 30041 || kind === 30818) && eventConfig?.showAll) {
+      // Show all content events when showAll is true
+      result.push(event);
+      // Still update the count for UI display
+      const currentCount = kindCounts.get(kind) || 0;
+      kindCounts.set(kind, currentCount + 1);
+    } else if (limit !== undefined) {
+      // Normal limit checking
       const currentCount = kindCounts.get(kind) || 0;
       if (currentCount < limit) {
         result.push(event);

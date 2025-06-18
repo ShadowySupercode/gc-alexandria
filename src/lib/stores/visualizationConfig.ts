@@ -5,6 +5,7 @@ export interface EventKindConfig {
   limit: number;
   nestedLevels?: number; // Only for kind 30040
   depth?: number; // Only for kind 3 (follow lists)
+  showAll?: boolean; // Only for content kinds (30041, 30818) - show all loaded content instead of limit
 }
 
 export interface VisualizationConfig {
@@ -144,6 +145,15 @@ function createVisualizationConfig() {
         ...config,
         eventConfigs: config.eventConfigs.map((ec) =>
           ec.kind === 3 ? { ...ec, depth: depth } : ec,
+        ),
+      })),
+
+    // Toggle showAll for content kinds (30041, 30818)
+    toggleShowAllContent: (kind: number) =>
+      update((config) => ({
+        ...config,
+        eventConfigs: config.eventConfigs.map((ec) =>
+          ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec,
         ),
       })),
 

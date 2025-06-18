@@ -149,10 +149,24 @@
             value={config.limit}
             min="1"
             max="1000"
-            class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            class="w-16 px-2 py-1 text-xs border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white {(config.kind === 30041 || config.kind === 30818) && config.showAll ? 'opacity-50' : ''}"
             oninput={(e) => handleLimitChange(config.kind, e.currentTarget.value)}
             title="Max to display"
+            disabled={(config.kind === 30041 || config.kind === 30818) && config.showAll}
           />
+          
+          <!-- Show All checkbox for content kinds (30041, 30818) -->
+          {#if config.kind === 30041 || config.kind === 30818}
+            <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+              <input
+                type="checkbox"
+                checked={config.showAll || false}
+                onchange={() => visualizationConfig.toggleShowAllContent(config.kind)}
+                class="w-3 h-3"
+              />
+              All
+            </label>
+          {/if}
         {/if}
         
         <!-- Nested levels for 30040 -->
