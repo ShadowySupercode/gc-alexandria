@@ -42,7 +42,7 @@ function createVisualizationConfig() {
     appendMode: false,
     // Legacy properties
     allowedKinds: DEFAULT_EVENT_CONFIGS.map((ec) => ec.kind),
-    disabledKinds: [30041, 30818], // Kind 0 not disabled so it shows as green when profiles are fetched
+    disabledKinds: [30041, 30818, 3, 0], // Kind 0 not disabled so it shows as green when profiles are fetched
     allowFreeEvents: false,
     maxPublicationIndices: -1,
     maxEventsPerIndex: -1,

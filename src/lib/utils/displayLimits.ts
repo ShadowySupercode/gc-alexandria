@@ -11,8 +11,7 @@ import type { VisualizationConfig } from '$lib/stores/visualizationConfig';
  */
 export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits, config?: VisualizationConfig): NDKEvent[] {
   const result: NDKEvent[] = [];
-  let count30040 = 0;
-  let count30041 = 0;
+  const kindCounts = new Map<number, number>();
 
   for (const event of events) {
     // First check if the event kind is allowed and not disabled
@@ -25,33 +24,23 @@ export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits,
       }
     }
 
-    // Then apply the count limits
-    if (event.kind === 30040) {
-      if (limits.max30040 === -1 || count30040 < limits.max30040) {
+    const kind = event.kind;
+    if (kind === undefined) continue;
+
+    // Get the limit for this event kind from the config
+    const eventConfig = config?.eventConfigs.find(ec => ec.kind === kind);
+    const limit = eventConfig?.limit;
+
+    // If there's a limit configured for this kind, check it
+    if (limit !== undefined) {
+      const currentCount = kindCounts.get(kind) || 0;
+      if (currentCount < limit) {
         result.push(event);
-        count30040++;
-      }
-    } else if (event.kind === 30041) {
-      if (limits.max30041 === -1 || count30041 < limits.max30041) {
-        result.push(event);
-        count30041++;
+        kindCounts.set(kind, currentCount + 1);
       }
     } else {
-      // Other allowed event kinds pass through
+      // No limit configured, add the event
       result.push(event);
-    }
-
-    // Early exit optimization if both limits are reached
-    if (limits.max30040 !== -1 && count30040 >= limits.max30040 &&
-        limits.max30041 !== -1 && count30041 >= limits.max30041) {
-      // Add remaining non-limited events
-      const remaining = events.slice(events.indexOf(event) + 1);
-      for (const e of remaining) {
-        if (e.kind !== 30040 && e.kind !== 30041) {
-          result.push(e);
-        }
-      }
-      break;
     }
   }
 

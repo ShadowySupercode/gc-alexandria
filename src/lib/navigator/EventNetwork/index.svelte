@@ -463,6 +463,12 @@
           node.vx = savedPos.vx || 0;
           node.vy = savedPos.vy || 0;
           restoredCount++;
+        } else if (!node.x && !node.y && !node.isTagAnchor && !node.isPersonAnchor) {
+          // Give disconnected nodes (like kind 0) random initial positions
+          node.x = width / 2 + (Math.random() - 0.5) * width * 0.5;
+          node.y = height / 2 + (Math.random() - 0.5) * height * 0.5;
+          node.vx = 0;
+          node.vy = 0;
         }
       });
 
@@ -496,6 +502,20 @@
       } else {
         // Use regular simulation
         simulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
+        
+        // Add center force for disconnected nodes (like kind 0)
+        simulation.force("center", d3.forceCenter(width / 2, height / 2).strength(0.05));
+        
+        // Add radial force to keep disconnected nodes in view
+        simulation.force("radial", d3.forceRadial(Math.min(width, height) / 3, width / 2, height / 2)
+          .strength((d: NetworkNode) => {
+            // Apply radial force only to nodes without links (disconnected nodes)
+            const hasLinks = links.some(l => 
+              (l.source as NetworkNode).id === d.id || 
+              (l.target as NetworkNode).id === d.id
+            );
+            return hasLinks ? 0 : 0.1;
+          }));
       }
       
       // Use gentler alpha for updates with restored positions
