@@ -205,16 +205,10 @@ export function setupDragHandlers(
                 simulation.alphaTarget(0);
             }
             
-            // Person anchors should remain fixed after dragging
-            if (d.isPersonAnchor) {
-                // Keep the new position fixed
-                d.fx = d.x;
-                d.fy = d.y;
-            } else {
-                // Release fixed position for other nodes
-                d.fx = null;
-                d.fy = null;
-            }
+            // Keep all nodes fixed after dragging
+            // This allows users to manually position any node type
+            d.fx = d.x;
+            d.fy = d.y;
         });
 }
 

@@ -247,15 +247,10 @@ export function createStarDragHandler(
   function dragended(event: any, d: NetworkNode) {
     if (!event.active) simulation.alphaTarget(0);
     
-    // Tag anchors, person anchors, and star centers stay fixed after dragging
-    if (d.isTagAnchor || d.isPersonAnchor || d.kind === 30040) {
-      d.fx = event.x;
-      d.fy = event.y;
-    } else {
-      // Let content nodes float
-      d.fx = null;
-      d.fy = null;
-    }
+    // Keep all nodes fixed after dragging
+    // This allows users to manually position any node type
+    d.fx = event.x;
+    d.fy = event.y;
   }
 
   return d3.drag()
