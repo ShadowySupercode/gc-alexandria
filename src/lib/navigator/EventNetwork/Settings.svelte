@@ -30,7 +30,6 @@
 
   let expanded = $state(false);
   let eventTypesExpanded = $state(true);
-  let graphTraversalExpanded = $state(true);
   let visualSettingsExpanded = $state(true);
 
   function toggle() {
@@ -39,10 +38,6 @@
   
   function toggleEventTypes() {
     eventTypesExpanded = !eventTypesExpanded;
-  }
-  
-  function toggleGraphTraversal() {
-    graphTraversalExpanded = !graphTraversalExpanded;
   }
   
   function toggleVisualSettings() {
@@ -57,21 +52,15 @@
 </script>
 
 <div class="leather-legend sm:!right-1 sm:!left-auto">
-  <div class="flex items-center justify-between space-x-3">
+  <div class="flex items-center justify-between space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md px-2 py-1 -mx-2 -my-1" onclick={toggle}>
     <h3 class="h-leather">Settings</h3>
-    <Button
-      color="none"
-      outline
-      size="xs"
-      onclick={toggle}
-      class="rounded-full"
-    >
+    <div class="pointer-events-none">
       {#if expanded}
         <CaretUpOutline />
       {:else}
         <CaretDownOutline />
       {/if}
-    </Button>
+    </div>
   </div>
 
   {#if expanded}
@@ -84,18 +73,13 @@
       <div class="settings-section">
         <div class="settings-section-header" onclick={toggleEventTypes}>
           <h4 class="settings-section-title">Event Configuration</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
+          <div class="pointer-events-none">
             {#if eventTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
             {:else}
               <CaretDownOutline class="w-3 h-3" />
             {/if}
-          </Button>
+          </div>
         </div>
         {#if eventTypesExpanded}
           <EventTypeConfig onReload={onupdate} {eventCounts} {profileStats} />
@@ -103,82 +87,18 @@
       </div>
 
 
-      <!-- Graph Traversal Section -->
-      <div class="settings-section">
-        <div class="settings-section-header" onclick={toggleGraphTraversal}>
-          <h4 class="settings-section-title">Graph Traversal <span class="text-orange-500 text-xs font-normal">(not tested)</span></h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
-            {#if graphTraversalExpanded}
-              <CaretUpOutline class="w-3 h-3" />
-            {:else}
-              <CaretDownOutline class="w-3 h-3" />
-            {/if}
-          </Button>
-        </div>
-        {#if graphTraversalExpanded}
-        
-        <label class="flex items-center space-x-2">
-          <Toggle 
-            checked={$visualizationConfig.searchThroughFetched} 
-            onclick={() => visualizationConfig.toggleSearchThroughFetched()}
-            class="text-xs" 
-          />
-          <span class="text-xs text-gray-600 dark:text-gray-400">Search through already fetched</span>
-        </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
-          When enabled, graph expansion will only use events already loaded
-        </p>
-        
-        <label class="flex items-center space-x-2 mt-3">
-          <Toggle 
-            checked={$visualizationConfig.appendMode} 
-            onclick={() => visualizationConfig.toggleAppendMode()}
-            class="text-xs" 
-          />
-          <span class="text-xs text-gray-600 dark:text-gray-400">Append mode (accumulate events)</span>
-        </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400 ml-6">
-          When enabled, new fetches will add to existing graph instead of replacing it
-        </p>
-        
-        {#if $visualizationConfig.appendMode && count > 0}
-          <Button 
-            size="xs" 
-            color="red" 
-            onclick={onclear}
-            class="gap-1 mt-3"
-            title="Clear all accumulated events"
-          >
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-            <span>Clear Graph ({count} events)</span>
-          </Button>
-        {/if}
-        {/if}
-      </div>
 
       <!-- Visual Settings Section -->
       <div class="settings-section">
         <div class="settings-section-header" onclick={toggleVisualSettings}>
           <h4 class="settings-section-title">Visual Settings</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
+          <div class="pointer-events-none">
             {#if visualSettingsExpanded}
               <CaretUpOutline class="w-3 h-3" />
             {:else}
               <CaretDownOutline class="w-3 h-3" />
             {/if}
-          </Button>
+          </div>
         </div>
         {#if visualSettingsExpanded}
         

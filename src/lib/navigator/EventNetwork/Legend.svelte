@@ -17,7 +17,6 @@
     autoDisabledTags = false,
     showTagAnchors = $bindable(false),
     selectedTagType = $bindable("t"),
-    tagExpansionDepth = $bindable(0),
     onTagSettingsChange = () => {},
     showPersonNodes = $bindable(false),
     personAnchors = [],
@@ -40,7 +39,6 @@
     autoDisabledTags?: boolean;
     showTagAnchors?: boolean;
     selectedTagType?: string;
-    tagExpansionDepth?: number;
     onTagSettingsChange?: () => void;
     showPersonNodes?: boolean;
     personAnchors?: any[];
@@ -79,21 +77,15 @@
 </script>
 
 <div class={`leather-legend ${className}`}>
-  <div class="flex items-center justify-between space-x-3">
+  <div class="flex items-center justify-between space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md px-2 py-1 -mx-2 -my-1" onclick={toggle}>
     <h3 class="h-leather">Legend</h3>
-    <Button
-      color="none"
-      outline
-      size="xs"
-      onclick={toggle}
-      class="rounded-full"
-    >
+    <div class="pointer-events-none">
       {#if expanded}
         <CaretUpOutline />
       {:else}
         <CaretDownOutline />
       {/if}
-    </Button>
+    </div>
   </div>
 
   {#if expanded}
@@ -102,18 +94,13 @@
       <div class="legend-section">
         <div class="legend-section-header" onclick={toggleNodeTypes}>
           <h4 class="legend-section-title">Node Types</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
+          <div class="pointer-events-none">
             {#if nodeTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
             {:else}
               <CaretDownOutline class="w-3 h-3" />
             {/if}
-          </Button>
+          </div>
         </div>
         
         {#if nodeTypesExpanded}
@@ -195,18 +182,13 @@
       <div class="legend-section">
         <div class="legend-section-header" onclick={() => tagControlsExpanded = !tagControlsExpanded}>
           <h4 class="legend-section-title">Tag Anchor Controls</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
+          <div class="pointer-events-none">
             {#if tagControlsExpanded}
               <CaretUpOutline class="w-3 h-3" />
             {:else}
               <CaretDownOutline class="w-3 h-3" />
             {/if}
-          </Button>
+          </div>
         </div>
         
         {#if tagControlsExpanded}
@@ -242,25 +224,6 @@
                 </select>
                 
               </div>
-              
-              <!-- Expansion Depth -->
-              <div>
-                <div class="flex items-center gap-2">
-                  <label class="text-xs text-gray-600 dark:text-gray-400">Expansion Depth:</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    bind:value={tagExpansionDepth}
-                    onchange={onTagSettingsChange}
-                    class="w-16 text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
-                  />
-                  <span class="text-xs text-gray-500 dark:text-gray-400">(0-10)</span>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Fetch publications sharing tags
-                </p>
-              </div>
             {/if}
           </div>
         {/if}
@@ -271,18 +234,13 @@
         <div class="legend-section">
           <div class="legend-section-header" onclick={toggleTagAnchors}>
             <h4 class="legend-section-title">Active Tag Anchors: {tagAnchors[0].type}</h4>
-            <Button
-              color="none"
-              outline
-              size="xs"
-              class="rounded-full p-1"
-            >
+            <div class="pointer-events-none">
               {#if tagAnchorsExpanded}
                 <CaretUpOutline class="w-3 h-3" />
               {:else}
                 <CaretDownOutline class="w-3 h-3" />
               {/if}
-            </Button>
+            </div>
           </div>
           
           {#if tagAnchorsExpanded}
@@ -334,18 +292,13 @@
       <div class="legend-section">
         <div class="legend-section-header" onclick={() => personVisualizerExpanded = !personVisualizerExpanded}>
           <h4 class="legend-section-title">Person Visualizer</h4>
-          <Button
-            color="none"
-            outline
-            size="xs"
-            class="rounded-full p-1"
-          >
+          <div class="pointer-events-none">
             {#if personVisualizerExpanded}
               <CaretUpOutline class="w-3 h-3" />
             {:else}
               <CaretDownOutline class="w-3 h-3" />
             {/if}
-          </Button>
+          </div>
         </div>
         
         {#if personVisualizerExpanded}
