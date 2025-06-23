@@ -56,6 +56,7 @@
   let tagAnchorsExpanded = $state(true);
   let tagControlsExpanded = $state(true);
   let personVisualizerExpanded = $state(true);
+  let tagSortMode = $state<'count' | 'alphabetical'>('count');
 
   $effect(() => {
     if (collapsedOnInteraction) {
@@ -244,16 +245,65 @@
           </div>
           
           {#if tagAnchorsExpanded}
+            {@const sortedAnchors = tagSortMode === 'count' 
+              ? [...tagAnchors].sort((a, b) => b.count - a.count)
+              : [...tagAnchors].sort((a, b) => a.label.localeCompare(b.label))
+            }
             {#if autoDisabledTags}
               <div class="text-xs text-amber-600 dark:text-amber-400 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
                 <strong>Note:</strong> All {tagAnchors.length} tags were auto-disabled to prevent graph overload. Click individual tags below to enable them.
               </div>
             {/if}
+            
+            <!-- Sort options and controls -->
+            <div class="flex items-center justify-between gap-4 mb-3">
+              <div class="flex items-center gap-4">
+                <span class="text-xs text-gray-600 dark:text-gray-400">Sort by:</span>
+                <label class="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tagSort"
+                    value="count"
+                    bind:group={tagSortMode}
+                    class="w-3 h-3"
+                  />
+                  <span class="text-xs">Count</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tagSort"
+                    value="alphabetical"
+                    bind:group={tagSortMode}
+                    class="w-3 h-3"
+                  />
+                  <span class="text-xs">Alphabetical</span>
+                </label>
+              </div>
+              
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  onclick={() => {
+                    // Invert selection - toggle all tags one by one
+                    const allTagIds = tagAnchors.map(anchor => `${anchor.type}-${anchor.label}`);
+                    
+                    // Process all tags
+                    allTagIds.forEach(tagId => {
+                      onTagToggle(tagId);
+                    });
+                  }}
+                  class="w-3 h-3"
+                />
+                <span class="text-xs">Invert Selection</span>
+              </label>
+            </div>
+            
             <div
               class="tag-grid {tagAnchors.length > 20 ? 'scrollable' : ''}"
               style="grid-template-columns: repeat({TAG_LEGEND_COLUMNS}, 1fr);"
             >
-              {#each tagAnchors as anchor}
+              {#each sortedAnchors as anchor}
                 {@const tagId = `${anchor.type}-${anchor.label}`}
                 {@const isDisabled = disabledTags.has(tagId)}
                 <button

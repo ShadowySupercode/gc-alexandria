@@ -115,9 +115,8 @@ export function createTagAnchorNodes(
   const anchorNodes: NetworkNode[] = [];
 
   // Calculate positions for tag anchors randomly within radius
-  // For single publication view, show all tags. For network view, only show tags with 2+ events
-  // Exception: for "p" tags, always use minEventCount of 1 to show all people
-  const minEventCount = tagType === "p" ? 1 : (tagMap.size <= 10 ? 1 : 2);
+  // Show all tags regardless of how many events they appear in
+  const minEventCount = 1;
   let validTags = Array.from(tagMap.entries()).filter(
     ([_, eventIds]) => eventIds.size >= minEventCount,
   );
