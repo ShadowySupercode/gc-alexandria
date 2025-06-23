@@ -74,7 +74,6 @@
     onupdate, 
     onclear = () => {},
     onTagExpansionChange,
-    onFetchMissing = () => {},
     profileStats = { totalFetched: 0, displayLimit: 50 },
     allEventCounts = {}
   } = $props<{
@@ -84,7 +83,6 @@
     onupdate: () => void;
     onclear?: () => void;
     onTagExpansionChange?: (depth: number, tags: string[]) => void;
-    onFetchMissing?: (ids: string[]) => void;
     profileStats?: { totalFetched: number; displayLimit: number };
     allEventCounts?: { [kind: number]: number };
   }>();
@@ -134,7 +132,6 @@
   let showTagAnchors = $state(false);
   let selectedTagType = $state("t"); // Default to hashtags
   let tagAnchorInfo = $state<any[]>([]);
-  let tagExpansionDepth = $state(0); // Default to no expansion
   
   // Store initial state to detect if component is being recreated
   let componentId = Math.random();
@@ -171,21 +168,6 @@
   let displayedPersonCount = $state(0);
   let hasInitializedPersons = $state(false);
 
-  // Debug function - call from browser console: window.debugTagAnchors()
-  if (typeof window !== "undefined") {
-    window.debugTagAnchors = () => {
-      console.log("=== TAG ANCHOR DEBUG INFO ===");
-      console.log("Tag Anchor Info:", tagAnchorInfo);
-      console.log("Show Tag Anchors:", showTagAnchors);
-      console.log("Selected Tag Type:", selectedTagType);
-      const tagNodes = nodes.filter((n) => n.isTagAnchor);
-      console.log("Tag Anchor Nodes:", tagNodes);
-      console.log("Tag Types Found:", [
-        ...new Set(tagNodes.map((n) => n.tagType)),
-      ]);
-      return tagAnchorInfo;
-    };
-  }
 
   // Update dimensions when container changes
   $effect(() => {
@@ -1001,7 +983,6 @@
   });
 
   // Track previous values to avoid unnecessary calls
-  let previousDepth = $state(0);
   let previousTagType = $state(selectedTagType);
   let isInitialized = $state(false);
   
@@ -1020,12 +1001,10 @@
     if (!isInitialized || !onTagExpansionChange) return;
     
     // Check if we need to trigger expansion
-    const depthChanged = tagExpansionDepth !== previousDepth;
     const tagTypeChanged = selectedTagType !== previousTagType;
-    const shouldExpand = showTagAnchors && (depthChanged || tagTypeChanged);
+    const shouldExpand = showTagAnchors && tagTypeChanged;
     
     if (shouldExpand) {
-      previousDepth = tagExpansionDepth;
       previousTagType = selectedTagType;
       
       // Extract unique tags from current events
@@ -1038,14 +1017,12 @@
       });
       
       debug("Tag expansion requested", {
-        depth: tagExpansionDepth,
         tagType: selectedTagType,
         tags: Array.from(tags),
-        depthChanged,
         tagTypeChanged
       });
       
-      onTagExpansionChange(tagExpansionDepth, Array.from(tags));
+      onTagExpansionChange(0, Array.from(tags));
     }
   });
   
@@ -1221,7 +1198,6 @@
       {autoDisabledTags}
       bind:showTagAnchors
       bind:selectedTagType
-      bind:tagExpansionDepth
       onTagSettingsChange={() => {
         // Trigger graph update when tag settings change
         if (svg && events?.length) {
@@ -1250,7 +1226,6 @@
       {totalCount}
       {onupdate}
       {onclear}
-      {onFetchMissing}
       bind:starVisualization
       eventCounts={allEventCounts}
       {profileStats}

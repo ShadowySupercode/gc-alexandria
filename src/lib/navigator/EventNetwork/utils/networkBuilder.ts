@@ -11,20 +11,14 @@ import { nip19 } from "nostr-tools";
 import { standardRelays } from "$lib/consts";
 import { getMatchingTags } from '$lib/utils/nostrUtils';
 import { getDisplayNameSync } from '$lib/utils/profileCache';
+import { createDebugFunction } from "./common";
 
 // Configuration
-const DEBUG = false; // Set to true to enable debug logging
 const INDEX_EVENT_KIND = 30040;
 const CONTENT_EVENT_KIND = 30041;
 
-/**
- * Debug logging function that only logs when DEBUG is true
- */
-function debug(...args: any[]) {
-  if (DEBUG) {
-    console.log("[NetworkBuilder]", ...args);
-  }
-}
+// Debug function
+const debug = createDebugFunction("NetworkBuilder");
 
 /**
  * Creates a NetworkNode from an NDKEvent

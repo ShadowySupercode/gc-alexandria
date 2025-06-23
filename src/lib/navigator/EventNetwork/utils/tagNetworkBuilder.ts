@@ -8,29 +8,16 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData } from "../types";
 import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { SeededRandom, createDebugFunction } from "./common";
 
 // Configuration
 const TAG_ANCHOR_RADIUS = 15;
 // TODO: Move this to settings panel for user control
 const TAG_ANCHOR_PLACEMENT_RADIUS = 1250; // Radius from center within which to randomly place tag anchors
 
-/**
- * Simple seeded random number generator (using a Linear Congruential Generator)
- * This ensures consistent positioning for the same tag values across sessions
- */
-class SeededRandom {
-  private seed: number;
+// Debug function
+const debug = createDebugFunction("TagNetworkBuilder");
 
-  constructor(seed: number) {
-    this.seed = seed;
-  }
-
-  // Generate next random number between 0 and 1
-  next(): number {
-    this.seed = (this.seed * 9301 + 49297) % 233280;
-    return this.seed / 233280;
-  }
-}
 
 /**
  * Creates a deterministic seed from a string
@@ -76,8 +63,7 @@ export function extractUniqueTagsForType(
 ): Map<string, Set<string>> {
   // Map of tagValue -> Set of event IDs
   const tagMap = new Map<string, Set<string>>();
-  
-  console.log(`[TagBuilder] Extracting tags of type: ${tagType} from ${events.length} events`);
+  debug("Extracting unique tags for type", { tagType, eventCount: events.length });
 
   events.forEach((event) => {
     if (!event.tags || !event.id) return;
@@ -98,7 +84,7 @@ export function extractUniqueTagsForType(
     });
   });
   
-  console.log(`[TagBuilder] Found ${tagMap.size} unique tags of type ${tagType}:`, Array.from(tagMap.keys()));
+  debug("Extracted tags", { tagCount: tagMap.size });
 
   return tagMap;
 }
@@ -113,6 +99,8 @@ export function createTagAnchorNodes(
   height: number,
 ): NetworkNode[] {
   const anchorNodes: NetworkNode[] = [];
+
+  debug("Creating tag anchor nodes", { tagType, tagCount: tagMap.size });
 
   // Calculate positions for tag anchors randomly within radius
   // Show all tags regardless of how many events they appear in
@@ -173,6 +161,7 @@ export function createTagAnchorNodes(
     anchorNodes.push(anchorNode);
   });
 
+  debug("Created tag anchor nodes", { count: anchorNodes.length });
   return anchorNodes;
 }
 
@@ -183,6 +172,8 @@ export function createTagLinks(
   tagAnchors: NetworkNode[],
   nodes: NetworkNode[],
 ): NetworkLink[] {
+  debug("Creating tag links", { anchorCount: tagAnchors.length, nodeCount: nodes.length });
+  
   const links: NetworkLink[] = [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
@@ -201,6 +192,7 @@ export function createTagLinks(
     });
   });
 
+  debug("Created tag links", { linkCount: links.length });
   return links;
 }
 
@@ -215,6 +207,8 @@ export function enhanceGraphWithTags(
   height: number,
   displayLimit?: number,
 ): GraphData {
+  debug("Enhancing graph with tags", { tagType, displayLimit });
+  
   // Extract unique tags for the specified type
   const tagMap = extractUniqueTagsForType(events, tagType);
 
@@ -223,7 +217,6 @@ export function enhanceGraphWithTags(
   
   // Apply display limit if provided
   if (displayLimit && displayLimit > 0 && tagAnchors.length > displayLimit) {
-    console.log(`[TagBuilder] Limiting display to ${displayLimit} tag anchors out of ${tagAnchors.length}`);
     // Sort by connection count (already done in createTagAnchorNodes)
     // and take only the top ones up to the limit
     tagAnchors = tagAnchors.slice(0, displayLimit);
@@ -266,6 +259,8 @@ export function createTagGravityForce(
     }
   });
 
+  debug("Creating tag gravity force");
+  
   // Custom force function
   function force(alpha: number) {
     nodes.forEach((node) => {

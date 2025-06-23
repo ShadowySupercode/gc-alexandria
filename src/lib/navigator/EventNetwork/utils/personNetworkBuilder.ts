@@ -7,26 +7,15 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink } from "../types";
 import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { SeededRandom, createDebugFunction } from "./common";
 
 const PERSON_ANCHOR_RADIUS = 15;
 const PERSON_ANCHOR_PLACEMENT_RADIUS = 1000;
 const MAX_PERSON_NODES = 20; // Default limit for person nodes
 
-/**
- * Simple seeded random number generator
- */
-class SeededRandom {
-  private seed: number;
+// Debug function
+const debug = createDebugFunction("PersonNetworkBuilder");
 
-  constructor(seed: number) {
-    this.seed = seed;
-  }
-
-  next(): number {
-    this.seed = (this.seed * 9301 + 49297) % 233280;
-    return this.seed / 233280;
-  }
-}
 
 /**
  * Creates a deterministic seed from a string
@@ -58,12 +47,11 @@ export function extractUniquePersons(
   // Map of pubkey -> PersonConnection
   const personMap = new Map<string, PersonConnection>();
   
-  console.log(`[PersonBuilder] Extracting persons from ${events.length} events`);
+  debug("Extracting unique persons", { eventCount: events.length, followListCount: followListEvents?.length || 0 });
   
   // First collect pubkeys from follow list events
   const followListPubkeys = new Set<string>();
   if (followListEvents && followListEvents.length > 0) {
-    console.log(`[PersonBuilder] Processing ${followListEvents.length} follow list events`);
     followListEvents.forEach((event) => {
       // Follow list author
       if (event.pubkey) {
@@ -113,8 +101,7 @@ export function extractUniquePersons(
     }
   });
   
-  console.log(`[PersonBuilder] Found ${personMap.size} unique persons`);
-  console.log(`[PersonBuilder] ${followListPubkeys.size} are from follow lists`);
+  debug("Extracted persons", { personCount: personMap.size });
 
   return personMap;
 }
@@ -171,8 +158,14 @@ export function createPersonAnchorNodes(
   const limitedPersons = eligiblePersons.slice(0, limit);
 
   // Create nodes for the limited set
-  limitedPersons.forEach(({ pubkey, connection, connectedEventIds }) => {
+  debug("Creating person anchor nodes", { 
+    eligibleCount: eligiblePersons.length, 
+    limitedCount: limitedPersons.length,
+    showSignedBy,
+    showReferenced 
+  });
 
+  limitedPersons.forEach(({ pubkey, connection, connectedEventIds }) => {
     // Create seeded random generator for consistent positioning
     const rng = new SeededRandom(createSeed(pubkey));
 
@@ -207,6 +200,8 @@ export function createPersonAnchorNodes(
     anchorNodes.push(anchorNode);
   });
 
+  debug("Created person anchor nodes", { count: anchorNodes.length, totalEligible: eligiblePersons.length });
+
   return {
     nodes: anchorNodes,
     totalCount: eligiblePersons.length
@@ -226,6 +221,8 @@ export function createPersonLinks(
   nodes: NetworkNode[],
   personMap: Map<string, PersonConnection>
 ): PersonLink[] {
+  debug("Creating person links", { anchorCount: personAnchors.length, nodeCount: nodes.length });
+  
   const links: PersonLink[] = [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
@@ -256,6 +253,7 @@ export function createPersonLinks(
     });
   });
 
+  debug("Created person links", { linkCount: links.length });
   return links;
 }
 

@@ -102,7 +102,7 @@
   <div class="space-y-2">
     {#each $visualizationConfig.eventConfigs as config}
       {@const isLoaded = (eventCounts[config.kind] || 0) > 0}
-      {@const isDisabled = $visualizationConfig.disabledKinds?.includes(config.kind) || false}
+      {@const isDisabled = config.enabled === false}
       {@const color = getEventKindColor(config.kind)}
       {@const borderColor = isLoaded ? 'border-green-500' : 'border-red-500'}
       <div class="flex items-center gap-2">

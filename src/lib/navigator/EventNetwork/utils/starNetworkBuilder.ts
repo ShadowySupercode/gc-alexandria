@@ -11,20 +11,14 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { getMatchingTags } from '$lib/utils/nostrUtils';
 import { createNetworkNode, createEventMap, extractEventIdFromATag, getEventColor } from './networkBuilder';
+import { createDebugFunction } from './common';
 
 // Configuration
-const DEBUG = false;
 const INDEX_EVENT_KIND = 30040;
 const CONTENT_EVENT_KIND = 30041;
 
-/**
- * Debug logging function
- */
-function debug(...args: any[]) {
-  if (DEBUG) {
-    console.log("[StarNetworkBuilder]", ...args);
-  }
-}
+// Debug function
+const debug = createDebugFunction("StarNetworkBuilder");
 
 /**
  * Represents a star network with a central index node and peripheral content nodes

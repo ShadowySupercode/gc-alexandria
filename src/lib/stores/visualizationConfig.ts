@@ -3,6 +3,7 @@ import { writable, derived, get } from "svelte/store";
 export interface EventKindConfig {
   kind: number;
   limit: number;
+  enabled?: boolean; // Whether this kind is enabled for display
   nestedLevels?: number; // Only for kind 30040
   depth?: number; // Only for kind 3 (follow lists)
   showAll?: boolean; // Only for content kinds (30041, 30818) - show all loaded content instead of limit
@@ -14,49 +15,25 @@ export interface VisualizationConfig {
 
   // Graph traversal
   searchThroughFetched: boolean;
-
-  // Append mode - add new events to existing graph instead of replacing
-  appendMode?: boolean;
-
-  // Legacy properties for backward compatibility
-  allowedKinds?: number[];
-  disabledKinds?: number[];
-  allowFreeEvents?: boolean;
-  maxPublicationIndices?: number;
-  maxEventsPerIndex?: number;
 }
 
 // Default configurations for common event kinds
 const DEFAULT_EVENT_CONFIGS: EventKindConfig[] = [
-  { kind: 0, limit: 5 }, // Metadata events (profiles) - controls how many profiles to display
-  { kind: 3, limit: 0, depth: 0 }, // Follow lists - limit 0 = don't fetch, >0 = fetch follow lists
-  { kind: 30040, limit: 20, nestedLevels: 1 },
-  { kind: 30041, limit: 20 },
-  { kind: 30818, limit: 20 },
+  { kind: 0, limit: 5, enabled: false }, // Metadata events (profiles) - controls how many profiles to display
+  { kind: 3, limit: 0, depth: 0, enabled: false }, // Follow lists - limit 0 = don't fetch, >0 = fetch follow lists
+  { kind: 30040, limit: 20, nestedLevels: 1, enabled: true },
+  { kind: 30041, limit: 20, enabled: false },
+  { kind: 30818, limit: 20, enabled: false },
 ];
 
 function createVisualizationConfig() {
-  // Initialize with both new and legacy properties
   const initialConfig: VisualizationConfig = {
     eventConfigs: DEFAULT_EVENT_CONFIGS,
     searchThroughFetched: true,
-    appendMode: false,
-    // Legacy properties
-    allowedKinds: DEFAULT_EVENT_CONFIGS.map((ec) => ec.kind),
-    disabledKinds: [30041, 30818, 3, 0], // Kind 0 not disabled so it shows as green when profiles are fetched
-    allowFreeEvents: false,
-    maxPublicationIndices: -1,
-    maxEventsPerIndex: -1,
   };
 
   const { subscribe, set, update } =
     writable<VisualizationConfig>(initialConfig);
-
-  // Helper to sync legacy properties with eventConfigs
-  const syncLegacyProperties = (config: VisualizationConfig) => {
-    config.allowedKinds = config.eventConfigs.map((ec) => ec.kind);
-    return config;
-  };
 
   return {
     subscribe,
@@ -71,7 +48,7 @@ function createVisualizationConfig() {
           return config;
         }
 
-        const newConfig: EventKindConfig = { kind, limit };
+        const newConfig: EventKindConfig = { kind, limit, enabled: true };
         // Add nestedLevels for 30040
         if (kind === 30040) {
           newConfig.nestedLevels = 1;
@@ -85,20 +62,7 @@ function createVisualizationConfig() {
           ...config,
           eventConfigs: [...config.eventConfigs, newConfig],
         };
-        return syncLegacyProperties(updated);
-      }),
-
-    // Legacy method for backward compatibility
-    addKind: (kind: number) =>
-      update((config) => {
-        if (config.eventConfigs.some((ec) => ec.kind === kind)) {
-          return config;
-        }
-        const updated = {
-          ...config,
-          eventConfigs: [...config.eventConfigs, { kind, limit: 10 }],
-        };
-        return syncLegacyProperties(updated);
+        return updated;
       }),
 
     // Remove an event kind
@@ -108,17 +72,7 @@ function createVisualizationConfig() {
           ...config,
           eventConfigs: config.eventConfigs.filter((ec) => ec.kind !== kind),
         };
-        return syncLegacyProperties(updated);
-      }),
-
-    // Legacy method for backward compatibility
-    removeKind: (kind: number) =>
-      update((config) => {
-        const updated = {
-          ...config,
-          eventConfigs: config.eventConfigs.filter((ec) => ec.kind !== kind),
-        };
-        return syncLegacyProperties(updated);
+        return updated;
       }),
 
     // Update limit for a specific kind
@@ -172,48 +126,13 @@ function createVisualizationConfig() {
         searchThroughFetched: !config.searchThroughFetched,
       })),
 
-    toggleAppendMode: () =>
-      update((config) => ({
-        ...config,
-        appendMode: !config.appendMode,
-      })),
-
-    // Legacy methods for backward compatibility
+    // Toggle enabled state for a specific kind
     toggleKind: (kind: number) =>
-      update((config) => {
-        const isDisabled = config.disabledKinds?.includes(kind) || false;
-        if (isDisabled) {
-          // Re-enable it
-          return {
-            ...config,
-            disabledKinds:
-              config.disabledKinds?.filter((k) => k !== kind) || [],
-          };
-        } else {
-          // Disable it
-          return {
-            ...config,
-            disabledKinds: [...(config.disabledKinds || []), kind],
-          };
-        }
-      }),
-
-    toggleFreeEvents: () =>
       update((config) => ({
         ...config,
-        allowFreeEvents: !config.allowFreeEvents,
-      })),
-
-    setMaxPublicationIndices: (max: number) =>
-      update((config) => ({
-        ...config,
-        maxPublicationIndices: max,
-      })),
-
-    setMaxEventsPerIndex: (max: number) =>
-      update((config) => ({
-        ...config,
-        maxEventsPerIndex: max,
+        eventConfigs: config.eventConfigs.map((ec) =>
+          ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec,
+        ),
       })),
   };
 }
@@ -222,22 +141,16 @@ export const visualizationConfig = createVisualizationConfig();
 
 // Helper to get all enabled event kinds
 export const enabledEventKinds = derived(visualizationConfig, ($config) =>
-  $config.eventConfigs.map((ec) => ec.kind),
+  $config.eventConfigs
+    .filter((ec) => ec.enabled !== false)
+    .map((ec) => ec.kind),
 );
 
 // Helper to check if a kind is enabled
 export const isKindEnabled = derived(
   visualizationConfig,
-  ($config) => (kind: number) =>
-    $config.eventConfigs.some((ec) => ec.kind === kind),
-);
-
-// Legacy helper for backward compatibility
-export const isKindAllowed = derived(
-  visualizationConfig,
   ($config) => (kind: number) => {
-    const inEventConfigs = $config.eventConfigs.some((ec) => ec.kind === kind);
-    const notDisabled = !($config.disabledKinds?.includes(kind) || false);
-    return inEventConfigs && notDisabled;
+    const eventConfig = $config.eventConfigs.find((ec) => ec.kind === kind);
+    return eventConfig ? eventConfig.enabled !== false : false;
   },
 );

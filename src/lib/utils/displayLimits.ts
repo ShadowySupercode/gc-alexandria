@@ -1,34 +1,28 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
-import type { DisplayLimits } from '$lib/stores/displayLimits';
 import type { VisualizationConfig } from '$lib/stores/visualizationConfig';
 
 /**
- * Filters events based on display limits and allowed kinds
+ * Filters events based on visualization configuration
  * @param events - All available events
- * @param limits - Display limit settings
- * @param config - Visualization configuration (optional)
+ * @param config - Visualization configuration
  * @returns Filtered events that should be displayed
  */
-export function filterByDisplayLimits(events: NDKEvent[], limits: DisplayLimits, config?: VisualizationConfig): NDKEvent[] {
+export function filterByDisplayLimits(events: NDKEvent[], config: VisualizationConfig): NDKEvent[] {
   const result: NDKEvent[] = [];
   const kindCounts = new Map<number, number>();
 
   for (const event of events) {
-    // First check if the event kind is allowed and not disabled
-    if (config && event.kind !== undefined) {
-      if (!config.allowedKinds.includes(event.kind)) {
-        continue; // Skip events with disallowed kinds
-      }
-      if (config.disabledKinds.includes(event.kind)) {
-        continue; // Skip temporarily disabled kinds
-      }
-    }
-
     const kind = event.kind;
     if (kind === undefined) continue;
 
-    // Get the limit for this event kind from the config
-    const eventConfig = config?.eventConfigs.find(ec => ec.kind === kind);
+    // Get the config for this event kind
+    const eventConfig = config.eventConfigs.find(ec => ec.kind === kind);
+    
+    // Skip if the kind is disabled
+    if (eventConfig && eventConfig.enabled === false) {
+      continue;
+    }
+    
     const limit = eventConfig?.limit;
 
     // Special handling for content kinds (30041, 30818) with showAll option
@@ -105,37 +99,3 @@ export function detectMissingEvents(events: NDKEvent[], existingIds: Set<string>
   return missing;
 }
 
-/**
- * Groups events by kind for easier counting and display
- */
-export function groupEventsByKind(events: NDKEvent[]): Map<number, NDKEvent[]> {
-  const groups = new Map<number, NDKEvent[]>();
-  
-  for (const event of events) {
-    const kind = event.kind;
-    if (kind !== undefined) {
-      if (!groups.has(kind)) {
-        groups.set(kind, []);
-      }
-      groups.get(kind)!.push(event);
-    }
-  }
-  
-  return groups;
-}
-
-/**
- * Counts events by kind
- */
-export function countEventsByKind(events: NDKEvent[]): Map<number, number> {
-  const counts = new Map<number, number>();
-  
-  for (const event of events) {
-    const kind = event.kind;
-    if (kind !== undefined) {
-      counts.set(kind, (counts.get(kind) || 0) + 1);
-    }
-  }
-  
-  return counts;
-}

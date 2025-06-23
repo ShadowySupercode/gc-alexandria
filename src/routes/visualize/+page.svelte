@@ -12,7 +12,6 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
-  import { displayLimits } from "$lib/stores/displayLimits";
   import { visualizationConfig, type EventKindConfig } from "$lib/stores/visualizationConfig";
   import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
@@ -43,7 +42,6 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let showSettings = $state(false);
-  let tagExpansionDepth = $state(0);
   let baseEvents = $state<NDKEvent[]>([]); // Store original events before expansion
   let missingEventIds = $state(new Set<string>()); // Track missing referenced events
   let loadingEventKinds = $state<Array<{kind: number, limit: number}>>([]);  // Track what kinds are being loaded
@@ -486,27 +484,9 @@
         finalEventMap.set(event.id, event);
       });
       
-      // Handle append mode
-      if ($visualizationConfig.appendMode && allEvents.length > 0) {
-        // Merge existing events with new events
-        const existingEventMap = new Map(allEvents.map(e => [e.id, e]));
-        
-        // Add new events to existing map (new events override old ones)
-        finalEventMap.forEach((event, id) => {
-          existingEventMap.set(id, event);
-        });
-        
-        allEvents = Array.from(existingEventMap.values());
-        
-        // Note: followListEvents are already accumulated in fetchFollowLists
-      } else {
-        // Replace mode (default)
-        allEvents = Array.from(finalEventMap.values());
-        // Clear follow lists in replace mode
-        if (!$visualizationConfig.appendMode) {
-          followListEvents = [];
-        }
-      }
+      // Replace mode (always replace, no append mode)
+      allEvents = Array.from(finalEventMap.values());
+      followListEvents = [];
       
       baseEvents = [...allEvents]; // Store base events for tag expansion
       
@@ -571,7 +551,7 @@
       }
       
       // Step 7: Apply display limits
-      events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
+      events = filterByDisplayLimits(allEvents, $visualizationConfig);
       
       // Step 8: Detect missing events
       const eventIds = new Set(allEvents.map(e => e.id));
@@ -580,7 +560,6 @@
       debug("Total events fetched:", allEvents.length);
       debug("Events displayed:", events.length);
       debug("Missing event IDs:", missingEventIds.size);
-      debug("Display limits:", $displayLimits);
       debug("About to set loading to false");
       debug("Current loading state:", loading);
     } catch (e) {
@@ -604,7 +583,7 @@
     if (depth === 0 || tags.length === 0) {
       // Reset to base events only
       allEvents = [...baseEvents];
-      events = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
+      events = filterByDisplayLimits(allEvents, $visualizationConfig);
       return;
     }
     
@@ -789,7 +768,7 @@
       }
       
       // Apply display limits
-      events = filterByDisplayLimits(allEvents, $displayLimits);
+      events = filterByDisplayLimits(allEvents, $visualizationConfig);
       
       // Update missing events detection
       const eventIds = new Set(allEvents.map(e => e.id));
@@ -811,76 +790,12 @@
     }
   }
 
-  /**
-   * Dynamically fetches missing events when "fetch if not found" is enabled
-   */
-  async function fetchMissingEvents(missingIds: string[]) {
-    if (!$displayLimits.fetchIfNotFound || missingIds.length === 0) {
-      return;
-    }
-    
-    debug("Fetching missing events:", missingIds);
-    debug("Current loading state:", loading);
-    
-    try {
-      // Fetch by event IDs and d-tags
-      const fetchedEvents = await $ndkInstance.fetchEvents({
-        kinds: [...[INDEX_EVENT_KIND], ...CONTENT_EVENT_KINDS],
-        "#d": missingIds, // For parameterized replaceable events
-      });
-      
-      if (fetchedEvents.size === 0) {
-        // Try fetching by IDs directly
-        const eventsByIds = await $ndkInstance.fetchEvents({
-          ids: missingIds
-        });
-        // Add events from the second fetch to the first set
-        eventsByIds.forEach(e => fetchedEvents.add(e));
-      }
-      
-      if (fetchedEvents.size > 0) {
-        debug(`Fetched ${fetchedEvents.size} missing events`);
-        
-        // Fetch profiles for the new events
-        const newEvents = Array.from(fetchedEvents);
-        const newPubkeys = extractPubkeysFromEvents(newEvents);
-        let newProfileEvents: NDKEvent[] = [];
-        
-        if (newPubkeys.size > 0 && $visualizationConfig.eventConfigs.some(ec => ec.kind === 0 && !$visualizationConfig.disabledKinds?.includes(0))) {
-          debug("Fetching profiles for", newPubkeys.size, "pubkeys from missing events");
-          profileLoadingProgress = { current: 0, total: newPubkeys.size };
-          newProfileEvents = await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
-            profileLoadingProgress = { current: fetched, total };
-          });
-          profileLoadingProgress = null;
-          
-          // Update profile stats
-          profileStats = {
-            totalFetched: profileStats.totalFetched + newPubkeys.size,
-            displayLimit: profileStats.displayLimit
-          };
-        }
-        
-        // Add to all events
-        allEvents = [...allEvents, ...newEvents, ...newProfileEvents];
-        
-        // Re-apply display limits
-        events = filterByDisplayLimits(allEvents, $displayLimits);
-        
-        // Update missing events list
-        const eventIds = new Set(allEvents.map(e => e.id));
-        missingEventIds = detectMissingEvents(events, eventIds);
-      }
-    } catch (e) {
-      console.error("Error fetching missing events:", e);
-    }
-  }
 
   // React to display limit and allowed kinds changes
   $effect(() => {
-    debug("Effect triggered: allEvents.length =", allEvents.length, "displayLimits =", $displayLimits, "allowedKinds =", $visualizationConfig.allowedKinds);
+    debug("Effect triggered: allEvents.length =", allEvents.length, "allowedKinds =", $visualizationConfig.allowedKinds);
     if (allEvents.length > 0) {
-      const newEvents = filterByDisplayLimits(allEvents, $displayLimits, $visualizationConfig);
+      const newEvents = filterByDisplayLimits(allEvents, $visualizationConfig);
       
       // Only update if actually different to avoid infinite loops
       if (newEvents.length !== events.length) {
@@ -892,12 +807,6 @@
         missingEventIds = detectMissingEvents(events, eventIds);
         
         debug("Effect: events filtered to", events.length, "missing:", missingEventIds.size);
-      }
-      
-      // Auto-fetch if enabled (but be conservative to avoid infinite loops)
-      if ($displayLimits.fetchIfNotFound && missingEventIds.size > 0 && missingEventIds.size < 20) {
-        debug("Auto-fetching", missingEventIds.size, "missing events");
-        fetchMissingEvents(Array.from(missingEventIds));
       }
     }
   });
@@ -1061,7 +970,6 @@
       onupdate={fetchEvents}
       onclear={clearEvents}
       onTagExpansionChange={handleTagExpansion}
-      onFetchMissing={fetchMissingEvents}
       {profileStats}
       {allEventCounts}
     />

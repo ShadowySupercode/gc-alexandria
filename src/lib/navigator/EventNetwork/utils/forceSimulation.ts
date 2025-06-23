@@ -7,20 +7,14 @@
 
 import type { NetworkNode, NetworkLink } from "../types";
 import * as d3 from "d3";
+import { createDebugFunction } from "./common";
 
 // Configuration
-const DEBUG = false; // Set to true to enable debug logging
 const GRAVITY_STRENGTH = 0.05; // Strength of global gravity
 const CONNECTED_GRAVITY_STRENGTH = 0.3; // Strength of gravity between connected nodes
 
-/**
- * Debug logging function that only logs when DEBUG is true
- */
-function debug(...args: any[]) {
-  if (DEBUG) {
-    console.log("[ForceSimulation]", ...args);
-  }
-}
+// Debug function
+const debug = createDebugFunction("ForceSimulation");
 
 /**
  * Type definition for D3 force simulation

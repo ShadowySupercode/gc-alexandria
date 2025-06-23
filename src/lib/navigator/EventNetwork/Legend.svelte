@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Button } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
 

@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { Button } from "flowbite-svelte";
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
-  import { fly } from "svelte/transition";
-  import { quintOut } from "svelte/easing";
   import EventTypeConfig from "$lib/components/EventTypeConfig.svelte";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { Toggle } from "flowbite-svelte";
@@ -13,7 +10,6 @@
     onupdate,
     onclear = () => {},
     starVisualization = $bindable(true),
-    onFetchMissing = () => {},
     eventCounts = {},
     profileStats = { totalFetched: 0, displayLimit: 50 },
   } = $props<{
@@ -23,7 +19,6 @@
     onclear?: () => void;
 
     starVisualization?: boolean;
-    onFetchMissing?: (ids: string[]) => void;
     eventCounts?: { [kind: number]: number };
     profileStats?: { totalFetched: number; displayLimit: number };
   }>();
@@ -42,12 +37,6 @@
   
   function toggleVisualSettings() {
     visualSettingsExpanded = !visualSettingsExpanded;
-  }
-  /**
-   * Handles updates to visualization settings
-   */
-  function handleLimitUpdate() {
-    onupdate();
   }
 </script>
 
@@ -102,24 +91,27 @@
         </div>
         {#if visualSettingsExpanded}
         
-        <div class="space-y-2">
-          <label
-            class="leather bg-transparent legend-text flex items-center space-x-2"
-          >
-            <Toggle 
-              checked={starVisualization} 
-              onchange={(e: Event) => {
-                const target = e.target as HTMLInputElement;
-                starVisualization = target.checked;
-              }}
-              class="text-xs" 
-            />
-            <span>Star Network View</span>
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400">
-            Toggle between star clusters (on) and linear sequence (off)
-            visualization
-          </p>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <label
+              class="leather bg-transparent legend-text flex items-center space-x-2"
+            >
+              <Toggle 
+                checked={starVisualization} 
+                onchange={(e: Event) => {
+                  const target = e.target as HTMLInputElement;
+                  starVisualization = target.checked;
+                }}
+                class="text-xs" 
+              />
+              <span>Star Network View</span>
+            </label>
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              Toggle between star clusters (on) and linear sequence (off)
+              visualization
+            </p>
+          </div>
+          
         </div>
 
         {/if}

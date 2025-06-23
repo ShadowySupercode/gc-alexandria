@@ -80,13 +80,3 @@ export function getEventKindName(kind: number): string {
   return kindNames[kind] || `Kind ${kind}`;
 }
 
-/**
- * Get the short label for an event kind (for node display)
- * @param kind - The event kind number
- * @returns Short label (usually just the kind number)
- */
-export function getEventKindLabel(kind: number): string {
-  // For now, just return the kind number
-  // Could be extended to return short codes if needed
-  return kind.toString();
-}
