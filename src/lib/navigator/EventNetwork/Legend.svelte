@@ -393,13 +393,33 @@
             </div>
             
             {#if showPersonNodes && personAnchors.length > 0}
-              <p class="text-xs text-gray-600 dark:text-gray-400">
-                {#if totalPersonCount > displayedPersonCount}
-                  Displaying {displayedPersonCount} of {totalPersonCount} people found. Click to toggle visibility:
-                {:else}
-                  {personAnchors.length} people found. Click to toggle visibility:
-                {/if}
-              </p>
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                  {#if totalPersonCount > displayedPersonCount}
+                    Displaying {displayedPersonCount} of {totalPersonCount} people found:
+                  {:else}
+                    {personAnchors.length} people found:
+                  {/if}
+                </p>
+                
+                <label class="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    onclick={() => {
+                      // Invert selection - toggle all person nodes
+                      const allPubkeys = personAnchors.map(person => person.pubkey);
+                      
+                      // Process all persons
+                      allPubkeys.forEach(pubkey => {
+                        onPersonToggle(pubkey);
+                      });
+                    }}
+                    class="w-3 h-3"
+                  />
+                  <span class="text-xs">Invert Selection</span>
+                </label>
+              </div>
+              
               <div
                 class="tag-grid {personAnchors.length > 20 ? 'scrollable' : ''}"
                 style="grid-template-columns: repeat(2, 1fr);"
