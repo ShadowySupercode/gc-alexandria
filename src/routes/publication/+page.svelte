@@ -20,8 +20,8 @@
   // Get publication metadata for OpenGraph tags
   let title = $derived(
     data.indexEvent?.getMatchingTags("title")[0]?.[1] ||
-      data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
-      "Alexandria Publication",
+    data.parser?.getIndexTitle(data.parser?.getRootIndexId()) ||
+    "Alexandria Publication",
   );
   let currentUrl = data.url?.href ?? "";
 
@@ -33,7 +33,7 @@
   );
   let summary = $derived(
     data.indexEvent?.getMatchingTags("summary")[0]?.[1] ||
-      "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
+    "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
   );
 
   onDestroy(() => data.parser.reset());
