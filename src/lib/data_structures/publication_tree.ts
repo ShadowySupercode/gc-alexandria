@@ -200,8 +200,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   setBookmark(address: string) {
     this.#bookmark = address;
-    this.#bookmarkMovedObservers.forEach(observer => observer(address));
-    this.#cursor.tryMoveTo(address);
+    this.#cursor.tryMoveTo(address).then(success => {
+      if (success) {
+        this.#bookmarkMovedObservers.forEach(observer => observer(address));
+      }
+    });
   }
 
   onBookmarkMoved(observer: (address: string) => void) {
