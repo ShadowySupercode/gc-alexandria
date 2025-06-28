@@ -59,22 +59,16 @@
   <meta name="twitter:image" content={image} />
 </svelte:head>
 
-{#key data}
-  <ArticleNav
-    publicationType={data.publicationType}
-    rootId={data.parser.getRootIndexId()}
-    indexEvent={data.indexEvent}
-  />
-{/key}
+<ArticleNav
+  publicationType={data.publicationType}
+  rootId={data.parser.getRootIndexId()}
+  indexEvent={data.indexEvent}
+/>
 
 <main class="publication {data.publicationType}">
-  {#await data.waitable}
-    <TextPlaceholder divClass="skeleton-leather w-full" size="xxl" />
-  {:then}
-    <Publication
-      rootAddress={data.indexEvent.tagAddress()}
-      publicationType={data.publicationType}
-      indexEvent={data.indexEvent}
-    />
-  {/await}
+  <Publication
+    rootAddress={data.indexEvent.tagAddress()}
+    publicationType={data.publicationType}
+    indexEvent={data.indexEvent}
+  />
 </main>
