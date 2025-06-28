@@ -1,5 +1,8 @@
 <script lang='ts'>
-  import { TableOfContents, type TocEntry } from '$lib/components/publications/table_of_contents.svelte';
+  import { 
+    TableOfContents, 
+    type TocEntry 
+  } from '$lib/components/publications/table_of_contents.svelte';
   import { getContext } from 'svelte';
   import { Accordion, AccordionItem, SidebarDropdownWrapper, SidebarGroup, SidebarItem } from 'flowbite-svelte';
   import Self from './TableOfContents.svelte';

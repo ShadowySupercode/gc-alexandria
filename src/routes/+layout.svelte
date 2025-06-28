@@ -42,5 +42,5 @@
 
 <div class={'leather mt-[76px] h-full w-full flex flex-col items-center'}>
   <Navigation class='fixed top-0' />
-  <slot />
+  {@render children()}
 </div>
