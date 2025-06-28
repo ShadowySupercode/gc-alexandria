@@ -7,11 +7,13 @@ export class SveltePublicationTree {
 
   #publicationTree: PublicationTree;
   #nodeResolvedObservers: Array<(address: string) => void> = [];
+  #bookmarkMovedObservers: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     this.#publicationTree = new PublicationTree(rootEvent, ndk);
 
     this.#publicationTree.onNodeResolved(this.#handleNodeResolved);
+    this.#publicationTree.onBookmarkMoved(this.#handleBookmarkMoved);
   }
 
   // #region Proxied Public Methods
@@ -48,6 +50,14 @@ export class SveltePublicationTree {
     this.#nodeResolvedObservers.push(observer);
   }
 
+  /**
+   * Registers an observer function that is invoked whenever the bookmark is moved.
+   * @param observer The observer function.
+   */
+  onBookmarkMoved(observer: (address: string) => void) {
+    this.#bookmarkMovedObservers.push(observer);
+  }
+
   // #endregion
 
   // #region Proxied Async Iterator Methods
@@ -79,6 +89,20 @@ export class SveltePublicationTree {
   #handleNodeResolved = (address: string) => {
     this.resolvedAddresses.add(address);
     for (const observer of this.#nodeResolvedObservers) {
+      observer(address);
+    }
+  }
+
+  /**
+   * Observer function that is invoked whenever the bookmark is moved on the publication tree.
+   * 
+   * @param address The address of the new bookmark.
+   * 
+   * This member is declared as an arrow function to ensure that the correct `this` context is
+   * used when the function is invoked in this class's constructor.
+   */
+  #handleBookmarkMoved = (address: string) => {
+    for (const observer of this.#bookmarkMovedObservers) {
       observer(address);
     }
   }
