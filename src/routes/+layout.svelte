@@ -1,23 +1,17 @@
 <script>
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
-  import { onMount } from "svelte";
-  import { page } from "$app/stores";
-  import { Alert } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
+  import { page } from "$app/state";
+
+  let { children } = $props();
 
   // Get standard metadata for OpenGraph tags
   let title = 'Library of Alexandria';
-  let currentUrl = $page.url.href;
+  let currentUrl = page.url.href;
   
   // Get default image and summary for the Alexandria website
   let image = '/screenshots/old_books.jpg';
   let summary = 'Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.';
-
-  onMount(() => {
-    const rect = document.body.getBoundingClientRect();
-    // document.body.style.height = `${rect.height}px`;
-  });
 </script>
 
 <svelte:head>
