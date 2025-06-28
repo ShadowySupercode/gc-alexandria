@@ -22,7 +22,6 @@
   import Interactions from "$components/util/Interactions.svelte";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
-  import { goto } from "$app/navigation";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -174,12 +173,7 @@
         displayMode='sidebar'
         rootAddress={rootAddress}
         depth={2}
-        onSectionFocused={(address: string) => {
-          publicationTree.setBookmark(address);
-          goto(`#${address}`, {
-            replaceState: true,
-          });
-        }}
+        onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
       />
     </Sidebar>
   {/if}
