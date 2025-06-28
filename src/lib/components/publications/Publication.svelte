@@ -22,6 +22,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
+  import { goto } from "$app/navigation";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -32,8 +33,6 @@
   const publicationTree = getContext("publicationTree") as SveltePublicationTree;
 
   // #region Loading
-
-  // TODO: Test load handling.
 
   let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state<boolean>(false);
@@ -82,7 +81,8 @@
 
   // #endregion
 
-  // region Columns visibility
+  // #region Columns visibility
+  
   let currentBlog: null | string = $state(null);
   let currentBlogEvent: null | NDKEvent = $state(null);
   const isLeaf = $derived(indexEvent.kind === 30041);
@@ -123,6 +123,10 @@
     return currentBlog && currentBlogEvent && window.innerWidth < 1140;
   }
 
+  // #endregion
+
+  // #region Lifecycle hooks
+
   onDestroy(() => {
     // reset visibility
     publicationColumnVisibility.reset();
@@ -157,6 +161,8 @@
       observer.disconnect();
     };
   });
+
+  // #endregion
 </script>
 
 <!-- Table of contents -->
@@ -170,6 +176,9 @@
         depth={2}
         onSectionFocused={(address: string) => {
           publicationTree.setBookmark(address);
+          goto(`#${address}`, {
+            replaceState: true,
+          });
         }}
       />
     </Sidebar>
