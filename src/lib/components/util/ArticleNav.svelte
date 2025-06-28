@@ -16,7 +16,7 @@
   }>();
 
   let title: string = $derived(indexEvent.getMatchingTags('title')[0]?.[1]);
-  let author: string = $derived(indexEvent.getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
+  let author: string = $derived(indexEvent.getMatchingTags('author')[0]?.[1] ?? 'unknown');
   let pubkey: string = $derived(indexEvent.getMatchingTags('p')[0]?.[1] ?? null);
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
 
