@@ -83,10 +83,11 @@ async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
   }
 }
 
+// TODO: Use path params instead of query params.
 export const load: Load = async ({ url, parent }: { url: URL; parent: () => Promise<any> }) => {
   const id = url.searchParams.get('id');
   const dTag = url.searchParams.get('d');
-  const { ndk, parser } = await parent();
+  const { ndk } = await parent();
   
   if (!id && !dTag) {
     throw error(400, 'No publication root event ID or d tag provided.');
@@ -98,12 +99,9 @@ export const load: Load = async ({ url, parent }: { url: URL; parent: () => Prom
     : await fetchEventByDTag(ndk, dTag!);
   
   const publicationType = getMatchingTags(indexEvent, 'type')[0]?.[1];
-  const fetchPromise = parser.fetch(indexEvent);
 
   return {
-    waitable: fetchPromise,
     publicationType,
     indexEvent,
-    url,
   };
 };
