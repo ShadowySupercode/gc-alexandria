@@ -46,7 +46,6 @@
   }
 </script>
 
-<!-- TODO: Href doesn't work with query params. -->
 <!-- Michael J - 16 June 2025 - Accordion mode is untested. -->
 {#if displayMode === 'accordion'}
   <Accordion multiple>
@@ -80,9 +79,9 @@
       {@const expanded = toc.expandedMap.get(address) ?? false}
       {@const isLeaf = toc.leaves.has(address)}
       {#if isLeaf}
-        <!-- TODO: Add href -->
         <SidebarItem
           label={entry.title}
+          href={`#${address}`}
           onclick={() => onSectionFocused?.(address)}
         />
       {:else}
