@@ -37,6 +37,7 @@
   let isLoading = $state<boolean>(false);
   let isDone = $state<boolean>(false);
   let lastElementRef = $state<HTMLElement | null>(null);
+  let activeAddress = $state<string | null>(null);
 
   let observer: IntersectionObserver;
 
@@ -169,7 +170,11 @@
   {#if $publicationColumnVisibility.toc}
     <Sidebar
       activeUrl={`#${activeAddress ?? ''}`}
+      asideClass='fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10 bg-primary-0 dark:bg-primary-1000 px-5 w-80 left-0 pt-4 md:!pr-16 overflow-y-auto rounded-lg border-primary-200 dark:border-primary-800'
+      activeClass='flex items-center p-2 bg-primary-50 dark:bg-primary-800 p-2 rounded-lg'
+      nonActiveClass='flex items-center p-2 hover:bg-primary-50 dark:hover:bg-primary-800 p-2 rounded-lg'
     >
+      <CloseButton onclick={closeToc} class='btn-leather absolute top-4 right-4 hover:bg-primary-50 dark:hover:bg-primary-800' />
       <TableOfContents
         displayMode='sidebar'
         rootAddress={rootAddress}

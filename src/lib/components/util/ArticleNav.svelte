@@ -139,8 +139,13 @@
         {/if}
       {/if}
     </div>
-    <div class="flex flex-grow text justify-center items-center">
-      <p class="max-w-[60vw] line-ellipsis"><b class="text-nowrap">{title}</b><span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span></p>
+    <div class="flex flex-col flex-grow text justify-center items-center">
+      <p class="max-w-[60vw] line-ellipsis">
+        <b class="text-nowrap">{title}</b>
+      </p>
+      <p>
+        <span class="whitespace-nowrap">by {@render userBadge(pubkey, author)}</span>
+      </p>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}

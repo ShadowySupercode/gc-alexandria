@@ -73,6 +73,8 @@
     {/each}
   </Accordion>
 {:else}
+  <!-- TODO: Figure out how to style indentations. -->
+  <!-- TODO: Make group title fonts the same as entry title fonts. -->
   <SidebarGroup>
     {#each entries as entry}
       {@const address = entry.address}
@@ -82,12 +84,14 @@
         <SidebarItem
           label={entry.title}
           href={`#${address}`}
+          spanClass='px-2 text-ellipsis'
           onclick={() => onSectionFocused?.(address)}
         />
       {:else}
         {@const childDepth = depth + 1}
         <SidebarDropdownWrapper
           label={entry.title}
+          btnClass='flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800'
           bind:isOpen={
             () => expanded,
             (open) => setEntryExpanded(address, open)
