@@ -164,11 +164,6 @@ export class TableOfContents {
     return titleTag || event.tagAddress() || '[untitled]';
   }
 
-  #normalizeHashPath(title: string): string {
-    // TODO: Confirm this uses good normalization logic to produce unique hrefs within the page.
-    return title.toLowerCase().replace(/ /g, '-');
-  }
-
   async #buildTocEntry(address: string): Promise<TocEntry> {
     const resolver = async () => {
       if (entry.childrenResolved) {
