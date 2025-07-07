@@ -133,6 +133,18 @@ export class TableOfContents {
 
   // #region Private Methods
 
+  /**
+   * Initializes the ToC from the associated publication tree.
+   * 
+   * @param rootAddress The address of the publication's root event.
+   * 
+   * Michael J - 07 July 2025 - NOTE: Since the publication tree is conceptually infinite and
+   * lazy-loading, the ToC is not guaranteed to contain all the nodes at any layer until the
+   * publication has been fully resolved.
+   * 
+   * Michael J - 07 July 2025 - TODO: If the relay provides event metadata, use the metadata to
+   * initialize the ToC with all of its first-level children.
+   */
   async #init(rootAddress: string) {
     const rootEvent = await this.#publicationTree.getEvent(rootAddress);
     if (!rootEvent) {
@@ -165,6 +177,9 @@ export class TableOfContents {
   }
 
   async #buildTocEntry(address: string): Promise<TocEntry> {
+    // Michael J - 07 July 2025 - NOTE: This arrow function is nested so as to use its containing
+    // scope in its operation. Do not move it to the top level without ensuring it still has access
+    // to the necessary variables.
     const resolver = async () => {
       if (entry.childrenResolved) {
         return;
