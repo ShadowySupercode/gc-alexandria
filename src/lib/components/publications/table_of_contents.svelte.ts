@@ -244,6 +244,9 @@ export class TableOfContents {
    * Nostr index event.
    * 
    * @param entry The ToC entry to reorder.
+   * 
+   * This function has a time complexity of `O(n log n)`, where `n` is the number of children the
+   * parent event has. Average size of `n` is small enough to be negligible.
    */
   async #matchChildrenToTagOrder(entry: TocEntry) {
     const parentEvent = await this.#publicationTree.getEvent(entry.address);
