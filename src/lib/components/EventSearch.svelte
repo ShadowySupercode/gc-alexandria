@@ -44,15 +44,18 @@
     localError = null;
     searching = true;
     
+    // Convert d-tag to lowercase for consistent searching
+    const normalizedDTag = dTag.toLowerCase();
+    
     try {
-      console.log('[Events] Searching for events with d-tag:', dTag);
+      console.log('[Events] Searching for events with d-tag:', normalizedDTag);
       const ndk = $ndkInstance;
       if (!ndk) {
         localError = 'NDK not initialized';
         return;
       }
 
-      const filter = { '#d': [dTag] };
+      const filter = { '#d': [normalizedDTag] };
       const relaySet = getActiveRelays(ndk);
       
       // Fetch multiple events with the same d-tag
@@ -60,14 +63,14 @@
       const eventArray = Array.from(events);
       
       if (eventArray.length === 0) {
-        localError = `No events found with d-tag: ${dTag}`;
+        localError = `No events found with d-tag: ${normalizedDTag}`;
         onSearchResults([]);
       } else if (eventArray.length === 1) {
         // If only one event found, treat it as a single event result
         handleFoundEvent(eventArray[0]);
       } else {
         // Multiple events found, show as search results
-        console.log(`[Events] Found ${eventArray.length} events with d-tag: ${dTag}`);
+        console.log(`[Events] Found ${eventArray.length} events with d-tag: ${normalizedDTag}`);
         onSearchResults(eventArray);
       }
     } catch (err) {
@@ -85,8 +88,8 @@
     if (!query) return;
 
     // Check if this is a d-tag search
-    if (query.startsWith('d:')) {
-      const dTag = query.slice(2).trim();
+    if (query.toLowerCase().startsWith('d:')) {
+      const dTag = query.slice(2).trim().toLowerCase();
       if (dTag) {
         const encoded = encodeURIComponent(dTag);
         goto(`?d=${encoded}`, { replaceState: false, keepFocus: true, noScroll: true });
@@ -104,8 +107,8 @@
       searchQuery = '';
     }
 
-    // Clean the query
-    let cleanedQuery = query.replace(/^nostr:/, '');
+    // Clean the query and normalize to lowercase
+    let cleanedQuery = query.replace(/^nostr:/, '').toLowerCase();
     let filterOrId: any = cleanedQuery;
     console.log('[Events] Cleaned query:', cleanedQuery);
 

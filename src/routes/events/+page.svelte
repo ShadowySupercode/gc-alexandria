@@ -68,7 +68,8 @@
     }
     
     if (dTag !== dTagValue) {
-      dTagValue = dTag;
+      // Normalize d-tag to lowercase for consistent searching
+      dTagValue = dTag ? dTag.toLowerCase() : null;
       searchValue = null;
     }
   });
@@ -119,7 +120,7 @@
     {#if searchResults.length > 0}
       <div class="mt-8">
         <Heading tag="h2" class="h-leather mb-4">
-          Search Results for d-tag: "{dTagValue}" ({searchResults.length} events)
+          Search Results for d-tag: "{dTagValue?.toLowerCase()}" ({searchResults.length} events)
         </Heading>
         <div class="space-y-4">
           {#each searchResults as result, index}
@@ -148,7 +149,7 @@
                     Read 
                     <a
                       class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all"
-                      href={'/publications?d=' + encodeURIComponent(dTagValue || '')}
+                      href={'/publications?d=' + encodeURIComponent((dTagValue || '').toLowerCase())}
                       onclick={e => e.stopPropagation()}
                       tabindex="0"
                     >
