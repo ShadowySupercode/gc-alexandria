@@ -22,6 +22,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
+  import type { TableOfContents as TocType } from "./table_of_contents.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;
@@ -30,6 +31,7 @@
   }>();
 
   const publicationTree = getContext("publicationTree") as SveltePublicationTree;
+  const toc = getContext("toc") as TocType;
 
   // #region Loading
 
@@ -125,6 +127,29 @@
 
   // #endregion
 
+  /**
+   * Performs actions on the DOM element for a publication tree leaf when it is mounted.
+   * 
+   * @param el The DOM element that was mounted.
+   * @param address The address of the event that was mounted.
+   */
+  function onPublicationSectionMounted(el: HTMLElement, address: string) {
+    // Update last element ref for the intersection observer.
+    setLastElementRef(el, leaves.length);
+
+    // Michael J - 08 July 2025 - NOTE: Updating the ToC from here somewhat breaks separation of
+    // concerns, since the TableOfContents component is primarily responsible for working with the
+    // ToC data structure. However, the Publication component has direct access to the needed DOM
+    // element already, and I want to avoid complicated callbacks between the two components.
+    // Update the ToC from the contents of the leaf section.
+    const entry = toc.getEntry(address);
+    if (!entry) {
+      console.warn(`[Publication] No parent found for ${address}`);
+      return;
+    }
+    toc.buildTocFromDocument(el, entry);
+  }
+
   // #region Lifecycle hooks
 
   onDestroy(() => {
@@ -201,11 +226,12 @@
           Error loading content. One or more events could not be loaded.
         </Alert>
       {:else}
+        {@const address = leaf.tagAddress()}
         <PublicationSection
           {rootAddress}
           {leaves}
-          address={leaf.tagAddress()}
-          ref={(el) => setLastElementRef(el, i)}
+          {address}
+          ref={(el) => onPublicationSectionMounted(el, address)}
         />
       {/if}
     {/each}

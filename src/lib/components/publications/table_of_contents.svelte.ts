@@ -74,11 +74,11 @@ export class TableOfContents {
   buildTocFromDocument(
     parentElement: HTMLElement,
     parentEntry: TocEntry,
-    depth: number = 1
   ) {
     parentElement
-      .querySelectorAll<HTMLHeadingElement>(`h${depth}`)
+      .querySelectorAll<HTMLHeadingElement>(`h${parentEntry.depth}`)
       .forEach((header) => {
+        // TODO: Correctly update ToC state from DOM.
         const title = header.textContent?.trim();
         const id = header.id;
 
@@ -91,7 +91,7 @@ export class TableOfContents {
             address: parentEntry.address,
             title,
             href,
-            depth,
+            depth: parentEntry.depth + 1,
             children: [],
             childrenResolved: true,
             resolveChildren: () => Promise.resolve(),
@@ -99,7 +99,7 @@ export class TableOfContents {
           parentEntry.children.push(tocEntry);
           this.expandedMap.set(tocEntry.address, false);
 
-          this.buildTocFromDocument(header, tocEntry, depth + 1);
+          this.buildTocFromDocument(header, tocEntry);
         }
       });
   }
