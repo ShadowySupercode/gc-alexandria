@@ -9,6 +9,7 @@
   import { getMatchingTags } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
+  import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
 
   const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
@@ -186,15 +187,18 @@
   {/if}
 
   <!-- Raw Event JSON -->
-  <details class="bg-primary-50 dark:bg-primary-900 rounded p-4">
+  <details class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4">
     <summary class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2">
       Show Raw Event JSON
     </summary>
+    <div class="absolute top-4 right-4">
+      <CopyToClipboard displayText="" copyText={JSON.stringify(event.rawEvent(), null, 2)} />
+    </div>
     <pre
       class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono"
       style="line-height: 1.7; font-size: 1rem;"
     >
-      {JSON.stringify(event.rawEvent(), null, 2)}
+{JSON.stringify(event.rawEvent(), null, 2)}
     </pre>
   </details>
 </div> 
