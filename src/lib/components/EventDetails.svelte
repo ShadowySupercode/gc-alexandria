@@ -50,9 +50,9 @@
   function renderTag(tag: string[]): string {
     if (tag[0] === 'a' && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(':');
-      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>a:${tag[1]}</a>`;
+      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700 dark:text-primary-300'>a:${tag[1]}</a>`;
     } else if (tag[0] === 'e' && tag.length > 1) {
-      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>e:${tag[1]}</a>`;
+      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700 dark:text-primary-300'>e:${tag[1]}</a>`;
     } else {
       return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
     }
