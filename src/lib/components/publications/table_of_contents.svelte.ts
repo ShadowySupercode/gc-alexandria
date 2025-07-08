@@ -155,11 +155,12 @@ export class TableOfContents {
 
     this.addressMap.set(rootAddress, this.#root);
 
-    // TODO: Parallelize this.
-    // Handle any other nodes that have already been resolved.
-    this.#publicationTree.resolvedAddresses.forEach((address) => {
-      this.#buildTocEntryFromResolvedNode(address);
-    });
+    // Handle any other nodes that have already been resolved in parallel.
+    await Promise.all(
+      Array.from(this.#publicationTree.resolvedAddresses).map((address) =>
+        this.#buildTocEntryFromResolvedNode(address)
+      )
+    );
 
     // Set up an observer to handle progressive resolution of the publication tree.
     this.#publicationTree.onNodeResolved((address: string) => {
