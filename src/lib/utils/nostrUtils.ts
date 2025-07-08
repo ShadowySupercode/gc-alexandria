@@ -111,7 +111,7 @@ export function createProfileLink(identifier: string, displayText: string | unde
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
   
-  return `<a href="./events?id=${escapedId}" class="npub-badge" target="_blank">@${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="npub-badge">@${escapedText}</a>`;
 }
 
 /**
@@ -167,9 +167,9 @@ export async function createProfileLinkWithVerification(identifier: string, disp
   const type = nip05.endsWith('edu') ? 'edu' : 'standard';
   switch (type) {
     case 'edu':
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
     case 'standard':
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
 /**
@@ -181,7 +181,7 @@ function createNoteLink(identifier: string): string {
   const escapedId = escapeHtml(cleanId);
   const escapedText = escapeHtml(shortId);
   
-  return `<a href="./events?id=${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline break-all" target="_blank">${escapedText}</a>`;
+  return `<a href="./events?id=${escapedId}" class="inline-flex items-center text-primary-600 dark:text-primary-500 hover:underline break-all">${escapedText}</a>`;
 }
 
 /**

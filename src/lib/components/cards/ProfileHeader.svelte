@@ -68,7 +68,7 @@
             <div class="flex gap-2">
               <dt class="font-semibold min-w-[120px]">Website:</dt>
               <dd>
-                <a href={profile.website} target="_blank" class="underline text-primary-700 dark:text-primary-200">{profile.website}</a>
+                <a href={profile.website} class="underline text-primary-700 dark:text-primary-200">{profile.website}</a>
               </dd>
             </div>
           {/if}
