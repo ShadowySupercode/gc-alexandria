@@ -6,6 +6,7 @@
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from '$lib/utils/nostrUtils';
+  import { postProcessAsciidoctorHtml } from '$lib/utils/markup/asciidoctorPostProcessor';
 
   let {
     address,
@@ -37,8 +38,11 @@
   let leafTitle: Promise<string | undefined> = $derived.by(async () =>
     (await leafEvent)?.getMatchingTags('title')[0]?.[1]);
 
-  let leafContent: Promise<string | Document> = $derived.by(async () =>
-    asciidoctor.convert((await leafEvent)?.content ?? ''));
+  let leafContent: Promise<string | Document> = $derived.by(async () => {
+    const rawContent = (await leafEvent)?.content ?? '';
+    const asciidoctorHtml = asciidoctor.convert(rawContent);
+    return await postProcessAsciidoctorHtml(asciidoctorHtml.toString());
+  });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
     let index: number;
