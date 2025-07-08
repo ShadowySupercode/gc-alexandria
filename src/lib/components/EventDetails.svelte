@@ -10,6 +10,7 @@
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
+  import { goto } from '$app/navigation';
 
   const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
@@ -48,15 +49,17 @@
     return MTag[1].split('/')[1] || `Event Kind ${event.kind}`;
   }
 
-  function renderTag(tag: string[]): string {
+  function getTagButtonInfo(tag: string[]): { text: string, gotoValue?: string } {
     if (tag[0] === 'a' && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(':');
-      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700 dark:text-primary-300'>a:${tag[1]}</a>`;
-    } else if (tag[0] === 'e' && tag.length > 1) {
-      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700 dark:text-primary-300'>e:${tag[1]}</a>`;
-    } else {
-      return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
+      const naddr = naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays);
+      return { text: `a:${tag[1]}`, gotoValue: naddr };
     }
+    if (tag[0] === 'e' && tag.length > 1) {
+      const nevent = neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays);
+      return { text: `e:${tag[1]}`, gotoValue: nevent };
+    }
+    return { text: '' };
   }
 
   $effect(() => {
@@ -180,7 +183,15 @@
       <span class="text-gray-700 dark:text-gray-300">Event Tags:</span>
       <div class="flex flex-wrap gap-2">
         {#each event.tags as tag}
-          {@html renderTag(tag)}
+          {@const tagInfo = getTagButtonInfo(tag)}
+          {#if tagInfo.text && tagInfo.gotoValue}
+            <button
+              onclick={() => goto(`/events?id=${encodeURIComponent(tagInfo.gotoValue!)}`)}
+              class="underline text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100"
+            >
+              {tagInfo.text}
+            </button>
+          {/if}
         {/each}
       </div>
     </div>

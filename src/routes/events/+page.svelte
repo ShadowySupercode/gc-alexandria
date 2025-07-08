@@ -38,12 +38,14 @@
     }
   }
 
-  onMount(async () => {
+  $effect(() => {
     const id = $page.url.searchParams.get('id');
-    if (id) {
+    if (id !== searchValue) {
       searchValue = id;
     }
+  });
 
+  onMount(async () => {
     // Get user's pubkey and relay preference from localStorage
     userPubkey = localStorage.getItem('userPubkey');
     userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
