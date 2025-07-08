@@ -6,12 +6,15 @@
   import { goto } from '$app/navigation';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import RelayDisplay from './RelayDisplay.svelte';
+  import { getActiveRelays } from '$lib/ndk';
 
-  const { loading, error, searchValue, onEventFound, event } = $props<{
+  const { loading, error, searchValue, dTagValue, onEventFound, onSearchResults, event } = $props<{
     loading: boolean;
     error: string | null;
     searchValue: string | null;
+    dTagValue: string | null;
     onEventFound: (event: NDKEvent) => void;
+    onSearchResults: (results: NDKEvent[]) => void;
     event: NDKEvent | null;
   }>();
 
@@ -28,13 +31,68 @@
   });
 
   $effect(() => {
+    if (dTagValue) {
+      searchByDTag(dTagValue);
+    }
+  });
+
+  $effect(() => {
     foundEvent = event;
   });
+
+  async function searchByDTag(dTag: string) {
+    localError = null;
+    searching = true;
+    
+    try {
+      console.log('[Events] Searching for events with d-tag:', dTag);
+      const ndk = $ndkInstance;
+      if (!ndk) {
+        localError = 'NDK not initialized';
+        return;
+      }
+
+      const filter = { '#d': [dTag] };
+      const relaySet = getActiveRelays(ndk);
+      
+      // Fetch multiple events with the same d-tag
+      const events = await ndk.fetchEvents(filter, { closeOnEose: true }, relaySet);
+      const eventArray = Array.from(events);
+      
+      if (eventArray.length === 0) {
+        localError = `No events found with d-tag: ${dTag}`;
+        onSearchResults([]);
+      } else if (eventArray.length === 1) {
+        // If only one event found, treat it as a single event result
+        handleFoundEvent(eventArray[0]);
+      } else {
+        // Multiple events found, show as search results
+        console.log(`[Events] Found ${eventArray.length} events with d-tag: ${dTag}`);
+        onSearchResults(eventArray);
+      }
+    } catch (err) {
+      console.error('[Events] Error searching by d-tag:', err);
+      localError = 'Error searching for events with this d-tag.';
+      onSearchResults([]);
+    } finally {
+      searching = false;
+    }
+  }
 
   async function searchEvent(clearInput: boolean = true, queryOverride?: string) {
     localError = null;
     const query = (queryOverride !== undefined ? queryOverride : searchQuery).trim();
     if (!query) return;
+
+    // Check if this is a d-tag search
+    if (query.startsWith('d:')) {
+      const dTag = query.slice(2).trim();
+      if (dTag) {
+        const encoded = encodeURIComponent(dTag);
+        goto(`?d=${encoded}`, { replaceState: false, keepFocus: true, noScroll: true });
+        return;
+      }
+    }
 
     // Only update the URL if this is a manual search
     if (clearInput) {
@@ -162,7 +220,7 @@
   <div class="flex gap-2">
     <Input
       bind:value={searchQuery}
-      placeholder="Enter event ID, nevent, or naddr..."
+      placeholder="Enter event ID, nevent, naddr, or d:tag-name..."
       class="flex-grow"
       on:keydown={(e: KeyboardEvent) => e.key === 'Enter' && searchEvent(true)}
     />
@@ -196,9 +254,6 @@
     </div>
     {#if !foundEvent && Object.values(relayStatuses).some(s => s === 'pending')}
               <div class="text-gray-700 dark:text-gray-300 mt-2">Searching relays...</div>
-    {/if}
-    {#if !foundEvent && !searching && Object.values(relayStatuses).every(s => s !== 'pending')}
-      <div class="text-red-500 mt-2">Event not found on any relay.</div>
     {/if}
   </div>
 </div> 
