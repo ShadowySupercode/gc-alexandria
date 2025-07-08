@@ -85,7 +85,7 @@ export async function getUserMetadata(identifier: string): Promise<NostrProfile>
 
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
-      displayName: profile?.displayName,
+      displayName: profile?.displayName || profile?.display_name,
       nip05: profile?.nip05,
       picture: profile?.image,
       about: profile?.about,
@@ -155,7 +155,7 @@ export async function createProfileLinkWithVerification(identifier: string, disp
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier = profile?.displayName ?? profile?.name ?? escapedText;
+  const displayIdentifier = profile?.displayName ?? profile?.display_name ?? profile?.name ?? escapedText;
 
   const isVerified = await user.validateNip05(nip05);
   

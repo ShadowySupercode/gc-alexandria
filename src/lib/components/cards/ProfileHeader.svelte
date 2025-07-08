@@ -41,7 +41,7 @@
       {#if profile.picture}
         <img src={profile.picture} alt="Profile avatar" class="w-16 h-16 rounded-full border" onerror={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} />
       {/if}
-      {@render userBadge(toNpub(event.pubkey) as string, profile.displayName || profile.name || event.pubkey)}
+      {@render userBadge(toNpub(event.pubkey) as string, profile.displayName || profile.display_name || profile.name || event.pubkey)}
     </div>
     <div>
       <div class="mt-2 flex flex-col gap-4">

@@ -6,6 +6,7 @@
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { getUserMetadata, toNpub } from '$lib/utils/nostrUtils';
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -29,6 +30,19 @@
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
 
+  // New: fetch profile display name for authorPubkey
+  let authorDisplayName = $state<string | undefined>(undefined);
+
+  $effect(() => {
+    if (authorPubkey) {
+      getUserMetadata(toNpub(authorPubkey) as string).then(profile => {
+        authorDisplayName = profile.displayName || (profile as any).display_name || author || authorPubkey;
+      });
+    } else {
+      authorDisplayName = undefined;
+    }
+  });
+
   console.log("PublicationHeader event:", event);
 </script>
 
@@ -46,7 +60,7 @@
           <h3 class='text-base font-normal'>
             by
             {#if authorPubkey != null}
-            {@render userBadge(authorPubkey, author)}
+            {@render userBadge(authorPubkey, authorDisplayName)}
             {:else}
               {author}
             {/if}

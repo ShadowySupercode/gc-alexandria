@@ -8,6 +8,7 @@
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { getMatchingTags } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
+  import { getUserMetadata } from "$lib/utils/nostrUtils";
 
   const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
@@ -27,6 +28,7 @@
   let showFullContent = $state(false);
   let parsedContent = $state('');
   let contentPreview = $state('');
+  let authorDisplayName = $state<string | undefined>(undefined);
 
   function getEventTitle(event: NDKEvent): string {
     return getMatchingTags(event, 'title')[0]?.[1] || 'Untitled';
@@ -62,6 +64,16 @@
         parsedContent = html;
         contentPreview = html.slice(0, 250);
       });
+    }
+  });
+
+  $effect(() => {
+    if (event?.pubkey) {
+      getUserMetadata(toNpub(event.pubkey) as string).then(profile => {
+        authorDisplayName = profile.displayName || (profile as any).display_name || profile.name || event.pubkey;
+      });
+    } else {
+      authorDisplayName = undefined;
     }
   });
 
@@ -109,9 +121,13 @@
 
   <div class="flex items-center space-x-2">
     {#if toNpub(event.pubkey)}
-      <span class="text-gray-700 dark:text-gray-300">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
+      <span class="text-gray-700 dark:text-gray-300">
+        Author: {@render userBadge(toNpub(event.pubkey) as string, authorDisplayName)}
+      </span>
     {:else}
-      <span class="text-gray-700 dark:text-gray-300">Author: {profile?.display_name || event.pubkey}</span>
+      <span class="text-gray-700 dark:text-gray-300">
+        Author: {authorDisplayName}
+      </span>
     {/if}
   </div>
 
