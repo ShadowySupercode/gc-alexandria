@@ -53,7 +53,7 @@
         {/if}
       </h2>
       {#if version !== '1' }
-        <h4 class="text-base font-thin">Version: {version}</h4>
+        <h4 class="text-base font-medium text-primary-700 dark:text-primary-300">Version: {version}</h4>
       {/if}
     </div>
   </div>

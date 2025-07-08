@@ -70,7 +70,7 @@
           <CommentBox event={event} userPubkey={userPubkey} userRelayPreference={userRelayPreference} />
         </div>
       {:else}
-        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">
           <P>Please sign in to add comments.</P>
         </div>
       {/if}

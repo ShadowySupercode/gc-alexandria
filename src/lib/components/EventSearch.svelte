@@ -195,7 +195,7 @@
       {/each}
     </div>
     {#if !foundEvent && Object.values(relayStatuses).some(s => s === 'pending')}
-      <div class="text-gray-500 mt-2">Searching relays...</div>
+              <div class="text-gray-700 dark:text-gray-300 mt-2">Searching relays...</div>
     {/if}
     {#if !foundEvent && !searching && Object.values(relayStatuses).every(s => s !== 'pending')}
       <div class="text-red-500 mt-2">Event not found on any relay.</div>

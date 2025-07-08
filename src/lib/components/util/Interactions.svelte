@@ -80,7 +80,7 @@
   }
 </script>
 
-<div class='InteractiveMenu !hidden flex-{direction} justify-around align-middle text-primary-700 dark:text-gray-500'>
+      <div class='InteractiveMenu !hidden flex-{direction} justify-around align-middle text-primary-700 dark:text-gray-300'>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doLike}><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doZap}><ZapOutline className="mx-2" /><span>{zapCount}</span></Button>
   <Button color="none" class='flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0' onclick={doHighlight}><FilePenOutline class="mx-2" size="lg"/><span>{highlightCount}</span></Button>

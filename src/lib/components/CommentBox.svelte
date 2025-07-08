@@ -281,7 +281,7 @@
             }}
           />
         {/if}
-        <span class="text-gray-700 dark:text-gray-300">
+        <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName || userProfile.name || nip19.npubEncode(props.userPubkey).slice(0, 8) + '...'}
         </span>
       </div>

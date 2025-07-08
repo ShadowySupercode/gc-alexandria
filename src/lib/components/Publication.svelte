@@ -193,7 +193,7 @@
       {:else if !isDone}
         <Button color="primary" on:click={() => loadMore(1)}>Show More</Button>
       {:else}
-        <p class="text-gray-500 dark:text-gray-400">
+        <p class="text-gray-700 dark:text-gray-300">
           You've reached the end of the publication.
         </p>
       {/if}
@@ -287,7 +287,7 @@
             <Card class="ArticleBox card-leather w-full grid max-w-xl">
               <div class="flex flex-col my-2">
                 <span>Unknown</span>
-                <span class="text-gray-500">1.1.1970</span>
+                <span class="text-gray-700 dark:text-gray-300">1.1.1970</span>
               </div>
               <div class="flex flex-col flex-grow space-y-4">
                 This is a very intelligent comment placeholder that applies to

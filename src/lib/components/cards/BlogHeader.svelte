@@ -39,7 +39,7 @@
       <div class="flex flex-row justify-between my-2">
         <div class="flex flex-col">
           {@render userBadge(authorPubkey, author)}
-          <span class='text-gray-500'>{publishedAt()}</span>
+          <span class='text-gray-700 dark:text-gray-300'>{publishedAt()}</span>
         </div>
         <CardActions event={event} />
       </div>

@@ -109,31 +109,31 @@
 
   <div class="flex items-center space-x-2">
     {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
+      <span class="text-gray-700 dark:text-gray-300">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
     {:else}
-      <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>
+      <span class="text-gray-700 dark:text-gray-300">Author: {profile?.display_name || event.pubkey}</span>
     {/if}
   </div>
 
   <div class="flex items-center space-x-2">
-    <span class="text-gray-600 dark:text-gray-400">Kind:</span>
+    <span class="text-gray-700 dark:text-gray-300">Kind:</span>
     <span class="font-mono">{event.kind}</span>
-    <span class="text-gray-600 dark:text-gray-400">({getEventTypeDisplay(event)})</span>
+    <span class="text-gray-700 dark:text-gray-300">({getEventTypeDisplay(event)})</span>
   </div>
 
   {#if getEventSummary(event)}
     <div class="flex flex-col space-y-1">
-      <span class="text-gray-600 dark:text-gray-400">Summary:</span>
-      <p class="text-gray-800 dark:text-gray-200">{getEventSummary(event)}</p>
+      <span class="text-gray-700 dark:text-gray-300">Summary:</span>
+      <p class="text-gray-900 dark:text-gray-100">{getEventSummary(event)}</p>
     </div>
   {/if}
 
   {#if getEventHashtags(event).length}
     <div class="flex flex-col space-y-1">
-      <span class="text-gray-600 dark:text-gray-400">Tags:</span>
+      <span class="text-gray-700 dark:text-gray-300">Tags:</span>
       <div class="flex flex-wrap gap-2">
         {#each getEventHashtags(event) as tag}
-          <span class="px-2 py-1 rounded bg-primary-100 text-primary-700 text-sm font-medium">#{tag}</span>
+          <span class="px-2 py-1 rounded bg-primary-100 text-primary-800 text-sm font-medium">#{tag}</span>
         {/each}
       </div>
     </div>
@@ -142,11 +142,11 @@
   <!-- Content -->
   <div class="flex flex-col space-y-1">
     {#if event.kind !== 0}
-      <span class="text-gray-600 dark:text-gray-400">Content:</span>
+      <span class="text-gray-700 dark:text-gray-300">Content:</span>
       <div class="prose dark:prose-invert max-w-none">
         {@html showFullContent ? parsedContent : contentPreview}
         {#if !showFullContent && parsedContent.length > 250}
-          <button class="mt-2 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300" onclick={() => showFullContent = true}>Show more</button>
+          <button class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200" onclick={() => showFullContent = true}>Show more</button>
         {/if}
       </div>
     {/if}
@@ -160,7 +160,7 @@
   <!-- Tags Array -->
   {#if event.tags && event.tags.length}
     <div class="flex flex-col space-y-1">
-      <span class="text-gray-600 dark:text-gray-400">Event Tags:</span>
+      <span class="text-gray-700 dark:text-gray-300">Event Tags:</span>
       <div class="flex flex-wrap gap-2">
         {#each event.tags as tag}
           {@html renderTag(tag)}

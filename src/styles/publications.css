@@ -1,7 +1,7 @@
 @layer components {
     /* AsciiDoc content */
     .publication-leather p a {
-        @apply underline hover:text-primary-500 dark:hover:text-primary-400;
+        @apply underline hover:text-primary-600 dark:hover:text-primary-400;
     }
 
     .publication-leather section p {

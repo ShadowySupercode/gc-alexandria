@@ -330,7 +330,7 @@
                 <div class="absolute inset-0 overflow-hidden">
                   <Textarea
                     id="content"
-                    class="w-full h-full resize-none bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-400 dark:focus:border-primary-500"
+                    class="w-full h-full resize-none bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-600 dark:focus:border-primary-400"
                     bind:value={content}
                     required
                     placeholder="Describe your issue in detail...
@@ -378,7 +378,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
                     {#await parseAdvancedmarkup(content)}
                       <p>Loading preview...</p>
                     {:then html}
-                      {@html html || '<p class="text-gray-500">Nothing to preview</p>'}
+                      {@html html || '<p class="text-gray-700 dark:text-gray-300">Nothing to preview</p>'}
                     {:catch error}
                       <p class="text-red-500">Error rendering preview: {error.message}</p>
                     {/await}
@@ -416,7 +416,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
         <div class="p-6 mb-4 text-sm bg-success-200 dark:bg-success-700 border border-success-300 dark:border-success-600 rounded-lg relative" role="alert">
           <!-- Close button -->
           <button 
-            class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
+            class="absolute top-2 right-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
             onclick={closeSuccessMessage}
             aria-label="Close"
           >
@@ -490,7 +490,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
   class="w-full"
 >
   <div class="text-center">
-    <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+            <h3 class="mb-5 text-lg font-normal text-gray-700 dark:text-gray-300">
       Would you like to submit the issue?
     </h3>
     <div class="flex justify-center gap-4">

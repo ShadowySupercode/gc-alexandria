@@ -242,13 +242,13 @@
   {:else if loadingMore}
     <div class='flex justify-center mt-4 mb-8'>
       <Button outline disabled class="w-full max-w-md">
-        <Spinner class='mr-3 text-gray-300' size='4' />
+        <Spinner class='mr-3 text-gray-600 dark:text-gray-300' size='4' />
         Loading...
       </Button>
     </div>
   {:else}
     <div class='flex justify-center mt-4 mb-8'>
-      <P class='text-sm text-gray-600'>You've reached the end of the feed.</P>
+              <P class='text-sm text-gray-700 dark:text-gray-300'>You've reached the end of the feed.</P>
     </div>
   {/if}
 </div>

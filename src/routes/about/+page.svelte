@@ -15,7 +15,7 @@
       >
       {#if isVersionKnown}
         <span
-          class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-nowrap"
+          class="text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-nowrap"
           >Version: {appVersion}</span
         >
       {/if}

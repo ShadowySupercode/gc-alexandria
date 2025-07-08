@@ -162,7 +162,7 @@
 {#if showRelayModal}
   <div class="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
     <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-lg relative">
-      <button class="absolute top-2 right-2 text-gray-500 hover:text-gray-800" onclick={closeRelayModal}>&times;</button>
+              <button class="absolute top-2 right-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100" onclick={closeRelayModal}>&times;</button>
       <h2 class="text-lg font-semibold mb-4">Relay Search Results</h2>
       <div class="flex flex-col gap-4 max-h-96 overflow-y-auto">
         {#each Object.entries({
@@ -172,7 +172,7 @@
         }) as [groupName, groupRelays]}
           {#if groupRelays.length > 0}
             <div class="flex flex-col gap-2">
-              <h3 class="font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-white dark:bg-gray-900 py-2">
+              <h3 class="font-medium text-gray-900 dark:text-gray-100 sticky top-0 bg-white dark:bg-gray-900 py-2">
                 {groupName}
               </h3>
               {#each groupRelays as relay}

@@ -45,7 +45,7 @@
   />
   <button
     on:click={handleUpdate}
-    class="btn-leather px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+            class="btn-leather px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-400 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
   >
     Update
   </button>

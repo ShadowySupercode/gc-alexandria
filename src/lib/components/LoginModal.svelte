@@ -43,16 +43,16 @@
         <div class="flex items-start justify-between p-5 border-b border-solid border-gray-300 dark:border-gray-600 rounded-t">
           <h3 class="text-xl font-medium text-gray-900 dark:text-gray-100">Login Required</h3>
           <button 
-            class="ml-auto bg-transparent border-0 text-gray-400 float-right text-3xl leading-none font-semibold outline-none focus:outline-none"
+            class="ml-auto bg-transparent border-0 text-gray-600 float-right text-3xl leading-none font-semibold outline-none focus:outline-none"
             onclick={onClose}
           >
-            <span class="bg-transparent text-gray-500 dark:text-gray-400 h-6 w-6 text-2xl block outline-none focus:outline-none">×</span>
+            <span class="bg-transparent text-gray-700 dark:text-gray-300 h-6 w-6 text-2xl block outline-none focus:outline-none">×</span>
           </button>
         </div>
         
         <!-- Body -->
         <div class="relative p-6 flex-auto">
-          <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400 mb-6">
+          <p class="text-base leading-relaxed text-gray-700 dark:text-gray-300 mb-6">
             You need to be logged in to submit an issue. Your form data will be preserved.
           </p>
           <div class="flex flex-col space-y-4">
