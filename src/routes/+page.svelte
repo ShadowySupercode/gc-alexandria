@@ -10,6 +10,12 @@
     localStorage.setItem(feedTypeStorageKey, $feedType);
   });
 
+  $effect(() => {
+    if (!$ndkSignedIn && $feedType !== FeedType.StandardRelays) {
+      feedType.set(FeedType.StandardRelays);
+    }
+  });
+
   const getFeedTypeFriendlyName = (feedType: FeedType): string => {
     switch (feedType) {
     case FeedType.StandardRelays:
@@ -32,19 +38,19 @@
 </Alert>
 
 <main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
-  {#if !$ndkSignedIn}
-    <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
-  {:else}
-    <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
-      <Button id="feed-toggle-btn" class="min-w-[220px] max-w-sm">
-        {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}
+  <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
+    <Button id="feed-toggle-btn" class="min-w-[220px] max-w-sm">
+      {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}
+      {#if $ndkSignedIn}
         <ChevronDownOutline class='w-6 h-6' />
-      </Button>
-      <Input
-        bind:value={searchQuery}
-        placeholder="Search publications by title or author..."
-        class="flex-grow max-w-2xl min-w-[300px] text-base"
-      />
+      {/if}
+    </Button>
+    <Input
+      bind:value={searchQuery}
+      placeholder="Search publications by title or author..."
+      class="flex-grow max-w-2xl min-w-[300px] text-base"
+    />
+    {#if $ndkSignedIn}
       <Dropdown
         class='w-fit p-2 space-y-2 text-sm'
         triggeredBy="#feed-toggle-btn"
@@ -56,7 +62,11 @@
           <Radio name='follows' bind:group={$feedType} value={FeedType.UserRelays}>Your Relays</Radio>
         </li>
       </Dropdown>
-    </div>
+    {/if}
+  </div>
+  {#if !$ndkSignedIn}
+    <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
+  {:else}
     {#if $feedType === FeedType.StandardRelays}
       <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
     {:else if $feedType === FeedType.UserRelays}

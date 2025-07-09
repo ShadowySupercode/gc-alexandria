@@ -19,17 +19,123 @@
     eventsInView?.at(eventsInView.length - 1)?.created_at ?? new Date().getTime()
   );
 
+  let allIndexEvents: NDKEvent[] = $state([]);
+
+  async function fetchAllIndexEventsFromRelays() {
+    loading = true;
+    const ndk = $ndkInstance;
+    const primaryRelays: string[] = relays;
+    const fallback: string[] = fallbackRelays.filter((r: string) => !primaryRelays.includes(r));
+    const allRelays = [...primaryRelays, ...fallback];
+    relayStatuses = Object.fromEntries(allRelays.map((r: string) => [r, 'pending']));
+    let allEvents: NDKEvent[] = [];
+
+    // Helper to fetch from a single relay with timeout
+    async function fetchFromRelay(relay: string): Promise<NDKEvent[]> {
+      try {
+        const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
+        let eventSet = await ndk.fetchEvents(
+          {
+            kinds: [indexKind],
+          },
+          {
+            groupable: false,
+            skipVerification: false,
+            skipValidation: false,
+          },
+          relaySet
+        ).withTimeout(5000);
+        eventSet = filterValidIndexEvents(eventSet);
+        relayStatuses = { ...relayStatuses, [relay]: 'found' };
+        return Array.from(eventSet);
+      } catch (err) {
+        console.error(`Error fetching from relay ${relay}:`, err);
+        relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
+        return [];
+      }
+    }
+
+    // Fetch from all relays in parallel, do not block on any single relay
+    const results = await Promise.allSettled(
+      allRelays.map(fetchFromRelay)
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allEvents = allEvents.concat(result.value);
+      }
+    }
+    // Deduplicate by tagAddress
+    const eventMap = new Map(allEvents.map(event => [event.tagAddress(), event]));
+    allIndexEvents = Array.from(eventMap.values());
+    // Sort by created_at descending
+    allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+    // Initially show first page
+    eventsInView = allIndexEvents.slice(0, 30);
+    endOfFeed = allIndexEvents.length <= 30;
+    loading = false;
+  }
+
+  // Function to filter events based on search query
+  const filterEventsBySearch = (events: NDKEvent[]) => {
+    if (!searchQuery) return events;
+    const query = searchQuery.toLowerCase();
+    console.debug('[PublicationFeed] Filtering events with query:', query, 'Total events before filter:', events.length);
+
+    // Check if the query is a NIP-05 address
+    const isNip05Query = /^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(query);
+    console.debug('[PublicationFeed] Is NIP-05 query:', isNip05Query);
+
+    const filtered = events.filter(event => {
+      const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
+      const authorName = getMatchingTags(event, 'author')[0]?.[1]?.toLowerCase() ?? '';
+      const authorPubkey = event.pubkey.toLowerCase();
+      const nip05 = getMatchingTags(event, 'nip05')[0]?.[1]?.toLowerCase() ?? '';
+
+      // For NIP-05 queries, only match against NIP-05 tags
+      if (isNip05Query) {
+        const matches = nip05 === query;
+        if (matches) {
+          console.debug('[PublicationFeed] Event matches NIP-05 search:', {
+            id: event.id,
+            nip05,
+            authorPubkey
+          });
+        }
+        return matches;
+      }
+
+      // For regular queries, match against all fields
+      const matches = (
+        title.includes(query) ||
+        authorName.includes(query) ||
+        authorPubkey.includes(query) ||
+        nip05.includes(query)
+      );
+      if (matches) {
+        console.debug('[PublicationFeed] Event matches search:', {
+          id: event.id,
+          title,
+          authorName,
+          authorPubkey,
+          nip05
+        });
+      }
+      return matches;
+    });
+    console.debug('[PublicationFeed] Events after filtering:', filtered.length);
+    return filtered;
+  };
+
   // Debounced search function
   const debouncedSearch = debounce(async (query: string) => {
     console.debug('[PublicationFeed] Search query changed:', query);
     if (query.trim()) {
-      console.debug('[PublicationFeed] Clearing events and searching with query:', query);
-      eventsInView = [];
-      await getEvents(undefined, query, true);
+      const filtered = filterEventsBySearch(allIndexEvents);
+      eventsInView = filtered.slice(0, 30);
+      endOfFeed = filtered.length <= 30;
     } else {
-      console.debug('[PublicationFeed] Clearing events and resetting search');
-      eventsInView = [];
-      await getEvents(undefined, '', true);
+      eventsInView = allIndexEvents.slice(0, 30);
+      endOfFeed = allIndexEvents.length <= 30;
     }
   }, 300);
 
@@ -38,163 +144,16 @@
     debouncedSearch(searchQuery);
   });
 
-  async function getEvents(before: number | undefined = undefined, search: string = '', reset: boolean = false) {
-    loading = true;
-    const ndk = $ndkInstance;
-    const primaryRelays: string[] = relays;
-    const fallback: string[] = fallbackRelays.filter((r: string) => !primaryRelays.includes(r));
-    relayStatuses = Object.fromEntries(primaryRelays.map((r: string) => [r, 'pending']));
-    let allEvents: NDKEvent[] = [];
-    let fetchedCount = 0; // Track number of new events
-
-    console.debug('[getEvents] Called with before:', before, 'search:', search);
-
-    // Function to filter events based on search query
-    const filterEventsBySearch = (events: NDKEvent[]) => {
-      if (!search) return events;
-      const query = search.toLowerCase();
-      console.debug('[PublicationFeed] Filtering events with query:', query, 'Total events before filter:', events.length);
-
-      // Check if the query is a NIP-05 address
-      const isNip05Query = /^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(query);
-      console.debug('[PublicationFeed] Is NIP-05 query:', isNip05Query);
-
-      const filtered = events.filter(event => {
-        const title = getMatchingTags(event, 'title')[0]?.[1]?.toLowerCase() ?? '';
-        const authorName = getMatchingTags(event, 'author')[0]?.[1]?.toLowerCase() ?? '';
-        const authorPubkey = event.pubkey.toLowerCase();
-        const nip05 = getMatchingTags(event, 'nip05')[0]?.[1]?.toLowerCase() ?? '';
-
-        // For NIP-05 queries, only match against NIP-05 tags
-        if (isNip05Query) {
-          const matches = nip05 === query;
-          if (matches) {
-            console.debug('[PublicationFeed] Event matches NIP-05 search:', {
-              id: event.id,
-              nip05,
-              authorPubkey
-            });
-          }
-          return matches;
-        }
-
-        // For regular queries, match against all fields
-        const matches = (
-          title.includes(query) ||
-          authorName.includes(query) ||
-          authorPubkey.includes(query) ||
-          nip05.includes(query)
-        );
-        if (matches) {
-          console.debug('[PublicationFeed] Event matches search:', {
-            id: event.id,
-            title,
-            authorName,
-            authorPubkey,
-            nip05
-          });
-        }
-        return matches;
-      });
-      console.debug('[PublicationFeed] Events after filtering:', filtered.length);
-      return filtered;
-    };
-
-    // First, try primary relays
-    let foundEventsInPrimary = false;
-    await Promise.all(
-      primaryRelays.map(async (relay: string) => {
-        try {
-          const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
-          let eventSet = await ndk.fetchEvents(
-            {
-              kinds: [indexKind],
-              limit: 30,
-              until: before,
-            },
-            {
-              groupable: false,
-              skipVerification: false,
-              skipValidation: false,
-            },
-            relaySet
-          ).withTimeout(2500);
-          eventSet = filterValidIndexEvents(eventSet);
-          const eventArray = filterEventsBySearch(Array.from(eventSet));
-          fetchedCount += eventArray.length; // Count new events
-          if (eventArray.length > 0) {
-            allEvents = allEvents.concat(eventArray);
-            relayStatuses = { ...relayStatuses, [relay]: 'found' };
-            foundEventsInPrimary = true;
-          } else {
-            relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
-          }
-          console.debug(`[getEvents] Fetched ${eventArray.length} events from relay: ${relay} (search: "${search}")`);
-        } catch (err) {
-          console.error(`Error fetching from primary relay ${relay}:`, err);
-          relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
-        }
-      })
-    );
-
-    // Only try fallback relays if no events were found in primary relays
-    if (!foundEventsInPrimary && fallback.length > 0) {
-      console.debug('[getEvents] No events found in primary relays, trying fallback relays');
-      relayStatuses = { ...relayStatuses, ...Object.fromEntries(fallback.map((r: string) => [r, 'pending'])) };
-      await Promise.all(
-        fallback.map(async (relay: string) => {
-          try {
-            const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
-            let eventSet = await ndk.fetchEvents(
-              {
-                kinds: [indexKind],
-                limit: 18,
-                until: before,
-              },
-              {
-                groupable: false,
-                skipVerification: false,
-                skipValidation: false,
-              },
-              relaySet
-            ).withTimeout(2500);
-            eventSet = filterValidIndexEvents(eventSet);
-            const eventArray = filterEventsBySearch(Array.from(eventSet));
-            fetchedCount += eventArray.length; // Count new events
-            if (eventArray.length > 0) {
-              allEvents = allEvents.concat(eventArray);
-              relayStatuses = { ...relayStatuses, [relay]: 'found' };
-            } else {
-              relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
-            }
-            console.debug(`[getEvents] Fetched ${eventArray.length} events from relay: ${relay} (search: "${search}")`);
-          } catch (err) {
-            console.error(`Error fetching from fallback relay ${relay}:`, err);
-            relayStatuses = { ...relayStatuses, [relay]: 'notfound' };
-          }
-        })
-      );
-    }
-    // Deduplicate and sort
-    const eventMap = reset
-      ? new Map(allEvents.map(event => [event.tagAddress(), event]))
-      : new Map([...eventsInView, ...allEvents].map(event => [event.tagAddress(), event]));
-    const uniqueEvents = Array.from(eventMap.values());
-    uniqueEvents.sort((a, b) => b.created_at! - a.created_at!);
-    eventsInView = uniqueEvents;
-    const pageSize = fallback.length > 0 ? 18 : 30;
-    if (fetchedCount < pageSize) {
-      endOfFeed = true;
-    } else {
-      endOfFeed = false;
-    }
-    console.debug(`[getEvents] Total unique events after deduplication: ${uniqueEvents.length}`);
-    console.debug(`[getEvents] endOfFeed set to: ${endOfFeed} (fetchedCount: ${fetchedCount}, pageSize: ${pageSize})`);
-    loading = false;
-    console.debug('Relay statuses:', relayStatuses);
+  async function loadMorePublications() {
+    loadingMore = true;
+    const current = eventsInView.length;
+    let source = searchQuery.trim() ? filterEventsBySearch(allIndexEvents) : allIndexEvents;
+    eventsInView = source.slice(0, current + 30);
+    endOfFeed = eventsInView.length >= source.length;
+    loadingMore = false;
   }
 
-  const getSkeletonIds = (): string[] => {
+  function getSkeletonIds(): string[] {
     const skeletonHeight = 124; // The height of the skeleton component in pixels.
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
     const skeletonIds = [];
@@ -204,14 +163,8 @@
     return skeletonIds;
   }
 
-  async function loadMorePublications() {
-    loadingMore = true;
-    await getEvents(cutoffTimestamp, searchQuery, false);
-    loadingMore = false;
-  }
-
   onMount(async () => {
-    await getEvents();
+    await fetchAllIndexEventsFromRelays();
   });
 </script>
 
