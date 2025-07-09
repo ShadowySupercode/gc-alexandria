@@ -1,5 +1,9 @@
-<script module lang='ts'>
-  import { createProfileLink, createProfileLinkWithVerification, toNpub } from '$lib/utils/nostrUtils';
+<script module lang="ts">
+  import {
+    createProfileLink,
+    createProfileLinkWithVerification,
+    toNpub,
+  } from "$lib/utils/nostrUtils";
 
   export { userBadge };
 </script>
@@ -14,6 +18,6 @@
       {@html createProfileLink(toNpub(identifier) as string, displayText)}
     {/await}
   {:else}
-    {displayText ?? ''}
+    {displayText ?? ""}
   {/if}
 {/snippet}

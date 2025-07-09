@@ -1,14 +1,16 @@
-import { postProcessAsciidoctorHtml } from './asciidoctorPostProcessor';
-import plantumlEncoder from 'plantuml-encoder';
+import { postProcessAsciidoctorHtml } from "./asciidoctorPostProcessor";
+import plantumlEncoder from "plantuml-encoder";
 
 /**
  * Unified post-processor for Asciidoctor HTML that handles:
  * - Math rendering (Asciimath/Latex, stem blocks)
  * - PlantUML diagrams
- * - BPMN diagrams  
+ * - BPMN diagrams
  * - TikZ diagrams
  */
-export async function postProcessAdvancedAsciidoctorHtml(html: string): Promise<string> {
+export async function postProcessAdvancedAsciidoctorHtml(
+  html: string,
+): Promise<string> {
   if (!html) return html;
   try {
     // First apply the basic post-processing (wikilinks, nostr addresses)
@@ -22,15 +24,21 @@ export async function postProcessAdvancedAsciidoctorHtml(html: string): Promise<
     // Process TikZ blocks
     processedHtml = processTikZBlocks(processedHtml);
     // After all processing, apply highlight.js if available
-    if (typeof window !== 'undefined' && typeof window.hljs?.highlightAll === 'function') {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.hljs?.highlightAll === "function"
+    ) {
       setTimeout(() => window.hljs!.highlightAll(), 0);
     }
-    if (typeof window !== 'undefined' && typeof (window as any).MathJax?.typesetPromise === 'function') {
+    if (
+      typeof window !== "undefined" &&
+      typeof (window as any).MathJax?.typesetPromise === "function"
+    ) {
       setTimeout(() => (window as any).MathJax.typesetPromise(), 0);
     }
     return processedHtml;
   } catch (error) {
-    console.error('Error in postProcessAdvancedAsciidoctorHtml:', error);
+    console.error("Error in postProcessAdvancedAsciidoctorHtml:", error);
     return html; // Return original HTML if processing fails
   }
 }
@@ -41,44 +49,46 @@ export async function postProcessAdvancedAsciidoctorHtml(html: string): Promise<
  */
 function fixAllMathBlocks(html: string): string {
   // Unescape \$ to $ for math delimiters
-  html = html.replace(/\\\$/g, '$');
-
-
+  html = html.replace(/\\\$/g, "$");
 
   // Block math: <div class="stemblock"><div class="content">...</div></div>
   html = html.replace(
     /<div class="stemblock">\s*<div class="content">([\s\S]*?)<\/div>\s*<\/div>/g,
     (_match, mathContent) => {
       let cleanMath = mathContent
-        .replace(/<span>\$<\/span>/g, '')
-        .replace(/<span>\$\$<\/span>/g, '')
+        .replace(/<span>\$<\/span>/g, "")
+        .replace(/<span>\$\$<\/span>/g, "")
         // Remove $ or $$ on their own line, or surrounded by whitespace/newlines
-        .replace(/(^|[\n\r\s])\$([\n\r\s]|$)/g, '$1$2')
-        .replace(/(^|[\n\r\s])\$\$([\n\r\s]|$)/g, '$1$2')
+        .replace(/(^|[\n\r\s])\$([\n\r\s]|$)/g, "$1$2")
+        .replace(/(^|[\n\r\s])\$\$([\n\r\s]|$)/g, "$1$2")
         // Remove all leading and trailing whitespace and $
-        .replace(/^[\s$]+/, '').replace(/[\s$]+$/, '')
+        .replace(/^[\s$]+/, "")
+        .replace(/[\s$]+$/, "")
         .trim(); // Final trim to remove any stray whitespace or $
       // Always wrap in $$...$$
       return `<div class="stemblock"><div class="content">$$${cleanMath}$$</div></div>`;
-    }
+    },
   );
   // Inline math: <span>$</span> ... <span>$</span> (allow whitespace/newlines)
   html = html.replace(
     /<span>\$<\/span>\s*([\s\S]+?)\s*<span>\$<\/span>/g,
-    (_match, mathContent) => `<span class="math-inline">$${mathContent.trim()}$</span>`
+    (_match, mathContent) =>
+      `<span class="math-inline">$${mathContent.trim()}$</span>`,
   );
   // Inline math: stem:[...] or latexmath:[...]
   html = html.replace(
     /stem:\[([^\]]+?)\]/g,
-    (_match, content) => `<span class="math-inline">$${content.trim()}$</span>`
+    (_match, content) => `<span class="math-inline">$${content.trim()}$</span>`,
   );
   html = html.replace(
     /latexmath:\[([^\]]+?)\]/g,
-    (_match, content) => `<span class="math-inline">\\(${content.trim().replace(/\\\\/g, '\\')}\\)</span>`
+    (_match, content) =>
+      `<span class="math-inline">\\(${content.trim().replace(/\\\\/g, "\\")}\\)</span>`,
   );
   html = html.replace(
     /asciimath:\[([^\]]+?)\]/g,
-    (_match, content) => `<span class="math-inline">\`${content.trim()}\`</span>`
+    (_match, content) =>
+      `<span class="math-inline">\`${content.trim()}\`</span>`,
   );
   return html;
 }
@@ -110,17 +120,20 @@ function processPlantUMLBlocks(html: string): string {
           </details>
         </div>`;
       } catch (error) {
-        console.warn('Failed to process PlantUML block:', error);
+        console.warn("Failed to process PlantUML block:", error);
         return match;
       }
-    }
+    },
   );
   // Fallback: match <pre> blocks whose content starts with @startuml or @start (global, robust)
   html = html.replace(
     /<div class="listingblock">\s*<div class="content">\s*<pre>([\s\S]*?)<\/pre>\s*<\/div>\s*<\/div>/g,
     (match, content) => {
-      const lines = content.trim().split('\n');
-      if (lines[0].trim().startsWith('@startuml') || lines[0].trim().startsWith('@start')) {
+      const lines = content.trim().split("\n");
+      if (
+        lines[0].trim().startsWith("@startuml") ||
+        lines[0].trim().startsWith("@start")
+      ) {
         try {
           const rawContent = decodeHTMLEntities(content);
           const encoded = plantumlEncoder.encode(rawContent);
@@ -139,18 +152,18 @@ function processPlantUMLBlocks(html: string): string {
             </details>
           </div>`;
         } catch (error) {
-          console.warn('Failed to process PlantUML fallback block:', error);
+          console.warn("Failed to process PlantUML fallback block:", error);
           return match;
         }
       }
       return match;
-    }
+    },
   );
   return html;
 }
 
 function decodeHTMLEntities(text: string): string {
-  const textarea = document.createElement('textarea');
+  const textarea = document.createElement("textarea");
   textarea.innerHTML = text;
   return textarea.value;
 }
@@ -183,17 +196,20 @@ function processBPMNBlocks(html: string): string {
           </div>
         </div>`;
       } catch (error) {
-        console.warn('Failed to process BPMN block:', error);
+        console.warn("Failed to process BPMN block:", error);
         return match;
       }
-    }
+    },
   );
   // Fallback: match <pre> blocks whose content contains 'bpmn:' or '<?xml' and 'bpmn'
   html = html.replace(
     /<div class="listingblock">\s*<div class="content">\s*<pre>([\s\S]*?)<\/pre>\s*<\/div>\s*<\/div>/g,
     (match, content) => {
       const text = content.trim();
-      if (text.includes('bpmn:') || (text.startsWith('<?xml') && text.includes('bpmn'))) {
+      if (
+        text.includes("bpmn:") ||
+        (text.startsWith("<?xml") && text.includes("bpmn"))
+      ) {
         try {
           return `<div class="bpmn-block my-4">
             <div class="bpmn-diagram p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-700">
@@ -214,12 +230,12 @@ function processBPMNBlocks(html: string): string {
             </div>
           </div>`;
         } catch (error) {
-          console.warn('Failed to process BPMN fallback block:', error);
+          console.warn("Failed to process BPMN fallback block:", error);
           return match;
         }
       }
       return match;
-    }
+    },
   );
   return html;
 }
@@ -252,17 +268,20 @@ function processTikZBlocks(html: string): string {
           </div>
         </div>`;
       } catch (error) {
-        console.warn('Failed to process TikZ block:', error);
+        console.warn("Failed to process TikZ block:", error);
         return match;
       }
-    }
+    },
   );
   // Fallback: match <pre> blocks whose content starts with \begin{tikzpicture} or contains tikz
   html = html.replace(
     /<div class="listingblock">\s*<div class="content">\s*<pre>([\s\S]*?)<\/pre>\s*<\/div>\s*<\/div>/g,
     (match, content) => {
-      const lines = content.trim().split('\n');
-      if (lines[0].trim().startsWith('\\begin{tikzpicture}') || content.includes('tikz')) {
+      const lines = content.trim().split("\n");
+      if (
+        lines[0].trim().startsWith("\\begin{tikzpicture}") ||
+        content.includes("tikz")
+      ) {
         try {
           return `<div class="tikz-block my-4">
             <div class="tikz-diagram p-4 bg-green-50 dark:bg-green-900 rounded-lg border border-green-200 dark:border-green-700">
@@ -283,12 +302,12 @@ function processTikZBlocks(html: string): string {
             </div>
           </div>`;
         } catch (error) {
-          console.warn('Failed to process TikZ fallback block:', error);
+          console.warn("Failed to process TikZ fallback block:", error);
           return match;
         }
       }
       return match;
-    }
+    },
   );
   return html;
 }
@@ -297,7 +316,7 @@ function processTikZBlocks(html: string): string {
  * Escapes HTML characters for safe display
  */
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
-} 
+}

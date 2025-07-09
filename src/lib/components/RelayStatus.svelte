@@ -1,11 +1,17 @@
 <script lang="ts">
-  import { Button, Alert } from 'flowbite-svelte';
-  import { ndkInstance, ndkSignedIn, testRelayConnection, checkWebSocketSupport, checkEnvironmentForWebSocketDowngrade } from '$lib/ndk';
-  import { standardRelays, anonymousRelays } from '$lib/consts';
-  import { onMount } from 'svelte';
-  import { feedType } from '$lib/stores';
-  import { inboxRelays, outboxRelays } from '$lib/ndk';
-  import { FeedType } from '$lib/consts';
+  import { Button, Alert } from "flowbite-svelte";
+  import {
+    ndkInstance,
+    ndkSignedIn,
+    testRelayConnection,
+    checkWebSocketSupport,
+    checkEnvironmentForWebSocketDowngrade,
+  } from "$lib/ndk";
+  import { standardRelays, anonymousRelays } from "$lib/consts";
+  import { onMount } from "svelte";
+  import { feedType } from "$lib/stores";
+  import { inboxRelays, outboxRelays } from "$lib/ndk";
+  import { FeedType } from "$lib/consts";
 
   interface RelayStatus {
     url: string;
@@ -30,58 +36,54 @@
 
     if ($feedType === FeedType.UserRelays && $ndkSignedIn) {
       // Use user's relays (inbox + outbox), deduplicated
-      const userRelays = new Set([
-        ...$inboxRelays,
-        ...$outboxRelays
-      ]);
+      const userRelays = new Set([...$inboxRelays, ...$outboxRelays]);
       relaysToTest = Array.from(userRelays);
     } else {
       // Use default relays (standard + anonymous), deduplicated
-      relaysToTest = Array.from(new Set([
-        ...standardRelays,
-        ...anonymousRelays
-      ]));
+      relaysToTest = Array.from(
+        new Set([...standardRelays, ...anonymousRelays]),
+      );
     }
 
-    console.log('[RelayStatus] Relays to test:', relaysToTest);
+    console.log("[RelayStatus] Relays to test:", relaysToTest);
 
-    relayStatuses = relaysToTest.map(url => ({
+    relayStatuses = relaysToTest.map((url) => ({
       url,
       connected: false,
       requiresAuth: false,
-      testing: true
+      testing: true,
     }));
 
     const results = await Promise.allSettled(
       relaysToTest.map(async (url) => {
-        console.log('[RelayStatus] Testing relay:', url);
+        console.log("[RelayStatus] Testing relay:", url);
         try {
           return await testRelayConnection(url, ndk);
         } catch (error) {
           return {
             connected: false,
             requiresAuth: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      })
+      }),
     );
 
     relayStatuses = relayStatuses.map((status, index) => {
       const result = results[index];
-      if (result.status === 'fulfilled') {
+      if (result.status === "fulfilled") {
         return {
           ...status,
           ...result.value,
-          testing: false
+          testing: false,
         };
       } else {
         return {
           ...status,
           connected: false,
           requiresAuth: false,
-          error: 'Test failed',
-          testing: false
+          error: "Test failed",
+          testing: false,
         };
       }
     });
@@ -100,30 +102,26 @@
   });
 
   function getStatusColor(status: RelayStatus): string {
-    if (status.testing) return 'text-yellow-600';
-    if (status.connected) return 'text-green-600';
-    if (status.requiresAuth && !$ndkSignedIn) return 'text-orange-600';
-    return 'text-red-600';
+    if (status.testing) return "text-yellow-600";
+    if (status.connected) return "text-green-600";
+    if (status.requiresAuth && !$ndkSignedIn) return "text-orange-600";
+    return "text-red-600";
   }
 
   function getStatusText(status: RelayStatus): string {
-    if (status.testing) return 'Testing...';
-    if (status.connected) return 'Connected';
-    if (status.requiresAuth && !$ndkSignedIn) return 'Requires Authentication';
+    if (status.testing) return "Testing...";
+    if (status.connected) return "Connected";
+    if (status.requiresAuth && !$ndkSignedIn) return "Requires Authentication";
     if (status.error) return `Error: ${status.error}`;
-    return 'Failed to Connect';
+    return "Failed to Connect";
   }
 </script>
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
     <h3 class="text-lg font-medium">Relay Connection Status</h3>
-    <Button 
-      size="sm" 
-      onclick={runRelayTests} 
-      disabled={testing}
-    >
-      {testing ? 'Testing...' : 'Refresh'}
+    <Button size="sm" onclick={runRelayTests} disabled={testing}>
+      {testing ? "Testing..." : "Refresh"}
     </Button>
   </div>
 
@@ -131,8 +129,8 @@
     <Alert color="yellow">
       <span class="font-medium">Anonymous Mode</span>
       <p class="mt-1 text-sm">
-        You are not signed in. Some relays require authentication and may not be accessible.
-        Sign in to access all relays.
+        You are not signed in. Some relays require authentication and may not be
+        accessible. Sign in to access all relays.
       </p>
     </Alert>
   {/if}
@@ -146,12 +144,17 @@
             {getStatusText(status)}
           </div>
         </div>
-        <div class="w-3 h-3 rounded-full {getStatusColor(status).replace('text-', 'bg-')}"></div>
+        <div
+          class="w-3 h-3 rounded-full {getStatusColor(status).replace(
+            'text-',
+            'bg-',
+          )}"
+        ></div>
       </div>
     {/each}
   </div>
 
-  {#if relayStatuses.some(s => s.requiresAuth && !$ndkSignedIn)}
+  {#if relayStatuses.some((s) => s.requiresAuth && !$ndkSignedIn)}
     <Alert color="orange">
       <span class="font-medium">Authentication Required</span>
       <p class="mt-1 text-sm">
@@ -159,4 +162,4 @@
       </p>
     </Alert>
   {/if}
-</div> 
+</div>

@@ -6,22 +6,24 @@
  * - Addressable: 30000-39999 (latest per d-tag stored)
  * - Regular: all other kinds (stored by relays)
  */
-export function getEventType(kind: number): 'regular' | 'replaceable' | 'ephemeral' | 'addressable' {
+export function getEventType(
+  kind: number,
+): "regular" | "replaceable" | "ephemeral" | "addressable" {
   // Check special ranges first
   if (kind >= 30000 && kind < 40000) {
-    return 'addressable';
+    return "addressable";
   }
-  
+
   if (kind >= 20000 && kind < 30000) {
-    return 'ephemeral';
+    return "ephemeral";
   }
-  
+
   if ((kind >= 10000 && kind < 20000) || kind === 0 || kind === 3) {
-    return 'replaceable';
+    return "replaceable";
   }
-  
+
   // Everything else is regular
-  return 'regular';
+  return "regular";
 }
 
 /**
@@ -36,9 +38,10 @@ export function getMimeTags(kind: number): [string, string][] {
 
   // Determine replaceability based on event type
   const eventType = getEventType(kind);
-  const replaceability = (eventType === 'replaceable' || eventType === 'addressable') 
-    ? "replaceable" 
-    : "nonreplaceable";
+  const replaceability =
+    eventType === "replaceable" || eventType === "addressable"
+      ? "replaceable"
+      : "nonreplaceable";
 
   switch (kind) {
     // Short text note
@@ -93,4 +96,4 @@ export function getMimeTags(kind: number): [string, string][] {
   }
 
   return [mTag, MTag];
-} 
+}

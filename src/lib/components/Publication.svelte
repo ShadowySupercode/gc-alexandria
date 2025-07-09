@@ -21,7 +21,7 @@
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import TocToggle from "$components/util/TocToggle.svelte";
-  import { pharosInstance } from '$lib/parser';
+  import { pharosInstance } from "$lib/parser";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
     rootAddress: string;

@@ -10,13 +10,13 @@ export function renderTikZ(tikzCode: string): string {
   try {
     // For now, we'll create a simple SVG placeholder
     // In a full implementation, this would use node-tikzjax or similar library
-    
+
     // Extract TikZ content and create a basic SVG
     const svgContent = createBasicSVG(tikzCode);
-    
+
     return svgContent;
   } catch (error) {
-    console.error('Failed to render TikZ:', error);
+    console.error("Failed to render TikZ:", error);
     return `<div class="tikz-error text-red-500 p-4 border border-red-300 rounded">
       <p class="font-bold">TikZ Rendering Error</p>
       <p class="text-sm">Failed to render TikZ diagram. Original code:</p>
@@ -33,7 +33,7 @@ function createBasicSVG(tikzCode: string): string {
   // Create a simple SVG with the TikZ code as text
   const width = 400;
   const height = 300;
-  
+
   return `<svg width="${width}" height="${height}" class="tikz-diagram max-w-full h-auto rounded-lg shadow-lg my-4" viewBox="0 0 ${width} ${height}">
     <rect width="${width}" height="${height}" fill="white" stroke="#ccc" stroke-width="1"/>
     <text x="10" y="20" font-family="monospace" font-size="12" fill="#666">
@@ -54,7 +54,7 @@ function createBasicSVG(tikzCode: string): string {
  * Escapes HTML characters for safe display
  */
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
-} 
+}

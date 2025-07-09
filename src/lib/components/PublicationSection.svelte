@@ -1,13 +1,16 @@
-<script lang='ts'>
-  console.log('PublicationSection loaded');
+<script lang="ts">
+  console.log("PublicationSection loaded");
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
-  import { contentParagraph, sectionHeading } from "$lib/snippets/PublicationSnippets.svelte";
+  import {
+    contentParagraph,
+    sectionHeading,
+  } from "$lib/snippets/PublicationSnippets.svelte";
   import { NDKEvent } from "@nostr-dev-kit/ndk";
   import { TextPlaceholder } from "flowbite-svelte";
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
-  import { postProcessAdvancedAsciidoctorHtml } from '$lib/utils/markup/advancedAsciidoctorPostProcessor';
+  import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
 
   let {
     address,
@@ -15,32 +18,37 @@
     leaves,
     ref,
   }: {
-    address: string,
-    rootAddress: string,
-    leaves: Array<NDKEvent | null>,
-    ref: (ref: HTMLElement) => void,
+    address: string;
+    rootAddress: string;
+    leaves: Array<NDKEvent | null>;
+    ref: (ref: HTMLElement) => void;
   } = $props();
 
-  const publicationTree: PublicationTree = getContext('publicationTree');
-  const asciidoctor: Asciidoctor = getContext('asciidoctor');
+  const publicationTree: PublicationTree = getContext("publicationTree");
+  const asciidoctor: Asciidoctor = getContext("asciidoctor");
 
-  let leafEvent: Promise<NDKEvent | null> = $derived.by(async () => 
-    await publicationTree.getEvent(address));
+  let leafEvent: Promise<NDKEvent | null> = $derived.by(
+    async () => await publicationTree.getEvent(address),
+  );
 
-  let rootEvent: Promise<NDKEvent | null> = $derived.by(async () =>
-    await publicationTree.getEvent(rootAddress));
+  let rootEvent: Promise<NDKEvent | null> = $derived.by(
+    async () => await publicationTree.getEvent(rootAddress),
+  );
 
-  let publicationType: Promise<string | undefined> = $derived.by(async () =>
-    (await rootEvent)?.getMatchingTags('type')[0]?.[1]);
+  let publicationType: Promise<string | undefined> = $derived.by(
+    async () => (await rootEvent)?.getMatchingTags("type")[0]?.[1],
+  );
 
-  let leafHierarchy: Promise<NDKEvent[]> = $derived.by(async () =>
-    await publicationTree.getHierarchy(address));
+  let leafHierarchy: Promise<NDKEvent[]> = $derived.by(
+    async () => await publicationTree.getHierarchy(address),
+  );
 
-  let leafTitle: Promise<string | undefined> = $derived.by(async () =>
-    (await leafEvent)?.getMatchingTags('title')[0]?.[1]);
+  let leafTitle: Promise<string | undefined> = $derived.by(
+    async () => (await leafEvent)?.getMatchingTags("title")[0]?.[1],
+  );
 
   let leafContent: Promise<string | Document> = $derived.by(async () => {
-    const rawContent = (await leafEvent)?.content ?? '';
+    const rawContent = (await leafEvent)?.content ?? "";
     const asciidoctorHtml = asciidoctor.convert(rawContent);
     return await postProcessAdvancedAsciidoctorHtml(asciidoctorHtml.toString());
   });
@@ -51,7 +59,7 @@
     let decrement = 1;
 
     do {
-      index = leaves.findIndex(leaf => leaf?.tagAddress() === address);
+      index = leaves.findIndex((leaf) => leaf?.tagAddress() === address);
       if (index === 0) {
         return null;
       }
@@ -61,16 +69,21 @@
     return event;
   });
 
-  let previousLeafHierarchy: Promise<NDKEvent[] | null> = $derived.by(async () => {
-    if (!previousLeafEvent) {
-      return null;
-    }
-    return await publicationTree.getHierarchy(previousLeafEvent.tagAddress());
-  });
+  let previousLeafHierarchy: Promise<NDKEvent[] | null> = $derived.by(
+    async () => {
+      if (!previousLeafEvent) {
+        return null;
+      }
+      return await publicationTree.getHierarchy(previousLeafEvent.tagAddress());
+    },
+  );
 
   let divergingBranches = $derived.by(async () => {
-    let [leafHierarchyValue, previousLeafHierarchyValue] = await Promise.all([leafHierarchy, previousLeafHierarchy]);
-    
+    let [leafHierarchyValue, previousLeafHierarchyValue] = await Promise.all([
+      leafHierarchy,
+      previousLeafHierarchy,
+    ]);
+
     const branches: [NDKEvent, number][] = [];
 
     if (!previousLeafHierarchyValue) {
@@ -80,22 +93,26 @@
       return branches;
     }
 
-    const minLength = Math.min(leafHierarchyValue.length, previousLeafHierarchyValue.length);
-    
+    const minLength = Math.min(
+      leafHierarchyValue.length,
+      previousLeafHierarchyValue.length,
+    );
+
     // Find the first diverging node.
     let divergingIndex = 0;
     while (
-      divergingIndex < minLength && 
-      leafHierarchyValue[divergingIndex].tagAddress() === previousLeafHierarchyValue[divergingIndex].tagAddress()
+      divergingIndex < minLength &&
+      leafHierarchyValue[divergingIndex].tagAddress() ===
+        previousLeafHierarchyValue[divergingIndex].tagAddress()
     ) {
       divergingIndex++;
     }
-    
+
     // Add all branches from the first diverging node to the current leaf.
     for (let i = divergingIndex; i < leafHierarchyValue.length - 1; i++) {
       branches.push([leafHierarchyValue[i], i]);
     }
-    
+
     return branches;
   });
 
@@ -111,24 +128,38 @@
 
   $effect(() => {
     if (leafContent) {
-      console.log('leafContent HTML:', leafContent.toString());
+      console.log("leafContent HTML:", leafContent.toString());
     }
   });
 </script>
 
-<section id={address} bind:this={sectionRef} class='publication-leather content-visibility-auto'>
-  {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
-    <TextPlaceholder size='xxl' />
+<section
+  id={address}
+  bind:this={sectionRef}
+  class="publication-leather content-visibility-auto"
+>
+  {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
+    <TextPlaceholder size="xxl" />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {@const contentString = leafContent.toString()}
-    {@const _ = (() => { console.log('leafContent HTML:', contentString); return null; })()}
+    {@const _ = (() => {
+      console.log("leafContent HTML:", contentString);
+      return null;
+    })()}
     {#each divergingBranches as [branch, depth]}
-      {@render sectionHeading(getMatchingTags(branch, 'title')[0]?.[1] ?? '', depth)}
+      {@render sectionHeading(
+        getMatchingTags(branch, "title")[0]?.[1] ?? "",
+        depth,
+      )}
     {/each}
     {#if leafTitle}
       {@const leafDepth = leafHierarchy.length - 1}
       {@render sectionHeading(leafTitle, leafDepth)}
     {/if}
-    {@render contentParagraph(contentString, publicationType ?? 'article', false)}
+    {@render contentParagraph(
+      contentString,
+      publicationType ?? "article",
+      false,
+    )}
   {/await}
 </section>

@@ -4,4 +4,4 @@
     "allowJs": true,
     "lib": ["dom", "dom.iterable", "dom.asynciterable", "deno.ns"]
   }
-} 
+}

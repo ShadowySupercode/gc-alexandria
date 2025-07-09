@@ -7,25 +7,31 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
-  
+  import { getMatchingTags } from "$lib/utils/nostrUtils";
+
   // Component props
-  let { node, selected = false, x, y, onclose } = $props<{
-    node: NetworkNode;       // The node to display information for
-    selected?: boolean;      // Whether the node is selected (clicked)
-    x: number;               // X position for the tooltip
-    y: number;               // Y position for the tooltip
-    onclose: () => void;     // Function to call when closing the tooltip
+  let {
+    node,
+    selected = false,
+    x,
+    y,
+    onclose,
+  } = $props<{
+    node: NetworkNode; // The node to display information for
+    selected?: boolean; // Whether the node is selected (clicked)
+    x: number; // X position for the tooltip
+    y: number; // Y position for the tooltip
+    onclose: () => void; // Function to call when closing the tooltip
   }>();
-  
+
   // DOM reference and positioning
   let tooltipElement: HTMLDivElement;
   let tooltipX = $state(x + 10); // Add offset to avoid cursor overlap
   let tooltipY = $state(y - 10);
-  
+
   // Maximum content length to display
   const MAX_CONTENT_LENGTH = 200;
-  
+
   /**
    * Gets the author name from the event tags
    */
@@ -38,7 +44,7 @@
     }
     return "Unknown";
   }
-  
+
   /**
    * Gets the summary from the event tags
    */
@@ -51,7 +57,7 @@
     }
     return null;
   }
-  
+
   /**
    * Gets the d-tag from the event
    */
@@ -64,23 +70,26 @@
     }
     return "View Publication";
   }
-  
+
   /**
    * Truncates content to a maximum length
    */
-  function truncateContent(content: string, maxLength: number = MAX_CONTENT_LENGTH): string {
+  function truncateContent(
+    content: string,
+    maxLength: number = MAX_CONTENT_LENGTH,
+  ): string {
     if (!content) return "";
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + "...";
   }
-  
+
   /**
    * Closes the tooltip
    */
   function closeTooltip() {
     onclose();
   }
-  
+
   /**
    * Ensures tooltip is fully visible on screen
    */
@@ -90,20 +99,20 @@
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
       const padding = 10; // Padding from window edges
-      
+
       // Adjust position if tooltip goes off screen
       if (rect.right > windowWidth) {
         tooltipX = windowWidth - rect.width - padding;
       }
-      
+
       if (rect.bottom > windowHeight) {
         tooltipY = windowHeight - rect.height - padding;
       }
-      
+
       if (rect.left < 0) {
         tooltipX = padding;
       }
-      
+
       if (rect.top < 0) {
         tooltipY = padding;
       }
@@ -117,33 +126,35 @@
   style="left: {tooltipX}px; top: {tooltipY}px;"
 >
   <!-- Close button -->
-  <button 
-    class="tooltip-close-btn"
-    onclick={closeTooltip}
-    aria-label="Close"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+  <button class="tooltip-close-btn" onclick={closeTooltip} aria-label="Close">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-4 w-4"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+    >
+      <path
+        fill-rule="evenodd"
+        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+        clip-rule="evenodd"
+      />
     </svg>
   </button>
-  
+
   <!-- Tooltip content -->
   <div class="tooltip-content">
     <!-- Title with link -->
     <div class="tooltip-title">
-      <a 
-        href="/publication?id={node.id}" 
-        class="tooltip-title-link"
-      >
+      <a href="/publication?id={node.id}" class="tooltip-title-link">
         {node.title || "Untitled"}
       </a>
     </div>
-    
+
     <!-- Node type and kind -->
     <div class="tooltip-metadata">
       {node.type} (kind: {node.kind})
     </div>
-    
+
     <!-- Author -->
     <div class="tooltip-metadata">
       Author: {getAuthorTag(node)}
@@ -152,7 +163,8 @@
     <!-- Summary (for index nodes) -->
     {#if node.isContainer && getSummaryTag(node)}
       <div class="tooltip-summary">
-        <span class="font-semibold">Summary:</span> {truncateContent(getSummaryTag(node) || "")}
+        <span class="font-semibold">Summary:</span>
+        {truncateContent(getSummaryTag(node) || "")}
       </div>
     {/if}
 
@@ -162,12 +174,10 @@
         {truncateContent(node.content)}
       </div>
     {/if}
-    
+
     <!-- Help text for selected nodes -->
     {#if selected}
-      <div class="tooltip-help-text">
-        Click node again to dismiss
-      </div>
+      <div class="tooltip-help-text">Click node again to dismiss</div>
     {/if}
   </div>
 </div>

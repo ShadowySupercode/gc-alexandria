@@ -2,13 +2,13 @@
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import type { NDKEvent } from '$lib/utils/nostrUtils';
-  import EventSearch from '$lib/components/EventSearch.svelte';
-  import EventDetails from '$lib/components/EventDetails.svelte';
-  import RelayActions from '$lib/components/RelayActions.svelte';
-  import CommentBox from '$lib/components/CommentBox.svelte';
-  import { userBadge } from '$lib/snippets/UserSnippets.svelte';
-  import { getMatchingTags, toNpub } from '$lib/utils/nostrUtils';
+  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import EventSearch from "$lib/components/EventSearch.svelte";
+  import EventDetails from "$lib/components/EventDetails.svelte";
+  import RelayActions from "$lib/components/RelayActions.svelte";
+  import CommentBox from "$lib/components/CommentBox.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -50,23 +50,23 @@
   }
 
   function getSummary(event: NDKEvent): string | undefined {
-    return getMatchingTags(event, 'summary')[0]?.[1];
+    return getMatchingTags(event, "summary")[0]?.[1];
   }
 
   function getDeferrelNaddr(event: NDKEvent): string | undefined {
     // Look for a 'deferrel' tag, e.g. ['deferrel', 'naddr1...']
-    return getMatchingTags(event, 'deferrel')[0]?.[1];
+    return getMatchingTags(event, "deferrel")[0]?.[1];
   }
 
   $effect(() => {
-    const id = $page.url.searchParams.get('id');
-    const dTag = $page.url.searchParams.get('d');
-    
+    const id = $page.url.searchParams.get("id");
+    const dTag = $page.url.searchParams.get("d");
+
     if (id !== searchValue) {
       searchValue = id;
       dTagValue = null;
     }
-    
+
     if (dTag !== dTagValue) {
       // Normalize d-tag to lowercase for consistent searching
       dTagValue = dTag ? dTag.toLowerCase() : null;
@@ -76,8 +76,8 @@
 
   onMount(async () => {
     // Get user's pubkey and relay preference from localStorage
-    userPubkey = localStorage.getItem('userPubkey');
-    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
+    userPubkey = localStorage.getItem("userPubkey");
+    userRelayPreference = localStorage.getItem("useUserRelays") === "true";
   });
 </script>
 
@@ -88,27 +88,28 @@
     </div>
 
     <P class="mb-3">
-      Use this page to view any event (npub, nprofile, nevent, naddr, note, pubkey, or eventID).
-      You can also search for events by d-tag using the format "d:tag-name".
+      Use this page to view any event (npub, nprofile, nevent, naddr, note,
+      pubkey, or eventID). You can also search for events by d-tag using the
+      format "d:tag-name".
     </P>
 
-    <EventSearch 
-      {loading} 
-      {error} 
-      {searchValue} 
+    <EventSearch
+      {loading}
+      {error}
+      {searchValue}
       {dTagValue}
-      {event} 
+      {event}
       onEventFound={handleEventFound}
       onSearchResults={handleSearchResults}
     />
-    
+
     {#if event}
       <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
       {#if userPubkey}
         <div class="mt-8">
           <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
-          <CommentBox event={event} userPubkey={userPubkey} userRelayPreference={userRelayPreference} />
+          <CommentBox {event} {userPubkey} {userRelayPreference} />
         </div>
       {:else}
         <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">
@@ -120,37 +121,54 @@
     {#if searchResults.length > 0}
       <div class="mt-8">
         <Heading tag="h2" class="h-leather mb-4">
-          Search Results for d-tag: "{dTagValue?.toLowerCase()}" ({searchResults.length} events)
+          Search Results for d-tag: "{dTagValue?.toLowerCase()}" ({searchResults.length}
+          events)
         </Heading>
         <div class="space-y-4">
           {#each searchResults as result, index}
-            <button 
+            <button
               class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
               onclick={() => handleEventFound(result)}
             >
               <div class="flex flex-col gap-1">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-800 dark:text-gray-100">Event {index + 1}</span>
-                  <span class="text-xs text-gray-600 dark:text-gray-400">Kind: {result.kind}</span>
+                  <span class="font-medium text-gray-800 dark:text-gray-100"
+                    >Event {index + 1}</span
+                  >
+                  <span class="text-xs text-gray-600 dark:text-gray-400"
+                    >Kind: {result.kind}</span
+                  >
                   <span class="text-xs text-gray-600 dark:text-gray-400">
-                    {@render userBadge(toNpub(result.pubkey) as string, undefined)}
+                    {@render userBadge(
+                      toNpub(result.pubkey) as string,
+                      undefined,
+                    )}
                   </span>
-                  <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-                    {result.created_at ? new Date(result.created_at * 1000).toLocaleDateString() : 'Unknown date'}
+                  <span
+                    class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
+                  >
+                    {result.created_at
+                      ? new Date(result.created_at * 1000).toLocaleDateString()
+                      : "Unknown date"}
                   </span>
                 </div>
                 {#if getSummary(result)}
-                  <div class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2">
+                  <div
+                    class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
+                  >
                     {getSummary(result)}
                   </div>
                 {/if}
                 {#if getDeferrelNaddr(result)}
-                  <div class="text-xs text-primary-800 dark:text-primary-300 mb-1">
-                    Read 
+                  <div
+                    class="text-xs text-primary-800 dark:text-primary-300 mb-1"
+                  >
+                    Read
                     <a
                       class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all"
-                      href={'/publications?d=' + encodeURIComponent((dTagValue || '').toLowerCase())}
-                      onclick={e => e.stopPropagation()}
+                      href={"/publications?d=" +
+                        encodeURIComponent((dTagValue || "").toLowerCase())}
+                      onclick={(e) => e.stopPropagation()}
                       tabindex="0"
                     >
                       {getDeferrelNaddr(result)}
@@ -158,8 +176,12 @@
                   </div>
                 {/if}
                 {#if result.content}
-                  <div class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words">
-                    {result.content.slice(0, 200)}{result.content.length > 200 ? '...' : ''}
+                  <div
+                    class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
+                  >
+                    {result.content.slice(0, 200)}{result.content.length > 200
+                      ? "..."
+                      : ""}
                   </div>
                 {/if}
               </div>
