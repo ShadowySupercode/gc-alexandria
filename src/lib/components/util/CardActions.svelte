@@ -157,8 +157,8 @@
   <Modal class='modal-leather' title='Publication details' bind:open={detailsModalOpen} autoclose outsideclose size='sm'>
     <div class="flex flex-row space-x-4">
       {#if image}
-        <div class="flex col">
-          <img src={image} alt="Publication cover" class="w-32 h-32 object-cover rounded" />
+        <div class="flex col justify-center align-middle h-32 w-24 min-w-20 max-w-24 overflow-hidden">
+          <img src={image} alt="Publication cover" class="rounded w-full h-full object-cover" />
         </div>
       {/if}
       <div class="flex flex-col col space-y-5 justify-center align-middle">
