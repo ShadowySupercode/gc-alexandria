@@ -174,7 +174,7 @@
               <CopyToClipboard
                 displayText="Copy naddr address"
                 copyText={getIdentifier("naddr")}
-                icon={ShareNodesOutline}
+                icon={ClipboardCleanOutline}
               />
             </li>
             <li>
