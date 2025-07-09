@@ -19,9 +19,6 @@
 
   let searchingRelays = $state(false);
   let foundRelays = $state<string[]>([]);
-  let broadcasting = $state(false);
-  let broadcastSuccess = $state(false);
-  let broadcastError = $state<string | null>(null);
   let showRelayModal = $state(false);
   let relaySearchResults = $state<
     Record<string, "pending" | "found" | "notfound">
@@ -32,43 +29,6 @@
   const searchIcon = `<svg class="w-4 h-4 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
   </svg>`;
-
-  // Broadcast icon SVG
-  const broadcastIcon = `<svg class="w-4 h-4 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3"/>
-  </svg>`;
-
-  async function broadcastEvent() {
-    if (!event || !$ndkInstance?.activeUser) return;
-    broadcasting = true;
-    broadcastSuccess = false;
-    broadcastError = null;
-
-    try {
-      const connectedRelays = getConnectedRelays();
-      if (connectedRelays.length === 0) {
-        throw new Error("No connected relays available");
-      }
-
-      // Create a new event with the same content
-      const newEvent = createNDKEvent($ndkInstance, {
-        ...event.rawEvent(),
-        pubkey: $ndkInstance.activeUser.pubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        sig: "",
-      });
-
-      // Publish to all relays
-      await newEvent.publish();
-      broadcastSuccess = true;
-    } catch (err) {
-      console.error("Error broadcasting event:", err);
-      broadcastError =
-        err instanceof Error ? err.message : "Failed to broadcast event";
-    } finally {
-      broadcasting = false;
-    }
-  }
 
   function openRelayModal() {
     showRelayModal = true;
@@ -117,17 +77,6 @@
     {@html searchIcon}
     Where can I find this event?
   </Button>
-
-  {#if $ndkInstance?.activeUser}
-    <Button
-      on:click={broadcastEvent}
-      disabled={broadcasting}
-      class="flex items-center"
-    >
-      {@html broadcastIcon}
-      {broadcasting ? "Broadcasting..." : "Broadcast"}
-    </Button>
-  {/if}
 </div>
 
 {#if foundRelays.length > 0}
@@ -138,23 +87,6 @@
         <RelayDisplay {relay} />
       {/each}
     </div>
-  </div>
-{/if}
-
-{#if broadcastSuccess}
-  <div class="mt-2 p-2 bg-green-100 text-green-700 rounded">
-    Event broadcast successfully to:
-    <div class="flex flex-wrap gap-2 mt-1">
-      {#each getConnectedRelays() as relay}
-        <RelayDisplay {relay} />
-      {/each}
-    </div>
-  </div>
-{/if}
-
-{#if broadcastError}
-  <div class="mt-2 p-2 bg-red-100 text-red-700 rounded">
-    {broadcastError}
   </div>
 {/if}
 

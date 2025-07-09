@@ -37,7 +37,36 @@
   let authorDisplayName = $state<string | undefined>(undefined);
 
   function getEventTitle(event: NDKEvent): string {
-    return getMatchingTags(event, "title")[0]?.[1] || "Untitled";
+    // First try to get title from title tag
+    const titleTag = getMatchingTags(event, "title")[0]?.[1];
+    if (titleTag) {
+      return titleTag;
+    }
+    
+    // For kind 30023 events, extract title from markdown content if no title tag
+    if (event.kind === 30023 && event.content) {
+      const match = event.content.match(/^#\s+(.+)$/m);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+    
+    // For kind 30040, 30041, and 30818 events, extract title from AsciiDoc content if no title tag
+    if ((event.kind === 30040 || event.kind === 30041 || event.kind === 30818) && event.content) {
+      // First try to find a document header (= )
+      const docMatch = event.content.match(/^=\s+(.+)$/m);
+      if (docMatch) {
+        return docMatch[1].trim();
+      }
+      
+      // If no document header, try to find the first section header (== )
+      const sectionMatch = event.content.match(/^==\s+(.+)$/m);
+      if (sectionMatch) {
+        return sectionMatch[1].trim();
+      }
+    }
+    
+    return "Untitled";
   }
 
   function getEventSummary(event: NDKEvent): string {

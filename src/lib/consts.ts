@@ -6,7 +6,7 @@ export const standardRelays = [
   "wss://thecitadel.nostr1.com",
   "wss://theforest.nostr1.com",
   "wss://profiles.nostr1.com",
-  "wss://gitcitadel.nostr1.com",
+  // Removed gitcitadel.nostr1.com as it's causing connection issues
   //'wss://thecitadel.gitcitadel.eu',
   //'wss://theforest.gitcitadel.eu',
 ];

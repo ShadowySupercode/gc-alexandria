@@ -9,6 +9,10 @@
   import CommentBox from "$lib/components/CommentBox.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
+  import EventInput from '$lib/components/EventInput.svelte';
+  import { userPubkey, isLoggedIn } from '$lib/stores/authStore';
+  import RelayStatus from '$lib/components/RelayStatus.svelte';
+  import { testAllRelays, logRelayDiagnostics } from '$lib/utils/relayDiagnostics';
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -26,7 +30,6 @@
     lud16?: string;
     nip05?: string;
   } | null>(null);
-  let userPubkey = $state<string | null>(null);
   let userRelayPreference = $state(false);
 
   function handleEventFound(newEvent: NDKEvent) {
@@ -74,10 +77,14 @@
     }
   });
 
-  onMount(async () => {
-    // Get user's pubkey and relay preference from localStorage
-    userPubkey = localStorage.getItem("userPubkey");
-    userRelayPreference = localStorage.getItem("useUserRelays") === "true";
+  onMount(() => {
+    // Initialize userPubkey from localStorage if available
+    const pubkey = localStorage.getItem('userPubkey');
+    userPubkey.set(pubkey);
+    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
+    
+    // Run relay diagnostics to help identify connection issues
+    testAllRelays().then(logRelayDiagnostics).catch(console.error);
   });
 </script>
 
@@ -103,13 +110,17 @@
       onSearchResults={handleSearchResults}
     />
 
+    {#if $isLoggedIn && !event && searchResults.length === 0}
+      <EventInput />
+    {/if}
+
     {#if event}
       <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
-      {#if userPubkey}
+      {#if $isLoggedIn && $userPubkey}
         <div class="mt-8">
           <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
-          <CommentBox {event} {userPubkey} {userRelayPreference} />
+          <CommentBox {event} {userRelayPreference} />
         </div>
       {:else}
         <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">

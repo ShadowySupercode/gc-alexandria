@@ -11,13 +11,13 @@
   import { standardRelays, fallbackRelays } from "$lib/consts";
   import { userRelays } from "$lib/stores/relayStore";
   import { get } from "svelte/store";
+  import { activePubkey } from '$lib/ndk';
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { onMount } from "svelte";
 
   const props = $props<{
     event: NDKEvent;
-    userPubkey: string;
     userRelayPreference: boolean;
   }>();
 
@@ -29,12 +29,26 @@
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
+  let pubkey = $state<string | null>(null);
+  $effect(() => {
+    pubkey = get(activePubkey);
+  });
 
   // Fetch user profile on mount
-  onMount(async () => {
-    if (props.userPubkey) {
-      const npub = nip19.npubEncode(props.userPubkey);
-      userProfile = await getUserMetadata(npub);
+  onMount(() => {
+    const trimmedPubkey = pubkey?.trim();
+    if (trimmedPubkey && /^[a-fA-F0-9]{64}$/.test(trimmedPubkey)) {
+      (async () => {
+        const npub = nip19.npubEncode(trimmedPubkey);
+        userProfile = await getUserMetadata(npub);
+        error = null;
+      })();
+    } else if (trimmedPubkey) {
+      userProfile = null;
+      error = 'Invalid public key: must be a 64-character hex string.';
+    } else {
+      userProfile = null;
+      error = null;
     }
   });
 
@@ -102,6 +116,22 @@
     updatePreview();
   }
 
+  // Helper functions to ensure relay and pubkey are always strings
+  function getRelayString(relay: any): string {
+    if (!relay) return '';
+    if (typeof relay === 'string') return relay;
+    if (typeof relay.url === 'string') return relay.url;
+    return '';
+  }
+
+  function getPubkeyString(pubkey: any): string {
+    if (!pubkey) return '';
+    if (typeof pubkey === 'string') return pubkey;
+    if (typeof pubkey.hex === 'function') return pubkey.hex();
+    if (typeof pubkey.pubkey === 'string') return pubkey.pubkey;
+    return '';
+  }
+
   async function handleSubmit(
     useOtherRelays = false,
     useFallbackRelays = false,
@@ -111,53 +141,91 @@
     success = null;
 
     try {
-      if (!props.event.kind) {
-        throw new Error("Invalid event: missing kind");
+      if (!pubkey || !/^[a-fA-F0-9]{64}$/.test(pubkey)) {
+        throw new Error('Invalid public key: must be a 64-character hex string.');
+      }
+      if (props.event.kind === undefined || props.event.kind === null) {
+        throw new Error('Invalid event: missing kind');
       }
 
-      const kind = props.event.kind === 1 ? 1 : 1111;
-      const tags: string[][] = [];
-
-      if (kind === 1) {
-        // NIP-10 reply
-        tags.push(["e", props.event.id, "", "reply"]);
-        tags.push(["p", props.event.pubkey]);
-        if (props.event.tags) {
-          const rootTag = props.event.tags.find(
-            (t: string[]) => t[0] === "e" && t[3] === "root",
-          );
-          if (rootTag) {
-            tags.push(["e", rootTag[1], "", "root"]);
-          }
-          // Add all p tags from the parent event
-          props.event.tags
-            .filter((t: string[]) => t[0] === "p")
-            .forEach((t: string[]) => {
-              if (!tags.some((pt: string[]) => pt[1] === t[1])) {
-                tags.push(["p", t[1]]);
-              }
-            });
+      // Always use kind 1111 for comments
+      const kind = 1111;
+      const parent = props.event;
+      // Try to extract root info from parent tags (NIP-22 threading)
+      let rootKind = parent.kind;
+      let rootPubkey = getPubkeyString(parent.pubkey);
+      let rootRelay = getRelayString(parent.relay);
+      let rootId = parent.id;
+      let rootAddress = '';
+      let parentRelay = getRelayString(parent.relay);
+      let parentAddress = '';
+      let parentKind = parent.kind;
+      let parentPubkey = getPubkeyString(parent.pubkey);
+      // Try to find root event info from tags (E/A/I)
+      let isRootA = false;
+      let isRootI = false;
+      if (parent.tags) {
+        const rootE = parent.tags.find((t: string[]) => t[0] === 'E');
+        const rootA = parent.tags.find((t: string[]) => t[0] === 'A');
+        const rootI = parent.tags.find((t: string[]) => t[0] === 'I');
+        isRootA = !!rootA;
+        isRootI = !!rootI;
+        if (rootE) {
+          rootId = rootE[1];
+          rootRelay = getRelayString(rootE[2]);
+          rootPubkey = getPubkeyString(rootE[3] || rootPubkey);
+          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
+        } else if (rootA) {
+          rootAddress = rootA[1];
+          rootRelay = getRelayString(rootA[2]);
+          rootPubkey = getPubkeyString(parent.tags.find((t: string[]) => t[0] === 'P')?.[1] || rootPubkey);
+          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
+        } else if (rootI) {
+          rootAddress = rootI[1];
+          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
         }
-      } else {
-        // NIP-22 comment
-        tags.push(["E", props.event.id, "", props.event.pubkey]);
-        tags.push(["K", props.event.kind.toString()]);
-        tags.push(["P", props.event.pubkey]);
-        tags.push(["e", props.event.id, "", props.event.pubkey]);
-        tags.push(["k", props.event.kind.toString()]);
-        tags.push(["p", props.event.pubkey]);
       }
+      // Compose tags according to NIP-22
+      const tags: string[][] = [];
+      // Root scope (uppercase)
+      if (rootAddress) {
+        tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay, rootPubkey]);
+      } else {
+        tags.push(['E', rootId, rootRelay, rootPubkey]);
+      }
+      tags.push(['K', String(rootKind), '', '']);
+      tags.push(['P', rootPubkey, rootRelay, '']);
+      // Parent (lowercase)
+      if (parentAddress) {
+        tags.push([isRootA ? 'a' : isRootI ? 'i' : 'e', parentAddress || parent.id, parentRelay, parentPubkey]);
+      } else {
+        tags.push(['e', parent.id, parentRelay, parentPubkey]);
+      }
+      tags.push(['k', String(parentKind), '', '']);
+      tags.push(['p', parentPubkey, parentRelay, '']);
 
+      // Create a completely plain object to avoid proxy cloning issues
       const eventToSign = {
-        kind,
-        created_at: Math.floor(Date.now() / 1000),
-        tags,
-        content,
-        pubkey: props.userPubkey,
+        kind: Number(kind),
+        created_at: Number(Math.floor(Date.now() / 1000)),
+        tags: tags.map(tag => [String(tag[0]), String(tag[1]), String(tag[2] || ''), String(tag[3] || '')]),
+        content: String(content),
+        pubkey: String(pubkey),
       };
 
-      const id = getEventHash(eventToSign);
-      const sig = await signEvent(eventToSign);
+      let sig, id;
+      if (typeof window !== 'undefined' && window.nostr && window.nostr.signEvent) {
+        const signed = await window.nostr.signEvent(eventToSign);
+        sig = signed.sig as string;
+        if ('id' in signed) {
+          id = signed.id as string;
+        } else {
+          id = getEventHash(eventToSign);
+        }
+      } else {
+        id = getEventHash(eventToSign);
+        sig = await signEvent(eventToSign);
+      }
 
       const signedEvent = {
         ...eventToSign,
@@ -288,10 +356,11 @@
 
   {#if success}
     <Alert color="green" dismissable>
-      Comment published successfully to {success.relay}!
+      Comment published successfully to {success.relay}!<br/>
+      Event ID: <span class="font-mono">{success.eventId}</span>
       <a
         href="/events?id={nip19.neventEncode({ id: success.eventId })}"
-        class="text-primary-600 dark:text-primary-500 hover:underline"
+        class="text-primary-600 dark:text-primary-500 hover:underline ml-2"
       >
         View your comment
       </a>
@@ -315,16 +384,16 @@
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode(props.userPubkey).slice(0, 8) + "..."}
+            nip19.npubEncode(pubkey || '').slice(0, 8) + "..."}
         </span>
       </div>
     {/if}
     <Button
       on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !props.userPubkey}
+      disabled={isSubmitting || !content.trim() || !pubkey}
       class="w-full md:w-auto"
     >
-      {#if !props.userPubkey}
+      {#if !pubkey}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -334,7 +403,7 @@
     </Button>
   </div>
 
-  {#if !props.userPubkey}
+  {#if !pubkey}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

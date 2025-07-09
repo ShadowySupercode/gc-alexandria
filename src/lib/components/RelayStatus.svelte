@@ -99,6 +99,8 @@
   onMount(() => {
     checkWebSocketSupport();
     checkEnvironmentForWebSocketDowngrade();
+    // Run initial relay tests
+    void runRelayTests();
   });
 
   function getStatusColor(status: RelayStatus): string {

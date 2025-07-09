@@ -397,20 +397,39 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
   // Ensure the URL is using wss:// protocol
   const secureUrl = ensureSecureWebSocket(url);
 
+  // Add connection timeout and error handling
   const relay = new NDKRelay(
     secureUrl,
     NDKRelayAuthPolicies.signIn({ ndk }),
     ndk,
   );
 
+  // Set up connection timeout
+  const connectionTimeout = setTimeout(() => {
+    console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
+    relay.disconnect();
+  }, 10000); // 10 second timeout
+
   // Set up custom authentication handling only if user is signed in
   if (ndk.signer && ndk.activeUser) {
     const authPolicy = new CustomRelayAuthPolicy(ndk);
     relay.on("connect", () => {
       console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+      clearTimeout(connectionTimeout);
       authPolicy.authenticate(relay);
     });
+  } else {
+    relay.on("connect", () => {
+      console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+      clearTimeout(connectionTimeout);
+    });
   }
+
+  // Add error handling
+  relay.on("disconnect", () => {
+    console.debug(`[NDK.ts] Relay disconnected: ${secureUrl}`);
+    clearTimeout(connectionTimeout);
+  });
 
   return relay;
 }
@@ -462,7 +481,23 @@ export function initNdk(): NDK {
 
   // Set up custom authentication policy
   ndk.relayAuthDefaultPolicy = NDKRelayAuthPolicies.signIn({ ndk });
-  ndk.connect().then(() => console.debug("[NDK.ts] NDK connected"));
+  
+  // Connect with better error handling
+  ndk.connect()
+    .then(() => {
+      console.debug("[NDK.ts] NDK connected successfully");
+    })
+    .catch((error) => {
+      console.error("[NDK.ts] Failed to connect NDK:", error);
+      // Try to reconnect after a delay
+      setTimeout(() => {
+        console.debug("[NDK.ts] Attempting to reconnect...");
+        ndk.connect().catch((retryError) => {
+          console.error("[NDK.ts] Reconnection failed:", retryError);
+        });
+      }, 5000);
+    });
+    
   return ndk;
 }
 
