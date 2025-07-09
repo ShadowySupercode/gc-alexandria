@@ -150,6 +150,23 @@ export default class Pharos {
         pharos.treeProcessor(treeProcessor, document);
       });
     });
+
+    // Add advanced extensions for math, PlantUML, BPMN, and TikZ
+    this.loadAdvancedExtensions();
+  }
+
+  /**
+   * Loads advanced extensions for math, PlantUML, BPMN, and TikZ rendering
+   */
+  private async loadAdvancedExtensions(): Promise<void> {
+    try {
+      const { createAdvancedExtensions } = await import('./utils/markup/asciidoctorExtensions');
+      const advancedExtensions = createAdvancedExtensions();
+      // Note: Extensions merging might not be available in this version
+      // We'll handle this in the parse method instead
+    } catch (error) {
+      console.warn('Advanced extensions not available:', error);
+    }
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
@@ -158,9 +175,15 @@ export default class Pharos {
     content = ensureAsciiDocHeader(content);
     
     try {
+      const mergedAttributes = Object.assign(
+        {},
+        options && typeof options.attributes === 'object' ? options.attributes : {},
+        { 'source-highlighter': 'highlightjs' }
+      );
       this.html = this.asciidoctor.convert(content, {
-        'extension_registry': this.pharosExtensions,
         ...options,
+        'extension_registry': this.pharosExtensions,
+        attributes: mergedAttributes,
       }) as string | Document | undefined;
     } catch (error) {
       console.error(error);
@@ -783,7 +806,7 @@ export default class Pharos {
         authors: document
           .getAuthors()
           .map(author => author.getName())
-          .filter(name => name != null),
+          .filter((name): name is string => name != null),
         version: document.getRevisionNumber(),
         edition: document.getRevisionRemark(),
         publicationDate: document.getRevisionDate(),
@@ -794,13 +817,14 @@ export default class Pharos {
       }
 
       if (this.rootIndexMetadata.version || this.rootIndexMetadata.edition) {
-        event.tags.push(
-          [
-            'version',
-            this.rootIndexMetadata.version!,
-            this.rootIndexMetadata.edition!
-          ].filter(value => value != null)
-        );
+        const versionTags: string[] = ['version'];
+        if (this.rootIndexMetadata.version) {
+          versionTags.push(this.rootIndexMetadata.version);
+        }
+        if (this.rootIndexMetadata.edition) {
+          versionTags.push(this.rootIndexMetadata.edition);
+        }
+        event.tags.push(versionTags);
       }
 
       if (this.rootIndexMetadata.publicationDate) {

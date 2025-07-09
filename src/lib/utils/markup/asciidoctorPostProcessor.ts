@@ -75,6 +75,23 @@ async function processNostrAddresses(html: string): Promise<string> {
 }
 
 /**
+ * Fixes AsciiDoctor stem blocks for MathJax rendering.
+ * Joins split spans and wraps content in $$...$$ for block math.
+ */
+function fixStemBlocks(html: string): string {
+  // Replace <div class="stemblock"><div class="content"><span>$</span>...<span>$</span></div></div>
+  // with <div class="stemblock"><div class="content">$$...$$</div></div>
+  return html.replace(
+    /<div class="stemblock">\s*<div class="content">\s*<span>\$<\/span>([\s\S]*?)<span>\$<\/span>\s*<\/div>\s*<\/div>/g,
+    (_match, mathContent) => {
+      // Remove any extra tags inside mathContent
+      const cleanMath = mathContent.replace(/<\/?span[^>]*>/g, '').trim();
+      return `<div class="stemblock"><div class="content">$$${cleanMath}$$</div></div>`;
+    }
+  );
+}
+
+/**
  * Post-processes asciidoctor HTML output to add wikilink and nostr address rendering.
  * This function should be called after asciidoctor.convert() to enhance the HTML output.
  */
@@ -87,6 +104,7 @@ export async function postProcessAsciidoctorHtml(html: string): Promise<string> 
     
     // Then process nostr addresses (but not those already in links)
     processedHtml = await processNostrAddresses(processedHtml);
+    processedHtml = fixStemBlocks(processedHtml); // Fix math blocks for MathJax
     
     return processedHtml;
   } catch (error) {

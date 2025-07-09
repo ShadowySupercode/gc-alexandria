@@ -1,4 +1,5 @@
 <script lang='ts'>
+  console.log('PublicationSection loaded');
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import { contentParagraph, sectionHeading } from "$lib/snippets/PublicationSnippets.svelte";
   import { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -6,7 +7,7 @@
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from '$lib/utils/nostrUtils';
-  import { postProcessAsciidoctorHtml } from '$lib/utils/markup/asciidoctorPostProcessor';
+  import { postProcessAdvancedAsciidoctorHtml } from '$lib/utils/markup/advancedAsciidoctorPostProcessor';
 
   let {
     address,
@@ -41,7 +42,7 @@
   let leafContent: Promise<string | Document> = $derived.by(async () => {
     const rawContent = (await leafEvent)?.content ?? '';
     const asciidoctorHtml = asciidoctor.convert(rawContent);
-    return await postProcessAsciidoctorHtml(asciidoctorHtml.toString());
+    return await postProcessAdvancedAsciidoctorHtml(asciidoctorHtml.toString());
   });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
@@ -107,12 +108,20 @@
 
     ref(sectionRef);
   });
+
+  $effect(() => {
+    if (leafContent) {
+      console.log('leafContent HTML:', leafContent.toString());
+    }
+  });
 </script>
 
 <section id={address} bind:this={sectionRef} class='publication-leather content-visibility-auto'>
   {#await Promise.all([leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches])}
     <TextPlaceholder size='xxl' />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
+    {@const contentString = leafContent.toString()}
+    {@const _ = (() => { console.log('leafContent HTML:', contentString); return null; })()}
     {#each divergingBranches as [branch, depth]}
       {@render sectionHeading(getMatchingTags(branch, 'title')[0]?.[1] ?? '', depth)}
     {/each}
@@ -120,6 +129,6 @@
       {@const leafDepth = leafHierarchy.length - 1}
       {@render sectionHeading(leafTitle, leafDepth)}
     {/if}
-    {@render contentParagraph(leafContent.toString(), publicationType ?? 'article', false)}
+    {@render contentParagraph(contentString, publicationType ?? 'article', false)}
   {/await}
 </section>
