@@ -10,6 +10,14 @@ export const standardRelays = [
   //'wss://thecitadel.gitcitadel.eu',
   //'wss://theforest.gitcitadel.eu',
 ];
+
+// Non-auth relays for anonymous users
+export const anonymousRelays = [
+  'wss://thecitadel.nostr1.com', 
+  'wss://theforest.nostr1.com',
+  'wss://profiles.nostr1.com',
+  'wss://freelay.sovbit.host',
+];
 export const fallbackRelays = [ 
   'wss://purplepag.es',
   'wss://indexer.coracle.social',

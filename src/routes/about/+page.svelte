@@ -1,6 +1,7 @@
 <script lang="ts">
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
+  import RelayStatus from "$lib/components/RelayStatus.svelte";
 
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
@@ -51,5 +52,9 @@
         target="_blank">homepage</A
       > and find out more about us, and the many projects we are working on.
     </P>
+
+    <div class="border-t pt-6">
+      <RelayStatus />
+    </div>
   </main>
 </div>

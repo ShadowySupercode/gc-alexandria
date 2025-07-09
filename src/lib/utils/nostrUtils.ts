@@ -4,7 +4,7 @@ import { ndkInstance } from '$lib/ndk';
 import { npubCache } from './npubCache';
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { standardRelays, fallbackRelays } from "$lib/consts";
+import { standardRelays, fallbackRelays, anonymousRelays } from "$lib/consts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from '@nostr-dev-kit/ndk';
 import { sha256 } from '@noble/hashes/sha256';
 import { schnorr } from '@noble/curves/secp256k1';
@@ -320,9 +320,13 @@ export async function fetchEventWithFallback(
       .map(r => r.url) : 
     [];
   
+  // Determine which relays to use based on user authentication status
+  const isSignedIn = ndk.signer && ndk.activeUser;
+  const primaryRelays = isSignedIn ? standardRelays : anonymousRelays;
+  
   // Create three relay sets in priority order
   const relaySets = [
-    NDKRelaySetFromNDK.fromRelayUrls(standardRelays, ndk),  // 1. Standard relays
+    NDKRelaySetFromNDK.fromRelayUrls(primaryRelays, ndk),   // 1. Primary relays (auth or anonymous)
     NDKRelaySetFromNDK.fromRelayUrls(userRelays, ndk),      // 2. User relays (if logged in)
     NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk)  // 3. fallback relays (last resort)
   ];
@@ -347,7 +351,7 @@ export async function fetchEventWithFallback(
 
     // Try each relay set in order
     for (const [index, relaySet] of relaySets.entries()) {
-      const setName = index === 0 ? 'standard relays' : 
+      const setName = index === 0 ? (isSignedIn ? 'standard relays' : 'anonymous relays') : 
                      index === 1 ? 'user relays' : 
                      'fallback relays';
       
@@ -358,7 +362,7 @@ export async function fetchEventWithFallback(
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
       const relayUrls = relaySets.map((set, i) => {
-        const setName = i === 0 ? 'standard relays' : 
+        const setName = i === 0 ? (isSignedIn ? 'standard relays' : 'anonymous relays') : 
                        i === 1 ? 'user relays' : 
                        'fallback relays';
         const urls = Array.from(set.relays).map(r => r.url);
