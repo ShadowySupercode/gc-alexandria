@@ -43,18 +43,12 @@ function fixAllMathBlocks(html: string): string {
   // Unescape \$ to $ for math delimiters
   html = html.replace(/\\\$/g, '$');
 
-  // DEBUG: Log the HTML before MathJax runs
-  if (html.includes('latexmath')) {
-    console.debug('Processed HTML for latexmath:', html);
-  }
+
 
   // Block math: <div class="stemblock"><div class="content">...</div></div>
   html = html.replace(
     /<div class="stemblock">\s*<div class="content">([\s\S]*?)<\/div>\s*<\/div>/g,
     (_match, mathContent) => {
-      // DEBUG: Log the original and cleaned math content
-      console.debug('Block math original:', mathContent);
-      console.debug('Block math char codes:', Array.from(mathContent as string).map((c: string) => c.charCodeAt(0)));
       let cleanMath = mathContent
         .replace(/<span>\$<\/span>/g, '')
         .replace(/<span>\$\$<\/span>/g, '')
@@ -64,8 +58,6 @@ function fixAllMathBlocks(html: string): string {
         // Remove all leading and trailing whitespace and $
         .replace(/^[\s$]+/, '').replace(/[\s$]+$/, '')
         .trim(); // Final trim to remove any stray whitespace or $
-      console.debug('Block math cleaned:', cleanMath);
-      console.debug('Block math cleaned char codes:', Array.from(cleanMath as string).map((c: string) => c.charCodeAt(0)));
       // Always wrap in $$...$$
       return `<div class="stemblock"><div class="content">$$${cleanMath}$$</div></div>`;
     }

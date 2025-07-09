@@ -1159,7 +1159,7 @@ function ensureAsciiDocHeader(content: string): string {
     if (lines[i].trim() === '') continue;
     if (lines[i].trim().startsWith('=')) {
       headerIndex = i;
-      console.debug('[Pharos] AsciiDoc document header:', lines[i].trim());
+
       break;
     } else {
       throw new Error('AsciiDoc document is missing a header at the top.');
@@ -1184,8 +1184,7 @@ function ensureAsciiDocHeader(content: string): string {
     lines.splice(headerIndex + 1, 0, ':doctype: book');
   }
 
-  // Log the state of the lines before returning
-  console.debug('[Pharos] AsciiDoc lines after header/doctype normalization:', lines.slice(0, 5));
+
 
   return lines.join('\n');
 }
