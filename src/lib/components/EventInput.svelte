@@ -372,7 +372,9 @@
               <button type='button' class='btn btn-error btn-sm' onclick={() => removeTag(i)} disabled={tags.length === 1}>×</button>
             </div>
           {/each}
-          <button type='button' class='btn btn-secondary btn-sm' onclick={addTag}>Add Tag</button>
+          <div class='flex justify-end'>
+            <button type='button' class='btn btn-primary btn-sm border border-primary-600 px-3 py-1' onclick={addTag}>Add Tag</button>
+          </div>
         </div>
       </div>
       <div>
@@ -412,7 +414,9 @@
           <div class='text-red-600 text-sm mt-1'>{dTagError}</div>
         {/if}
       </div>
-      <button type='submit' class='btn btn-primary' disabled={loading}>Publish</button>
+      <div class='flex justify-end'>
+        <button type='submit' class='btn btn-primary border border-primary-600 px-4 py-2' disabled={loading}>Publish</button>
+      </div>
       {#if loading}
         <span class='ml-2 text-gray-500'>Publishing...</span>
       {/if}
