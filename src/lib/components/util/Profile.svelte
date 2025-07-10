@@ -66,6 +66,11 @@ function shortenNpub(long: string|undefined) {
                 <CopyToClipboard displayText={shortenNpub(npub)} copyText={npub} />
               </li>
               <li>
+                <a class='hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0' href='/my-notes'>
+                  <FileSearchOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /><span class='underline'>My Notes</span>
+                </a>
+              </li>
+              <li>
                 <a class='hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0' href='{externalProfileDestination}{npub}' target='_blank'>
                   <UserOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /><span class='underline'>View profile</span>
                 </a>
