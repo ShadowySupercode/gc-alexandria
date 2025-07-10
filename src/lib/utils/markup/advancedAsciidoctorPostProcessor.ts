@@ -45,52 +45,101 @@ export async function postProcessAdvancedAsciidoctorHtml(
 
 /**
  * Fixes all math blocks for MathJax rendering.
- * Handles stem blocks, inline math, and normalizes delimiters.
+ * Now only processes LaTeX within inline code blocks.
  */
 function fixAllMathBlocks(html: string): string {
   // Unescape \$ to $ for math delimiters
   html = html.replace(/\\\$/g, "$");
 
-  // Block math: <div class="stemblock"><div class="content">...</div></div>
+  // Process inline code blocks that contain LaTeX
   html = html.replace(
-    /<div class="stemblock">\s*<div class="content">([\s\S]*?)<\/div>\s*<\/div>/g,
-    (_match, mathContent) => {
-      let cleanMath = mathContent
-        .replace(/<span>\$<\/span>/g, "")
-        .replace(/<span>\$\$<\/span>/g, "")
-        // Remove $ or $$ on their own line, or surrounded by whitespace/newlines
-        .replace(/(^|[\n\r\s])\$([\n\r\s]|$)/g, "$1$2")
-        .replace(/(^|[\n\r\s])\$\$([\n\r\s]|$)/g, "$1$2")
-        // Remove all leading and trailing whitespace and $
-        .replace(/^[\s$]+/, "")
-        .replace(/[\s$]+$/, "")
-        .trim(); // Final trim to remove any stray whitespace or $
-      // Always wrap in $$...$$
-      return `<div class="stemblock"><div class="content">$$${cleanMath}$$</div></div>`;
-    },
+    /<code[^>]*class="[^"]*language-[^"]*"[^>]*>([\s\S]*?)<\/code>/g,
+    (match, codeContent) => {
+      const trimmedCode = codeContent.trim();
+      if (isLaTeXContent(trimmedCode)) {
+        return `<span class="math-inline">$${trimmedCode}$</span>`;
+      }
+      return match; // Return original if not LaTeX
+    }
   );
-  // Inline math: <span>$</span> ... <span>$</span> (allow whitespace/newlines)
+
+  // Also process code blocks without language class
   html = html.replace(
-    /<span>\$<\/span>\s*([\s\S]+?)\s*<span>\$<\/span>/g,
-    (_match, mathContent) =>
-      `<span class="math-inline">$${mathContent.trim()}$</span>`,
+    /<code[^>]*>([\s\S]*?)<\/code>/g,
+    (match, codeContent) => {
+      const trimmedCode = codeContent.trim();
+      if (isLaTeXContent(trimmedCode)) {
+        return `<span class="math-inline">$${trimmedCode}$</span>`;
+      }
+      return match; // Return original if not LaTeX
+    }
   );
-  // Inline math: stem:[...] or latexmath:[...]
-  html = html.replace(
-    /stem:\[([^\]]+?)\]/g,
-    (_match, content) => `<span class="math-inline">$${content.trim()}$</span>`,
-  );
-  html = html.replace(
-    /latexmath:\[([^\]]+?)\]/g,
-    (_match, content) =>
-      `<span class="math-inline">\\(${content.trim().replace(/\\\\/g, "\\")}\\)</span>`,
-  );
-  html = html.replace(
-    /asciimath:\[([^\]]+?)\]/g,
-    (_match, content) =>
-      `<span class="math-inline">\`${content.trim()}\`</span>`,
-  );
+
   return html;
+}
+
+/**
+ * Checks if content contains LaTeX syntax
+ */
+function isLaTeXContent(content: string): boolean {
+  const trimmed = content.trim();
+  
+  // Check for common LaTeX patterns
+  const latexPatterns = [
+    /\\[a-zA-Z]+/, // LaTeX commands like \frac, \sum, etc.
+    /\\[\(\)\[\]]/, // LaTeX delimiters like \(, \), \[, \]
+    /\\begin\{/, // LaTeX environments
+    /\\end\{/, // LaTeX environments
+    /\$\$/, // Display math delimiters
+    /\$[^$]+\$/, // Inline math delimiters
+    /\\text\{/, // LaTeX text command
+    /\\mathrm\{/, // LaTeX mathrm command
+    /\\mathbf\{/, // LaTeX bold command
+    /\\mathit\{/, // LaTeX italic command
+    /\\sqrt/, // Square root
+    /\\frac/, // Fraction
+    /\\sum/, // Sum
+    /\\int/, // Integral
+    /\\lim/, // Limit
+    /\\infty/, // Infinity
+    /\\alpha/, // Greek letters
+    /\\beta/,
+    /\\gamma/,
+    /\\delta/,
+    /\\theta/,
+    /\\lambda/,
+    /\\mu/,
+    /\\pi/,
+    /\\sigma/,
+    /\\phi/,
+    /\\omega/,
+    /\\partial/, // Partial derivative
+    /\\nabla/, // Nabla
+    /\\cdot/, // Dot product
+    /\\times/, // Times
+    /\\div/, // Division
+    /\\pm/, // Plus-minus
+    /\\mp/, // Minus-plus
+    /\\leq/, // Less than or equal
+    /\\geq/, // Greater than or equal
+    /\\neq/, // Not equal
+    /\\approx/, // Approximately equal
+    /\\equiv/, // Equivalent
+    /\\propto/, // Proportional
+    /\\in/, // Element of
+    /\\notin/, // Not element of
+    /\\subset/, // Subset
+    /\\supset/, // Superset
+    /\\cup/, // Union
+    /\\cap/, // Intersection
+    /\\emptyset/, // Empty set
+    /\\mathbb\{/, // Blackboard bold
+    /\\mathcal\{/, // Calligraphic
+    /\\mathfrak\{/, // Fraktur
+    /\\mathscr\{/, // Script
+  ];
+  
+  return latexPatterns.some(pattern => pattern.test(trimmed));
 }
 
 /**

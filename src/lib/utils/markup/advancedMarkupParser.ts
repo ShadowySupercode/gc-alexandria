@@ -8,6 +8,22 @@ hljs.configure({
   ignoreUnescapedHTML: true,
 });
 
+// Escapes HTML characters for safe display
+function escapeHtml(text: string): string {
+  const div = typeof document !== 'undefined' ? document.createElement('div') : null;
+  if (div) {
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  // Fallback for non-browser environments
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Regular expressions for advanced markup elements
 const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
 const ALTERNATE_HEADING_REGEX = /^([^\n]+)\n(=+|-+)\n/gm;
@@ -380,111 +396,296 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
 }
 
 /**
- * Process LaTeX math expressions using a token-based approach to avoid nested processing
+ * Process $...$ and $$...$$ math blocks: render as LaTeX if recognized, otherwise as AsciiMath
+ * This must run BEFORE any paragraph or inline code formatting.
+ */
+function processDollarMath(content: string): string {
+  // Display math: $$...$$ (multi-line, not empty)
+  content = content.replace(/\$\$([\s\S]*?\S[\s\S]*?)\$\$/g, (match, expr) => {
+    if (isLaTeXContent(expr)) {
+      return `<div class="math-block">$$${expr}$$</div>`;
+    } else {
+      // Strip all $ or $$ from AsciiMath
+      const clean = expr.replace(/\$+/g, '').trim();
+      return `<div class="math-block" data-math-type="asciimath">${clean}</div>`;
+    }
+  });
+  // Inline math: $...$ (not empty, not just whitespace)
+  content = content.replace(/\$([^\s$][^$\n]*?)\$/g, (match, expr) => {
+    if (isLaTeXContent(expr)) {
+      return `<span class="math-inline">$${expr}$</span>`;
+    } else {
+      const clean = expr.replace(/\$+/g, '').trim();
+      return `<span class="math-inline" data-math-type="asciimath">${clean}</span>`;
+    }
+  });
+  return content;
+}
+
+/**
+ * Process LaTeX math expressions only within inline code blocks
  */
 function processMathExpressions(content: string): string {
-  // Tokenize the content to avoid nested processing
-  const tokens: Array<{type: 'text' | 'math', content: string}> = [];
-  let currentText = '';
-  let i = 0;
-  
-  while (i < content.length) {
-    // Check for LaTeX environments first (most specific)
-    const envMatch = content.slice(i).match(/^\\begin\{([^}]+)\}([\s\S]*?)\\end\{\1\}/);
-    if (envMatch) {
-      if (currentText) {
-        tokens.push({type: 'text', content: currentText});
-        currentText = '';
-      }
-      tokens.push({type: 'math', content: `\\begin{${envMatch[1]}}${envMatch[2]}\\end{${envMatch[1]}}`});
-      i += envMatch[0].length;
-      continue;
+  // Only process LaTeX within inline code blocks (backticks)
+  return content.replace(INLINE_CODE_REGEX, (match, code) => {
+    const trimmedCode = code.trim();
+
+    // Check for unsupported LaTeX environments (like tabular) first
+    if (/\\begin\{tabular\}|\\\\begin\{tabular\}/.test(trimmedCode)) {
+      return `<div class="unrendered-latex">
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          Unrendered, as it is LaTeX typesetting, not a formula:
+        </p>
+        <pre class="bg-gray-100 dark:bg-gray-900 p-2 rounded text-xs overflow-x-auto">
+          <code>${escapeHtml(trimmedCode)}</code>
+        </pre>
+      </div>`;
     }
-    
-    // Check for display math blocks ($$...$$)
-    const displayMatch = content.slice(i).match(/^\$\$([\s\S]*?)\$\$/);
-    if (displayMatch) {
-      if (currentText) {
-        tokens.push({type: 'text', content: currentText});
-        currentText = '';
+
+    // Check if the code contains LaTeX syntax
+    if (isLaTeXContent(trimmedCode)) {
+      // Detect LaTeX display math (\\[...\\])
+      if (/^\\\[[\s\S]*\\\]$/.test(trimmedCode)) {
+        // Remove the delimiters for rendering
+        const inner = trimmedCode.replace(/^\\\[|\\\]$/g, '');
+        return `<div class="math-block">$$${inner}$$</div>`;
       }
-      tokens.push({type: 'math', content: displayMatch[1]});
-      i += displayMatch[0].length;
-      continue;
-    }
-    
-    // Check for LaTeX display math (\[...\])
-    const latexDisplayMatch = content.slice(i).match(/^\\\[([^\]]+)\\\]/);
-    if (latexDisplayMatch) {
-      if (currentText) {
-        tokens.push({type: 'text', content: currentText});
-        currentText = '';
+      // Detect display math ($$...$$)
+      if (/^\$\$[\s\S]*\$\$$/.test(trimmedCode)) {
+        // Remove the delimiters for rendering
+        const inner = trimmedCode.replace(/^\$\$|\$\$$/g, '');
+        return `<div class="math-block">$$${inner}$$</div>`;
       }
-      tokens.push({type: 'math', content: latexDisplayMatch[1]});
-      i += latexDisplayMatch[0].length;
-      continue;
-    }
-    
-    // Check for inline math ($...$)
-    const inlineMatch = content.slice(i).match(/^\$([^$\n]+)\$/);
-    if (inlineMatch) {
-      if (currentText) {
-        tokens.push({type: 'text', content: currentText});
-        currentText = '';
+      // Detect inline math ($...$)
+      if (/^\$[\s\S]*\$$/.test(trimmedCode)) {
+        // Remove the delimiters for rendering
+        const inner = trimmedCode.replace(/^\$|\$$/g, '');
+        return `<span class="math-inline">$${inner}$</span>`;
       }
-      tokens.push({type: 'math', content: inlineMatch[1]});
-      i += inlineMatch[0].length;
-      continue;
-    }
-    
-    // Check for LaTeX inline math (\(...\))
-    const latexInlineMatch = content.slice(i).match(/^\\\(([^)]+)\\\)/);
-    if (latexInlineMatch) {
-      if (currentText) {
-        tokens.push({type: 'text', content: currentText});
-        currentText = '';
-      }
-      tokens.push({type: 'math', content: latexInlineMatch[1]});
-      i += latexInlineMatch[0].length;
-      continue;
-    }
-    
-    // If no math pattern matches, add to current text
-    currentText += content[i];
-    i++;
-  }
-  
-  // Add any remaining text
-  if (currentText) {
-    tokens.push({type: 'text', content: currentText});
-  }
-  
-  // Now process the tokens to create the final HTML
-  let result = '';
-  for (const token of tokens) {
-    if (token.type === 'text') {
-      result += token.content;
+      // Default to inline math for any other LaTeX content
+      return `<span class="math-inline">$${trimmedCode}$</span>`;
     } else {
-      // Determine if this should be display or inline math
-      const isDisplay = token.content.includes('\\begin{') || 
-                       token.content.includes('\\end{') ||
-                       token.content.includes('\\[') ||
-                       token.content.includes('\\]') ||
-                       token.content.length > 50 || // Heuristic for display math
-                       token.content.includes('=') && token.content.length > 20 || // Equations with equals
-                       token.content.includes('\\begin{') || // Any LaTeX environment
-                       token.content.includes('\\boxed{') || // Boxed expressions
-                       token.content.includes('\\text{') && token.content.length > 30; // Text blocks
-      
-      if (isDisplay) {
-        result += `<div class="math-block my-4 text-center">$$${token.content}$$</div>`;
-      } else {
-        result += `<span class="math-inline">$${token.content}$</span>`;
+      // Check for edge cases that should remain as code, not math
+      // These patterns indicate code that contains dollar signs but is not math
+      const codePatterns = [
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=/, // Variable assignment like "const price ="
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\(/, // Function call like "echo("
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\{/, // Object literal like "const obj = {"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\[/, // Array literal like "const arr = ["
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*</, // JSX or HTML like "const element = <"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*`/, // Template literal like "const str = `"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*'/, // String literal like "const str = '"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*"/, // String literal like "const str = \""
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*;/, // Statement ending like "const x = 1;"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*$/, // Just a variable name
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]/, // Operator like "const x = 1 +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Two identifiers like "const price = amount"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]/, // Number like "const x = 1"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]/, // Complex expression like "const price = amount +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[a-zA-Z0-9_$]*\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Three identifiers like "const price = amount + tax"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]/, // Two identifiers and number like "const price = amount + 1"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]/, // Identifier, number, operator like "const x = 1 +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Identifier, number, identifier like "const x = 1 + y"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[0-9]/, // Identifier, number, number like "const x = 1 + 2"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Complex like "const x = 1 + y"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]/, // Complex like "const x = 1 + 2"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]/, // Very complex like "const x = 1 + y +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Very complex like "const x = 1 + y + z"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]\s*[0-9]/, // Very complex like "const x = 1 + y + 2"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]\s*[+\-*/%=<>!&|^~]/, // Very complex like "const x = 1 + 2 +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Very complex like "const x = 1 + 2 + y"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]/, // Very complex like "const x = 1 + 2 + 3"
+        // Additional patterns for JavaScript template literals and other code
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*`/, // Template literal assignment like "const str = `"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*'/, // String assignment like "const str = '"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*"/, // String assignment like "const str = \""
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[0-9]/, // Number assignment like "const x = 1"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Variable assignment like "const x = y"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[+\-*/%=<>!&|^~]/, // Assignment with operator like "const x = +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]/, // Assignment with variable and operator like "const x = y +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Assignment with two variables and operator like "const x = y + z"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[0-9]\s*[+\-*/%=<>!&|^~]/, // Assignment with number and operator like "const x = 1 +"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[a-zA-Z_$][a-zA-Z0-9_$]*/, // Assignment with number, operator, variable like "const x = 1 + y"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[+\-*/%=<>!&|^~]\s*[0-9]/, // Assignment with variable, operator, number like "const x = y + 1"
+        /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*[0-9]\s*[+\-*/%=<>!&|^~]\s*[0-9]/, // Assignment with number, operator, number like "const x = 1 + 2"
+      ];
+
+      // If it matches code patterns, treat as regular code
+      if (codePatterns.some(pattern => pattern.test(trimmedCode))) {
+        const escapedCode = trimmedCode
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        return `<code class="px-1.5 py-0.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-sm font-mono">${escapedCode}</code>`;
       }
+
+      // Return as regular inline code
+      const escapedCode = trimmedCode
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+      return `<code class="px-1.5 py-0.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-sm font-mono">${escapedCode}</code>`;
     }
+  });
+}
+
+/**
+ * Checks if content contains LaTeX syntax
+ */
+function isLaTeXContent(content: string): boolean {
+  const trimmed = content.trim();
+  
+  // Check for simple math expressions first (like AsciiMath)
+  if (/^\$[^$]+\$$/.test(trimmed)) {
+    return true;
   }
   
-  return result;
+  // Check for display math
+  if (/^\$\$[\s\S]*\$\$$/.test(trimmed)) {
+    return true;
+  }
+  
+  // Check for LaTeX display math
+  if (/^\\\[[\s\S]*\\\]$/.test(trimmed)) {
+    return true;
+  }
+  
+  // Check for LaTeX environments with double backslashes (like tabular)
+  if (/\\\\begin\{[^}]+\}/.test(trimmed) || /\\\\end\{[^}]+\}/.test(trimmed)) {
+    return true;
+  }
+  
+  // Check for common LaTeX patterns
+  const latexPatterns = [
+    /\\[a-zA-Z]+/, // LaTeX commands like \frac, \sum, etc.
+    /\\\\[a-zA-Z]+/, // LaTeX commands with double backslashes like \\frac, \\sum, etc.
+    /\\[\(\)\[\]]/, // LaTeX delimiters like \(, \), \[, \]
+    /\\\\[\(\)\[\]]/, // LaTeX delimiters with double backslashes like \\(, \\), \\[, \\]
+    /\\\[[\s\S]*?\\\]/, // LaTeX display math \[ ... \]
+    /\\\\\[[\s\S]*?\\\\\]/, // LaTeX display math with double backslashes \\[ ... \\]
+    /\\begin\{/, // LaTeX environments
+    /\\\\begin\{/, // LaTeX environments with double backslashes
+    /\\end\{/, // LaTeX environments
+    /\\\\end\{/, // LaTeX environments with double backslashes
+    /\\begin\{array\}/, // LaTeX array environment
+    /\\\\begin\{array\}/, // LaTeX array environment with double backslashes
+    /\\end\{array\}/,
+    /\\\\end\{array\}/,
+    /\\begin\{matrix\}/, // LaTeX matrix environment
+    /\\\\begin\{matrix\}/, // LaTeX matrix environment with double backslashes
+    /\\end\{matrix\}/,
+    /\\\\end\{matrix\}/,
+    /\\begin\{bmatrix\}/, // LaTeX bmatrix environment
+    /\\\\begin\{bmatrix\}/, // LaTeX bmatrix environment with double backslashes
+    /\\end\{bmatrix\}/,
+    /\\\\end\{bmatrix\}/,
+    /\\begin\{pmatrix\}/, // LaTeX pmatrix environment
+    /\\\\begin\{pmatrix\}/, // LaTeX pmatrix environment with double backslashes
+    /\\end\{pmatrix\}/,
+    /\\\\end\{pmatrix\}/,
+    /\\begin\{tabular\}/, // LaTeX tabular environment
+    /\\\\begin\{tabular\}/, // LaTeX tabular environment with double backslashes
+    /\\end\{tabular\}/,
+    /\\\\end\{tabular\}/,
+    /\$\$/, // Display math delimiters
+    /\$[^$]+\$/, // Inline math delimiters
+    /\\text\{/, // LaTeX text command
+    /\\\\text\{/, // LaTeX text command with double backslashes
+    /\\mathrm\{/, // LaTeX mathrm command
+    /\\\\mathrm\{/, // LaTeX mathrm command with double backslashes
+    /\\mathbf\{/, // LaTeX bold command
+    /\\\\mathbf\{/, // LaTeX bold command with double backslashes
+    /\\mathit\{/, // LaTeX italic command
+    /\\\\mathit\{/, // LaTeX italic command with double backslashes
+    /\\sqrt/, // Square root
+    /\\\\sqrt/, // Square root with double backslashes
+    /\\frac/, // Fraction
+    /\\\\frac/, // Fraction with double backslashes
+    /\\sum/, // Sum
+    /\\\\sum/, // Sum with double backslashes
+    /\\int/, // Integral
+    /\\\\int/, // Integral with double backslashes
+    /\\lim/, // Limit
+    /\\\\lim/, // Limit with double backslashes
+    /\\infty/, // Infinity
+    /\\\\infty/, // Infinity with double backslashes
+    /\\alpha/, // Greek letters
+    /\\\\alpha/, // Greek letters with double backslashes
+    /\\beta/,
+    /\\\\beta/,
+    /\\gamma/,
+    /\\\\gamma/,
+    /\\delta/,
+    /\\\\delta/,
+    /\\theta/,
+    /\\\\theta/,
+    /\\lambda/,
+    /\\\\lambda/,
+    /\\mu/,
+    /\\\\mu/,
+    /\\pi/,
+    /\\\\pi/,
+    /\\sigma/,
+    /\\\\sigma/,
+    /\\phi/,
+    /\\\\phi/,
+    /\\omega/,
+    /\\\\omega/,
+    /\\partial/, // Partial derivative
+    /\\\\partial/, // Partial derivative with double backslashes
+    /\\nabla/, // Nabla
+    /\\\\nabla/, // Nabla with double backslashes
+    /\\cdot/, // Dot product
+    /\\\\cdot/, // Dot product with double backslashes
+    /\\times/, // Times
+    /\\\\times/, // Times with double backslashes
+    /\\div/, // Division
+    /\\\\div/, // Division with double backslashes
+    /\\pm/, // Plus-minus
+    /\\\\pm/, // Plus-minus with double backslashes
+    /\\mp/, // Minus-plus
+    /\\\\mp/, // Minus-plus with double backslashes
+    /\\leq/, // Less than or equal
+    /\\\\leq/, // Less than or equal with double backslashes
+    /\\geq/, // Greater than or equal
+    /\\\\geq/, // Greater than or equal with double backslashes
+    /\\neq/, // Not equal
+    /\\\\neq/, // Not equal with double backslashes
+    /\\approx/, // Approximately equal
+    /\\\\approx/, // Approximately equal with double backslashes
+    /\\equiv/, // Equivalent
+    /\\\\equiv/, // Equivalent with double backslashes
+    /\\propto/, // Proportional
+    /\\\\propto/, // Proportional with double backslashes
+    /\\in/, // Element of
+    /\\\\in/, // Element of with double backslashes
+    /\\notin/, // Not element of
+    /\\\\notin/, // Not element of with double backslashes
+    /\\subset/, // Subset
+    /\\\\subset/, // Subset with double backslashes
+    /\\supset/, // Superset
+    /\\\\supset/, // Superset with double backslashes
+    /\\cup/, // Union
+    /\\\\cup/, // Union with double backslashes
+    /\\cap/, // Intersection
+    /\\\\cap/, // Intersection with double backslashes
+    /\\emptyset/, // Empty set
+    /\\\\emptyset/, // Empty set with double backslashes
+    /\\mathbb\{/, // Blackboard bold
+    /\\\\mathbb\{/, // Blackboard bold with double backslashes
+    /\\mathcal\{/, // Calligraphic
+    /\\\\mathcal\{/, // Calligraphic with double backslashes
+    /\\mathfrak\{/, // Fraktur
+    /\\\\mathfrak\{/, // Fraktur with double backslashes
+    /\\mathscr\{/, // Script
+    /\\\\mathscr\{/, // Script with double backslashes
+  ];
+  
+  return latexPatterns.some(pattern => pattern.test(trimmed));
 }
 
 /**
@@ -498,34 +699,26 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
     const { text: withoutCode, blocks } = processCodeBlocks(text);
     let processedText = withoutCode;
 
-    // Step 2: Process LaTeX math expressions FIRST to avoid wrapping in <p> or <blockquote>
+    // Step 2: Process $...$ and $$...$$ math blocks (LaTeX or AsciiMath)
+    processedText = processDollarMath(processedText);
+
+    // Step 3: Process LaTeX math expressions ONLY within inline code blocks (legacy support)
     processedText = processMathExpressions(processedText);
 
-    // Step 3: Process block-level elements
+    // Step 4: Process block-level elements (tables, blockquotes, headings, horizontal rules)
     processedText = processTables(processedText);
     processedText = processBlockquotes(processedText);
     processedText = processHeadings(processedText);
     processedText = processHorizontalRules(processedText);
 
-    // Process inline elements
-    processedText = processedText.replace(INLINE_CODE_REGEX, (_, code) => {
-      const escapedCode = code
-        .trim()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-      return `<code class="px-1.5 py-0.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-sm font-mono">${escapedCode}</code>`;
-    });
-
-    // Process footnotes (only references, not definitions)
+    // Step 5: Process footnotes (only references, not definitions)
     processedText = processFootnotes(processedText);
 
-    // Process basic markup (which will also handle Nostr identifiers)
+    // Step 6: Process basic markup (which will also handle Nostr identifiers)
+    // This includes paragraphs, inline code, links, lists, etc.
     processedText = await parseBasicmarkup(processedText);
 
-    // Step 4: Restore code blocks
+    // Step 7: Restore code blocks
     processedText = restoreCodeBlocks(processedText, blocks);
 
     return processedText;
