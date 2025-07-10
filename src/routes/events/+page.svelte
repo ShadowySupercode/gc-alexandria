@@ -14,6 +14,10 @@
   import { userPubkey, isLoggedIn } from '$lib/stores/authStore';
   import RelayStatus from '$lib/components/RelayStatus.svelte';
   import { testAllRelays, logRelayDiagnostics } from '$lib/utils/relayDiagnostics';
+  import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
+  import { neventEncode, naddrEncode } from '$lib/utils';
+  import { standardRelays } from '$lib/consts';
+  import { getEventType } from '$lib/utils/mime';
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -61,9 +65,33 @@
     return getMatchingTags(event, "summary")[0]?.[1];
   }
 
-  function getDeferrelNaddr(event: NDKEvent): string | undefined {
-    // Look for a 'deferrel' tag, e.g. ['deferrel', 'naddr1...']
-    return getMatchingTags(event, "deferrel")[0]?.[1];
+  function getDeferralNaddr(event: NDKEvent): string | undefined {
+    // Look for a 'deferral' tag, e.g. ['deferral', 'naddr1...']
+    return getMatchingTags(event, "deferral")[0]?.[1];
+  }
+
+  function getNeventAddress(event: NDKEvent): string {
+    return neventEncode(event, standardRelays);
+  }
+
+  function isAddressableEvent(event: NDKEvent): boolean {
+    return getEventType(event.kind || 0) === "addressable";
+  }
+
+  function getNaddrAddress(event: NDKEvent): string | null {
+    if (!isAddressableEvent(event)) {
+      return null;
+    }
+    try {
+      return naddrEncode(event, standardRelays);
+    } catch {
+      return null;
+    }
+  }
+
+  function shortenAddress(addr: string, head = 10, tail = 10): string {
+    if (!addr || addr.length <= head + tail + 3) return addr;
+    return addr.slice(0, head) + '…' + addr.slice(-tail);
   }
 
   function onLoadingChange(val: boolean) {
@@ -128,11 +156,24 @@
       onLoadingChange={onLoadingChange}
     />
 
-    {#if $isLoggedIn && !event && searchResults.length === 0}
-      <EventInput />
-    {/if}
-
     {#if event}
+      {#if event.kind !== 0}
+        <div class="flex flex-col gap-2 mb-4 break-all">
+          <CopyToClipboard
+            displayText={shortenAddress(getNeventAddress(event))}
+            copyText={getNeventAddress(event)}
+          />
+          {#if isAddressableEvent(event)}
+            {@const naddrAddress = getNaddrAddress(event)}
+            {#if naddrAddress}
+              <CopyToClipboard
+                displayText={shortenAddress(naddrAddress)}
+                copyText={naddrAddress}
+              />
+            {/if}
+          {/if}
+        </div>
+      {/if}
       <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
       {#if $isLoggedIn && $userPubkey}
@@ -188,7 +229,7 @@
                     {getSummary(result)}
                   </div>
                 {/if}
-                {#if getDeferrelNaddr(result)}
+                {#if getDeferralNaddr(result)}
                   <div
                     class="text-xs text-primary-800 dark:text-primary-300 mb-1"
                   >
@@ -200,7 +241,7 @@
                       onclick={(e) => e.stopPropagation()}
                       tabindex="0"
                     >
-                      {getDeferrelNaddr(result)}
+                      {getDeferralNaddr(result)}
                     </a>
                   </div>
                 {/if}
