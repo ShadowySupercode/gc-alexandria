@@ -6,6 +6,7 @@
     getEventHash,
     signEvent,
     getUserMetadata,
+    prefixNostrAddresses,
     type NostrProfile,
   } from "$lib/utils/nostrUtils";
   import { standardRelays, fallbackRelays } from "$lib/consts";
@@ -29,17 +30,22 @@
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
-  let pubkey = $state<string | null>(null);
+  let pubkey = $derived(() => get(activePubkey));
+
   $effect(() => {
-    pubkey = get(activePubkey);
+    if (!pubkey()) {
+      userProfile = null;
+      error = null;
+    }
   });
 
-  // Fetch user profile on mount
-  onMount(() => {
-    const trimmedPubkey = pubkey?.trim();
+  // Remove the onMount block that sets pubkey and userProfile only once. Instead, fetch userProfile reactively when pubkey changes.
+  $effect(() => {
+    const trimmedPubkey = pubkey()?.trim();
     if (trimmedPubkey && /^[a-fA-F0-9]{64}$/.test(trimmedPubkey)) {
+      const npub = nip19.npubEncode(trimmedPubkey);
+      // Call an async function, but don't make the effect itself async
       (async () => {
-        const npub = nip19.npubEncode(trimmedPubkey);
         userProfile = await getUserMetadata(npub);
         error = null;
       })();
@@ -49,6 +55,13 @@
     } else {
       userProfile = null;
       error = null;
+    }
+  });
+
+  $effect(() => {
+    if (success) {
+      content = '';
+      preview = '';
     }
   });
 
@@ -141,16 +154,17 @@
     success = null;
 
     try {
-      if (!pubkey || !/^[a-fA-F0-9]{64}$/.test(pubkey)) {
+      const pk = pubkey() || '';
+      if (!pk || !/^[a-fA-F0-9]{64}$/.test(pk)) {
         throw new Error('Invalid public key: must be a 64-character hex string.');
       }
       if (props.event.kind === undefined || props.event.kind === null) {
         throw new Error('Invalid event: missing kind');
       }
 
-      // Always use kind 1111 for comments
-      const kind = 1111;
       const parent = props.event;
+      // Use the same kind as parent for replies, or 1111 for generic replies
+      const kind = parent.kind === 1 ? 1 : 1111;
       // Try to extract root info from parent tags (NIP-22 threading)
       let rootKind = parent.kind;
       let rootPubkey = getPubkeyString(parent.pubkey);
@@ -161,9 +175,18 @@
       let parentAddress = '';
       let parentKind = parent.kind;
       let parentPubkey = getPubkeyString(parent.pubkey);
-      // Try to find root event info from tags (E/A/I)
+      
+      // Check if parent is a replaceable event (3xxxxx kinds)
+      const isParentReplaceable = parentKind >= 30000 && parentKind < 40000;
+      
+      // Check if parent is a comment (kind 1111) - if so, we need to find the original root
+      const isParentComment = parentKind === 1111;
+      
+      // Try to find root event info from parent tags (E/A/I)
       let isRootA = false;
       let isRootI = false;
+      let rootIValue = '';
+      let rootIRelay = '';
       if (parent.tags) {
         const rootE = parent.tags.find((t: string[]) => t[0] === 'E');
         const rootA = parent.tags.find((t: string[]) => t[0] === 'A');
@@ -181,36 +204,134 @@
           rootPubkey = getPubkeyString(parent.tags.find((t: string[]) => t[0] === 'P')?.[1] || rootPubkey);
           rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
         } else if (rootI) {
-          rootAddress = rootI[1];
+          rootIValue = rootI[1];
+          rootIRelay = getRelayString(rootI[2]);
           rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
         }
       }
-      // Compose tags according to NIP-22
+      
+            // Compose tags according to event kind
       const tags: string[][] = [];
-      // Root scope (uppercase)
-      if (rootAddress) {
-        tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay, rootPubkey]);
+      
+      if (kind === 1) {
+        // Kind 1 replies use simple e/p tags, not NIP-22 threading
+        tags.push(['e', parent.id, parentRelay, 'root']);
+        tags.push(['p', parentPubkey]);
+        
+        // If parent is replaceable, also add the address
+        if (isParentReplaceable) {
+          const dTag = parent.tags?.find((t: string[]) => t[0] === 'd')?.[1] || '';
+          if (dTag) {
+            const parentAddress = `${parentKind}:${parentPubkey}:${dTag}`;
+            tags.push(['a', parentAddress, '', 'root']);
+          }
+        }
       } else {
-        tags.push(['E', rootId, rootRelay, rootPubkey]);
+        // Kind 1111 uses NIP-22 threading format
+        // For replaceable events, use A/a tags; for regular events, use E/e tags
+        if (isParentReplaceable) {
+          // For replaceable events, construct the address: kind:pubkey:d-tag
+          const dTag = parent.tags?.find((t: string[]) => t[0] === 'd')?.[1] || '';
+          if (dTag) {
+            const parentAddress = `${parentKind}:${parentPubkey}:${dTag}`;
+            
+            // If we're replying to a comment, use the root from the comment's tags
+            if (isParentComment && rootId !== parent.id) {
+              // Root scope (uppercase) - use the original article
+              tags.push(['A', parentAddress, parentRelay]);
+              tags.push(['K', String(rootKind)]);
+              tags.push(['P', rootPubkey, rootRelay]);
+              // Parent scope (lowercase) - the comment we're replying to
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            } else {
+              // Top-level comment - root and parent are the same
+              tags.push(['A', parentAddress, parentRelay]);
+              tags.push(['K', String(rootKind)]);
+              tags.push(['P', rootPubkey, rootRelay]);
+              tags.push(['a', parentAddress, parentRelay]);
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            }
+          } else {
+            // Fallback to E/e tags if no d-tag found
+            if (isParentComment && rootId !== parent.id) {
+              tags.push(['E', rootId, rootRelay]);
+              tags.push(['K', String(rootKind)]);
+              tags.push(['P', rootPubkey, rootRelay]);
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            } else {
+              tags.push(['E', parent.id, parentRelay]);
+              tags.push(['K', String(rootKind)]);
+              tags.push(['P', rootPubkey, rootRelay]);
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            }
+          }
+        } else {
+          // For regular events, use E/e tags
+          if (isParentComment && rootId !== parent.id) {
+            // Reply to a comment - distinguish root from parent
+            if (rootAddress) {
+              tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay]);
+            } else if (rootIValue) {
+              tags.push(['I', rootIValue, rootIRelay]);
+            } else {
+              tags.push(['E', rootId, rootRelay]);
+            }
+            tags.push(['K', String(rootKind)]);
+            if (rootPubkey && !rootIValue) {
+              tags.push(['P', rootPubkey, rootRelay]);
+            }
+            tags.push(['e', parent.id, parentRelay]);
+            tags.push(['k', String(parentKind)]);
+            tags.push(['p', parentPubkey, parentRelay]);
+          } else {
+            // Top-level comment or regular event
+            if (rootAddress) {
+              tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay]);
+              tags.push(['K', String(rootKind)]);
+              if (rootPubkey) {
+                tags.push(['P', rootPubkey, rootRelay]);
+              }
+              tags.push([isRootA ? 'a' : isRootI ? 'i' : 'e', parentAddress || parent.id, parentRelay]);
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            } else if (rootIValue) {
+              tags.push(['I', rootIValue, rootIRelay]);
+              tags.push(['K', String(rootKind)]);
+              tags.push(['i', rootIValue, rootIRelay]);
+              tags.push(['k', String(parentKind)]);
+            } else {
+              tags.push(['E', rootId, rootRelay]);
+              tags.push(['K', String(rootKind)]);
+              if (rootPubkey) {
+                tags.push(['P', rootPubkey, rootRelay]);
+              }
+              tags.push(['e', parent.id, parentRelay]);
+              tags.push(['k', String(parentKind)]);
+              tags.push(['p', parentPubkey, parentRelay]);
+            }
+          }
+        }
       }
-      tags.push(['K', String(rootKind), '', '']);
-      tags.push(['P', rootPubkey, rootRelay, '']);
-      // Parent (lowercase)
-      if (parentAddress) {
-        tags.push([isRootA ? 'a' : isRootI ? 'i' : 'e', parentAddress || parent.id, parentRelay, parentPubkey]);
-      } else {
-        tags.push(['e', parent.id, parentRelay, parentPubkey]);
-      }
-      tags.push(['k', String(parentKind), '', '']);
-      tags.push(['p', parentPubkey, parentRelay, '']);
 
+      // Prefix Nostr addresses before publishing
+      const prefixedContent = prefixNostrAddresses(content);
+      
       // Create a completely plain object to avoid proxy cloning issues
       const eventToSign = {
         kind: Number(kind),
         created_at: Number(Math.floor(Date.now() / 1000)),
         tags: tags.map(tag => [String(tag[0]), String(tag[1]), String(tag[2] || ''), String(tag[3] || '')]),
-        content: String(content),
-        pubkey: String(pubkey),
+        content: String(prefixedContent),
+        pubkey: pk,
       };
 
       let sig, id;
@@ -384,16 +505,16 @@
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode(pubkey || '').slice(0, 8) + "..."}
+            nip19.npubEncode(pubkey() || '').slice(0, 8) + "..."}
         </span>
       </div>
     {/if}
     <Button
       on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !pubkey}
+      disabled={isSubmitting || !content.trim() || !pubkey()}
       class="w-full md:w-auto"
     >
-      {#if !pubkey}
+      {#if !pubkey()}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -403,7 +524,7 @@
     </Button>
   </div>
 
-  {#if !pubkey}
+  {#if !pubkey()}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

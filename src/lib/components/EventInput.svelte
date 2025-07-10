@@ -1,9 +1,10 @@
 <script lang='ts'>
-  import { getTitleTagForEvent, getDTagForEvent, requiresDTag, hasDTag, validateNotAsciidoc, validateAsciiDoc, build30040EventSet, titleToDTag } from '$lib/utils/event_input_utils';
+  import { getTitleTagForEvent, getDTagForEvent, requiresDTag, hasDTag, validateNotAsciidoc, validateAsciiDoc, build30040EventSet, titleToDTag, validate30040EventSet, get30040EventDescription, analyze30040Event, get30040FixGuidance } from '$lib/utils/event_input_utils';
   import { get } from 'svelte/store';
   import { ndkInstance, activePubkey } from '$lib/ndk';
   import { NDKEvent as NDKEventClass } from '@nostr-dev-kit/ndk';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
+  import { prefixNostrAddresses } from '$lib/utils/nostrUtils';
   import { standardRelays } from '$lib/consts';
 
   let kind = $state<number>(30023);
@@ -39,6 +40,7 @@
     content = (e.target as HTMLTextAreaElement).value;
     if (!titleManuallyEdited) {
       const extracted = extractTitleFromContent(content);
+      console.log('Content input - extracted title:', extracted);
       title = extracted;
     }
   }
@@ -54,8 +56,11 @@
   }
 
   $effect(() => {
+    console.log('Effect running - title:', title, 'dTagManuallyEdited:', dTagManuallyEdited);
     if (!dTagManuallyEdited) {
-      dTag = titleToDTag(title);
+      const newDTag = titleToDTag(title);
+      console.log('Setting dTag to:', newDTag);
+      dTag = newDTag;
     }
   });
 
@@ -81,7 +86,11 @@
       const v = validateNotAsciidoc(content);
       if (!v.valid) return v;
     }
-    if (kind === 30040 || kind === 30041 || kind === 30818) {
+    if (kind === 30040) {
+      const v = validate30040EventSet(content);
+      if (!v.valid) return v;
+    }
+    if (kind === 30041 || kind === 30818) {
       const v = validateAsciiDoc(content);
       if (!v.valid) return v;
     }
@@ -91,7 +100,7 @@
   function handleSubmit(e: Event) {
     e.preventDefault();
     dTagError = '';
-    if (!dTag || dTag.trim() === '') {
+    if (requiresDTag(kind) && (!dTag || dTag.trim() === '')) {
       dTagError = 'A d-tag is required.';
       return;
     }
@@ -130,38 +139,73 @@
       const baseEvent = { pubkey, created_at: createdAt };
       let events: NDKEvent[] = [];
       
-      if (kind === 30040) {
-        const { indexEvent, sectionEvents } = build30040EventSet(content, tags, baseEvent);
-        events = [indexEvent, ...sectionEvents];
+      console.log('Publishing event with kind:', kind);
+      console.log('Content length:', content.length);
+      console.log('Content preview:', content.substring(0, 100));
+      console.log('Tags:', tags);
+      console.log('Title:', title);
+      console.log('DTag:', dTag);
+      
+      if (Number(kind) === 30040) {
+        console.log('=== 30040 EVENT CREATION START ===');
+        console.log('Creating 30040 event set with content:', content);
+        try {
+          const { indexEvent, sectionEvents } = build30040EventSet(content, tags, baseEvent);
+          console.log('Index event:', indexEvent);
+          console.log('Section events:', sectionEvents);
+          // Publish all 30041 section events first, then the 30040 index event
+          events = [...sectionEvents, indexEvent];
+          console.log('Total events to publish:', events.length);
+          
+          // Debug the index event to ensure it's correct
+          const indexEventData = {
+            content: indexEvent.content,
+            tags: indexEvent.tags.map(tag => [tag[0], tag[1]] as [string, string]),
+            kind: indexEvent.kind || 30040
+          };
+          const analysis = debug30040Event(indexEventData);
+          if (!analysis.valid) {
+            console.warn('30040 index event has issues:', analysis.issues);
+          }
+          console.log('=== 30040 EVENT CREATION END ===');
+        } catch (error) {
+          console.error('Error in build30040EventSet:', error);
+          error = `Failed to build 30040 event set: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          loading = false;
+          return;
+        }
       } else {
         let eventTags = [...tags];
         
         // Ensure d-tag exists and has a value for addressable events
         if (requiresDTag(kind)) {
           const dTagIndex = eventTags.findIndex(([k]) => k === 'd');
-          const existingDTag = dTagIndex >= 0 ? eventTags[dTagIndex][1] : '';
-          const generatedDTag = getDTagForEvent(kind, content, existingDTag);
+          const dTagValue = dTag.trim() || getDTagForEvent(kind, content, '');
           
-          if (generatedDTag) {
+          if (dTagValue) {
             if (dTagIndex >= 0) {
               // Update existing d-tag
-              eventTags[dTagIndex] = ['d', generatedDTag];
+              eventTags[dTagIndex] = ['d', dTagValue];
             } else {
               // Add new d-tag
-              eventTags = [...eventTags, ['d', generatedDTag]];
+              eventTags = [...eventTags, ['d', dTagValue]];
             }
           }
         }
         
-        const title = getTitleTagForEvent(kind, content);
-        if (title) {
-          eventTags = [...eventTags, ['title', title]];
+        // Add title tag if we have a title
+        const titleValue = title.trim() || getTitleTagForEvent(kind, content);
+        if (titleValue) {
+          eventTags = [...eventTags, ['title', titleValue]];
         }
+        
+        // Prefix Nostr addresses before publishing
+        const prefixedContent = prefixNostrAddresses(content);
         
         // Create event with proper serialization
         const eventData = {
           kind,
-          content,
+          content: prefixedContent,
           tags: eventTags,
           pubkey,
           created_at: createdAt,
@@ -173,8 +217,16 @@
       let atLeastOne = false;
       let relaysPublished: string[] = [];
       
-      for (const event of events) {
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i];
         try {
+          console.log('Publishing event:', {
+            kind: event.kind,
+            content: event.content,
+            tags: event.tags,
+            hasContent: event.content && event.content.length > 0
+          });
+          
           // Always sign with a plain object if window.nostr is available
           // Create a completely plain object to avoid proxy cloning issues
           const plainEvent = {
@@ -248,7 +300,14 @@
           
           if (published) {
             atLeastOne = true;
-            lastPublishedEventId = event.id;
+            // For 30040, set lastPublishedEventId to the index event (last in array)
+            if (Number(kind) === 30040) {
+              if (i === events.length - 1) {
+                lastPublishedEventId = event.id;
+              }
+            } else {
+              lastPublishedEventId = event.id;
+            }
           }
         } catch (signError) {
           console.error('Error signing/publishing event:', signError);
@@ -271,6 +330,18 @@
       loading = false;
     }
   }
+
+  /**
+   * Debug function to analyze a 30040 event and provide guidance.
+   */
+  function debug30040Event(eventData: { content: string; tags: [string, string][]; kind: number }) {
+    const analysis = analyze30040Event(eventData);
+    console.log('30040 Event Analysis:', analysis);
+    if (!analysis.valid) {
+      console.log('Guidance:', get30040FixGuidance());
+    }
+    return analysis;
+  }
 </script>
 
 {#if pubkey}
@@ -283,6 +354,11 @@
         {#if !isValidKind(kind)}
           <div class="text-red-600 text-sm mt-1">
             Kind must be an integer between 0 and 65535 (NIP-01).
+          </div>
+        {/if}
+        {#if kind === 30040}
+          <div class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-900 p-2 rounded">
+            <strong>30040 - Publication Index:</strong> {get30040EventDescription()}
           </div>
         {/if}
       </div>
@@ -330,7 +406,7 @@
           oninput={handleDTagInput}
           placeholder='d-tag (auto-generated from title)'
           class='input input-bordered w-full'
-          required
+          required={requiresDTag(kind)}
         />
         {#if dTagError}
           <div class='text-red-600 text-sm mt-1'>{dTagError}</div>

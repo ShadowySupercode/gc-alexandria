@@ -2,6 +2,7 @@
   import { Heading, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import EventSearch from "$lib/components/EventSearch.svelte";
   import EventDetails from "$lib/components/EventDetails.svelte";
@@ -52,6 +53,10 @@
     profile = null;
   }
 
+  function handleClear() {
+    goto('/events', { replaceState: true });
+  }
+
   function getSummary(event: NDKEvent): string | undefined {
     return getMatchingTags(event, "summary")[0]?.[1];
   }
@@ -59,6 +64,10 @@
   function getDeferrelNaddr(event: NDKEvent): string | undefined {
     // Look for a 'deferrel' tag, e.g. ['deferrel', 'naddr1...']
     return getMatchingTags(event, "deferrel")[0]?.[1];
+  }
+
+  function onLoadingChange(val: boolean) {
+    loading = val;
   }
 
   $effect(() => {
@@ -74,6 +83,13 @@
       // Normalize d-tag to lowercase for consistent searching
       dTagValue = dTag ? dTag.toLowerCase() : null;
       searchValue = null;
+    }
+
+    // Reset state if both id and dTag are absent
+    if (!id && !dTag) {
+      event = null;
+      searchResults = [];
+      profile = null;
     }
   });
 
@@ -108,6 +124,8 @@
       {event}
       onEventFound={handleEventFound}
       onSearchResults={handleSearchResults}
+      onClear={handleClear}
+      onLoadingChange={onLoadingChange}
     />
 
     {#if $isLoggedIn && !event && searchResults.length === 0}

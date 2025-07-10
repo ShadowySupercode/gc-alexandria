@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Input, Button } from "flowbite-svelte";
+  import { Spinner } from "flowbite-svelte";
   import { ndkInstance } from "$lib/ndk";
   import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
   import { nip19 } from "$lib/utils/nostrUtils";
@@ -16,6 +17,8 @@
     onEventFound,
     onSearchResults,
     event,
+    onClear,
+    onLoadingChange,
   } = $props<{
     loading: boolean;
     error: string | null;
@@ -24,6 +27,8 @@
     onEventFound: (event: NDKEvent) => void;
     onSearchResults: (results: NDKEvent[]) => void;
     event: NDKEvent | null;
+    onClear?: () => void;
+    onLoadingChange?: (loading: boolean) => void;
   }>();
 
   let searchQuery = $state("");
@@ -53,6 +58,7 @@
   async function searchByDTag(dTag: string) {
     localError = null;
     searching = true;
+    if (onLoadingChange) { onLoadingChange(true); }
 
     // Convert d-tag to lowercase for consistent searching
     const normalizedDTag = dTag.toLowerCase();
@@ -62,6 +68,8 @@
       const ndk = $ndkInstance;
       if (!ndk) {
         localError = "NDK not initialized";
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
         return;
       }
 
@@ -79,22 +87,32 @@
       if (eventArray.length === 0) {
         localError = `No events found with d-tag: ${normalizedDTag}`;
         onSearchResults([]);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
+        return;
       } else if (eventArray.length === 1) {
         // If only one event found, treat it as a single event result
         handleFoundEvent(eventArray[0]);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
+        return;
       } else {
         // Multiple events found, show as search results
         console.log(
           `[Events] Found ${eventArray.length} events with d-tag: ${normalizedDTag}`,
         );
         onSearchResults(eventArray);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
+        return;
       }
     } catch (err) {
       console.error("[Events] Error searching by d-tag:", err);
       localError = "Error searching for events with this d-tag.";
       onSearchResults([]);
-    } finally {
       searching = false;
+      if (onLoadingChange) { onLoadingChange(false); }
+      return;
     }
   }
 
@@ -103,10 +121,16 @@
     queryOverride?: string,
   ) {
     localError = null;
+    searching = true;
+    if (onLoadingChange) { onLoadingChange(true); }
     const query = (
       queryOverride !== undefined ? queryOverride : searchQuery
     ).trim();
-    if (!query) return;
+    if (!query) {
+      searching = false;
+      if (onLoadingChange) { onLoadingChange(false); }
+      return;
+    }
 
     // Check if this is a d-tag search
     if (query.toLowerCase().startsWith("d:")) {
@@ -118,6 +142,8 @@
           keepFocus: true,
           noScroll: true,
         });
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
         return;
       }
     }
@@ -159,17 +185,25 @@
           );
           if (profileEvent) {
             handleFoundEvent(profileEvent);
+            searching = false;
+            if (onLoadingChange) { onLoadingChange(false); }
             return;
           } else {
             localError = "No profile found for this NIP-05 address.";
+            searching = false;
+            if (onLoadingChange) { onLoadingChange(false); }
             return;
           }
         } else {
           localError = "NIP-05 address not found.";
+          searching = false;
+          if (onLoadingChange) { onLoadingChange(false); }
           return;
         }
       } catch (e) {
         localError = "Error resolving NIP-05 address.";
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
         return;
       }
     }
@@ -196,10 +230,15 @@
         profileEvent.pubkey.toLowerCase() === cleanedQuery.toLowerCase()
       ) {
         handleFoundEvent(profileEvent);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
+        return;
       } else if (eventResult) {
         handleFoundEvent(eventResult);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
+        return;
       }
-      return;
     } else if (
       /^(nevent|note|naddr|npub|nprofile)[a-z0-9]+$/i.test(cleanedQuery)
     ) {
@@ -240,6 +279,8 @@
       } catch (e) {
         console.error("[Events] Invalid Nostr identifier:", cleanedQuery, e);
         localError = "Invalid Nostr identifier.";
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
         return;
       }
     }
@@ -255,13 +296,19 @@
       if (!event) {
         console.warn("[Events] Event not found for filterOrId:", filterOrId);
         localError = "Event not found";
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
       } else {
         console.log("[Events] Event found:", event);
         handleFoundEvent(event);
+        searching = false;
+        if (onLoadingChange) { onLoadingChange(false); }
       }
     } catch (err) {
       console.error("[Events] Error fetching event:", err, "Query:", query);
       localError = "Error fetching event. Please check the ID and try again.";
+      searching = false;
+      if (onLoadingChange) { onLoadingChange(false); }
     }
   }
 
@@ -269,18 +316,34 @@
     foundEvent = event;
     onEventFound(event);
   }
+
+  function handleClear() {
+    searchQuery = '';
+    localError = null;
+    foundEvent = null;
+    relayStatuses = {};
+    if (onClear) {
+      onClear();
+    }
+  }
 </script>
 
 <div class="flex flex-col space-y-6">
-  <div class="flex gap-2">
+  <div class="flex gap-2 items-center">
     <Input
       bind:value={searchQuery}
       placeholder="Enter event ID, nevent, naddr, or d:tag-name..."
       class="flex-grow"
-      on:keydown={(e: KeyboardEvent) => e.key === "Enter" && searchEvent(true)}
+      onkeydown={(e: KeyboardEvent) => e.key === "Enter" && searchEvent(true)}
     />
-    <Button on:click={() => searchEvent(true)} disabled={loading}>
-      {loading ? "Searching..." : "Search"}
+    <Button onclick={() => searchEvent(true)} disabled={loading}>
+      {#if searching}
+        <Spinner class="mr-2 text-gray-600 dark:text-gray-300" size="5" />
+      {/if}
+      {searching ? "Searching..." : "Search"}
+    </Button>
+    <Button onclick={handleClear} color="alternative" type="button" disabled={loading && !searchQuery && !localError}>
+      Clear
     </Button>
   </div>
 

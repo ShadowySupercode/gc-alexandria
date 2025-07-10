@@ -507,3 +507,79 @@ export async function signEvent(event: {
   const sig = await schnorr.sign(id, event.pubkey);
   return bytesToHex(sig);
 }
+
+/**
+ * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:" 
+ * if they are not already prefixed and are not part of a hyperlink
+ */
+export function prefixNostrAddresses(content: string): string {
+  // Regex to match Nostr addresses that are not already prefixed with "nostr:"
+  // and are not part of a markdown link or HTML link
+  // Must be followed by at least 20 alphanumeric characters to be considered an address
+  const nostrAddressPattern = /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
+  
+  return content.replace(nostrAddressPattern, (match, offset) => {
+    // Check if this match is part of a markdown link [text](url)
+    const beforeMatch = content.substring(0, offset);
+    const afterMatch = content.substring(offset + match.length);
+    
+    // Check if it's part of a markdown link
+    const beforeBrackets = beforeMatch.lastIndexOf('[');
+    const afterParens = afterMatch.indexOf(')');
+    
+    if (beforeBrackets !== -1 && afterParens !== -1) {
+      const textBeforeBrackets = beforeMatch.substring(0, beforeBrackets);
+      const lastOpenBracket = textBeforeBrackets.lastIndexOf('[');
+      const lastCloseBracket = textBeforeBrackets.lastIndexOf(']');
+      
+      // If we have [text] before this, it might be a markdown link
+      if (lastOpenBracket !== -1 && lastCloseBracket > lastOpenBracket) {
+        return match; // Don't prefix if it's part of a markdown link
+      }
+    }
+    
+    // Check if it's part of an HTML link
+    const beforeHref = beforeMatch.lastIndexOf('href=');
+    if (beforeHref !== -1) {
+      const afterHref = afterMatch.indexOf('"');
+      if (afterHref !== -1) {
+        return match; // Don't prefix if it's part of an HTML link
+      }
+    }
+    
+    // Check if it's already prefixed with "nostr:"
+    const beforeNostr = beforeMatch.lastIndexOf('nostr:');
+    if (beforeNostr !== -1) {
+      const textAfterNostr = beforeMatch.substring(beforeNostr + 6);
+      if (!textAfterNostr.includes(' ')) {
+        return match; // Already prefixed
+      }
+    }
+    
+    // Additional check: ensure it's actually a valid Nostr address format
+    // The part after the prefix should be a valid bech32 string
+    const addressPart = match.substring(4); // Remove npub, nprofile, etc.
+    if (addressPart.length < 20) {
+      return match; // Too short to be a valid address
+    }
+    
+    // Check if it looks like a valid bech32 string (alphanumeric, no special chars)
+    if (!/^[a-zA-Z0-9]+$/.test(addressPart)) {
+      return match; // Not a valid bech32 format
+    }
+    
+    // Additional check: ensure the word before is not a common word that would indicate
+    // this is just a general reference, not an actual address
+    const wordBefore = beforeMatch.match(/\b(\w+)\s*$/);
+    if (wordBefore) {
+      const beforeWord = wordBefore[1].toLowerCase();
+      const commonWords = ['the', 'a', 'an', 'this', 'that', 'my', 'your', 'his', 'her', 'their', 'our'];
+      if (commonWords.includes(beforeWord)) {
+        return match; // Likely just a general reference, not an actual address
+      }
+    }
+    
+    // Prefix with "nostr:"
+    return `nostr:${match}`;
+  });
+}
