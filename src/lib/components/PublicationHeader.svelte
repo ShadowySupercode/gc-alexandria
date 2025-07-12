@@ -28,8 +28,6 @@
   let version: string = $derived(event.getMatchingTags('version')[0]?.[1] ?? '1');
   let image: string = $derived(event.getMatchingTags('image')[0]?.[1] ?? null);
   let authorPubkey: string = $derived(event.getMatchingTags('p')[0]?.[1] ?? null);
-
-  console.log("PublicationHeader event:", event);
 </script>
 
 {#if title != null && href != null}

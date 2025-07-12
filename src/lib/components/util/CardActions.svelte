@@ -10,12 +10,16 @@
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { feedType } from "$lib/stores";
-  import { inboxRelays, ndkSignedIn } from "$lib/ndk";
+  import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
+
+  // Subscribe to userStore
+  let user = $state($userStore);
+  userStore.subscribe(val => user = val);
 
   // Derive metadata from event
   let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
@@ -41,12 +45,12 @@
    */
   let activeRelays = $derived(
     (() => {
-      const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
-      const relays = isUserFeed ? $inboxRelays : standardRelays;
+      const isUserFeed = user.signedIn && $feedType === FeedType.UserRelays;
+      const relays = isUserFeed ? user.relays.inbox : standardRelays;
       
       console.debug("[CardActions] Selected relays:", {
         eventId: event.id,
-        isSignedIn: $ndkSignedIn,
+        isSignedIn: user.signedIn,
         feedType: $feedType,
         isUserFeed,
         relayCount: relays.length,

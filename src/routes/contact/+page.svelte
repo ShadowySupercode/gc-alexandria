@@ -1,6 +1,7 @@
 <script lang='ts'>
   import { Heading, P, A, Button, Label, Textarea, Input, Modal } from 'flowbite-svelte';
-  import { ndkSignedIn, ndkInstance } from '$lib/ndk';
+  import { ndkInstance } from '$lib/ndk';
+  import { userStore } from '$lib/stores/userStore';
   import { standardRelays } from '$lib/consts';
   import type NDK from '@nostr-dev-kit/ndk';
   import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
@@ -44,6 +45,10 @@
     content: ''
   };
   
+  // Subscribe to userStore
+  let user = $state($userStore);
+  userStore.subscribe(val => user = val);
+  
   // Repository event address from the task
   const repoAddress = 'naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr';
   
@@ -79,7 +84,7 @@
     }
     
     // Check if user is logged in
-    if (!$ndkSignedIn) {
+    if (!user.signedIn) {
       // Save form data
       savedFormData = {
         subject,
@@ -258,7 +263,7 @@
   
   // Handle login completion
   $effect(() => {
-    if ($ndkSignedIn && showLoginModal) {
+    if (user.signedIn && showLoginModal) {
       showLoginModal = false;
 
       // Restore saved form data

@@ -1,55 +1,24 @@
 <script lang='ts'>
-  import { onMount } from 'svelte';
-  import NDK, { NDKEvent, NDKNip46Signer, NDKPrivateKeySigner, NDKUser, NDKNip07Signer, NDKRelaySet } from '@nostr-dev-kit/ndk';
-  import { ndkInstance, ndkSignedIn, activePubkey, inboxRelays, outboxRelays, getPersistedLogin, persistLogin, clearLogin } from '$lib/ndk';
-  import { get } from 'svelte/store';
   import { Avatar, Popover } from 'flowbite-svelte';
   import { UserOutline, ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
-  import { getUserMetadata, type NostrProfile } from '$lib/utils/nostrUtils';
+  import { userStore, loginWithExtension, loginWithAmber, loginWithNpub, logoutUser } from '$lib/stores/userStore';
+  import { get } from 'svelte/store';
+  import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
-  // Component state
-  let npub: string | null = $state(null);
-  let signer: NDKNip46Signer | NDKNip07Signer | null = $state(null);
-  let isLoading: boolean = $state(false);
-  let result: string | null = $state(null);
-  let nostrConnectUri: string | null = $state(null);
-  let showQrCode: boolean = $state(false);
-  let qrCodeDataUrl: string | null = $state(null);
-  let loginButtonRef: HTMLElement | undefined = $state();
-  let profile: NostrProfile | null = $state(null);
-  let profilePicture: string | undefined = $state(undefined);
-  let profileHandle: string | undefined = $state(undefined);
-  let resultTimeout: ReturnType<typeof setTimeout> | null = null;
-  // Add a reference for the profile avatar
-  let profileAvatarId = 'profile-avatar-btn';
-  // Add separate loading states for each login method
+  // UI state
   let isLoadingExtension: boolean = $state(false);
   let isLoadingAmber: boolean = $state(false);
+  let result: string | null = $state(null);
+  let nostrConnectUri: string | undefined = $state(undefined);
+  let showQrCode: boolean = $state(false);
+  let qrCodeDataUrl: string | undefined = $state(undefined);
+  let loginButtonRef: HTMLElement | undefined = $state();
+  let resultTimeout: ReturnType<typeof setTimeout> | null = null;
+  let profileAvatarId = 'profile-avatar-btn';
 
-  // Storage helpers
-  const getStoredNsec = (): string | undefined => localStorage.getItem('amber/nsec') || undefined;
-  const saveNsec = (nsec: string): void => localStorage.setItem('amber/nsec', nsec);
-  const clearStoredNsec = (): void => localStorage.removeItem('amber/nsec');
-
-  const getStoredLoginMethod = (): string | null => localStorage.getItem('amber/loginMethod');
-  const saveLoginMethod = (method: string): void => localStorage.setItem('amber/loginMethod', method);
-  const clearStoredLoginMethod = (): void => localStorage.removeItem('amber/loginMethod');
-
-  const getStoredRelay = (): string => localStorage.getItem('amber/relay') || '';
-  const saveRelay = (value: string): void => localStorage.setItem('amber/relay', value);
-  const clearStoredRelay = (): void => localStorage.removeItem('amber/relay');
-
-  // Timeout helper
-  async function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> {
-    let timeout: NodeJS.Timeout;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeout = setTimeout(() => reject(new Error(errorMessage)), ms);
-    });
-    return Promise.race([promise, timeoutPromise]).then((result) => {
-      clearTimeout(timeout);
-      return result;
-    });
-  }
+  // Subscribe to userStore
+  let user = $state(get(userStore));
+  userStore.subscribe(val => user = val);
 
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
@@ -90,86 +59,12 @@
     }, 4000);
   }
 
-  // Fetch and set profile info after login
-  async function fetchAndSetProfile(npubVal: string | null) {
-    if (!npubVal) {
-      profile = null;
-      profilePicture = undefined;
-      profileHandle = undefined;
-      return;
-    }
-    const metadata = await getUserMetadata(npubVal);
-    profile = metadata;
-    profilePicture = metadata.picture || undefined;
-    profileHandle = metadata.displayName || metadata.name || undefined;
-  }
-
-  // Auto-login effect
-  onMount(() => {
-    const tryAutoLogin = async () => {
-      const localNsec = getStoredNsec();
-      const loginMethod = getStoredLoginMethod();
-
-      if (!localNsec || loginMethod !== 'amber') return;
-
-      try {
-        const relay = getStoredRelay();
-        if (!relay) return;
-
-        const ndk = get(ndkInstance);
-        if (!ndk) return;
-
-        const amberSigner = NDKNip46Signer.nostrconnect(ndk, relay, localNsec, {
-          name: 'Alexandria',
-          perms: 'sign_event:1;sign_event:4',
-        });
-
-        const user = await withTimeout(amberSigner.blockUntilReady(), 10000, 'Amber timeout');
-        signer = amberSigner;
-        npub = user.npub;
-        await fetchAndSetProfile(npub);
-        
-        // Update global state
-        ndk.signer = amberSigner;
-        ndk.activeUser = user;
-        ndkInstance.set(ndk);
-        ndkSignedIn.set(true);
-        activePubkey.set(user.pubkey);
-      } catch (err: unknown) {
-        clearStoredNsec();
-        clearStoredLoginMethod();
-        clearStoredRelay();
-        console.error('Auto-login failed:', err instanceof Error ? err.message : String(err));
-      }
-    };
-
-    tryAutoLogin();
-  });
-
-  // Browser extension login
+  // Login handlers
   const handleBrowserExtensionLogin = async () => {
     isLoadingExtension = true;
     isLoadingAmber = false;
     try {
-      const ndk = get(ndkInstance);
-      if (!ndk) throw new Error('NDK not initialized');
-
-      const extensionSigner = new NDKNip07Signer();
-      const user = await extensionSigner.user();
-      
-      signer = extensionSigner;
-      npub = user.npub;
-      await fetchAndSetProfile(npub);
-      
-      // Update global state
-      ndk.signer = extensionSigner;
-      ndk.activeUser = user;
-      ndkInstance.set(ndk);
-      ndkSignedIn.set(true);
-      activePubkey.set(user.pubkey);
-      persistLogin(user);
-      saveLoginMethod('extension');
-      showResultMessage(`✅ Connected with browser extension as ${profileHandle || user.npub}`);
+      await loginWithExtension();
     } catch (err: unknown) {
       showResultMessage(`❌ Browser extension connection failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -177,49 +72,23 @@
     }
   };
 
-  // Amber login
   const handleAmberLogin = async () => {
     isLoadingAmber = true;
     isLoadingExtension = false;
     try {
-      const ndk = get(ndkInstance);
-      if (!ndk) throw new Error('NDK not initialized');
-
+      const ndk = new NDK();
       const relay = 'wss://relay.nsec.app';
-      const localNsec = getStoredNsec() ?? NDKPrivateKeySigner.generate().nsec;
-      
+      const localNsec = localStorage.getItem('amber/nsec') ?? NDKPrivateKeySigner.generate().nsec;
       const amberSigner = NDKNip46Signer.nostrconnect(ndk, relay, localNsec, {
         name: 'Alexandria',
         perms: 'sign_event:1;sign_event:4',
       });
-
       if (amberSigner.nostrConnectUri) {
-        nostrConnectUri = amberSigner.nostrConnectUri;
+        nostrConnectUri = amberSigner.nostrConnectUri ?? undefined;
         showQrCode = true;
-        
-        // Generate QR code
-        qrCodeDataUrl = await generateQrCode(amberSigner.nostrConnectUri);
-        
-        // Start waiting for connection
-        const user = await withTimeout(amberSigner.blockUntilReady(), 15000, 'Amber timed out');
-        
-        saveLoginMethod('amber');
-        saveNsec(amberSigner.localSigner.nsec);
-        saveRelay(relay);
-        
-        signer = amberSigner;
-        npub = user.npub;
-        await fetchAndSetProfile(npub);
-        
-        // Update global state
-        ndk.signer = amberSigner;
-        ndk.activeUser = user;
-        ndkInstance.set(ndk);
-        ndkSignedIn.set(true);
-        activePubkey.set(user.pubkey);
-        persistLogin(user);
-        
-        showResultMessage(`✅ Connected to Amber as ${profileHandle || user.npub}`);
+        qrCodeDataUrl = (await generateQrCode(amberSigner.nostrConnectUri)) ?? undefined;
+        const user = await amberSigner.blockUntilReady();
+        await loginWithAmber(amberSigner, user);
         showQrCode = false;
       } else {
         throw new Error('Failed to generate Nostr Connect URI');
@@ -231,93 +100,37 @@
     }
   };
 
-  // Read-only login (npub input)
   const handleReadOnlyLogin = async () => {
     const inputNpub = prompt('Enter your npub (public key):');
     if (inputNpub) {
-      npub = inputNpub;
-      await fetchAndSetProfile(npub);
-      // Set NDK active user and update relays for read-only mode
-      const ndk = get(ndkInstance);
-      if (ndk) {
-        const user = ndk.getUser({ npub: inputNpub });
-        // Fetch and set relays (read-only, no signer)
-        const [inboxes, outboxes] = await (async () => {
-          try {
-            // getUserPreferredRelays is not exported, so inline the logic here
-            const relayList = await ndk.fetchEvent(
-              { kinds: [10002], authors: [user.pubkey] },
-              { groupable: false, skipVerification: false, skipValidation: false },
-              NDKRelaySet.fromRelayUrls(['wss://relay.nsec.app'], ndk)
-            );
-            const inboxRelays = new Set();
-            const outboxRelays = new Set();
-            if (relayList == null) {
-              // fallback: no relays found
-            } else {
-              relayList.tags.forEach(tag => {
-                switch (tag[0]) {
-                  case 'r': inboxRelays.add(tag[1]); break;
-                  case 'w': outboxRelays.add(tag[1]); break;
-                  default:
-                    inboxRelays.add(tag[1]);
-                    outboxRelays.add(tag[1]);
-                    break;
-                }
-              });
-            }
-            return [inboxRelays, outboxRelays];
-          } catch {
-            return [new Set(), new Set()];
-          }
-        })();
-        inboxRelays.set(Array.from(inboxes) as string[]);
-        outboxRelays.set(Array.from(outboxes) as string[]);
-        ndk.activeUser = user;
-        ndk.signer = undefined;
-        ndkInstance.set(ndk);
-        ndkSignedIn.set(true);
-        activePubkey.set(user.pubkey);
-        persistLogin(user);
+      try {
+        await loginWithNpub(inputNpub);
+      } catch (err: unknown) {
+        showResultMessage(`❌ npub login failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   };
 
   const handleLogout = () => {
-    clearStoredNsec();
-    clearStoredLoginMethod();
-    clearStoredRelay();
-    clearLogin();
-    signer = null;
-    npub = null;
-    result = null;
-    nostrConnectUri = null;
-    showQrCode = false;
-    qrCodeDataUrl = null;
-    profile = null;
-    profilePicture = undefined;
-    profileHandle = undefined;
-    
-    // Update global state
-    ndkSignedIn.set(false);
-    activePubkey.set(null);
-    // Reset NDK instance state
-    const ndk = get(ndkInstance);
-    if (ndk) {
-      ndk.activeUser = undefined;
-      ndk.signer = undefined;
-      ndkInstance.set(ndk);
-    }
+    logoutUser();
   };
 
   function shortenNpub(long: string | undefined) {
     if (!long) return '';
     return long.slice(0, 8) + '…' + long.slice(-4);
   }
+
+  function toNullAsUndefined(val: string | null): string | undefined {
+    return val === null ? undefined : val;
+  }
+
+  function nullToUndefined(val: string | null | undefined): string | undefined {
+    return val === null ? undefined : val;
+  }
 </script>
 
 <div class="relative">
-  {#if !npub}
+  {#if !user.signedIn}
     <!-- Login button -->
     <div class="group">
       <button
@@ -384,8 +197,8 @@
         <Avatar
           rounded
           class='h-6 w-6 cursor-pointer'
-          src={profilePicture || undefined}
-          alt={profileHandle || 'User'}
+          src={user.profile?.picture || undefined}
+          alt={user.profile?.displayName || user.profile?.name || 'User'}
         />
       </button>
       <Popover
@@ -396,15 +209,15 @@
       >
         <div class='flex flex-row justify-between space-x-4'>
           <div class='flex flex-col'>
-            <h3 class='text-lg font-bold'>{profileHandle || shortenNpub(npub)}</h3>
+            <h3 class='text-lg font-bold'>{user.profile?.displayName || user.profile?.name || (user.npub ? shortenNpub(user.npub) : 'Unknown')}</h3>
             <ul class="space-y-2 mt-2">
               <li>
                 <button
                   class='text-sm text-primary-600 dark:text-primary-400 underline hover:text-primary-400 dark:hover:text-primary-500 px-0 bg-transparent border-none cursor-pointer'
-                  onclick={() => window.open(`./events?id=${npub}`, '_blank')}
+                  onclick={() => window.location.href = `./events?id=${user.npub}`}
                   type='button'
                 >
-                  {shortenNpub(npub)}
+                  {user.npub ? shortenNpub(user.npub) : 'Unknown'}
                 </button>
               </li>
               <li>
@@ -431,24 +244,22 @@
       <div class="text-center">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Scan with Amber</h2>
         <p class="text-sm text-gray-600 mb-4">Open Amber on your phone and scan this QR code</p>
-        
         <div class="flex justify-center mb-4">
           <img 
-            src={qrCodeDataUrl} 
+            src={qrCodeDataUrl || ''} 
             alt="Nostr Connect QR Code"
             class="border-2 border-gray-300 rounded-lg"
             width="256"
             height="256"
           />
         </div>
-        
         <div class="space-y-2">
           <label for="nostr-connect-uri-modal" class="block text-sm font-medium text-gray-700">Or copy the URI manually:</label>
           <div class="flex">
             <input
               id="nostr-connect-uri-modal"
               type="text"
-              value={nostrConnectUri}
+              value={nostrConnectUri || ''}
               readonly
               class="flex-1 border border-gray-300 rounded-l px-3 py-2 text-sm bg-gray-50"
               placeholder="nostrconnect://..."
@@ -461,13 +272,11 @@
             </button>
           </div>
         </div>
-        
         <div class="text-xs text-gray-500 mt-4">
           <p>1. Open Amber on your phone</p>
           <p>2. Scan the QR code above</p>
           <p>3. Approve the connection in Amber</p>
         </div>
-        
         <button
           class="mt-4 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
           onclick={() => showQrCode = false}

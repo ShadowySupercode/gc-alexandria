@@ -1,6 +1,8 @@
 import { feedTypeStorageKey } from '$lib/consts';
 import { FeedType } from '$lib/consts';
-import { getPersistedLogin, initNdk, loginWithExtension, ndkInstance } from '$lib/ndk';
+import { getPersistedLogin, initNdk, ndkInstance } from '$lib/ndk';
+import { loginWithExtension, loginWithAmber, loginWithNpub } from '$lib/stores/userStore';
+import { loginMethodStorageKey } from '$lib/stores/userStore';
 import Pharos, { pharosInstance } from '$lib/parser';
 import { feedType } from '$lib/stores';
 import type { LayoutLoad } from './$types';
@@ -16,17 +18,32 @@ export const load: LayoutLoad = () => {
   ndkInstance.set(ndk);
 
   try {
-    // Michael J - 18 Jan 2025 - This will not work server-side, since the NIP-07 extension is only
-    // available in the browser, and the flags for persistent login are saved in the browser's
-    // local storage.  If SSR is ever enabled, move this code block to run client-side.
     const pubkey = getPersistedLogin();
-    if (pubkey) {
-      // Michael J - 27 Jan 2025 - We don't await this call; it will run in the background and
-      // update Svelte stores to propagate data.
-      loginWithExtension(pubkey);
+    const loginMethod = localStorage.getItem(loginMethodStorageKey);
+    const logoutFlag = localStorage.getItem('alexandria/logout/flag');
+    console.log('Layout load - persisted pubkey:', pubkey);
+    console.log('Layout load - persisted login method:', loginMethod);
+    console.log('Layout load - logout flag:', logoutFlag);
+    console.log('All localStorage keys:', Object.keys(localStorage));
+
+    if (pubkey && loginMethod && !logoutFlag) {
+      if (loginMethod === 'extension') {
+        console.log('Restoring extension login...');
+        loginWithExtension();
+      } else if (loginMethod === 'amber') {
+        // Amber login restoration would require more context (e.g., session, signer), so skip for now
+        alert('Amber login cannot be restored automatically. Please reconnect your Amber wallet.');
+        console.warn('Amber login cannot be restored automatically. Please reconnect your Amber wallet.');
+      } else if (loginMethod === 'npub') {
+        console.log('Restoring npub login...');
+        loginWithNpub(pubkey);
+      }
+    } else if (logoutFlag) {
+      console.log('Skipping auto-login due to logout flag');
+      localStorage.removeItem('alexandria/logout/flag');
     }
   } catch (e) {
-    console.warn(`Failed to login with extension: ${e}\n\nContinuing with anonymous session.`);
+    console.warn(`Failed to restore login: ${e}\n\nContinuing with anonymous session.`);
   }
 
   const parser = new Pharos(ndk);

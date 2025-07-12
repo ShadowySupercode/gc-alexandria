@@ -2,7 +2,7 @@
   import { FeedType, feedTypeStorageKey, standardRelays, fallbackRelays } from '$lib/consts';
   import { Alert, Button, Dropdown, Radio, Input } from "flowbite-svelte";
   import { ChevronDownOutline, HammerSolid } from "flowbite-svelte-icons";
-  import { inboxRelays, ndkSignedIn } from '$lib/ndk';
+  import { userStore } from '$lib/stores/userStore';
   import PublicationFeed from '$lib/components/PublicationFeed.svelte';
   import { feedType } from '$lib/stores';
 
@@ -22,6 +22,8 @@
   };
 
   let searchQuery = $state('');
+  let user = $state($userStore);
+  userStore.subscribe(val => user = val);
 </script>
 
 <Alert rounded={false} id="alert-experimental" class='border-t-4 border-primary-500 text-gray-900 dark:text-gray-100 dark:border-primary-500 flex justify-left mb-2'>
@@ -32,7 +34,7 @@
 </Alert>
 
 <main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
-  {#if !$ndkSignedIn}
+  {#if !user.signedIn}
     <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
   {:else}
     <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
@@ -60,7 +62,7 @@
     {#if $feedType === FeedType.StandardRelays}
       <PublicationFeed relays={standardRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
     {:else if $feedType === FeedType.UserRelays}
-      <PublicationFeed relays={$inboxRelays} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
+      <PublicationFeed relays={user.relays.inbox} fallbackRelays={fallbackRelays} searchQuery={searchQuery} />
     {/if}
   {/if}
 </main>

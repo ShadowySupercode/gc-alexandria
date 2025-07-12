@@ -7,6 +7,7 @@
   import EventDetails from '$lib/components/EventDetails.svelte';
   import RelayActions from '$lib/components/RelayActions.svelte';
   import CommentBox from '$lib/components/CommentBox.svelte';
+  import { userStore } from '$lib/stores/userStore';
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -22,8 +23,8 @@
     lud16?: string;
     nip05?: string;
   } | null>(null);
-  let userPubkey = $state<string | null>(null);
-  let userRelayPreference = $state(false);
+  let user = $state($userStore);
+  userStore.subscribe(val => user = val);
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -43,10 +44,6 @@
     if (id) {
       searchValue = id;
     }
-
-    // Get user's pubkey and relay preference from localStorage
-    userPubkey = localStorage.getItem('userPubkey');
-    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
   });
 </script>
 
@@ -64,10 +61,10 @@
     {#if event}
       <EventDetails {event} {profile} {searchValue} />
       <RelayActions {event} />
-      {#if userPubkey}
+      {#if user.signedIn}
         <div class="mt-8">
           <Heading tag="h2" class="h-leather mb-4">Add Comment</Heading>
-          <CommentBox event={event} userPubkey={userPubkey} userRelayPreference={userRelayPreference} />
+          <CommentBox {event} />
         </div>
       {:else}
         <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">

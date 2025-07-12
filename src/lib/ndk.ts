@@ -1,16 +1,10 @@
-import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
+import NDK, { NDKRelay, NDKRelayAuthPolicies, NDKRelaySet, NDKUser } from '@nostr-dev-kit/ndk';
 import { get, writable, type Writable } from 'svelte/store';
 import { fallbackRelays, FeedType, loginStorageKey, standardRelays } from './consts';
 import { feedType } from './stores';
+import { userStore } from './stores/userStore';
 
 export const ndkInstance: Writable<NDK> = writable();
-
-export const ndkSignedIn: Writable<boolean> = writable(false);
-
-export const activePubkey: Writable<string | null> = writable(null);
-
-export const inboxRelays: Writable<string[]> = writable([]);
-export const outboxRelays: Writable<string[]> = writable([]);
 
 /**
  * Gets the user's pubkey from local storage, if it exists.
@@ -91,9 +85,10 @@ export function clearPersistedRelays(user: NDKUser): void {
 }
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
-  return get(feedType) === FeedType.UserRelays
+  const user = get(userStore);
+  return get(feedType) === FeedType.UserRelays && user.signedIn
     ? new NDKRelaySet(
-        new Set(get(inboxRelays).map(relay => new NDKRelay(
+        new Set(user.relays.inbox.map(relay => new NDKRelay(
           relay,
           NDKRelayAuthPolicies.signIn({ ndk }),
           ndk,
@@ -136,67 +131,11 @@ export function initNdk(): NDK {
 }
 
 /**
- * Signs in with a NIP-07 browser extension, and determines the user's preferred inbox and outbox
- * relays.
- * @returns The user's profile, if it is available.
- * @throws If sign-in fails.  This may because there is no accessible NIP-07 extension, or because
- * NDK is unable to fetch the user's profile or relay lists.
- */
-export async function loginWithExtension(pubkey?: string): Promise<NDKUser | null> {
-  try {
-    const ndk = get(ndkInstance);
-    const signer = new NDKNip07Signer();
-    const signerUser = await signer.user();
-
-    // TODO: Handle changing pubkeys.
-    if (pubkey && signerUser.pubkey !== pubkey) {
-      console.debug('Switching pubkeys from last login.');
-    }
-
-    activePubkey.set(signerUser.pubkey);
-
-    const [persistedInboxes, persistedOutboxes] = getPersistedRelays(signerUser);
-    for (const relay of persistedInboxes) {
-      ndk.addExplicitRelay(relay);
-    }
-
-    const user = ndk.getUser({ pubkey: signerUser.pubkey });
-    const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
-
-    inboxRelays.set(Array.from(inboxes ?? persistedInboxes).map(relay => relay.url));
-    outboxRelays.set(Array.from(outboxes ?? persistedOutboxes).map(relay => relay.url));
-
-    persistRelays(signerUser, inboxes, outboxes);
-
-    ndk.signer = signer;
-    ndk.activeUser = user;
-
-    ndkInstance.set(ndk);
-    ndkSignedIn.set(true);
-
-    return user;
-  } catch (e) {
-    throw new Error(`Failed to sign in with NIP-07 extension: ${e}`);
-  }
-}
-
-/**
- * Handles logging out a user.
- * @param user The user to log out.
- */
-export function logout(user: NDKUser): void {
-  clearLogin();
-  clearPersistedRelays(user);
-  activePubkey.set(null);
-  ndkSignedIn.set(false);
-}
-
-/**
  * Fetches the user's NIP-65 relay list, if one can be found, and returns the inbox and outbox
  * relay sets.
  * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.
  */
-async function getUserPreferredRelays(
+export async function getUserPreferredRelays(
   ndk: NDK,
   user: NDKUser,
   fallbacks: readonly string[] = fallbackRelays

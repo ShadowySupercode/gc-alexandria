@@ -4,16 +4,13 @@
   import { nip19 } from 'nostr-tools';
   import { getEventHash, signEvent, getUserMetadata, type NostrProfile } from '$lib/utils/nostrUtils';
   import { standardRelays, fallbackRelays } from '$lib/consts';
-  import { userRelays } from '$lib/stores/relayStore';
-  import { get } from 'svelte/store';
+  import { userStore } from '$lib/stores/userStore';
   import { goto } from '$app/navigation';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { onMount } from 'svelte';
 
   const props = $props<{
     event: NDKEvent;
-    userPubkey: string;
-    userRelayPreference: boolean;
   }>();
 
   let content = $state('');
@@ -24,11 +21,13 @@
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
+  let user = $state($userStore);
+  userStore.subscribe(val => user = val);
 
   // Fetch user profile on mount
   onMount(async () => {
-    if (props.userPubkey) {
-      const npub = nip19.npubEncode(props.userPubkey);
+    if (user.signedIn && user.pubkey) {
+      const npub = nip19.npubEncode(user.pubkey);
       userProfile = await getUserMetadata(npub);
     }
   });
@@ -92,6 +91,11 @@
   }
 
   async function handleSubmit(useOtherRelays = false, useFallbackRelays = false) {
+    if (!user.signedIn || !user.pubkey) {
+      error = 'You must be signed in to comment';
+      return;
+    }
+
     isSubmitting = true;
     error = null;
     success = null;
@@ -135,7 +139,7 @@
         created_at: Math.floor(Date.now() / 1000),
         tags,
         content,
-        pubkey: props.userPubkey
+        pubkey: user.pubkey
       };
 
       const id = getEventHash(eventToSign);
@@ -147,10 +151,10 @@
         sig
       };
 
-      // Determine which relays to use
-      let relays = props.userRelayPreference ? get(userRelays) : standardRelays;
+      // Determine which relays to use based on user's relay preference
+      let relays = user.relays.inbox.length > 0 ? user.relays.inbox : standardRelays;
       if (useOtherRelays) {
-        relays = props.userRelayPreference ? standardRelays : get(userRelays);
+        relays = user.relays.inbox.length > 0 ? standardRelays : user.relays.inbox;
       }
       if (useFallbackRelays) {
         relays = fallbackRelays;
@@ -282,16 +286,16 @@
           />
         {/if}
         <span class="text-gray-700 dark:text-gray-300">
-          {userProfile.displayName || userProfile.name || nip19.npubEncode(props.userPubkey).slice(0, 8) + '...'}
+          {userProfile.displayName || userProfile.name || (user.pubkey ? nip19.npubEncode(user.pubkey).slice(0, 8) + '...' : 'Unknown')}
         </span>
       </div>
     {/if}
     <Button
       on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !props.userPubkey}
+      disabled={isSubmitting || !content.trim() || !user.signedIn}
       class="w-full md:w-auto"
     >
-      {#if !props.userPubkey}
+      {#if !user.signedIn}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -301,7 +305,7 @@
     </Button>
   </div>
 
-  {#if !props.userPubkey}
+  {#if !user.signedIn}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your current account.
     </Alert>
