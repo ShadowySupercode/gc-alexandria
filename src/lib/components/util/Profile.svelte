@@ -80,14 +80,6 @@ function shortenNpub(long: string|undefined) {
                     <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
                   </button>
                 </li>
-              {:else}
-                <!-- li>
-                  <button
-                    class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                  >
-                    <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                  </button>
-                </li -->
               {/if}
             </ul>
           </div>

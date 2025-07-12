@@ -87,7 +87,7 @@ export async function getUserMetadata(identifier: string): Promise<NostrProfile>
       name: profile?.name || fallback.name,
       displayName: profile?.displayName,
       nip05: profile?.nip05,
-      picture: profile?.image,
+      picture: profile?.picture || profile?.image,
       about: profile?.about,
       banner: profile?.banner,
       website: profile?.website,

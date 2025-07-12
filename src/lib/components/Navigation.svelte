@@ -7,7 +7,7 @@
     NavHamburger,
     NavBrand,
   } from "flowbite-svelte";
-  import Login from "./Login.svelte";
+  import LoginMenu from "./LoginMenu.svelte";
 
   let { class: className = "" } = $props();
 </script>
@@ -19,7 +19,7 @@
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Login />
+    <LoginMenu />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
