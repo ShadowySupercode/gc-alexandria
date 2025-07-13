@@ -2,7 +2,7 @@
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
   import { ndkInstance } from "$lib/ndk";
-  import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
+  import { fetchEventWithFallback, getMatchingTags } from "$lib/utils/nostrUtils";
   import { nip19 } from "$lib/utils/nostrUtils";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -25,7 +25,7 @@
     searchValue: string | null;
     dTagValue: string | null;
     onEventFound: (event: NDKEvent) => void;
-    onSearchResults: (results: NDKEvent[]) => void;
+    onSearchResults: (firstOrder: NDKEvent[], secondOrder: NDKEvent[], tTagEvents: NDKEvent[], eventIds: Set<string>, addresses: Set<string>) => void;
     event: NDKEvent | null;
     onClear?: () => void;
     onLoadingChange?: (loading: boolean) => void;
@@ -86,30 +86,179 @@
 
       if (eventArray.length === 0) {
         localError = `No events found with d-tag: ${normalizedDTag}`;
-        onSearchResults([]);
-        searching = false;
-        if (onLoadingChange) { onLoadingChange(false); }
-        return;
-      } else if (eventArray.length === 1) {
-        // If only one event found, treat it as a single event result
-        handleFoundEvent(eventArray[0]);
-        searching = false;
-        if (onLoadingChange) { onLoadingChange(false); }
-        return;
-      } else {
-        // Multiple events found, show as search results
-        console.log(
-          `[Events] Found ${eventArray.length} events with d-tag: ${normalizedDTag}`,
-        );
-        onSearchResults(eventArray);
+        onSearchResults([], [], [], new Set(), new Set());
         searching = false;
         if (onLoadingChange) { onLoadingChange(false); }
         return;
       }
+
+      // Collect all event IDs and addresses for second-order search
+      const eventIds = new Set<string>();
+      const eventAddresses = new Set<string>();
+      
+      eventArray.forEach(event => {
+        if (event.id) {
+          eventIds.add(event.id);
+        }
+        // Add a-tag addresses (kind:pubkey:d)
+        const aTags = getMatchingTags(event, "a");
+        aTags.forEach((tag: string[]) => {
+          if (tag[1]) {
+            eventAddresses.add(tag[1]);
+          }
+        });
+      });
+
+      // Search for second-order events that reference the original events
+      const secondOrderEvents = new Set<NDKEvent>();
+      
+      if (eventIds.size > 0 || eventAddresses.size > 0) {
+        console.log("[Events] Searching for second-order events...");
+        
+        // Search for events with e tags referencing the original events
+        if (eventIds.size > 0) {
+          const eTagFilter = { "#e": Array.from(eventIds) };
+          const eTagEvents = await ndk.fetchEvents(
+            eTagFilter,
+            { closeOnEose: true },
+            relaySet,
+          );
+          eTagEvents.forEach(event => secondOrderEvents.add(event));
+        }
+
+        // Search for events with a tags referencing the original events
+        if (eventAddresses.size > 0) {
+          const aTagFilter = { "#a": Array.from(eventAddresses) };
+          const aTagEvents = await ndk.fetchEvents(
+            aTagFilter,
+            { closeOnEose: true },
+            relaySet,
+          );
+          aTagEvents.forEach(event => secondOrderEvents.add(event));
+        }
+
+        // Search for events with content containing nevent/naddr/note references
+        // This is a more complex search that requires fetching recent events and checking content
+        // Limit the search to recent events to avoid performance issues
+        const recentEvents = await ndk.fetchEvents(
+          { 
+            limit: 500, // Reduced limit for better performance
+            since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60) // Last 7 days
+          },
+          { closeOnEose: true },
+          relaySet,
+        );
+        
+        recentEvents.forEach(event => {
+          if (event.content) {
+            // Check for nevent references with more precise matching
+            eventIds.forEach(id => {
+              // Look for complete nevent references
+              const neventPattern = new RegExp(`nevent1[a-z0-9]{50,}`, 'i');
+              const matches = event.content.match(neventPattern);
+              if (matches) {
+                // Verify the nevent contains the event ID
+                matches.forEach(match => {
+                  try {
+                    const decoded = nip19.decode(match);
+                    if (decoded && decoded.type === 'nevent' && decoded.data.id === id) {
+                      secondOrderEvents.add(event);
+                    }
+                  } catch (e) {
+                    // Invalid nevent, skip
+                  }
+                });
+              }
+            });
+            
+            // Check for naddr references with more precise matching
+            eventAddresses.forEach(address => {
+              const naddrPattern = new RegExp(`naddr1[a-z0-9]{50,}`, 'i');
+              const matches = event.content.match(naddrPattern);
+              if (matches) {
+                // Verify the naddr contains the address
+                matches.forEach(match => {
+                  try {
+                    const decoded = nip19.decode(match);
+                    if (decoded && decoded.type === 'naddr') {
+                      const decodedAddress = `${decoded.data.kind}:${decoded.data.pubkey}:${decoded.data.identifier}`;
+                      if (decodedAddress === address) {
+                        secondOrderEvents.add(event);
+                      }
+                    }
+                  } catch (e) {
+                    // Invalid naddr, skip
+                  }
+                });
+              }
+            });
+            
+            // Check for note references (event IDs) with more precise matching
+            eventIds.forEach(id => {
+              const notePattern = new RegExp(`note1[a-z0-9]{50,}`, 'i');
+              const matches = event.content.match(notePattern);
+              if (matches) {
+                // Verify the note contains the event ID
+                matches.forEach(match => {
+                  try {
+                    const decoded = nip19.decode(match);
+                    if (decoded && decoded.type === 'note' && decoded.data === id) {
+                      secondOrderEvents.add(event);
+                    }
+                  } catch (e) {
+                    // Invalid note, skip
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Combine first-order and second-order events
+      const allEvents = [...eventArray, ...Array.from(secondOrderEvents)];
+      
+      // Remove duplicates based on event ID
+      const uniqueEvents = new Map<string, NDKEvent>();
+      allEvents.forEach(event => {
+        if (event.id) {
+          uniqueEvents.set(event.id, event);
+        }
+      });
+      
+      const finalEvents = Array.from(uniqueEvents.values());
+
+      // Separate first-order and second-order events
+      const firstOrderSet = new Set(eventArray.map(e => e.id));
+      const firstOrder = finalEvents.filter(e => firstOrderSet.has(e.id));
+      const secondOrder = finalEvents.filter(e => !firstOrderSet.has(e.id));
+
+      // Remove kind 7 (emoji reactions) from both first-order and second-order results
+      const filteredFirstOrder = firstOrder.filter(e => e.kind !== 7);
+      const filteredSecondOrder = secondOrder.filter(e => e.kind !== 7);
+
+      // --- t: search ---
+      // Search for events with a matching t-tag (topic/tag)
+      const tTagFilter = { '#t': [normalizedDTag] };
+      const tTagEventsSet = await ndk.fetchEvents(
+        tTagFilter,
+        { closeOnEose: true },
+        relaySet,
+      );
+      // Remove any events already in first or second order
+      const tTagEvents = Array.from(tTagEventsSet).filter(e =>
+        e.kind !== 7 &&
+        !firstOrderSet.has(e.id) &&
+        !filteredSecondOrder.some(se => se.id === e.id)
+      );
+
+      onSearchResults(filteredFirstOrder, filteredSecondOrder, tTagEvents, eventIds, eventAddresses);
+      searching = false;
+      if (onLoadingChange) { onLoadingChange(false); }
+      return;
     } catch (err) {
       console.error("[Events] Error searching by d-tag:", err);
-      localError = "Error searching for events with this d-tag.";
-      onSearchResults([]);
+      onSearchResults([], [], [], new Set(), new Set());
       searching = false;
       if (onLoadingChange) { onLoadingChange(false); }
       return;
