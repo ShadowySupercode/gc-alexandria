@@ -5,8 +5,20 @@
   import {
     getUserMetadata,
     toNpub,
-    type NostrProfile,
   } from "$lib/utils/nostrUtils";
+
+  // Extend NostrProfile locally to include pubkey for mention search results
+  type NostrProfile = {
+    name?: string;
+    displayName?: string;
+    nip05?: string;
+    picture?: string;
+    about?: string;
+    banner?: string;
+    website?: string;
+    lud16?: string;
+    pubkey?: string;
+  };
   import { activePubkey } from '$lib/ndk';
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -17,6 +29,12 @@
     publishEvent,
     navigateToEvent,
   } from "$lib/utils/nostrEventService";
+  import { get } from 'svelte/store';
+  import { ndkInstance } from '$lib/ndk';
+  import type NDK from '@nostr-dev-kit/ndk';
+  import { NDKRelaySet } from '@nostr-dev-kit/ndk';
+  import { NDKRelay } from '@nostr-dev-kit/ndk';
+  import { communityRelay } from '$lib/consts';
 
   const props = $props<{
     event: NDKEvent;
@@ -31,6 +49,75 @@
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
+
+  // Add state for modals and search
+  let showMentionModal = $state(false);
+  let showWikilinkModal = $state(false);
+  let mentionSearch = $state('');
+  let mentionResults = $state<NostrProfile[]>([]);
+  let mentionLoading = $state(false);
+  let wikilinkTarget = $state('');
+  let wikilinkLabel = $state('');
+  let mentionSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let nip05Search = $state('');
+  let nip05Results = $state<NostrProfile[]>([]);
+  let nip05Loading = $state(false);
+
+  // Add a cache for pubkeys with kind 1 events on communityRelay
+  const forestCache: Record<string, boolean> = {};
+
+  async function checkForest(pubkey: string): Promise<boolean> {
+    if (forestCache[pubkey] !== undefined) {
+      return forestCache[pubkey];
+    }
+    // Query the communityRelay for kind 1 events by this pubkey
+    try {
+      const relayUrl = communityRelay[0];
+      const ws = new WebSocket(relayUrl);
+      return await new Promise((resolve) => {
+        ws.onopen = () => {
+          // NIP-01 filter for kind 1 events by pubkey
+          ws.send(JSON.stringify([
+            'REQ', 'alexandria-forest', { kinds: [1], authors: [pubkey], limit: 1 }
+          ]));
+        };
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data[0] === 'EVENT' && data[2]?.kind === 1) {
+            forestCache[pubkey] = true;
+            ws.close();
+            resolve(true);
+          } else if (data[0] === 'EOSE') {
+            forestCache[pubkey] = false;
+            ws.close();
+            resolve(false);
+          }
+        };
+        ws.onerror = () => {
+          forestCache[pubkey] = false;
+          ws.close();
+          resolve(false);
+        };
+      });
+    } catch {
+      forestCache[pubkey] = false;
+      return false;
+    }
+  }
+
+  // Track which pubkeys have forest status loaded
+  let forestStatus: Record<string, boolean> = $state({});
+
+  $effect(() => {
+    // When mentionResults change, check forest status for each
+    for (const profile of mentionResults) {
+      if (profile.pubkey && forestStatus[profile.pubkey] === undefined) {
+        checkForest(profile.pubkey).then((hasForest) => {
+          forestStatus = { ...forestStatus, [profile.pubkey!]: hasForest };
+        });
+      }
+    }
+  });
 
   $effect(() => {
     if (!activePubkey) {
@@ -72,9 +159,11 @@
     { label: "Link", action: () => insertMarkup("[", "](url)") },
     { label: "Image", action: () => insertMarkup("![", "](url)") },
     { label: "Quote", action: () => insertMarkup("> ", "") },
-    { label: "List", action: () => insertMarkup("- ", "") },
+    { label: "List", action: () => insertMarkup("* ", "") },
     { label: "Numbered List", action: () => insertMarkup("1. ", "") },
     { label: "Hashtag", action: () => insertMarkup("#", "") },
+    { label: '@', action: () => { mentionSearch = ''; mentionResults = []; showMentionModal = true; } },
+    { label: 'Wikilink', action: () => { showWikilinkModal = true; } },
   ];
 
   function insertMarkup(prefix: string, suffix: string) {
@@ -191,6 +280,183 @@
       isSubmitting = false;
     }
   }
+
+  // Insert at cursor helper
+  function insertAtCursor(text: string) {
+    const textarea = document.querySelector('textarea');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    content = content.substring(0, start) + text + content.substring(end);
+    updatePreview();
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    }, 0);
+  }
+
+  // Real Nostr profile search logic
+  async function searchMentions() {
+    mentionLoading = true;
+    mentionResults = [];
+    const searchTerm = mentionSearch.trim();
+    if (!searchTerm) {
+      mentionLoading = false;
+      return;
+    }
+    // NIP-05 pattern: user@domain
+    if (/^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(searchTerm)) {
+      try {
+        const [name, domain] = searchTerm.split('@');
+        const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
+        const data = await res.json();
+        const pubkey = data.names?.[name];
+        if (pubkey) {
+          // Fetch kind:0 event for pubkey from theforest first
+          const ndk: NDK = get(ndkInstance);
+          if (!ndk) {
+            mentionLoading = false;
+            return;
+          }
+          // Try theforest relay first
+          const { communityRelay } = await import('$lib/consts');
+          const forestRelays = communityRelay.map(url => ndk.pool.relays.get(url) ?? ndk.pool.getRelay(url));
+          let events = await ndk.fetchEvents({ kinds: [0], authors: [pubkey] }, { closeOnEose: true }, new NDKRelaySet(new Set(forestRelays), ndk));
+          let eventArr = Array.from(events);
+          if (eventArr.length === 0) {
+            // Fallback to all relays
+            const relaySet = new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk);
+            events = await ndk.fetchEvents({ kinds: [0], authors: [pubkey] }, { closeOnEose: true }, relaySet);
+            eventArr = Array.from(events);
+          }
+          if (eventArr.length > 0) {
+            try {
+              const event = eventArr[0];
+              const profileData = JSON.parse(event.content);
+              mentionResults = [{ ...profileData, pubkey }];
+            } catch {
+              mentionResults = [];
+            }
+          } else {
+            mentionResults = [];
+          }
+        } else {
+          mentionResults = [];
+        }
+      } catch {
+        mentionResults = [];
+      }
+      mentionLoading = false;
+      return;
+    }
+    // Fallback: search by display name or name
+    const ndk: NDK = get(ndkInstance);
+    if (!ndk) {
+      mentionLoading = false;
+      return;
+    }
+    // Try theforest relay first
+    const { communityRelay } = await import('$lib/consts');
+    const forestRelays = communityRelay.map(url => ndk.pool.relays.get(url) ?? ndk.pool.getRelay(url));
+    let foundProfiles: Record<string, { profile: NostrProfile; created_at: number }> = {};
+    let relaySet = new NDKRelaySet(new Set(forestRelays), ndk);
+    let filter = { kinds: [0] };
+    let sub = ndk.subscribe(filter, { closeOnEose: true }, relaySet);
+    sub.on('event', (event: any) => {
+      try {
+        if (!event.content) return;
+        const profileData = JSON.parse(event.content);
+        const displayName = profileData.display_name || profileData.displayName || '';
+        const name = profileData.name || '';
+        const searchLower = searchTerm.toLowerCase();
+        if (
+          displayName.toLowerCase().includes(searchLower) ||
+          name.toLowerCase().includes(searchLower)
+        ) {
+          // Deduplicate by pubkey, keep only newest
+          const pubkey = event.pubkey;
+          const created_at = event.created_at || 0;
+          if (!foundProfiles[pubkey] || foundProfiles[pubkey].created_at < created_at) {
+            foundProfiles[pubkey] = {
+              profile: { ...profileData, pubkey },
+              created_at,
+            };
+          }
+        }
+      } catch {}
+    });
+    sub.on('eose', async () => {
+      const forestResults = Object.values(foundProfiles).map(x => x.profile);
+      if (forestResults.length > 0) {
+        mentionResults = forestResults;
+        mentionLoading = false;
+        return;
+      }
+      // Fallback to all relays
+      foundProfiles = {};
+      const allRelays: NDKRelay[] = Array.from(ndk.pool.relays.values());
+      relaySet = new NDKRelaySet(new Set(allRelays), ndk);
+      sub = ndk.subscribe(filter, { closeOnEose: true }, relaySet);
+      sub.on('event', (event: any) => {
+        try {
+          if (!event.content) return;
+          const profileData = JSON.parse(event.content);
+          const displayName = profileData.display_name || profileData.displayName || '';
+          const name = profileData.name || '';
+          const searchLower = searchTerm.toLowerCase();
+          if (
+            displayName.toLowerCase().includes(searchLower) ||
+            name.toLowerCase().includes(searchLower)
+          ) {
+            // Deduplicate by pubkey, keep only newest
+            const pubkey = event.pubkey;
+            const created_at = event.created_at || 0;
+            if (!foundProfiles[pubkey] || foundProfiles[pubkey].created_at < created_at) {
+              foundProfiles[pubkey] = {
+                profile: { ...profileData, pubkey },
+                created_at,
+              };
+            }
+          }
+        } catch {}
+      });
+      sub.on('eose', () => {
+        mentionResults = Object.values(foundProfiles).map(x => x.profile);
+        mentionLoading = false;
+      });
+    });
+  }
+
+  function selectMention(profile: NostrProfile) {
+    // Always insert nostr:npub... for the selected profile
+    const npub = toNpub(profile.pubkey);
+    if (profile && npub) {
+      insertAtCursor(`nostr:${npub}`);
+    }
+    showMentionModal = false;
+    mentionSearch = '';
+    mentionResults = [];
+  }
+
+  function insertWikilink() {
+    if (!wikilinkTarget.trim()) return;
+    let markup = '';
+    if (wikilinkLabel.trim()) {
+      markup = `[[${wikilinkTarget}|${wikilinkLabel}]]`;
+    } else {
+      markup = `[[${wikilinkTarget}]]`;
+    }
+    insertAtCursor(markup);
+    showWikilinkModal = false;
+    wikilinkTarget = '';
+    wikilinkLabel = '';
+  }
+
+  // Add a helper to shorten npub
+  function shortenNpub(npub: string | undefined) {
+    if (!npub) return '';
+    return npub.slice(0, 8) + '…' + npub.slice(-4);
+  }
 </script>
 
 <div class="w-full space-y-4">
@@ -204,6 +470,80 @@
     <Button size="xs" color="alternative" on:click={clearForm}>Clear</Button>
   </div>
 
+  <!-- Mention Modal -->
+  {#if showMentionModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-2">Mention User</h3>
+        <input
+          type="text"
+          class="w-full border rounded p-2 mb-2"
+          placeholder="Search display name or npub..."
+          bind:value={mentionSearch}
+        />
+        <Button size="xs" color="primary" class="mb-2" onclick={searchMentions} disabled={mentionLoading || !mentionSearch.trim()}>Search</Button>
+        {#if mentionLoading}
+          <div>Searching...</div>
+        {:else if mentionResults.length > 0}
+          <ul>
+            {#each mentionResults as profile}
+              <button type="button" class="w-full text-left cursor-pointer hover:bg-gray-200 p-2 rounded flex items-center gap-3" onclick={() => selectMention(profile)}>
+                {#if profile.picture}
+                  <img src={profile.picture} alt="Profile" class="w-8 h-8 rounded-full object-cover" />
+                {/if}
+                <div class="flex flex-col text-left">
+                  <span class="font-semibold flex items-center gap-1">
+                    {profile.displayName || profile.name || mentionSearch}
+                    {#if profile.pubkey && forestStatus[profile.pubkey]}
+                      <span title="Has posted to the forest">🌲</span>
+                    {/if}
+                  </span>
+                  {#if profile.nip05}
+                    <span class="text-xs text-gray-500 flex items-center gap-1">
+                      <svg class="inline w-4 h-4 text-primary-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      {profile.nip05}
+                    </span>
+                  {/if}
+                  <span class="text-xs text-gray-400 font-mono">{shortenNpub(profile.pubkey)}</span>
+                </div>
+              </button>
+            {/each}
+          </ul>
+        {:else}
+          <div>No results</div>
+        {/if}
+        <div class="flex justify-end mt-4">
+          <Button size="xs" color="alternative" onclick={() => { showMentionModal = false; }}>Cancel</Button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Wikilink Modal -->
+  {#if showWikilinkModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-2">Insert Wikilink</h3>
+        <input
+          type="text"
+          class="w-full border rounded p-2 mb-2"
+          placeholder="Target page (e.g. target page or target-page)"
+          bind:value={wikilinkTarget}
+        />
+        <input
+          type="text"
+          class="w-full border rounded p-2 mb-2"
+          placeholder="Display text (optional)"
+          bind:value={wikilinkLabel}
+        />
+        <div class="flex justify-end gap-2 mt-4">
+          <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button>
+          <Button size="xs" color="alternative" on:click={() => { showWikilinkModal = false; }}>Cancel</Button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <Textarea
@@ -214,7 +554,7 @@
         class="w-full"
       />
     </div>
-    <div class="prose dark:prose-invert max-w-none p-4 border rounded-lg">
+    <div class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg">
       {@html preview}
     </div>
   </div>

@@ -12,7 +12,6 @@
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import EventInput from '$lib/components/EventInput.svelte';
   import { userPubkey, isLoggedIn } from '$lib/stores/authStore';
-  import RelayStatus from '$lib/components/RelayStatus.svelte';
   import { testAllRelays, logRelayDiagnostics } from '$lib/utils/relayDiagnostics';
   import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
   import { neventEncode, naddrEncode } from '$lib/utils';
@@ -172,9 +171,6 @@
   });
 
   onMount(() => {
-    // Initialize userPubkey from localStorage if available
-    const pubkey = localStorage.getItem('userPubkey');
-    userPubkey.set(pubkey);
     userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
     
     // Run relay diagnostics to help identify connection issues
@@ -183,7 +179,7 @@
 </script>
 
 <div class="w-full flex justify-center">
-  <main class="main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4">
+  <main class="main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4 mx-auto">
     <div class="flex justify-between items-center">
       <Heading tag="h1" class="h-leather mb-2">Events</Heading>
     </div>
@@ -463,6 +459,12 @@
             </button>
           {/each}
         </div>
+      </div>
+    {/if}
+
+    {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue}
+      <div class="mt-8">
+        <EventInput />
       </div>
     {/if}
   </main>

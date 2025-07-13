@@ -1,7 +1,8 @@
 <script lang='ts'>
   import { getTitleTagForEvent, getDTagForEvent, requiresDTag, hasDTag, validateNotAsciidoc, validateAsciiDoc, build30040EventSet, titleToDTag, validate30040EventSet, get30040EventDescription, analyze30040Event, get30040FixGuidance } from '$lib/utils/event_input_utils';
   import { get } from 'svelte/store';
-  import { ndkInstance, activePubkey } from '$lib/ndk';
+  import { ndkInstance } from '$lib/ndk';
+  import { userPubkey } from '$lib/stores/authStore';
   import { NDKEvent as NDKEventClass } from '@nostr-dev-kit/ndk';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { prefixNostrAddresses } from '$lib/utils/nostrUtils';
@@ -24,7 +25,7 @@
   let dTagError = $state('');
   let lastPublishedEventId = $state<string | null>(null);
   $effect(() => {
-    pubkey = get(activePubkey);
+    pubkey = get(userPubkey);
   });
 
   /**
@@ -344,100 +345,98 @@
   }
 </script>
 
-{#if pubkey}
-  <div class='w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg'>
-    <h2 class='text-xl font-bold mb-4'>Publish Nostr Event</h2>
-    <form class='space-y-4' onsubmit={handleSubmit}>
-      <div>
-        <label class='block font-medium mb-1' for='event-kind'>Kind</label>
-        <input id='event-kind' type='text' class='input input-bordered w-full' bind:value={kind} required />
-        {#if !isValidKind(kind)}
-          <div class="text-red-600 text-sm mt-1">
-            Kind must be an integer between 0 and 65535 (NIP-01).
+<div class='w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg'>
+  <h2 class='text-xl font-bold mb-4'>Publish Nostr Event</h2>
+  <form class='space-y-4' onsubmit={handleSubmit}>
+    <div>
+      <label class='block font-medium mb-1' for='event-kind'>Kind</label>
+      <input id='event-kind' type='text' class='input input-bordered w-full' bind:value={kind} required />
+      {#if !isValidKind(kind)}
+        <div class="text-red-600 text-sm mt-1">
+          Kind must be an integer between 0 and 65535 (NIP-01).
+        </div>
+      {/if}
+      {#if kind === 30040}
+        <div class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-900 p-2 rounded">
+          <strong>30040 - Publication Index:</strong> {get30040EventDescription()}
+        </div>
+      {/if}
+    </div>
+    <div>
+      <label class='block font-medium mb-1' for='tags-container'>Tags</label>
+      <div id='tags-container' class='space-y-2'>
+        {#each tags as [key, value], i}
+          <div class='flex gap-2'>
+            <input type='text' class='input input-bordered flex-1' placeholder='tag' bind:value={tags[i][0]} oninput={e => updateTag(i, (e.target as HTMLInputElement).value, tags[i][1])} />
+            <input type='text' class='input input-bordered flex-1' placeholder='value' bind:value={tags[i][1]} oninput={e => updateTag(i, tags[i][0], (e.target as HTMLInputElement).value)} />
+            <button type='button' class='btn btn-error btn-sm' onclick={() => removeTag(i)} disabled={tags.length === 1}>×</button>
           </div>
-        {/if}
-        {#if kind === 30040}
-          <div class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-900 p-2 rounded">
-            <strong>30040 - Publication Index:</strong> {get30040EventDescription()}
-          </div>
-        {/if}
-      </div>
-      <div>
-        <label class='block font-medium mb-1' for='tags-container'>Tags</label>
-        <div id='tags-container' class='space-y-2'>
-          {#each tags as [key, value], i}
-            <div class='flex gap-2'>
-              <input type='text' class='input input-bordered flex-1' placeholder='tag' bind:value={tags[i][0]} oninput={e => updateTag(i, (e.target as HTMLInputElement).value, tags[i][1])} />
-              <input type='text' class='input input-bordered flex-1' placeholder='value' bind:value={tags[i][1]} oninput={e => updateTag(i, tags[i][0], (e.target as HTMLInputElement).value)} />
-              <button type='button' class='btn btn-error btn-sm' onclick={() => removeTag(i)} disabled={tags.length === 1}>×</button>
-            </div>
-          {/each}
-          <div class='flex justify-end'>
-            <button type='button' class='btn btn-primary btn-sm border border-primary-600 px-3 py-1' onclick={addTag}>Add Tag</button>
-          </div>
+        {/each}
+        <div class='flex justify-end'>
+          <button type='button' class='btn btn-primary btn-sm border border-primary-600 px-3 py-1' onclick={addTag}>Add Tag</button>
         </div>
       </div>
-      <div>
-        <label class='block font-medium mb-1' for='event-content'>Content</label>
-        <textarea
-          id='event-content'
-          bind:value={content}
-          oninput={handleContentInput}
-          placeholder='Content (start with a header for the title)'
-          class='textarea textarea-bordered w-full h-40'
-          required
-        ></textarea>
-      </div>
-      <div>
-        <label class='block font-medium mb-1' for='event-title'>Title</label>
-        <input
-          type='text'
-          id='event-title'
-          bind:value={title}
-          oninput={handleTitleInput}
-          placeholder='Title (auto-filled from header)'
-          class='input input-bordered w-full'
-        />
-      </div>
-      <div>
-        <label class='block font-medium mb-1' for='event-d-tag'>d-tag</label>
-        <input
-          type='text'
-          id='event-d-tag'
-          bind:value={dTag}
-          oninput={handleDTagInput}
-          placeholder='d-tag (auto-generated from title)'
-          class='input input-bordered w-full'
-          required={requiresDTag(kind)}
-        />
-        {#if dTagError}
-          <div class='text-red-600 text-sm mt-1'>{dTagError}</div>
-        {/if}
-      </div>
-      <div class='flex justify-end'>
-        <button type='submit' class='btn btn-primary border border-primary-600 px-4 py-2' disabled={loading}>Publish</button>
-      </div>
-      {#if loading}
-        <span class='ml-2 text-gray-500'>Publishing...</span>
+    </div>
+    <div>
+      <label class='block font-medium mb-1' for='event-content'>Content</label>
+      <textarea
+        id='event-content'
+        bind:value={content}
+        oninput={handleContentInput}
+        placeholder='Content (start with a header for the title)'
+        class='textarea textarea-bordered w-full h-40'
+        required
+      ></textarea>
+    </div>
+    <div>
+      <label class='block font-medium mb-1' for='event-title'>Title</label>
+      <input
+        type='text'
+        id='event-title'
+        bind:value={title}
+        oninput={handleTitleInput}
+        placeholder='Title (auto-filled from header)'
+        class='input input-bordered w-full'
+      />
+    </div>
+    <div>
+      <label class='block font-medium mb-1' for='event-d-tag'>d-tag</label>
+      <input
+        type='text'
+        id='event-d-tag'
+        bind:value={dTag}
+        oninput={handleDTagInput}
+        placeholder='d-tag (auto-generated from title)'
+        class='input input-bordered w-full'
+        required={requiresDTag(kind)}
+      />
+      {#if dTagError}
+        <div class='text-red-600 text-sm mt-1'>{dTagError}</div>
       {/if}
-      {#if error}
-        <div class='mt-2 text-red-600'>{error}</div>
+    </div>
+    <div class='flex justify-end'>
+      <button type='submit' class='btn btn-primary border border-primary-600 px-4 py-2' disabled={loading}>Publish</button>
+    </div>
+    {#if loading}
+      <span class='ml-2 text-gray-500'>Publishing...</span>
+    {/if}
+    {#if error}
+      <div class='mt-2 text-red-600'>{error}</div>
+    {/if}
+    {#if success}
+      <div class='mt-2 text-green-600'>{success}</div>
+      <div class='text-xs text-gray-500'>Relays: {publishedRelays.join(', ')}</div>
+      {#if lastPublishedEventId}
+        <div class='mt-2 text-green-700'>
+          Event ID: <span class='font-mono'>{lastPublishedEventId}</span>
+          <a
+            href={'/events?id=' + lastPublishedEventId}
+            class='text-primary-600 dark:text-primary-500 hover:underline ml-2'
+          >
+            View your event
+          </a>
+        </div>
       {/if}
-      {#if success}
-        <div class='mt-2 text-green-600'>{success}</div>
-        <div class='text-xs text-gray-500'>Relays: {publishedRelays.join(', ')}</div>
-        {#if lastPublishedEventId}
-          <div class='mt-2 text-green-700'>
-            Event ID: <span class='font-mono'>{lastPublishedEventId}</span>
-            <a
-              href={'/events?id=' + lastPublishedEventId}
-              class='text-primary-600 dark:text-primary-500 hover:underline ml-2'
-            >
-              View your event
-            </a>
-          </div>
-        {/if}
-      {/if}
-    </form>
-  </div>
-{/if} 
+    {/if}
+  </form>
+</div> 

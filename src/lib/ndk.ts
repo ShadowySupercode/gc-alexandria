@@ -15,6 +15,7 @@ import {
   anonymousRelays,
 } from "./consts";
 import { feedType } from "./stores";
+import { userPubkey } from '$lib/stores/authStore';
 
 export const ndkInstance: Writable<NDK> = writable();
 
@@ -435,21 +436,11 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
 }
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
-  // Use anonymous relays if user is not signed in
-  const isSignedIn = ndk.signer && ndk.activeUser;
-  const relays = isSignedIn ? standardRelays : anonymousRelays;
-
-  return get(feedType) === FeedType.UserRelays
-    ? new NDKRelaySet(
-        new Set(
-          get(inboxRelays).map((relay) => createRelayWithAuth(relay, ndk)),
-        ),
-        ndk,
-      )
-    : new NDKRelaySet(
-        new Set(relays.map((relay) => createRelayWithAuth(relay, ndk))),
-        ndk,
-      );
+  // Use all relays currently in the NDK pool
+  return new NDKRelaySet(
+    new Set(Array.from(ndk.pool.relays.values())),
+    ndk,
+  );
 }
 
 /**
@@ -522,6 +513,7 @@ export async function loginWithExtension(
     }
 
     activePubkey.set(signerUser.pubkey);
+    userPubkey.set(signerUser.pubkey);
 
     const [persistedInboxes, persistedOutboxes] =
       getPersistedRelays(signerUser);
@@ -561,6 +553,7 @@ export function logout(user: NDKUser): void {
   clearLogin();
   clearPersistedRelays(user);
   activePubkey.set(null);
+  userPubkey.set(null);
   ndkSignedIn.set(false);
   ndkInstance.set(initNdk()); // Re-initialize with anonymous instance
 }
