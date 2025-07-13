@@ -57,7 +57,7 @@
 
 {#if title != null && href != null}
   <Card
-    class="ArticleBox card-leather max-w-md h-48 flex flex-row items-center space-x-2"
+    class="ArticleBox card-leather max-w-md h-48 flex flex-row items-center space-x-2 relative overflow-hidden"
   >
     {#if image}
       <div
