@@ -34,8 +34,8 @@
     class="leather bg-transparent text-sm font-medium"
     >Levels to render:
   </label>
-  <label for="event-limit" class="leather bg-transparent text-sm font-medium"
-    >Limit:
+  <label for="event-limit" class="leather bg-transparent text-sm font-medium">
+    Limit:
   </label>
   <input
     type="number"

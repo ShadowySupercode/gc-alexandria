@@ -3,19 +3,20 @@
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
   import {
-    getEventHash,
-    signEvent,
     getUserMetadata,
-    prefixNostrAddresses,
+    toNpub,
     type NostrProfile,
   } from "$lib/utils/nostrUtils";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
-  import { userRelays } from "$lib/stores/relayStore";
-  import { get } from "svelte/store";
   import { activePubkey } from '$lib/ndk';
-  import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { onMount } from "svelte";
+  import {
+    extractRootEventInfo,
+    extractParentEventInfo,
+    buildReplyTags,
+    createSignedEvent,
+    publishEvent,
+    navigateToEvent,
+  } from "$lib/utils/nostrEventService";
 
   const props = $props<{
     event: NDKEvent;
@@ -30,25 +31,22 @@
   let showOtherRelays = $state(false);
   let showFallbackRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
-  let pubkey = $derived(() => get(activePubkey));
 
   $effect(() => {
-    if (!pubkey()) {
+    if (!activePubkey) {
       userProfile = null;
       error = null;
     }
   });
 
-  // Remove the onMount block that sets pubkey and userProfile only once. Instead, fetch userProfile reactively when pubkey changes.
   $effect(() => {
-    const trimmedPubkey = pubkey()?.trim();
-    if (trimmedPubkey && /^[a-fA-F0-9]{64}$/.test(trimmedPubkey)) {
-      const npub = nip19.npubEncode(trimmedPubkey);
+    const trimmedPubkey = $activePubkey?.trim();
+    const npub = toNpub(trimmedPubkey);
+    if (npub) {
       // Call an async function, but don't make the effect itself async
-      (async () => {
-        userProfile = await getUserMetadata(npub);
-        error = null;
-      })();
+      getUserMetadata(npub).then(metadata => {
+        userProfile = metadata;
+      });
     } else if (trimmedPubkey) {
       userProfile = null;
       error = 'Invalid public key: must be a 64-character hex string.';
@@ -59,11 +57,12 @@
   });
 
   $effect(() => {
-    if (success) {
-      content = '';
-      preview = '';
+    if (!success) return;
+  
+    content = '';
+    preview = '';
     }
-  });
+  );
 
   // Markup buttons
   const markupButtons = [
@@ -129,22 +128,6 @@
     updatePreview();
   }
 
-  // Helper functions to ensure relay and pubkey are always strings
-  function getRelayString(relay: any): string {
-    if (!relay) return '';
-    if (typeof relay === 'string') return relay;
-    if (typeof relay.url === 'string') return relay.url;
-    return '';
-  }
-
-  function getPubkeyString(pubkey: any): string {
-    if (!pubkey) return '';
-    if (typeof pubkey === 'string') return pubkey;
-    if (typeof pubkey.hex === 'function') return pubkey.hex();
-    if (typeof pubkey.pubkey === 'string') return pubkey.pubkey;
-    return '';
-  }
-
   async function handleSubmit(
     useOtherRelays = false,
     useFallbackRelays = false,
@@ -154,10 +137,13 @@
     success = null;
 
     try {
-      const pk = pubkey() || '';
-      if (!pk || !/^[a-fA-F0-9]{64}$/.test(pk)) {
+      const pk = $activePubkey || '';
+      const npub = toNpub(pk);
+      
+      if (!npub) {
         throw new Error('Invalid public key: must be a 64-character hex string.');
       }
+      
       if (props.event.kind === undefined || props.event.kind === null) {
         throw new Error('Invalid event: missing kind');
       }
@@ -165,263 +151,39 @@
       const parent = props.event;
       // Use the same kind as parent for replies, or 1111 for generic replies
       const kind = parent.kind === 1 ? 1 : 1111;
-      // Try to extract root info from parent tags (NIP-22 threading)
-      let rootKind = parent.kind;
-      let rootPubkey = getPubkeyString(parent.pubkey);
-      let rootRelay = getRelayString(parent.relay);
-      let rootId = parent.id;
-      let rootAddress = '';
-      let parentRelay = getRelayString(parent.relay);
-      let parentAddress = '';
-      let parentKind = parent.kind;
-      let parentPubkey = getPubkeyString(parent.pubkey);
-      
-      // Check if parent is a replaceable event (3xxxxx kinds)
-      const isParentReplaceable = parentKind >= 30000 && parentKind < 40000;
-      
-      // Check if parent is a comment (kind 1111) - if so, we need to find the original root
-      const isParentComment = parentKind === 1111;
-      
-      // Try to find root event info from parent tags (E/A/I)
-      let isRootA = false;
-      let isRootI = false;
-      let rootIValue = '';
-      let rootIRelay = '';
-      if (parent.tags) {
-        const rootE = parent.tags.find((t: string[]) => t[0] === 'E');
-        const rootA = parent.tags.find((t: string[]) => t[0] === 'A');
-        const rootI = parent.tags.find((t: string[]) => t[0] === 'I');
-        isRootA = !!rootA;
-        isRootI = !!rootI;
-        if (rootE) {
-          rootId = rootE[1];
-          rootRelay = getRelayString(rootE[2]);
-          rootPubkey = getPubkeyString(rootE[3] || rootPubkey);
-          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
-        } else if (rootA) {
-          rootAddress = rootA[1];
-          rootRelay = getRelayString(rootA[2]);
-          rootPubkey = getPubkeyString(parent.tags.find((t: string[]) => t[0] === 'P')?.[1] || rootPubkey);
-          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
-        } else if (rootI) {
-          rootIValue = rootI[1];
-          rootIRelay = getRelayString(rootI[2]);
-          rootKind = parent.tags.find((t: string[]) => t[0] === 'K')?.[1] || rootKind;
-        }
-      }
-      
-            // Compose tags according to event kind
-      const tags: string[][] = [];
-      
-      if (kind === 1) {
-        // Kind 1 replies use simple e/p tags, not NIP-22 threading
-        tags.push(['e', parent.id, parentRelay, 'root']);
-        tags.push(['p', parentPubkey]);
-        
-        // If parent is replaceable, also add the address
-        if (isParentReplaceable) {
-          const dTag = parent.tags?.find((t: string[]) => t[0] === 'd')?.[1] || '';
-          if (dTag) {
-            const parentAddress = `${parentKind}:${parentPubkey}:${dTag}`;
-            tags.push(['a', parentAddress, '', 'root']);
-          }
-        }
+
+      // Extract root and parent event information
+      const rootInfo = extractRootEventInfo(parent);
+      const parentInfo = extractParentEventInfo(parent);
+
+      // Build tags for the reply
+      const tags = buildReplyTags(parent, rootInfo, parentInfo, kind);
+
+      // Create and sign the event
+      const { event: signedEvent } = await createSignedEvent(content, pk, kind, tags);
+
+      // Publish the event
+      const result = await publishEvent(
+        signedEvent,
+        useOtherRelays,
+        useFallbackRelays,
+        props.userRelayPreference
+      );
+
+      if (result.success) {
+        success = { relay: result.relay!, eventId: result.eventId! };
+        // Navigate to the published event
+        navigateToEvent(result.eventId!);
       } else {
-        // Kind 1111 uses NIP-22 threading format
-        // For replaceable events, use A/a tags; for regular events, use E/e tags
-        if (isParentReplaceable) {
-          // For replaceable events, construct the address: kind:pubkey:d-tag
-          const dTag = parent.tags?.find((t: string[]) => t[0] === 'd')?.[1] || '';
-          if (dTag) {
-            const parentAddress = `${parentKind}:${parentPubkey}:${dTag}`;
-            
-            // If we're replying to a comment, use the root from the comment's tags
-            if (isParentComment && rootId !== parent.id) {
-              // Root scope (uppercase) - use the original article
-              tags.push(['A', parentAddress, parentRelay]);
-              tags.push(['K', String(rootKind)]);
-              tags.push(['P', rootPubkey, rootRelay]);
-              // Parent scope (lowercase) - the comment we're replying to
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            } else {
-              // Top-level comment - root and parent are the same
-              tags.push(['A', parentAddress, parentRelay]);
-              tags.push(['K', String(rootKind)]);
-              tags.push(['P', rootPubkey, rootRelay]);
-              tags.push(['a', parentAddress, parentRelay]);
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            }
-          } else {
-            // Fallback to E/e tags if no d-tag found
-            if (isParentComment && rootId !== parent.id) {
-              tags.push(['E', rootId, rootRelay]);
-              tags.push(['K', String(rootKind)]);
-              tags.push(['P', rootPubkey, rootRelay]);
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            } else {
-              tags.push(['E', parent.id, parentRelay]);
-              tags.push(['K', String(rootKind)]);
-              tags.push(['P', rootPubkey, rootRelay]);
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            }
-          }
-        } else {
-          // For regular events, use E/e tags
-          if (isParentComment && rootId !== parent.id) {
-            // Reply to a comment - distinguish root from parent
-            if (rootAddress) {
-              tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay]);
-            } else if (rootIValue) {
-              tags.push(['I', rootIValue, rootIRelay]);
-            } else {
-              tags.push(['E', rootId, rootRelay]);
-            }
-            tags.push(['K', String(rootKind)]);
-            if (rootPubkey && !rootIValue) {
-              tags.push(['P', rootPubkey, rootRelay]);
-            }
-            tags.push(['e', parent.id, parentRelay]);
-            tags.push(['k', String(parentKind)]);
-            tags.push(['p', parentPubkey, parentRelay]);
-          } else {
-            // Top-level comment or regular event
-            if (rootAddress) {
-              tags.push([isRootA ? 'A' : isRootI ? 'I' : 'E', rootAddress || rootId, rootRelay]);
-              tags.push(['K', String(rootKind)]);
-              if (rootPubkey) {
-                tags.push(['P', rootPubkey, rootRelay]);
-              }
-              tags.push([isRootA ? 'a' : isRootI ? 'i' : 'e', parentAddress || parent.id, parentRelay]);
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            } else if (rootIValue) {
-              tags.push(['I', rootIValue, rootIRelay]);
-              tags.push(['K', String(rootKind)]);
-              tags.push(['i', rootIValue, rootIRelay]);
-              tags.push(['k', String(parentKind)]);
-            } else {
-              tags.push(['E', rootId, rootRelay]);
-              tags.push(['K', String(rootKind)]);
-              if (rootPubkey) {
-                tags.push(['P', rootPubkey, rootRelay]);
-              }
-              tags.push(['e', parent.id, parentRelay]);
-              tags.push(['k', String(parentKind)]);
-              tags.push(['p', parentPubkey, parentRelay]);
-            }
-          }
-        }
-      }
-
-      // Prefix Nostr addresses before publishing
-      const prefixedContent = prefixNostrAddresses(content);
-      
-      // Create a completely plain object to avoid proxy cloning issues
-      const eventToSign = {
-        kind: Number(kind),
-        created_at: Number(Math.floor(Date.now() / 1000)),
-        tags: tags.map(tag => [String(tag[0]), String(tag[1]), String(tag[2] || ''), String(tag[3] || '')]),
-        content: String(prefixedContent),
-        pubkey: pk,
-      };
-
-      let sig, id;
-      if (typeof window !== 'undefined' && window.nostr && window.nostr.signEvent) {
-        const signed = await window.nostr.signEvent(eventToSign);
-        sig = signed.sig as string;
-        if ('id' in signed) {
-          id = signed.id as string;
-        } else {
-          id = getEventHash(eventToSign);
-        }
-      } else {
-        id = getEventHash(eventToSign);
-        sig = await signEvent(eventToSign);
-      }
-
-      const signedEvent = {
-        ...eventToSign,
-        id,
-        sig,
-      };
-
-      // Determine which relays to use
-      let relays = props.userRelayPreference ? get(userRelays) : standardRelays;
-      if (useOtherRelays) {
-        relays = props.userRelayPreference ? standardRelays : get(userRelays);
-      }
-      if (useFallbackRelays) {
-        relays = fallbackRelays;
-      }
-
-      // Try to publish to relays
-      let published = false;
-      for (const relayUrl of relays) {
-        try {
-          const ws = new WebSocket(relayUrl);
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              ws.close();
-              reject(new Error("Timeout"));
-            }, 5000);
-
-            ws.onopen = () => {
-              ws.send(JSON.stringify(["EVENT", signedEvent]));
-            };
-
-            ws.onmessage = (e) => {
-              const [type, id, ok, message] = JSON.parse(e.data);
-              if (type === "OK" && id === signedEvent.id) {
-                clearTimeout(timeout);
-                if (ok) {
-                  published = true;
-                  success = { relay: relayUrl, eventId: signedEvent.id };
-                  ws.close();
-                  resolve();
-                } else {
-                  ws.close();
-                  reject(new Error(message));
-                }
-              }
-            };
-
-            ws.onerror = () => {
-              clearTimeout(timeout);
-              ws.close();
-              reject(new Error("WebSocket error"));
-            };
-          });
-          if (published) break;
-        } catch (e) {
-          console.error(`Failed to publish to ${relayUrl}:`, e);
-        }
-      }
-
-      if (!published) {
         if (!useOtherRelays && !useFallbackRelays) {
           showOtherRelays = true;
-          error =
-            "Failed to publish to primary relays. Would you like to try the other relays?";
+          error = "Failed to publish to primary relays. Would you like to try the other relays?";
         } else if (useOtherRelays && !useFallbackRelays) {
           showFallbackRelays = true;
-          error =
-            "Failed to publish to other relays. Would you like to try the fallback relays?";
+          error = "Failed to publish to other relays. Would you like to try the fallback relays?";
         } else {
-          error = "Failed to publish to any relays. Please try again later.";
+          error = result.error || "Failed to publish to any relays. Please try again later.";
         }
-      } else {
-        // Navigate to the event page
-        const nevent = nip19.neventEncode({ id: signedEvent.id });
-        goto(`/events?id=${nevent}`);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : "An error occurred";
@@ -505,16 +267,16 @@
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode(pubkey() || '').slice(0, 8) + "..."}
+            nip19.npubEncode($activePubkey || '').slice(0, 8) + "..."}
         </span>
       </div>
     {/if}
     <Button
       on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !pubkey()}
+      disabled={isSubmitting || !content.trim() || !$activePubkey}
       class="w-full md:w-auto"
     >
-      {#if !pubkey()}
+      {#if !$activePubkey}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -524,7 +286,7 @@
     </Button>
   </div>
 
-  {#if !pubkey()}
+  {#if !$activePubkey}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

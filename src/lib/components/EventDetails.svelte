@@ -128,7 +128,10 @@
   });
 
   $effect(() => {
-    if (event?.pubkey) {
+    if(!event?.pubkey) {
+      authorDisplayName = undefined;
+      return;
+    }
       getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
         authorDisplayName =
           profile.displayName ||
@@ -136,9 +139,6 @@
           profile.name ||
           event.pubkey;
       });
-    } else {
-      authorDisplayName = undefined;
-    }
   });
 
   // --- Identifier helpers ---
