@@ -168,7 +168,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   if (!ndk) throw new Error('NDK not initialized');
   // Only clear previous login state after successful login
   const npub = user.npub;
-  const profile = await getUserMetadata(npub);
+  const profile = await getUserMetadata(npub, true); // Force fresh fetch
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {
     ndk.addExplicitRelay(relay);

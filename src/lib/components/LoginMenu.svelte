@@ -5,6 +5,7 @@
   import { get } from 'svelte/store';
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
 
   // UI state
   let isLoadingExtension: boolean = $state(false);
@@ -230,7 +231,7 @@
               <li>
                 <button
                   class='text-sm text-primary-600 dark:text-primary-400 underline hover:text-primary-400 dark:hover:text-primary-500 px-0 bg-transparent border-none cursor-pointer'
-                  onclick={() => window.location.href = `./events?id=${user.npub}`}
+                  onclick={() => goto(`/events?id=${user.npub}`)}
                   type='button'
                 >
                   {user.npub ? shortenNpub(user.npub) : 'Unknown'}

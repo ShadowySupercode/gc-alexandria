@@ -46,11 +46,11 @@ function escapeHtml(text: string): string {
 /**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
-export async function getUserMetadata(identifier: string): Promise<NostrProfile> {
+export async function getUserMetadata(identifier: string, force = false): Promise<NostrProfile> {
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, '');
   
-  if (npubCache.has(cleanId)) {
+  if (!force && npubCache.has(cleanId)) {
     return npubCache.get(cleanId)!;
   }
 
@@ -111,7 +111,8 @@ export function createProfileLink(identifier: string, displayText: string | unde
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
   
-  return `<a href="./events?id=${escapedId}" class="npub-badge" target="_blank">@${escapedText}</a>`;
+  // Remove target="_blank" for internal navigation
+  return `<a href="./events?id=${escapedId}" class="npub-badge">@${escapedText}</a>`;
 }
 
 /**
@@ -167,9 +168,9 @@ export async function createProfileLinkWithVerification(identifier: string, disp
   const type = nip05.endsWith('edu') ? 'edu' : 'standard';
   switch (type) {
     case 'edu':
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
     case 'standard':
-      return `<span class="npub-badge"><a href="./events?id=${escapedId}" target="_blank">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
+      return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
 /**

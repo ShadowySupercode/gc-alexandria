@@ -11,10 +11,8 @@
   let { event, isModal = false } = $props();
 
   let title: string = $derived(getMatchingTags(event, 'title')[0]?.[1]);
-  let author: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? 'unknown');
   let version: string = $derived(getMatchingTags(event, 'version')[0]?.[1] ?? '1');
   let image: string = $derived(getMatchingTags(event, 'image')[0]?.[1] ?? null);
-  let originalAuthor: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? null);
   let summary: string = $derived(getMatchingTags(event, 'summary')[0]?.[1] ?? null);
   let type: string = $derived(getMatchingTags(event, 'type')[0]?.[1] ?? null);
   let language: string = $derived(getMatchingTags(event, 'l')[0]?.[1] ?? null);
@@ -25,6 +23,12 @@
   let rootId: string = $derived(getMatchingTags(event, 'd')[0]?.[1] ?? null);
   let kind = $derived(event.kind);
 
+  let authorTag: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? '');
+  let pTag: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? '');
+
+  function isValidNostrPubkey(str: string): boolean {
+    return /^[a-f0-9]{64}$/i.test(str) || (str.startsWith('npub1') && str.length >= 59 && str.length <= 63);
+  }
 
 </script>
 
@@ -32,7 +36,8 @@
 <div class="flex flex-col relative mb-2">
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
-      <P class='text-base font-normal'>{@render userBadge(event.pubkey, author)}</P>
+      <!-- Index author badge -->
+      <P class='text-base font-normal'>{@render userBadge(event.pubkey, '')}</P>
       <CardActions event={event}></CardActions>
     </div>
   {/if}
@@ -46,10 +51,16 @@
       <h1 class="text-3xl font-bold">{title}</h1>
       <h2 class="text-base font-bold">
         by
-        {#if originalAuthor !== null}
-        {@render userBadge(originalAuthor, author)}
+        {#if authorTag && pTag && isValidNostrPubkey(pTag)}
+          {authorTag} {@render userBadge(pTag, '')}
+        {:else if authorTag}
+          {authorTag}
+        {:else if pTag && isValidNostrPubkey(pTag)}
+          {@render userBadge(pTag, '')}
+        {:else if authorTag}
+          {authorTag}
         {:else}
-          {author}
+          unknown
         {/if}
       </h2>
       {#if version !== '1' }
@@ -81,7 +92,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      {@render userBadge(event.pubkey, author)}
+      {@render userBadge(event.pubkey, '')}
     </h4>
   </div>
 

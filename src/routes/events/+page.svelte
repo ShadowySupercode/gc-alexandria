@@ -39,11 +39,10 @@
     }
   }
 
-  onMount(async () => {
-    const id = $page.url.searchParams.get('id');
-    if (id) {
-      searchValue = id;
-    }
+  // Use Svelte 5 idiomatic effect to update searchValue when $page.url.searchParams.get('id') changes
+  $effect(() => {
+    const url = $page.url.searchParams;
+    searchValue = url.get('id') ?? url.get('d');
   });
 </script>
 

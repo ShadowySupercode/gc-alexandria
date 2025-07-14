@@ -8,6 +8,8 @@
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { getMatchingTags } from '$lib/utils/nostrUtils';
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
 
   const { event, profile = null, searchValue = null } = $props<{
     event: NDKEvent;
@@ -27,6 +29,12 @@
   let showFullContent = $state(false);
   let parsedContent = $state('');
   let contentPreview = $state('');
+  let authorTag: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? '');
+  let pTag: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? '');
+
+  function isValidNostrPubkey(str: string): boolean {
+    return /^[a-f0-9]{64}$/i.test(str) || (str.startsWith('npub1') && str.length >= 59 && str.length <= 63);
+  }
 
   function getEventTitle(event: NDKEvent): string {
     return getMatchingTags(event, 'title')[0]?.[1] || 'Untitled';
@@ -48,9 +56,9 @@
   function renderTag(tag: string[]): string {
     if (tag[0] === 'a' && tag.length > 1) {
       const [kind, pubkey, d] = tag[1].split(':');
-      return `<a href='/events?id=${naddrEncode({kind: +kind, pubkey, tags: [['d', d]], content: '', id: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>a:${tag[1]}</a>`;
+      return `<button class='underline text-primary-700 dark:text-primary-700 bg-transparent border-none p-0' onclick='goto("/events?id=${naddrEncode({kind: +kind, pubkey, tags: [["d", d]], content: '', id: '', sig: ''} as any, standardRelays)}")'>a:${tag[1]}</button>`;
     } else if (tag[0] === 'e' && tag.length > 1) {
-      return `<a href='/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}' class='underline text-primary-700'>e:${tag[1]}</a>`;
+      return `<button class='underline text-primary-700 dark:text-primary-700 bg-transparent border-none p-0' onclick='goto("/events?id=${neventEncode({id: tag[1], kind: 1, content: '', tags: [], pubkey: '', sig: ''} as any, standardRelays)}")'>e:${tag[1]}</button>`;
     } else {
       return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
     }
@@ -100,6 +108,21 @@
     const norm = (s: string) => s.replace(/^nostr:/, '').toLowerCase();
     return norm(value) === norm(searchValue);
   }
+
+  onMount(() => {
+    function handleInternalLinkClick(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A') {
+        const href = (target as HTMLAnchorElement).getAttribute('href');
+        if (href && href.startsWith('/')) {
+          event.preventDefault();
+          goto(href);
+        }
+      }
+    }
+    document.addEventListener('click', handleInternalLinkClick);
+    return () => document.removeEventListener('click', handleInternalLinkClick);
+  });
 </script>
 
 <div class="flex flex-col space-y-4">
@@ -108,11 +131,19 @@
   {/if}
 
   <div class="flex items-center space-x-2">
-    {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
-    {:else}
-      <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>
-    {/if}
+    <span class="text-gray-600 dark:text-gray-400">Author:
+      {#if authorTag && pTag && isValidNostrPubkey(pTag)}
+        {authorTag} {@render userBadge(pTag, '')}
+      {:else if authorTag}
+        {authorTag}
+      {:else if pTag && isValidNostrPubkey(pTag)}
+        {@render userBadge(pTag, '')}
+      {:else if authorTag}
+        {authorTag}
+      {:else}
+        unknown
+      {/if}
+    </span>
   </div>
 
   <div class="flex items-center space-x-2">

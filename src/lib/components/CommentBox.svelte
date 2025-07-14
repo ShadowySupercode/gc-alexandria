@@ -263,11 +263,15 @@
   {/if}
 
   {#if success}
+    {@const s = success}
     <Alert color="green" dismissable>
-      Comment published successfully to {success.relay}!
-      <a href="/events?id={nip19.neventEncode({ id: success.eventId })}" class="text-primary-600 dark:text-primary-500 hover:underline">
+      Comment published successfully to {s.relay}!
+      <button
+        class="text-primary-600 dark:text-primary-500 hover:underline bg-transparent border-none p-0 ml-2"
+        onclick={() => goto(`/events?id=${nip19.neventEncode({ id: s.eventId })}`)}
+      >
         View your comment
-      </a>
+      </button>
     </Alert>
   {/if}
 
