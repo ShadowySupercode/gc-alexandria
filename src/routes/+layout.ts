@@ -6,6 +6,7 @@ import { loginMethodStorageKey } from '$lib/stores/userStore';
 import Pharos, { pharosInstance } from '$lib/parser';
 import { feedType } from '$lib/stores';
 import type { LayoutLoad } from './$types';
+import { get } from 'svelte/store';
 
 export const ssr = false;
 
@@ -31,9 +32,33 @@ export const load: LayoutLoad = () => {
         console.log('Restoring extension login...');
         loginWithExtension();
       } else if (loginMethod === 'amber') {
-        // Amber login restoration would require more context (e.g., session, signer), so skip for now
-        alert('Amber login cannot be restored automatically. Please reconnect your Amber wallet.');
-        console.warn('Amber login cannot be restored automatically. Please reconnect your Amber wallet.');
+        // Attempt to restore Amber (NIP-46) session from localStorage
+        const relay = 'wss://relay.nsec.app';
+        const localNsec = localStorage.getItem('amber/nsec');
+        if (localNsec) {
+          import('@nostr-dev-kit/ndk').then(async ({ NDKNip46Signer, default: NDK }) => {
+            const ndk = get(ndkInstance);
+            try {
+              const amberSigner = NDKNip46Signer.nostrconnect(ndk, relay, localNsec, {
+                name: 'Alexandria',
+                perms: 'sign_event:1;sign_event:4',
+              });
+              // Try to reconnect (blockUntilReady will resolve if Amber is running and session is valid)
+              await amberSigner.blockUntilReady();
+              const user = await amberSigner.user();
+              await loginWithAmber(amberSigner, user);
+              console.log('Amber session restored.');
+            } catch (err) {
+              // If reconnection fails, show a non-blocking prompt (handled in LoginMenu UI)
+              console.warn('Amber session could not be restored. Prompting user to reconnect.');
+              // Optionally, set a flag in localStorage or a Svelte store to show a reconnect banner/modal
+              localStorage.setItem('alexandria/amber/reconnect', '1');
+            }
+          });
+        } else {
+          // No session data, prompt user to reconnect (handled in LoginMenu UI)
+          localStorage.setItem('alexandria/amber/reconnect', '1');
+        }
       } else if (loginMethod === 'npub') {
         console.log('Restoring npub login...');
         loginWithNpub(pubkey);

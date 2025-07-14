@@ -4,6 +4,7 @@
   import { userStore, loginWithExtension, loginWithAmber, loginWithNpub, logoutUser } from '$lib/stores/userStore';
   import { get } from 'svelte/store';
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+  import { onMount } from 'svelte';
 
   // UI state
   let isLoadingExtension: boolean = $state(false);
@@ -15,6 +16,13 @@
   let loginButtonRef: HTMLElement | undefined = $state();
   let resultTimeout: ReturnType<typeof setTimeout> | null = null;
   let profileAvatarId = 'profile-avatar-btn';
+  let showAmberReconnect = $state(false);
+
+  onMount(() => {
+    if (localStorage.getItem('alexandria/amber/reconnect') === '1') {
+      showAmberReconnect = true;
+    }
+  });
 
   // Subscribe to userStore
   let user = $state(get(userStore));
@@ -112,8 +120,16 @@
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('amber/nsec');
+    localStorage.removeItem('alexandria/amber/reconnect');
     logoutUser();
   };
+
+  function handleAmberReconnect() {
+    showAmberReconnect = false;
+    localStorage.removeItem('alexandria/amber/reconnect');
+    handleAmberLogin();
+  }
 
   function shortenNpub(long: string | undefined) {
     if (!long) return '';
@@ -282,6 +298,32 @@
           onclick={() => showQrCode = false}
         >
           Close
+        </button>
+      </div>
+    </div>
+  </div>
+{/if} 
+
+{#if showAmberReconnect}
+  <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg border border-primary-300">
+      <div class="text-center">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Reconnect Amber Wallet</h2>
+        <p class="text-sm text-gray-600 mb-4">
+          Your Amber wallet session could not be restored automatically.<br/>
+          Please reconnect your Amber wallet to continue.
+        </p>
+        <button
+          class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+          onclick={handleAmberReconnect}
+        >
+          Reconnect Amber
+        </button>
+        <button
+          class="mt-2 ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm font-medium transition-colors"
+          onclick={() => { showAmberReconnect = false; localStorage.removeItem('alexandria/amber/reconnect'); }}
+        >
+          Cancel
         </button>
       </div>
     </div>
