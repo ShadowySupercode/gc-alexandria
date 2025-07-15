@@ -117,7 +117,7 @@ Note content here...
                           <div class="flex flex-wrap gap-2 items-center">
                             {#if section.tags && section.tags.length > 0}
                               {#each section.tags as tag}
-                                <div class="bg-amber-900 text-amber-100 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                                <div class="bg-amber-900 text-amber-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline">
                                   <span class="font-mono">{tag[0]}:</span>
                                   <span>{tag[1]}</span>
                                 </div>
