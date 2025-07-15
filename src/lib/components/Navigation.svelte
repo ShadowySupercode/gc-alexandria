@@ -24,6 +24,7 @@
   </div>
   <NavUl class="ul-leather">
     <NavLi href="/">Publications</NavLi>
+    <NavLi href="/new/compose">Compose</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
     <NavLi href="/events">Events</NavLi>
