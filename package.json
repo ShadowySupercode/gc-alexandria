@@ -31,9 +31,9 @@
   "devDependencies": {
     "@playwright/test": "^1.50.1",
     "@sveltejs/adapter-auto": "3.x",
-    "@sveltejs/adapter-node": "^5.2.12",
+    "@sveltejs/adapter-node": "^5.2.13",
     "@sveltejs/adapter-static": "3.x",
-    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/kit": "^2.23.0",
     "@sveltejs/vite-plugin-svelte": "4.x",
     "@types/d3": "^7.4.3",
     "@types/he": "1.2.x",
