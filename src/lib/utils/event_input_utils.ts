@@ -2,6 +2,7 @@ import type { NDKEvent } from './nostrUtils';
 import { get } from 'svelte/store';
 import { ndkInstance } from '$lib/ndk';
 import { NDKEvent as NDKEventClass } from '@nostr-dev-kit/ndk';
+import { EVENT_KINDS } from './search_constants';
 
 // =========================
 // Validation
@@ -11,7 +12,7 @@ import { NDKEvent as NDKEventClass } from '@nostr-dev-kit/ndk';
  * Returns true if the event kind requires a d-tag (kinds 30000-39999).
  */
 export function requiresDTag(kind: number): boolean {
-  return kind >= 30000 && kind <= 39999;
+  return kind >= EVENT_KINDS.ADDRESSABLE.MIN && kind <= EVENT_KINDS.ADDRESSABLE.MAX;
 }
 
 /**

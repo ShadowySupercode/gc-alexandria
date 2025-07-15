@@ -11,6 +11,10 @@
     type NDKEvent,
     type NDKRelaySet,
   } from "$lib/utils/nostrUtils";
+  import { searchCache } from "$lib/utils/searchCache";
+  import { indexEventCache } from "$lib/utils/indexEventCache";
+  import { feedType } from "$lib/stores";
+  import { isValidNip05Address } from "$lib/utils/search_utility";
 
   let {
     relays,
@@ -45,6 +49,18 @@
       (r: string) => !primaryRelays.includes(r),
     );
     const allRelays = [...primaryRelays, ...fallback];
+    
+    // Check cache first
+    const cachedEvents = indexEventCache.get(allRelays);
+    if (cachedEvents) {
+      console.log(`[PublicationFeed] Using cached index events (${cachedEvents.length} events)`);
+      allIndexEvents = cachedEvents;
+      eventsInView = allIndexEvents.slice(0, 30);
+      endOfFeed = allIndexEvents.length <= 30;
+      loading = false;
+      return;
+    }
+    
     relayStatuses = Object.fromEntries(
       allRelays.map((r: string) => [r, "pending"]),
     );
@@ -91,6 +107,10 @@
     allIndexEvents = Array.from(eventMap.values());
     // Sort by created_at descending
     allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+    
+    // Cache the fetched events
+    indexEventCache.set(allRelays, allIndexEvents);
+    
     // Initially show first page
     eventsInView = allIndexEvents.slice(0, 30);
     endOfFeed = allIndexEvents.length <= 30;
@@ -108,8 +128,15 @@
       events.length,
     );
 
+    // Check cache first for publication search
+    const cachedResult = searchCache.get('publication', query);
+    if (cachedResult) {
+      console.log(`[PublicationFeed] Using cached results for publication search: ${query}`);
+      return cachedResult.events;
+    }
+
     // Check if the query is a NIP-05 address
-    const isNip05Query = /^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(query);
+    const isNip05Query = isValidNip05Address(query);
     console.debug("[PublicationFeed] Is NIP-05 query:", isNip05Query);
 
     const filtered = events.filter((event) => {
@@ -151,6 +178,19 @@
       }
       return matches;
     });
+    
+    // Cache the filtered results
+    const result = {
+      events: filtered,
+      secondOrder: [],
+      tTagEvents: [],
+      eventIds: new Set<string>(),
+      addresses: new Set<string>(),
+      searchType: 'publication',
+      searchTerm: query
+    };
+    searchCache.set('publication', query, result);
+    
     console.debug("[PublicationFeed] Events after filtering:", filtered.length);
     return filtered;
   };
@@ -197,6 +237,30 @@
     return skeletonIds;
   }
 
+  function getCacheStats(): string {
+    const indexStats = indexEventCache.getStats();
+    const searchStats = searchCache.size();
+    return `Index: ${indexStats.size} entries (${indexStats.totalEvents} events), Search: ${searchStats} entries`;
+  }
+
+  // Track previous feed type to avoid infinite loops
+  let previousFeedType = $state($feedType);
+  
+  // Watch for changes in feed type and relay configuration
+  $effect(() => {
+    if (previousFeedType !== $feedType) {
+      console.log(`[PublicationFeed] Feed type changed from ${previousFeedType} to ${$feedType}`);
+      previousFeedType = $feedType;
+      
+      // Clear cache when feed type changes (different relay sets)
+      indexEventCache.clear();
+      searchCache.clear();
+      
+      // Refetch events with new relay configuration
+      fetchAllIndexEventsFromRelays();
+    }
+  });
+
   onMount(async () => {
     await fetchAllIndexEventsFromRelays();
   });
@@ -217,6 +281,7 @@
       </div>
     {/if}
   </div>
+  
   {#if !loadingMore && !endOfFeed}
     <div class="flex justify-center mt-4 mb-8">
       <Button

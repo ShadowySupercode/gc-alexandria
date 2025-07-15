@@ -51,8 +51,6 @@
       authorDisplayName = undefined;
     }
   });
-
-  console.log("PublicationHeader event:", event);
 </script>
 
 {#if title != null && href != null}

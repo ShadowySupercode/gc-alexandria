@@ -9,6 +9,8 @@ import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
+import { wellKnownUrl } from "./search_utility";
+import { TIMEOUTS, VALIDATION } from './search_constants';
 
 const badgeCheckSvg =
   '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>';
@@ -264,19 +266,35 @@ export async function processNostrIdentifiers(
 
 export async function getNpubFromNip05(nip05: string): Promise<string | null> {
   try {
-    const ndk = get(ndkInstance);
-    if (!ndk) {
-      console.error("NDK not initialized");
+    // Parse the NIP-05 address
+    const [name, domain] = nip05.split('@');
+    if (!name || !domain) {
+      console.error('[getNpubFromNip05] Invalid NIP-05 format:', nip05);
       return null;
     }
 
-    const user = await ndk.getUser({ nip05 });
-    if (!user || !user.npub) {
+    // Fetch the well-known.json file
+    const url = wellKnownUrl(domain, name);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('[getNpubFromNip05] HTTP error:', response.status, response.statusText);
       return null;
     }
-    return user.npub;
+
+    const data = await response.json();
+    
+    const pubkey = data.names?.[name];
+    if (!pubkey) {
+      console.error('[getNpubFromNip05] No pubkey found for name:', name);
+      return null;
+    }
+
+    // Convert pubkey to npub
+    const npub = nip19.npubEncode(pubkey);
+    return npub;
   } catch (error) {
-    console.error("Error getting npub from nip05:", error);
+    console.error("[getNpubFromNip05] Error getting npub from nip05:", error);
     return null;
   }
 }
@@ -284,8 +302,8 @@ export async function getNpubFromNip05(nip05: string): Promise<string | null> {
 /**
  * Generic utility function to add a timeout to any promise
  * Can be used in two ways:
- * 1. Method style: promise.withTimeout(5000)
- * 2. Function style: withTimeout(promise, 5000)
+ * 1. Method style: promise.withTimeout(TIMEOUTS.GENERAL)
+ * 2. Function style: withTimeout(promise, TIMEOUTS.GENERAL)
  *
  * @param thisOrPromise Either the promise to timeout (function style) or the 'this' context (method style)
  * @param timeoutMsOrPromise Timeout duration in milliseconds (function style) or the promise (method style)
@@ -376,7 +394,7 @@ export async function fetchEventWithFallback(
 
       if (
         typeof filterOrId === "string" &&
-        /^[0-9a-f]{64}$/i.test(filterOrId)
+        new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(filterOrId)
       ) {
         return await ndk
           .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
@@ -446,7 +464,7 @@ export async function fetchEventWithFallback(
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
-    if (/^[a-f0-9]{64}$/i.test(pubkey)) {
+    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
     if (pubkey.startsWith("npub1")) return pubkey;

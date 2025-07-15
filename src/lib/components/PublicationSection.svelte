@@ -1,5 +1,4 @@
 <script lang="ts">
-  console.log("PublicationSection loaded");
   import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import {
     contentParagraph,
@@ -126,11 +125,6 @@
     ref(sectionRef);
   });
 
-  $effect(() => {
-    if (leafContent) {
-      console.log("leafContent HTML:", leafContent.toString());
-    }
-  });
 </script>
 
 <section
@@ -142,10 +136,6 @@
     <TextPlaceholder size="xxl" />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
     {@const contentString = leafContent.toString()}
-    {@const _ = (() => {
-      console.log("leafContent HTML:", contentString);
-      return null;
-    })()}
     {#each divergingBranches as [branch, depth]}
       {@render sectionHeading(
         getMatchingTags(branch, "title")[0]?.[1] ?? "",

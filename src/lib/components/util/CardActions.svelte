@@ -1,56 +1,47 @@
 <script lang="ts">
+  import { Button, Modal, Popover } from "flowbite-svelte";
   import {
-    ClipboardCleanOutline,
     DotsVerticalOutline,
     EyeOutline,
-    ShareNodesOutline,
+    ClipboardCleanOutline,
   } from "flowbite-svelte-icons";
-  import { Button, Modal, Popover } from "flowbite-svelte";
-  import { standardRelays, FeedType } from "$lib/consts";
-  import { neventEncode, naddrEncode } from "$lib/utils";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { feedType } from "$lib/stores";
-  import { inboxRelays, ndkSignedIn } from "$lib/ndk";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { ndkSignedIn, inboxRelays } from "$lib/ndk";
+  import { feedType } from "$lib/stores";
+  import { FeedType } from "$lib/consts";
+  import { goto } from "$app/navigation";
+  import type { NDKEvent } from "$lib/utils/nostrUtils";
 
-  // Component props
-  let { event } = $props<{ event: NDKEvent }>();
-
-  // Derive metadata from event
-  let title = $derived(
-    event.tags.find((t: string[]) => t[0] === "title")?.[1] ?? "",
-  );
-  let summary = $derived(
-    event.tags.find((t: string[]) => t[0] === "summary")?.[1] ?? "",
-  );
-  let image = $derived(
-    event.tags.find((t: string[]) => t[0] === "image")?.[1] ?? null,
-  );
-  let author = $derived(
-    event.tags.find((t: string[]) => t[0] === "author")?.[1] ?? "",
-  );
-  let originalAuthor = $derived(
-    event.tags.find((t: string[]) => t[0] === "original_author")?.[1] ?? null,
-  );
-  let version = $derived(
-    event.tags.find((t: string[]) => t[0] === "version")?.[1] ?? "",
-  );
-  let source = $derived(
-    event.tags.find((t: string[]) => t[0] === "source")?.[1] ?? null,
-  );
-  let type = $derived(
-    event.tags.find((t: string[]) => t[0] === "type")?.[1] ?? null,
-  );
-  let language = $derived(
-    event.tags.find((t: string[]) => t[0] === "language")?.[1] ?? null,
-  );
-  let publisher = $derived(
-    event.tags.find((t: string[]) => t[0] === "publisher")?.[1] ?? null,
-  );
-  let identifier = $derived(
-    event.tags.find((t: string[]) => t[0] === "identifier")?.[1] ?? null,
-  );
+  const {
+    event,
+    title,
+    author,
+    originalAuthor,
+    summary,
+    image,
+    version,
+    source,
+    type,
+    language,
+    publisher,
+    identifier,
+  } = $props<{
+    event: NDKEvent;
+    title?: string;
+    author?: string;
+    originalAuthor?: string;
+    summary?: string;
+    image?: string;
+    version?: string;
+    source?: string;
+    type?: string;
+    language?: string;
+    publisher?: string;
+    identifier?: string;
+  }>();
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
@@ -83,7 +74,6 @@
    * Opens the actions popover menu
    */
   function openPopover() {
-    console.debug("[CardActions] Opening menu", { eventId: event.id });
     isOpen = true;
   }
 
@@ -91,7 +81,6 @@
    * Closes the actions popover menu and removes focus
    */
   function closePopover() {
-    console.debug("[CardActions] Closing menu", { eventId: event.id });
     isOpen = false;
     const menu = document.getElementById("dots-" + event.id);
     if (menu) menu.blur();
@@ -105,10 +94,6 @@
   function getIdentifier(type: "nevent" | "naddr"): string {
     const encodeFn = type === "nevent" ? neventEncode : naddrEncode;
     const identifier = encodeFn(event, activeRelays);
-    console.debug(
-      "[CardActions] ${type} identifier for event ${event.id}:",
-      identifier,
-    );
     return identifier;
   }
 
@@ -116,22 +101,17 @@
    * Opens the event details modal
    */
   function viewDetails() {
-    console.debug("[CardActions] Opening details modal", {
-      eventId: event.id,
-      title: event.title,
-      author: event.author,
-    });
     detailsModalOpen = true;
   }
 
-  // Log component initialization
-  console.debug("[CardActions] Initialized", {
-    eventId: event.id,
-    kind: event.kind,
-    pubkey: event.pubkey,
-    title: event.title,
-    author: event.author,
-  });
+  /**
+   * Navigates to the event details page
+   */
+  function viewEventDetails() {
+    const nevent = getIdentifier('nevent');
+    goto(`/events?id=${encodeURIComponent(nevent)}`);
+  }
+  
 </script>
 
 <div
@@ -265,12 +245,12 @@
       {#if identifier}
         <h5 class="text-sm">Identifier: {identifier}</h5>
       {/if}
-      <a
-        href="/events?id={getIdentifier('nevent')}"
+      <button
         class="mt-4 btn-leather text-center text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold"
+        onclick={viewEventDetails}
       >
         View Event Details
-      </a>
+      </button>
     </div>
   </Modal>
 </div>

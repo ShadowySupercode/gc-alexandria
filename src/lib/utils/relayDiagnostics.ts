@@ -1,5 +1,6 @@
 import { standardRelays, anonymousRelays, fallbackRelays } from '$lib/consts';
 import NDK from '@nostr-dev-kit/ndk';
+import { TIMEOUTS } from './search_constants';
 
 export interface RelayDiagnostic {
   url: string;
@@ -31,7 +32,7 @@ export async function testRelay(url: string): Promise<RelayDiagnostic> {
           responseTime: Date.now() - startTime,
         });
       }
-    }, 5000);
+    }, TIMEOUTS.RELAY_DIAGNOSTICS);
 
     ws.onopen = () => {
       if (!resolved) {

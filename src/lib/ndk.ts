@@ -15,7 +15,7 @@ import {
   anonymousRelays,
 } from "./consts";
 import { feedType } from "./stores";
-import { userPubkey } from '$lib/stores/authStore';
+import { userPubkey } from '$lib/stores/authStore.Svelte';
 
 export const ndkInstance: Writable<NDK> = writable();
 

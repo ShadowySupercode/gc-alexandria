@@ -1,24 +1,11 @@
 <script lang="ts">
-  import { Button, Textarea, Alert } from "flowbite-svelte";
+  import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
-  import {
-    getUserMetadata,
-    toNpub,
-  } from "$lib/utils/nostrUtils";
+  import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
+  import { searchProfiles } from "$lib/utils/search_utility";
+  import type { NostrProfile } from "$lib/utils/search_utility";
 
-  // Extend NostrProfile locally to include pubkey for mention search results
-  type NostrProfile = {
-    name?: string;
-    displayName?: string;
-    nip05?: string;
-    picture?: string;
-    about?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    pubkey?: string;
-  };
   import { activePubkey } from '$lib/ndk';
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -35,6 +22,8 @@
   import { NDKRelaySet } from '@nostr-dev-kit/ndk';
   import { NDKRelay } from '@nostr-dev-kit/ndk';
   import { communityRelay } from '$lib/consts';
+  import { tick } from 'svelte';
+  import { goto } from "$app/navigation";
 
   const props = $props<{
     event: NDKEvent;
@@ -59,70 +48,24 @@
   let wikilinkTarget = $state('');
   let wikilinkLabel = $state('');
   let mentionSearchTimeout: ReturnType<typeof setTimeout> | null = null;
-  let nip05Search = $state('');
-  let nip05Results = $state<NostrProfile[]>([]);
-  let nip05Loading = $state(false);
+  let mentionSearchInput: HTMLInputElement | undefined;
 
-  // Add a cache for pubkeys with kind 1 events on communityRelay
-  const forestCache: Record<string, boolean> = {};
-
-  async function checkForest(pubkey: string): Promise<boolean> {
-    if (forestCache[pubkey] !== undefined) {
-      return forestCache[pubkey];
-    }
-    // Query the communityRelay for kind 1 events by this pubkey
-    try {
-      const relayUrl = communityRelay[0];
-      const ws = new WebSocket(relayUrl);
-      return await new Promise((resolve) => {
-        ws.onopen = () => {
-          // NIP-01 filter for kind 1 events by pubkey
-          ws.send(JSON.stringify([
-            'REQ', 'alexandria-forest', { kinds: [1], authors: [pubkey], limit: 1 }
-          ]));
-        };
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data[0] === 'EVENT' && data[2]?.kind === 1) {
-            forestCache[pubkey] = true;
-            ws.close();
-            resolve(true);
-          } else if (data[0] === 'EOSE') {
-            forestCache[pubkey] = false;
-            ws.close();
-            resolve(false);
-          }
-        };
-        ws.onerror = () => {
-          forestCache[pubkey] = false;
-          ws.close();
-          resolve(false);
-        };
-      });
-    } catch {
-      forestCache[pubkey] = false;
-      return false;
-    }
-  }
-
-  // Track which pubkeys have forest status loaded
-  let forestStatus: Record<string, boolean> = $state({});
-
+  // Reset modal state when it opens/closes
   $effect(() => {
-    // When mentionResults change, check forest status for each
-    for (const profile of mentionResults) {
-      if (profile.pubkey && forestStatus[profile.pubkey] === undefined) {
-        checkForest(profile.pubkey).then((hasForest) => {
-          forestStatus = { ...forestStatus, [profile.pubkey!]: hasForest };
-        });
-      }
-    }
-  });
-
-  $effect(() => {
-    if (!activePubkey) {
-      userProfile = null;
-      error = null;
+    if (showMentionModal) {
+      // Reset search when modal opens
+      mentionSearch = '';
+      mentionResults = [];
+      mentionLoading = false;
+      // Focus the search input after a brief delay to ensure modal is rendered
+      setTimeout(() => {
+        mentionSearchInput?.focus();
+      }, 100);
+    } else {
+      // Reset search when modal closes
+      mentionSearch = '';
+      mentionResults = [];
+      mentionLoading = false;
     }
   });
 
@@ -198,7 +141,6 @@
     content = "";
     preview = "";
     error = null;
-    success = null;
     showOtherRelays = false;
     showFallbackRelays = false;
   }
@@ -208,7 +150,7 @@
       .replace(/\*\*(.*?)\*\*/g, "$1")
       .replace(/_(.*?)_/g, "$1")
       .replace(/~~(.*?)~~/g, "$1")
-      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/!\[(.*?)\]\(.*?\)/g, "$1")
       .replace(/^>\s*/gm, "")
       .replace(/^[-*]\s*/gm, "")
@@ -271,175 +213,101 @@
           showFallbackRelays = true;
           error = "Failed to publish to other relays. Would you like to try the fallback relays?";
         } else {
-          error = result.error || "Failed to publish to any relays. Please try again later.";
+          error = "Failed to publish comment. Please try again later.";
         }
       }
-    } catch (e) {
-      error = e instanceof Error ? e.message : "An error occurred";
+    } catch (e: unknown) {
+      console.error('Error publishing comment:', e);
+      error = e instanceof Error ? e.message : 'An unexpected error occurred';
     } finally {
       isSubmitting = false;
     }
   }
 
-  // Insert at cursor helper
-  function insertAtCursor(text: string) {
-    const textarea = document.querySelector('textarea');
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    content = content.substring(0, start) + text + content.substring(end);
-    updatePreview();
-    setTimeout(() => {
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + text.length;
-    }, 0);
+  // Add a helper to shorten npub
+  function shortenNpub(npub: string | undefined) {
+    if (!npub) return '';
+    return npub.slice(0, 8) + '…' + npub.slice(-4);
   }
 
-  // Real Nostr profile search logic
+  async function insertAtCursor(text: string) {
+    const textarea = document.querySelector("textarea");
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    content = content.substring(0, start) + text + content.substring(end);
+    updatePreview();
+    
+    // Wait for DOM updates to complete
+    await tick();
+    
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+  }
+
+  // Add mention search functionality using centralized search utility
+  let communityStatus: Record<string, boolean> = $state({});
+  let isSearching = $state(false);
+  
   async function searchMentions() {
+    if (!mentionSearch.trim()) {
+      mentionResults = [];
+      communityStatus = {};
+      return;
+    }
+    
+    // Prevent multiple concurrent searches
+    if (isSearching) {
+      return;
+    }
+    
+    // Set loading state
     mentionLoading = true;
-    mentionResults = [];
-    const searchTerm = mentionSearch.trim();
-    if (!searchTerm) {
+    isSearching = true;
+    
+    try {
+      const result = await searchProfiles(mentionSearch.trim());
+      mentionResults = result.profiles;
+      communityStatus = result.Status;
+    } catch (error) {
+      console.error('Error searching mentions:', error);
+      mentionResults = [];
+      communityStatus = {};
+    } finally {
       mentionLoading = false;
-      return;
+      isSearching = false;
     }
-    // NIP-05 pattern: user@domain
-    if (/^[a-z0-9._-]+@[a-z0-9.-]+$/i.test(searchTerm)) {
-      try {
-        const [name, domain] = searchTerm.split('@');
-        const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`);
-        const data = await res.json();
-        const pubkey = data.names?.[name];
-        if (pubkey) {
-          // Fetch kind:0 event for pubkey from theforest first
-          const ndk: NDK = get(ndkInstance);
-          if (!ndk) {
-            mentionLoading = false;
-            return;
-          }
-          // Try theforest relay first
-          const { communityRelay } = await import('$lib/consts');
-          const forestRelays = communityRelay.map(url => ndk.pool.relays.get(url) ?? ndk.pool.getRelay(url));
-          let events = await ndk.fetchEvents({ kinds: [0], authors: [pubkey] }, { closeOnEose: true }, new NDKRelaySet(new Set(forestRelays), ndk));
-          let eventArr = Array.from(events);
-          if (eventArr.length === 0) {
-            // Fallback to all relays
-            const relaySet = new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk);
-            events = await ndk.fetchEvents({ kinds: [0], authors: [pubkey] }, { closeOnEose: true }, relaySet);
-            eventArr = Array.from(events);
-          }
-          if (eventArr.length > 0) {
-            try {
-              const event = eventArr[0];
-              const profileData = JSON.parse(event.content);
-              mentionResults = [{ ...profileData, pubkey }];
-            } catch {
-              mentionResults = [];
-            }
-          } else {
-            mentionResults = [];
-          }
-        } else {
-          mentionResults = [];
-        }
-      } catch {
-        mentionResults = [];
-      }
-      mentionLoading = false;
-      return;
-    }
-    // Fallback: search by display name or name
-    const ndk: NDK = get(ndkInstance);
-    if (!ndk) {
-      mentionLoading = false;
-      return;
-    }
-    // Try theforest relay first
-    const { communityRelay } = await import('$lib/consts');
-    const forestRelays = communityRelay.map(url => ndk.pool.relays.get(url) ?? ndk.pool.getRelay(url));
-    let foundProfiles: Record<string, { profile: NostrProfile; created_at: number }> = {};
-    let relaySet = new NDKRelaySet(new Set(forestRelays), ndk);
-    let filter = { kinds: [0] };
-    let sub = ndk.subscribe(filter, { closeOnEose: true }, relaySet);
-    sub.on('event', (event: any) => {
-      try {
-        if (!event.content) return;
-        const profileData = JSON.parse(event.content);
-        const displayName = profileData.display_name || profileData.displayName || '';
-        const name = profileData.name || '';
-        const searchLower = searchTerm.toLowerCase();
-        if (
-          displayName.toLowerCase().includes(searchLower) ||
-          name.toLowerCase().includes(searchLower)
-        ) {
-          // Deduplicate by pubkey, keep only newest
-          const pubkey = event.pubkey;
-          const created_at = event.created_at || 0;
-          if (!foundProfiles[pubkey] || foundProfiles[pubkey].created_at < created_at) {
-            foundProfiles[pubkey] = {
-              profile: { ...profileData, pubkey },
-              created_at,
-            };
-          }
-        }
-      } catch {}
-    });
-    sub.on('eose', async () => {
-      const forestResults = Object.values(foundProfiles).map(x => x.profile);
-      if (forestResults.length > 0) {
-        mentionResults = forestResults;
-        mentionLoading = false;
-        return;
-      }
-      // Fallback to all relays
-      foundProfiles = {};
-      const allRelays: NDKRelay[] = Array.from(ndk.pool.relays.values());
-      relaySet = new NDKRelaySet(new Set(allRelays), ndk);
-      sub = ndk.subscribe(filter, { closeOnEose: true }, relaySet);
-      sub.on('event', (event: any) => {
-        try {
-          if (!event.content) return;
-          const profileData = JSON.parse(event.content);
-          const displayName = profileData.display_name || profileData.displayName || '';
-          const name = profileData.name || '';
-          const searchLower = searchTerm.toLowerCase();
-          if (
-            displayName.toLowerCase().includes(searchLower) ||
-            name.toLowerCase().includes(searchLower)
-          ) {
-            // Deduplicate by pubkey, keep only newest
-            const pubkey = event.pubkey;
-            const created_at = event.created_at || 0;
-            if (!foundProfiles[pubkey] || foundProfiles[pubkey].created_at < created_at) {
-              foundProfiles[pubkey] = {
-                profile: { ...profileData, pubkey },
-                created_at,
-              };
-            }
-          }
-        } catch {}
-      });
-      sub.on('eose', () => {
-        mentionResults = Object.values(foundProfiles).map(x => x.profile);
-        mentionLoading = false;
-      });
-    });
   }
 
   function selectMention(profile: NostrProfile) {
-    // Always insert nostr:npub... for the selected profile
-    const npub = toNpub(profile.pubkey);
-    if (profile && npub) {
-      insertAtCursor(`nostr:${npub}`);
+    let mention = '';
+    if (profile.pubkey) {
+      try {
+        const npub = toNpub(profile.pubkey);
+        if (npub) {
+          mention = `nostr:${npub}`;
+        } else {
+          // If toNpub fails, fallback to pubkey
+          mention = `nostr:${profile.pubkey}`;
+        }
+      } catch (e) {
+        console.error('Error in toNpub:', e);
+        // Fallback to pubkey if conversion fails
+        mention = `nostr:${profile.pubkey}`;
+      }
+    } else {
+      console.warn('No pubkey in profile, falling back to display name');
+      mention = `@${profile.displayName || profile.name}`;
     }
+    insertAtCursor(mention);
     showMentionModal = false;
     mentionSearch = '';
     mentionResults = [];
   }
 
   function insertWikilink() {
-    if (!wikilinkTarget.trim()) return;
     let markup = '';
     if (wikilinkLabel.trim()) {
       markup = `[[${wikilinkTarget}|${wikilinkLabel}]]`;
@@ -452,10 +320,11 @@
     wikilinkLabel = '';
   }
 
-  // Add a helper to shorten npub
-  function shortenNpub(npub: string | undefined) {
-    if (!npub) return '';
-    return npub.slice(0, 8) + '…' + npub.slice(-4);
+  function handleViewComment() {
+    if (success?.eventId) {
+      const nevent = nip19.neventEncode({ id: success.eventId });
+      goto(`/events?id=${encodeURIComponent(nevent)}`);
+    }
   }
 </script>
 
@@ -471,32 +340,70 @@
   </div>
 
   <!-- Mention Modal -->
-  {#if showMentionModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-2">Mention User</h3>
+  <Modal
+    class="modal-leather"
+    title="Mention User"
+    bind:open={showMentionModal}
+    autoclose
+    outsideclose
+    size="sm"
+  >
+    <div class="space-y-4">
+      <div class="flex gap-2">
         <input
           type="text"
-          class="w-full border rounded p-2 mb-2"
-          placeholder="Search display name or npub..."
+          placeholder="Search display name, name, NIP-05, or npub..."
           bind:value={mentionSearch}
+          bind:this={mentionSearchInput}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' && mentionSearch.trim() && !isSearching) {
+              searchMentions();
+            }
+          }}
+          class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
         />
-        <Button size="xs" color="primary" class="mb-2" onclick={searchMentions} disabled={mentionLoading || !mentionSearch.trim()}>Search</Button>
-        {#if mentionLoading}
-          <div>Searching...</div>
-        {:else if mentionResults.length > 0}
-          <ul>
+        <Button 
+          size="xs" 
+          color="primary" 
+          onclick={(e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            searchMentions();
+          }}
+          disabled={isSearching || !mentionSearch.trim()}
+        >
+          {#if isSearching}
+            Searching...
+          {:else}
+            Search
+          {/if}
+        </Button>
+      </div>
+      
+      {#if mentionLoading}
+        <div class="text-center py-4">Searching...</div>
+      {:else if mentionResults.length > 0}
+        <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+          <ul class="space-y-1 p-2">
             {#each mentionResults as profile}
-              <button type="button" class="w-full text-left cursor-pointer hover:bg-gray-200 p-2 rounded flex items-center gap-3" onclick={() => selectMention(profile)}>
-                {#if profile.picture}
-                  <img src={profile.picture} alt="Profile" class="w-8 h-8 rounded-full object-cover" />
+              <button type="button" class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3" onclick={() => selectMention(profile)}>
+                {#if profile.pubkey && communityStatus[profile.pubkey]}
+                  <div class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
+                    <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </div>
+                {:else}
+                  <div class="flex-shrink-0 w-6 h-6"></div>
                 {/if}
-                <div class="flex flex-col text-left">
-                  <span class="font-semibold flex items-center gap-1">
+                {#if profile.picture}
+                  <img src={profile.picture} alt="Profile" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                {:else}
+                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
+                {/if}
+                <div class="flex flex-col text-left min-w-0 flex-1">
+                  <span class="font-semibold truncate">
                     {profile.displayName || profile.name || mentionSearch}
-                    {#if profile.pubkey && forestStatus[profile.pubkey]}
-                      <span title="Has posted to the forest">🌲</span>
-                    {/if}
                   </span>
                   {#if profile.nip05}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -504,47 +411,48 @@
                       {profile.nip05}
                     </span>
                   {/if}
-                  <span class="text-xs text-gray-400 font-mono">{shortenNpub(profile.pubkey)}</span>
+                  <span class="text-xs text-gray-400 font-mono truncate">{shortenNpub(profile.pubkey)}</span>
                 </div>
               </button>
             {/each}
           </ul>
-        {:else}
-          <div>No results</div>
-        {/if}
-        <div class="flex justify-end mt-4">
-          <Button size="xs" color="alternative" onclick={() => { showMentionModal = false; }}>Cancel</Button>
         </div>
-      </div>
+      {:else if mentionSearch.trim()}
+        <div class="text-center py-4 text-gray-500">No results found</div>
+      {:else}
+        <div class="text-center py-4 text-gray-500">Enter a search term to find users</div>
+      {/if}
     </div>
-  {/if}
+  </Modal>
 
   <!-- Wikilink Modal -->
-  {#if showWikilinkModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-2">Insert Wikilink</h3>
-        <input
-          type="text"
-          class="w-full border rounded p-2 mb-2"
-          placeholder="Target page (e.g. target page or target-page)"
-          bind:value={wikilinkTarget}
-        />
-        <input
-          type="text"
-          class="w-full border rounded p-2 mb-2"
-          placeholder="Display text (optional)"
-          bind:value={wikilinkLabel}
-        />
-        <div class="flex justify-end gap-2 mt-4">
-          <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button>
-          <Button size="xs" color="alternative" on:click={() => { showWikilinkModal = false; }}>Cancel</Button>
-        </div>
-      </div>
+  <Modal
+    class="modal-leather"
+    title="Insert Wikilink"
+    bind:open={showWikilinkModal}
+    autoclose
+    outsideclose
+    size="sm"
+  >
+    <Input
+      type="text"
+      placeholder="Target page (e.g. target page or target-page)"
+      bind:value={wikilinkTarget}
+      class="mb-2"
+    />
+    <Input
+      type="text"
+      placeholder="Display text (optional)"
+      bind:value={wikilinkLabel}
+      class="mb-4"
+    />
+    <div class="flex justify-end gap-2">
+      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button>
+      <Button size="xs" color="alternative" on:click={() => { showWikilinkModal = false; }}>Cancel</Button>
     </div>
-  {/if}
+  </Modal>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="space-y-4">
     <div>
       <Textarea
         bind:value={content}
@@ -581,12 +489,12 @@
     <Alert color="green" dismissable>
       Comment published successfully to {success.relay}!<br/>
       Event ID: <span class="font-mono">{success.eventId}</span>
-      <a
-        href="/events?id={nip19.neventEncode({ id: success.eventId })}"
+      <button
+        onclick={handleViewComment}
         class="text-primary-600 dark:text-primary-500 hover:underline ml-2"
       >
         View your comment
-      </a>
+      </button>
     </Alert>
   {/if}
 

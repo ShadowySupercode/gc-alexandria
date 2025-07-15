@@ -120,7 +120,6 @@ export async function postProcessAsciidoctorHtml(
   if (!html) return html;
 
   try {
-    console.log('HTML before replaceWikilinks:', html);
     // First process AsciiDoctor-generated anchors
     let processedHtml = replaceAsciiDocAnchors(html);
     // Then process wikilinks in [[...]] format (if any remain)

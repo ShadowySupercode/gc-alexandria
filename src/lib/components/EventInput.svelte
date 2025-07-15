@@ -2,11 +2,14 @@
   import { getTitleTagForEvent, getDTagForEvent, requiresDTag, hasDTag, validateNotAsciidoc, validateAsciiDoc, build30040EventSet, titleToDTag, validate30040EventSet, get30040EventDescription, analyze30040Event, get30040FixGuidance } from '$lib/utils/event_input_utils';
   import { get } from 'svelte/store';
   import { ndkInstance } from '$lib/ndk';
-  import { userPubkey } from '$lib/stores/authStore';
+  import { userPubkey } from '$lib/stores/authStore.Svelte';
   import { NDKEvent as NDKEventClass } from '@nostr-dev-kit/ndk';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { prefixNostrAddresses } from '$lib/utils/nostrUtils';
   import { standardRelays } from '$lib/consts';
+  import { Button } from "flowbite-svelte";
+  import { nip19 } from "nostr-tools";
+  import { goto } from "$app/navigation";
 
   let kind = $state<number>(30023);
   let tags = $state<[string, string][]>([]);
@@ -17,16 +20,12 @@
   let success = $state<string | null>(null);
   let publishedRelays = $state<string[]>([]);
 
-  let pubkey = $state<string | null>(null);
   let title = $state('');
   let dTag = $state('');
   let titleManuallyEdited = $state(false);
   let dTagManuallyEdited = $state(false);
   let dTagError = $state('');
   let lastPublishedEventId = $state<string | null>(null);
-  $effect(() => {
-    pubkey = get(userPubkey);
-  });
 
   /**
    * Extracts the first Markdown/AsciiDoc header as the title.
@@ -81,7 +80,9 @@
   }
 
   function validate(): { valid: boolean; reason?: string } {
-    if (!pubkey) return { valid: false, reason: 'Not logged in.' };
+    const currentUserPubkey = get(userPubkey as any);
+    if (!currentUserPubkey) return { valid: false, reason: 'Not logged in.' };
+    const pubkey = String(currentUserPubkey);
     if (!content.trim()) return { valid: false, reason: 'Content required.' };
     if (kind === 30023) {
       const v = validateNotAsciidoc(content);
@@ -117,11 +118,13 @@
     
     try {
       const ndk = get(ndkInstance);
-      if (!ndk || !pubkey) {
+      const currentUserPubkey = get(userPubkey as any);
+      if (!ndk || !currentUserPubkey) {
         error = 'NDK or pubkey missing.';
         loading = false;
         return;
       }
+      const pubkey = String(currentUserPubkey);
       
       if (!/^[a-fA-F0-9]{64}$/.test(pubkey)) {
         error = 'Invalid public key: must be a 64-character hex string.';
@@ -343,6 +346,12 @@
     }
     return analysis;
   }
+
+  function viewPublishedEvent() {
+    if (lastPublishedEventId) {
+      goto(`/events?id=${encodeURIComponent(lastPublishedEventId)}`);
+    }
+  }
 </script>
 
 <div class='w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg'>
@@ -429,12 +438,9 @@
       {#if lastPublishedEventId}
         <div class='mt-2 text-green-700'>
           Event ID: <span class='font-mono'>{lastPublishedEventId}</span>
-          <a
-            href={'/events?id=' + lastPublishedEventId}
-            class='text-primary-600 dark:text-primary-500 hover:underline ml-2'
-          >
+          <Button onclick={viewPublishedEvent} class='text-primary-600 dark:text-primary-500 hover:underline ml-2'>
             View your event
-          </a>
+          </Button>
         </div>
       {/if}
     {/if}

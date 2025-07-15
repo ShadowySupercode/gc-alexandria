@@ -87,19 +87,30 @@
     gotoValue?: string;
   } {
     if (tag[0] === "a" && tag.length > 1) {
-      const [kind, pubkey, d] = tag[1].split(":");
-      const naddr = naddrEncode(
-        {
-          kind: +kind,
-          pubkey,
-          tags: [["d", d]],
-          content: "",
-          id: "",
-          sig: "",
-        } as any,
-        standardRelays,
-      );
-      return { text: `a:${tag[1]}`, gotoValue: naddr };
+      // Parse the a-tag: kind:pubkey:d
+      const parts = tag[1].split(":");
+      if (parts.length >= 3) {
+        const [kind, pubkey, d] = parts;
+        try {
+          const naddr = naddrEncode(
+            {
+              kind: parseInt(kind),
+              pubkey,
+              tags: [["d", d]],
+              content: "",
+              id: "",
+              sig: "",
+            } as any,
+            standardRelays,
+          );
+          console.log("Converted a-tag to naddr:", tag[1], "->", naddr);
+          return { text: `a:${tag[1]}`, gotoValue: naddr };
+        } catch (error) {
+          console.error("Error encoding a-tag to naddr:", error);
+          return { text: `a:${tag[1]}`, gotoValue: tag[1] };
+        }
+      }
+      return { text: `a:${tag[1]}`, gotoValue: tag[1] };
     }
     if (tag[0] === "e" && tag.length > 1) {
       const nevent = neventEncode(
@@ -116,6 +127,14 @@
       return { text: `e:${tag[1]}`, gotoValue: nevent };
     }
     return { text: "" };
+  }
+
+  function navigateToEvent(gotoValue: string) {
+    console.log("Navigating to event:", gotoValue);
+    // Add a small delay to ensure the current search state is cleared
+    setTimeout(() => {
+      goto(`/events?id=${encodeURIComponent(gotoValue)}`);
+    }, 10);
   }
 
   $effect(() => {
@@ -280,8 +299,8 @@
           {#if tagInfo.text && tagInfo.gotoValue}
             <button
               onclick={() =>
-                goto(`/events?id=${encodeURIComponent(tagInfo.gotoValue!)}`)}
-              class="underline text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100"
+                navigateToEvent(tagInfo.gotoValue!)}
+              class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100"
             >
               {tagInfo.text}
             </button>

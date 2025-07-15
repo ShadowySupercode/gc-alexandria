@@ -1,7 +1,8 @@
 export const wikiKind = 30818;
 export const indexKind = 30040;
 export const zettelKinds = [30041, 30818];
-export const communityRelay = ["wss://theforest.nostr1.com"];
+export const communityRelay = "wss://theforest.nostr1.com";
+export const profileRelay = "wss://profiles.nostr1.com";
 export const standardRelays = [
   "wss://thecitadel.nostr1.com",
   "wss://theforest.nostr1.com",

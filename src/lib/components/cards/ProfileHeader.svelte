@@ -5,9 +5,11 @@
   import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils.ts";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import { lnurlpWellKnownUrl, checkCommunity } from "$lib/utils/search_utility";
   // @ts-ignore
   import { bech32 } from "https://esm.sh/bech32";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { goto } from "$app/navigation";
 
   const {
     event,
@@ -21,13 +23,14 @@
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
+  let communityStatus = $state<boolean | null>(null);
 
   onMount(async () => {
     if (profile?.lud16) {
       try {
         // Convert LN address to LNURL
         const [name, domain] = profile?.lud16.split("@");
-        const url = `https://${domain}/.well-known/lnurlp/${name}`;
+        const url = lnurlpWellKnownUrl(domain, name);
         const words = bech32.toWords(new TextEncoder().encode(url));
         lnurl = bech32.encode("lnurl", words);
       } catch {
@@ -35,6 +38,20 @@
       }
     }
   });
+
+  $effect(() => {
+    if (event?.pubkey) {
+      checkCommunity(event.pubkey).then((status) => {
+        communityStatus = status;
+      }).catch(() => {
+        communityStatus = false;
+      });
+    }
+  });
+
+  function navigateToIdentifier(link: string) {
+    goto(link);
+  }
 </script>
 
 {#if profile}
@@ -63,13 +80,24 @@
             }}
           />
         {/if}
-        {@render userBadge(
-          toNpub(event.pubkey) as string,
-          profile.displayName ||
-            profile.display_name ||
-            profile.name ||
-            event.pubkey,
-        )}
+        <div class="flex items-center gap-2">
+          {@render userBadge(
+            toNpub(event.pubkey) as string,
+            profile.displayName ||
+              profile.display_name ||
+              profile.name ||
+              event.pubkey,
+          )}
+          {#if communityStatus === true}
+            <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
+              <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+          {:else if communityStatus === false}
+            <div class="flex-shrink-0 w-4 h-4"></div>
+          {/if}
+        </div>
       </div>
       <div>
         <div class="mt-2 flex flex-col gap-4">
@@ -127,11 +155,16 @@
               <div class="flex gap-2">
                 <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
                 <dd class="break-all">
-                  {#if id.link}<a
-                      href={id.link}
-                      class="underline text-primary-700 dark:text-primary-200 break-all"
-                      >{id.value}</a
-                    >{:else}{id.value}{/if}
+                  {#if id.link}
+                    <Button
+                      class="text-primary-700 dark:text-primary-200"
+                      onclick={() => navigateToIdentifier(id.link)}
+                    >
+                      {id.value}
+                    </Button>
+                  {:else}
+                    {id.value}
+                  {/if}
                 </dd>
               </div>
             {/each}

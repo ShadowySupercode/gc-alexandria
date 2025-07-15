@@ -8,8 +8,7 @@
   } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
   import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
-
-  const externalProfileDestination = "./events?id=";
+  import { goto } from "$app/navigation";
 
   let { pubkey, isNav = false } = $props();
 
@@ -32,6 +31,12 @@
   async function handleSignOutClick() {
     logout($ndkInstance.activeUser!);
     profile = null;
+  }
+
+  function handleViewProfile() {
+    if (npub) {
+      goto(`/events?id=${encodeURIComponent(npub)}`);
+    }
   }
 
   function shortenNpub(long: string | undefined) {
@@ -71,14 +76,14 @@
                   />
                 </li>
                 <li>
-                  <a
-                    class="hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0"
-                    href="{externalProfileDestination}{npub}"
+                  <button
+                    class="hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0 text-left"
+                    onclick={handleViewProfile}
                   >
                     <UserOutline
                       class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
                     /><span class="underline">View profile</span>
-                  </a>
+                  </button>
                 </li>
                 {#if isNav}
                   <li>

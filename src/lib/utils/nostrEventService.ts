@@ -5,6 +5,7 @@ import { userRelays } from "$lib/stores/relayStore";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import type { NDKEvent } from "./nostrUtils";
+import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from './search_constants';
 
 export interface RootEventInfo {
   rootId: string;
@@ -178,8 +179,8 @@ export function buildReplyTags(
 ): string[][] {
   const tags: string[][] = [];
   
-  const isParentReplaceable = parentInfo.parentKind >= 30000 && parentInfo.parentKind < 40000;
-  const isParentComment = parentInfo.parentKind === 1111;
+  const isParentReplaceable = parentInfo.parentKind >= EVENT_KINDS.ADDRESSABLE.MIN && parentInfo.parentKind < EVENT_KINDS.ADDRESSABLE.MAX;
+  const isParentComment = parentInfo.parentKind === EVENT_KINDS.COMMENT;
   const isReplyToComment = isParentComment && rootInfo.rootId !== parent.id;
   
   if (kind === 1) {
@@ -199,7 +200,7 @@ export function buildReplyTags(
       }
     }
   } else {
-    // Kind 1111 uses NIP-22 threading format
+    // Kind 1111 (comment) uses NIP-22 threading format
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], 'd');
       if (dTag) {
@@ -292,7 +293,7 @@ export async function createSignedEvent(
   
   const eventToSign = {
     kind: Number(kind),
-    created_at: Number(Math.floor(Date.now() / 1000)),
+    created_at: Number(Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR)),
     tags: tags.map(tag => [String(tag[0]), String(tag[1]), String(tag[2] || ''), String(tag[3] || '')]),
     content: String(prefixedContent),
     pubkey: pubkey,
@@ -329,7 +330,7 @@ async function publishToRelay(relayUrl: string, signedEvent: any): Promise<void>
     const timeout = setTimeout(() => {
       ws.close();
       reject(new Error("Timeout"));
-    }, 5000);
+    }, TIMEOUTS.GENERAL);
 
     ws.onopen = () => {
       ws.send(JSON.stringify(["EVENT", signedEvent]));
