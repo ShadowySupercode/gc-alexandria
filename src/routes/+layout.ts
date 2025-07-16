@@ -49,15 +49,40 @@ export const load: LayoutLoad = () => {
               await loginWithAmber(amberSigner, user);
               console.log('Amber session restored.');
             } catch (err) {
-              // If reconnection fails, show a non-blocking prompt (handled in LoginMenu UI)
-              console.warn('Amber session could not be restored. Prompting user to reconnect.');
-              // Optionally, set a flag in localStorage or a Svelte store to show a reconnect banner/modal
-              localStorage.setItem('alexandria/amber/reconnect', '1');
+              // If reconnection fails, automatically fallback to npub-only mode
+              console.warn('Amber session could not be restored. Falling back to npub-only mode.');
+              try {
+                // Set the flag first, before login
+                localStorage.setItem('alexandria/amber/fallback', '1');
+                console.log('Set fallback flag in localStorage');
+                
+                // Small delay to ensure flag is set
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                await loginWithNpub(pubkey);
+                console.log('Successfully fell back to npub-only mode.');
+              } catch (fallbackErr) {
+                console.error('Failed to fallback to npub-only mode:', fallbackErr);
+              }
             }
           });
         } else {
-          // No session data, prompt user to reconnect (handled in LoginMenu UI)
-          localStorage.setItem('alexandria/amber/reconnect', '1');
+          // No session data, automatically fallback to npub-only mode
+          console.log('No Amber session data found. Falling back to npub-only mode.');
+          
+          // Set the flag first, before login
+          localStorage.setItem('alexandria/amber/fallback', '1');
+          console.log('Set fallback flag in localStorage');
+          
+          // Small delay to ensure flag is set
+          setTimeout(async () => {
+            try {
+              await loginWithNpub(pubkey);
+              console.log('Successfully fell back to npub-only mode.');
+            } catch (fallbackErr) {
+              console.error('Failed to fallback to npub-only mode:', fallbackErr);
+            }
+          }, 100);
         }
       } else if (loginMethod === 'npub') {
         console.log('Restoring npub login...');

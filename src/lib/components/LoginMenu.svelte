@@ -17,17 +17,39 @@
   let loginButtonRef: HTMLElement | undefined = $state();
   let resultTimeout: ReturnType<typeof setTimeout> | null = null;
   let profileAvatarId = 'profile-avatar-btn';
-  let showAmberReconnect = $state(false);
+  let showAmberFallback = $state(false);
+  let fallbackCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   onMount(() => {
-    if (localStorage.getItem('alexandria/amber/reconnect') === '1') {
-      showAmberReconnect = true;
+    if (localStorage.getItem('alexandria/amber/fallback') === '1') {
+      console.log('LoginMenu: Found fallback flag on mount, showing modal');
+      showAmberFallback = true;
     }
   });
 
   // Subscribe to userStore
   let user = $state(get(userStore));
-  userStore.subscribe(val => user = val);
+  userStore.subscribe(val => {
+    user = val;
+    // Check for fallback flag when user state changes to signed in
+    if (val.signedIn && localStorage.getItem('alexandria/amber/fallback') === '1' && !showAmberFallback) {
+      console.log('LoginMenu: User signed in and fallback flag found, showing modal');
+      showAmberFallback = true;
+    }
+    
+    // Set up periodic check when user is signed in
+    if (val.signedIn && !fallbackCheckInterval) {
+      fallbackCheckInterval = setInterval(() => {
+        if (localStorage.getItem('alexandria/amber/fallback') === '1' && !showAmberFallback) {
+          console.log('LoginMenu: Found fallback flag during periodic check, showing modal');
+          showAmberFallback = true;
+        }
+      }, 500); // Check every 500ms
+    } else if (!val.signedIn && fallbackCheckInterval) {
+      clearInterval(fallbackCheckInterval);
+      fallbackCheckInterval = null;
+    }
+  });
 
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
@@ -122,14 +144,19 @@
 
   const handleLogout = () => {
     localStorage.removeItem('amber/nsec');
-    localStorage.removeItem('alexandria/amber/reconnect');
+    localStorage.removeItem('alexandria/amber/fallback');
     logoutUser();
   };
 
   function handleAmberReconnect() {
-    showAmberReconnect = false;
-    localStorage.removeItem('alexandria/amber/reconnect');
+    showAmberFallback = false;
+    localStorage.removeItem('alexandria/amber/fallback');
     handleAmberLogin();
+  }
+
+  function handleAmberFallbackDismiss() {
+    showAmberFallback = false;
+    localStorage.removeItem('alexandria/amber/fallback');
   }
 
   function shortenNpub(long: string | undefined) {
@@ -237,6 +264,17 @@
                   {user.npub ? shortenNpub(user.npub) : 'Unknown'}
                 </button>
               </li>
+              <li class="text-xs text-gray-500">
+                {#if user.loginMethod === 'extension'}
+                  Logged in with extension
+                {:else if user.loginMethod === 'amber'}
+                  Logged in with Amber
+                {:else if user.loginMethod === 'npub'}
+                  Logged in with npub
+                {:else}
+                  Unknown login method
+                {/if}
+              </li>
               <li>
                 <button
                   id='sign-out-button'
@@ -305,14 +343,14 @@
   </div>
 {/if} 
 
-{#if showAmberReconnect}
+{#if showAmberFallback}
   <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg border border-primary-300">
       <div class="text-center">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Reconnect Amber Wallet</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Amber Session Restored</h2>
         <p class="text-sm text-gray-600 mb-4">
-          Your Amber wallet session could not be restored automatically.<br/>
-          Please reconnect your Amber wallet to continue.
+          Your Amber wallet session could not be restored automatically, so you've been switched to read-only mode.<br/>
+          You can still browse and read content, but you'll need to reconnect Amber to publish or comment.
         </p>
         <button
           class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
@@ -322,9 +360,9 @@
         </button>
         <button
           class="mt-2 ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm font-medium transition-colors"
-          onclick={() => { showAmberReconnect = false; localStorage.removeItem('alexandria/amber/reconnect'); }}
+          onclick={handleAmberFallbackDismiss}
         >
-          Cancel
+          Continue in Read-Only Mode
         </button>
       </div>
     </div>

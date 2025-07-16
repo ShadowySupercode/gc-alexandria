@@ -272,6 +272,9 @@ export function logoutUser() {
     localStorage.removeItem(key);
   });
   
+  // Clear Amber-specific flags
+  localStorage.removeItem('alexandria/amber/fallback');
+  
   // Set a flag to prevent auto-login on next page load
   localStorage.setItem('alexandria/logout/flag', 'true');
   
