@@ -1,37 +1,13 @@
 <script lang="ts">
   import {
-    FeedType,
-    feedTypeStorageKey,
     standardRelays,
     fallbackRelays,
   } from "$lib/consts";
-  import { Alert, Button, Dropdown, Radio, Input } from "flowbite-svelte";
-  import { ChevronDownOutline, HammerSolid } from "flowbite-svelte-icons";
+  import { Alert, Input } from "flowbite-svelte";
+  import { HammerSolid } from "flowbite-svelte-icons";
   import { userStore } from '$lib/stores/userStore';
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
   import PublicationFeed from '$lib/components/PublicationFeed.svelte';
-  import { feedType } from '$lib/stores';
-
-  $effect(() => {
-    localStorage.setItem(feedTypeStorageKey, $feedType);
-  });
-
-  $effect(() => {
-    if (!$ndkSignedIn && $feedType !== FeedType.StandardRelays) {
-      feedType.set(FeedType.StandardRelays);
-    }
-  });
-
-  const getFeedTypeFriendlyName = (feedType: FeedType): string => {
-    switch (feedType) {
-      case FeedType.StandardRelays:
-        return `Alexandria's Relays`;
-      case FeedType.UserRelays:
-        return `Your Relays`;
-      default:
-        return "";
-    }
-  };
 
   let searchQuery = $state('');
   let user = $state($userStore);
@@ -52,44 +28,11 @@
 
 <main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
   <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
-    <Button id="feed-toggle-btn" class="min-w-[220px] max-w-sm">
-      {`Showing publications from: ${getFeedTypeFriendlyName($feedType)}`}
-      {#if $ndkSignedIn}
-        <ChevronDownOutline class='w-6 h-6' />
-      {/if}
-    </Button>
     <Input
       bind:value={searchQuery}
       placeholder="Search publications by title or author..."
       class="flex-grow max-w-2xl min-w-[300px] text-base"
     />
-    {#if $ndkSignedIn}
-      <Dropdown
-        class="w-fit p-2 space-y-2 text-sm"
-        triggeredBy="#feed-toggle-btn"
-      >
-        <li>
-          <Radio
-            name="relays"
-            bind:group={$feedType}
-            value={FeedType.StandardRelays}>Alexandria's Relays</Radio
-          >
-        </li>
-        <li>
-          <Radio
-            name="follows"
-            bind:group={$feedType}
-            value={FeedType.UserRelays}>Your Relays</Radio
-          >
-        </li>
-      </Dropdown>
-    {/if}
   </div>
-  {#if !$ndkSignedIn}
-    <PublicationFeed relays={standardRelays} {fallbackRelays} {searchQuery} />
-  {:else if $feedType === FeedType.StandardRelays}
-    <PublicationFeed relays={standardRelays} {fallbackRelays} {searchQuery} />
-  {:else if $feedType === FeedType.UserRelays}
-    <PublicationFeed relays={$inboxRelays} {fallbackRelays} {searchQuery} />
-  {/if}
+  <PublicationFeed relays={standardRelays} {fallbackRelays} {searchQuery} userRelays={$ndkSignedIn ? $inboxRelays : []} />
 </main>

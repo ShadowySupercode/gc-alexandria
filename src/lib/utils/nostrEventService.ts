@@ -400,8 +400,18 @@ export async function publishEvent(
  * Navigate to the published event
  */
 export function navigateToEvent(eventId: string): void {
-  const nevent = nip19.neventEncode({ id: eventId });
-  goto(`/events?id=${nevent}`);
+  try {
+    // Validate that eventId is a valid hex string
+    if (!/^[0-9a-fA-F]{64}$/.test(eventId)) {
+      console.warn('Invalid event ID format:', eventId);
+      return;
+    }
+    
+    const nevent = nip19.neventEncode({ id: eventId });
+    goto(`/events?id=${nevent}`);
+  } catch (error) {
+    console.error('Failed to encode event ID for navigation:', eventId, error);
+  }
 }
 
 // Helper functions to ensure relay and pubkey are always strings

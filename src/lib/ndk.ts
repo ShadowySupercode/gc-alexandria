@@ -429,9 +429,22 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
   const user = get(userStore);
+  
+  // Filter out problematic relays that are known to cause connection issues
+  const filterProblematicRelays = (relays: string[]) => {
+    return relays.filter(relay => {
+      // Filter out gitcitadel.nostr1.com which is causing connection issues
+      if (relay.includes('gitcitadel.nostr1.com')) {
+        console.warn(`[NDK.ts] Filtering out problematic relay: ${relay}`);
+        return false;
+      }
+      return true;
+    });
+  };
+  
   return get(feedType) === FeedType.UserRelays && user.signedIn
     ? new NDKRelaySet(
-        new Set(user.relays.inbox.map(relay => new NDKRelay(
+        new Set(filterProblematicRelays(user.relays.inbox).map(relay => new NDKRelay(
           relay,
           NDKRelayAuthPolicies.signIn({ ndk }),
           ndk,
@@ -439,7 +452,7 @@ export function getActiveRelays(ndk: NDK): NDKRelaySet {
         ndk
       )
     : new NDKRelaySet(
-        new Set(standardRelays.map(relay => new NDKRelay(
+        new Set(filterProblematicRelays(standardRelays).map(relay => new NDKRelay(
           relay,
           NDKRelayAuthPolicies.signIn({ ndk }),
           ndk,
@@ -589,26 +602,39 @@ export async function getUserPreferredRelays(
   const inboxRelays = new Set<NDKRelay>();
   const outboxRelays = new Set<NDKRelay>();
 
+  // Filter out problematic relays
+  const filterProblematicRelay = (url: string): boolean => {
+    if (url.includes('gitcitadel.nostr1.com')) {
+      console.warn(`[NDK.ts] Filtering out problematic relay from user preferences: ${url}`);
+      return false;
+    }
+    return true;
+  };
+
   if (relayList == null) {
     const relayMap = await window.nostr?.getRelays?.();
     Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
-      const relay = createRelayWithAuth(url, ndk);
-      if (relayType.read) inboxRelays.add(relay);
-      if (relayType.write) outboxRelays.add(relay);
+      if (filterProblematicRelay(url)) {
+        const relay = createRelayWithAuth(url, ndk);
+        if (relayType.read) inboxRelays.add(relay);
+        if (relayType.write) outboxRelays.add(relay);
+      }
     });
   } else {
     relayList.tags.forEach((tag) => {
-      switch (tag[0]) {
-        case "r":
-          inboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
-        case "w":
-          outboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
-        default:
-          inboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          outboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
+      if (filterProblematicRelay(tag[1])) {
+        switch (tag[0]) {
+          case "r":
+            inboxRelays.add(createRelayWithAuth(tag[1], ndk));
+            break;
+          case "w":
+            outboxRelays.add(createRelayWithAuth(tag[1], ndk));
+            break;
+          default:
+            inboxRelays.add(createRelayWithAuth(tag[1], ndk));
+            outboxRelays.add(createRelayWithAuth(tag[1], ndk));
+            break;
+        }
       }
     });
   }

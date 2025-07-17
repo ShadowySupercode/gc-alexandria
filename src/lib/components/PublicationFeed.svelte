@@ -2,7 +2,7 @@
   import { indexKind } from "$lib/consts";
   import { ndkInstance } from "$lib/ndk";
   import { filterValidIndexEvents, debounce } from "$lib/utils";
-  import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
+  import { Button, P, Skeleton, Spinner, Checkbox } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
   import { onMount } from "svelte";
   import {
@@ -13,17 +13,18 @@
   } from "$lib/utils/nostrUtils";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
-  import { feedType } from "$lib/stores";
   import { isValidNip05Address } from "$lib/utils/search_utility";
 
   let {
     relays,
     fallbackRelays,
     searchQuery = "",
+    userRelays = [],
   } = $props<{
     relays: string[];
     fallbackRelays: string[];
     searchQuery?: string;
+    userRelays?: string[];
   }>();
 
   let eventsInView: NDKEvent[] = $state([]);
@@ -44,11 +45,14 @@
   async function fetchAllIndexEventsFromRelays() {
     loading = true;
     const ndk = $ndkInstance;
-    const primaryRelays: string[] = relays;
+    const communityRelays: string[] = relays;
+    const userRelayList: string[] = userRelays || [];
     const fallback: string[] = fallbackRelays.filter(
-      (r: string) => !primaryRelays.includes(r),
+      (r: string) => !communityRelays.includes(r) && !userRelayList.includes(r),
     );
-    const allRelays = [...primaryRelays, ...fallback];
+    const allRelays = includeAllRelays 
+      ? [...communityRelays, ...userRelayList, ...fallback] 
+      : [...communityRelays, ...userRelayList];
     
     // Check cache first
     const cachedEvents = indexEventCache.get(allRelays);
@@ -243,22 +247,18 @@
     return `Index: ${indexStats.size} entries (${indexStats.totalEvents} events), Search: ${searchStats} entries`;
   }
 
-  // Track previous feed type to avoid infinite loops
-  let previousFeedType = $state($feedType);
-  
-  // Watch for changes in feed type and relay configuration
+  // Include all relays checkbox state
+  let includeAllRelays = $state(false);
+
+  // Watch for changes in include all relays setting
   $effect(() => {
-    if (previousFeedType !== $feedType) {
-      console.log(`[PublicationFeed] Feed type changed from ${previousFeedType} to ${$feedType}`);
-      previousFeedType = $feedType;
-      
-      // Clear cache when feed type changes (different relay sets)
-      indexEventCache.clear();
-      searchCache.clear();
-      
-      // Refetch events with new relay configuration
-      fetchAllIndexEventsFromRelays();
-    }
+    console.log(`[PublicationFeed] Include all relays setting changed to: ${includeAllRelays}`);
+    // Clear cache when relay configuration changes
+    indexEventCache.clear();
+    searchCache.clear();
+    
+    // Refetch events with new relay configuration
+    fetchAllIndexEventsFromRelays();
   });
 
   onMount(async () => {
@@ -266,7 +266,16 @@
   });
 </script>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+<div class="flex flex-col space-y-4">
+  <!-- Include all relays checkbox -->
+  <div class="flex items-center justify-center">
+    <Checkbox bind:checked={includeAllRelays} class="mr-2" />
+    <label for="include-all-relays" class="text-sm text-gray-700 dark:text-gray-300">
+      Include all relays (slower but more comprehensive search)
+    </label>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
     {#if loading && eventsInView.length === 0}
       {#each getSkeletonIds() as id}
         <Skeleton divClass="skeleton-leather w-full" size="lg" />
@@ -308,3 +317,4 @@
       >
     </div>
   {/if}
+</div>

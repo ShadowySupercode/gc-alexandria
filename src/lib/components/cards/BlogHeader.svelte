@@ -62,6 +62,9 @@
         </div>
         <CardActions {event} />
       </div>
+      
+
+      
       {#if image && active}
         <div
           class="ArticleBoxImage flex col justify-center"

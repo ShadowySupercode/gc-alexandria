@@ -163,13 +163,19 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
   // Build set of referenced event IDs to identify root events
   const referencedIds = new Set<string>();
   events.forEach((event) => {
-    const aTags = getMatchingTags(event, "a");
-    debug("Processing a-tags for event", {
+    // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+    let tags = getMatchingTags(event, "a");
+    if (tags.length === 0) {
+      tags = getMatchingTags(event, "e");
+    }
+    
+    debug("Processing tags for event", {
       eventId: event.id,
-      aTagCount: aTags.length,
+      tagCount: tags.length,
+      tagType: tags.length > 0 ? (getMatchingTags(event, "a").length > 0 ? "a" : "e") : "none"
     });
 
-    aTags.forEach((tag) => {
+    tags.forEach((tag) => {
       const id = extractEventIdFromATag(tag);
       if (id) referencedIds.add(id);
     });
@@ -284,7 +290,13 @@ export function processIndexEvent(
   if (level >= maxLevel) return;
 
   // Extract the sequence of nodes referenced by this index
-  const sequence = getMatchingTags(indexEvent, "a")
+  // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+  let tags = getMatchingTags(indexEvent, "a");
+  if (tags.length === 0) {
+    tags = getMatchingTags(indexEvent, "e");
+  }
+  
+  const sequence = tags
     .map((tag) => extractEventIdFromATag(tag))
     .filter((id): id is string => id !== null)
     .map((id) => state.nodeMap.get(id))

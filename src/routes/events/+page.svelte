@@ -83,6 +83,25 @@
     searchValue = url.get('id') ?? url.get('d');
   });
 
+  // Add support for t and n parameters
+  $effect(() => {
+    const url = $page.url.searchParams;
+    const tParam = url.get('t');
+    const nParam = url.get('n');
+    
+    if (tParam) {
+      // Decode the t parameter and set it as searchValue with t: prefix
+      const decodedT = decodeURIComponent(tParam);
+      searchValue = `t:${decodedT}`;
+    }
+    
+    if (nParam) {
+      // Decode the n parameter and set it as searchValue with n: prefix
+      const decodedN = decodeURIComponent(nParam);
+      searchValue = `n:${decodedN}`;
+    }
+  });
+
   function handleSearchResults(results: NDKEvent[], secondOrder: NDKEvent[] = [], tTagEvents: NDKEvent[] = [], eventIds: Set<string> = new Set(), addresses: Set<string> = new Set(), searchTypeParam?: string, searchTermParam?: string) {
     searchResults = results;
     secondOrderResults = secondOrder;
@@ -167,9 +186,13 @@
       }
     }
     
-    // Check if this event has a-tags referencing original events
-    const aTags = getMatchingTags(event, "a");
-    for (const tag of aTags) {
+    // Check if this event has a-tags or e-tags referencing original events
+    let tags = getMatchingTags(event, "a");
+    if (tags.length === 0) {
+      tags = getMatchingTags(event, "e");
+    }
+    
+    for (const tag of tags) {
       if (originalAddresses.has(tag[1])) {
         return "Reply/Reference (a-tag)";
       }
@@ -261,8 +284,10 @@
   function updateSearchFromURL() {
     const id = $page.url.searchParams.get("id");
     const dTag = $page.url.searchParams.get("d");
+    const tParam = $page.url.searchParams.get("t");
+    const nParam = $page.url.searchParams.get("n");
 
-    console.log("Events page URL update:", { id, dTag, searchValue });
+    console.log("Events page URL update:", { id, dTag, tParam, nParam, searchValue });
 
     if (id !== searchValue) {
       console.log("ID changed, updating searchValue:", { old: searchValue, new: id });
@@ -287,8 +312,38 @@
       profile = null;
     }
 
-    // Reset state if both id and dTag are absent
-    if (!id && !dTag) {
+    // Handle t parameter
+    if (tParam) {
+      const decodedT = decodeURIComponent(tParam);
+      const tSearchValue = `t:${decodedT}`;
+      if (tSearchValue !== searchValue) {
+        console.log("T parameter changed, updating searchValue:", { old: searchValue, new: tSearchValue });
+        searchValue = tSearchValue;
+        dTagValue = null;
+        // For t-tag searches (which return multiple results), close side panel
+        showSidePanel = false;
+        event = null;
+        profile = null;
+      }
+    }
+
+    // Handle n parameter
+    if (nParam) {
+      const decodedN = decodeURIComponent(nParam);
+      const nSearchValue = `n:${decodedN}`;
+      if (nSearchValue !== searchValue) {
+        console.log("N parameter changed, updating searchValue:", { old: searchValue, new: nSearchValue });
+        searchValue = nSearchValue;
+        dTagValue = null;
+        // For n-tag searches (which return multiple results), close side panel
+        showSidePanel = false;
+        event = null;
+        profile = null;
+      }
+    }
+
+    // Reset state if all parameters are absent
+    if (!id && !dTag && !tParam && !nParam) {
       event = null;
       searchResults = [];
       profile = null;
@@ -304,8 +359,10 @@
   function handleUrlChange() {
     const id = $page.url.searchParams.get("id");
     const dTag = $page.url.searchParams.get("d");
+    const tParam = $page.url.searchParams.get("t");
+    const nParam = $page.url.searchParams.get("n");
 
-    console.log("Events page URL change:", { id, dTag, currentSearchValue: searchValue, currentDTagValue: dTagValue });
+    console.log("Events page URL change:", { id, dTag, tParam, nParam, currentSearchValue: searchValue, currentDTagValue: dTagValue });
 
     // Handle ID parameter changes
     if (id !== searchValue) {
@@ -329,9 +386,37 @@
       profile = null;
     }
 
-    // Reset state if both parameters are absent
-    if (!id && !dTag) {
-      console.log("Both ID and d-tag parameters absent, resetting state");
+    // Handle t parameter changes
+    if (tParam) {
+      const decodedT = decodeURIComponent(tParam);
+      const tSearchValue = `t:${decodedT}`;
+      if (tSearchValue !== searchValue) {
+        console.log("t parameter changed:", { old: searchValue, new: tSearchValue });
+        searchValue = tSearchValue;
+        dTagValue = null;
+        showSidePanel = false;
+        event = null;
+        profile = null;
+      }
+    }
+
+    // Handle n parameter changes
+    if (nParam) {
+      const decodedN = decodeURIComponent(nParam);
+      const nSearchValue = `n:${decodedN}`;
+      if (nSearchValue !== searchValue) {
+        console.log("n parameter changed:", { old: searchValue, new: nSearchValue });
+        searchValue = nSearchValue;
+        dTagValue = null;
+        showSidePanel = false;
+        event = null;
+        profile = null;
+      }
+    }
+
+    // Reset state if all parameters are absent
+    if (!id && !dTag && !tParam && !nParam) {
+      console.log("All parameters absent, resetting state");
       event = null;
       searchResults = [];
       profile = null;

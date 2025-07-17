@@ -55,9 +55,30 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
 export async function checkCommunityStatus(profiles: Array<{ pubkey?: string }>): Promise<Record<string, boolean>> {
   const communityStatus: Record<string, boolean> = {};
   
-  for (const profile of profiles) {
-    if (profile.pubkey) {
-      communityStatus[profile.pubkey] = await checkCommunity(profile.pubkey);
+  // Run all community checks in parallel with timeout
+  const checkPromises = profiles.map(async (profile) => {
+    if (!profile.pubkey) return { pubkey: '', status: false };
+    
+    try {
+      const status = await Promise.race([
+        checkCommunity(profile.pubkey),
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => resolve(false), 2000); // 2 second timeout per check
+        })
+      ]);
+      return { pubkey: profile.pubkey, status };
+    } catch (error) {
+      console.warn('Community status check failed for', profile.pubkey, error);
+      return { pubkey: profile.pubkey, status: false };
+    }
+  });
+  
+  // Wait for all checks to complete
+  const results = await Promise.allSettled(checkPromises);
+  
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.pubkey) {
+      communityStatus[result.value.pubkey] = result.value.status;
     }
   }
   

@@ -3,7 +3,7 @@ import { getMatchingTags, getNpubFromNip05 } from '$lib/utils/nostrUtils';
 import { nip19 } from '$lib/utils/nostrUtils';
 import { NDKRelaySet, NDKEvent } from '@nostr-dev-kit/ndk';
 import { searchCache } from '$lib/utils/searchCache';
-import { communityRelay, profileRelay } from '$lib/consts';
+import { communityRelay, profileRelays } from '$lib/consts';
 import { get } from 'svelte/store';
 import type { SearchResult, SearchSubscriptionType, SearchFilter, SearchCallbacks, SecondOrderSearchParams } from './search_types';
 import { fieldMatches, nip05Matches, normalizeSearchTerm, COMMON_DOMAINS, isEmojiReaction } from './search_utils';
@@ -209,17 +209,17 @@ async function createProfileSearchFilter(normalizedSearchTerm: string): Promise<
  */
 function createPrimaryRelaySet(searchType: SearchSubscriptionType, ndk: any): NDKRelaySet {
   if (searchType === 'n') {
-    // For profile searches, use profile relay first
-    const profileRelays = Array.from(ndk.pool.relays.values()).filter((relay: any) => 
-      relay.url === profileRelay || relay.url === profileRelay + '/'
+    // For profile searches, use profile relays first
+    const profileRelaySet = Array.from(ndk.pool.relays.values()).filter((relay: any) => 
+      profileRelays.some(profileRelay => relay.url === profileRelay || relay.url === profileRelay + '/')
     );
-    return new NDKRelaySet(new Set(profileRelays) as any, ndk);
+    return new NDKRelaySet(new Set(profileRelaySet) as any, ndk);
   } else {
     // For other searches, use community relay first
-    const communityRelays = Array.from(ndk.pool.relays.values()).filter((relay: any) => 
+    const communityRelaySet = Array.from(ndk.pool.relays.values()).filter((relay: any) => 
       relay.url === communityRelay || relay.url === communityRelay + '/'
     );
-    return new NDKRelaySet(new Set(communityRelays) as any, ndk);
+    return new NDKRelaySet(new Set(communityRelaySet) as any, ndk);
   }
 }
 
@@ -308,8 +308,13 @@ function processContentEvent(event: NDKEvent, searchType: SearchSubscriptionType
     if (event.id) {
       searchState.eventIds.add(event.id);
     }
-    const aTags = getMatchingTags(event, "a");
-    aTags.forEach((tag: string[]) => {
+    // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+    let tags = getMatchingTags(event, "a");
+    if (tags.length === 0) {
+      tags = getMatchingTags(event, "e");
+    }
+    
+    tags.forEach((tag: string[]) => {
       if (tag[1]) {
         searchState.eventAddresses.add(tag[1]);
       }
@@ -338,9 +343,9 @@ function hasResults(searchState: any, searchType: SearchSubscriptionType): boole
  */
 function createSearchResult(searchState: any, searchType: SearchSubscriptionType, normalizedSearchTerm: string): SearchResult {
   return {
-    events: searchType === 'n' ? searchState.foundProfiles : searchState.firstOrderEvents,
+    events: searchType === 'n' ? searchState.foundProfiles : searchType === 't' ? searchState.tTagEvents : searchState.firstOrderEvents,
     secondOrder: [],
-    tTagEvents: searchType === 't' ? searchState.tTagEvents : [],
+    tTagEvents: [],
     eventIds: searchState.eventIds,
     addresses: searchState.eventAddresses,
     searchType: searchType,
@@ -364,8 +369,8 @@ async function searchOtherRelaysInBackground(
   const otherRelays = new NDKRelaySet(
     new Set(Array.from(ndk.pool.relays.values()).filter((relay: any) => {
       if (searchType === 'n') {
-        // For profile searches, exclude profile relay from fallback search
-        return relay.url !== profileRelay && relay.url !== profileRelay + '/';
+        // For profile searches, exclude profile relays from fallback search
+        return !profileRelays.some(profileRelay => relay.url === profileRelay || relay.url === profileRelay + '/');
       } else {
         // For other searches, exclude community relay from fallback search
         return relay.url !== communityRelay && relay.url !== communityRelay + '/';
@@ -525,9 +530,9 @@ function processTTagEoseResults(searchState: any): SearchResult {
   }
   
   return {
-    events: [],
+    events: searchState.tTagEvents,
     secondOrder: [],
-    tTagEvents: searchState.tTagEvents,
+    tTagEvents: [],
     eventIds: new Set(),
     addresses: new Set(),
     searchType: 't',
@@ -564,87 +569,87 @@ async function performSecondOrderSearchInBackground(
   try {
     const ndk = get(ndkInstance);
     let allSecondOrderEvents: NDKEvent[] = [];
-    
-    if (searchType === 'n' && targetPubkey) {
-      // Search for events that mention this pubkey via p-tags
-      const pTagFilter = { "#p": [targetPubkey] };
-      const pTagEvents = await ndk.fetchEvents(
-        pTagFilter,
-        { closeOnEose: true },
-        new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
-      );
-      
-      // Filter out emoji reactions
-      const filteredEvents = Array.from(pTagEvents).filter(event => !isEmojiReaction(event));
-      allSecondOrderEvents = [...allSecondOrderEvents, ...filteredEvents];
-      
-    } else if (searchType === 'd') {
-      // Search for events that reference the original events via e-tags and a-tags
-      
-      // Search for events that reference the original events via e-tags
-      if (eventIds.size > 0) {
-        const eTagFilter = { "#e": Array.from(eventIds) };
-        const eTagEvents = await ndk.fetchEvents(
-          eTagFilter,
+
+    // Set a timeout for second-order search
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Second-order search timeout')), TIMEOUTS.SECOND_ORDER_SEARCH);
+    });
+
+    const searchPromise = (async () => {
+      if (searchType === 'n' && targetPubkey) {
+        // Search for events that mention this pubkey via p-tags
+        const pTagFilter = { '#p': [targetPubkey] };
+        const pTagEvents = await ndk.fetchEvents(
+          pTagFilter,
           { closeOnEose: true },
           new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
         );
-        
+        // Filter out emoji reactions
+        const filteredEvents = Array.from(pTagEvents).filter(event => !isEmojiReaction(event));
+        allSecondOrderEvents = [...allSecondOrderEvents, ...filteredEvents];
+      } else if (searchType === 'd') {
+        // Parallel fetch for #e and #a tag events
+        const relaySet = new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk);
+        const [eTagEvents, aTagEvents] = await Promise.all([
+          eventIds.size > 0
+            ? ndk.fetchEvents(
+                { '#e': Array.from(eventIds) },
+                { closeOnEose: true },
+                relaySet
+              )
+            : Promise.resolve([]),
+          addresses.size > 0
+            ? ndk.fetchEvents(
+                { '#a': Array.from(addresses) },
+                { closeOnEose: true },
+                relaySet
+              )
+            : Promise.resolve([]),
+        ]);
         // Filter out emoji reactions
         const filteredETagEvents = Array.from(eTagEvents).filter(event => !isEmojiReaction(event));
-        allSecondOrderEvents = [...allSecondOrderEvents, ...filteredETagEvents];
-      }
-      
-      // Search for events that reference the original events via a-tags
-      if (addresses.size > 0) {
-        const aTagFilter = { "#a": Array.from(addresses) };
-        const aTagEvents = await ndk.fetchEvents(
-          aTagFilter,
-          { closeOnEose: true },
-          new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
-        );
-        
-        // Filter out emoji reactions
         const filteredATagEvents = Array.from(aTagEvents).filter(event => !isEmojiReaction(event));
-        allSecondOrderEvents = [...allSecondOrderEvents, ...filteredATagEvents];
+        allSecondOrderEvents = [...allSecondOrderEvents, ...filteredETagEvents, ...filteredATagEvents];
       }
-    }
-    
-    // Deduplicate by event ID
-    const uniqueSecondOrder = new Map<string, NDKEvent>();
-    allSecondOrderEvents.forEach(event => {
-      if (event.id) {
-        uniqueSecondOrder.set(event.id, event);
+
+      // Deduplicate by event ID
+      const uniqueSecondOrder = new Map<string, NDKEvent>();
+      allSecondOrderEvents.forEach(event => {
+        if (event.id) {
+          uniqueSecondOrder.set(event.id, event);
+        }
+      });
+
+      let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
+
+      // Remove any events already in first order
+      const firstOrderIds = new Set(firstOrderEvents.map(e => e.id));
+      deduplicatedSecondOrder = deduplicatedSecondOrder.filter(e => !firstOrderIds.has(e.id));
+
+      // Sort by creation date (newest first) and limit to newest results
+      const sortedSecondOrder = deduplicatedSecondOrder
+        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+        .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+
+      // Update the search results with second-order events
+      const result: SearchResult = {
+        events: firstOrderEvents,
+        secondOrder: sortedSecondOrder,
+        tTagEvents: [],
+        eventIds: searchType === 'n' ? new Set(firstOrderEvents.map(p => p.id)) : eventIds,
+        addresses: searchType === 'n' ? new Set() : addresses,
+        searchType: searchType,
+        searchTerm: '' // This will be set by the caller
+      };
+
+      // Notify UI of updated results
+      if (callbacks?.onSecondOrderUpdate) {
+        callbacks.onSecondOrderUpdate(result);
       }
-    });
-    
-    let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
-    
-    // Remove any events already in first order
-    const firstOrderIds = new Set(firstOrderEvents.map(e => e.id));
-    deduplicatedSecondOrder = deduplicatedSecondOrder.filter(e => !firstOrderIds.has(e.id));
-    
-    // Sort by creation date (newest first) and limit to newest results
-    const sortedSecondOrder = deduplicatedSecondOrder
-      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-      .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
-    
-    // Update the search results with second-order events
-    const result: SearchResult = {
-      events: firstOrderEvents,
-      secondOrder: sortedSecondOrder,
-      tTagEvents: [],
-      eventIds: searchType === 'n' ? new Set(firstOrderEvents.map(p => p.id)) : eventIds,
-      addresses: searchType === 'n' ? new Set() : addresses,
-      searchType: searchType,
-      searchTerm: '' // This will be set by the caller
-    };
-    
-    // Notify UI of updated results
-    if (callbacks?.onSecondOrderUpdate) {
-      callbacks.onSecondOrderUpdate(result);
-    }
-    
+    })();
+
+    // Race between search and timeout
+    await Promise.race([searchPromise, timeoutPromise]);
   } catch (err) {
     console.error(`[Search] Error in second-order ${searchType}-tag search:`, err);
   }

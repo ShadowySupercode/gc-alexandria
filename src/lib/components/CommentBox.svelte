@@ -4,7 +4,7 @@
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
-  import type { NostrProfile } from "$lib/utils/search_utility";
+  import type { NostrProfile, ProfileSearchResult } from "$lib/utils/search_utility";
 
   import { userPubkey } from '$lib/stores/authStore.Svelte';
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -16,12 +16,6 @@
     publishEvent,
     navigateToEvent,
   } from "$lib/utils/nostrEventService";
-  import { get } from 'svelte/store';
-  import { ndkInstance } from '$lib/ndk';
-  import type NDK from '@nostr-dev-kit/ndk';
-  import { NDKRelaySet } from '@nostr-dev-kit/ndk';
-  import { NDKRelay } from '@nostr-dev-kit/ndk';
-  import { communityRelay } from '$lib/consts';
   import { tick } from 'svelte';
   import { goto } from "$app/navigation";
 
@@ -263,14 +257,25 @@
       return;
     }
     
+    console.log('Starting search for:', mentionSearch.trim());
+    
     // Set loading state
     mentionLoading = true;
     isSearching = true;
     
     try {
+      console.log('Search promise created, waiting for result...');
       const result = await searchProfiles(mentionSearch.trim());
+      console.log('Search completed, found profiles:', result.profiles.length);
+      console.log('Profile details:', result.profiles);
+      console.log('Community status:', result.Status);
+      
+      // Update state
       mentionResults = result.profiles;
       communityStatus = result.Status;
+      
+      console.log('State updated - mentionResults length:', mentionResults.length);
+      console.log('State updated - communityStatus keys:', Object.keys(communityStatus));
     } catch (error) {
       console.error('Error searching mentions:', error);
       mentionResults = [];
@@ -278,6 +283,7 @@
     } finally {
       mentionLoading = false;
       isSearching = false;
+      console.log('Search finished - loading:', mentionLoading, 'searching:', isSearching);
     }
   }
 
@@ -383,6 +389,7 @@
       {#if mentionLoading}
         <div class="text-center py-4">Searching...</div>
       {:else if mentionResults.length > 0}
+        <div class="text-center py-2 text-xs text-gray-500">Found {mentionResults.length} results</div>
         <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
           <ul class="space-y-1 p-2">
             {#each mentionResults as profile}

@@ -4,6 +4,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { goto } from '$app/navigation';
 
   // isModal
   //  - don't show interactions in modal view
@@ -93,7 +94,11 @@
 {#if hashtags.length}
   <div class="tags my-2">
     {#each hashtags as tag}
-      <span class="text-sm">#{tag}</span>
+      <button
+        onclick={() => goto(`/events?t=${encodeURIComponent(tag)}`)}
+        class="text-sm hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer"
+        >#{tag}</button
+      >
     {/each}
   </div>
 {/if}

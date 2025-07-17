@@ -14,7 +14,10 @@ export const TIMEOUTS = {
   PROFILE_SEARCH: 15000,
   
   /** Timeout for subscription search operations */
-  SUBSCRIPTION_SEARCH: 30000,
+  SUBSCRIPTION_SEARCH: 10000,
+  
+  /** Timeout for second-order search operations */
+  SECOND_ORDER_SEARCH: 5000,
   
   /** Timeout for relay diagnostics */
   RELAY_DIAGNOSTICS: 5000,

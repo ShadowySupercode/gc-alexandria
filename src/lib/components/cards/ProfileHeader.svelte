@@ -156,12 +156,12 @@
                 <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
                 <dd class="break-all">
                   {#if id.link}
-                    <Button
-                      class="text-primary-700 dark:text-primary-200"
+                    <button
+                      class="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline hover:no-underline transition-colors"
                       onclick={() => navigateToIdentifier(id.link)}
                     >
                       {id.value}
-                    </Button>
+                    </button>
                   {:else}
                     {id.value}
                   {/if}

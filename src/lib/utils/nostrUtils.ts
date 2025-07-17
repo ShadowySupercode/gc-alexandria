@@ -156,12 +156,26 @@ export async function createProfileLinkWithVerification(
   const userRelays = Array.from(ndk.pool?.relays.values() || []).map(
     (r) => r.url,
   );
+  
+  // Filter out problematic relays
+  const filterProblematicRelays = (relays: string[]) => {
+    return relays.filter(relay => {
+      if (relay.includes('gitcitadel.nostr1.com')) {
+        console.info(`[nostrUtils.ts] Filtering out problematic relay: ${relay}`);
+        return false;
+      }
+      return true;
+    });
+  };
+  
   const allRelays = [
     ...standardRelays,
     ...userRelays,
     ...fallbackRelays,
   ].filter((url, idx, arr) => arr.indexOf(url) === idx);
-  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
+  
+  const filteredRelays = filterProblematicRelays(allRelays);
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(filteredRelays, ndk);
   const profileEvent = await ndk.fetchEvent(
     { kinds: [0], authors: [user.pubkey] },
     undefined,
@@ -272,26 +286,60 @@ export async function getNpubFromNip05(nip05: string): Promise<string | null> {
       return null;
     }
 
-    // Fetch the well-known.json file
+    // Fetch the well-known.json file with timeout and CORS handling
     const url = wellKnownUrl(domain, name);
     
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error('[getNpubFromNip05] HTTP error:', response.status, response.statusText);
-      return null;
-    }
-
-    const data = await response.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
     
-    const pubkey = data.names?.[name];
-    if (!pubkey) {
-      console.error('[getNpubFromNip05] No pubkey found for name:', name);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error('[getNpubFromNip05] HTTP error:', response.status, response.statusText);
+        return null;
+      }
+
+      const data = await response.json();
+      
+      // Try exact match first
+      let pubkey = data.names?.[name];
+      
+      // If not found, try case-insensitive search
+      if (!pubkey && data.names) {
+        const names = Object.keys(data.names);
+        const matchingName = names.find(n => n.toLowerCase() === name.toLowerCase());
+        if (matchingName) {
+          pubkey = data.names[matchingName];
+          console.log(`[getNpubFromNip05] Found case-insensitive match: ${name} -> ${matchingName}`);
+        }
+      }
+      
+      if (!pubkey) {
+        console.error('[getNpubFromNip05] No pubkey found for name:', name);
+        return null;
+      }
+
+      // Convert pubkey to npub
+      const npub = nip19.npubEncode(pubkey);
+      return npub;
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.warn('[getNpubFromNip05] Request timeout for:', url);
+      } else {
+        console.warn('[getNpubFromNip05] CORS or network error for:', url);
+      }
       return null;
     }
-
-    // Convert pubkey to npub
-    const npub = nip19.npubEncode(pubkey);
-    return npub;
   } catch (error) {
     console.error("[getNpubFromNip05] Error getting npub from nip05:", error);
     return null;
@@ -366,6 +414,7 @@ export async function fetchEventWithFallback(
     ? Array.from(ndk.pool?.relays.values() || [])
         .filter((r) => r.status === 1) // Only use connected relays
         .map((r) => r.url)
+        .filter(url => !url.includes('gitcitadel.nostr1.com')) // Filter out problematic relay
     : [];
 
   // Determine which relays to use based on user authentication status
