@@ -6,4 +6,10 @@ export type Tab = {
   data?: any;
 };
 
-export type TabType = 'welcome' | 'find' | 'article' | 'user' | 'settings' | 'editor';
+export type TabType =
+  | "welcome"
+  | "find"
+  | "article"
+  | "user"
+  | "settings"
+  | "editor";

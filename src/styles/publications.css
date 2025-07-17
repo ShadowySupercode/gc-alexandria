@@ -1,288 +1,288 @@
 @layer components {
-    /* AsciiDoc content */
-    .publication-leather p a {
-        @apply underline hover:text-primary-500 dark:hover:text-primary-400;
-    }
+  /* AsciiDoc content */
+  .publication-leather p a {
+    @apply underline hover:text-primary-600 dark:hover:text-primary-400;
+  }
 
-    .publication-leather section p {
-        @apply w-full;
-    }
+  .publication-leather section p {
+    @apply w-full;
+  }
 
-    .publication-leather section p table {
-        @apply w-full table-fixed space-x-2 space-y-2;
-    }
+  .publication-leather section p table {
+    @apply w-full table-fixed space-x-2 space-y-2;
+  }
 
-    .publication-leather section p table td {
-        @apply p-2;
-    }
+  .publication-leather section p table td {
+    @apply p-2;
+  }
 
-    .publication-leather section p table td .content:has(> .imageblock) {
-        @apply flex flex-col items-center;
-    }
+  .publication-leather section p table td .content:has(> .imageblock) {
+    @apply flex flex-col items-center;
+  }
 
-    .publication-leather .imageblock {
-        @apply flex flex-col space-y-2;
-    }
+  .publication-leather .imageblock {
+    @apply flex flex-col space-y-2;
+  }
 
-    .publication-leather .imageblock .content {
-        @apply flex justify-center;
-    }
-    .publication-leather .imageblock .title {
-        @apply text-center;
-    }
+  .publication-leather .imageblock .content {
+    @apply flex justify-center;
+  }
+  .publication-leather .imageblock .title {
+    @apply text-center;
+  }
 
-    .publication-leather .imageblock.left .content {
-        @apply justify-start;
-    }
-    .publication-leather .imageblock.left .title {
-        @apply text-left;
-    }
+  .publication-leather .imageblock.left .content {
+    @apply justify-start;
+  }
+  .publication-leather .imageblock.left .title {
+    @apply text-left;
+  }
 
-    .publication-leather .imageblock.right .content {
-        @apply justify-end;
-    }
-    .publication-leather .imageblock.right .title {
-        @apply text-right;
-    }
+  .publication-leather .imageblock.right .content {
+    @apply justify-end;
+  }
+  .publication-leather .imageblock.right .title {
+    @apply text-right;
+  }
 
-    .publication-leather section p table td .literalblock {
-        @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
-    }
+  .publication-leather section p table td .literalblock {
+    @apply my-2 p-2 border rounded border-gray-400 dark:border-gray-600;
+  }
 
-    .publication-leather .literalblock pre {
-        @apply p-3 text-wrap break-words;
-    }
+  .publication-leather .literalblock pre {
+    @apply p-3 text-wrap break-words;
+  }
 
-    .publication-leather .listingblock pre {
-        @apply overflow-x-auto;
-    }
+  .publication-leather .listingblock pre {
+    @apply overflow-x-auto;
+  }
 
-    /* lists */
-    .publication-leather .ulist ul {
-        @apply space-y-1 list-disc list-inside;
-    }
+  /* lists */
+  .publication-leather .ulist ul {
+    @apply space-y-1 list-disc list-inside;
+  }
 
-    .publication-leather .olist ol {
-        @apply space-y-1 list-inside;
-    }
+  .publication-leather .olist ol {
+    @apply space-y-1 list-inside;
+  }
 
-    .publication-leather ol.arabic {
-        @apply list-decimal;
-    }
+  .publication-leather ol.arabic {
+    @apply list-decimal;
+  }
 
-    .publication-leather ol.loweralpha {
-        @apply list-lower-alpha;
-    }
+  .publication-leather ol.loweralpha {
+    @apply list-lower-alpha;
+  }
 
-    .publication-leather ol.upperalpha {
-        @apply list-upper-alpha;
-    }
+  .publication-leather ol.upperalpha {
+    @apply list-upper-alpha;
+  }
 
-    .publication-leather li ol,
-    .publication-leather li ul {
-        @apply ps-5 my-2;
-    }
+  .publication-leather li ol,
+  .publication-leather li ul {
+    @apply ps-5 my-2;
+  }
 
-    .audioblock .title,
-    .imageblock .title,
-    .literalblock .title,
-    .tableblock .title,
-    .videoblock .title,
-    .olist .title,
-    .ulist .title {
-        @apply my-2 font-thin text-lg;
-    }
+  .audioblock .title,
+  .imageblock .title,
+  .literalblock .title,
+  .tableblock .title,
+  .videoblock .title,
+  .olist .title,
+  .ulist .title {
+    @apply my-2 font-thin text-lg;
+  }
 
-    .publication-leather li p {
-        @apply inline;
-    }
+  .publication-leather li p {
+    @apply inline;
+  }
 
-    /* blockquote; prose and poetry quotes */
-    .publication-leather .quoteblock,
-    .publication-leather .verseblock {
-        @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
-    }
+  /* blockquote; prose and poetry quotes */
+  .publication-leather .quoteblock,
+  .publication-leather .verseblock {
+    @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
+  }
 
-    .publication-leather .verseblock pre.content {
-        @apply text-base font-sans overflow-x-scroll py-1;
-    }
+  .publication-leather .verseblock pre.content {
+    @apply text-base font-sans overflow-x-scroll py-1;
+  }
 
-    .publication-leather .attribution {
-        @apply mt-3 italic clear-both;
-    }
+  .publication-leather .attribution {
+    @apply mt-3 italic clear-both;
+  }
 
-    .publication-leather cite {
-        @apply text-sm;
-    }
+  .publication-leather cite {
+    @apply text-sm;
+  }
 
-    .leading-normal.first-letter\:text-7xl .quoteblock {
-        min-height: 108px;
-    }
+  .leading-normal.first-letter\:text-7xl .quoteblock {
+    min-height: 108px;
+  }
 
-    /* admonition */
-    .publication-leather .admonitionblock .title {
-        @apply font-semibold;
-    }
+  /* admonition */
+  .publication-leather .admonitionblock .title {
+    @apply font-semibold;
+  }
 
-    .publication-leather .admonitionblock table {
-        @apply w-full border-collapse;
-    }
+  .publication-leather .admonitionblock table {
+    @apply w-full border-collapse;
+  }
 
-    .publication-leather .admonitionblock tr {
-        @apply flex flex-col border-none;
-    }
+  .publication-leather .admonitionblock tr {
+    @apply flex flex-col border-none;
+  }
 
-    .publication-leather .admonitionblock td {
-        @apply border-none;
-    }
+  .publication-leather .admonitionblock td {
+    @apply border-none;
+  }
 
-    .publication-leather .admonitionblock p:has(code) {
-        @apply my-3;
-    }
+  .publication-leather .admonitionblock p:has(code) {
+    @apply my-3;
+  }
 
-    .publication-leather .admonitionblock {
-        @apply rounded overflow-hidden border;
-    }
+  .publication-leather .admonitionblock {
+    @apply rounded overflow-hidden border;
+  }
 
-    .publication-leather .admonitionblock .icon,
-    .publication-leather .admonitionblock .content {
-        @apply p-4;
-    }
+  .publication-leather .admonitionblock .icon,
+  .publication-leather .admonitionblock .content {
+    @apply p-4;
+  }
 
-    .publication-leather .admonitionblock .content {
-        @apply pt-0;
-    }
+  .publication-leather .admonitionblock .content {
+    @apply pt-0;
+  }
 
-    .publication-leather .admonitionblock.tip {
-        @apply rounded overflow-hidden border border-success-100 dark:border-success-800;
-    }
+  .publication-leather .admonitionblock.tip {
+    @apply rounded overflow-hidden border border-success-100 dark:border-success-800;
+  }
 
-    .publication-leather .admonitionblock.tip .icon,
-    .publication-leather .admonitionblock.tip .content {
-        @apply bg-success-100 dark:bg-success-800;
-    }
+  .publication-leather .admonitionblock.tip .icon,
+  .publication-leather .admonitionblock.tip .content {
+    @apply bg-success-100 dark:bg-success-800;
+  }
 
-    .publication-leather .admonitionblock.note {
-        @apply rounded overflow-hidden border border-info-100 dark:border-info-700;
-    }
+  .publication-leather .admonitionblock.note {
+    @apply rounded overflow-hidden border border-info-100 dark:border-info-700;
+  }
 
-    .publication-leather .admonitionblock.note .icon,
-    .publication-leather .admonitionblock.note .content {
-        @apply bg-info-100 dark:bg-info-800;
-    }
+  .publication-leather .admonitionblock.note .icon,
+  .publication-leather .admonitionblock.note .content {
+    @apply bg-info-100 dark:bg-info-800;
+  }
 
-    .publication-leather .admonitionblock.important {
-        @apply rounded overflow-hidden border border-primary-200 dark:border-primary-700;
-    }
+  .publication-leather .admonitionblock.important {
+    @apply rounded overflow-hidden border border-primary-200 dark:border-primary-700;
+  }
 
-    .publication-leather .admonitionblock.important .icon,
-    .publication-leather .admonitionblock.important .content {
-        @apply bg-primary-200 dark:bg-primary-700;
-    }
+  .publication-leather .admonitionblock.important .icon,
+  .publication-leather .admonitionblock.important .content {
+    @apply bg-primary-200 dark:bg-primary-700;
+  }
 
-    .publication-leather .admonitionblock.caution {
-        @apply rounded overflow-hidden border border-warning-200 dark:border-warning-700;
-    }
+  .publication-leather .admonitionblock.caution {
+    @apply rounded overflow-hidden border border-warning-200 dark:border-warning-700;
+  }
 
-    .publication-leather .admonitionblock.caution .icon,
-    .publication-leather .admonitionblock.caution .content {
-        @apply bg-warning-200 dark:bg-warning-700;
-    }
+  .publication-leather .admonitionblock.caution .icon,
+  .publication-leather .admonitionblock.caution .content {
+    @apply bg-warning-200 dark:bg-warning-700;
+  }
 
-    .publication-leather .admonitionblock.warning {
-        @apply rounded overflow-hidden border border-danger-200 dark:border-danger-800;
-    }
+  .publication-leather .admonitionblock.warning {
+    @apply rounded overflow-hidden border border-danger-200 dark:border-danger-800;
+  }
 
-    .publication-leather .admonitionblock.warning .icon,
-    .publication-leather .admonitionblock.warning .content {
-        @apply bg-danger-200 dark:bg-danger-800;
-    }
+  .publication-leather .admonitionblock.warning .icon,
+  .publication-leather .admonitionblock.warning .content {
+    @apply bg-danger-200 dark:bg-danger-800;
+  }
 
-    /* listingblock, literalblock */
-    .publication-leather .listingblock,
-    .publication-leather .literalblock {
-        @apply p-4 rounded  bg-highlight dark:bg-primary-700;
-    }
+  /* listingblock, literalblock */
+  .publication-leather .listingblock,
+  .publication-leather .literalblock {
+    @apply p-4 rounded  bg-highlight dark:bg-primary-700;
+  }
 
-    .publication-leather .sidebarblock .title,
-    .publication-leather .listingblock .title,
-    .publication-leather .literalblock .title {
-        @apply font-semibold mb-1;
-    }
+  .publication-leather .sidebarblock .title,
+  .publication-leather .listingblock .title,
+  .publication-leather .literalblock .title {
+    @apply font-semibold mb-1;
+  }
 
-    /* sidebar */
-    .publication-leather .sidebarblock {
-        @apply p-4 rounded bg-info-100 dark:bg-info-800;
-    }
+  /* sidebar */
+  .publication-leather .sidebarblock {
+    @apply p-4 rounded bg-info-100 dark:bg-info-800;
+  }
 
-    /* video */
-    .videoblock .content {
-        @apply w-full aspect-video;
-    }
+  /* video */
+  .videoblock .content {
+    @apply w-full aspect-video;
+  }
 
-    .videoblock .content iframe,
-    .videoblock .content video {
-        @apply w-full h-full;
-    }
+  .videoblock .content iframe,
+  .videoblock .content video {
+    @apply w-full h-full;
+  }
 
-    /* audio */
-    .audioblock .content {
-        @apply my-3;
-    }
+  /* audio */
+  .audioblock .content {
+    @apply my-3;
+  }
 
-    .audioblock .content audio {
-        @apply w-full;
-    }
+  .audioblock .content audio {
+    @apply w-full;
+  }
 
-    .coverImage {
-        @apply max-h-[230px] overflow-hidden;
-    }
+  .coverImage {
+    @apply max-h-[230px] overflow-hidden;
+  }
 
-    .coverImage.depth-0 {
-        @apply max-h-[460px] overflow-hidden;
-    }
+  .coverImage.depth-0 {
+    @apply max-h-[460px] overflow-hidden;
+  }
 
-    .coverImage img {
-        @apply object-contain w-full;
-    }
+  .coverImage img {
+    @apply object-contain w-full;
+  }
 
-    .coverImage.depth-0 img {
-        @apply m-auto w-auto;
-    }
+  .coverImage.depth-0 img {
+    @apply m-auto w-auto;
+  }
 
-    /** blog */
-    @screen lg {
-        @media (hover: hover) {
-            .blog .discreet .card-leather:not(:hover) {
-                @apply bg-primary-50 dark:bg-primary-1000 opacity-75 transition duration-500 ease-in-out ;
-            }
-            .blog .discreet .group {
-                @apply bg-transparent;
-            }
-        }
+  /** blog */
+  @screen lg {
+    @media (hover: hover) {
+      .blog .discreet .card-leather:not(:hover) {
+        @apply bg-primary-50 dark:bg-primary-1000 opacity-75 transition duration-500 ease-in-out;
+      }
+      .blog .discreet .group {
+        @apply bg-transparent;
+      }
     }
+  }
 
-    /* Discrete headers */
-    h3.discrete,
-    h4.discrete,
-    h5.discrete,
-    h6.discrete {
-        @apply text-gray-800 dark:text-gray-300;
-    }
+  /* Discrete headers */
+  h3.discrete,
+  h4.discrete,
+  h5.discrete,
+  h6.discrete {
+    @apply text-gray-800 dark:text-gray-300;
+  }
 
-    h3.discrete {
-        @apply text-2xl font-bold;
-    }
+  h3.discrete {
+    @apply text-2xl font-bold;
+  }
 
-    h4.discrete {
-        @apply text-xl font-bold;
-    }
+  h4.discrete {
+    @apply text-xl font-bold;
+  }
 
-    h5.discrete {
-        @apply text-lg font-semibold;
-    }
+  h5.discrete {
+    @apply text-lg font-semibold;
+  }
 
-    h6.discrete {
-        @apply text-base font-semibold;
-    }
+  h6.discrete {
+    @apply text-base font-semibold;
+  }
 }

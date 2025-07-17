@@ -1,15 +1,19 @@
-This is a test
-============
+# This is a test
 
 ### Disclaimer
 
-It is _only_ a test, for __sure__. I just wanted to see if the markup renders correctly on the page, even if I use **two asterisks** for bold text, instead of *one asterisk*.[^1]
+It is _only_ a test, for **sure**. I just wanted to see if the markup renders correctly on the page, even if I use **two asterisks** for bold text, instead of _one asterisk_.[^1]
 
 # H1
+
 ## H2
+
 ### H3
+
 #### H4
+
 ##### H5
+
 ###### H6
 
 This file is full of ~errors~ opportunities to ~~mess up the formatting~~ check your markup parser.
@@ -24,51 +28,49 @@ npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That
 > lines of
 > important information
 > with a second[^2] footnote.
-[^2]: This is a "Test" of a longer footnote-reference, placed inline, including some punctuation. 1984.
+> [^2]: This is a "Test" of a longer footnote-reference, placed inline, including some punctuation. 1984.
 
-This is a youtube link 
+This is a youtube link
 https://www.youtube.com/watch?v=9aqVxNCpx9s
 
 And here is a link with tracking tokens:
 https://arstechnica.com/science/2019/07/new-data-may-extend-norse-occupancy-in-north-america/?fbclid=IwAR1LOW3BebaMLinfkWFtFpzkLFi48jKNF7P6DV2Ux2r3lnT6Lqj6eiiOZNU
 
 This is an unordered list:
-* but
-* not
-* really
+
+- but
+- not
+- really
 
 This is an unordered list with nesting:
-* but
-  * not
-    * really
-* but
-  * yes,
-    * really
-    
+
+- but
+  - not
+    - really
+- but
+  - yes,
+    - really
+
 ## More testing
 
 An ordered list:
+
 1. first
 2. second
 3. third
 
 Let's nest that:
-1. first
-   2. second indented
-3. third
-   4. fourth indented
-      5. fifth indented even more
-   6. sixth under the fourth
-   7. seventh under the sixth
-8. eighth under the third
+
+1. first 2. second indented
+2. third 4. fourth indented 5. fifth indented even more 6. sixth under the fourth 7. seventh under the sixth
+3. eighth under the third
 
 This is ordered and unordered mixed:
-1. first
-   2. second indented
-3. third
-   * make this a bullet point
-      4. fourth indented even more
-   * second bullet point
+
+1. first 2. second indented
+2. third
+   - make this a bullet point 4. fourth indented even more
+   - second bullet point
 
 Here is a horizontal rule:
 
@@ -130,13 +132,31 @@ in a code block
 
 You can even use a multi-line code block, with a json tag.
 
-```json
+````json
 {
-"created_at":1745038670,"content":"# This is a test\n\nIt is _only_ a test. I just wanted to see if the *markup* renders correctly on the page, even if I use **two asterisks** for bold text.[^1]\n\nnpub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.\n\n> This is important information\n\n> This is multiple\n> lines of\n> important information\n> with a second[^2] footnote.\n\n* but\n* not\n* really\n\n## More testing\n\n1. first\n2. second\n3. third\n\nHere is a horizontal rule:\n\n---\n\nThis is an implementation of [Nostr-flavored markup](github.com/nostrability/nostrability/issues/146 ) for #gitstuff issue notes.\n\nYou can even include `code inline` or\n\n```\nin a code block\n```\n\nYou can even use a \n\n```json\nmultiline of json block\n```\n\n\n![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)\n\n[^1]: this is a footnote\n[^2]: so is this","tags":[["subject","test"],["alt","git repository issue: test"],["a","30617:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:Alexandria","","root"],["p","fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1"],["t","gitstuff"]],"kind":1621,"pubkey":"dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319","id":"e78a689369511fdb3c36b990380c2d8db2b5e62f13f6b836e93ef5a09611afe8","sig":"7a2b3a6f6f61b6ea04de1fe873e46d40f2a220f02cdae004342430aa1df67647a9589459382f22576c651b3d09811546bbd79564cf472deaff032f137e94a865"
+  "created_at": 1745038670,
+  "content": "# This is a test\n\nIt is _only_ a test. I just wanted to see if the *markup* renders correctly on the page, even if I use **two asterisks** for bold text.[^1]\n\nnpub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z wrote this. That's the same person as nostr:npub1l5sga6xg72phsz5422ykujprejwud075ggrr3z2hwyrfgr7eylqstegx9z. That is a different person from npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz.\n\n> This is important information\n\n> This is multiple\n> lines of\n> important information\n> with a second[^2] footnote.\n\n* but\n* not\n* really\n\n## More testing\n\n1. first\n2. second\n3. third\n\nHere is a horizontal rule:\n\n---\n\nThis is an implementation of [Nostr-flavored markup](github.com/nostrability/nostrability/issues/146 ) for #gitstuff issue notes.\n\nYou can even include `code inline` or\n\n```\nin a code block\n```\n\nYou can even use a \n\n```json\nmultiline of json block\n```\n\n\n![Nostr logo](https://user-images.githubusercontent.com/99301796/219900773-d6d02038-e2a0-4334-9f28-c14d40ab6fe7.png)\n\n[^1]: this is a footnote\n[^2]: so is this",
+  "tags": [
+    ["subject", "test"],
+    ["alt", "git repository issue: test"],
+    [
+      "a",
+      "30617:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:Alexandria",
+      "",
+      "root"
+    ],
+    ["p", "fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1"],
+    ["t", "gitstuff"]
+  ],
+  "kind": 1621,
+  "pubkey": "dd664d5e4016433a8cd69f005ae1480804351789b59de5af06276de65633d319",
+  "id": "e78a689369511fdb3c36b990380c2d8db2b5e62f13f6b836e93ef5a09611afe8",
+  "sig": "7a2b3a6f6f61b6ea04de1fe873e46d40f2a220f02cdae004342430aa1df67647a9589459382f22576c651b3d09811546bbd79564cf472deaff032f137e94a865"
 }
-```
+````
 
 C or C++:
+
 ```cpp
 bool getBit(int num, int i) {
     return ((num & (1<<i)) != 0);
@@ -144,20 +164,22 @@ bool getBit(int num, int i) {
 ```
 
 Asciidoc:
+
 ```adoc
 = Header 1
 
 preamble goes here
 
-== Header 2 
+== Header 2
 
 some more text
 ```
 
 Gherkin:
+
 ```gherkin
 Feature: Account Holder withdraws cash
- 
+
 Scenario: Account has sufficient funds
     Given The account balance is $100
       And the card is valid
@@ -169,6 +191,7 @@ Scenario: Account has sufficient funds
 ```
 
 Go:
+
 ```go
 package main
 
@@ -190,17 +213,16 @@ package main
 or even markup:
 
 ```md
-A H1 Header
-============
+# A H1 Header
 
 Paragraphs are separated by a blank line.
 
-2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists
+2nd paragraph. _Italic_, **bold**, and `monospace`. Itemized lists
 look like:
 
-  * this one[^some reference text]
-  * that one
-  * the other one
+- this one[^some reference text]
+- that one
+- the other one
 
 Note that --- not considering the asterisk --- the actual text
 content starts at 4-columns in.
@@ -222,17 +244,17 @@ Test out some emojis :heart: and :trophy:
 
 A neat table[^some reference text]:
 
-| Syntax      | Description |
-| ----------- | ----------- |
-| Header      | Title       |
-| Paragraph   | Text        |
+| Syntax    | Description |
+| --------- | ----------- |
+| Header    | Title       |
+| Paragraph | Text        |
 
 A messy table (should render the same as above):
 
-| Syntax | Description |
-| --- | ----------- |
-| Header | Title |
-| Paragraph | Text |
+| Syntax    | Description |
+| --------- | ----------- |
+| Header    | Title       |
+| Paragraph | Text        |
 
 Here is a table without a header row:
 
@@ -240,5 +262,6 @@ Here is a table without a header row:
 | need a | header |
 | just | pipes |
 
-[^1]: this is a footnote
-[^some reference text]: this is a footnote that isn't a number
+[^1]:
+    this is a footnote
+    [^some reference text]: this is a footnote that isn't a number

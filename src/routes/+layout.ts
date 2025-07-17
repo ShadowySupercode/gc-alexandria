@@ -1,15 +1,21 @@
-import { feedTypeStorageKey } from '$lib/consts';
-import { FeedType } from '$lib/consts';
-import { getPersistedLogin, initNdk, loginWithExtension, ndkInstance } from '$lib/ndk';
-import Pharos, { pharosInstance } from '$lib/parser';
-import { feedType } from '$lib/stores';
-import type { LayoutLoad } from './$types';
+import { feedTypeStorageKey } from "$lib/consts";
+import { FeedType } from "$lib/consts";
+import {
+  getPersistedLogin,
+  initNdk,
+  loginWithExtension,
+  ndkInstance,
+} from "$lib/ndk";
+import Pharos, { pharosInstance } from "$lib/parser";
+import { feedType } from "$lib/stores";
+import type { LayoutLoad } from "./$types";
 
 export const ssr = false;
 
 export const load: LayoutLoad = () => {
-  const initialFeedType = localStorage.getItem(feedTypeStorageKey) as FeedType
-    ?? FeedType.StandardRelays;
+  const initialFeedType =
+    (localStorage.getItem(feedTypeStorageKey) as FeedType) ??
+    FeedType.StandardRelays;
   feedType.set(initialFeedType);
 
   const ndk = initNdk();
@@ -26,7 +32,9 @@ export const load: LayoutLoad = () => {
       loginWithExtension(pubkey);
     }
   } catch (e) {
-    console.warn(`Failed to login with extension: ${e}\n\nContinuing with anonymous session.`);
+    console.warn(
+      `Failed to login with extension: ${e}\n\nContinuing with anonymous session.`,
+    );
   }
 
   const parser = new Pharos(ndk);
