@@ -55,10 +55,9 @@
       Each content section (30041 or 30818) is also a level in the table of
       contents, which can be accessed from the floating icon top-left in the
       reading view. This allows for navigation within the publication.
-      Publications of type "blog" have a ToC which emphasizes that each entry
-      is a blog post.
-      
-      (This functionality has been temporarily disabled, but the TOC is visible.)
+      Publications of type "blog" have a ToC which emphasizes that each entry is
+      a blog post. (This functionality has been temporarily disabled, but the
+      TOC is visible.)
     </P>
 
     <div class="flex flex-col items-center space-y-4 my-4">

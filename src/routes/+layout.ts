@@ -11,8 +11,9 @@ import { get } from 'svelte/store';
 export const ssr = false;
 
 export const load: LayoutLoad = () => {
-  const initialFeedType = localStorage.getItem(feedTypeStorageKey) as FeedType
-    ?? FeedType.StandardRelays;
+  const initialFeedType =
+    (localStorage.getItem(feedTypeStorageKey) as FeedType) ??
+    FeedType.StandardRelays;
   feedType.set(initialFeedType);
 
   const ndk = initNdk();

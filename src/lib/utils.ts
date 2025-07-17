@@ -12,11 +12,11 @@ export function neventEncode(event: NDKEvent, relays: string[]) {
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = getMatchingTags(event, 'd')[0]?.[1];
+  const dTag = getMatchingTags(event, "d")[0]?.[1];
   if (!dTag) {
-    throw new Error('Event does not have a d tag');
+    throw new Error("Event does not have a d tag");
   }
-  
+
   return nip19.naddrEncode({
     identifier: dTag,
     pubkey: event.pubkey,
@@ -110,16 +110,14 @@ export function isElementInViewport(el: string | HTMLElement) {
 export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
   // The filter object supports only limited parameters, so we need to filter out events that
   // don't respect NKBIP-01.
-  events.forEach(event => {
+  events.forEach((event) => {
     // Index events have no content, and they must have `title`, `d`, and `e` tags.
     if (
-      (event.content != null && event.content.length > 0)
-      || getMatchingTags(event, 'title').length === 0
-      || getMatchingTags(event, 'd').length === 0
-      || (
-        getMatchingTags(event, 'a').length === 0
-        && getMatchingTags(event, 'e').length === 0
-      )
+      (event.content != null && event.content.length > 0) ||
+      getMatchingTags(event, "title").length === 0 ||
+      getMatchingTags(event, "d").length === 0 ||
+      (getMatchingTags(event, "a").length === 0 &&
+        getMatchingTags(event, "e").length === 0)
     ) {
       events.delete(event);
     }
@@ -138,7 +136,7 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
  */
 export async function findIndexAsync<T>(
   array: T[],
-  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
 ): Promise<number> {
   for (let i = 0; i < array.length; i++) {
     if (await predicate(array[i], i, array)) {
@@ -152,14 +150,14 @@ export async function findIndexAsync<T>(
 declare global {
   interface Array<T> {
     findIndexAsync(
-      predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+      predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
     ): Promise<number>;
   }
 }
 
-Array.prototype.findIndexAsync = function<T>(
+Array.prototype.findIndexAsync = function <T>(
   this: T[],
-  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
 ): Promise<number> {
   return findIndexAsync(this, predicate);
 };
@@ -173,7 +171,7 @@ Array.prototype.findIndexAsync = function<T>(
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 

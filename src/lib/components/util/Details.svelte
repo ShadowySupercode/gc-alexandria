@@ -3,7 +3,7 @@
   import CardActions from "$components/util/CardActions.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
+  import { getMatchingTags } from "$lib/utils/nostrUtils";
 
   // isModal
   //  - don't show interactions in modal view
@@ -11,6 +11,9 @@
   let { event, isModal = false } = $props();
 
   let title: string = $derived(getMatchingTags(event, 'title')[0]?.[1]);
+  let author: string = $derived(
+    getMatchingTags(event, "author")[0]?.[1] ?? "unknown",
+  );
   let version: string = $derived(getMatchingTags(event, 'version')[0]?.[1] ?? '1');
   let image: string = $derived(getMatchingTags(event, 'image')[0]?.[1] ?? null);
   let summary: string = $derived(getMatchingTags(event, 'summary')[0]?.[1] ?? null);
@@ -25,29 +28,36 @@
 
   let authorTag: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? '');
   let pTag: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? '');
+  let originalAuthor: string = $derived(
+    getMatchingTags(event, "p")[0]?.[1] ?? null,
+  );
 
   function isValidNostrPubkey(str: string): boolean {
     return /^[a-f0-9]{64}$/i.test(str) || (str.startsWith('npub1') && str.length >= 59 && str.length <= 63);
   }
-
 </script>
-
 
 <div class="flex flex-col relative mb-2">
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
       <!-- Index author badge -->
-      <P class='text-base font-normal'>{@render userBadge(event.pubkey, '')}</P>
-      <CardActions event={event}></CardActions>
+      <P class='text-base font-normal'>{@render userBadge(event.pubkey, author)}</P>
+      <CardActions {event}></CardActions>
     </div>
   {/if}
-  <div class="flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-center">
+  <div
+    class="flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-center"
+  >
     {#if image}
       <div class="my-2">
-        <img class="w-full md:max-w-48 object-contain rounded" alt={title} src={image} />
+        <img
+          class="w-full md:max-w-48 object-contain rounded"
+          alt={title}
+          src={image}
+        />
       </div>
     {/if}
-    <div class="space-y-4  my-4">
+    <div class="space-y-4 my-4">
       <h1 class="text-3xl font-bold">{title}</h1>
       <h2 class="text-base font-bold">
         by
@@ -57,14 +67,18 @@
           {authorTag}
         {:else if pTag && isValidNostrPubkey(pTag)}
           {@render userBadge(pTag, '')}
-        {:else if authorTag}
-          {authorTag}
+        {:else if originalAuthor !== null}
+          {@render userBadge(originalAuthor, author)}
         {:else}
           unknown
         {/if}
       </h2>
-      {#if version !== '1' }
-        <h4 class="text-base font-thin">Version: {version}</h4>
+      {#if version !== "1"}
+        <h4
+          class="text-base font-medium text-primary-700 dark:text-primary-300"
+        >
+          Version: {version}
+        </h4>
       {/if}
     </div>
   </div>
@@ -72,7 +86,7 @@
 
 {#if summary}
   <div class="flex flex-row my-2">
-    <p class='text-base text-primary-900 dark:text-highlight'>{summary}</p>
+    <p class="text-base text-primary-900 dark:text-highlight">{summary}</p>
   </div>
 {/if}
 
@@ -86,7 +100,7 @@
 
 {#if isModal}
   <div class="flex flex-row my-4">
-    <h4 class='text-base font-normal mt-2'>
+    <h4 class="text-base font-normal mt-2">
       {#if kind === 30040}
         <span>Index author:</span>
       {:else}
@@ -96,10 +110,13 @@
     </h4>
   </div>
 
-
   <div class="flex flex-col pb-4 space-y-1">
     {#if source !== null}
-      <h5 class="text-sm">Source: <a class="underline break-all" href={source} target="_blank">{source}</a></h5>
+      <h5 class="text-sm">
+        Source: <a class="underline break-all" href={source} target="_blank"
+          >{source}</a
+        >
+      </h5>
     {/if}
     {#if type !== null}
       <h5 class="text-sm">Publication type: {type}</h5>
@@ -117,5 +134,5 @@
 {/if}
 
 {#if !isModal}
-  <Interactions event={event} rootId={rootId} direction="row"/>
+  <Interactions {event} {rootId} direction="row" />
 {/if}

@@ -54,6 +54,6 @@
       {/await}
     {/if}
   {:else}
-    {displayText ?? ''}
+    {displayText ?? ""}
   {/if}
 {/snippet}
