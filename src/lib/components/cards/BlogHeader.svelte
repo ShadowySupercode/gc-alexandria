@@ -68,7 +68,7 @@
         class="ArticleBoxImage flex justify-center items-center p-2 h-40 -mt-2"
         in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
       >
-        {#if image && active}
+        {#if image}
           <LazyImage 
             src={image} 
             alt={title || "Publication image"}
