@@ -36,9 +36,9 @@ export const lowbandwidthRelays = [
   "wss://aggr.nostr.land"
 ];
 
-export const localRelays = [
-  "wss://localhost:8080",
-  "wss://localhost:4869"
+export const localRelays: string[] = [
+  // "wss://localhost:8080",
+  // "wss://localhost:4869"
 ];
 
 export enum FeedType {

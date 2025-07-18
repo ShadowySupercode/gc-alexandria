@@ -162,7 +162,20 @@ export async function loginWithExtension() {
   const signer = new NDKNip07Signer();
   const user = await signer.user();
   const npub = user.npub;
-  const profile = await getUserMetadata(npub);
+  
+  // Try to fetch user metadata, but don't fail if it times out
+  let profile: NostrProfile | null = null;
+  try {
+    profile = await getUserMetadata(npub);
+  } catch (error) {
+    console.warn("Failed to fetch user metadata during login:", error);
+    // Continue with login even if metadata fetch fails
+    profile = {
+      name: npub.slice(0, 8) + "..." + npub.slice(-4),
+      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+    };
+  }
+  
   // Fetch user's preferred relays
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {

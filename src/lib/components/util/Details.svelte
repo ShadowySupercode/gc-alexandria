@@ -5,6 +5,8 @@
   import { P } from "flowbite-svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { goto } from "$app/navigation";
+  import LazyImage from "$components/util/LazyImage.svelte";
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
 
   // isModal
   //  - don't show interactions in modal view
@@ -68,15 +70,22 @@
   <div
     class="flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-center"
   >
-    {#if image}
-      <div class="my-2">
-        <img
-          class="w-full md:max-w-48 object-contain rounded"
-          alt={title}
+    <div class="my-2">
+      {#if image}
+        <LazyImage
           src={image}
+          alt={title}
+          eventId={event.id}
+          className="w-full md:max-w-48 object-contain rounded"
         />
-      </div>
-    {/if}
+      {:else}
+        <div 
+          class="w-full md:max-w-48 h-32 object-contain rounded"
+          style="background-color: {generateDarkPastelColor(event.id)};"
+        >
+        </div>
+      {/if}
+    </div>
     <div class="space-y-4 my-4">
       <h1 class="text-3xl font-bold">{title}</h1>
       <h2 class="text-base font-bold">

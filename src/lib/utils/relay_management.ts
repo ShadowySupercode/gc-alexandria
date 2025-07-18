@@ -147,19 +147,30 @@ function ensureSecureWebSocket(url: string): string {
 async function testLocalRelays(localRelayUrls: string[], ndk: NDK): Promise<string[]> {
   const workingRelays: string[] = [];
   
+  if (localRelayUrls.length === 0) {
+    return workingRelays;
+  }
+  
+  console.debug(`[relay_management.ts] Testing ${localRelayUrls.length} local relays...`);
+  
   await Promise.all(
     localRelayUrls.map(async (url) => {
       try {
         const result = await testRelayConnection(url, ndk);
         if (result.connected) {
           workingRelays.push(url);
+          console.debug(`[relay_management.ts] Local relay connected: ${url}`);
+        } else {
+          console.debug(`[relay_management.ts] Local relay failed: ${url} - ${result.error}`);
         }
       } catch (error) {
-        // Silently ignore local relay failures
+        // Silently ignore local relay failures - they're optional
+        console.debug(`[relay_management.ts] Local relay error (ignored): ${url}`);
       }
     })
   );
   
+  console.debug(`[relay_management.ts] Found ${workingRelays.length} working local relays`);
   return workingRelays;
 }
 
@@ -170,6 +181,12 @@ async function testLocalRelays(localRelayUrls: string[], ndk: NDK): Promise<stri
  */
 export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
   try {
+    // If no local relays are configured, return empty array
+    if (localRelays.length === 0) {
+      console.debug('[relay_management.ts] No local relays configured');
+      return [];
+    }
+    
     // Convert wss:// URLs from consts to ws:// for local testing
     const localRelayUrls = localRelays.map(url => 
       url.replace(/^wss:\/\//, 'ws://')

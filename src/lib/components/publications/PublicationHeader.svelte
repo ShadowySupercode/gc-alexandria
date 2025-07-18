@@ -2,9 +2,11 @@
   import { naddrEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { activeInboxRelays } from "$lib/ndk";
-  import { Card, Img } from "flowbite-svelte";
+  import { Card } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import LazyImage from "$components/util/LazyImage.svelte";
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -40,17 +42,24 @@
 
 {#if title != null && href != null}
   <Card class="ArticleBox card-leather max-w-md h-48 flex flex-row space-x-2 relative">
-    {#if image}
-      <div
-        class="flex-shrink-0 w-32 h-40 overflow-hidden rounded flex items-center justify-center p-2 -mt-2"
-      >
-        <Img 
+    <div
+      class="flex-shrink-0 w-32 h-40 overflow-hidden rounded flex items-center justify-center p-2 -mt-2"
+    >
+      {#if image}
+        <LazyImage 
           src={image} 
-          class="w-full h-full object-cover" 
           alt={title || "Publication image"}
+          eventId={event.id}
+          className="w-full h-full object-cover"
         />
-      </div>
-    {/if}
+      {:else}
+        <div 
+          class="w-full h-full rounded"
+          style="background-color: {generateDarkPastelColor(event.id)};"
+        >
+        </div>
+      {/if}
+    </div>
     
     <div class="flex flex-col flex-grow space-x-2">
       <div class="flex flex-col flex-grow">

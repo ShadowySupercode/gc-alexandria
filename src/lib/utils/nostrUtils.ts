@@ -426,12 +426,18 @@ export async function fetchEventWithFallback(
   // Use the active inbox relays from the relay management system
   const inboxRelays = get(activeInboxRelays);
   
+  // Check if we have any relays available
+  if (inboxRelays.length === 0) {
+    console.warn("No inbox relays available for event fetch");
+    return null;
+  }
+  
   // Create relay set from active inbox relays
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(inboxRelays, ndk);
 
   try {
     if (relaySet.relays.size === 0) {
-      console.warn("No inbox relays available for event fetch");
+      console.warn("No relays in relay set for event fetch");
       return null;
     }
 
@@ -467,7 +473,15 @@ export async function fetchEventWithFallback(
     // Always wrap as NDKEvent
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
-    console.error("Error in fetchEventWithFallback:", err);
+    if (err instanceof Error && err.message === 'Timeout') {
+      const timeoutSeconds = timeoutMs / 1000;
+      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
+      console.warn(
+        `Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+      );
+    } else {
+      console.error("Error in fetchEventWithFallback:", err);
+    }
     return null;
   }
 }

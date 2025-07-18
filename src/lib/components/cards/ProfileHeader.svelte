@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { Card, Img, Modal, Button, P } from "flowbite-svelte";
+  import { Card, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils.ts";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import LazyImage from "$components/util/LazyImage.svelte";
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import {
     lnurlpWellKnownUrl,
     checkCommunity,
@@ -62,18 +64,22 @@
 {#if profile}
   <Card class="ArticleBox card-leather w-full max-w-2xl">
     <div class="space-y-4">
-      {#if profile.banner}
-        <div class="ArticleBoxImage flex col justify-center">
-          <Img
+      <div class="ArticleBoxImage flex col justify-center">
+        {#if profile.banner}
+          <LazyImage
             src={profile.banner}
-            class="rounded w-full max-h-72 object-cover"
             alt="Profile banner"
-            onerror={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
+            eventId={event.id}
+            className="rounded w-full max-h-72 object-cover"
           />
-        </div>
-      {/if}
+        {:else}
+          <div 
+            class="rounded w-full max-h-72"
+            style="background-color: {generateDarkPastelColor(event.id)};"
+          >
+          </div>
+        {/if}
+      </div>
       <div class="flex flex-row space-x-4 items-center">
         {#if profile.picture}
           <img
