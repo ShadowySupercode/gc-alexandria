@@ -246,8 +246,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     async tryMoveTo(address?: string) {
       if (!address) {
         const startEvent = await this.#tree.#depthFirstRetrieve();
+        if (!startEvent) {
+          return false;
+        }
         this.target = await this.#tree.#nodes
-          .get(startEvent!.tagAddress())
+          .get(startEvent.tagAddress())
           ?.value();
       } else {
         this.target = await this.#tree.#nodes.get(address)?.value();
@@ -424,8 +427,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   ): Promise<IteratorResult<NDKEvent | null>> {
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
+        return this.#yieldEventAtCursor(false);
       }
     }
 
@@ -440,7 +442,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   async #yieldEventAtCursor(
     done: boolean,
   ): Promise<IteratorResult<NDKEvent | null>> {
-    const value = (await this.getEvent(this.#cursor.target!.address)) ?? null;
+    if (!this.#cursor.target) {
+      return { done, value: null };
+    }
+    const value = (await this.getEvent(this.#cursor.target.address)) ?? null;
     return { done, value };
   }
 
@@ -471,7 +476,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
           continue;
         }
 
-        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+        if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
           return { done: false, value: null };
         }
 
@@ -479,7 +484,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     } while (this.#cursor.tryMoveToParent());
 
-    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+    if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
       return { done: false, value: null };
     }
 
@@ -518,7 +523,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
     } while (this.#cursor.tryMoveToParent());
 
-    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+    if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
       return { done: false, value: null };
     }
 
