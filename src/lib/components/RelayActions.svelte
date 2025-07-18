@@ -55,7 +55,7 @@
           const relaySet = createRelaySetFromUrls([relay], ndk);
           const found = await ndk
             .fetchEvent({ ids: [event?.id || ""] }, undefined, relaySet)
-            .withTimeout(3000);
+            .withTimeout(2000);
           relaySearchResults = {
             ...relaySearchResults,
             [relay]: found ? "found" : "notfound",

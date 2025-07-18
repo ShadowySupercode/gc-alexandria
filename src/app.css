@@ -159,6 +159,10 @@
     @apply bg-primary-100 dark:bg-primary-800;
   }
 
+  div.skeleton-leather {
+    @apply h-48;
+  }
+
   div.textarea-leather {
     @apply bg-primary-0 dark:bg-primary-1000;
   }
@@ -246,7 +250,7 @@
   }
 
   .ArticleBox.grid.active .ArticleBoxImage {
-    @apply max-h-72;
+    @apply max-h-40;
   }
 
   .tags span {

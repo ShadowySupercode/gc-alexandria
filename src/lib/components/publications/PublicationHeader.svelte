@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { ndkInstance } from "$lib/ndk";
   import { naddrEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-  import { communityRelays } from "../../consts";
+  import { activeInboxRelays } from "$lib/ndk";
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -41,34 +39,43 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class="ArticleBox card-leather max-w-md flex flex-row space-x-2">
+  <Card class="ArticleBox card-leather max-w-md h-48 flex flex-row space-x-2 relative">
     {#if image}
       <div
-        class="flex col justify-center align-middle max-h-36 max-w-24 overflow-hidden"
+        class="flex-shrink-0 w-32 h-40 overflow-hidden rounded flex items-center justify-center p-2 -mt-2"
       >
-        <Img src={image} class="rounded w-full h-full object-cover" />
+        <Img 
+          src={image} 
+          class="w-full h-full object-cover" 
+          alt={title || "Publication image"}
+        />
       </div>
     {/if}
-    <div class="col flex flex-row flex-grow space-x-4">
+    
+    <div class="flex flex-col flex-grow space-x-2">
       <div class="flex flex-col flex-grow">
-        <a href="/{href}" class="flex flex-col space-y-2">
-          <h2 class="text-lg font-bold line-clamp-2" {title}>{title}</h2>
-          <h3 class="text-base font-normal">
-            by
-            {#if authorPubkey != null}
-              {@render userBadge(authorPubkey, author)}
-            {:else}
-              {author}
-            {/if}
-          </h3>
+        <a href="/{href}" class="flex flex-col space-y-2 h-full">
+          <div class="flex-grow pt-2">
+            <h2 class="text-lg font-bold line-clamp-2" {title}>{title}</h2>
+            <h3 class="text-base font-normal mt-2">
+              by
+              {#if authorPubkey != null}
+                {@render userBadge(authorPubkey, author)}
+              {:else}
+                {author}
+              {/if}
+            </h3>
+          </div>
           {#if version != "1"}
-            <h3 class="text-base font-thin">version: {version}</h3>
+            <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto">version: {version}</h3>
           {/if}
         </a>
       </div>
-      <div class="flex flex-col justify-start items-center">
-        <CardActions {event} />
-      </div>
+    </div>
+    
+    <!-- Position CardActions at bottom-right -->
+    <div class="absolute bottom-2 right-2">
+      <CardActions {event} />
     </div>
   </Card>
 {/if}

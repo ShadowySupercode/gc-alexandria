@@ -137,9 +137,10 @@
       allRelays.map((r: string) => [r, "pending"]),
     );
     let allEvents: NDKEvent[] = [];
+    const eventMap = new Map<string, NDKEvent>();
 
     // Helper to fetch from a single relay with timeout
-    async function fetchFromRelay(relay: string): Promise<NDKEvent[]> {
+    async function fetchFromRelay(relay: string): Promise<void> {
       try {
         console.debug(`[PublicationFeed] Fetching from relay: ${relay}`);
         const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
@@ -156,57 +157,60 @@
             },
             relaySet,
           )
-          .withTimeout(10000); // Increased timeout to 10 seconds
+          .withTimeout(5000); // Reduced timeout to 5 seconds for faster response
         
         console.debug(`[PublicationFeed] Raw events from ${relay}:`, eventSet.size);
         eventSet = filterValidIndexEvents(eventSet);
         console.debug(`[PublicationFeed] Valid events from ${relay}:`, eventSet.size);
         
         relayStatuses = { ...relayStatuses, [relay]: "found" };
-        return Array.from(eventSet);
+        
+        // Add new events to the map and update the view immediately
+        const newEvents: NDKEvent[] = [];
+        for (const event of eventSet) {
+          const tagAddress = event.tagAddress();
+          if (!eventMap.has(tagAddress)) {
+            eventMap.set(tagAddress, event);
+            newEvents.push(event);
+          }
+        }
+        
+        if (newEvents.length > 0) {
+          // Update allIndexEvents with new events
+          allIndexEvents = Array.from(eventMap.values());
+          // Sort by created_at descending
+          allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+          
+          // Update the view immediately with new events
+          eventsInView = allIndexEvents.slice(0, 30);
+          endOfFeed = allIndexEvents.length <= 30;
+          
+          console.debug(`[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`);
+        }
       } catch (err) {
         console.error(`[PublicationFeed] Error fetching from relay ${relay}:`, err);
         relayStatuses = { ...relayStatuses, [relay]: "notfound" };
-        return [];
       }
     }
 
-    // Fetch from all relays in parallel, do not block on any single relay
+    // Fetch from all relays in parallel, return events as they arrive
     console.debug(`[PublicationFeed] Starting fetch from ${allRelays.length} relays`);
-    const results = await Promise.allSettled(allRelays.map(fetchFromRelay));
     
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        allEvents = allEvents.concat(result.value);
-      }
-    }
+    // Start all relay fetches in parallel
+    const fetchPromises = allRelays.map(fetchFromRelay);
     
-    console.debug(`[PublicationFeed] Total events fetched:`, allEvents.length);
+    // Wait for all to complete (but events are shown as they arrive)
+    await Promise.allSettled(fetchPromises);
     
-    // Deduplicate by tagAddress
-    const eventMap = new Map(
-      allEvents.map((event) => [event.tagAddress(), event]),
-    );
-    allIndexEvents = Array.from(eventMap.values());
-    console.debug(`[PublicationFeed] Events after deduplication:`, allIndexEvents.length);
+    console.debug(`[PublicationFeed] All relays completed, final event count:`, allIndexEvents.length);
     
-    // Sort by created_at descending
-    allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
-
     // Cache the fetched events
     indexEventCache.set(allRelays, allIndexEvents);
 
-    // Initially show first page
+    // Final update to ensure we have the latest view
     eventsInView = allIndexEvents.slice(0, 30);
     endOfFeed = allIndexEvents.length <= 30;
     loading = false;
-    
-    console.debug(`[PublicationFeed] Final state:`, {
-      totalEvents: allIndexEvents.length,
-      eventsInView: eventsInView.length,
-      endOfFeed,
-      loading
-    });
   }
 
   // Function to filter events based on search query
@@ -332,7 +336,7 @@
   }
 
   function getSkeletonIds(): string[] {
-    const skeletonHeight = 124; // The height of the skeleton component in pixels.
+    const skeletonHeight = 192; // The height of the card component in pixels (h-48 = 12rem = 192px).
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
     const skeletonIds = [];
     for (let i = 0; i < skeletonCount; i++) {

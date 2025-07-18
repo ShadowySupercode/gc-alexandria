@@ -8,8 +8,7 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { communityRelays, secondaryRelays, FeedType } from "$lib/consts";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays } from "$lib/ndk";
 import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";

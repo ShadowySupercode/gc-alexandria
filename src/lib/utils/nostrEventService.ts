@@ -1,6 +1,5 @@
 import { nip19 } from "nostr-tools";
 import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils";
-import { communityRelays, secondaryRelays } from "$lib/consts";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import type { NDKEvent } from "./nostrUtils";
@@ -381,7 +380,7 @@ export async function publishEvent(
 
   try {
     // Publish with timeout
-    await event.publish(relaySet).withTimeout(10000);
+    await event.publish(relaySet).withTimeout(5000);
     
     // For now, assume all relays were successful
     // In a more sophisticated implementation, you'd track individual relay responses
