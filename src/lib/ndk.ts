@@ -386,10 +386,13 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
  */
 export async function getActiveRelaySet(ndk: NDK): Promise<{ inboxRelays: string[]; outboxRelays: string[] }> {
   const user = get(userStore);
+  console.debug('[NDK.ts] getActiveRelaySet: User state:', { signedIn: user.signedIn, hasNdkUser: !!user.ndkUser, pubkey: user.pubkey });
   
   if (user.signedIn && user.ndkUser) {
+    console.debug('[NDK.ts] getActiveRelaySet: Building relay set for authenticated user:', user.ndkUser.pubkey);
     return await buildCompleteRelaySet(ndk, user.ndkUser);
   } else {
+    console.debug('[NDK.ts] getActiveRelaySet: Building relay set for anonymous user');
     return await buildCompleteRelaySet(ndk, null);
   }
 }
@@ -400,25 +403,33 @@ export async function getActiveRelaySet(ndk: NDK): Promise<{ inboxRelays: string
  */
 export async function updateActiveRelayStores(ndk: NDK): Promise<void> {
   try {
+    console.debug('[NDK.ts] updateActiveRelayStores: Starting relay store update');
+    
     // Get the active relay set from the relay management system
     const relaySet = await getActiveRelaySet(ndk);
+    console.debug('[NDK.ts] updateActiveRelayStores: Got relay set:', relaySet);
     
     // Update the stores with the new relay configuration
     activeInboxRelays.set(relaySet.inboxRelays);
     activeOutboxRelays.set(relaySet.outboxRelays);
+    console.debug('[NDK.ts] updateActiveRelayStores: Updated stores with inbox:', relaySet.inboxRelays.length, 'outbox:', relaySet.outboxRelays.length);
     
     // Add relays to NDK pool (deduplicated)
     const allRelayUrls = deduplicateRelayUrls([...relaySet.inboxRelays, ...relaySet.outboxRelays]);
+    console.debug('[NDK.ts] updateActiveRelayStores: Adding', allRelayUrls.length, 'relays to NDK pool');
+    
     for (const url of allRelayUrls) {
       try {
         const relay = createRelayWithAuth(url, ndk);
         ndk.pool?.addRelay(relay);
       } catch (error) {
-        // Silently ignore relay addition failures
+        console.debug('[NDK.ts] updateActiveRelayStores: Failed to add relay', url, ':', error);
       }
     }
+    
+    console.debug('[NDK.ts] updateActiveRelayStores: Relay store update completed');
   } catch (error) {
-    // Silently ignore relay store update errors
+    console.warn('[NDK.ts] updateActiveRelayStores: Error updating relay stores:', error);
   }
 }
 

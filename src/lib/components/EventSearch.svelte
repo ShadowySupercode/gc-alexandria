@@ -13,6 +13,8 @@
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import type { SearchResult } from '$lib/utils/search_types';
+  import { userStore } from "$lib/stores/userStore";
+  import { get } from "svelte/store";
 
   // Props definition
   let {
@@ -492,12 +494,25 @@
     
     // Wait for relays to be available (with timeout)
     let retryCount = 0;
-    const maxRetries = 10; // Wait up to 5 seconds (10 * 500ms)
+    const maxRetries = 20; // Wait up to 10 seconds (20 * 500ms) for user login to complete
     
     while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < maxRetries) {
       console.debug(`EventSearch: Waiting for relays... (attempt ${retryCount + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
       retryCount++;
+    }
+    
+    // Additional wait for user-specific relays if user is logged in
+    const currentUser = get(userStore);
+    if (currentUser.signedIn && currentUser.pubkey) {
+      console.debug(`EventSearch: User is logged in (${currentUser.pubkey}), waiting for user-specific relays...`);
+      retryCount = 0;
+      while ($activeOutboxRelays.length <= 9 && retryCount < maxRetries) {
+        // If we still have the default relay count (9), wait for user-specific relays
+        console.debug(`EventSearch: Waiting for user-specific relays... (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retryCount++;
+      }
     }
     
     // Check if we have any relays available

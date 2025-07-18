@@ -5,7 +5,7 @@ import { npubCache } from "./npubCache";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
 import { communityRelays, secondaryRelays, anonymousRelays } from "$lib/consts";
-import { activeInboxRelays } from "$lib/ndk";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
@@ -439,19 +439,22 @@ export async function fetchEventWithFallback(
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000,
 ): Promise<NDKEvent | null> {
-  // Use the active inbox relays from the relay management system
+  // Use both inbox and outbox relays for better event discovery
   const inboxRelays = get(activeInboxRelays);
+  const outboxRelays = get(activeOutboxRelays);
+  const allRelays = [...(inboxRelays || []), ...(outboxRelays || [])];
   
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
+  console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
   
   // Check if we have any relays available
-  if (inboxRelays.length === 0) {
-    console.warn("fetchEventWithFallback: No inbox relays available for event fetch");
+  if (allRelays.length === 0) {
+    console.warn("fetchEventWithFallback: No relays available for event fetch");
     return null;
   }
   
-  // Create relay set from active inbox relays
-  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(inboxRelays, ndk);
+  // Create relay set from all available relays
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
 
   try {
     if (relaySet.relays.size === 0) {

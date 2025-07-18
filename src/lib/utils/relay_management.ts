@@ -287,6 +287,7 @@ export async function getUserBlockedRelays(ndk: NDK, user: NDKUser): Promise<str
  */
 export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
+    console.debug('[relay_management.ts] Fetching outbox relays for user:', user.pubkey);
     const relayList = await ndk.fetchEvent(
       {
         kinds: [10002],
@@ -300,19 +301,82 @@ export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<stri
     );
 
     if (!relayList) {
+      console.debug('[relay_management.ts] No relay list found for user');
       return [];
     }
 
+    console.debug('[relay_management.ts] Found relay list event:', relayList.id);
+    console.debug('[relay_management.ts] Relay list tags:', relayList.tags);
+
     const outboxRelays: string[] = [];
     relayList.tags.forEach((tag) => {
+      console.debug('[relay_management.ts] Processing tag:', tag);
       if (tag[0] === 'w' && tag[1]) {
         outboxRelays.push(tag[1]);
+        console.debug('[relay_management.ts] Added outbox relay:', tag[1]);
+      } else if (tag[0] === 'r' && tag[1]) {
+        // Some relay lists use 'r' for both inbox and outbox
+        outboxRelays.push(tag[1]);
+        console.debug('[relay_management.ts] Added relay (r tag):', tag[1]);
+      } else {
+        console.debug('[relay_management.ts] Skipping tag:', tag[0], 'value:', tag[1]);
       }
     });
 
+    console.debug('[relay_management.ts] Final outbox relays:', outboxRelays);
     return outboxRelays;
   } catch (error) {
     console.info('[relay_management.ts] Error fetching user outbox relays:', error);
+    return [];
+  }
+}
+
+/**
+ * Gets browser extension's relay configuration by querying the extension directly
+ * @returns Promise that resolves to array of extension relay URLs
+ */
+export async function getExtensionRelays(): Promise<string[]> {
+  try {
+    // Check if we're in a browser environment with extension support
+    if (typeof window === 'undefined' || !window.nostr) {
+      console.debug('[relay_management.ts] No window.nostr available');
+      return [];
+    }
+
+    console.debug('[relay_management.ts] Extension available, checking for getRelays()');
+    const extensionRelays: string[] = [];
+    
+    // Try to get relays from the extension's API
+    // Different extensions may expose their relay config differently
+    if (window.nostr.getRelays) {
+      console.debug('[relay_management.ts] getRelays() method found, calling it...');
+      try {
+        const relays = await window.nostr.getRelays();
+        console.debug('[relay_management.ts] getRelays() returned:', relays);
+        if (relays && typeof relays === 'object') {
+          // Convert relay object to array of URLs
+          const relayUrls = Object.keys(relays);
+          extensionRelays.push(...relayUrls);
+          console.debug('[relay_management.ts] Got relays from extension:', relayUrls);
+        }
+      } catch (error) {
+        console.debug('[relay_management.ts] Extension getRelays() failed:', error);
+      }
+    } else {
+      console.debug('[relay_management.ts] getRelays() method not found on window.nostr');
+    }
+
+    // If getRelays() didn't work, try alternative methods
+    if (extensionRelays.length === 0) {
+      // Some extensions might expose relays through other methods
+      // This is a fallback for extensions that don't expose getRelays()
+      console.debug('[relay_management.ts] Extension does not expose relay configuration');
+    }
+
+    console.debug('[relay_management.ts] Final extension relays:', extensionRelays);
+    return extensionRelays;
+  } catch (error) {
+    console.debug('[relay_management.ts] Error getting extension relays:', error);
     return [];
   }
 }
@@ -361,37 +425,55 @@ export async function buildCompleteRelaySet(
   ndk: NDK,
   user: NDKUser | null
 ): Promise<{ inboxRelays: string[]; outboxRelays: string[] }> {
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Starting with user:', user?.pubkey || 'null');
+  
   // Discover local relays first
   const discoveredLocalRelays = await discoverLocalRelays(ndk);
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Discovered local relays:', discoveredLocalRelays);
 
   // Get user-specific relays if available
   let userOutboxRelays: string[] = [];
   let userLocalRelays: string[] = [];
   let blockedRelays: string[] = [];
+  let extensionRelays: string[] = [];
 
   if (user) {
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Fetching user-specific relays for:', user.pubkey);
+    
     try {
       userOutboxRelays = await getUserOutboxRelays(ndk, user);
+      console.debug('[relay_management.ts] buildCompleteRelaySet: User outbox relays:', userOutboxRelays);
     } catch (error) {
       console.debug('[relay_management.ts] Error fetching user outbox relays:', error);
     }
 
     try {
       userLocalRelays = await getUserLocalRelays(ndk, user);
+      console.debug('[relay_management.ts] buildCompleteRelaySet: User local relays:', userLocalRelays);
     } catch (error) {
       console.debug('[relay_management.ts] Error fetching user local relays:', error);
     }
 
     try {
       blockedRelays = await getUserBlockedRelays(ndk, user);
+      console.debug('[relay_management.ts] buildCompleteRelaySet: User blocked relays:', blockedRelays);
     } catch (error) {
       // Silently ignore blocked relay fetch errors
     }
+
+    try {
+      extensionRelays = await getExtensionRelays();
+      console.debug('[relay_management.ts] Extension relays gathered:', extensionRelays);
+    } catch (error) {
+      console.debug('[relay_management.ts] Error fetching extension relays:', error);
+    }
+  } else {
+    console.debug('[relay_management.ts] buildCompleteRelaySet: No user provided, skipping user-specific relays');
   }
 
   // Build initial relay sets and deduplicate
   const finalInboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...userLocalRelays]);
-  const finalOutboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...userOutboxRelays]);
+  const finalOutboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...userOutboxRelays, ...extensionRelays]);
 
   // Test relays and filter out non-working ones
   let testedInboxRelays: string[] = [];
@@ -441,5 +523,9 @@ export async function buildCompleteRelaySet(
     };
   }
 
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Final relay sets - inbox:', finalRelaySet.inboxRelays.length, 'outbox:', finalRelaySet.outboxRelays.length);
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Final inbox relays:', finalRelaySet.inboxRelays);
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Final outbox relays:', finalRelaySet.outboxRelays);
+  
   return finalRelaySet;
 } 

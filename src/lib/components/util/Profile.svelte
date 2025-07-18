@@ -114,12 +114,24 @@
     console.log("Profile component - activeInboxRelays:", inboxRelays);
   });
 
-  // Manual trigger to refresh profile when user signs in
+  // Track if we've already refreshed the profile for this session
+  let hasRefreshedProfile = $state(false);
+  
+  // Reset the refresh flag when user logs out
+  $effect(() => {
+    const currentUser = userState;
+    if (!currentUser.signedIn) {
+      hasRefreshedProfile = false;
+    }
+  });
+  
+  // Manual trigger to refresh profile when user signs in (only once)
   $effect(() => {
     const currentUser = userState;
     
-    if (currentUser.signedIn && currentUser.npub && !isRefreshingProfile) {
+    if (currentUser.signedIn && currentUser.npub && !isRefreshingProfile && !hasRefreshedProfile) {
       console.log("Profile: User signed in, triggering profile refresh...");
+      hasRefreshedProfile = true;
       // Add a small delay to ensure relays are ready
       setTimeout(() => {
         refreshProfile();
@@ -131,12 +143,13 @@
   $effect(() => {
     const currentUser = userState;
     
-    if (currentUser.signedIn && currentUser.npub && currentUser.loginMethod) {
+    if (currentUser.signedIn && currentUser.npub && currentUser.loginMethod && !isRefreshingProfile) {
       console.log("Profile: Login method detected:", currentUser.loginMethod);
       
       // If switching to read-only mode (npub), refresh profile
-      if (currentUser.loginMethod === "npub" && !isRefreshingProfile) {
+      if (currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
         console.log("Profile: Switching to read-only mode, refreshing profile...");
+        hasRefreshedProfile = true;
         setTimeout(() => {
           refreshProfile();
         }, 500);
@@ -150,12 +163,13 @@
   $effect(() => {
     const currentUser = userState;
     
-    if (currentUser.signedIn && currentUser.loginMethod !== previousLoginMethod) {
+    if (currentUser.signedIn && currentUser.loginMethod !== previousLoginMethod && !isRefreshingProfile) {
       console.log("Profile: Login method changed from", previousLoginMethod, "to", currentUser.loginMethod);
       
       // If switching from Amber to npub (read-only), refresh profile
-      if (previousLoginMethod === "amber" && currentUser.loginMethod === "npub") {
+      if (previousLoginMethod === "amber" && currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
         console.log("Profile: Switching from Amber to read-only mode, refreshing profile...");
+        hasRefreshedProfile = true;
         setTimeout(() => {
           refreshProfile();
         }, 1000);

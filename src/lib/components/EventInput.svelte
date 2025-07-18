@@ -16,6 +16,7 @@
   import { get } from "svelte/store";
   import { ndkInstance } from "$lib/ndk";
   import { userPubkey } from "$lib/stores/authStore.Svelte";
+  import { userStore } from "$lib/stores/userStore";
   import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
@@ -99,8 +100,12 @@
 
   function validate(): { valid: boolean; reason?: string } {
     const currentUserPubkey = get(userPubkey as any);
-    if (!currentUserPubkey) return { valid: false, reason: "Not logged in." };
-    const pubkey = String(currentUserPubkey);
+    const userState = get(userStore);
+    
+    // Try userPubkey first, then fallback to userStore
+    const pubkey = currentUserPubkey || userState.pubkey;
+    if (!pubkey) return { valid: false, reason: "Not logged in." };
+    
     if (!content.trim()) return { valid: false, reason: "Content required." };
     if (kind === 30023) {
       const v = validateNotAsciidoc(content);
@@ -137,14 +142,18 @@
     try {
       const ndk = get(ndkInstance);
       const currentUserPubkey = get(userPubkey as any);
-      if (!ndk || !currentUserPubkey) {
+      const userState = get(userStore);
+      
+      // Try userPubkey first, then fallback to userStore
+      const pubkey = currentUserPubkey || userState.pubkey;
+      if (!ndk || !pubkey) {
         error = "NDK or pubkey missing.";
         loading = false;
         return;
       }
-      const pubkey = String(currentUserPubkey);
+      const pubkeyString = String(pubkey);
 
-      if (!/^[a-fA-F0-9]{64}$/.test(pubkey)) {
+      if (!/^[a-fA-F0-9]{64}$/.test(pubkeyString)) {
         error = "Invalid public key: must be a 64-character hex string.";
         loading = false;
         return;
@@ -158,7 +167,7 @@
         return;
       }
 
-      const baseEvent = { pubkey, created_at: createdAt };
+      const baseEvent = { pubkey: pubkeyString, created_at: createdAt };
       let events: NDKEvent[] = [];
 
       console.log("Publishing event with kind:", kind);
@@ -235,7 +244,7 @@
           kind,
           content: prefixedContent,
           tags: eventTags,
-          pubkey,
+          pubkey: pubkeyString,
           created_at: createdAt,
         };
 
@@ -520,7 +529,7 @@
           Event ID: <span class="font-mono">{lastPublishedEventId}</span>
           <Button
             onclick={viewPublishedEvent}
-            class="text-primary-600 dark:text-primary-500 hover:underline ml-2"
+            class="text-blue-600 dark:text-blue-500 hover:underline ml-2"
           >
             View your event
           </Button>

@@ -8,9 +8,10 @@ import {
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "$lib/utils/nostrUtils";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "$lib/ndk";
 import { loginStorageKey } from "$lib/consts";
 import { nip19 } from "nostr-tools";
+import { userPubkey } from "$lib/stores/authStore.Svelte";
 
 export interface UserState {
   pubkey: string | null;
@@ -209,6 +210,15 @@ export async function loginWithExtension() {
   
   console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
+  
+  // Update relay stores with the new user's relays
+  try {
+    console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
+    await updateActiveRelayStores(ndk);
+  } catch (error) {
+    console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
+  }
+  
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "extension");
@@ -266,6 +276,16 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   
   console.log("Login with Amber - setting userStore with:", userState);
   userStore.set(userState);
+  userPubkey.set(user.pubkey);
+  
+  // Update relay stores with the new user's relays
+  try {
+    console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
+    await updateActiveRelayStores(ndk);
+  } catch (error) {
+    console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
+  }
+  
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "amber");
@@ -330,6 +350,16 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
+  userPubkey.set(user.pubkey);
+  
+  // Update relay stores with the new user's relays
+  try {
+    console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
+    await updateActiveRelayStores(ndk);
+  } catch (error) {
+    console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
+  }
+  
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "npub");
@@ -393,6 +423,7 @@ export function logoutUser() {
     signer: null,
     signedIn: false,
   });
+  userPubkey.set(null);
 
   const ndk = get(ndkInstance);
   if (ndk) {
