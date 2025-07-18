@@ -12,10 +12,11 @@
   import Self from "./TableOfContents.svelte";
   import { onMount, onDestroy } from "svelte";
 
-  let { depth, onSectionFocused } = $props<{
+  let { depth, onSectionFocused, onLoadMore } = $props<{
     rootAddress: string;
     depth: number;
     onSectionFocused?: (address: string) => void;
+    onLoadMore?: () => void;
   }>();
 
   let toc = getContext("toc") as TableOfContents;
@@ -58,6 +59,14 @@
     }
     
     onSectionFocused?.(address);
+    
+    // Check if this is the last entry and trigger loading more events
+    const currentEntries = entries;
+    const lastEntry = currentEntries[currentEntries.length - 1];
+    if (lastEntry && lastEntry.address === address) {
+      console.debug('[TableOfContents] Last entry clicked, triggering load more');
+      onLoadMore?.();
+    }
   }
 
   // Check if an entry is currently visible
@@ -145,27 +154,28 @@
 <!-- TODO: Figure out how to style indentations. -->
 <!-- TODO: Make group title fonts the same as entry title fonts. -->
 <SidebarGroup>
-  {#each entries as entry}
+  {#each entries as entry, index}
     {@const address = entry.address}
     {@const expanded = toc.expandedMap.get(address) ?? false}
     {@const isLeaf = toc.leaves.has(address)}
     {@const isVisible = isEntryVisible(address)}
+    {@const isLastEntry = index === entries.length - 1}
     {#if isLeaf}
       <SidebarItem
         label={entry.title}
         href={`#${address}`}
         spanClass="px-2 text-ellipsis"
-        class={isVisible ? "toc-highlight" : ""}
+        class={`${isVisible ? "toc-highlight" : ""} ${isLastEntry ? "pb-4" : ""}`}
         onclick={() => handleSectionClick(address)}
       />
     {:else}
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''}"
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} {isLastEntry ? 'pb-4' : ''}"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self rootAddress={address} depth={childDepth} {onSectionFocused} />
+        <Self rootAddress={address} depth={childDepth} {onSectionFocused} {onLoadMore} />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

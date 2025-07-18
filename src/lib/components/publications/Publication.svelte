@@ -182,7 +182,7 @@
       },
       { threshold: 0.5 },
     );
-    loadMore(8);
+    loadMore(12);
 
     return () => {
       observer.disconnect();
@@ -210,6 +210,11 @@
         depth={2}
         onSectionFocused={(address: string) =>
           publicationTree.setBookmark(address)}
+        onLoadMore={() => {
+          if (!isLoading && !isDone) {
+            loadMore(4);
+          }
+        }}
       />
     </Sidebar>
   {/if}

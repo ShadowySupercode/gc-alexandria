@@ -45,6 +45,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * A map of addresses in the tree to their corresponding events.
    */
   #events: Map<string, NDKEvent>;
+  
+  /**
+   * Simple cache for fetched events to avoid re-fetching.
+   */
+  #eventCache: Map<string, NDKEvent> = new Map();
 
   /**
    * An ordered list of the addresses of the leaves of the tree.
@@ -589,13 +594,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
 
       // Augment the tree with the children of the current event.
-      for (const childAddress of currentChildAddresses) {
-        if (this.#nodes.has(childAddress)) {
-          continue;
-        }
-
-        await this.#addNode(childAddress, currentNode!);
-      }
+      const childPromises = currentChildAddresses
+        .filter(childAddress => !this.#nodes.has(childAddress))
+        .map(childAddress => this.#addNode(childAddress, currentNode!));
+      
+      await Promise.all(childPromises);
 
       // Push the popped address's children onto the stack for the next iteration.
       while (currentChildAddresses.length > 0) {
@@ -630,12 +633,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     address: string,
     parentNode: PublicationTreeNode,
   ): Promise<PublicationTreeNode> {
-    const [kind, pubkey, dTag] = address.split(":");
-    const event = await this.#ndk.fetchEvent({
-      kinds: [parseInt(kind)],
-      authors: [pubkey],
-      "#d": [dTag],
-    });
+    // Check cache first
+    let event = this.#eventCache.get(address);
+    
+    if (!event) {
+      const [kind, pubkey, dTag] = address.split(":");
+      const fetchedEvent = await this.#ndk.fetchEvent({
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        "#d": [dTag],
+      });
+      
+      // Cache the event if found
+      if (fetchedEvent) {
+        this.#eventCache.set(address, fetchedEvent);
+        event = fetchedEvent;
+      }
+    }
 
     if (!event) {
       console.debug(
@@ -665,9 +679,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
-    for (const address of childAddresses) {
-      this.addEventByAddress(address, event);
-    }
+    const childPromises = childAddresses.map(address => 
+      this.addEventByAddress(address, event)
+    );
+    await Promise.all(childPromises);
 
     this.#nodeResolvedObservers.forEach((observer) => observer(address));
 
