@@ -1,11 +1,11 @@
-import { readable, writable } from "svelte/store";
-import { FeedType } from "./consts.ts";
+import { writable } from "svelte/store";
+
+// The old feedType store is no longer needed since we use the new relay management system
+// All relay selection is now handled by the activeInboxRelays and activeOutboxRelays stores in ndk.ts
 
 export let idList = writable<string[]>([]);
 
-export let alexandriaKinds = readable<number[]>([30040, 30041, 30818]);
-
-export let feedType = writable<FeedType>(FeedType.StandardRelays);
+export let alexandriaKinds = writable<number[]>([30040, 30041, 30818]);
 
 export interface PublicationLayoutVisibility {
   toc: boolean;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, Modal } from "flowbite-svelte";
-  import { ndkInstance } from "$lib/ndk";
+  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { get } from "svelte/store";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -11,7 +11,7 @@
     getConnectedRelays,
     getEventRelays,
   } from "./RelayDisplay.svelte";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
+  import { communityRelays, secondaryRelays } from "$lib/consts";
 
   const { event } = $props<{
     event: NDKEvent;
@@ -43,7 +43,7 @@
     const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(
       (r) => r.url,
     );
-    allRelays = [...standardRelays, ...userRelays, ...fallbackRelays].filter(
+    allRelays = [...$activeInboxRelays, ...$activeOutboxRelays, ...userRelays].filter(
       (url, idx, arr) => arr.indexOf(url) === idx,
     );
     relaySearchResults = Object.fromEntries(
@@ -108,7 +108,7 @@
   size="lg"
 >
   <div class="flex flex-col gap-4 max-h-96 overflow-y-auto">
-    {#each Object.entries( { "Standard Relays": standardRelays, "User Relays": Array.from($ndkInstance?.pool?.relays.values() || []).map((r) => r.url), "Fallback Relays": fallbackRelays }, ) as [groupName, groupRelays]}
+    {#each Object.entries( { "Active Inbox Relays": $activeInboxRelays, "Active Outbox Relays": $activeOutboxRelays }, ) as [groupName, groupRelays]}
       {#if groupRelays.length > 0}
         <div class="flex flex-col gap-2">
           <h3

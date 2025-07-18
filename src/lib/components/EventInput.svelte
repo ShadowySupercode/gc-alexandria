@@ -19,7 +19,7 @@
   import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { Button } from "flowbite-svelte";
   import { nip19 } from "nostr-tools";
   import { goto } from "$app/navigation";
@@ -292,7 +292,8 @@
             "wss://relay.damus.io",
             "wss://relay.nostr.band",
             "wss://nos.lol",
-            ...standardRelays,
+            ...$activeOutboxRelays,
+            ...$activeInboxRelays,
           ];
           let published = false;
 

@@ -2,7 +2,7 @@ import { ndkInstance } from "$lib/ndk";
 import { getUserMetadata, getNpubFromNip05 } from "$lib/utils/nostrUtils";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 import { searchCache } from "$lib/utils/searchCache";
-import { standardRelays, fallbackRelays } from "$lib/consts";
+import { communityRelays, secondaryRelays } from "$lib/consts";
 import { get } from "svelte/store";
 import type { NostrProfile, ProfileSearchResult } from "./search_types";
 import {
@@ -270,7 +270,7 @@ async function quickRelaySearch(
   console.log("Normalized search term for relay search:", normalizedSearchTerm);
 
   // Use all profile relays for better coverage
-  const quickRelayUrls = [...standardRelays, ...fallbackRelays]; // Use all available relays
+      const quickRelayUrls = [...communityRelays, ...secondaryRelays]; // Use all available relays
   console.log("Using all relays for search:", quickRelayUrls);
 
   // Create relay sets for parallel search

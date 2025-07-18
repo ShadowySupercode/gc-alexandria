@@ -4,7 +4,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
@@ -104,7 +104,7 @@
               id: "",
               sig: "",
             } as any;
-            const naddr = naddrEncode(mockEvent, standardRelays);
+            const naddr = naddrEncode(mockEvent, $activeInboxRelays);
             return `<a href='/events?id=${naddr}' class='underline text-primary-700'>a:${tag[1]}</a>`;
           } catch (error) {
             console.warn(
@@ -134,7 +134,7 @@
             pubkey: "",
             sig: "",
           } as any;
-          const nevent = neventEncode(mockEvent, standardRelays);
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return `<a href='/events?id=${nevent}' class='underline text-primary-700'>e:${tag[1]}</a>`;
         } catch (error) {
           console.warn(
@@ -160,7 +160,7 @@
             pubkey: "",
             sig: "",
           } as any;
-          const nevent = neventEncode(mockEvent, standardRelays);
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return `<a href='/events?id=${nevent}' class='underline text-primary-700'>note:${tag[1]}</a>`;
         } catch (error) {
           console.warn(
@@ -201,7 +201,7 @@
               id: "",
               sig: "",
             } as any;
-            const naddr = naddrEncode(mockEvent, standardRelays);
+            const naddr = naddrEncode(mockEvent, $activeInboxRelays);
             return {
               text: `a:${tag[1]}`,
               gotoValue: naddr,
@@ -230,7 +230,7 @@
             pubkey: "",
             sig: "",
           } as any;
-          const nevent = neventEncode(mockEvent, standardRelays);
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return {
             text: `e:${tag[1]}`,
             gotoValue: nevent,
@@ -261,7 +261,7 @@
             pubkey: "",
             sig: "",
           } as any;
-          const nevent = neventEncode(mockEvent, standardRelays);
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return {
             text: `note:${tag[1]}`,
             gotoValue: nevent,
@@ -288,6 +288,18 @@
       };
     }
     return { text: `${tag[0]}:${tag[1]}` };
+  }
+
+  function getNeventUrl(event: NDKEvent): string {
+    return neventEncode(event, $activeInboxRelays);
+  }
+
+  function getNaddrUrl(event: NDKEvent): string {
+    return naddrEncode(event, $activeInboxRelays);
+  }
+
+  function getNprofileUrl(pubkey: string): string {
+    return nprofileEncode(pubkey, $activeInboxRelays);
   }
 
   $effect(() => {
@@ -329,14 +341,14 @@
       // nprofile
       ids.push({
         label: "nprofile",
-        value: nprofileEncode(event.pubkey, standardRelays),
-        link: `/events?id=${nprofileEncode(event.pubkey, standardRelays)}`,
+        value: nprofileEncode(event.pubkey, $activeInboxRelays),
+        link: `/events?id=${nprofileEncode(event.pubkey, $activeInboxRelays)}`,
       });
       // nevent
       ids.push({
         label: "nevent",
-        value: neventEncode(event, standardRelays),
-        link: `/events?id=${neventEncode(event, standardRelays)}`,
+        value: neventEncode(event, $activeInboxRelays),
+        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
       });
       // hex pubkey
       ids.push({ label: "pubkey", value: event.pubkey });
@@ -344,12 +356,12 @@
       // nevent
       ids.push({
         label: "nevent",
-        value: neventEncode(event, standardRelays),
-        link: `/events?id=${neventEncode(event, standardRelays)}`,
+        value: neventEncode(event, $activeInboxRelays),
+        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
       });
       // naddr (if addressable)
       try {
-        const naddr = naddrEncode(event, standardRelays);
+        const naddr = naddrEncode(event, $activeInboxRelays);
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
       // hex id

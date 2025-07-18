@@ -1,11 +1,13 @@
 import { nip19 } from "nostr-tools";
 import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils";
-import { standardRelays, fallbackRelays } from "$lib/consts";
-import { userRelays } from "$lib/stores/relayStore";
+import { communityRelays, secondaryRelays } from "$lib/consts";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import type { NDKEvent } from "./nostrUtils";
 import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from "./search_constants";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import { ndkInstance } from "$lib/ndk";
+import { NDKRelaySet } from "@nostr-dev-kit/ndk";
 
 export interface RootEventInfo {
   rootId: string;
@@ -358,82 +360,44 @@ export async function createSignedEvent(
 }
 
 /**
- * Publish event to a single relay
- */
-async function publishToRelay(
-  relayUrl: string,
-  signedEvent: any,
-): Promise<void> {
-  const ws = new WebSocket(relayUrl);
-
-  return new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      ws.close();
-      reject(new Error("Timeout"));
-    }, TIMEOUTS.GENERAL);
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify(["EVENT", signedEvent]));
-    };
-
-    ws.onmessage = (e) => {
-      const [type, id, ok, message] = JSON.parse(e.data);
-      if (type === "OK" && id === signedEvent.id) {
-        clearTimeout(timeout);
-        if (ok) {
-          ws.close();
-          resolve();
-        } else {
-          ws.close();
-          reject(new Error(message));
-        }
-      }
-    };
-
-    ws.onerror = () => {
-      clearTimeout(timeout);
-      ws.close();
-      reject(new Error("WebSocket error"));
-    };
-  });
-}
-
-/**
- * Publish event to relays
+ * Publishes an event to relays using the new relay management system
+ * @param event The event to publish
+ * @param relayUrls Array of relay URLs to publish to
+ * @returns Promise that resolves to array of successful relay URLs
  */
 export async function publishEvent(
-  signedEvent: any,
-  useOtherRelays = false,
-  useFallbackRelays = false,
-  userRelayPreference = false,
-): Promise<EventPublishResult> {
-  // Determine which relays to use
-  let relays = userRelayPreference ? get(userRelays) : standardRelays;
-  if (useOtherRelays) {
-    relays = userRelayPreference ? standardRelays : get(userRelays);
-  }
-  if (useFallbackRelays) {
-    relays = fallbackRelays;
+  event: NDKEvent,
+  relayUrls: string[],
+): Promise<string[]> {
+  const successfulRelays: string[] = [];
+  const ndk = get(ndkInstance);
+
+  if (!ndk) {
+    throw new Error("NDK instance not available");
   }
 
-  // Try to publish to relays
-  for (const relayUrl of relays) {
-    try {
-      await publishToRelay(relayUrl, signedEvent);
-      return {
-        success: true,
-        relay: relayUrl,
-        eventId: signedEvent.id,
-      };
-    } catch (e) {
-      console.error(`Failed to publish to ${relayUrl}:`, e);
-    }
+  // Create relay set from URLs
+  const relaySet = NDKRelaySet.fromRelayUrls(relayUrls, ndk);
+
+  try {
+    // Publish with timeout
+    await event.publish(relaySet).withTimeout(10000);
+    
+    // For now, assume all relays were successful
+    // In a more sophisticated implementation, you'd track individual relay responses
+    successfulRelays.push(...relayUrls);
+    
+    console.debug("[nostrEventService] Published event successfully:", {
+      eventId: event.id,
+      relayCount: relayUrls.length,
+      successfulRelays
+    });
+  } catch (error) {
+    console.error("[nostrEventService] Failed to publish event:", error);
+    throw new Error(`Failed to publish event: ${error}`);
   }
 
-  return {
-    success: false,
-    error: "Failed to publish to any relays",
-  };
+  return successfulRelays;
 }
 
 /**

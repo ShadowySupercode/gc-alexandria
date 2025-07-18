@@ -11,10 +11,11 @@
     loginWithNpub,
     logoutUser,
   } from "$lib/stores/userStore";
-  import { get } from "svelte/store";
+
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import NetworkStatus from "./NetworkStatus.svelte";
 
   // UI state
   let isLoadingExtension: boolean = $state(false);
@@ -36,13 +37,16 @@
     }
   });
 
-  // Subscribe to userStore
-  let user = $state(get(userStore));
-  userStore.subscribe((val) => {
-    user = val;
+  // Use reactive user state from store
+  let user = $derived($userStore);
+
+  // Handle user state changes with effects
+  $effect(() => {
+    const currentUser = user;
+    
     // Check for fallback flag when user state changes to signed in
     if (
-      val.signedIn &&
+      currentUser.signedIn &&
       localStorage.getItem("alexandria/amber/fallback") === "1" &&
       !showAmberFallback
     ) {
@@ -53,7 +57,7 @@
     }
 
     // Set up periodic check when user is signed in
-    if (val.signedIn && !fallbackCheckInterval) {
+    if (currentUser.signedIn && !fallbackCheckInterval) {
       fallbackCheckInterval = setInterval(() => {
         if (
           localStorage.getItem("alexandria/amber/fallback") === "1" &&
@@ -65,7 +69,7 @@
           showAmberFallback = true;
         }
       }, 500); // Check every 500ms
-    } else if (!val.signedIn && fallbackCheckInterval) {
+    } else if (!currentUser.signedIn && fallbackCheckInterval) {
       clearInterval(fallbackCheckInterval);
       fallbackCheckInterval = null;
     }
@@ -249,6 +253,10 @@
           >
             📖 npub (read only)
           </button>
+          <div class="border-t border-gray-200 pt-2 mt-2">
+            <div class="text-xs text-gray-500 mb-1">Network Status:</div>
+            <NetworkStatus />
+          </div>
         </div>
       </Popover>
       {#if result}
@@ -312,6 +320,10 @@
                 {:else}
                   Unknown login method
                 {/if}
+              </li>
+              <li class="border-t border-gray-200 pt-2 mt-2">
+                <div class="text-xs text-gray-500 mb-1">Network Status:</div>
+                <NetworkStatus />
               </li>
               <li>
                 <button

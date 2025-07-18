@@ -9,9 +9,9 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkInstance, ndkSignedIn } from "$lib/ndk";
+  import { ndkInstance, ndkSignedIn, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
-  import { standardRelays } from "$lib/consts";
+  import { communityRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue
@@ -62,12 +62,13 @@
   const repoAddress =
     "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
 
-  // Hard-coded relays to ensure we have working relays
+  // Use the new relay management system instead of hardcoded relays
   const allRelays = [
     "wss://relay.damus.io",
     "wss://relay.nostr.band",
     "wss://nos.lol",
-    ...standardRelays,
+    ...$activeInboxRelays,
+    ...$activeOutboxRelays,
   ];
 
   // Hard-coded repository owner pubkey and ID from the task
@@ -451,7 +452,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
             size="xs"
             class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
             color="light"
-            on:click={toggleSize}
+            onclick={toggleSize}
           >
             {isExpanded ? "⌃" : "⌄"}
           </Button>
@@ -459,7 +460,7 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
       </div>
 
       <div class="flex justify-end space-x-4">
-        <Button type="button" color="alternative" on:click={clearForm}>
+        <Button type="button" color="alternative" onclick={clearForm}>
           Clear Form
         </Button>
         <Button type="submit" tabindex={0}>
@@ -586,8 +587,8 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
       Would you like to submit the issue?
     </h3>
     <div class="flex justify-center gap-4">
-      <Button color="alternative" on:click={cancelSubmit}>Cancel</Button>
-      <Button color="primary" on:click={confirmSubmit}>Submit</Button>
+      <Button color="alternative" onclick={cancelSubmit}>Cancel</Button>
+      <Button color="primary" onclick={confirmSubmit}>Submit</Button>
     </div>
   </div>
 </Modal>

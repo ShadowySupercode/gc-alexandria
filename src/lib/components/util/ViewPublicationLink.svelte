@@ -3,7 +3,8 @@
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
   import { getEventType } from "$lib/utils/mime";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { communityRelays } from "$lib/consts";
   import { goto } from "$app/navigation";
 
   let { event, className = "" } = $props<{
@@ -25,7 +26,7 @@
       return null;
     }
     try {
-      return naddrEncode(event, standardRelays);
+      return naddrEncode(event, $activeInboxRelays);
     } catch {
       return null;
     }

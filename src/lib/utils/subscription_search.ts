@@ -3,7 +3,7 @@ import { getMatchingTags, getNpubFromNip05 } from "$lib/utils/nostrUtils";
 import { nip19 } from "$lib/utils/nostrUtils";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 import { searchCache } from "$lib/utils/searchCache";
-import { communityRelay, profileRelays } from "$lib/consts";
+import { communityRelays, searchRelays } from "$lib/consts";
 import { get } from "svelte/store";
 import type {
   SearchResult,
@@ -20,6 +20,12 @@ import {
   isEmojiReaction,
 } from "./search_utils";
 import { TIMEOUTS, SEARCH_LIMITS } from "./search_constants";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+
+// Helper function to normalize URLs for comparison
+const normalizeUrl = (url: string): string => {
+  return url.replace(/\/$/, ''); // Remove trailing slash
+};
 
 /**
  * Search for events by subscription type (d, t, n)
@@ -292,23 +298,40 @@ function createPrimaryRelaySet(
   searchType: SearchSubscriptionType,
   ndk: any,
 ): NDKRelaySet {
+  // Use the new relay management system
+  const searchRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
+  console.debug('subscription_search: Active relay stores:', {
+    inboxRelays: get(activeInboxRelays),
+    outboxRelays: get(activeOutboxRelays),
+    searchRelays
+  });
+  
+  // Debug: Log all relays in NDK pool
+  const poolRelays = Array.from(ndk.pool.relays.values());
+  console.debug('subscription_search: NDK pool relays:', poolRelays.map((r: any) => r.url));
+  
   if (searchType === "n") {
-    // For profile searches, use profile relays first
-    const profileRelaySet = Array.from(ndk.pool.relays.values()).filter(
+    // For profile searches, use search relays first
+    const profileRelaySet = poolRelays.filter(
       (relay: any) =>
-        profileRelays.some(
-          (profileRelay) =>
-            relay.url === profileRelay || relay.url === profileRelay + "/",
+        searchRelays.some(
+          (searchRelay: string) =>
+            normalizeUrl(relay.url) === normalizeUrl(searchRelay),
         ),
     );
+    console.debug('subscription_search: Profile relay set:', profileRelaySet.map((r: any) => r.url));
     return new NDKRelaySet(new Set(profileRelaySet) as any, ndk);
   } else {
-    // For other searches, use community relay first
-    const communityRelaySet = Array.from(ndk.pool.relays.values()).filter(
+    // For other searches, use active relays first
+    const activeRelaySet = poolRelays.filter(
       (relay: any) =>
-        relay.url === communityRelay || relay.url === communityRelay + "/",
+        searchRelays.some(
+          (searchRelay: string) =>
+            normalizeUrl(relay.url) === normalizeUrl(searchRelay),
+        ),
     );
-    return new NDKRelaySet(new Set(communityRelaySet) as any, ndk);
+    console.debug('subscription_search: Active relay set:', activeRelaySet.map((r: any) => r.url));
+    return new NDKRelaySet(new Set(activeRelaySet) as any, ndk);
   }
 }
 
@@ -511,15 +534,16 @@ async function searchOtherRelaysInBackground(
     new Set(
       Array.from(ndk.pool.relays.values()).filter((relay: any) => {
         if (searchType === "n") {
-          // For profile searches, exclude profile relays from fallback search
-          return !profileRelays.some(
-            (profileRelay) =>
-              relay.url === profileRelay || relay.url === profileRelay + "/",
+          // For profile searches, exclude search relays from fallback search
+          return !searchRelays.some(
+            (searchRelay: string) =>
+              normalizeUrl(relay.url) === normalizeUrl(searchRelay),
           );
         } else {
-          // For other searches, exclude community relay from fallback search
-          return (
-            relay.url !== communityRelay && relay.url !== communityRelay + "/"
+          // For other searches, exclude community relays from fallback search
+          return !communityRelays.some(
+            (communityRelay: string) =>
+              normalizeUrl(relay.url) === normalizeUrl(communityRelay),
           );
         }
       }),

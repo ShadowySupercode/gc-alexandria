@@ -13,13 +13,9 @@
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
-  import {
-    testAllRelays,
-    logRelayDiagnostics,
-  } from "$lib/utils/relayDiagnostics";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -246,8 +242,15 @@
     return "Reference";
   }
 
-  function getNeventAddress(event: NDKEvent): string {
-    return neventEncode(event, standardRelays);
+  function getNeventUrl(event: NDKEvent): string {
+    if (event.kind === 0) {
+      return neventEncode(event, $activeInboxRelays);
+    }
+    return neventEncode(event, $activeInboxRelays);
+  }
+
+  function getNaddrUrl(event: NDKEvent): string {
+    return naddrEncode(event, $activeInboxRelays);
   }
 
   function isAddressableEvent(event: NDKEvent): boolean {
@@ -259,7 +262,7 @@
       return null;
     }
     try {
-      return naddrEncode(event, standardRelays);
+      return naddrEncode(event, $activeInboxRelays);
     } catch {
       return null;
     }
@@ -498,12 +501,11 @@
     handleUrlChange();
   });
 
+  // Log relay configuration when page mounts
   onMount(() => {
-    userRelayPreference = localStorage.getItem("useUserRelays") === "true";
-
-    // Run relay diagnostics to help identify connection issues
-    testAllRelays().then(logRelayDiagnostics).catch(console.error);
+    logCurrentRelayConfiguration();
   });
+
 </script>
 
 <div class="w-full flex justify-center">
@@ -942,8 +944,8 @@
         {#if event.kind !== 0}
           <div class="flex flex-col gap-2 mb-4 break-all">
             <CopyToClipboard
-              displayText={shortenAddress(getNeventAddress(event))}
-              copyText={getNeventAddress(event)}
+              displayText={shortenAddress(getNeventUrl(event))}
+              copyText={getNeventUrl(event)}
             />
             {#if isAddressableEvent(event)}
               {@const naddrAddress = getViewPublicationNaddr(event)}

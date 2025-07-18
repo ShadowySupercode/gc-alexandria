@@ -10,6 +10,7 @@
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
+  import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
 
   let {
     address,
@@ -46,9 +47,12 @@
     async () => (await leafEvent)?.getMatchingTags("title")[0]?.[1],
   );
 
-  let leafContent: Promise<string | Document> = $derived.by(async () =>
-    asciidoctor.convert((await leafEvent)?.content ?? ""),
-  );
+  let leafContent: Promise<string | Document> = $derived.by(async () => {
+    const content = (await leafEvent)?.content ?? "";
+    const converted = asciidoctor.convert(content);
+    const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
+    return processed;
+  });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
     let index: number;

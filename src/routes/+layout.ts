@@ -1,5 +1,3 @@
-import { feedTypeStorageKey } from "$lib/consts";
-import { FeedType } from "$lib/consts";
 import { getPersistedLogin, initNdk, ndkInstance } from "$lib/ndk";
 import {
   loginWithExtension,
@@ -8,18 +6,13 @@ import {
 } from "$lib/stores/userStore";
 import { loginMethodStorageKey } from "$lib/stores/userStore";
 import Pharos, { pharosInstance } from "$lib/parser";
-import { feedType } from "$lib/stores";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
 
 export const ssr = false;
 
 export const load: LayoutLoad = () => {
-  const initialFeedType =
-    (localStorage.getItem(feedTypeStorageKey) as FeedType) ??
-    FeedType.StandardRelays;
-  feedType.set(initialFeedType);
-
+  // Initialize NDK with new relay management system
   const ndk = initNdk();
   ndkInstance.set(ndk);
 

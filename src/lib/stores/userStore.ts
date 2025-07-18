@@ -8,8 +8,8 @@ import {
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "$lib/utils/nostrUtils";
-import { ndkInstance } from "$lib/ndk";
-import { loginStorageKey, fallbackRelays } from "$lib/consts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import { loginStorageKey } from "$lib/consts";
 import { nip19 } from "nostr-tools";
 
 export interface UserState {
@@ -70,7 +70,7 @@ function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
 async function getUserPreferredRelays(
   ndk: any,
   user: NDKUser,
-  fallbacks: readonly string[] = fallbackRelays,
+      fallbacks: readonly string[] = [...get(activeInboxRelays), ...get(activeOutboxRelays)],
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
   const relayList = await ndk.fetchEvent(
     {

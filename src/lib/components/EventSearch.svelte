@@ -1,17 +1,18 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
-  import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import RelayDisplay from "./RelayDisplay.svelte";
   import {
     searchEvent,
     searchBySubscription,
     searchNip05,
   } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
+  import type { SearchResult } from '$lib/utils/search_types';
 
   // Props definition
   let {
@@ -47,9 +48,6 @@
   // Component state
   let searchQuery = $state("");
   let localError = $state<string | null>(null);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
-    {},
-  );
   let foundEvent = $state<NDKEvent | null>(null);
   let searching = $state(false);
   let searchCompleted = $state(false);
@@ -62,11 +60,7 @@
   let currentAbortController: AbortController | null = null;
 
   // Derived values
-  let hasActiveSearch = $derived(
-    searching ||
-      (Object.values(relayStatuses).some((s) => s === "pending") &&
-        !foundEvent),
-  );
+  let hasActiveSearch = $derived(searching && !foundEvent);
   let showError = $derived(localError || error);
   let showSuccess = $derived(searchCompleted && searchResultCount !== null);
 
@@ -87,7 +81,7 @@
         handleFoundEvent(foundEvent);
         updateSearchState(false, true, 1, "nip05");
       } else {
-        relayStatuses = {};
+        // relayStatuses = {}; // This line was removed as per the edit hint
         if (activeSub) {
           try {
             activeSub.stop();
@@ -105,7 +99,7 @@
     } catch (error) {
       localError =
         error instanceof Error ? error.message : "NIP-05 lookup failed";
-      relayStatuses = {};
+      // relayStatuses = {}; // This line was removed as per the edit hint
       if (activeSub) {
         try {
           activeSub.stop();
@@ -132,7 +126,7 @@
       if (!foundEvent) {
         console.warn("[Events] Event not found for query:", query);
         localError = "Event not found";
-        relayStatuses = {};
+        // relayStatuses = {}; // This line was removed as per the edit hint
         if (activeSub) {
           try {
             activeSub.stop();
@@ -154,7 +148,7 @@
     } catch (err) {
       console.error("[Events] Error fetching event:", err, "Query:", query);
       localError = "Error fetching event. Please check the ID and try again.";
-      relayStatuses = {};
+      // relayStatuses = {}; // This line was removed as per the edit hint
       if (activeSub) {
         try {
           activeSub.stop();
@@ -186,7 +180,7 @@
     isResetting = false;
     isUserEditing = false; // Reset user editing flag when search starts
     const query = (
-      queryOverride !== undefined ? queryOverride : searchQuery
+      queryOverride !== undefined ? queryOverride || "" : searchQuery || ""
     ).trim();
     if (!query) {
       updateSearchState(false, false, null, null);
@@ -264,11 +258,11 @@
       let currentNevent = null;
       let currentNpub = null;
       try {
-        currentNevent = neventEncode(foundEvent, standardRelays);
+        currentNevent = neventEncode(foundEvent, $activeInboxRelays);
       } catch {}
       try {
         currentNaddr = getMatchingTags(foundEvent, "d")[0]?.[1]
-          ? naddrEncode(foundEvent, standardRelays)
+          ? naddrEncode(foundEvent, $activeInboxRelays)
           : null;
       } catch {}
       try {
@@ -301,7 +295,7 @@
         foundEvent.kind === 0
       ) {
         try {
-          currentNprofile = nprofileEncode(foundEvent.pubkey, standardRelays);
+          currentNprofile = nprofileEncode(foundEvent.pubkey, $activeInboxRelays);
         } catch {}
       }
 
@@ -324,7 +318,9 @@
     searchTimeout = setTimeout(() => {
       isProcessingSearch = true;
       isWaitingForSearchResult = true;
-      handleSearchEvent(false, searchValue);
+      if (searchValue) {
+        handleSearchEvent(false, searchValue);
+      }
     }, 300);
   });
 
@@ -350,7 +346,13 @@
     ) {
       console.log("EventSearch: Processing dTagValue:", dTagValue);
       lastProcessedDTagValue = dTagValue;
-      handleSearchBySubscription("d", dTagValue);
+      
+      // Add a small delay to prevent rapid successive calls
+      setTimeout(() => {
+        if (!searching && !isResetting) {
+          handleSearchBySubscription("d", dTagValue);
+        }
+      }, 100);
     }
   });
 
@@ -380,7 +382,6 @@
   function resetSearchState() {
     isResetting = true;
     foundEvent = null;
-    relayStatuses = {};
     localError = null;
     lastProcessedSearchValue = null;
     lastProcessedDTagValue = null;
@@ -422,7 +423,7 @@
 
   function handleFoundEvent(event: NDKEvent) {
     foundEvent = event;
-    relayStatuses = {}; // Clear relay statuses when event is found
+    localError = null; // Clear local error when event is found
 
     // Stop any ongoing subscription
     if (activeSub) {
@@ -481,13 +482,42 @@
     isResetting = false; // Allow effects to run for new searches
     localError = null;
     updateSearchState(true);
+    
+    // Wait for relays to be available (with timeout)
+    let retryCount = 0;
+    const maxRetries = 10; // Wait up to 5 seconds (10 * 500ms)
+    
+    while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < maxRetries) {
+      console.debug(`EventSearch: Waiting for relays... (attempt ${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+      retryCount++;
+    }
+    
+    // Check if we have any relays available
+    if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
+      console.warn("EventSearch: No relays available after waiting, failing search");
+      localError = "No relays available. Please check your connection and try again.";
+      updateSearchState(false, false, null, null);
+      isProcessingSearch = false;
+      currentProcessingSearchValue = null;
+      isWaitingForSearchResult = false;
+      searching = false;
+      return;
+    }
+    
+    console.log("EventSearch: Relays available, proceeding with search:", {
+      inboxCount: $activeInboxRelays.length,
+      outboxCount: $activeOutboxRelays.length
+    });
+    
     try {
       // Cancel existing search
       if (currentAbortController) {
         currentAbortController.abort();
       }
       currentAbortController = new AbortController();
-      const result = await searchBySubscription(
+      // Add a timeout to prevent hanging searches
+      const searchPromise = searchBySubscription(
         searchType,
         searchTerm,
         {
@@ -513,6 +543,15 @@
         },
         currentAbortController.signal,
       );
+      
+      // Add a 30-second timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Search timeout: No results received within 30 seconds"));
+        }, 30000);
+      });
+      
+      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
       console.log("EventSearch: Search completed:", result);
       onSearchResults(
         result.events,
@@ -527,7 +566,7 @@
         result.events.length +
         result.secondOrder.length +
         result.tTagEvents.length;
-      relayStatuses = {}; // Clear relay statuses when search completes
+      localError = null; // Clear local error when search completes
       // Stop any ongoing subscription
       if (activeSub) {
         try {
@@ -570,7 +609,7 @@
           localError = `Search failed: ${error.message}`;
         }
       }
-      relayStatuses = {}; // Clear relay statuses when search fails
+      localError = null; // Clear local error when search fails
       // Stop any ongoing subscription
       if (activeSub) {
         try {
@@ -611,7 +650,6 @@
     searchResultCount = null;
     searchResultType = null;
     foundEvent = null;
-    relayStatuses = {};
     localError = null;
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
@@ -650,6 +688,18 @@
     return searchResultCount === 1
       ? `Search completed. Found 1 ${typeLabel}.`
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
+  }
+
+  function getNeventUrl(event: NDKEvent): string {
+    return neventEncode(event, $activeInboxRelays);
+  }
+
+  function getNaddrUrl(event: NDKEvent): string {
+    return naddrEncode(event, $activeInboxRelays);
+  }
+
+  function getNprofileUrl(pubkey: string): string {
+    return nprofileEncode(pubkey, $activeInboxRelays);
   }
 </script>
 
@@ -700,18 +750,4 @@
       {getResultMessage()}
     </div>
   {/if}
-
-  <!-- Relay Status Display -->
-  <div class="mt-4">
-    <div class="flex flex-wrap gap-2">
-      {#each Object.entries(relayStatuses) as [relay, status]}
-        <RelayDisplay {relay} showStatus={true} {status} />
-      {/each}
-    </div>
-    {#if !foundEvent && hasActiveSearch}
-      <div class="text-gray-700 dark:text-gray-300 mt-2">
-        Searching relays...
-      </div>
-    {/if}
-  </div>
 </div>

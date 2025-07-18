@@ -5,7 +5,7 @@
   import { findContainingIndexEvents } from "$lib/utils/event_search";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   let { event } = $props<{
     event: NDKEvent;
@@ -51,12 +51,16 @@
     } else {
       // Fallback to naddr
       try {
-        const naddr = naddrEncode(indexEvent, standardRelays);
+        const naddr = naddrEncode(indexEvent, $activeInboxRelays);
         goto(`/publication?id=${encodeURIComponent(naddr)}`);
       } catch (err) {
         console.error("[ContainingIndexes] Error creating naddr:", err);
       }
     }
+  }
+
+  function getNaddrUrl(event: NDKEvent): string {
+    return naddrEncode(event, $activeInboxRelays);
   }
 
   $effect(() => {

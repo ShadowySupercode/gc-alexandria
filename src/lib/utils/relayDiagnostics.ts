@@ -1,6 +1,7 @@
-import { standardRelays, anonymousRelays, fallbackRelays } from "$lib/consts";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import NDK from "@nostr-dev-kit/ndk";
 import { TIMEOUTS } from "./search_constants";
+import { get } from "svelte/store";
 
 export interface RelayDiagnostic {
   url: string;
@@ -85,9 +86,8 @@ export async function testRelay(url: string): Promise<RelayDiagnostic> {
  * Tests all relays and returns diagnostic information
  */
 export async function testAllRelays(): Promise<RelayDiagnostic[]> {
-  const allRelays = [
-    ...new Set([...standardRelays, ...anonymousRelays, ...fallbackRelays]),
-  ];
+  // Use the new relay management system
+  const allRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
 
   console.log("[RelayDiagnostics] Testing", allRelays.length, "relays...");
 

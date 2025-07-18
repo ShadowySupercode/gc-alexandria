@@ -7,11 +7,8 @@
     checkWebSocketSupport,
     checkEnvironmentForWebSocketDowngrade,
   } from "$lib/ndk";
-  import { standardRelays, anonymousRelays } from "$lib/consts";
   import { onMount } from "svelte";
-  import { feedType } from "$lib/stores";
-  import { inboxRelays, outboxRelays } from "$lib/ndk";
-  import { FeedType } from "$lib/consts";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   interface RelayStatus {
     url: string;
@@ -24,6 +21,13 @@
   let relayStatuses = $state<RelayStatus[]>([]);
   let testing = $state(false);
 
+  // Use the new relay management system
+  let allRelays: string[] = $state([]);
+
+  $effect(() => {
+    allRelays = [...$activeInboxRelays, ...$activeOutboxRelays];
+  });
+
   async function runRelayTests() {
     testing = true;
     const ndk = $ndkInstance;
@@ -34,16 +38,9 @@
 
     let relaysToTest: string[] = [];
 
-    if ($feedType === FeedType.UserRelays && $ndkSignedIn) {
-      // Use user's relays (inbox + outbox), deduplicated
-      const userRelays = new Set([...$inboxRelays, ...$outboxRelays]);
-      relaysToTest = Array.from(userRelays);
-    } else {
-      // Use default relays (standard + anonymous), deduplicated
-      relaysToTest = Array.from(
-        new Set([...standardRelays, ...anonymousRelays]),
-      );
-    }
+    // Use active relays from the new relay management system
+    const userRelays = new Set([...$activeInboxRelays, ...$activeOutboxRelays]);
+    relaysToTest = Array.from(userRelays);
 
     console.log("[RelayStatus] Relays to test:", relaysToTest);
 

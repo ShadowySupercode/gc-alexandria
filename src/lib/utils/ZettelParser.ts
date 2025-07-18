@@ -1,7 +1,7 @@
 import { ndkInstance } from "$lib/ndk";
 import { signEvent, getEventHash } from "$lib/utils/nostrUtils";
 import { getMimeTags } from "$lib/utils/mime";
-import { standardRelays } from "$lib/consts";
+import { communityRelays } from "$lib/consts";
 import { nip19 } from "nostr-tools";
 
 export interface ZettelSection {

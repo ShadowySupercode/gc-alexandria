@@ -1,10 +1,10 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
-  import { ndkInstance } from "$lib/ndk";
+  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { filterValidIndexEvents, debounce } from "$lib/utils";
-  import { Button, P, Skeleton, Spinner, Checkbox } from "flowbite-svelte";
+  import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import {
     getMatchingTags,
     NDKRelaySetFromNDK,
@@ -15,44 +15,109 @@
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
 
-  let {
-    relays,
-    fallbackRelays,
-    searchQuery = "",
-    userRelays = [],
-  } = $props<{
-    relays: string[];
-    fallbackRelays: string[];
+  const props = $props<{
     searchQuery?: string;
-    userRelays?: string[];
+    onEventCountUpdate?: (counts: { displayed: number; total: number }) => void;
   }>();
 
+  // Component state
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
-    {},
-  );
+  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>({});
   let loading: boolean = $state(true);
+  let hasInitialized = $state(false);
+  let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // Relay management
+  let allRelays: string[] = $state([]);
+  let ndk = $derived($ndkInstance);
+
+  // Event management
+  let allIndexEvents: NDKEvent[] = $state([]);
   let cutoffTimestamp: number = $derived(
     eventsInView?.at(eventsInView.length - 1)?.created_at ??
       new Date().getTime(),
   );
 
-  let allIndexEvents: NDKEvent[] = $state([]);
+  // Initialize relays and fetch events
+  async function initializeAndFetch() {
+    if (!ndk) {
+      console.debug('[PublicationFeed] No NDK instance available');
+      return;
+    }
+
+    // Get relays from active stores
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    const newRelays = [...inboxRelays, ...outboxRelays];
+
+    console.debug('[PublicationFeed] Available relays:', {
+      inboxCount: inboxRelays.length,
+      outboxCount: outboxRelays.length,
+      totalCount: newRelays.length,
+      relays: newRelays
+    });
+
+    if (newRelays.length === 0) {
+      console.debug('[PublicationFeed] No relays available, waiting...');
+      return;
+    }
+
+    // Update allRelays if different
+    const currentRelaysString = allRelays.sort().join(',');
+    const newRelaysString = newRelays.sort().join(',');
+    
+    if (currentRelaysString !== newRelaysString) {
+      allRelays = newRelays;
+      console.debug('[PublicationFeed] Relays updated, fetching events');
+      await fetchAllIndexEventsFromRelays();
+    }
+  }
+
+  // Watch for relay store changes
+  $effect(() => {
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    const newRelays = [...inboxRelays, ...outboxRelays];
+
+    if (newRelays.length > 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] Relays available, initializing');
+      hasInitialized = true;
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
+        fallbackTimeout = null;
+      }
+      setTimeout(() => initializeAndFetch(), 0);
+    } else if (newRelays.length === 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] No relays available, setting up fallback');
+      if (!fallbackTimeout) {
+        fallbackTimeout = setTimeout(() => {
+          console.debug('[PublicationFeed] Fallback timeout reached, retrying');
+          hasInitialized = true;
+          initializeAndFetch();
+        }, 3000);
+      }
+    }
+  });
 
   async function fetchAllIndexEventsFromRelays() {
-    loading = true;
-    const ndk = $ndkInstance;
-    const communityRelays: string[] = relays;
-    const userRelayList: string[] = userRelays || [];
-    const fallback: string[] = fallbackRelays.filter(
-      (r: string) => !communityRelays.includes(r) && !userRelayList.includes(r),
-    );
-    const allRelays = includeAllRelays
-      ? [...communityRelays, ...userRelayList, ...fallback]
-      : [...communityRelays, ...userRelayList];
+    console.debug('[PublicationFeed] fetchAllIndexEventsFromRelays called with relays:', {
+      allRelaysCount: allRelays.length,
+      allRelays: allRelays
+    });
+    
+    if (!ndk) {
+      console.error('[PublicationFeed] No NDK instance available');
+      loading = false;
+      return;
+    }
+
+    if (allRelays.length === 0) {
+      console.debug('[PublicationFeed] No relays available for fetching');
+      loading = false;
+      return;
+    }
 
     // Check cache first
     const cachedEvents = indexEventCache.get(allRelays);
@@ -67,6 +132,7 @@
       return;
     }
 
+    loading = true;
     relayStatuses = Object.fromEntries(
       allRelays.map((r: string) => [r, "pending"]),
     );
@@ -75,11 +141,13 @@
     // Helper to fetch from a single relay with timeout
     async function fetchFromRelay(relay: string): Promise<NDKEvent[]> {
       try {
+        console.debug(`[PublicationFeed] Fetching from relay: ${relay}`);
         const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
         let eventSet = await ndk
           .fetchEvents(
             {
               kinds: [indexKind],
+              limit: 1000, // Increased limit to get more events
             },
             {
               groupable: false,
@@ -88,29 +156,40 @@
             },
             relaySet,
           )
-          .withTimeout(5000);
+          .withTimeout(10000); // Increased timeout to 10 seconds
+        
+        console.debug(`[PublicationFeed] Raw events from ${relay}:`, eventSet.size);
         eventSet = filterValidIndexEvents(eventSet);
+        console.debug(`[PublicationFeed] Valid events from ${relay}:`, eventSet.size);
+        
         relayStatuses = { ...relayStatuses, [relay]: "found" };
         return Array.from(eventSet);
       } catch (err) {
-        console.error(`Error fetching from relay ${relay}:`, err);
+        console.error(`[PublicationFeed] Error fetching from relay ${relay}:`, err);
         relayStatuses = { ...relayStatuses, [relay]: "notfound" };
         return [];
       }
     }
 
     // Fetch from all relays in parallel, do not block on any single relay
+    console.debug(`[PublicationFeed] Starting fetch from ${allRelays.length} relays`);
     const results = await Promise.allSettled(allRelays.map(fetchFromRelay));
+    
     for (const result of results) {
       if (result.status === "fulfilled") {
         allEvents = allEvents.concat(result.value);
       }
     }
+    
+    console.debug(`[PublicationFeed] Total events fetched:`, allEvents.length);
+    
     // Deduplicate by tagAddress
     const eventMap = new Map(
       allEvents.map((event) => [event.tagAddress(), event]),
     );
     allIndexEvents = Array.from(eventMap.values());
+    console.debug(`[PublicationFeed] Events after deduplication:`, allIndexEvents.length);
+    
     // Sort by created_at descending
     allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
 
@@ -121,12 +200,19 @@
     eventsInView = allIndexEvents.slice(0, 30);
     endOfFeed = allIndexEvents.length <= 30;
     loading = false;
+    
+    console.debug(`[PublicationFeed] Final state:`, {
+      totalEvents: allIndexEvents.length,
+      eventsInView: eventsInView.length,
+      endOfFeed,
+      loading
+    });
   }
 
   // Function to filter events based on search query
   const filterEventsBySearch = (events: NDKEvent[]) => {
-    if (!searchQuery) return events;
-    const query = searchQuery.toLowerCase();
+    if (!props.searchQuery) return events;
+    const query = props.searchQuery.toLowerCase();
     console.debug(
       "[PublicationFeed] Filtering events with query:",
       query,
@@ -219,15 +305,25 @@
   $effect(() => {
     console.debug(
       "[PublicationFeed] Search query effect triggered:",
-      searchQuery,
+      props.searchQuery,
     );
-    debouncedSearch(searchQuery);
+    debouncedSearch(props.searchQuery);
+  });
+
+  // Emit event count updates
+  $effect(() => {
+    if (props.onEventCountUpdate) {
+      props.onEventCountUpdate({
+        displayed: eventsInView.length,
+        total: allIndexEvents.length
+      });
+    }
   });
 
   async function loadMorePublications() {
     loadingMore = true;
     const current = eventsInView.length;
-    let source = searchQuery.trim()
+    let source = props.searchQuery.trim()
       ? filterEventsBySearch(allIndexEvents)
       : allIndexEvents;
     eventsInView = source.slice(0, current + 30);
@@ -251,38 +347,27 @@
     return `Index: ${indexStats.size} entries (${indexStats.totalEvents} events), Search: ${searchStats} entries`;
   }
 
-  // Include all relays checkbox state
-  let includeAllRelays = $state(false);
+  // Cleanup function for fallback timeout
+  function cleanup() {
+    if (fallbackTimeout) {
+      clearTimeout(fallbackTimeout);
+      fallbackTimeout = null;
+    }
+  }
 
-  // Watch for changes in include all relays setting
-  $effect(() => {
-    console.log(
-      `[PublicationFeed] Include all relays setting changed to: ${includeAllRelays}`,
-    );
-    // Clear cache when relay configuration changes
-    indexEventCache.clear();
-    searchCache.clear();
-
-    // Refetch events with new relay configuration
-    fetchAllIndexEventsFromRelays();
+  // Cleanup on component destruction
+  onDestroy(() => {
+    cleanup();
   });
 
   onMount(async () => {
-    await fetchAllIndexEventsFromRelays();
+    console.debug('[PublicationFeed] onMount called');
+    // The effect will handle fetching when relays become available
   });
 </script>
 
 <div class="flex flex-col space-y-4">
-  <!-- Include all relays checkbox -->
-  <div class="flex items-center justify-center">
-    <Checkbox bind:checked={includeAllRelays} class="mr-2" />
-    <label
-      for="include-all-relays"
-      class="text-sm text-gray-700 dark:text-gray-300"
-    >
-      Include all relays (slower but more comprehensive search)
-    </label>
-  </div>
+
 
   <div
     class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full"

@@ -21,6 +21,7 @@
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   const props = $props<{
     event: NDKEvent;
@@ -33,7 +34,7 @@
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
   let showOtherRelays = $state(false);
-  let showFallbackRelays = $state(false);
+  let showSecondaryRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
 
   // Add state for modals and search
@@ -150,7 +151,7 @@
     preview = "";
     error = null;
     showOtherRelays = false;
-    showFallbackRelays = false;
+    showSecondaryRelays = false;
   }
 
   function removeFormatting() {
@@ -169,7 +170,7 @@
 
   async function handleSubmit(
     useOtherRelays = false,
-    useFallbackRelays = false,
+    useSecondaryRelays = false,
   ) {
     isSubmitting = true;
     error = null;
@@ -208,34 +209,30 @@
         tags,
       );
 
-      // Publish the event
-      const result = await publishEvent(
-        signedEvent,
-        useOtherRelays,
-        useFallbackRelays,
-        props.userRelayPreference,
-      );
-
-      if (result.success) {
-        success = { relay: result.relay!, eventId: result.eventId! };
-        // Navigate to the published event
-        navigateToEvent(result.eventId!);
-      } else {
-        if (!useOtherRelays && !useFallbackRelays) {
-          showOtherRelays = true;
-          error =
-            "Failed to publish to primary relays. Would you like to try the other relays?";
-        } else if (useOtherRelays && !useFallbackRelays) {
-          showFallbackRelays = true;
-          error =
-            "Failed to publish to other relays. Would you like to try the fallback relays?";
-        } else {
-          error = "Failed to publish comment. Please try again later.";
-        }
+      // Publish the event using the new relay system
+      let relays = $activeOutboxRelays;
+      
+      if (useOtherRelays && !useSecondaryRelays) {
+        relays = [...$activeOutboxRelays, ...$activeInboxRelays];
+      } else if (useSecondaryRelays) {
+        // For secondary relays, use a subset of outbox relays
+        relays = $activeOutboxRelays.slice(0, 3); // Use first 3 outbox relays
       }
-    } catch (e: unknown) {
-      console.error("Error publishing comment:", e);
-      error = e instanceof Error ? e.message : "An unexpected error occurred";
+
+      const successfulRelays = await publishEvent(signedEvent, relays);
+
+      success = {
+        relay: successfulRelays[0] || "Unknown relay",
+        eventId: signedEvent.id,
+      };
+
+      // Clear form after successful submission
+      content = "";
+      preview = "";
+      showOtherRelays = false;
+      showSecondaryRelays = false;
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Unknown error occurred";
     } finally {
       isSubmitting = false;
     }
@@ -563,7 +560,7 @@
           >Try Other Relays</Button
         >
       {/if}
-      {#if showFallbackRelays}
+      {#if showSecondaryRelays}
         <Button
           size="xs"
           class="mt-2"

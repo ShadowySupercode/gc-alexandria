@@ -2,7 +2,7 @@ import { error } from "@sveltejs/kit";
 import type { Load } from "@sveltejs/kit";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getActiveRelays } from "$lib/ndk";
+import { getActiveRelaySetAsNDKRelaySet } from "$lib/ndk";
 import { getMatchingTags } from "$lib/utils/nostrUtils";
 
 /**
@@ -68,10 +68,11 @@ async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
  */
 async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
   try {
+    const relaySet = await getActiveRelaySetAsNDKRelaySet(ndk, true); // true for inbox relays
     const event = await ndk.fetchEvent(
       { "#d": [dTag] },
       { closeOnEose: false },
-      getActiveRelays(ndk),
+      relaySet,
     );
 
     if (!event) {

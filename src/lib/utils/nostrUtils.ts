@@ -4,7 +4,8 @@ import { ndkInstance } from "$lib/ndk";
 import { npubCache } from "./npubCache";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { standardRelays, fallbackRelays, anonymousRelays } from "$lib/consts";
+import { communityRelays, secondaryRelays, anonymousRelays } from "$lib/consts";
+import { activeInboxRelays } from "$lib/ndk";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
@@ -174,9 +175,9 @@ export async function createProfileLinkWithVerification(
   };
 
   const allRelays = [
-    ...standardRelays,
+    ...communityRelays,
     ...userRelays,
-    ...fallbackRelays,
+    ...secondaryRelays,
   ].filter((url, idx, arr) => arr.indexOf(url) === idx);
 
   const filteredRelays = filterProblematicRelays(allRelays);
@@ -422,91 +423,43 @@ export async function fetchEventWithFallback(
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000,
 ): Promise<NDKEvent | null> {
-  // Get user relays if logged in
-  const userRelays = ndk.activeUser
-    ? Array.from(ndk.pool?.relays.values() || [])
-        .filter((r) => r.status === 1) // Only use connected relays
-        .map((r) => r.url)
-        .filter((url) => !url.includes("gitcitadel.nostr1.com")) // Filter out problematic relay
-    : [];
-
-  // Determine which relays to use based on user authentication status
-  const isSignedIn = ndk.signer && ndk.activeUser;
-  const primaryRelays = isSignedIn ? standardRelays : anonymousRelays;
-
-  // Create three relay sets in priority order
-  const relaySets = [
-    NDKRelaySetFromNDK.fromRelayUrls(primaryRelays, ndk), // 1. Primary relays (auth or anonymous)
-    NDKRelaySetFromNDK.fromRelayUrls(userRelays, ndk), // 2. User relays (if logged in)
-    NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk), // 3. fallback relays (last resort)
-  ];
+  // Use the active inbox relays from the relay management system
+  const inboxRelays = get(activeInboxRelays);
+  
+  // Create relay set from active inbox relays
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(inboxRelays, ndk);
 
   try {
-    let found: NDKEvent | null = null;
-    const triedRelaySets: string[] = [];
-
-    // Helper function to try fetching from a relay set
-    async function tryFetchFromRelaySet(
-      relaySet: NDKRelaySetFromNDK,
-      setName: string,
-    ): Promise<NDKEvent | null> {
-      if (relaySet.relays.size === 0) return null;
-      triedRelaySets.push(setName);
-
-      if (
-        typeof filterOrId === "string" &&
-        new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(filterOrId)
-      ) {
-        return await ndk
-          .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
-          .withTimeout(timeoutMs);
-      } else {
-        const filter =
-          typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
-        const results = await ndk
-          .fetchEvents(filter, undefined, relaySet)
-          .withTimeout(timeoutMs);
-        return results instanceof Set
-          ? (Array.from(results)[0] as NDKEvent)
-          : null;
-      }
+    if (relaySet.relays.size === 0) {
+      console.warn("No inbox relays available for event fetch");
+      return null;
     }
 
-    // Try each relay set in order
-    for (const [index, relaySet] of relaySets.entries()) {
-      const setName =
-        index === 0
-          ? isSignedIn
-            ? "standard relays"
-            : "anonymous relays"
-          : index === 1
-            ? "user relays"
-            : "fallback relays";
+    let found: NDKEvent | null = null;
 
-      found = await tryFetchFromRelaySet(relaySet, setName);
-      if (found) break;
+    if (
+      typeof filterOrId === "string" &&
+      new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(filterOrId)
+    ) {
+      found = await ndk
+        .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
+        .withTimeout(timeoutMs);
+    } else {
+      const filter =
+        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const results = await ndk
+        .fetchEvents(filter, undefined, relaySet)
+        .withTimeout(timeoutMs);
+      found = results instanceof Set
+        ? (Array.from(results)[0] as NDKEvent)
+        : null;
     }
 
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = relaySets
-        .map((set, i) => {
-          const setName =
-            i === 0
-              ? isSignedIn
-                ? "standard relays"
-                : "anonymous relays"
-              : i === 1
-                ? "user relays"
-                : "fallback relays";
-          const urls = Array.from(set.relays).map((r) => r.url);
-          return urls.length > 0 ? `${setName} (${urls.join(", ")})` : null;
-        })
-        .filter(Boolean)
-        .join(", then ");
-
+      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
       console.warn(
-        `Event not found after ${timeoutSeconds}s timeout. Tried ${relayUrls}. Some relays may be offline or slow.`,
+        `Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
       return null;
     }

@@ -8,10 +8,9 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { standardRelays, fallbackRelays, FeedType } from "$lib/consts";
-  import { ndkSignedIn, inboxRelays } from "$lib/ndk";
-  import { feedType } from "$lib/stores";
-  import { userStore } from "$lib/stores/userStore";
+  import { communityRelays, secondaryRelays, FeedType } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
 
@@ -63,19 +62,16 @@
 
   /**
    * Selects the appropriate relay set based on user state and feed type
-   * - Uses user's inbox relays when signed in and viewing personal feed
-   * - Falls back to standard relays for anonymous users or standard feed
+   * - Uses active inbox relays from the new relay management system
+   * - Falls back to active inbox relays for anonymous users (which include community relays)
    */
   let activeRelays = $derived(
     (() => {
-      const isUserFeed = user.signedIn && $feedType === FeedType.UserRelays;
-      const relays = isUserFeed ? user.relays.inbox : standardRelays;
+      const relays = user.signedIn ? $activeInboxRelays : $activeInboxRelays;
 
       console.debug("[CardActions] Selected relays:", {
         eventId: event.id,
         isSignedIn: user.signedIn,
-        feedType: $feedType,
-        isUserFeed,
         relayCount: relays.length,
         relayUrls: relays,
       });

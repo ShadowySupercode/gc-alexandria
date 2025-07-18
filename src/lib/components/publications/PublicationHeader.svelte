@@ -2,15 +2,20 @@
   import { ndkInstance } from "$lib/ndk";
   import { naddrEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { standardRelays } from "../../consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { communityRelays } from "../../consts";
   import { Card, Img } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
+  function getRelayUrls(): string[] {
+    return $activeInboxRelays;
+  }
+
   const relays = $derived.by(() => {
-    return $ndkInstance.activeUser?.relayUrls ?? standardRelays;
+    return getRelayUrls();
   });
 
   const href = $derived.by(() => {
@@ -33,8 +38,6 @@
   let authorPubkey: string = $derived(
     event.getMatchingTags("p")[0]?.[1] ?? null,
   );
-
-  console.log("PublicationHeader event:", event);
 </script>
 
 {#if title != null && href != null}
