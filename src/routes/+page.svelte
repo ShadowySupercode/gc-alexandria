@@ -7,7 +7,7 @@
   import { HammerSolid } from "flowbite-svelte-icons";
   import { userStore } from '$lib/stores/userStore';
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
-  import PublicationFeed from '$lib/components/PublicationFeed.svelte';
+  import PublicationFeed from '$lib/components/publications/PublicationFeed.svelte';
 
   let searchQuery = $state('');
   let user = $state($userStore);

@@ -201,7 +201,6 @@
     >
       <CloseButton onclick={closeToc} class='btn-leather absolute top-4 right-4 hover:bg-primary-50 dark:hover:bg-primary-800' />
       <TableOfContents
-        displayMode='sidebar'
         rootAddress={rootAddress}
         depth={2}
         onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
