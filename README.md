@@ -69,37 +69,6 @@ or with Deno:
 deno task preview
 ```
 
-## Docker
-
-This docker container performs the build.
-
-To build the container:
-
-```bash
-docker build . -t gc-alexandria
-```
-
-To run the container, in detached mode (-d):
-
-```bash
-docker run -d --rm --name=gc-alexandria -p 4174:80 gc-alexandria
-```
-
-The container is then viewable on your [local machine](http://localhost:4173).
-
-If you want to see the container process (assuming it's the last process to start), enter:
-
-```bash
-docker ps -l
-```
-
-which should return something like:
-
-```bash
-CONTAINER ID   IMAGE           COMMAND                  CREATED         STATUS         PORTS                                     NAMES
-1d83d736322f   gc-alexandria   "/docker-entrypoint.…"   2 minutes ago   Up 2 minutes   0.0.0.0:4174->80/tcp, [::]:4174->80/tcp   gc-alexandria
-```
-
 ## Docker + Deno
 
 This application is configured to use the Deno runtime. A Docker container is provided to handle builds and deployments.
@@ -107,7 +76,7 @@ This application is configured to use the Deno runtime. A Docker container is pr
 To build the app for local development:
 
 ```bash
-docker build -t local-alexandria -f Dockerfile.local .
+docker build -t local-alexandria -f Dockerfile .
 ```
 
 To run the local development build:
