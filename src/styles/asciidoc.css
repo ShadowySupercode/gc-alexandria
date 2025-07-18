@@ -1,0 +1,53 @@
+/* AsciiDoc Content Styling */
+/* These styles are for rendered AsciiDoc content in previews and publications */
+
+.asciidoc-content h1,
+.asciidoc-content h2,
+.asciidoc-content h3,
+.asciidoc-content h4,
+.asciidoc-content h5,
+.asciidoc-content h6 {
+  font-weight: bold;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.25;
+  color: inherit;
+}
+
+.asciidoc-content h1 {
+  font-size: 1.875rem;
+}
+
+.asciidoc-content h2 {
+  font-size: 1.5rem;
+}
+
+.asciidoc-content h3 {
+  font-size: 1.25rem;
+}
+
+.asciidoc-content h4 {
+  font-size: 1.125rem;
+}
+
+.asciidoc-content h5 {
+  font-size: 1rem;
+}
+
+.asciidoc-content h6 {
+  font-size: 0.875rem;
+}
+
+.asciidoc-content p {
+  margin-bottom: 1em;
+}
+
+/* Dark mode support */
+.dark .asciidoc-content h1,
+.dark .asciidoc-content h2,
+.dark .asciidoc-content h3,
+.dark .asciidoc-content h4,
+.dark .asciidoc-content h5,
+.dark .asciidoc-content h6 {
+  color: inherit;
+}

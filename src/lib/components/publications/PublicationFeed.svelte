@@ -1,10 +1,10 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
-  import { ndkInstance } from "$lib/ndk";
+  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { filterValidIndexEvents, debounce } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import {
     getMatchingTags,
     NDKRelaySetFromNDK,
@@ -13,67 +13,142 @@
   } from "$lib/utils/nostrUtils";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
-  import { feedType } from "$lib/stores";
   import { isValidNip05Address } from "$lib/utils/search_utility";
 
-  let {
-    relays,
-    fallbackRelays,
-    searchQuery = "",
-  } = $props<{
-    relays: string[];
-    fallbackRelays: string[];
+  const props = $props<{
     searchQuery?: string;
+    onEventCountUpdate?: (counts: { displayed: number; total: number }) => void;
   }>();
 
+  // Component state
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
-    {},
-  );
+  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>({});
   let loading: boolean = $state(true);
+  let hasInitialized = $state(false);
+  let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // Relay management
+  let allRelays: string[] = $state([]);
+  let ndk = $derived($ndkInstance);
+
+  // Event management
+  let allIndexEvents: NDKEvent[] = $state([]);
   let cutoffTimestamp: number = $derived(
     eventsInView?.at(eventsInView.length - 1)?.created_at ??
       new Date().getTime(),
   );
 
-  let allIndexEvents: NDKEvent[] = $state([]);
+  // Initialize relays and fetch events
+  async function initializeAndFetch() {
+    if (!ndk) {
+      console.debug('[PublicationFeed] No NDK instance available');
+      return;
+    }
+
+    // Get relays from active stores
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    const newRelays = [...inboxRelays, ...outboxRelays];
+
+    console.debug('[PublicationFeed] Available relays:', {
+      inboxCount: inboxRelays.length,
+      outboxCount: outboxRelays.length,
+      totalCount: newRelays.length,
+      relays: newRelays
+    });
+
+    if (newRelays.length === 0) {
+      console.debug('[PublicationFeed] No relays available, waiting...');
+      return;
+    }
+
+    // Update allRelays if different
+    const currentRelaysString = allRelays.sort().join(',');
+    const newRelaysString = newRelays.sort().join(',');
+    
+    if (currentRelaysString !== newRelaysString) {
+      allRelays = newRelays;
+      console.debug('[PublicationFeed] Relays updated, fetching events');
+      await fetchAllIndexEventsFromRelays();
+    }
+  }
+
+  // Watch for relay store changes
+  $effect(() => {
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    const newRelays = [...inboxRelays, ...outboxRelays];
+
+    if (newRelays.length > 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] Relays available, initializing');
+      hasInitialized = true;
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
+        fallbackTimeout = null;
+      }
+      setTimeout(() => initializeAndFetch(), 0);
+    } else if (newRelays.length === 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] No relays available, setting up fallback');
+      if (!fallbackTimeout) {
+        fallbackTimeout = setTimeout(() => {
+          console.debug('[PublicationFeed] Fallback timeout reached, retrying');
+          hasInitialized = true;
+          initializeAndFetch();
+        }, 3000);
+      }
+    }
+  });
 
   async function fetchAllIndexEventsFromRelays() {
-    loading = true;
-    const ndk = $ndkInstance;
-    const primaryRelays: string[] = relays;
-    const fallback: string[] = fallbackRelays.filter(
-      (r: string) => !primaryRelays.includes(r),
-    );
-    const allRelays = [...primaryRelays, ...fallback];
+    console.debug('[PublicationFeed] fetchAllIndexEventsFromRelays called with relays:', {
+      allRelaysCount: allRelays.length,
+      allRelays: allRelays
+    });
     
+    if (!ndk) {
+      console.error('[PublicationFeed] No NDK instance available');
+      loading = false;
+      return;
+    }
+
+    if (allRelays.length === 0) {
+      console.debug('[PublicationFeed] No relays available for fetching');
+      loading = false;
+      return;
+    }
+
     // Check cache first
     const cachedEvents = indexEventCache.get(allRelays);
     if (cachedEvents) {
-      console.log(`[PublicationFeed] Using cached index events (${cachedEvents.length} events)`);
+      console.log(
+        `[PublicationFeed] Using cached index events (${cachedEvents.length} events)`,
+      );
       allIndexEvents = cachedEvents;
       eventsInView = allIndexEvents.slice(0, 30);
       endOfFeed = allIndexEvents.length <= 30;
       loading = false;
       return;
     }
-    
+
+    loading = true;
     relayStatuses = Object.fromEntries(
       allRelays.map((r: string) => [r, "pending"]),
     );
     let allEvents: NDKEvent[] = [];
+    const eventMap = new Map<string, NDKEvent>();
 
     // Helper to fetch from a single relay with timeout
-    async function fetchFromRelay(relay: string): Promise<NDKEvent[]> {
+    async function fetchFromRelay(relay: string): Promise<void> {
       try {
+        console.debug(`[PublicationFeed] Fetching from relay: ${relay}`);
         const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
         let eventSet = await ndk
           .fetchEvents(
             {
               kinds: [indexKind],
+              limit: 1000, // Increased limit to get more events
             },
             {
               groupable: false,
@@ -82,36 +157,57 @@
             },
             relaySet,
           )
-          .withTimeout(5000);
+          .withTimeout(5000); // Reduced timeout to 5 seconds for faster response
+        
+        console.debug(`[PublicationFeed] Raw events from ${relay}:`, eventSet.size);
         eventSet = filterValidIndexEvents(eventSet);
+        console.debug(`[PublicationFeed] Valid events from ${relay}:`, eventSet.size);
+        
         relayStatuses = { ...relayStatuses, [relay]: "found" };
-        return Array.from(eventSet);
+        
+        // Add new events to the map and update the view immediately
+        const newEvents: NDKEvent[] = [];
+        for (const event of eventSet) {
+          const tagAddress = event.tagAddress();
+          if (!eventMap.has(tagAddress)) {
+            eventMap.set(tagAddress, event);
+            newEvents.push(event);
+          }
+        }
+        
+        if (newEvents.length > 0) {
+          // Update allIndexEvents with new events
+          allIndexEvents = Array.from(eventMap.values());
+          // Sort by created_at descending
+          allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+          
+          // Update the view immediately with new events
+          eventsInView = allIndexEvents.slice(0, 30);
+          endOfFeed = allIndexEvents.length <= 30;
+          
+          console.debug(`[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`);
+        }
       } catch (err) {
-        console.error(`Error fetching from relay ${relay}:`, err);
+        console.error(`[PublicationFeed] Error fetching from relay ${relay}:`, err);
         relayStatuses = { ...relayStatuses, [relay]: "notfound" };
-        return [];
       }
     }
 
-    // Fetch from all relays in parallel, do not block on any single relay
-    const results = await Promise.allSettled(allRelays.map(fetchFromRelay));
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        allEvents = allEvents.concat(result.value);
-      }
-    }
-    // Deduplicate by tagAddress
-    const eventMap = new Map(
-      allEvents.map((event) => [event.tagAddress(), event]),
-    );
-    allIndexEvents = Array.from(eventMap.values());
-    // Sort by created_at descending
-    allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+    // Fetch from all relays in parallel, return events as they arrive
+    console.debug(`[PublicationFeed] Starting fetch from ${allRelays.length} relays`);
+    
+    // Start all relay fetches in parallel
+    const fetchPromises = allRelays.map(fetchFromRelay);
+    
+    // Wait for all to complete (but events are shown as they arrive)
+    await Promise.allSettled(fetchPromises);
+    
+    console.debug(`[PublicationFeed] All relays completed, final event count:`, allIndexEvents.length);
     
     // Cache the fetched events
     indexEventCache.set(allRelays, allIndexEvents);
-    
-    // Initially show first page
+
+    // Final update to ensure we have the latest view
     eventsInView = allIndexEvents.slice(0, 30);
     endOfFeed = allIndexEvents.length <= 30;
     loading = false;
@@ -119,8 +215,8 @@
 
   // Function to filter events based on search query
   const filterEventsBySearch = (events: NDKEvent[]) => {
-    if (!searchQuery) return events;
-    const query = searchQuery.toLowerCase();
+    if (!props.searchQuery) return events;
+    const query = props.searchQuery.toLowerCase();
     console.debug(
       "[PublicationFeed] Filtering events with query:",
       query,
@@ -129,9 +225,11 @@
     );
 
     // Check cache first for publication search
-    const cachedResult = searchCache.get('publication', query);
+    const cachedResult = searchCache.get("publication", query);
     if (cachedResult) {
-      console.log(`[PublicationFeed] Using cached results for publication search: ${query}`);
+      console.log(
+        `[PublicationFeed] Using cached results for publication search: ${query}`,
+      );
       return cachedResult.events;
     }
 
@@ -178,7 +276,7 @@
       }
       return matches;
     });
-    
+
     // Cache the filtered results
     const result = {
       events: filtered,
@@ -186,11 +284,11 @@
       tTagEvents: [],
       eventIds: new Set<string>(),
       addresses: new Set<string>(),
-      searchType: 'publication',
-      searchTerm: query
+      searchType: "publication",
+      searchTerm: query,
     };
-    searchCache.set('publication', query, result);
-    
+    searchCache.set("publication", query, result);
+
     console.debug("[PublicationFeed] Events after filtering:", filtered.length);
     return filtered;
   };
@@ -211,15 +309,25 @@
   $effect(() => {
     console.debug(
       "[PublicationFeed] Search query effect triggered:",
-      searchQuery,
+      props.searchQuery,
     );
-    debouncedSearch(searchQuery);
+    debouncedSearch(props.searchQuery);
+  });
+
+  // Emit event count updates
+  $effect(() => {
+    if (props.onEventCountUpdate) {
+      props.onEventCountUpdate({
+        displayed: eventsInView.length,
+        total: allIndexEvents.length
+      });
+    }
   });
 
   async function loadMorePublications() {
     loadingMore = true;
     const current = eventsInView.length;
-    let source = searchQuery.trim()
+    let source = props.searchQuery.trim()
       ? filterEventsBySearch(allIndexEvents)
       : allIndexEvents;
     eventsInView = source.slice(0, current + 30);
@@ -228,7 +336,7 @@
   }
 
   function getSkeletonIds(): string[] {
-    const skeletonHeight = 124; // The height of the skeleton component in pixels.
+    const skeletonHeight = 192; // The height of the card component in pixels (h-48 = 12rem = 192px).
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
     const skeletonIds = [];
     for (let i = 0; i < skeletonCount; i++) {
@@ -243,30 +351,31 @@
     return `Index: ${indexStats.size} entries (${indexStats.totalEvents} events), Search: ${searchStats} entries`;
   }
 
-  // Track previous feed type to avoid infinite loops
-  let previousFeedType = $state($feedType);
-  
-  // Watch for changes in feed type and relay configuration
-  $effect(() => {
-    if (previousFeedType !== $feedType) {
-      console.log(`[PublicationFeed] Feed type changed from ${previousFeedType} to ${$feedType}`);
-      previousFeedType = $feedType;
-      
-      // Clear cache when feed type changes (different relay sets)
-      indexEventCache.clear();
-      searchCache.clear();
-      
-      // Refetch events with new relay configuration
-      fetchAllIndexEventsFromRelays();
+  // Cleanup function for fallback timeout
+  function cleanup() {
+    if (fallbackTimeout) {
+      clearTimeout(fallbackTimeout);
+      fallbackTimeout = null;
     }
+  }
+
+  // Cleanup on component destruction
+  onDestroy(() => {
+    cleanup();
   });
 
   onMount(async () => {
-    await fetchAllIndexEventsFromRelays();
+    console.debug('[PublicationFeed] onMount called');
+    // The effect will handle fetching when relays become available
   });
 </script>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+<div class="flex flex-col space-y-4">
+
+
+  <div
+    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full"
+  >
     {#if loading && eventsInView.length === 0}
       {#each getSkeletonIds() as id}
         <Skeleton divClass="skeleton-leather w-full" size="lg" />
@@ -281,7 +390,7 @@
       </div>
     {/if}
   </div>
-  
+
   {#if !loadingMore && !endOfFeed}
     <div class="flex justify-center mt-4 mb-8">
       <Button
@@ -308,3 +417,4 @@
       >
     </div>
   {/if}
+</div>

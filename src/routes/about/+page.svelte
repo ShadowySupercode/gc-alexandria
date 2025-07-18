@@ -1,6 +1,7 @@
 <script lang="ts">
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
+  import { goto } from "$app/navigation";
   import RelayStatus from "$lib/components/RelayStatus.svelte";
 
   // Get the git tag version from environment variables
@@ -35,9 +36,11 @@
     </P>
 
     <P class="mb-3">
-      Please submit support issues on the <A href="/contact"
-        >Alexandria contact page</A
-      > and follow us on <A
+      Please submit support issues on the <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("/contact")}>Contact</button
+      >
+      page and follow us on <A
         href="https://github.com/ShadowySupercode/gitcitadel"
         target="_blank">GitHub</A
       > and <A href="https://geyser.fund/project/gitcitadel" target="_blank"

@@ -5,6 +5,7 @@
   import { page } from "$app/stores";
   import { Alert } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
+  import { logCurrentRelayConfiguration } from "$lib/ndk";
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
@@ -18,6 +19,9 @@
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
+    
+    // Log relay configuration when layout mounts
+    logCurrentRelayConfiguration();
   });
 </script>
 

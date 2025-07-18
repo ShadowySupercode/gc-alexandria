@@ -3,7 +3,8 @@
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
   import { getEventType } from "$lib/utils/mime";
-  import { standardRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { communityRelays } from "$lib/consts";
   import { goto } from "$app/navigation";
 
   let { event, className = "" } = $props<{
@@ -25,7 +26,7 @@
       return null;
     }
     try {
-      return naddrEncode(event, standardRelays);
+      return naddrEncode(event, $activeInboxRelays);
     } catch {
       return null;
     }
@@ -40,26 +41,29 @@
         return tag[1]; // Return the addressable event address
       }
     }
-    
+
     // For deferred events with deferral tag, use the deferral naddr instead of the event's own naddr
     const deferralNaddr = getDeferralNaddr(event);
     if (deferralNaddr) {
       return deferralNaddr;
     }
-    
+
     // Otherwise, use the event's own naddr if it's addressable
     return getNaddrAddress(event);
   }
 
   function navigateToPublication() {
     const naddrAddress = getViewPublicationNaddr(event);
-    console.log("ViewPublicationLink: navigateToPublication called", { 
-      eventKind: event.kind, 
+    console.log("ViewPublicationLink: navigateToPublication called", {
+      eventKind: event.kind,
       naddrAddress,
-      isAddressable: isAddressableEvent(event)
+      isAddressable: isAddressableEvent(event),
     });
     if (naddrAddress) {
-      console.log("ViewPublicationLink: Navigating to publication:", naddrAddress);
+      console.log(
+        "ViewPublicationLink: Navigating to publication:",
+        naddrAddress,
+      );
       goto(`/publication?id=${encodeURIComponent(naddrAddress)}`);
     } else {
       console.log("ViewPublicationLink: No naddr address found for event");
@@ -77,4 +81,4 @@
   >
     View Publication
   </button>
-{/if} 
+{/if}

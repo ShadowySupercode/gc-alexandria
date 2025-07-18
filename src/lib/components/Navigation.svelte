@@ -7,9 +7,12 @@
     NavHamburger,
     NavBrand,
   } from "flowbite-svelte";
-  import Login from "./Login.svelte";
+  import Profile from "./util/Profile.svelte";
+  import { userStore } from "$lib/stores/userStore";
 
   let { class: className = "" } = $props();
+  
+  let userState = $derived($userStore);
 </script>
 
 <Navbar class={`Navbar navbar-leather navbar-main ${className}`}>
@@ -19,11 +22,12 @@
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Login />
+    <Profile isNav={true} pubkey={userState.npub || undefined} />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
     <NavLi href="/">Publications</NavLi>
+    <NavLi href="/new/compose">Compose</NavLi>
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
     <NavLi href="/events">Events</NavLi>

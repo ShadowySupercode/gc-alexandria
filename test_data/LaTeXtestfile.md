@@ -20,24 +20,30 @@ Something complex, in display mode: `$$P \left( A=2 \, \middle| \, \dfrac{A^2}{B
 
 Another example of `$$\prod_{i=1}^{n} x_i - 1$$` inline formulas.
 
-Function example: 
+Function example:
 `$$
 f(x)=
 \begin{cases}
-1/d_{ij} & \quad \text{when $d_{ij} \leq 160$}\\ 
+1/d_{ij} & \quad \text{when $d_{ij} \leq 160$}\\
 0 & \quad \text{otherwise}
 \end{cases}
-$$`
+
+$$
+`
 
 And a matrix:
-`$$
-M = 
+`
+$$
+
+M =
 \begin{bmatrix}
 \frac{5}{6} & \frac{1}{6} & 0 \\[0.3em]
 \frac{5}{6} & 0 & \frac{1}{6} \\[0.3em]
 0 & \frac{5}{6} & \frac{1}{6}
 \end{bmatrix}
-$$`
+
+$$
+`
 
 LaTeX ypesetting won't be rendered. Use NostrMarkup delimeter tables for this sort of thing.
 
@@ -61,7 +67,7 @@ We also recognize common LaTeX statements:
 
 `\sqrt{x^2+1}`
 
-Greek letters are a snap: `$\Psi$`, `$\psi$`, `$\Phi$`, `$\phi$`.  
+Greek letters are a snap: `$\Psi$`, `$\psi$`, `$\Phi$`, `$\phi$`.
 
 Equations within text are easy--- A well known Maxwell thermodynamic relation is `$\left.{\partial T \over \partial P}\right|_{s} = \left.{\partial v \over \partial s}\right|_{P}$`.
 
@@ -133,3 +139,4 @@ This document should demonstrate that:
 3. Regular code blocks remain unchanged
 4. Mixed content is handled correctly
 5. Edge cases are handled gracefully
+$$

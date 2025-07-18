@@ -1,7 +1,6 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Lazy } from "./lazy.ts";
-import { findIndexAsync as _findIndexAsync } from "../utils.ts";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -11,6 +10,16 @@ enum PublicationTreeNodeType {
 enum PublicationTreeNodeStatus {
   Resolved,
   Error,
+}
+
+export enum TreeTraversalMode {
+  Leaves,
+  All,
+}
+
+enum TreeTraversalDirection {
+  Forward,
+  Backward,
 }
 
 interface PublicationTreeNode {
@@ -36,6 +45,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * A map of addresses in the tree to their corresponding events.
    */
   #events: Map<string, NDKEvent>;
+  
+  /**
+   * Simple cache for fetched events to avoid re-fetching.
+   */
+  #eventCache: Map<string, NDKEvent> = new Map();
 
   /**
    * An ordered list of the addresses of the leaves of the tree.
@@ -52,10 +66,16 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   #ndk: NDK;
 
+  #nodeAddedObservers: Array<(address: string) => void> = [];
+
+  #nodeResolvedObservers: Array<(address: string) => void> = [];
+
+  #bookmarkMovedObservers: Array<(address: string) => void> = [];
+
   constructor(rootEvent: NDKEvent, ndk: NDK) {
     const rootAddress = rootEvent.tagAddress();
     this.#root = {
-      type: this.#getNodeType(rootEvent),
+      type: PublicationTreeNodeType.Branch,
       status: PublicationTreeNodeStatus.Resolved,
       address: rootAddress,
       children: [],
@@ -142,14 +162,17 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
   /**
    * Retrieves the addresses of the loaded children, if any, of the node with the given address.
+   *
    * @param address The address of the parent node.
    * @returns An array of addresses of any loaded child nodes.
+   *
+   * Note that this method resolves all children of the node.
    */
   async getChildAddresses(address: string): Promise<Array<string | null>> {
     const node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(
-        `PublicationTree: Node with address ${address} not found.`,
+        `[PublicationTree] Node with address ${address} not found.`,
       );
     }
 
@@ -169,7 +192,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     let node = await this.#nodes.get(address)?.value();
     if (!node) {
       throw new Error(
-        `PublicationTree: Node with address ${address} not found.`,
+        `[PublicationTree] Node with address ${address} not found.`,
       );
     }
 
@@ -189,7 +212,29 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    */
   setBookmark(address: string) {
     this.#bookmark = address;
-    this.#cursor.tryMoveTo(address);
+    this.#cursor.tryMoveTo(address).then((success) => {
+      if (success) {
+        this.#bookmarkMovedObservers.forEach((observer) => observer(address));
+      }
+    });
+  }
+
+  onBookmarkMoved(observer: (address: string) => void) {
+    this.#bookmarkMovedObservers.push(observer);
+  }
+
+  onNodeAdded(observer: (address: string) => void) {
+    this.#nodeAddedObservers.push(observer);
+  }
+
+  /**
+   * Registers an observer function that is invoked whenever a new node is resolved.  Nodes are
+   * added lazily.
+   *
+   * @param observer The observer function.
+   */
+  onNodeResolved(observer: (address: string) => void) {
+    this.#nodeResolvedObservers.push(observer);
   }
 
   // #region Iteration Cursor
@@ -206,8 +251,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     async tryMoveTo(address?: string) {
       if (!address) {
         const startEvent = await this.#tree.#depthFirstRetrieve();
+        if (!startEvent) {
+          return false;
+        }
         this.target = await this.#tree.#nodes
-          .get(startEvent!.tagAddress())
+          .get(startEvent.tagAddress())
           ?.value();
       } else {
         this.target = await this.#tree.#nodes.get(address)?.value();
@@ -222,7 +270,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToFirstChild(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug(
+          "[Publication Tree Cursor] Target node is null or undefined.",
+        );
         return false;
       }
 
@@ -240,7 +290,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToLastChild(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug(
+          "[Publication Tree Cursor] Target node is null or undefined.",
+        );
         return false;
       }
 
@@ -258,7 +310,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToNextSibling(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug(
+          "[Publication Tree Cursor] Target node is null or undefined.",
+        );
         return false;
       }
 
@@ -287,7 +341,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     async tryMoveToPreviousSibling(): Promise<boolean> {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug(
+          "[Publication Tree Cursor] Target node is null or undefined.",
+        );
         return false;
       }
 
@@ -316,7 +372,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
     tryMoveToParent(): boolean {
       if (!this.target) {
-        console.debug("Cursor: Target node is null or undefined.");
+        console.debug(
+          "[Publication Tree Cursor] Target node is null or undefined.",
+        );
         return false;
       }
 
@@ -338,34 +396,100 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return this;
   }
 
-  // TODO: Add `previous()` method.
-
-  async next(): Promise<IteratorResult<NDKEvent | null>> {
+  /**
+   * Return the next event in the tree for the given traversal mode.
+   *
+   * @param mode The traversal mode. Can be {@link TreeTraversalMode.Leaves} or
+   * {@link TreeTraversalMode.All}.
+   * @returns The next event in the tree, or null if the tree is empty.
+   */
+  async next(
+    mode: TreeTraversalMode = TreeTraversalMode.Leaves,
+  ): Promise<IteratorResult<NDKEvent | null>> {
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
+        return this.#yieldEventAtCursor(false);
       }
     }
 
-    // Based on Raymond Chen's tree traversal algorithm example.
-    // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
+    switch (mode) {
+      case TreeTraversalMode.Leaves:
+        return this.#walkLeaves(TreeTraversalDirection.Forward);
+      case TreeTraversalMode.All:
+        return this.#preorderWalkAll(TreeTraversalDirection.Forward);
+    }
+  }
+
+  /**
+   * Return the previous event in the tree for the given traversal mode.
+   *
+   * @param mode The traversal mode. Can be {@link TreeTraversalMode.Leaves} or
+   * {@link TreeTraversalMode.All}.
+   * @returns The previous event in the tree, or null if the tree is empty.
+   */
+  async previous(
+    mode: TreeTraversalMode = TreeTraversalMode.Leaves,
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    if (!this.#cursor.target) {
+      if (await this.#cursor.tryMoveTo(this.#bookmark)) {
+        return this.#yieldEventAtCursor(false);
+      }
+    }
+
+    switch (mode) {
+      case TreeTraversalMode.Leaves:
+        return this.#walkLeaves(TreeTraversalDirection.Backward);
+      case TreeTraversalMode.All:
+        return this.#preorderWalkAll(TreeTraversalDirection.Backward);
+    }
+  }
+
+  async #yieldEventAtCursor(
+    done: boolean,
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    if (!this.#cursor.target) {
+      return { done, value: null };
+    }
+    const value = (await this.getEvent(this.#cursor.target.address)) ?? null;
+    return { done, value };
+  }
+
+  /**
+   * Walks the tree in the given direction, yielding the event at each leaf.
+   *
+   * @param direction The direction to walk the tree.
+   * @returns The event at the leaf, or null if the tree is empty.
+   *
+   * Based on Raymond Chen's tree traversal algorithm example.
+   * https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
+   */
+  async #walkLeaves(
+    direction: TreeTraversalDirection = TreeTraversalDirection.Forward,
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    const tryMoveToSibling: () => Promise<boolean> =
+      direction === TreeTraversalDirection.Forward
+        ? this.#cursor.tryMoveToNextSibling.bind(this.#cursor)
+        : this.#cursor.tryMoveToPreviousSibling.bind(this.#cursor);
+    const tryMoveToChild: () => Promise<boolean> =
+      direction === TreeTraversalDirection.Forward
+        ? this.#cursor.tryMoveToFirstChild.bind(this.#cursor)
+        : this.#cursor.tryMoveToLastChild.bind(this.#cursor);
+
     do {
-      if (await this.#cursor.tryMoveToNextSibling()) {
-        while (await this.#cursor.tryMoveToFirstChild()) {
+      if (await tryMoveToSibling()) {
+        while (await tryMoveToChild()) {
           continue;
         }
 
-        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+        if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
           return { done: false, value: null };
         }
 
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
+        return this.#yieldEventAtCursor(false);
       }
     } while (this.#cursor.tryMoveToParent());
 
-    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+    if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
       return { done: false, value: null };
     }
 
@@ -373,36 +497,43 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     return { done: true, value: null };
   }
 
-  async previous(): Promise<IteratorResult<NDKEvent | null>> {
-    if (!this.#cursor.target) {
-      if (await this.#cursor.tryMoveTo(this.#bookmark)) {
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
-      }
+  /**
+   * Walks the tree in the given direction, yielding the event at each node.
+   *
+   * @param direction The direction to walk the tree.
+   * @returns The event at the node, or null if the tree is empty.
+   *
+   * Based on Raymond Chen's preorder walk algorithm example.
+   * https://devblogs.microsoft.com/oldnewthing/20200107-00/?p=103304
+   */
+  async #preorderWalkAll(
+    direction: TreeTraversalDirection = TreeTraversalDirection.Forward,
+  ): Promise<IteratorResult<NDKEvent | null>> {
+    const tryMoveToSibling: () => Promise<boolean> =
+      direction === TreeTraversalDirection.Forward
+        ? this.#cursor.tryMoveToNextSibling.bind(this.#cursor)
+        : this.#cursor.tryMoveToPreviousSibling.bind(this.#cursor);
+    const tryMoveToChild: () => Promise<boolean> =
+      direction === TreeTraversalDirection.Forward
+        ? this.#cursor.tryMoveToFirstChild.bind(this.#cursor)
+        : this.#cursor.tryMoveToLastChild.bind(this.#cursor);
+
+    if (await tryMoveToChild()) {
+      return this.#yieldEventAtCursor(false);
     }
 
-    // Based on Raymond Chen's tree traversal algorithm example.
-    // https://devblogs.microsoft.com/oldnewthing/20200106-00/?p=103300
     do {
-      if (await this.#cursor.tryMoveToPreviousSibling()) {
-        while (await this.#cursor.tryMoveToLastChild()) {
-          continue;
-        }
-
-        if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
-          return { done: false, value: null };
-        }
-
-        const event = await this.getEvent(this.#cursor.target!.address);
-        return { done: false, value: event };
+      if (await tryMoveToSibling()) {
+        return this.#yieldEventAtCursor(false);
       }
     } while (this.#cursor.tryMoveToParent());
 
-    if (this.#cursor.target!.status === PublicationTreeNodeStatus.Error) {
+    if (this.#cursor.target && this.#cursor.target.status === PublicationTreeNodeStatus.Error) {
       return { done: false, value: null };
     }
 
-    return { done: true, value: null };
+    // If we get to this point, we're at the root node (can't move up any more).
+    return this.#yieldEventAtCursor(true);
   }
 
   // #endregion
@@ -431,15 +562,16 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       currentNode = await this.#nodes.get(currentAddress!)?.value();
       if (!currentNode) {
         throw new Error(
-          `PublicationTree: Node with address ${currentAddress} not found.`,
+          `[PublicationTree] Node with address ${currentAddress} not found.`,
         );
       }
 
       currentEvent = this.#events.get(currentAddress!);
       if (!currentEvent) {
-        throw new Error(
-          `PublicationTree: Event with address ${currentAddress} not found.`,
+        console.warn(
+          `[PublicationTree] Event with address ${currentAddress} not found.`,
         );
+        return null;
       }
 
       // Stop immediately if the target of the search is found.
@@ -462,13 +594,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
 
       // Augment the tree with the children of the current event.
-      for (const childAddress of currentChildAddresses) {
-        if (this.#nodes.has(childAddress)) {
-          continue;
-        }
-
-        await this.#addNode(childAddress, currentNode!);
-      }
+      const childPromises = currentChildAddresses
+        .filter(childAddress => !this.#nodes.has(childAddress))
+        .map(childAddress => this.#addNode(childAddress, currentNode!));
+      
+      await Promise.all(childPromises);
 
       // Push the popped address's children onto the stack for the next iteration.
       while (currentChildAddresses.length > 0) {
@@ -481,18 +611,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #addNode(address: string, parentNode: PublicationTreeNode) {
-    if (this.#nodes.has(address)) {
-      console.debug(
-        `[PublicationTree] Node with address ${address} already exists.`,
-      );
-      return;
-    }
-
     const lazyNode = new Lazy<PublicationTreeNode>(() =>
       this.#resolveNode(address, parentNode),
     );
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
+
+    this.#nodeAddedObservers.forEach((observer) => observer(address));
   }
 
   /**
@@ -508,16 +633,27 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     address: string,
     parentNode: PublicationTreeNode,
   ): Promise<PublicationTreeNode> {
-    const [kind, pubkey, dTag] = address.split(":");
-    const event = await this.#ndk.fetchEvent({
-      kinds: [parseInt(kind)],
-      authors: [pubkey],
-      "#d": [dTag],
-    });
+    // Check cache first
+    let event = this.#eventCache.get(address);
+    
+    if (!event) {
+      const [kind, pubkey, dTag] = address.split(":");
+      const fetchedEvent = await this.#ndk.fetchEvent({
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        "#d": [dTag],
+      });
+      
+      // Cache the event if found
+      if (fetchedEvent) {
+        this.#eventCache.set(address, fetchedEvent);
+        event = fetchedEvent;
+      }
+    }
 
     if (!event) {
       console.debug(
-        `PublicationTree: Event with address ${address} not found.`,
+        `[PublicationTree] Event with address ${address} not found.`,
       );
 
       return {
@@ -543,9 +679,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
-    for (const address of childAddresses) {
-      this.addEventByAddress(address, event);
-    }
+    const childPromises = childAddresses.map(address => 
+      this.addEventByAddress(address, event)
+    );
+    await Promise.all(childPromises);
+
+    this.#nodeResolvedObservers.forEach((observer) => observer(address));
 
     return node;
   }

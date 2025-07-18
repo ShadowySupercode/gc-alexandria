@@ -906,6 +906,13 @@ export default class Pharos {
       ["#d", nodeId],
       ...this.extractAndNormalizeWikilinks(content!),
     ];
+    
+    // Extract image from content if present
+    const imageUrl = this.extractImageFromContent(content!);
+    if (imageUrl) {
+      event.tags.push(["image", imageUrl]);
+    }
+    
     event.created_at = Date.now();
     event.pubkey = pubkey;
 
@@ -1180,6 +1187,36 @@ export default class Pharos {
     }
 
     return wikilinks;
+  }
+
+  /**
+   * Extracts the first image URL from AsciiDoc content.
+   * @param content The AsciiDoc content to search for images.
+   * @returns The first image URL found, or null if no images are present.
+   */
+  private extractImageFromContent(content: string): string | null {
+    // Look for AsciiDoc image syntax: image::url[alt text]
+    const imageRegex = /image::([^\s\[]+)/g;
+    let match = imageRegex.exec(content);
+    if (match) {
+      return match[1];
+    }
+
+    // Look for AsciiDoc image syntax: image:url[alt text]
+    const inlineImageRegex = /image:([^\s\[]+)/g;
+    match = inlineImageRegex.exec(content);
+    if (match) {
+      return match[1];
+    }
+
+    // Look for markdown-style image syntax: ![alt](url)
+    const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    match = markdownImageRegex.exec(content);
+    if (match) {
+      return match[2];
+    }
+
+    return null;
   }
 
   // TODO: Add search-based wikilink resolution.

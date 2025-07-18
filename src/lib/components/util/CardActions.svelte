@@ -8,40 +8,52 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { standardRelays, fallbackRelays } from "$lib/consts";
-  import { ndkSignedIn, inboxRelays } from "$lib/ndk";
-  import { feedType } from "$lib/stores";
-  import { FeedType } from "$lib/consts";
+  import { activeInboxRelays } from "$lib/ndk";
+import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
 
-  const {
-    event,
-    title,
-    author,
-    originalAuthor,
-    summary,
-    image,
-    version,
-    source,
-    type,
-    language,
-    publisher,
-    identifier,
-  } = $props<{
-    event: NDKEvent;
-    title?: string;
-    author?: string;
-    originalAuthor?: string;
-    summary?: string;
-    image?: string;
-    version?: string;
-    source?: string;
-    type?: string;
-    language?: string;
-    publisher?: string;
-    identifier?: string;
-  }>();
+  // Component props
+  let { event } = $props<{ event: NDKEvent }>();
+
+  // Subscribe to userStore
+  let user = $state($userStore);
+  userStore.subscribe((val) => (user = val));
+
+  // Derive metadata from event
+  let title = $derived(
+    event.tags.find((t: string[]) => t[0] === "title")?.[1] ?? "",
+  );
+  let summary = $derived(
+    event.tags.find((t: string[]) => t[0] === "summary")?.[1] ?? "",
+  );
+  let image = $derived(
+    event.tags.find((t: string[]) => t[0] === "image")?.[1] ?? null,
+  );
+  let author = $derived(
+    event.tags.find((t: string[]) => t[0] === "author")?.[1] ?? "",
+  );
+  let originalAuthor = $derived(
+    event.tags.find((t: string[]) => t[0] === "original_author")?.[1] ?? null,
+  );
+  let version = $derived(
+    event.tags.find((t: string[]) => t[0] === "version")?.[1] ?? "",
+  );
+  let source = $derived(
+    event.tags.find((t: string[]) => t[0] === "source")?.[1] ?? null,
+  );
+  let type = $derived(
+    event.tags.find((t: string[]) => t[0] === "type")?.[1] ?? null,
+  );
+  let language = $derived(
+    event.tags.find((t: string[]) => t[0] === "language")?.[1] ?? null,
+  );
+  let publisher = $derived(
+    event.tags.find((t: string[]) => t[0] === "publisher")?.[1] ?? null,
+  );
+  let identifier = $derived(
+    event.tags.find((t: string[]) => t[0] === "identifier")?.[1] ?? null,
+  );
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
@@ -49,19 +61,16 @@
 
   /**
    * Selects the appropriate relay set based on user state and feed type
-   * - Uses user's inbox relays when signed in and viewing personal feed
-   * - Falls back to standard relays for anonymous users or standard feed
+   * - Uses active inbox relays from the new relay management system
+   * - Falls back to active inbox relays for anonymous users (which include community relays)
    */
   let activeRelays = $derived(
     (() => {
-      const isUserFeed = $ndkSignedIn && $feedType === FeedType.UserRelays;
-      const relays = isUserFeed ? $inboxRelays : standardRelays;
+      const relays = user.signedIn ? $activeInboxRelays : $activeInboxRelays;
 
       console.debug("[CardActions] Selected relays:", {
         eventId: event.id,
-        isSignedIn: $ndkSignedIn,
-        feedType: $feedType,
-        isUserFeed,
+        isSignedIn: user.signedIn,
         relayCount: relays.length,
         relayUrls: relays,
       });
@@ -108,10 +117,9 @@
    * Navigates to the event details page
    */
   function viewEventDetails() {
-    const nevent = getIdentifier('nevent');
+    const nevent = getIdentifier("nevent");
     goto(`/events?id=${encodeURIComponent(nevent)}`);
   }
-  
 </script>
 
 <div

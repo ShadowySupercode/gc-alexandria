@@ -1,4 +1,4 @@
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent } from "@nostr-dev-kit/ndk";
 
 /**
  * Extended NostrProfile interface for search results
@@ -39,7 +39,7 @@ export interface ProfileSearchResult {
 /**
  * Search subscription type
  */
-export type SearchSubscriptionType = 'd' | 't' | 'n';
+export type SearchSubscriptionType = "d" | "t" | "n";
 
 /**
  * Search filter configuration
@@ -53,7 +53,7 @@ export interface SearchFilter {
  * Second-order search parameters
  */
 export interface SecondOrderSearchParams {
-  searchType: 'n' | 'd';
+  searchType: "n" | "d";
   firstOrderEvents: NDKEvent[];
   eventIds?: Set<string>;
   addresses?: Set<string>;
@@ -66,4 +66,4 @@ export interface SecondOrderSearchParams {
 export interface SearchCallbacks {
   onSecondOrderUpdate?: (result: SearchResult) => void;
   onSubscriptionCreated?: (sub: any) => void;
-} 
+}

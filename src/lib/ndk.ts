@@ -8,23 +8,39 @@ import NDK, {
 } from "@nostr-dev-kit/ndk";
 import { get, writable, type Writable } from "svelte/store";
 import {
-  fallbackRelays,
+  secondaryRelays,
   FeedType,
   loginStorageKey,
-  standardRelays,
+  communityRelays,
   anonymousRelays,
+  searchRelays,
 } from "./consts";
-import { feedType } from "./stores";
-import { userPubkey } from '$lib/stores/authStore.Svelte';
+import {
+  buildCompleteRelaySet,
+  testRelayConnection,
+  discoverLocalRelays,
+  getUserLocalRelays,
+  getUserBlockedRelays,
+  getUserOutboxRelays,
+  deduplicateRelayUrls,
+} from "./utils/relay_management";
+
+// Re-export testRelayConnection for components that need it
+export { testRelayConnection };
+import { startNetworkMonitoring, NetworkCondition } from "./utils/network_detection";
+import { userStore } from "./stores/userStore";
+import { userPubkey } from "$lib/stores/authStore.Svelte";
+import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore";
 
 export const ndkInstance: Writable<NDK> = writable();
+export const ndkSignedIn = writable(false);
+export const activePubkey = writable<string | null>(null);
+export const inboxRelays = writable<string[]>([]);
+export const outboxRelays = writable<string[]>([]);
 
-export const ndkSignedIn: Writable<boolean> = writable(false);
-
-export const activePubkey: Writable<string | null> = writable(null);
-
-export const inboxRelays: Writable<string[]> = writable([]);
-export const outboxRelays: Writable<string[]> = writable([]);
+// New relay management stores
+export const activeInboxRelays = writable<string[]>([]);
+export const activeOutboxRelays = writable<string[]>([]);
 
 /**
  * Custom authentication policy that handles NIP-42 authentication manually
@@ -209,83 +225,7 @@ export function checkWebSocketSupport(): void {
   }
 }
 
-/**
- * Tests connection to a relay and returns connection status
- * @param relayUrl The relay URL to test
- * @param ndk The NDK instance
- * @returns Promise that resolves to connection status
- */
-export async function testRelayConnection(
-  relayUrl: string,
-  ndk: NDK,
-): Promise<{
-  connected: boolean;
-  requiresAuth: boolean;
-  error?: string;
-  actualUrl?: string;
-}> {
-  return new Promise((resolve) => {
-    console.debug(`[NDK.ts] Testing connection to: ${relayUrl}`);
 
-    // Ensure the URL is using wss:// protocol
-    const secureUrl = ensureSecureWebSocket(relayUrl);
-
-    const relay = new NDKRelay(secureUrl, undefined, new NDK());
-    let authRequired = false;
-    let connected = false;
-    let error: string | undefined;
-    let actualUrl: string | undefined;
-
-    const timeout = setTimeout(() => {
-      relay.disconnect();
-      resolve({
-        connected: false,
-        requiresAuth: authRequired,
-        error: "Connection timeout",
-        actualUrl,
-      });
-    }, 5000);
-
-    relay.on("connect", () => {
-      console.debug(`[NDK.ts] Connected to ${secureUrl}`);
-      connected = true;
-      actualUrl = secureUrl;
-      clearTimeout(timeout);
-      relay.disconnect();
-      resolve({
-        connected: true,
-        requiresAuth: authRequired,
-        error,
-        actualUrl,
-      });
-    });
-
-    relay.on("notice", (message: string) => {
-      if (message.includes("auth-required")) {
-        authRequired = true;
-        console.debug(`[NDK.ts] ${secureUrl} requires authentication`);
-      }
-    });
-
-    relay.on("disconnect", () => {
-      if (!connected) {
-        error = "Connection failed";
-        console.error(`[NDK.ts] Failed to connect to ${secureUrl}`);
-        clearTimeout(timeout);
-        resolve({
-          connected: false,
-          requiresAuth: authRequired,
-          error,
-          actualUrl,
-        });
-      }
-    });
-
-    // Log the actual WebSocket URL being used
-    console.debug(`[NDK.ts] Attempting connection to: ${secureUrl}`);
-    relay.connect();
-  });
-}
 
 /**
  * Gets the user's pubkey from local storage, if it exists.
@@ -409,7 +349,7 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
   const connectionTimeout = setTimeout(() => {
     console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
     relay.disconnect();
-  }, 10000); // 10 second timeout
+  }, 5000); // 5 second timeout
 
   // Set up custom authentication handling only if user is signed in
   if (ndk.signer && ndk.activeUser) {
@@ -435,69 +375,191 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
   return relay;
 }
 
-export function getActiveRelays(ndk: NDK): NDKRelaySet {
-  // Use all relays currently in the NDK pool
-  return new NDKRelaySet(
-    new Set(Array.from(ndk.pool.relays.values())),
-    ndk,
-  );
+
+
+
+
+/**
+ * Gets the active relay set for the current user
+ * @param ndk NDK instance
+ * @returns Promise that resolves to object with inbox and outbox relay arrays
+ */
+export async function getActiveRelaySet(ndk: NDK): Promise<{ inboxRelays: string[]; outboxRelays: string[] }> {
+  const user = get(userStore);
+  console.debug('[NDK.ts] getActiveRelaySet: User state:', { signedIn: user.signedIn, hasNdkUser: !!user.ndkUser, pubkey: user.pubkey });
+  
+  if (user.signedIn && user.ndkUser) {
+    console.debug('[NDK.ts] getActiveRelaySet: Building relay set for authenticated user:', user.ndkUser.pubkey);
+    return await buildCompleteRelaySet(ndk, user.ndkUser);
+  } else {
+    console.debug('[NDK.ts] getActiveRelaySet: Building relay set for anonymous user');
+    return await buildCompleteRelaySet(ndk, null);
+  }
 }
 
 /**
- * Initializes an instance of NDK, and connects it to the logged-in user's preferred relay set
- * (if available), or to Alexandria's standard relay set.
- * @returns The initialized NDK instance.
+ * Updates the active relay stores and NDK pool with new relay URLs
+ * @param ndk NDK instance
+ */
+export async function updateActiveRelayStores(ndk: NDK): Promise<void> {
+  try {
+    console.debug('[NDK.ts] updateActiveRelayStores: Starting relay store update');
+    
+    // Get the active relay set from the relay management system
+    const relaySet = await getActiveRelaySet(ndk);
+    console.debug('[NDK.ts] updateActiveRelayStores: Got relay set:', relaySet);
+    
+    // Update the stores with the new relay configuration
+    activeInboxRelays.set(relaySet.inboxRelays);
+    activeOutboxRelays.set(relaySet.outboxRelays);
+    console.debug('[NDK.ts] updateActiveRelayStores: Updated stores with inbox:', relaySet.inboxRelays.length, 'outbox:', relaySet.outboxRelays.length);
+    
+    // Add relays to NDK pool (deduplicated)
+    const allRelayUrls = deduplicateRelayUrls([...relaySet.inboxRelays, ...relaySet.outboxRelays]);
+    console.debug('[NDK.ts] updateActiveRelayStores: Adding', allRelayUrls.length, 'relays to NDK pool');
+    
+    for (const url of allRelayUrls) {
+      try {
+        const relay = createRelayWithAuth(url, ndk);
+        ndk.pool?.addRelay(relay);
+      } catch (error) {
+        console.debug('[NDK.ts] updateActiveRelayStores: Failed to add relay', url, ':', error);
+      }
+    }
+    
+    console.debug('[NDK.ts] updateActiveRelayStores: Relay store update completed');
+  } catch (error) {
+    console.warn('[NDK.ts] updateActiveRelayStores: Error updating relay stores:', error);
+  }
+}
+
+/**
+ * Logs the current relay configuration to console
+ */
+export function logCurrentRelayConfiguration(): void {
+  const inboxRelays = get(activeInboxRelays);
+  const outboxRelays = get(activeOutboxRelays);
+  
+  console.log('🔌 Current Relay Configuration:');
+  console.log('📥 Inbox Relays:', inboxRelays);
+  console.log('📤 Outbox Relays:', outboxRelays);
+  console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+}
+
+/**
+ * Updates relay stores when user state changes
+ * @param ndk NDK instance
+ */
+export async function refreshRelayStores(ndk: NDK): Promise<void> {
+  console.debug('[NDK.ts] Refreshing relay stores due to user state change');
+  await updateActiveRelayStores(ndk);
+}
+
+/**
+ * Updates relay stores when network condition changes
+ * @param ndk NDK instance
+ */
+export async function refreshRelayStoresOnNetworkChange(ndk: NDK): Promise<void> {
+  console.debug('[NDK.ts] Refreshing relay stores due to network condition change');
+  await updateActiveRelayStores(ndk);
+}
+
+/**
+ * Starts network monitoring for relay optimization
+ * @param ndk NDK instance
+ */
+export function startNetworkMonitoringForRelays(ndk: NDK): void {
+  // Use centralized network monitoring instead of separate monitoring
+  startNetworkStatusMonitoring();
+}
+
+/**
+ * Creates NDKRelaySet from relay URLs with proper authentication
+ * @param relayUrls Array of relay URLs
+ * @param ndk NDK instance
+ * @returns NDKRelaySet
+ */
+function createRelaySetFromUrls(relayUrls: string[], ndk: NDK): NDKRelaySet {
+  const relays = relayUrls.map(url => 
+    new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk)
+  );
+  
+  return new NDKRelaySet(new Set(relays), ndk);
+}
+
+/**
+ * Gets the active relay set as NDKRelaySet for use in queries
+ * @param ndk NDK instance
+ * @param useInbox Whether to use inbox relays (true) or outbox relays (false)
+ * @returns Promise that resolves to NDKRelaySet
+ */
+export async function getActiveRelaySetAsNDKRelaySet(
+  ndk: NDK,
+  useInbox: boolean = true
+): Promise<NDKRelaySet> {
+  const relaySet = await getActiveRelaySet(ndk);
+  const urls = useInbox ? relaySet.inboxRelays : relaySet.outboxRelays;
+  
+  return createRelaySetFromUrls(urls, ndk);
+}
+
+/**
+ * Initializes an instance of NDK with the new relay management system
+ * @returns The initialized NDK instance
  */
 export function initNdk(): NDK {
-  const startingPubkey = getPersistedLogin();
-  const [startingInboxes, _] =
-    startingPubkey != null
-      ? getPersistedRelays(new NDKUser({ pubkey: startingPubkey }))
-      : [null, null];
-
-  // Ensure all relay URLs use secure WebSocket protocol
-  const secureRelayUrls = (
-    startingInboxes != null
-      ? Array.from(startingInboxes.values())
-      : anonymousRelays
-  ).map(ensureSecureWebSocket);
-
-  console.debug("[NDK.ts] Initializing NDK with relay URLs:", secureRelayUrls);
+  console.debug("[NDK.ts] Initializing NDK with new relay management system");
 
   const ndk = new NDK({
-    autoConnectUserRelays: true,
+    autoConnectUserRelays: false, // We'll manage relays manually
     enableOutboxModel: true,
-    explicitRelayUrls: secureRelayUrls,
   });
 
   // Set up custom authentication policy
   ndk.relayAuthDefaultPolicy = NDKRelayAuthPolicies.signIn({ ndk });
-  
-  // Connect with better error handling
-  ndk.connect()
-    .then(() => {
+
+  // Connect with better error handling and reduced retry attempts
+  let retryCount = 0;
+  const maxRetries = 1; // Reduce to 1 retry
+
+  const attemptConnection = async () => {
+    try {
+      await ndk.connect();
       console.debug("[NDK.ts] NDK connected successfully");
-    })
-    .catch((error) => {
-      console.error("[NDK.ts] Failed to connect NDK:", error);
-      // Try to reconnect after a delay
-      setTimeout(() => {
-        console.debug("[NDK.ts] Attempting to reconnect...");
-        ndk.connect().catch((retryError) => {
-          console.error("[NDK.ts] Reconnection failed:", retryError);
-        });
-      }, 5000);
-    });
-    
+      // Update relay stores after connection
+      await updateActiveRelayStores(ndk);
+      // Start network monitoring for relay optimization
+      startNetworkMonitoringForRelays(ndk);
+    } catch (error) {
+      console.warn("[NDK.ts] Failed to connect NDK:", error);
+      
+      // Only retry a limited number of times
+      if (retryCount < maxRetries) {
+        retryCount++;
+        console.debug(`[NDK.ts] Attempting to reconnect (${retryCount}/${maxRetries})...`);
+        setTimeout(attemptConnection, 2000); // Reduce timeout to 2 seconds
+      } else {
+        console.warn("[NDK.ts] Max retries reached, continuing with limited functionality");
+        // Still try to update relay stores even if connection failed
+        try {
+          await updateActiveRelayStores(ndk);
+          startNetworkMonitoringForRelays(ndk);
+        } catch (storeError) {
+          console.warn("[NDK.ts] Failed to update relay stores:", storeError);
+        }
+      }
+    }
+  };
+
+  attemptConnection();
+
   return ndk;
 }
 
 /**
- * Signs in with a NIP-07 browser extension, and determines the user's preferred inbox and outbox
- * relays.
- * @returns The user's profile, if it is available.
- * @throws If sign-in fails.  This may because there is no accessible NIP-07 extension, or because
- * NDK is unable to fetch the user's profile or relay lists.
+ * Signs in with a NIP-07 browser extension using the new relay management system
+ * @returns The user's profile, if it is available
+ * @throws If sign-in fails
  */
 export async function loginWithExtension(
   pubkey?: string,
@@ -515,23 +577,10 @@ export async function loginWithExtension(
     activePubkey.set(signerUser.pubkey);
     userPubkey.set(signerUser.pubkey);
 
-    const [persistedInboxes, persistedOutboxes] =
-      getPersistedRelays(signerUser);
-    for (const relay of persistedInboxes) {
-      ndk.addExplicitRelay(relay);
-    }
-
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
-    const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
-
-    inboxRelays.set(
-      Array.from(inboxes ?? persistedInboxes).map((relay) => relay.url),
-    );
-    outboxRelays.set(
-      Array.from(outboxes ?? persistedOutboxes).map((relay) => relay.url),
-    );
-
-    persistRelays(signerUser, inboxes, outboxes);
+    
+    // Update relay stores with the new system
+    await updateActiveRelayStores(ndk);
 
     ndk.signer = signer;
     ndk.activeUser = user;
@@ -555,58 +604,17 @@ export function logout(user: NDKUser): void {
   activePubkey.set(null);
   userPubkey.set(null);
   ndkSignedIn.set(false);
-  ndkInstance.set(initNdk()); // Re-initialize with anonymous instance
+  
+  // Clear relay stores
+  activeInboxRelays.set([]);
+  activeOutboxRelays.set([]);
+  
+  // Stop network monitoring
+  stopNetworkStatusMonitoring();
+  
+  // Re-initialize with anonymous instance
+  const newNdk = initNdk();
+  ndkInstance.set(newNdk);
 }
 
-/**
- * Fetches the user's NIP-65 relay list, if one can be found, and returns the inbox and outbox
- * relay sets.
- * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.
- */
-async function getUserPreferredRelays(
-  ndk: NDK,
-  user: NDKUser,
-  fallbacks: readonly string[] = fallbackRelays,
-): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayList = await ndk.fetchEvent(
-    {
-      kinds: [10002],
-      authors: [user.pubkey],
-    },
-    {
-      groupable: false,
-      skipVerification: false,
-      skipValidation: false,
-    },
-    NDKRelaySet.fromRelayUrls(fallbacks, ndk),
-  );
 
-  const inboxRelays = new Set<NDKRelay>();
-  const outboxRelays = new Set<NDKRelay>();
-
-  if (relayList == null) {
-    const relayMap = await window.nostr?.getRelays?.();
-    Object.entries(relayMap ?? {}).forEach(([url, relayType]) => {
-      const relay = createRelayWithAuth(url, ndk);
-      if (relayType.read) inboxRelays.add(relay);
-      if (relayType.write) outboxRelays.add(relay);
-    });
-  } else {
-    relayList.tags.forEach((tag) => {
-      switch (tag[0]) {
-        case "r":
-          inboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
-        case "w":
-          outboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
-        default:
-          inboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          outboxRelays.add(createRelayWithAuth(tag[1], ndk));
-          break;
-      }
-    });
-  }
-
-  return [inboxRelays, outboxRelays];
-}

@@ -4,6 +4,9 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { goto } from "$app/navigation";
+  import LazyImage from "$components/util/LazyImage.svelte";
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
 
   // isModal
   //  - don't show interactions in modal view
@@ -18,9 +21,6 @@
     getMatchingTags(event, "version")[0]?.[1] ?? "1",
   );
   let image: string = $derived(getMatchingTags(event, "image")[0]?.[1] ?? null);
-  let originalAuthor: string = $derived(
-    getMatchingTags(event, "p")[0]?.[1] ?? null,
-  );
   let summary: string = $derived(
     getMatchingTags(event, "summary")[0]?.[1] ?? null,
   );
@@ -40,11 +40,27 @@
   );
   let rootId: string = $derived(getMatchingTags(event, "d")[0]?.[1] ?? null);
   let kind = $derived(event.kind);
+
+  let authorTag: string = $derived(
+    getMatchingTags(event, "author")[0]?.[1] ?? "",
+  );
+  let pTag: string = $derived(getMatchingTags(event, "p")[0]?.[1] ?? "");
+  let originalAuthor: string = $derived(
+    getMatchingTags(event, "p")[0]?.[1] ?? null,
+  );
+
+  function isValidNostrPubkey(str: string): boolean {
+    return (
+      /^[a-f0-9]{64}$/i.test(str) ||
+      (str.startsWith("npub1") && str.length >= 59 && str.length <= 63)
+    );
+  }
 </script>
 
 <div class="flex flex-col relative mb-2">
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
+      <!-- Index author badge -->
       <P class="text-base font-normal"
         >{@render userBadge(event.pubkey, author)}</P
       >
@@ -54,23 +70,36 @@
   <div
     class="flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-center"
   >
-    {#if image}
-      <div class="my-2">
-        <img
-          class="w-full md:max-w-48 object-contain rounded"
-          alt={title}
+    <div class="my-2">
+      {#if image}
+        <LazyImage
           src={image}
+          alt={title}
+          eventId={event.id}
+          className="w-full md:max-w-48 object-contain rounded"
         />
-      </div>
-    {/if}
+      {:else}
+        <div 
+          class="w-full md:max-w-48 h-32 object-contain rounded"
+          style="background-color: {generateDarkPastelColor(event.id)};"
+        >
+        </div>
+      {/if}
+    </div>
     <div class="space-y-4 my-4">
       <h1 class="text-3xl font-bold">{title}</h1>
       <h2 class="text-base font-bold">
         by
-        {#if originalAuthor !== null}
+        {#if authorTag && pTag && isValidNostrPubkey(pTag)}
+          {authorTag} {@render userBadge(pTag, "")}
+        {:else if authorTag}
+          {authorTag}
+        {:else if pTag && isValidNostrPubkey(pTag)}
+          {@render userBadge(pTag, "")}
+        {:else if originalAuthor !== null}
           {@render userBadge(originalAuthor, author)}
         {:else}
-          {author}
+          unknown
         {/if}
       </h2>
       {#if version !== "1"}
@@ -93,7 +122,11 @@
 {#if hashtags.length}
   <div class="tags my-2">
     {#each hashtags as tag}
-      <span class="text-sm">#{tag}</span>
+      <button
+        onclick={() => goto(`/events?t=${encodeURIComponent(tag)}`)}
+        class="text-sm hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer"
+        >#{tag}</button
+      >
     {/each}
   </div>
 {/if}
@@ -106,7 +139,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      {@render userBadge(event.pubkey, author)}
+      {@render userBadge(event.pubkey, "")}
     </h4>
   </div>
 
