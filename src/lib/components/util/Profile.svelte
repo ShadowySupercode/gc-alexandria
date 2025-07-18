@@ -20,6 +20,8 @@
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
+  import { getUserMetadata } from "$lib/utils/nostrUtils";
+  import { activeInboxRelays } from "$lib/ndk";
 
   let { pubkey, isNav = false } = $props<{ pubkey?: string, isNav?: boolean }>();
 
@@ -35,7 +37,7 @@
   let profileAvatarId = "profile-avatar-btn";
   let showAmberFallback = $state(false);
   let fallbackCheckInterval: ReturnType<typeof setInterval> | null = null;
-  let isProfileLoading = $state(false);
+  let isRefreshingProfile = $state(false);
 
   onMount(() => {
     if (localStorage.getItem("alexandria/amber/fallback") === "1") {
@@ -44,13 +46,21 @@
     }
   });
 
-  // Use profile data from userStore instead of fetching separately
+  // Use profile data from userStore
   let userState = $derived($userStore);
   let profile = $derived(userState.profile);
   let pfp = $derived(profile?.picture);
   let username = $derived(profile?.name);
   let tag = $derived(profile?.name);
   let npub = $derived(userState.npub);
+
+  // Debug logging
+  $effect(() => {
+    console.log("Profile component - userState:", userState);
+    console.log("Profile component - profile:", profile);
+    console.log("Profile component - pfp:", pfp);
+    console.log("Profile component - username:", username);
+  });
 
   // Handle user state changes with effects
   $effect(() => {
@@ -87,51 +97,131 @@
     }
   });
 
-  // Fetch profile when user signs in or when pubkey changes
+  // Auto-refresh profile when user signs in
   $effect(() => {
     const currentUser = userState;
     
-    // If user is signed in but profile is not available, fetch it
-    if (currentUser.signedIn && !profile && currentUser.npub) {
-      const ndk = get(ndkInstance);
-      if (!ndk) return;
-
-      isProfileLoading = true;
-      
-      // Use the current user's npub to fetch profile
-      const user = ndk.getUser({ npub: currentUser.npub });
-      
-      user.fetchProfile().then((userProfile: NDKUserProfile | null) => {
-        if (userProfile && !profile) {
-          // Only update if we don't already have profile data
-          profile = userProfile;
-        }
-        isProfileLoading = false;
-      }).catch(() => {
-        isProfileLoading = false;
-      });
-    }
-    
-    // Fallback to fetching profile if not available in userStore and pubkey prop is provided
-    if (!profile && pubkey) {
-      const ndk = get(ndkInstance);
-      if (!ndk) return;
-
-      isProfileLoading = true;
-      
-      const user = ndk.getUser({ pubkey: pubkey ?? undefined });
-      
-      user.fetchProfile().then((userProfile: NDKUserProfile | null) => {
-        if (userProfile && !profile) {
-          // Only update if we don't already have profile data
-          profile = userProfile;
-        }
-        isProfileLoading = false;
-      }).catch(() => {
-        isProfileLoading = false;
-      });
+    // If user is signed in and we have an npub but no profile data, refresh it
+    if (currentUser.signedIn && currentUser.npub && !profile?.name && !isRefreshingProfile) {
+      console.log("Profile: User signed in but no profile data, refreshing...");
+      refreshProfile();
     }
   });
+
+  // Debug activeInboxRelays
+  $effect(() => {
+    const inboxRelays = get(activeInboxRelays);
+    console.log("Profile component - activeInboxRelays:", inboxRelays);
+  });
+
+  // Manual trigger to refresh profile when user signs in
+  $effect(() => {
+    const currentUser = userState;
+    
+    if (currentUser.signedIn && currentUser.npub && !isRefreshingProfile) {
+      console.log("Profile: User signed in, triggering profile refresh...");
+      // Add a small delay to ensure relays are ready
+      setTimeout(() => {
+        refreshProfile();
+      }, 1000);
+    }
+  });
+
+  // Refresh profile when login method changes (e.g., Amber to read-only)
+  $effect(() => {
+    const currentUser = userState;
+    
+    if (currentUser.signedIn && currentUser.npub && currentUser.loginMethod) {
+      console.log("Profile: Login method detected:", currentUser.loginMethod);
+      
+      // If switching to read-only mode (npub), refresh profile
+      if (currentUser.loginMethod === "npub" && !isRefreshingProfile) {
+        console.log("Profile: Switching to read-only mode, refreshing profile...");
+        setTimeout(() => {
+          refreshProfile();
+        }, 500);
+      }
+    }
+  });
+
+  // Track login method changes and refresh profile when switching from Amber to npub
+  let previousLoginMethod = $state<string | null>(null);
+  
+  $effect(() => {
+    const currentUser = userState;
+    
+    if (currentUser.signedIn && currentUser.loginMethod !== previousLoginMethod) {
+      console.log("Profile: Login method changed from", previousLoginMethod, "to", currentUser.loginMethod);
+      
+      // If switching from Amber to npub (read-only), refresh profile
+      if (previousLoginMethod === "amber" && currentUser.loginMethod === "npub") {
+        console.log("Profile: Switching from Amber to read-only mode, refreshing profile...");
+        setTimeout(() => {
+          refreshProfile();
+        }, 1000);
+      }
+      
+      previousLoginMethod = currentUser.loginMethod;
+    }
+  });
+
+  // Function to refresh profile data
+  async function refreshProfile() {
+    if (!userState.signedIn || !userState.npub) return;
+    
+    isRefreshingProfile = true;
+    try {
+      console.log("Refreshing profile for npub:", userState.npub);
+      
+      // Try using NDK's built-in profile fetching first
+      const ndk = get(ndkInstance);
+      if (ndk && userState.ndkUser) {
+        console.log("Using NDK's built-in profile fetching");
+        const userProfile = await userState.ndkUser.fetchProfile();
+        console.log("NDK profile fetch result:", userProfile);
+        
+        if (userProfile) {
+          const profileData = {
+            name: userProfile.name,
+            displayName: userProfile.displayName,
+            nip05: userProfile.nip05,
+            picture: userProfile.image,
+            about: userProfile.bio,
+            banner: userProfile.banner,
+            website: userProfile.website,
+            lud16: userProfile.lud16,
+          };
+          
+          console.log("Converted profile data:", profileData);
+          
+          // Update the userStore with fresh profile data
+          userStore.update(currentState => ({
+            ...currentState,
+            profile: profileData
+          }));
+          
+          return;
+        }
+      }
+      
+      // Fallback to getUserMetadata
+      console.log("Falling back to getUserMetadata");
+      const freshProfile = await getUserMetadata(userState.npub, true); // Force fresh fetch
+      console.log("Fresh profile data from getUserMetadata:", freshProfile);
+      
+      // Update the userStore with fresh profile data
+      userStore.update(currentState => ({
+        ...currentState,
+        profile: freshProfile
+      }));
+    } catch (error) {
+      console.error("Failed to refresh profile:", error);
+    } finally {
+      isRefreshingProfile = false;
+    }
+  }
+
+
 
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
@@ -237,7 +327,6 @@
     localStorage.removeItem("amber/nsec");
     localStorage.removeItem("alexandria/amber/fallback");
     logoutUser();
-    profile = null;
   }
 
   function handleViewProfile() {
@@ -255,6 +344,12 @@
   function handleAmberFallbackDismiss() {
     showAmberFallback = false;
     localStorage.removeItem("alexandria/amber/fallback");
+    
+    // Refresh profile when switching to read-only mode
+    setTimeout(() => {
+      console.log("Profile: Amber fallback dismissed, refreshing profile for read-only mode...");
+      refreshProfile();
+    }, 500);
   }
 
   function shortenNpub(long: string | null | undefined) {
@@ -337,7 +432,7 @@
         type="button"
         aria-label="Open profile menu"
       >
-        {#if isProfileLoading && !pfp}
+        {#if !pfp}
           <div class="h-6 w-6 rounded-full bg-gray-300 animate-pulse cursor-pointer"></div>
         {:else}
           <Avatar
@@ -359,7 +454,7 @@
             {#if username}
               <h3 class="text-lg font-bold">{username}</h3>
               {#if isNav}<h4 class="text-base">@{tag}</h4>{/if}
-            {:else if isProfileLoading}
+            {:else if !pfp}
               <h3 class="text-lg font-bold">Loading profile...</h3>
             {:else}
               <h3 class="text-lg font-bold">Loading...</h3>
@@ -381,6 +476,7 @@
                   /><span class="underline">View profile</span>
                 </button>
               </li>
+
               <li class="text-xs text-gray-500">
                 {#if userState.loginMethod === "extension"}
                   Logged in with extension

@@ -163,10 +163,14 @@ export async function loginWithExtension() {
   const user = await signer.user();
   const npub = user.npub;
   
+  console.log("Login with extension - fetching profile for npub:", npub);
+  
   // Try to fetch user metadata, but don't fail if it times out
   let profile: NostrProfile | null = null;
   try {
-    profile = await getUserMetadata(npub);
+    console.log("Login with extension - attempting to fetch profile...");
+    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    console.log("Login with extension - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during login:", error);
     // Continue with login even if metadata fetch fails
@@ -174,6 +178,7 @@ export async function loginWithExtension() {
       name: npub.slice(0, 8) + "..." + npub.slice(-4),
       displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
     };
+    console.log("Login with extension - using fallback profile:", profile);
   }
   
   // Fetch user's preferred relays
@@ -185,7 +190,8 @@ export async function loginWithExtension() {
   persistRelays(user, inboxes, outboxes);
   ndk.signer = signer;
   ndk.activeUser = user;
-  userStore.set({
+  
+  const userState = {
     pubkey: user.pubkey,
     npub,
     profile,
@@ -195,11 +201,14 @@ export async function loginWithExtension() {
         (relay) => relay.url,
       ),
     },
-    loginMethod: "extension",
+    loginMethod: "extension" as const,
     ndkUser: user,
     signer,
     signedIn: true,
-  });
+  };
+  
+  console.log("Login with extension - setting userStore with:", userState);
+  userStore.set(userState);
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "extension");
@@ -213,7 +222,23 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
   const npub = user.npub;
-  const profile = await getUserMetadata(npub, true); // Force fresh fetch
+  
+  console.log("Login with Amber - fetching profile for npub:", npub);
+  
+  let profile: NostrProfile | null = null;
+  try {
+    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    console.log("Login with Amber - fetched profile:", profile);
+  } catch (error) {
+    console.warn("Failed to fetch user metadata during Amber login:", error);
+    // Continue with login even if metadata fetch fails
+    profile = {
+      name: npub.slice(0, 8) + "..." + npub.slice(-4),
+      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+    };
+    console.log("Login with Amber - using fallback profile:", profile);
+  }
+  
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {
     ndk.addExplicitRelay(relay);
@@ -222,7 +247,8 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   persistRelays(user, inboxes, outboxes);
   ndk.signer = amberSigner;
   ndk.activeUser = user;
-  userStore.set({
+  
+  const userState = {
     pubkey: user.pubkey,
     npub,
     profile,
@@ -232,11 +258,14 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
         (relay) => relay.url,
       ),
     },
-    loginMethod: "amber",
+    loginMethod: "amber" as const,
     ndkUser: user,
     signer: amberSigner,
     signedIn: true,
-  });
+  };
+  
+  console.log("Login with Amber - setting userStore with:", userState);
+  userStore.set(userState);
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "amber");
@@ -267,20 +296,40 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
     console.error("Failed to encode npub from hex pubkey:", hexPubkey, e);
     throw e;
   }
+  
+  console.log("Login with npub - fetching profile for npub:", npub);
+  
   const user = ndk.getUser({ npub });
-  const profile = await getUserMetadata(npub);
+  let profile: NostrProfile | null = null;
+  try {
+    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    console.log("Login with npub - fetched profile:", profile);
+  } catch (error) {
+    console.warn("Failed to fetch user metadata during npub login:", error);
+    // Continue with login even if metadata fetch fails
+    profile = {
+      name: npub.slice(0, 8) + "..." + npub.slice(-4),
+      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+    };
+    console.log("Login with npub - using fallback profile:", profile);
+  }
+  
   ndk.signer = undefined;
   ndk.activeUser = user;
-  userStore.set({
+  
+  const userState = {
     pubkey: user.pubkey,
     npub,
     profile,
     relays: { inbox: [], outbox: [] },
-    loginMethod: "npub",
+    loginMethod: "npub" as const,
     ndkUser: user,
     signer: null,
     signedIn: true,
-  });
+  };
+  
+  console.log("Login with npub - setting userStore with:", userState);
+  userStore.set(userState);
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "npub");

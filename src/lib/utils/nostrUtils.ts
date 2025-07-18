@@ -60,8 +60,12 @@ export async function getUserMetadata(
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, "");
 
+  console.log("getUserMetadata called with identifier:", identifier, "force:", force);
+
   if (!force && npubCache.has(cleanId)) {
-    return npubCache.get(cleanId)!;
+    const cached = npubCache.get(cleanId)!;
+    console.log("getUserMetadata returning cached profile:", cached);
+    return cached;
   }
 
   const fallback = { name: `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}` };
@@ -69,12 +73,14 @@ export async function getUserMetadata(
   try {
     const ndk = get(ndkInstance);
     if (!ndk) {
+      console.warn("getUserMetadata: No NDK instance available");
       npubCache.set(cleanId, fallback);
       return fallback;
     }
 
     const decoded = nip19.decode(cleanId);
     if (!decoded) {
+      console.warn("getUserMetadata: Failed to decode identifier:", cleanId);
       npubCache.set(cleanId, fallback);
       return fallback;
     }
@@ -86,18 +92,26 @@ export async function getUserMetadata(
     } else if (decoded.type === "nprofile") {
       pubkey = decoded.data.pubkey;
     } else {
+      console.warn("getUserMetadata: Unsupported identifier type:", decoded.type);
       npubCache.set(cleanId, fallback);
       return fallback;
     }
+
+    console.log("getUserMetadata: Fetching profile for pubkey:", pubkey);
 
     const profileEvent = await fetchEventWithFallback(ndk, {
       kinds: [0],
       authors: [pubkey],
     });
+    
+    console.log("getUserMetadata: Profile event found:", profileEvent);
+    
     const profile =
       profileEvent && profileEvent.content
         ? JSON.parse(profileEvent.content)
         : null;
+
+    console.log("getUserMetadata: Parsed profile:", profile);
 
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
@@ -110,9 +124,11 @@ export async function getUserMetadata(
       lud16: profile?.lud16,
     };
 
+    console.log("getUserMetadata: Final metadata:", metadata);
     npubCache.set(cleanId, metadata);
     return metadata;
   } catch (e) {
+    console.error("getUserMetadata: Error fetching profile:", e);
     npubCache.set(cleanId, fallback);
     return fallback;
   }
@@ -426,9 +442,11 @@ export async function fetchEventWithFallback(
   // Use the active inbox relays from the relay management system
   const inboxRelays = get(activeInboxRelays);
   
+  console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
+  
   // Check if we have any relays available
   if (inboxRelays.length === 0) {
-    console.warn("No inbox relays available for event fetch");
+    console.warn("fetchEventWithFallback: No inbox relays available for event fetch");
     return null;
   }
   
@@ -437,9 +455,13 @@ export async function fetchEventWithFallback(
 
   try {
     if (relaySet.relays.size === 0) {
-      console.warn("No relays in relay set for event fetch");
+      console.warn("fetchEventWithFallback: No relays in relay set for event fetch");
       return null;
     }
+
+    console.log("fetchEventWithFallback: Relay set size:", relaySet.relays.size);
+    console.log("fetchEventWithFallback: Filter:", filterOrId);
+    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r: any) => r.url));
 
     let found: NDKEvent | null = null;
 
@@ -465,11 +487,12 @@ export async function fetchEventWithFallback(
       const timeoutSeconds = timeoutMs / 1000;
       const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
       console.warn(
-        `Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+        `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
       return null;
     }
 
+    console.log("fetchEventWithFallback: Found event:", found.id);
     // Always wrap as NDKEvent
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
@@ -477,10 +500,10 @@ export async function fetchEventWithFallback(
       const timeoutSeconds = timeoutMs / 1000;
       const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
       console.warn(
-        `Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+        `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
     } else {
-      console.error("Error in fetchEventWithFallback:", err);
+      console.error("fetchEventWithFallback: Error in fetchEventWithFallback:", err);
     }
     return null;
   }
