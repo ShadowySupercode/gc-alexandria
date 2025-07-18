@@ -8,8 +8,8 @@
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
@@ -35,8 +35,8 @@
   }>();
 
   let showFullContent = $state(false);
-  let parsedContent = $state('');
-  let contentPreview = $state('');
+  let parsedContent = $state("");
+  let contentPreview = $state("");
   let authorDisplayName = $state<string | undefined>(undefined);
 
   function getEventTitle(event: NDKEvent): string {
@@ -45,7 +45,7 @@
     if (titleTag) {
       return titleTag;
     }
-    
+
     // For kind 30023 events, extract title from markdown content if no title tag
     if (event.kind === 30023 && event.content) {
       const match = event.content.match(/^#\s+(.+)$/m);
@@ -53,22 +53,25 @@
         return match[1].trim();
       }
     }
-    
+
     // For kind 30040, 30041, and 30818 events, extract title from AsciiDoc content if no title tag
-    if ((event.kind === 30040 || event.kind === 30041 || event.kind === 30818) && event.content) {
+    if (
+      (event.kind === 30040 || event.kind === 30041 || event.kind === 30818) &&
+      event.content
+    ) {
       // First try to find a document header (= )
       const docMatch = event.content.match(/^=\s+(.+)$/m);
       if (docMatch) {
         return docMatch[1].trim();
       }
-      
+
       // If no document header, try to find the first section header (== )
       const sectionMatch = event.content.match(/^==\s+(.+)$/m);
       if (sectionMatch) {
         return sectionMatch[1].trim();
       }
     }
-    
+
     return "Untitled";
   }
 
@@ -86,8 +89,8 @@
   }
 
   function renderTag(tag: string[]): string {
-    if (tag[0] === 'a' && tag.length > 1) {
-      const parts = tag[1].split(':');
+    if (tag[0] === "a" && tag.length > 1) {
+      const parts = tag[1].split(":");
       if (parts.length >= 3) {
         const [kind, pubkey, d] = parts;
         // Validate that pubkey is a valid hex string
@@ -96,70 +99,82 @@
             const mockEvent = {
               kind: +kind,
               pubkey,
-              tags: [['d', d]],
-              content: '',
-              id: '',
-              sig: ''
+              tags: [["d", d]],
+              content: "",
+              id: "",
+              sig: "",
             } as any;
             const naddr = naddrEncode(mockEvent, standardRelays);
             return `<a href='/events?id=${naddr}' class='underline text-primary-700'>a:${tag[1]}</a>`;
           } catch (error) {
-            console.warn('Failed to encode naddr for a tag in renderTag:', tag[1], error);
+            console.warn(
+              "Failed to encode naddr for a tag in renderTag:",
+              tag[1],
+              error,
+            );
             return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
           }
         } else {
-          console.warn('Invalid pubkey in a tag in renderTag:', pubkey);
+          console.warn("Invalid pubkey in a tag in renderTag:", pubkey);
           return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
         }
       } else {
-        console.warn('Invalid a tag format in renderTag:', tag[1]);
+        console.warn("Invalid a tag format in renderTag:", tag[1]);
         return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
       }
-    } else if (tag[0] === 'e' && tag.length > 1) {
+    } else if (tag[0] === "e" && tag.length > 1) {
       // Validate that event ID is a valid hex string
       if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
         try {
           const mockEvent = {
             id: tag[1],
             kind: 1,
-            content: '',
+            content: "",
             tags: [],
-            pubkey: '',
-            sig: ''
+            pubkey: "",
+            sig: "",
           } as any;
           const nevent = neventEncode(mockEvent, standardRelays);
           return `<a href='/events?id=${nevent}' class='underline text-primary-700'>e:${tag[1]}</a>`;
         } catch (error) {
-          console.warn('Failed to encode nevent for e tag in renderTag:', tag[1], error);
+          console.warn(
+            "Failed to encode nevent for e tag in renderTag:",
+            tag[1],
+            error,
+          );
           return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
         }
       } else {
-        console.warn('Invalid event ID in e tag in renderTag:', tag[1]);
+        console.warn("Invalid event ID in e tag in renderTag:", tag[1]);
         return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
       }
-    } else if (tag[0] === 'note' && tag.length > 1) {
+    } else if (tag[0] === "note" && tag.length > 1) {
       // 'note' tags are the same as 'e' tags but with different prefix
       if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
         try {
           const mockEvent = {
             id: tag[1],
             kind: 1,
-            content: '',
+            content: "",
             tags: [],
-            pubkey: '',
-            sig: ''
+            pubkey: "",
+            sig: "",
           } as any;
           const nevent = neventEncode(mockEvent, standardRelays);
           return `<a href='/events?id=${nevent}' class='underline text-primary-700'>note:${tag[1]}</a>`;
         } catch (error) {
-          console.warn('Failed to encode nevent for note tag in renderTag:', tag[1], error);
+          console.warn(
+            "Failed to encode nevent for note tag in renderTag:",
+            tag[1],
+            error,
+          );
           return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
         }
       } else {
-        console.warn('Invalid event ID in note tag in renderTag:', tag[1]);
+        console.warn("Invalid event ID in note tag in renderTag:", tag[1]);
         return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
       }
-    } else if (tag[0] === 'd' && tag.length > 1) {
+    } else if (tag[0] === "d" && tag.length > 1) {
       // 'd' tags are used for identifiers in addressable events
       return `<a href='/events?d=${encodeURIComponent(tag[1])}' class='underline text-primary-700'>d:${tag[1]}</a>`;
     } else {
@@ -171,8 +186,8 @@
     text: string;
     gotoValue?: string;
   } {
-    if (tag[0] === 'a' && tag.length > 1) {
-      const parts = tag[1].split(':');
+    if (tag[0] === "a" && tag.length > 1) {
+      const parts = tag[1].split(":");
       if (parts.length >= 3) {
         const [kind, pubkey, d] = parts;
         // Validate that pubkey is a valid hex string
@@ -181,95 +196,95 @@
             const mockEvent = {
               kind: +kind,
               pubkey,
-              tags: [['d', d]],
-              content: '',
-              id: '',
-              sig: ''
+              tags: [["d", d]],
+              content: "",
+              id: "",
+              sig: "",
             } as any;
             const naddr = naddrEncode(mockEvent, standardRelays);
             return {
               text: `a:${tag[1]}`,
-              gotoValue: naddr
+              gotoValue: naddr,
             };
           } catch (error) {
-            console.warn('Failed to encode naddr for a tag:', tag[1], error);
+            console.warn("Failed to encode naddr for a tag:", tag[1], error);
             return { text: `a:${tag[1]}` };
           }
         } else {
-          console.warn('Invalid pubkey in a tag:', pubkey);
+          console.warn("Invalid pubkey in a tag:", pubkey);
           return { text: `a:${tag[1]}` };
         }
       } else {
-        console.warn('Invalid a tag format:', tag[1]);
+        console.warn("Invalid a tag format:", tag[1]);
         return { text: `a:${tag[1]}` };
       }
-    } else if (tag[0] === 'e' && tag.length > 1) {
+    } else if (tag[0] === "e" && tag.length > 1) {
       // Validate that event ID is a valid hex string
       if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
         try {
           const mockEvent = {
             id: tag[1],
             kind: 1,
-            content: '',
+            content: "",
             tags: [],
-            pubkey: '',
-            sig: ''
+            pubkey: "",
+            sig: "",
           } as any;
           const nevent = neventEncode(mockEvent, standardRelays);
           return {
             text: `e:${tag[1]}`,
-            gotoValue: nevent
+            gotoValue: nevent,
           };
         } catch (error) {
-          console.warn('Failed to encode nevent for e tag:', tag[1], error);
+          console.warn("Failed to encode nevent for e tag:", tag[1], error);
           return { text: `e:${tag[1]}` };
         }
       } else {
-        console.warn('Invalid event ID in e tag:', tag[1]);
+        console.warn("Invalid event ID in e tag:", tag[1]);
         return { text: `e:${tag[1]}` };
       }
-    } else if (tag[0] === 'p' && tag.length > 1) {
+    } else if (tag[0] === "p" && tag.length > 1) {
       const npub = toNpub(tag[1]);
       return {
         text: `p:${npub || tag[1]}`,
-        gotoValue: npub ? npub : undefined
+        gotoValue: npub ? npub : undefined,
       };
-    } else if (tag[0] === 'note' && tag.length > 1) {
+    } else if (tag[0] === "note" && tag.length > 1) {
       // 'note' tags are the same as 'e' tags but with different prefix
       if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
         try {
           const mockEvent = {
             id: tag[1],
             kind: 1,
-            content: '',
+            content: "",
             tags: [],
-            pubkey: '',
-            sig: ''
+            pubkey: "",
+            sig: "",
           } as any;
           const nevent = neventEncode(mockEvent, standardRelays);
           return {
             text: `note:${tag[1]}`,
-            gotoValue: nevent
+            gotoValue: nevent,
           };
         } catch (error) {
-          console.warn('Failed to encode nevent for note tag:', tag[1], error);
+          console.warn("Failed to encode nevent for note tag:", tag[1], error);
           return { text: `note:${tag[1]}` };
         }
       } else {
-        console.warn('Invalid event ID in note tag:', tag[1]);
+        console.warn("Invalid event ID in note tag:", tag[1]);
         return { text: `note:${tag[1]}` };
       }
-    } else if (tag[0] === 'd' && tag.length > 1) {
+    } else if (tag[0] === "d" && tag.length > 1) {
       // 'd' tags are used for identifiers in addressable events
       return {
         text: `d:${tag[1]}`,
-        gotoValue: `d:${tag[1]}`
+        gotoValue: `d:${tag[1]}`,
       };
-    } else if (tag[0] === 't' && tag.length > 1) {
+    } else if (tag[0] === "t" && tag.length > 1) {
       // 't' tags are hashtags - navigate to t-tag search
       return {
         text: `t:${tag[1]}`,
-        gotoValue: `t:${tag[1]}`
+        gotoValue: `t:${tag[1]}`,
       };
     }
     return { text: `${tag[0]}:${tag[1]}` };
@@ -285,17 +300,17 @@
   });
 
   $effect(() => {
-    if(!event?.pubkey) {
+    if (!event?.pubkey) {
       authorDisplayName = undefined;
       return;
     }
-      getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
-        authorDisplayName =
-          profile.displayName ||
-          (profile as any).display_name ||
-          profile.name ||
-          event.pubkey;
-      });
+    getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
+      authorDisplayName =
+        profile.displayName ||
+        (profile as any).display_name ||
+        profile.name ||
+        event.pubkey;
+    });
   });
 
   // --- Identifier helpers ---
@@ -353,16 +368,16 @@
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
-      if (target.tagName === 'A') {
-        const href = (target as HTMLAnchorElement).getAttribute('href');
-        if (href && href.startsWith('/')) {
+      if (target.tagName === "A") {
+        const href = (target as HTMLAnchorElement).getAttribute("href");
+        if (href && href.startsWith("/")) {
           event.preventDefault();
           goto(href);
         }
       }
     }
-    document.addEventListener('click', handleInternalLinkClick);
-    return () => document.removeEventListener('click', handleInternalLinkClick);
+    document.addEventListener("click", handleInternalLinkClick);
+    return () => document.removeEventListener("click", handleInternalLinkClick);
   });
 </script>
 
@@ -375,9 +390,16 @@
 
   <div class="flex items-center space-x-2">
     {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400">Author: {@render userBadge(toNpub(event.pubkey) as string, profile?.display_name || event.pubkey)}</span>
+      <span class="text-gray-600 dark:text-gray-400"
+        >Author: {@render userBadge(
+          toNpub(event.pubkey) as string,
+          profile?.display_name || event.pubkey,
+        )}</span
+      >
     {:else}
-      <span class="text-gray-600 dark:text-gray-400">Author: {profile?.display_name || event.pubkey}</span>
+      <span class="text-gray-600 dark:text-gray-400"
+        >Author: {profile?.display_name || event.pubkey}</span
+      >
     {/if}
   </div>
 
@@ -450,17 +472,23 @@
             <button
               onclick={() => {
                 // Handle different types of gotoValue
-                if (tagInfo.gotoValue!.startsWith('naddr') || tagInfo.gotoValue!.startsWith('nevent') || tagInfo.gotoValue!.startsWith('npub') || tagInfo.gotoValue!.startsWith('nprofile') || tagInfo.gotoValue!.startsWith('note')) {
+                if (
+                  tagInfo.gotoValue!.startsWith("naddr") ||
+                  tagInfo.gotoValue!.startsWith("nevent") ||
+                  tagInfo.gotoValue!.startsWith("npub") ||
+                  tagInfo.gotoValue!.startsWith("nprofile") ||
+                  tagInfo.gotoValue!.startsWith("note")
+                ) {
                   // For naddr, nevent, npub, nprofile, note - navigate directly
                   goto(`/events?id=${tagInfo.gotoValue!}`);
-                } else if (tagInfo.gotoValue!.startsWith('/')) {
+                } else if (tagInfo.gotoValue!.startsWith("/")) {
                   // For relative URLs - navigate directly
                   goto(tagInfo.gotoValue!);
-                } else if (tagInfo.gotoValue!.startsWith('d:')) {
+                } else if (tagInfo.gotoValue!.startsWith("d:")) {
                   // For d-tag searches - navigate to d-tag search
                   const dTag = tagInfo.gotoValue!.substring(2);
                   goto(`/events?d=${encodeURIComponent(dTag)}`);
-                } else if (tagInfo.gotoValue!.startsWith('t:')) {
+                } else if (tagInfo.gotoValue!.startsWith("t:")) {
                   // For t-tag searches - navigate to t-tag search
                   const tTag = tagInfo.gotoValue!.substring(2);
                   goto(`/events?t=${encodeURIComponent(tTag)}`);

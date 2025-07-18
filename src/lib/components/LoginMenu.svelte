@@ -1,11 +1,20 @@
-<script lang='ts'>
-  import { Avatar, Popover } from 'flowbite-svelte';
-  import { UserOutline, ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
-  import { userStore, loginWithExtension, loginWithAmber, loginWithNpub, logoutUser } from '$lib/stores/userStore';
-  import { get } from 'svelte/store';
-  import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+<script lang="ts">
+  import { Avatar, Popover } from "flowbite-svelte";
+  import {
+    UserOutline,
+    ArrowRightToBracketOutline,
+  } from "flowbite-svelte-icons";
+  import {
+    userStore,
+    loginWithExtension,
+    loginWithAmber,
+    loginWithNpub,
+    logoutUser,
+  } from "$lib/stores/userStore";
+  import { get } from "svelte/store";
+  import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
 
   // UI state
   let isLoadingExtension: boolean = $state(false);
@@ -16,32 +25,43 @@
   let qrCodeDataUrl: string | undefined = $state(undefined);
   let loginButtonRef: HTMLElement | undefined = $state();
   let resultTimeout: ReturnType<typeof setTimeout> | null = null;
-  let profileAvatarId = 'profile-avatar-btn';
+  let profileAvatarId = "profile-avatar-btn";
   let showAmberFallback = $state(false);
   let fallbackCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   onMount(() => {
-    if (localStorage.getItem('alexandria/amber/fallback') === '1') {
-      console.log('LoginMenu: Found fallback flag on mount, showing modal');
+    if (localStorage.getItem("alexandria/amber/fallback") === "1") {
+      console.log("LoginMenu: Found fallback flag on mount, showing modal");
       showAmberFallback = true;
     }
   });
 
   // Subscribe to userStore
   let user = $state(get(userStore));
-  userStore.subscribe(val => {
+  userStore.subscribe((val) => {
     user = val;
     // Check for fallback flag when user state changes to signed in
-    if (val.signedIn && localStorage.getItem('alexandria/amber/fallback') === '1' && !showAmberFallback) {
-      console.log('LoginMenu: User signed in and fallback flag found, showing modal');
+    if (
+      val.signedIn &&
+      localStorage.getItem("alexandria/amber/fallback") === "1" &&
+      !showAmberFallback
+    ) {
+      console.log(
+        "LoginMenu: User signed in and fallback flag found, showing modal",
+      );
       showAmberFallback = true;
     }
-    
+
     // Set up periodic check when user is signed in
     if (val.signedIn && !fallbackCheckInterval) {
       fallbackCheckInterval = setInterval(() => {
-        if (localStorage.getItem('alexandria/amber/fallback') === '1' && !showAmberFallback) {
-          console.log('LoginMenu: Found fallback flag during periodic check, showing modal');
+        if (
+          localStorage.getItem("alexandria/amber/fallback") === "1" &&
+          !showAmberFallback
+        ) {
+          console.log(
+            "LoginMenu: Found fallback flag during periodic check, showing modal",
+          );
           showAmberFallback = true;
         }
       }, 500); // Check every 500ms
@@ -54,18 +74,18 @@
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
     try {
-      const QRCode = await import('qrcode');
+      const QRCode = await import("qrcode");
       return await QRCode.toDataURL(text, {
         width: 256,
         margin: 2,
         color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
       });
     } catch (err) {
-      console.error('Failed to generate QR code:', err);
-      return '';
+      console.error("Failed to generate QR code:", err);
+      return "";
     }
   };
 
@@ -73,9 +93,9 @@
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
-      result = '✅ URI copied to clipboard!';
+      result = "✅ URI copied to clipboard!";
     } catch (err) {
-      result = '❌ Failed to copy to clipboard';
+      result = "❌ Failed to copy to clipboard";
     }
   };
 
@@ -97,7 +117,9 @@
     try {
       await loginWithExtension();
     } catch (err: unknown) {
-      showResultMessage(`❌ Browser extension connection failed: ${err instanceof Error ? err.message : String(err)}`);
+      showResultMessage(
+        `❌ Browser extension connection failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       isLoadingExtension = false;
     }
@@ -108,60 +130,67 @@
     isLoadingExtension = false;
     try {
       const ndk = new NDK();
-      const relay = 'wss://relay.nsec.app';
-      const localNsec = localStorage.getItem('amber/nsec') ?? NDKPrivateKeySigner.generate().nsec;
+      const relay = "wss://relay.nsec.app";
+      const localNsec =
+        localStorage.getItem("amber/nsec") ??
+        NDKPrivateKeySigner.generate().nsec;
       const amberSigner = NDKNip46Signer.nostrconnect(ndk, relay, localNsec, {
-        name: 'Alexandria',
-        perms: 'sign_event:1;sign_event:4',
+        name: "Alexandria",
+        perms: "sign_event:1;sign_event:4",
       });
       if (amberSigner.nostrConnectUri) {
         nostrConnectUri = amberSigner.nostrConnectUri ?? undefined;
         showQrCode = true;
-        qrCodeDataUrl = (await generateQrCode(amberSigner.nostrConnectUri)) ?? undefined;
+        qrCodeDataUrl =
+          (await generateQrCode(amberSigner.nostrConnectUri)) ?? undefined;
         const user = await amberSigner.blockUntilReady();
         await loginWithAmber(amberSigner, user);
         showQrCode = false;
       } else {
-        throw new Error('Failed to generate Nostr Connect URI');
+        throw new Error("Failed to generate Nostr Connect URI");
       }
     } catch (err: unknown) {
-      showResultMessage(`❌ Amber connection failed: ${err instanceof Error ? err.message : String(err)}`);
+      showResultMessage(
+        `❌ Amber connection failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       isLoadingAmber = false;
     }
   };
 
   const handleReadOnlyLogin = async () => {
-    const inputNpub = prompt('Enter your npub (public key):');
+    const inputNpub = prompt("Enter your npub (public key):");
     if (inputNpub) {
       try {
         await loginWithNpub(inputNpub);
       } catch (err: unknown) {
-        showResultMessage(`❌ npub login failed: ${err instanceof Error ? err.message : String(err)}`);
+        showResultMessage(
+          `❌ npub login failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('amber/nsec');
-    localStorage.removeItem('alexandria/amber/fallback');
+    localStorage.removeItem("amber/nsec");
+    localStorage.removeItem("alexandria/amber/fallback");
     logoutUser();
   };
 
   function handleAmberReconnect() {
     showAmberFallback = false;
-    localStorage.removeItem('alexandria/amber/fallback');
+    localStorage.removeItem("alexandria/amber/fallback");
     handleAmberLogin();
   }
 
   function handleAmberFallbackDismiss() {
     showAmberFallback = false;
-    localStorage.removeItem('alexandria/amber/fallback');
+    localStorage.removeItem("alexandria/amber/fallback");
   }
 
   function shortenNpub(long: string | undefined) {
-    if (!long) return '';
-    return long.slice(0, 8) + '…' + long.slice(-4);
+    if (!long) return "";
+    return long.slice(0, 8) + "…" + long.slice(-4);
   }
 
   function toNullAsUndefined(val: string | null): string | undefined {
@@ -187,13 +216,13 @@
       <Popover
         placement="bottom"
         triggeredBy="#login-avatar"
-        class='popover-leather w-[200px]'
-        trigger='click'
+        class="popover-leather w-[200px]"
+        trigger="click"
       >
-        <div class='flex flex-col space-y-2'>
-          <h3 class='text-lg font-bold mb-2'>Login with...</h3>
+        <div class="flex flex-col space-y-2">
+          <h3 class="text-lg font-bold mb-2">Login with...</h3>
           <button
-            class='btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50'
+            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50"
             onclick={handleBrowserExtensionLogin}
             disabled={isLoadingExtension || isLoadingAmber}
           >
@@ -204,7 +233,7 @@
             {/if}
           </button>
           <button
-            class='btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50'
+            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50"
             onclick={handleAmberLogin}
             disabled={isLoadingAmber || isLoadingExtension}
           >
@@ -215,7 +244,7 @@
             {/if}
           </button>
           <button
-            class='btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
+            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500"
             onclick={handleReadOnlyLogin}
           >
             📖 npub (read only)
@@ -223,9 +252,14 @@
         </div>
       </Popover>
       {#if result}
-        <div class="absolute right-0 top-10 z-50 bg-gray-100 p-3 rounded text-sm break-words whitespace-pre-line max-w-lg shadow-lg border border-gray-300">
+        <div
+          class="absolute right-0 top-10 z-50 bg-gray-100 p-3 rounded text-sm break-words whitespace-pre-line max-w-lg shadow-lg border border-gray-300"
+        >
           {result}
-          <button class="ml-2 text-gray-500 hover:text-gray-700" onclick={() => result = null}>✖</button>
+          <button
+            class="ml-2 text-gray-500 hover:text-gray-700"
+            onclick={() => (result = null)}>✖</button
+          >
         </div>
       {/if}
     </div>
@@ -233,43 +267,47 @@
     <!-- User profile -->
     <div class="group">
       <button
-        class='h-6 w-6 rounded-full p-0 border-0 bg-transparent cursor-pointer'
+        class="h-6 w-6 rounded-full p-0 border-0 bg-transparent cursor-pointer"
         id={profileAvatarId}
-        type='button'
-        aria-label='Open profile menu'
+        type="button"
+        aria-label="Open profile menu"
       >
         <Avatar
           rounded
-          class='h-6 w-6 cursor-pointer'
+          class="h-6 w-6 cursor-pointer"
           src={user.profile?.picture || undefined}
-          alt={user.profile?.displayName || user.profile?.name || 'User'}
+          alt={user.profile?.displayName || user.profile?.name || "User"}
         />
       </button>
       <Popover
         placement="bottom"
         triggeredBy={`#${profileAvatarId}`}
-        class='popover-leather w-[220px]'
-        trigger='click'
+        class="popover-leather w-[220px]"
+        trigger="click"
       >
-        <div class='flex flex-row justify-between space-x-4'>
-          <div class='flex flex-col'>
-            <h3 class='text-lg font-bold'>{user.profile?.displayName || user.profile?.name || (user.npub ? shortenNpub(user.npub) : 'Unknown')}</h3>
+        <div class="flex flex-row justify-between space-x-4">
+          <div class="flex flex-col">
+            <h3 class="text-lg font-bold">
+              {user.profile?.displayName ||
+                user.profile?.name ||
+                (user.npub ? shortenNpub(user.npub) : "Unknown")}
+            </h3>
             <ul class="space-y-2 mt-2">
               <li>
                 <button
-                  class='text-sm text-primary-600 dark:text-primary-400 underline hover:text-primary-400 dark:hover:text-primary-500 px-0 bg-transparent border-none cursor-pointer'
+                  class="text-sm text-primary-600 dark:text-primary-400 underline hover:text-primary-400 dark:hover:text-primary-500 px-0 bg-transparent border-none cursor-pointer"
                   onclick={() => goto(`/events?id=${user.npub}`)}
-                  type='button'
+                  type="button"
                 >
-                  {user.npub ? shortenNpub(user.npub) : 'Unknown'}
+                  {user.npub ? shortenNpub(user.npub) : "Unknown"}
                 </button>
               </li>
               <li class="text-xs text-gray-500">
-                {#if user.loginMethod === 'extension'}
+                {#if user.loginMethod === "extension"}
                   Logged in with extension
-                {:else if user.loginMethod === 'amber'}
+                {:else if user.loginMethod === "amber"}
                   Logged in with Amber
-                {:else if user.loginMethod === 'npub'}
+                {:else if user.loginMethod === "npub"}
                   Logged in with npub
                 {:else}
                   Unknown login method
@@ -277,11 +315,13 @@
               </li>
               <li>
                 <button
-                  id='sign-out-button'
-                  class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
+                  id="sign-out-button"
+                  class="btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500"
                   onclick={handleLogout}
                 >
-                  <ArrowRightToBracketOutline class='mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none' /> Sign out
+                  <ArrowRightToBracketOutline
+                    class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
+                  /> Sign out
                 </button>
               </li>
             </ul>
@@ -294,14 +334,20 @@
 
 {#if showQrCode && qrCodeDataUrl}
   <!-- QR Code Modal -->
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  >
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
       <div class="text-center">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Scan with Amber</h2>
-        <p class="text-sm text-gray-600 mb-4">Open Amber on your phone and scan this QR code</p>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Scan with Amber
+        </h2>
+        <p class="text-sm text-gray-600 mb-4">
+          Open Amber on your phone and scan this QR code
+        </p>
         <div class="flex justify-center mb-4">
-          <img 
-            src={qrCodeDataUrl || ''} 
+          <img
+            src={qrCodeDataUrl || ""}
             alt="Nostr Connect QR Code"
             class="border-2 border-gray-300 rounded-lg"
             width="256"
@@ -309,19 +355,23 @@
           />
         </div>
         <div class="space-y-2">
-          <label for="nostr-connect-uri-modal" class="block text-sm font-medium text-gray-700">Or copy the URI manually:</label>
+          <label
+            for="nostr-connect-uri-modal"
+            class="block text-sm font-medium text-gray-700"
+            >Or copy the URI manually:</label
+          >
           <div class="flex">
             <input
               id="nostr-connect-uri-modal"
               type="text"
-              value={nostrConnectUri || ''}
+              value={nostrConnectUri || ""}
               readonly
               class="flex-1 border border-gray-300 rounded-l px-3 py-2 text-sm bg-gray-50"
               placeholder="nostrconnect://..."
             />
             <button
               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-r text-sm font-medium transition-colors"
-              onclick={() => copyToClipboard(nostrConnectUri || '')}
+              onclick={() => copyToClipboard(nostrConnectUri || "")}
             >
               📋 Copy
             </button>
@@ -334,23 +384,31 @@
         </div>
         <button
           class="mt-4 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-          onclick={() => showQrCode = false}
+          onclick={() => (showQrCode = false)}
         >
           Close
         </button>
       </div>
     </div>
   </div>
-{/if} 
+{/if}
 
 {#if showAmberFallback}
-  <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg border border-primary-300">
+  <div
+    class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg border border-primary-300"
+    >
       <div class="text-center">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Amber Session Restored</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Amber Session Restored
+        </h2>
         <p class="text-sm text-gray-600 mb-4">
-          Your Amber wallet session could not be restored automatically, so you've been switched to read-only mode.<br/>
-          You can still browse and read content, but you'll need to reconnect Amber to publish or comment.
+          Your Amber wallet session could not be restored automatically, so
+          you've been switched to read-only mode.<br />
+          You can still browse and read content, but you'll need to reconnect Amber
+          to publish or comment.
         </p>
         <button
           class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
@@ -367,4 +425,4 @@
       </div>
     </div>
   </div>
-{/if} 
+{/if}

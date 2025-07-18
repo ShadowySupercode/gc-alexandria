@@ -4,9 +4,12 @@
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
-  import type { NostrProfile, ProfileSearchResult } from "$lib/utils/search_utility";
+  import type {
+    NostrProfile,
+    ProfileSearchResult,
+  } from "$lib/utils/search_utility";
 
-  import { userPubkey } from '$lib/stores/authStore.Svelte';
+  import { userPubkey } from "$lib/stores/authStore.Svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,
@@ -16,7 +19,7 @@
     publishEvent,
     navigateToEvent,
   } from "$lib/utils/nostrEventService";
-  import { tick } from 'svelte';
+  import { tick } from "svelte";
   import { goto } from "$app/navigation";
 
   const props = $props<{
@@ -36,11 +39,11 @@
   // Add state for modals and search
   let showMentionModal = $state(false);
   let showWikilinkModal = $state(false);
-  let mentionSearch = $state('');
+  let mentionSearch = $state("");
   let mentionResults = $state<NostrProfile[]>([]);
   let mentionLoading = $state(false);
-  let wikilinkTarget = $state('');
-  let wikilinkLabel = $state('');
+  let wikilinkTarget = $state("");
+  let wikilinkLabel = $state("");
   let mentionSearchTimeout: ReturnType<typeof setTimeout> | null = null;
   let mentionSearchInput: HTMLInputElement | undefined;
 
@@ -48,7 +51,7 @@
   $effect(() => {
     if (showMentionModal) {
       // Reset search when modal opens
-      mentionSearch = '';
+      mentionSearch = "";
       mentionResults = [];
       mentionLoading = false;
       // Focus the search input after a brief delay to ensure modal is rendered
@@ -57,7 +60,7 @@
       }, 100);
     } else {
       // Reset search when modal closes
-      mentionSearch = '';
+      mentionSearch = "";
       mentionResults = [];
       mentionLoading = false;
     }
@@ -68,12 +71,12 @@
     const npub = toNpub(trimmedPubkey);
     if (npub) {
       // Call an async function, but don't make the effect itself async
-      getUserMetadata(npub).then(metadata => {
+      getUserMetadata(npub).then((metadata) => {
         userProfile = metadata;
       });
     } else if (trimmedPubkey) {
       userProfile = null;
-      error = 'Invalid public key: must be a 64-character hex string.';
+      error = "Invalid public key: must be a 64-character hex string.";
     } else {
       userProfile = null;
       error = null;
@@ -82,11 +85,10 @@
 
   $effect(() => {
     if (!success) return;
-  
-    content = '';
-    preview = '';
-    }
-  );
+
+    content = "";
+    preview = "";
+  });
 
   // Markup buttons
   const markupButtons = [
@@ -99,8 +101,20 @@
     { label: "List", action: () => insertMarkup("* ", "") },
     { label: "Numbered List", action: () => insertMarkup("1. ", "") },
     { label: "Hashtag", action: () => insertMarkup("#", "") },
-    { label: '@', action: () => { mentionSearch = ''; mentionResults = []; showMentionModal = true; } },
-    { label: 'Wikilink', action: () => { showWikilinkModal = true; } },
+    {
+      label: "@",
+      action: () => {
+        mentionSearch = "";
+        mentionResults = [];
+        showMentionModal = true;
+      },
+    },
+    {
+      label: "Wikilink",
+      action: () => {
+        showWikilinkModal = true;
+      },
+    },
   ];
 
   function insertMarkup(prefix: string, suffix: string) {
@@ -162,15 +176,17 @@
     success = null;
 
     try {
-      const pk = $userPubkey || '';
+      const pk = $userPubkey || "";
       const npub = toNpub(pk);
-      
+
       if (!npub) {
-        throw new Error('Invalid public key: must be a 64-character hex string.');
+        throw new Error(
+          "Invalid public key: must be a 64-character hex string.",
+        );
       }
-      
+
       if (props.event.kind === undefined || props.event.kind === null) {
-        throw new Error('Invalid event: missing kind');
+        throw new Error("Invalid event: missing kind");
       }
 
       const parent = props.event;
@@ -185,14 +201,19 @@
       const tags = buildReplyTags(parent, rootInfo, parentInfo, kind);
 
       // Create and sign the event
-      const { event: signedEvent } = await createSignedEvent(content, pk, kind, tags);
+      const { event: signedEvent } = await createSignedEvent(
+        content,
+        pk,
+        kind,
+        tags,
+      );
 
       // Publish the event
       const result = await publishEvent(
         signedEvent,
         useOtherRelays,
         useFallbackRelays,
-        props.userRelayPreference
+        props.userRelayPreference,
       );
 
       if (result.success) {
@@ -202,17 +223,19 @@
       } else {
         if (!useOtherRelays && !useFallbackRelays) {
           showOtherRelays = true;
-          error = "Failed to publish to primary relays. Would you like to try the other relays?";
+          error =
+            "Failed to publish to primary relays. Would you like to try the other relays?";
         } else if (useOtherRelays && !useFallbackRelays) {
           showFallbackRelays = true;
-          error = "Failed to publish to other relays. Would you like to try the fallback relays?";
+          error =
+            "Failed to publish to other relays. Would you like to try the fallback relays?";
         } else {
           error = "Failed to publish comment. Please try again later.";
         }
       }
     } catch (e: unknown) {
-      console.error('Error publishing comment:', e);
-      error = e instanceof Error ? e.message : 'An unexpected error occurred';
+      console.error("Error publishing comment:", e);
+      error = e instanceof Error ? e.message : "An unexpected error occurred";
     } finally {
       isSubmitting = false;
     }
@@ -220,8 +243,8 @@
 
   // Add a helper to shorten npub
   function shortenNpub(npub: string | undefined) {
-    if (!npub) return '';
-    return npub.slice(0, 8) + '…' + npub.slice(-4);
+    if (!npub) return "";
+    return npub.slice(0, 8) + "…" + npub.slice(-4);
   }
 
   async function insertAtCursor(text: string) {
@@ -233,10 +256,10 @@
 
     content = content.substring(0, start) + text + content.substring(end);
     updatePreview();
-    
+
     // Wait for DOM updates to complete
     await tick();
-    
+
     textarea.focus();
     textarea.selectionStart = textarea.selectionEnd = start + text.length;
   }
@@ -244,51 +267,62 @@
   // Add mention search functionality using centralized search utility
   let communityStatus: Record<string, boolean> = $state({});
   let isSearching = $state(false);
-  
+
   async function searchMentions() {
     if (!mentionSearch.trim()) {
       mentionResults = [];
       communityStatus = {};
       return;
     }
-    
+
     // Prevent multiple concurrent searches
     if (isSearching) {
       return;
     }
-    
-    console.log('Starting search for:', mentionSearch.trim());
-    
+
+    console.log("Starting search for:", mentionSearch.trim());
+
     // Set loading state
     mentionLoading = true;
     isSearching = true;
-    
+
     try {
-      console.log('Search promise created, waiting for result...');
+      console.log("Search promise created, waiting for result...");
       const result = await searchProfiles(mentionSearch.trim());
-      console.log('Search completed, found profiles:', result.profiles.length);
-      console.log('Profile details:', result.profiles);
-      console.log('Community status:', result.Status);
-      
+      console.log("Search completed, found profiles:", result.profiles.length);
+      console.log("Profile details:", result.profiles);
+      console.log("Community status:", result.Status);
+
       // Update state
       mentionResults = result.profiles;
       communityStatus = result.Status;
-      
-      console.log('State updated - mentionResults length:', mentionResults.length);
-      console.log('State updated - communityStatus keys:', Object.keys(communityStatus));
+
+      console.log(
+        "State updated - mentionResults length:",
+        mentionResults.length,
+      );
+      console.log(
+        "State updated - communityStatus keys:",
+        Object.keys(communityStatus),
+      );
     } catch (error) {
-      console.error('Error searching mentions:', error);
+      console.error("Error searching mentions:", error);
       mentionResults = [];
       communityStatus = {};
     } finally {
       mentionLoading = false;
       isSearching = false;
-      console.log('Search finished - loading:', mentionLoading, 'searching:', isSearching);
+      console.log(
+        "Search finished - loading:",
+        mentionLoading,
+        "searching:",
+        isSearching,
+      );
     }
   }
 
   function selectMention(profile: NostrProfile) {
-    let mention = '';
+    let mention = "";
     if (profile.pubkey) {
       try {
         const npub = toNpub(profile.pubkey);
@@ -299,22 +333,22 @@
           mention = `nostr:${profile.pubkey}`;
         }
       } catch (e) {
-        console.error('Error in toNpub:', e);
+        console.error("Error in toNpub:", e);
         // Fallback to pubkey if conversion fails
         mention = `nostr:${profile.pubkey}`;
       }
     } else {
-      console.warn('No pubkey in profile, falling back to display name');
+      console.warn("No pubkey in profile, falling back to display name");
       mention = `@${profile.displayName || profile.name}`;
     }
     insertAtCursor(mention);
     showMentionModal = false;
-    mentionSearch = '';
+    mentionSearch = "";
     mentionResults = [];
   }
 
   function insertWikilink() {
-    let markup = '';
+    let markup = "";
     if (wikilinkLabel.trim()) {
       markup = `[[${wikilinkTarget}|${wikilinkLabel}]]`;
     } else {
@@ -322,8 +356,8 @@
     }
     insertAtCursor(markup);
     showWikilinkModal = false;
-    wikilinkTarget = '';
-    wikilinkLabel = '';
+    wikilinkTarget = "";
+    wikilinkLabel = "";
   }
 
   function handleViewComment() {
@@ -362,15 +396,15 @@
           bind:value={mentionSearch}
           bind:this={mentionSearchInput}
           onkeydown={(e) => {
-            if (e.key === 'Enter' && mentionSearch.trim() && !isSearching) {
+            if (e.key === "Enter" && mentionSearch.trim() && !isSearching) {
               searchMentions();
             }
           }}
           class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
         />
-        <Button 
-          size="xs" 
-          color="primary" 
+        <Button
+          size="xs"
+          color="primary"
           onclick={(e: Event) => {
             e.preventDefault();
             e.stopPropagation();
@@ -385,28 +419,51 @@
           {/if}
         </Button>
       </div>
-      
+
       {#if mentionLoading}
         <div class="text-center py-4">Searching...</div>
       {:else if mentionResults.length > 0}
-        <div class="text-center py-2 text-xs text-gray-500">Found {mentionResults.length} results</div>
-        <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div class="text-center py-2 text-xs text-gray-500">
+          Found {mentionResults.length} results
+        </div>
+        <div
+          class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg"
+        >
           <ul class="space-y-1 p-2">
             {#each mentionResults as profile}
-              <button type="button" class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3" onclick={() => selectMention(profile)}>
+              <button
+                type="button"
+                class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
+                onclick={() => selectMention(profile)}
+              >
                 {#if profile.pubkey && communityStatus[profile.pubkey]}
-                  <div class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
-                    <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  <div
+                    class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                    title="Has posted to the community"
+                  >
+                    <svg
+                      class="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                      />
                     </svg>
                   </div>
                 {:else}
                   <div class="flex-shrink-0 w-6 h-6"></div>
                 {/if}
                 {#if profile.picture}
-                  <img src={profile.picture} alt="Profile" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <img
+                    src={profile.picture}
+                    alt="Profile"
+                    class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
                 {:else}
-                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
+                  <div
+                    class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
+                  ></div>
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
@@ -414,11 +471,24 @@
                   </span>
                   {#if profile.nip05}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
-                      <svg class="inline w-4 h-4 text-primary-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <svg
+                        class="inline w-4 h-4 text-primary-500"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                        ><path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M5 13l4 4L19 7"
+                        /></svg
+                      >
                       {profile.nip05}
                     </span>
                   {/if}
-                  <span class="text-xs text-gray-400 font-mono truncate">{shortenNpub(profile.pubkey)}</span>
+                  <span class="text-xs text-gray-400 font-mono truncate"
+                    >{shortenNpub(profile.pubkey)}</span
+                  >
                 </div>
               </button>
             {/each}
@@ -427,7 +497,9 @@
       {:else if mentionSearch.trim()}
         <div class="text-center py-4 text-gray-500">No results found</div>
       {:else}
-        <div class="text-center py-4 text-gray-500">Enter a search term to find users</div>
+        <div class="text-center py-4 text-gray-500">
+          Enter a search term to find users
+        </div>
       {/if}
     </div>
   </Modal>
@@ -454,8 +526,15 @@
       class="mb-4"
     />
     <div class="flex justify-end gap-2">
-      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button>
-      <Button size="xs" color="alternative" on:click={() => { showWikilinkModal = false; }}>Cancel</Button>
+      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button
+      >
+      <Button
+        size="xs"
+        color="alternative"
+        on:click={() => {
+          showWikilinkModal = false;
+        }}>Cancel</Button
+      >
     </div>
   </Modal>
 
@@ -469,7 +548,9 @@
         class="w-full"
       />
     </div>
-    <div class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg">
+    <div
+      class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg"
+    >
       {@html preview}
     </div>
   </div>
@@ -494,7 +575,7 @@
 
   {#if success}
     <Alert color="green" dismissable>
-      Comment published successfully to {success.relay}!<br/>
+      Comment published successfully to {success.relay}!<br />
       Event ID: <span class="font-mono">{success.eventId}</span>
       <button
         onclick={handleViewComment}
@@ -522,7 +603,7 @@
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode($userPubkey || '').slice(0, 8) + "..."}
+            nip19.npubEncode($userPubkey || "").slice(0, 8) + "..."}
         </span>
       </div>
     {/if}

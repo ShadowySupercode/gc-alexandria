@@ -3,7 +3,7 @@
 @import "./styles/publications.css";
 @import "./styles/visualize.css";
 @import "./styles/events.css";
-@import './styles/asciidoc.css';
+@import "./styles/asciidoc.css";
 
 /* Custom styles */
 @layer base {

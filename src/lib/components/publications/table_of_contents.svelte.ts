@@ -1,7 +1,7 @@
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { SveltePublicationTree } from './svelte_publication_tree.svelte.ts';
-import type { NDKEvent } from '../../utils/nostrUtils.ts';
-import { indexKind } from '../../consts.ts';
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
+import type { NDKEvent } from "../../utils/nostrUtils.ts";
+import { indexKind } from "../../consts.ts";
 
 export interface TocEntry {
   address: string;
@@ -18,7 +18,7 @@ export interface TocEntry {
  * Maintains a table of contents (ToC) for a `SveltePublicationTree`.  Since publication trees are
  * conceptually infinite and lazy-loading, the ToC represents only the portion of the tree that has
  * been "discovered".  The ToC is updated as new nodes are resolved within the publication tree.
- * 
+ *
  * @see SveltePublicationTree
  */
 export class TableOfContents {
@@ -32,12 +32,16 @@ export class TableOfContents {
 
   /**
    * Constructs a `TableOfContents` from a `SveltePublicationTree`.
-   * 
+   *
    * @param rootAddress The address of the root event.
    * @param publicationTree The SveltePublicationTree instance.
    * @param pagePathname The current page pathname for href generation.
    */
-  constructor(rootAddress: string, publicationTree: SveltePublicationTree, pagePathname: string) {
+  constructor(
+    rootAddress: string,
+    publicationTree: SveltePublicationTree,
+    pagePathname: string,
+  ) {
     this.#publicationTree = publicationTree;
     this.#pagePathname = pagePathname;
     this.#init(rootAddress);
@@ -47,7 +51,7 @@ export class TableOfContents {
 
   /**
    * Returns the root entry of the ToC.
-   * 
+   *
    * @returns The root entry of the ToC, or `null` if the ToC has not been initialized.
    */
   getRootEntry(): TocEntry | null {
@@ -60,21 +64,18 @@ export class TableOfContents {
 
   /**
    * Builds a table of contents from the DOM subtree rooted at `parentElement`.
-   * 
+   *
    * @param parentElement The root of the DOM subtree containing the content to be added to the
    * ToC.
    * @param parentAddress The address of the event corresponding to the DOM subtree root indicated
    * by `parentElement`.
-   * 
+   *
    * This function is intended for use on segments of HTML markup that are not directly derived
    * from a structure publication of the kind supported by `PublicationTree`.  It may be used to
    * produce a table of contents from the contents of a kind `30041` event with AsciiDoc markup, or
    * from a kind `30023` event with Markdown content.
    */
-  buildTocFromDocument(
-    parentElement: HTMLElement,
-    parentEntry: TocEntry,
-  ) {
+  buildTocFromDocument(parentElement: HTMLElement, parentEntry: TocEntry) {
     parentElement
       .querySelectorAll<HTMLHeadingElement>(`h${parentEntry.depth}`)
       .forEach((header) => {
@@ -135,13 +136,13 @@ export class TableOfContents {
 
   /**
    * Initializes the ToC from the associated publication tree.
-   * 
+   *
    * @param rootAddress The address of the publication's root event.
-   * 
+   *
    * Michael J - 07 July 2025 - NOTE: Since the publication tree is conceptually infinite and
    * lazy-loading, the ToC is not guaranteed to contain all the nodes at any layer until the
    * publication has been fully resolved.
-   * 
+   *
    * Michael J - 07 July 2025 - TODO: If the relay provides event metadata, use the metadata to
    * initialize the ToC with all of its first-level children.
    */
@@ -158,8 +159,8 @@ export class TableOfContents {
     // Handle any other nodes that have already been resolved in parallel.
     await Promise.all(
       Array.from(this.#publicationTree.resolvedAddresses).map((address) =>
-        this.#buildTocEntryFromResolvedNode(address)
-      )
+        this.#buildTocEntryFromResolvedNode(address),
+      ),
     );
 
     // Set up an observer to handle progressive resolution of the publication tree.
@@ -171,10 +172,10 @@ export class TableOfContents {
   #getTitle(event: NDKEvent | null): string {
     if (!event) {
       // TODO: What do we want to return in this case?
-      return '[untitled]';
+      return "[untitled]";
     }
-    const titleTag = event.getMatchingTags?.('title')?.[0]?.[1];
-    return titleTag || event.tagAddress() || '[untitled]';
+    const titleTag = event.getMatchingTags?.("title")?.[0]?.[1];
+    return titleTag || event.tagAddress() || "[untitled]";
   }
 
   async #buildTocEntry(address: string): Promise<TocEntry> {
@@ -192,7 +193,9 @@ export class TableOfContents {
         return;
       }
 
-      const childAddresses = await this.#publicationTree.getChildAddresses(entry.address);
+      const childAddresses = await this.#publicationTree.getChildAddresses(
+        entry.address,
+      );
       for (const childAddress of childAddresses) {
         if (!childAddress) {
           continue;
@@ -201,7 +204,7 @@ export class TableOfContents {
         // Michael J - 16 June 2025 - This duplicates logic in the outer function, but is necessary
         // here so that we can determine whether to render an entry as a leaf before it is fully
         // resolved.
-        if (childAddress.split(':')[0] !== indexKind.toString()) {
+        if (childAddress.split(":")[0] !== indexKind.toString()) {
           this.leaves.add(childAddress);
         }
 
@@ -219,7 +222,7 @@ export class TableOfContents {
       await this.#matchChildrenToTagOrder(entry);
 
       entry.childrenResolved = true;
-    }
+    };
 
     const event = await this.#publicationTree.getEvent(address);
     if (!event) {
@@ -246,23 +249,23 @@ export class TableOfContents {
     if (event.kind !== indexKind) {
       this.leaves.add(address);
     }
-  
+
     return entry;
   }
 
   /**
    * Reorders the children of a ToC entry to match the order of 'a' tags in the corresponding
    * Nostr index event.
-   * 
+   *
    * @param entry The ToC entry to reorder.
-   * 
+   *
    * This function has a time complexity of `O(n log n)`, where `n` is the number of children the
    * parent event has. Average size of `n` is small enough to be negligible.
    */
   async #matchChildrenToTagOrder(entry: TocEntry) {
     const parentEvent = await this.#publicationTree.getEvent(entry.address);
     if (parentEvent?.kind === indexKind) {
-      const tagOrder = parentEvent.getMatchingTags('a').map(tag => tag[1]);
+      const tagOrder = parentEvent.getMatchingTags("a").map((tag) => tag[1]);
       const addressToOrdinal = new Map<string, number>();
 
       // Build map of addresses to their ordinals from tag order
@@ -271,8 +274,10 @@ export class TableOfContents {
       });
 
       entry.children.sort((a, b) => {
-        const aOrdinal = addressToOrdinal.get(a.address) ?? Number.MAX_SAFE_INTEGER;
-        const bOrdinal = addressToOrdinal.get(b.address) ?? Number.MAX_SAFE_INTEGER;
+        const aOrdinal =
+          addressToOrdinal.get(a.address) ?? Number.MAX_SAFE_INTEGER;
+        const bOrdinal =
+          addressToOrdinal.get(b.address) ?? Number.MAX_SAFE_INTEGER;
         return aOrdinal - bOrdinal;
       });
     }

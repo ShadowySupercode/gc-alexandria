@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Heading, Img, P, A } from "flowbite-svelte";
-  import { goto } from '$app/navigation';
+  import { goto } from "$app/navigation";
 
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
@@ -16,10 +16,13 @@
     <Heading tag="h2" class="h-leather mt-4 mb-2">Overview</Heading>
 
     <P class="mb-4">
-      Alexandria opens up to the <button class="underline text-primary-700 bg-transparent border-none p-0" onclick={() => goto('./')}>landing page</button>, where the user
-      can: login (top-right), select whether to only view the publications
-      hosted on the <A href="https://thecitadel.nostr1.com/" target="_blank"
-        >thecitadel document relay</A
+      Alexandria opens up to the <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("./")}>landing page</button
+      >, where the user can: login (top-right), select whether to only view the
+      publications hosted on the <A
+        href="https://thecitadel.nostr1.com/"
+        target="_blank">thecitadel document relay</A
       > or add in their own relays, and scroll/search the publications.
     </P>
 
@@ -143,8 +146,8 @@
     <P class="mb-3">
       Our own team uses Alexandria to document the app, to display our <a
         href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</a
-      >, as well as to store copies of our most interesting <a
-        href="/publication?d=gitcitadel-project-documentation-by-stella-v-1"
+      >, as well as to store copies of our most interesting
+      <a href="/publication?d=gitcitadel-project-documentation-by-stella-v-1"
         >technical specifications</a
       >.
     </P>
@@ -163,9 +166,11 @@
     <P class="mb-3">
       Alexandria now supports wiki pages (kind 30818), allowing for
       collaborative knowledge bases and documentation. Wiki pages, such as this
-      one about the <button class="underline text-primary-700 bg-transparent border-none p-0" onclick={() => goto('/publication?d=sybil')}>Sybil utility</button> use the same
-      Asciidoc format as other publications but are specifically designed for interconnected,
-      evolving content.
+      one about the <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("/publication?d=sybil")}>Sybil utility</button
+      > use the same Asciidoc format as other publications but are specifically designed
+      for interconnected, evolving content.
     </P>
 
     <P class="mb-3">

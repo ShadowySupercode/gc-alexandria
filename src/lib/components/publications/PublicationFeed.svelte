@@ -50,21 +50,23 @@
     const fallback: string[] = fallbackRelays.filter(
       (r: string) => !communityRelays.includes(r) && !userRelayList.includes(r),
     );
-    const allRelays = includeAllRelays 
-      ? [...communityRelays, ...userRelayList, ...fallback] 
+    const allRelays = includeAllRelays
+      ? [...communityRelays, ...userRelayList, ...fallback]
       : [...communityRelays, ...userRelayList];
-    
+
     // Check cache first
     const cachedEvents = indexEventCache.get(allRelays);
     if (cachedEvents) {
-      console.log(`[PublicationFeed] Using cached index events (${cachedEvents.length} events)`);
+      console.log(
+        `[PublicationFeed] Using cached index events (${cachedEvents.length} events)`,
+      );
       allIndexEvents = cachedEvents;
       eventsInView = allIndexEvents.slice(0, 30);
       endOfFeed = allIndexEvents.length <= 30;
       loading = false;
       return;
     }
-    
+
     relayStatuses = Object.fromEntries(
       allRelays.map((r: string) => [r, "pending"]),
     );
@@ -111,10 +113,10 @@
     allIndexEvents = Array.from(eventMap.values());
     // Sort by created_at descending
     allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
-    
+
     // Cache the fetched events
     indexEventCache.set(allRelays, allIndexEvents);
-    
+
     // Initially show first page
     eventsInView = allIndexEvents.slice(0, 30);
     endOfFeed = allIndexEvents.length <= 30;
@@ -133,9 +135,11 @@
     );
 
     // Check cache first for publication search
-    const cachedResult = searchCache.get('publication', query);
+    const cachedResult = searchCache.get("publication", query);
     if (cachedResult) {
-      console.log(`[PublicationFeed] Using cached results for publication search: ${query}`);
+      console.log(
+        `[PublicationFeed] Using cached results for publication search: ${query}`,
+      );
       return cachedResult.events;
     }
 
@@ -182,7 +186,7 @@
       }
       return matches;
     });
-    
+
     // Cache the filtered results
     const result = {
       events: filtered,
@@ -190,11 +194,11 @@
       tTagEvents: [],
       eventIds: new Set<string>(),
       addresses: new Set<string>(),
-      searchType: 'publication',
-      searchTerm: query
+      searchType: "publication",
+      searchTerm: query,
     };
-    searchCache.set('publication', query, result);
-    
+    searchCache.set("publication", query, result);
+
     console.debug("[PublicationFeed] Events after filtering:", filtered.length);
     return filtered;
   };
@@ -252,11 +256,13 @@
 
   // Watch for changes in include all relays setting
   $effect(() => {
-    console.log(`[PublicationFeed] Include all relays setting changed to: ${includeAllRelays}`);
+    console.log(
+      `[PublicationFeed] Include all relays setting changed to: ${includeAllRelays}`,
+    );
     // Clear cache when relay configuration changes
     indexEventCache.clear();
     searchCache.clear();
-    
+
     // Refetch events with new relay configuration
     fetchAllIndexEventsFromRelays();
   });
@@ -270,12 +276,17 @@
   <!-- Include all relays checkbox -->
   <div class="flex items-center justify-center">
     <Checkbox bind:checked={includeAllRelays} class="mr-2" />
-    <label for="include-all-relays" class="text-sm text-gray-700 dark:text-gray-300">
+    <label
+      for="include-all-relays"
+      class="text-sm text-gray-700 dark:text-gray-300"
+    >
       Include all relays (slower but more comprehensive search)
     </label>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+  <div
+    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full"
+  >
     {#if loading && eventsInView.length === 0}
       {#each getSkeletonIds() as id}
         <Skeleton divClass="skeleton-leather w-full" size="lg" />
@@ -290,7 +301,7 @@
       </div>
     {/if}
   </div>
-  
+
   {#if !loadingMore && !endOfFeed}
     <div class="flex justify-center mt-4 mb-8">
       <Button

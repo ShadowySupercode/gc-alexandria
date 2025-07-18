@@ -30,7 +30,9 @@
     indexEvent: NDKEvent;
   }>();
 
-  const publicationTree = getContext("publicationTree") as SveltePublicationTree;
+  const publicationTree = getContext(
+    "publicationTree",
+  ) as SveltePublicationTree;
   const toc = getContext("toc") as TocType;
 
   // #region Loading
@@ -84,7 +86,7 @@
   // #endregion
 
   // #region Columns visibility
-  
+
   let currentBlog: null | string = $state(null);
   let currentBlogEvent: null | NDKEvent = $state(null);
   const isLeaf = $derived(indexEvent.kind === 30041);
@@ -129,7 +131,7 @@
 
   /**
    * Performs actions on the DOM element for a publication tree leaf when it is mounted.
-   * 
+   *
    * @param el The DOM element that was mounted.
    * @param address The address of the event that was mounted.
    */
@@ -191,19 +193,23 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== 'blog' || !isLeaf}
+{#if publicationType !== "blog" || !isLeaf}
   {#if $publicationColumnVisibility.toc}
     <Sidebar
-      activeUrl={`#${activeAddress ?? ''}`}
-      asideClass='fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10 bg-primary-0 dark:bg-primary-1000 px-5 w-80 left-0 pt-4 md:!pr-16 overflow-y-auto border border-l-4 rounded-lg border-primary-200 dark:border-primary-800 my-4'
-      activeClass='flex items-center p-2 bg-primary-50 dark:bg-primary-800 p-2 rounded-lg'
-      nonActiveClass='flex items-center p-2 hover:bg-primary-50 dark:hover:bg-primary-800 p-2 rounded-lg'
+      activeUrl={`#${activeAddress ?? ""}`}
+      asideClass="fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10 bg-primary-0 dark:bg-primary-1000 px-5 w-80 left-0 pt-4 md:!pr-16 overflow-y-auto border border-l-4 rounded-lg border-primary-200 dark:border-primary-800 my-4"
+      activeClass="flex items-center p-2 bg-primary-50 dark:bg-primary-800 p-2 rounded-lg"
+      nonActiveClass="flex items-center p-2 hover:bg-primary-50 dark:hover:bg-primary-800 p-2 rounded-lg"
     >
-      <CloseButton onclick={closeToc} class='btn-leather absolute top-4 right-4 hover:bg-primary-50 dark:hover:bg-primary-800' />
+      <CloseButton
+        onclick={closeToc}
+        class="btn-leather absolute top-4 right-4 hover:bg-primary-50 dark:hover:bg-primary-800"
+      />
       <TableOfContents
-        rootAddress={rootAddress}
+        {rootAddress}
         depth={2}
-        onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
+        onSectionFocused={(address: string) =>
+          publicationTree.setBookmark(address)}
       />
     </Sidebar>
   {/if}
@@ -251,7 +257,7 @@
 <!-- Blog list -->
 {#if $publicationColumnVisibility.blog}
   <div
-    class={`flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1 ${isInnerActive() ? 'discreet' : ''}`}
+    class={`flex flex-col p-4 space-y-4 overflow-auto max-w-xl flex-grow-1 ${isInnerActive() ? "discreet" : ""}`}
   >
     <div
       class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"

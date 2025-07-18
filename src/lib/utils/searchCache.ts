@@ -1,5 +1,5 @@
 import type { NDKEvent } from "./nostrUtils";
-import { CACHE_DURATIONS, TIMEOUTS } from './search_constants';
+import { CACHE_DURATIONS, TIMEOUTS } from "./search_constants";
 
 export interface SearchResult {
   events: NDKEvent[];
@@ -39,25 +39,29 @@ class SearchCache {
   get(searchType: string, searchTerm: string): SearchResult | null {
     const key = this.generateKey(searchType, searchTerm);
     const result = this.cache.get(key);
-    
+
     if (!result || this.isExpired(result)) {
       if (result) {
         this.cache.delete(key);
       }
       return null;
     }
-    
+
     return result;
   }
 
   /**
    * Store search results in cache
    */
-  set(searchType: string, searchTerm: string, result: Omit<SearchResult, 'timestamp'>): void {
+  set(
+    searchType: string,
+    searchTerm: string,
+    result: Omit<SearchResult, "timestamp">,
+  ): void {
     const key = this.generateKey(searchType, searchTerm);
     this.cache.set(key, {
       ...result,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -102,4 +106,4 @@ export const searchCache = new SearchCache();
 // Clean up expired entries periodically
 setInterval(() => {
   searchCache.cleanup();
-}, TIMEOUTS.CACHE_CLEANUP); // Check every minute 
+}, TIMEOUTS.CACHE_CLEANUP); // Check every minute

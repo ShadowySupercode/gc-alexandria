@@ -20,20 +20,42 @@
 
   // Subscribe to userStore
   let user = $state($userStore);
-  userStore.subscribe(val => user = val);
+  userStore.subscribe((val) => (user = val));
 
   // Derive metadata from event
-  let title = $derived(event.tags.find((t: string[]) => t[0] === 'title')?.[1] ?? '');
-  let summary = $derived(event.tags.find((t: string[]) => t[0] === 'summary')?.[1] ?? '');
-  let image = $derived(event.tags.find((t: string[]) => t[0] === 'image')?.[1] ?? null);
-  let author = $derived(event.tags.find((t: string[]) => t[0] === 'author')?.[1] ?? '');
-  let originalAuthor = $derived(event.tags.find((t: string[]) => t[0] === 'original_author')?.[1] ?? null);
-  let version = $derived(event.tags.find((t: string[]) => t[0] === 'version')?.[1] ?? '');
-  let source = $derived(event.tags.find((t: string[]) => t[0] === 'source')?.[1] ?? null);
-  let type = $derived(event.tags.find((t: string[]) => t[0] === 'type')?.[1] ?? null);
-  let language = $derived(event.tags.find((t: string[]) => t[0] === 'language')?.[1] ?? null);
-  let publisher = $derived(event.tags.find((t: string[]) => t[0] === 'publisher')?.[1] ?? null);
-  let identifier = $derived(event.tags.find((t: string[]) => t[0] === 'identifier')?.[1] ?? null);
+  let title = $derived(
+    event.tags.find((t: string[]) => t[0] === "title")?.[1] ?? "",
+  );
+  let summary = $derived(
+    event.tags.find((t: string[]) => t[0] === "summary")?.[1] ?? "",
+  );
+  let image = $derived(
+    event.tags.find((t: string[]) => t[0] === "image")?.[1] ?? null,
+  );
+  let author = $derived(
+    event.tags.find((t: string[]) => t[0] === "author")?.[1] ?? "",
+  );
+  let originalAuthor = $derived(
+    event.tags.find((t: string[]) => t[0] === "original_author")?.[1] ?? null,
+  );
+  let version = $derived(
+    event.tags.find((t: string[]) => t[0] === "version")?.[1] ?? "",
+  );
+  let source = $derived(
+    event.tags.find((t: string[]) => t[0] === "source")?.[1] ?? null,
+  );
+  let type = $derived(
+    event.tags.find((t: string[]) => t[0] === "type")?.[1] ?? null,
+  );
+  let language = $derived(
+    event.tags.find((t: string[]) => t[0] === "language")?.[1] ?? null,
+  );
+  let publisher = $derived(
+    event.tags.find((t: string[]) => t[0] === "publisher")?.[1] ?? null,
+  );
+  let identifier = $derived(
+    event.tags.find((t: string[]) => t[0] === "identifier")?.[1] ?? null,
+  );
 
   // UI state
   let detailsModalOpen: boolean = $state(false);
@@ -48,7 +70,7 @@
     (() => {
       const isUserFeed = user.signedIn && $feedType === FeedType.UserRelays;
       const relays = isUserFeed ? user.relays.inbox : standardRelays;
-      
+
       console.debug("[CardActions] Selected relays:", {
         eventId: event.id,
         isSignedIn: user.signedIn,
@@ -100,7 +122,7 @@
    * Navigates to the event details page
    */
   function viewEventDetails() {
-    const nevent = getIdentifier('nevent');
+    const nevent = getIdentifier("nevent");
     goto(`/events?id=${encodeURIComponent(nevent)}`);
   }
 </script>

@@ -5,12 +5,18 @@ import NDK, {
   NDKRelaySet,
   NDKUser,
   NDKEvent,
-} from '@nostr-dev-kit/ndk';
-import { get, writable, type Writable } from 'svelte/store';
-import { fallbackRelays, FeedType, loginStorageKey, standardRelays, anonymousRelays } from './consts';
-import { feedType } from './stores';
-import { userStore } from './stores/userStore';
-import { userPubkey } from '$lib/stores/authStore.Svelte';
+} from "@nostr-dev-kit/ndk";
+import { get, writable, type Writable } from "svelte/store";
+import {
+  fallbackRelays,
+  FeedType,
+  loginStorageKey,
+  standardRelays,
+  anonymousRelays,
+} from "./consts";
+import { feedType } from "./stores";
+import { userStore } from "./stores/userStore";
+import { userPubkey } from "$lib/stores/authStore.Svelte";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
@@ -429,35 +435,37 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
 
 export function getActiveRelays(ndk: NDK): NDKRelaySet {
   const user = get(userStore);
-  
+
   // Filter out problematic relays that are known to cause connection issues
   const filterProblematicRelays = (relays: string[]) => {
-    return relays.filter(relay => {
+    return relays.filter((relay) => {
       // Filter out gitcitadel.nostr1.com which is causing connection issues
-      if (relay.includes('gitcitadel.nostr1.com')) {
+      if (relay.includes("gitcitadel.nostr1.com")) {
         console.warn(`[NDK.ts] Filtering out problematic relay: ${relay}`);
         return false;
       }
       return true;
     });
   };
-  
+
   return get(feedType) === FeedType.UserRelays && user.signedIn
     ? new NDKRelaySet(
-        new Set(filterProblematicRelays(user.relays.inbox).map(relay => new NDKRelay(
-          relay,
-          NDKRelayAuthPolicies.signIn({ ndk }),
-          ndk,
-        ))),
-        ndk
+        new Set(
+          filterProblematicRelays(user.relays.inbox).map(
+            (relay) =>
+              new NDKRelay(relay, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          ),
+        ),
+        ndk,
       )
     : new NDKRelaySet(
-        new Set(filterProblematicRelays(standardRelays).map(relay => new NDKRelay(
-          relay,
-          NDKRelayAuthPolicies.signIn({ ndk }),
-          ndk,
-        ))),
-        ndk
+        new Set(
+          filterProblematicRelays(standardRelays).map(
+            (relay) =>
+              new NDKRelay(relay, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
+          ),
+        ),
+        ndk,
       );
 }
 
@@ -490,9 +498,10 @@ export function initNdk(): NDK {
 
   // Set up custom authentication policy
   ndk.relayAuthDefaultPolicy = NDKRelayAuthPolicies.signIn({ ndk });
-  
+
   // Connect with better error handling
-  ndk.connect()
+  ndk
+    .connect()
     .then(() => {
       console.debug("[NDK.ts] NDK connected successfully");
     })
@@ -506,7 +515,7 @@ export function initNdk(): NDK {
         });
       }, 5000);
     });
-    
+
   return ndk;
 }
 
@@ -604,8 +613,10 @@ export async function getUserPreferredRelays(
 
   // Filter out problematic relays
   const filterProblematicRelay = (url: string): boolean => {
-    if (url.includes('gitcitadel.nostr1.com')) {
-      console.warn(`[NDK.ts] Filtering out problematic relay from user preferences: ${url}`);
+    if (url.includes("gitcitadel.nostr1.com")) {
+      console.warn(
+        `[NDK.ts] Filtering out problematic relay from user preferences: ${url}`,
+      );
       return false;
     }
     return true;

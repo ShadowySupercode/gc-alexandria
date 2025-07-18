@@ -4,7 +4,11 @@
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import RelayDisplay from "./RelayDisplay.svelte";
-  import { searchEvent, searchBySubscription, searchNip05 } from "$lib/utils/search_utility";
+  import {
+    searchEvent,
+    searchBySubscription,
+    searchNip05,
+  } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { standardRelays } from "$lib/consts";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
@@ -33,7 +37,7 @@
       eventIds: Set<string>,
       addresses: Set<string>,
       searchType?: string,
-      searchTerm?: string
+      searchTerm?: string,
     ) => void;
     event: NDKEvent | null;
     onClear?: () => void;
@@ -43,7 +47,9 @@
   // Component state
   let searchQuery = $state("");
   let localError = $state<string | null>(null);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>({});
+  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
+    {},
+  );
   let foundEvent = $state<NDKEvent | null>(null);
   let searching = $state(false);
   let searchCompleted = $state(false);
@@ -56,7 +62,11 @@
   let currentAbortController: AbortController | null = null;
 
   // Derived values
-  let hasActiveSearch = $derived(searching || (Object.values(relayStatuses).some(s => s === "pending") && !foundEvent));
+  let hasActiveSearch = $derived(
+    searching ||
+      (Object.values(relayStatuses).some((s) => s === "pending") &&
+        !foundEvent),
+  );
   let showError = $derived(localError || error);
   let showSuccess = $derived(searchCompleted && searchResultCount !== null);
 
@@ -75,18 +85,39 @@
       const foundEvent = await searchNip05(query);
       if (foundEvent) {
         handleFoundEvent(foundEvent);
-        updateSearchState(false, true, 1, 'nip05');
+        updateSearchState(false, true, 1, "nip05");
       } else {
         relayStatuses = {};
-        if (activeSub) { try { activeSub.stop(); } catch (e) { console.warn('Error stopping subscription:', e); } activeSub = null; }
-        if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
-        updateSearchState(false, true, 0, 'nip05');
+        if (activeSub) {
+          try {
+            activeSub.stop();
+          } catch (e) {
+            console.warn("Error stopping subscription:", e);
+          }
+          activeSub = null;
+        }
+        if (currentAbortController) {
+          currentAbortController.abort();
+          currentAbortController = null;
+        }
+        updateSearchState(false, true, 0, "nip05");
       }
     } catch (error) {
-      localError = error instanceof Error ? error.message : 'NIP-05 lookup failed';
+      localError =
+        error instanceof Error ? error.message : "NIP-05 lookup failed";
       relayStatuses = {};
-      if (activeSub) { try { activeSub.stop(); } catch (e) { console.warn('Error stopping subscription:', e); } activeSub = null; }
-      if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+      if (activeSub) {
+        try {
+          activeSub.stop();
+        } catch (e) {
+          console.warn("Error stopping subscription:", e);
+        }
+        activeSub = null;
+      }
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+      }
       updateSearchState(false, false, null, null);
       isProcessingSearch = false;
       currentProcessingSearchValue = null;
@@ -102,26 +133,49 @@
         console.warn("[Events] Event not found for query:", query);
         localError = "Event not found";
         relayStatuses = {};
-        if (activeSub) { try { activeSub.stop(); } catch (e) { console.warn('Error stopping subscription:', e); } activeSub = null; }
-        if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+        if (activeSub) {
+          try {
+            activeSub.stop();
+          } catch (e) {
+            console.warn("Error stopping subscription:", e);
+          }
+          activeSub = null;
+        }
+        if (currentAbortController) {
+          currentAbortController.abort();
+          currentAbortController = null;
+        }
         updateSearchState(false, false, null, null);
       } else {
         console.log("[Events] Event found:", foundEvent);
         handleFoundEvent(foundEvent);
-        updateSearchState(false, true, 1, 'event');
+        updateSearchState(false, true, 1, "event");
       }
     } catch (err) {
       console.error("[Events] Error fetching event:", err, "Query:", query);
       localError = "Error fetching event. Please check the ID and try again.";
       relayStatuses = {};
-      if (activeSub) { try { activeSub.stop(); } catch (e) { console.warn('Error stopping subscription:', e); } activeSub = null; }
-      if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+      if (activeSub) {
+        try {
+          activeSub.stop();
+        } catch (e) {
+          console.warn("Error stopping subscription:", e);
+        }
+        activeSub = null;
+      }
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+      }
       updateSearchState(false, false, null, null);
       isProcessingSearch = false;
     }
   }
 
-  async function handleSearchEvent(clearInput: boolean = true, queryOverride?: string) {
+  async function handleSearchEvent(
+    clearInput: boolean = true,
+    queryOverride?: string,
+  ) {
     if (searching) {
       console.log("EventSearch: Already searching, skipping");
       return;
@@ -131,7 +185,9 @@
     updateSearchState(true);
     isResetting = false;
     isUserEditing = false; // Reset user editing flag when search starts
-    const query = (queryOverride !== undefined ? queryOverride : searchQuery).trim();
+    const query = (
+      queryOverride !== undefined ? queryOverride : searchQuery
+    ).trim();
     if (!query) {
       updateSearchState(false, false, null, null);
       return;
@@ -140,7 +196,7 @@
       const dTag = query.slice(2).trim().toLowerCase();
       if (dTag) {
         console.log("EventSearch: Processing d-tag search:", dTag);
-        navigateToSearch(dTag, 'd');
+        navigateToSearch(dTag, "d");
         updateSearchState(false, false, null, null);
         return;
       }
@@ -148,23 +204,23 @@
     if (query.toLowerCase().startsWith("t:")) {
       const searchTerm = query.slice(2).trim();
       if (searchTerm) {
-        await handleSearchBySubscription('t', searchTerm);
+        await handleSearchBySubscription("t", searchTerm);
         return;
       }
     }
     if (query.toLowerCase().startsWith("n:")) {
       const searchTerm = query.slice(2).trim();
       if (searchTerm) {
-        await handleSearchBySubscription('n', searchTerm);
+        await handleSearchBySubscription("n", searchTerm);
         return;
       }
     }
-    if (query.includes('@')) {
+    if (query.includes("@")) {
       await handleNip05Search(query);
       return;
     }
     if (clearInput) {
-      navigateToSearch(query, 'id');
+      navigateToSearch(query, "id");
       // Don't clear searchQuery here - let the effect handle it
     }
     await handleEventSearch(query);
@@ -176,7 +232,7 @@
     if (searching || isResetting || isUserEditing) {
       return;
     }
-    
+
     if (dTagValue) {
       // If dTagValue is set, show it as "d:tag" in the search bar
       searchQuery = `d:${dTagValue}`;
@@ -191,7 +247,13 @@
 
   // Debounced effect to handle searchValue changes
   $effect(() => {
-    if (!searchValue || searching || isResetting || isProcessingSearch || isWaitingForSearchResult) {
+    if (
+      !searchValue ||
+      searching ||
+      isResetting ||
+      isProcessingSearch ||
+      isWaitingForSearchResult
+    ) {
       return;
     }
 
@@ -205,7 +267,7 @@
         currentNevent = neventEncode(foundEvent, standardRelays);
       } catch {}
       try {
-        currentNaddr = getMatchingTags(foundEvent, 'd')[0]?.[1]
+        currentNaddr = getMatchingTags(foundEvent, "d")[0]?.[1]
           ? naddrEncode(foundEvent, standardRelays)
           : null;
       } catch {}
@@ -214,11 +276,30 @@
       } catch {}
 
       // Debug log for comparison
-      console.log('[EventSearch effect] searchValue:', searchValue, 'foundEvent.id:', currentEventId, 'foundEvent.pubkey:', foundEvent.pubkey, 'toNpub(pubkey):', currentNpub, 'foundEvent.kind:', foundEvent.kind, 'currentNaddr:', currentNaddr, 'currentNevent:', currentNevent);
+      console.log(
+        "[EventSearch effect] searchValue:",
+        searchValue,
+        "foundEvent.id:",
+        currentEventId,
+        "foundEvent.pubkey:",
+        foundEvent.pubkey,
+        "toNpub(pubkey):",
+        currentNpub,
+        "foundEvent.kind:",
+        foundEvent.kind,
+        "currentNaddr:",
+        currentNaddr,
+        "currentNevent:",
+        currentNevent,
+      );
 
       // Also check if searchValue is an nprofile and matches the current event's pubkey
       let currentNprofile = null;
-      if (searchValue && searchValue.startsWith('nprofile1') && foundEvent.kind === 0) {
+      if (
+        searchValue &&
+        searchValue.startsWith("nprofile1") &&
+        foundEvent.kind === 0
+      ) {
         try {
           currentNprofile = nprofileEncode(foundEvent.pubkey, standardRelays);
         } catch {}
@@ -261,10 +342,15 @@
 
   // Simple effect to handle dTagValue changes
   $effect(() => {
-    if (dTagValue && !searching && !isResetting && dTagValue !== lastProcessedDTagValue) {
+    if (
+      dTagValue &&
+      !searching &&
+      !isResetting &&
+      dTagValue !== lastProcessedDTagValue
+    ) {
       console.log("EventSearch: Processing dTagValue:", dTagValue);
       lastProcessedDTagValue = dTagValue;
-      handleSearchBySubscription('d', dTagValue);
+      handleSearchBySubscription("d", dTagValue);
     }
   });
 
@@ -276,7 +362,12 @@
   });
 
   // Search utility functions
-  function updateSearchState(isSearching: boolean, completed: boolean = false, count: number | null = null, type: string | null = null) {
+  function updateSearchState(
+    isSearching: boolean,
+    completed: boolean = false,
+    count: number | null = null,
+    type: string | null = null,
+  ) {
     searching = isSearching;
     searchCompleted = completed;
     searchResultCount = count;
@@ -297,32 +388,32 @@
     currentProcessingSearchValue = null;
     lastSearchValue = null;
     updateSearchState(false, false, null, null);
-    
+
     // Cancel ongoing search
     if (currentAbortController) {
       currentAbortController.abort();
       currentAbortController = null;
     }
-    
+
     // Clean up subscription
     if (activeSub) {
       try {
         activeSub.stop();
       } catch (e) {
-        console.warn('Error stopping subscription:', e);
+        console.warn("Error stopping subscription:", e);
       }
       activeSub = null;
     }
-    
+
     // Clear search results
     onSearchResults([], [], [], new Set(), new Set());
-    
+
     // Clear any pending timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
       searchTimeout = null;
     }
-    
+
     // Reset the flag after a short delay to allow effects to settle
     setTimeout(() => {
       isResetting = false;
@@ -332,40 +423,40 @@
   function handleFoundEvent(event: NDKEvent) {
     foundEvent = event;
     relayStatuses = {}; // Clear relay statuses when event is found
-    
+
     // Stop any ongoing subscription
     if (activeSub) {
       try {
         activeSub.stop();
       } catch (e) {
-        console.warn('Error stopping subscription:', e);
+        console.warn("Error stopping subscription:", e);
       }
       activeSub = null;
     }
-    
+
     // Abort any ongoing fetch
     if (currentAbortController) {
       currentAbortController.abort();
       currentAbortController = null;
     }
-    
+
     // Clear search state
     searching = false;
     searchCompleted = true;
     searchResultCount = 1;
-    searchResultType = 'event';
-    
+    searchResultType = "event";
+
     // Update last processed search value to prevent re-processing
     if (searchValue) {
       lastProcessedSearchValue = searchValue;
       lastSearchValue = searchValue;
     }
-    
+
     // Reset processing flag
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
     isWaitingForSearchResult = false;
-    
+
     onEventFound(event);
   }
 
@@ -379,8 +470,14 @@
   }
 
   // Search handlers
-  async function handleSearchBySubscription(searchType: 'd' | 't' | 'n', searchTerm: string) {
-    console.log("EventSearch: Starting subscription search:", { searchType, searchTerm });
+  async function handleSearchBySubscription(
+    searchType: "d" | "t" | "n",
+    searchTerm: string,
+  ) {
+    console.log("EventSearch: Starting subscription search:", {
+      searchType,
+      searchTerm,
+    });
     isResetting = false; // Allow effects to run for new searches
     localError = null;
     updateSearchState(true);
@@ -403,7 +500,7 @@
               updatedResult.eventIds,
               updatedResult.addresses,
               updatedResult.searchType,
-              updatedResult.searchTerm
+              updatedResult.searchTerm,
             );
           },
           onSubscriptionCreated: (sub) => {
@@ -412,9 +509,9 @@
               activeSub.stop();
             }
             activeSub = sub;
-          }
+          },
         },
-        currentAbortController.signal
+        currentAbortController.signal,
       );
       console.log("EventSearch: Search completed:", result);
       onSearchResults(
@@ -424,16 +521,19 @@
         result.eventIds,
         result.addresses,
         result.searchType,
-        result.searchTerm
+        result.searchTerm,
       );
-      const totalCount = result.events.length + result.secondOrder.length + result.tTagEvents.length;
+      const totalCount =
+        result.events.length +
+        result.secondOrder.length +
+        result.tTagEvents.length;
       relayStatuses = {}; // Clear relay statuses when search completes
       // Stop any ongoing subscription
       if (activeSub) {
         try {
           activeSub.stop();
         } catch (e) {
-          console.warn('Error stopping subscription:', e);
+          console.warn("Error stopping subscription:", e);
         }
         activeSub = null;
       }
@@ -447,20 +547,25 @@
       currentProcessingSearchValue = null;
       isWaitingForSearchResult = false;
     } catch (error) {
-      if (error instanceof Error && error.message === 'Search cancelled') {
+      if (error instanceof Error && error.message === "Search cancelled") {
         isProcessingSearch = false;
         currentProcessingSearchValue = null;
         isWaitingForSearchResult = false;
         return;
       }
       console.error("EventSearch: Search failed:", error);
-      localError = error instanceof Error ? error.message : 'Search failed';
+      localError = error instanceof Error ? error.message : "Search failed";
       // Provide more specific error messages for different failure types
       if (error instanceof Error) {
-        if (error.message.includes('timeout') || error.message.includes('connection')) {
-          localError = 'Search timed out. The relays may be temporarily unavailable. Please try again.';
-        } else if (error.message.includes('NDK not initialized')) {
-          localError = 'Nostr client not initialized. Please refresh the page and try again.';
+        if (
+          error.message.includes("timeout") ||
+          error.message.includes("connection")
+        ) {
+          localError =
+            "Search timed out. The relays may be temporarily unavailable. Please try again.";
+        } else if (error.message.includes("NDK not initialized")) {
+          localError =
+            "Nostr client not initialized. Please refresh the page and try again.";
         } else {
           localError = `Search failed: ${error.message}`;
         }
@@ -471,35 +576,35 @@
         try {
           activeSub.stop();
         } catch (e) {
-          console.warn('Error stopping subscription:', e);
+          console.warn("Error stopping subscription:", e);
+        }
+        activeSub = null;
       }
-      activeSub = null;
+      // Abort any ongoing fetch
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+      }
+      updateSearchState(false, false, null, null);
+      isProcessingSearch = false;
+      currentProcessingSearchValue = null;
+      isWaitingForSearchResult = false;
     }
-    // Abort any ongoing fetch
-    if (currentAbortController) {
-      currentAbortController.abort();
-      currentAbortController = null;
-    }
-    updateSearchState(false, false, null, null);
-    isProcessingSearch = false;
-    currentProcessingSearchValue = null;
-    isWaitingForSearchResult = false;
-  }
   }
 
   function handleClear() {
     isResetting = true;
-    searchQuery = '';
+    searchQuery = "";
     isUserEditing = false; // Reset user editing flag
     resetSearchState();
-    
+
     // Clear URL parameters to reset the page
-    goto('', {
+    goto("", {
       replaceState: true,
       keepFocus: true,
       noScroll: true,
     });
-    
+
     // Ensure all search state is cleared
     searching = false;
     searchCompleted = false;
@@ -512,17 +617,17 @@
     currentProcessingSearchValue = null;
     lastSearchValue = null;
     isWaitingForSearchResult = false;
-    
+
     // Clear any pending timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
       searchTimeout = null;
     }
-    
+
     if (onClear) {
       onClear();
     }
-    
+
     // Reset the flag after a short delay to allow effects to settle
     setTimeout(() => {
       isResetting = false;
@@ -533,12 +638,16 @@
     if (searchResultCount === 0) {
       return "Search completed. No results found.";
     }
-    
-    const typeLabel = searchResultType === 'n' ? 'profile' : 
-                     searchResultType === 'nip05' ? 'NIP-05 address' : 'event';
-    const countLabel = searchResultType === 'n' ? 'profiles' : 'events';
-    
-    return searchResultCount === 1 
+
+    const typeLabel =
+      searchResultType === "n"
+        ? "profile"
+        : searchResultType === "nip05"
+          ? "NIP-05 address"
+          : "event";
+    const countLabel = searchResultType === "n" ? "profiles" : "events";
+
+    return searchResultCount === 1
       ? `Search completed. Found 1 ${typeLabel}.`
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
   }
@@ -551,9 +660,10 @@
       bind:value={searchQuery}
       placeholder="Enter event ID, nevent, naddr, d:tag-name, t:topic, or n:username..."
       class="flex-grow"
-      onkeydown={(e: KeyboardEvent) => e.key === "Enter" && handleSearchEvent(true)}
-      oninput={() => isUserEditing = true}
-      onblur={() => isUserEditing = false}
+      onkeydown={(e: KeyboardEvent) =>
+        e.key === "Enter" && handleSearchEvent(true)}
+      oninput={() => (isUserEditing = true)}
+      onblur={() => (isUserEditing = false)}
     />
     <Button onclick={() => handleSearchEvent(true)} disabled={loading}>
       {#if searching}
@@ -561,10 +671,10 @@
       {/if}
       {searching ? "Searching..." : "Search"}
     </Button>
-    <Button 
-      onclick={handleClear} 
-      color="alternative" 
-      type="button" 
+    <Button
+      onclick={handleClear}
+      color="alternative"
+      type="button"
       disabled={loading}
     >
       Clear
@@ -573,14 +683,20 @@
 
   <!-- Error Display -->
   {#if showError}
-    <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+    <div
+      class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
+      role="alert"
+    >
       {localError || error}
     </div>
   {/if}
 
   <!-- Success Display -->
   {#if showSuccess}
-    <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+    <div
+      class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg"
+      role="alert"
+    >
       {getResultMessage()}
     </div>
   {/if}

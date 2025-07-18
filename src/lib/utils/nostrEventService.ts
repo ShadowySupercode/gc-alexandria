@@ -5,7 +5,7 @@ import { userRelays } from "$lib/stores/relayStore";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import type { NDKEvent } from "./nostrUtils";
-import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from './search_constants';
+import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from "./search_constants";
 
 export interface RootEventInfo {
   rootId: string;
@@ -44,16 +44,20 @@ function findTag(tags: string[][], tagName: string): string[] | undefined {
 /**
  * Helper function to get tag value safely
  */
-function getTagValue(tags: string[][], tagName: string, index: number = 1): string {
+function getTagValue(
+  tags: string[][],
+  tagName: string,
+  index: number = 1,
+): string {
   const tag = findTag(tags, tagName);
-  return tag?.[index] || '';
+  return tag?.[index] || "";
 }
 
 /**
  * Helper function to create a tag array
  */
 function createTag(name: string, ...values: (string | number)[]): string[] {
-  return [name, ...values.map(v => String(v))];
+  return [name, ...values.map((v) => String(v))];
 }
 
 /**
@@ -72,36 +76,41 @@ export function extractRootEventInfo(parent: NDKEvent): RootEventInfo {
     rootPubkey: getPubkeyString(parent.pubkey),
     rootRelay: getRelayString(parent.relay),
     rootKind: parent.kind || 1,
-    rootAddress: '',
-    rootIValue: '',
-    rootIRelay: '',
+    rootAddress: "",
+    rootIValue: "",
+    rootIRelay: "",
     isRootA: false,
     isRootI: false,
   };
 
   if (!parent.tags) return rootInfo;
 
-  const rootE = findTag(parent.tags, 'E');
-  const rootA = findTag(parent.tags, 'A');
-  const rootI = findTag(parent.tags, 'I');
-  
+  const rootE = findTag(parent.tags, "E");
+  const rootA = findTag(parent.tags, "A");
+  const rootI = findTag(parent.tags, "I");
+
   rootInfo.isRootA = !!rootA;
   rootInfo.isRootI = !!rootI;
-  
+
   if (rootE) {
     rootInfo.rootId = rootE[1];
     rootInfo.rootRelay = getRelayString(rootE[2]);
     rootInfo.rootPubkey = getPubkeyString(rootE[3] || rootInfo.rootPubkey);
-    rootInfo.rootKind = Number(getTagValue(parent.tags, 'K')) || rootInfo.rootKind;
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   } else if (rootA) {
     rootInfo.rootAddress = rootA[1];
     rootInfo.rootRelay = getRelayString(rootA[2]);
-    rootInfo.rootPubkey = getPubkeyString(getTagValue(parent.tags, 'P') || rootInfo.rootPubkey);
-    rootInfo.rootKind = Number(getTagValue(parent.tags, 'K')) || rootInfo.rootKind;
+    rootInfo.rootPubkey = getPubkeyString(
+      getTagValue(parent.tags, "P") || rootInfo.rootPubkey,
+    );
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   } else if (rootI) {
     rootInfo.rootIValue = rootI[1];
     rootInfo.rootIRelay = getRelayString(rootI[2]);
-    rootInfo.rootKind = Number(getTagValue(parent.tags, 'K')) || rootInfo.rootKind;
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   }
 
   return rootInfo;
@@ -111,9 +120,11 @@ export function extractRootEventInfo(parent: NDKEvent): RootEventInfo {
  * Extract parent event information
  */
 export function extractParentEventInfo(parent: NDKEvent): ParentEventInfo {
-  const dTag = getTagValue(parent.tags || [], 'd');
-  const parentAddress = dTag ? `${parent.kind}:${getPubkeyString(parent.pubkey)}:${dTag}` : '';
-  
+  const dTag = getTagValue(parent.tags || [], "d");
+  const parentAddress = dTag
+    ? `${parent.kind}:${getPubkeyString(parent.pubkey)}:${dTag}`
+    : "";
+
   return {
     parentId: parent.id,
     parentPubkey: getPubkeyString(parent.pubkey),
@@ -126,45 +137,62 @@ export function extractParentEventInfo(parent: NDKEvent): ParentEventInfo {
 /**
  * Build root scope tags for NIP-22 threading
  */
-function buildRootScopeTags(rootInfo: RootEventInfo, parentInfo: ParentEventInfo): string[][] {
+function buildRootScopeTags(
+  rootInfo: RootEventInfo,
+  parentInfo: ParentEventInfo,
+): string[][] {
   const tags: string[][] = [];
-  
+
   if (rootInfo.rootAddress) {
-    const tagType = rootInfo.isRootA ? 'A' : rootInfo.isRootI ? 'I' : 'E';
-    addTags(tags, createTag(tagType, rootInfo.rootAddress || rootInfo.rootId, rootInfo.rootRelay));
+    const tagType = rootInfo.isRootA ? "A" : rootInfo.isRootI ? "I" : "E";
+    addTags(
+      tags,
+      createTag(
+        tagType,
+        rootInfo.rootAddress || rootInfo.rootId,
+        rootInfo.rootRelay,
+      ),
+    );
   } else if (rootInfo.rootIValue) {
-    addTags(tags, createTag('I', rootInfo.rootIValue, rootInfo.rootIRelay));
+    addTags(tags, createTag("I", rootInfo.rootIValue, rootInfo.rootIRelay));
   } else {
-    addTags(tags, createTag('E', rootInfo.rootId, rootInfo.rootRelay));
+    addTags(tags, createTag("E", rootInfo.rootId, rootInfo.rootRelay));
   }
-  
-  addTags(tags, createTag('K', rootInfo.rootKind));
-  
+
+  addTags(tags, createTag("K", rootInfo.rootKind));
+
   if (rootInfo.rootPubkey && !rootInfo.rootIValue) {
-    addTags(tags, createTag('P', rootInfo.rootPubkey, rootInfo.rootRelay));
+    addTags(tags, createTag("P", rootInfo.rootPubkey, rootInfo.rootRelay));
   }
-  
+
   return tags;
 }
 
 /**
  * Build parent scope tags for NIP-22 threading
  */
-function buildParentScopeTags(parent: NDKEvent, parentInfo: ParentEventInfo, rootInfo: RootEventInfo): string[][] {
+function buildParentScopeTags(
+  parent: NDKEvent,
+  parentInfo: ParentEventInfo,
+  rootInfo: RootEventInfo,
+): string[][] {
   const tags: string[][] = [];
-  
+
   if (parentInfo.parentAddress) {
-    const tagType = rootInfo.isRootA ? 'a' : rootInfo.isRootI ? 'i' : 'e';
-    addTags(tags, createTag(tagType, parentInfo.parentAddress, parentInfo.parentRelay));
+    const tagType = rootInfo.isRootA ? "a" : rootInfo.isRootI ? "i" : "e";
+    addTags(
+      tags,
+      createTag(tagType, parentInfo.parentAddress, parentInfo.parentRelay),
+    );
   }
-  
+
   addTags(
     tags,
-    createTag('e', parent.id, parentInfo.parentRelay),
-    createTag('k', parentInfo.parentKind),
-    createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+    createTag("e", parent.id, parentInfo.parentRelay),
+    createTag("k", parentInfo.parentKind),
+    createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
   );
-  
+
   return tags;
 }
 
@@ -175,63 +203,65 @@ export function buildReplyTags(
   parent: NDKEvent,
   rootInfo: RootEventInfo,
   parentInfo: ParentEventInfo,
-  kind: number
+  kind: number,
 ): string[][] {
   const tags: string[][] = [];
-  
-  const isParentReplaceable = parentInfo.parentKind >= EVENT_KINDS.ADDRESSABLE.MIN && parentInfo.parentKind < EVENT_KINDS.ADDRESSABLE.MAX;
+
+  const isParentReplaceable =
+    parentInfo.parentKind >= EVENT_KINDS.ADDRESSABLE.MIN &&
+    parentInfo.parentKind < EVENT_KINDS.ADDRESSABLE.MAX;
   const isParentComment = parentInfo.parentKind === EVENT_KINDS.COMMENT;
   const isReplyToComment = isParentComment && rootInfo.rootId !== parent.id;
-  
+
   if (kind === 1) {
     // Kind 1 replies use simple e/p tags
     addTags(
       tags,
-      createTag('e', parent.id, parentInfo.parentRelay, 'root'),
-      createTag('p', parentInfo.parentPubkey)
+      createTag("e", parent.id, parentInfo.parentRelay, "root"),
+      createTag("p", parentInfo.parentPubkey),
     );
-    
+
     // Add address for replaceable events
     if (isParentReplaceable) {
-      const dTag = getTagValue(parent.tags || [], 'd');
+      const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
         const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
-        addTags(tags, createTag('a', parentAddress, '', 'root'));
+        addTags(tags, createTag("a", parentAddress, "", "root"));
       }
     }
   } else {
     // Kind 1111 (comment) uses NIP-22 threading format
     if (isParentReplaceable) {
-      const dTag = getTagValue(parent.tags || [], 'd');
+      const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
         const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
-        
+
         if (isReplyToComment) {
           // Root scope (uppercase) - use the original article
           addTags(
             tags,
-            createTag('A', parentAddress, parentInfo.parentRelay),
-            createTag('K', rootInfo.rootKind),
-            createTag('P', rootInfo.rootPubkey, rootInfo.rootRelay)
+            createTag("A", parentAddress, parentInfo.parentRelay),
+            createTag("K", rootInfo.rootKind),
+            createTag("P", rootInfo.rootPubkey, rootInfo.rootRelay),
           );
           // Parent scope (lowercase) - the comment we're replying to
           addTags(
             tags,
-            createTag('e', parent.id, parentInfo.parentRelay),
-            createTag('k', parentInfo.parentKind),
-            createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+            createTag("e", parent.id, parentInfo.parentRelay),
+            createTag("k", parentInfo.parentKind),
+            createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
           );
         } else {
           // Top-level comment - root and parent are the same
           addTags(
             tags,
-            createTag('A', parentAddress, parentInfo.parentRelay),
-            createTag('K', rootInfo.rootKind),
-            createTag('P', rootInfo.rootPubkey, rootInfo.rootRelay),
-            createTag('a', parentAddress, parentInfo.parentRelay),
-            createTag('e', parent.id, parentInfo.parentRelay),
-            createTag('k', parentInfo.parentKind),
-            createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+            createTag("A", parentAddress, parentInfo.parentRelay),
+            createTag("K", rootInfo.rootKind),
+            createTag("P", rootInfo.rootPubkey, rootInfo.rootRelay),
+            createTag("a", parentAddress, parentInfo.parentRelay),
+            createTag("e", parent.id, parentInfo.parentRelay),
+            createTag("k", parentInfo.parentKind),
+            createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
           );
         }
       } else {
@@ -239,22 +269,22 @@ export function buildReplyTags(
         if (isReplyToComment) {
           addTags(
             tags,
-            createTag('E', rootInfo.rootId, rootInfo.rootRelay),
-            createTag('K', rootInfo.rootKind),
-            createTag('P', rootInfo.rootPubkey, rootInfo.rootRelay),
-            createTag('e', parent.id, parentInfo.parentRelay),
-            createTag('k', parentInfo.parentKind),
-            createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+            createTag("E", rootInfo.rootId, rootInfo.rootRelay),
+            createTag("K", rootInfo.rootKind),
+            createTag("P", rootInfo.rootPubkey, rootInfo.rootRelay),
+            createTag("e", parent.id, parentInfo.parentRelay),
+            createTag("k", parentInfo.parentKind),
+            createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
           );
         } else {
           addTags(
             tags,
-            createTag('E', parent.id, rootInfo.rootRelay),
-            createTag('K', rootInfo.rootKind),
-            createTag('P', rootInfo.rootPubkey, rootInfo.rootRelay),
-            createTag('e', parent.id, parentInfo.parentRelay),
-            createTag('k', parentInfo.parentKind),
-            createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+            createTag("E", parent.id, rootInfo.rootRelay),
+            createTag("K", rootInfo.rootKind),
+            createTag("P", rootInfo.rootPubkey, rootInfo.rootRelay),
+            createTag("e", parent.id, parentInfo.parentRelay),
+            createTag("k", parentInfo.parentKind),
+            createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
           );
         }
       }
@@ -265,9 +295,9 @@ export function buildReplyTags(
         addTags(tags, ...buildRootScopeTags(rootInfo, parentInfo));
         addTags(
           tags,
-          createTag('e', parent.id, parentInfo.parentRelay),
-          createTag('k', parentInfo.parentKind),
-          createTag('p', parentInfo.parentPubkey, parentInfo.parentRelay)
+          createTag("e", parent.id, parentInfo.parentRelay),
+          createTag("k", parentInfo.parentKind),
+          createTag("p", parentInfo.parentPubkey, parentInfo.parentRelay),
         );
       } else {
         // Top-level comment or regular event
@@ -287,23 +317,30 @@ export async function createSignedEvent(
   content: string,
   pubkey: string,
   kind: number,
-  tags: string[][]
+  tags: string[][],
 ): Promise<{ id: string; sig: string; event: any }> {
   const prefixedContent = prefixNostrAddresses(content);
-  
+
   const eventToSign = {
     kind: Number(kind),
-    created_at: Number(Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR)),
-    tags: tags.map(tag => [String(tag[0]), String(tag[1]), String(tag[2] || ''), String(tag[3] || '')]),
+    created_at: Number(
+      Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR),
+    ),
+    tags: tags.map((tag) => [
+      String(tag[0]),
+      String(tag[1]),
+      String(tag[2] || ""),
+      String(tag[3] || ""),
+    ]),
     content: String(prefixedContent),
     pubkey: pubkey,
   };
 
   let sig, id;
-  if (typeof window !== 'undefined' && window.nostr && window.nostr.signEvent) {
+  if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
     const signed = await window.nostr.signEvent(eventToSign);
     sig = signed.sig as string;
-    id = 'id' in signed ? signed.id as string : getEventHash(eventToSign);
+    id = "id" in signed ? (signed.id as string) : getEventHash(eventToSign);
   } else {
     id = getEventHash(eventToSign);
     sig = await signEvent(eventToSign);
@@ -316,16 +353,19 @@ export async function createSignedEvent(
       ...eventToSign,
       id,
       sig,
-    }
+    },
   };
 }
 
 /**
  * Publish event to a single relay
  */
-async function publishToRelay(relayUrl: string, signedEvent: any): Promise<void> {
+async function publishToRelay(
+  relayUrl: string,
+  signedEvent: any,
+): Promise<void> {
   const ws = new WebSocket(relayUrl);
-  
+
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       ws.close();
@@ -365,7 +405,7 @@ export async function publishEvent(
   signedEvent: any,
   useOtherRelays = false,
   useFallbackRelays = false,
-  userRelayPreference = false
+  userRelayPreference = false,
 ): Promise<EventPublishResult> {
   // Determine which relays to use
   let relays = userRelayPreference ? get(userRelays) : standardRelays;
@@ -383,7 +423,7 @@ export async function publishEvent(
       return {
         success: true,
         relay: relayUrl,
-        eventId: signedEvent.id
+        eventId: signedEvent.id,
       };
     } catch (e) {
       console.error(`Failed to publish to ${relayUrl}:`, e);
@@ -392,7 +432,7 @@ export async function publishEvent(
 
   return {
     success: false,
-    error: "Failed to publish to any relays"
+    error: "Failed to publish to any relays",
   };
 }
 
@@ -403,29 +443,29 @@ export function navigateToEvent(eventId: string): void {
   try {
     // Validate that eventId is a valid hex string
     if (!/^[0-9a-fA-F]{64}$/.test(eventId)) {
-      console.warn('Invalid event ID format:', eventId);
+      console.warn("Invalid event ID format:", eventId);
       return;
     }
-    
+
     const nevent = nip19.neventEncode({ id: eventId });
     goto(`/events?id=${nevent}`);
   } catch (error) {
-    console.error('Failed to encode event ID for navigation:', eventId, error);
+    console.error("Failed to encode event ID for navigation:", eventId, error);
   }
 }
 
 // Helper functions to ensure relay and pubkey are always strings
 function getRelayString(relay: any): string {
-  if (!relay) return '';
-  if (typeof relay === 'string') return relay;
-  if (typeof relay.url === 'string') return relay.url;
-  return '';
+  if (!relay) return "";
+  if (typeof relay === "string") return relay;
+  if (typeof relay.url === "string") return relay.url;
+  return "";
 }
 
 function getPubkeyString(pubkey: any): string {
-  if (!pubkey) return '';
-  if (typeof pubkey === 'string') return pubkey;
-  if (typeof pubkey.hex === 'function') return pubkey.hex();
-  if (typeof pubkey.pubkey === 'string') return pubkey.pubkey;
-  return '';
-} 
+  if (!pubkey) return "";
+  if (typeof pubkey === "string") return pubkey;
+  if (typeof pubkey.hex === "function") return pubkey.hex();
+  if (typeof pubkey.pubkey === "string") return pubkey.pubkey;
+  return "";
+}

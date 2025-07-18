@@ -20,8 +20,8 @@
     sectionHeading,
   } from "$lib/snippets/PublicationSnippets.svelte";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
-  import { getMatchingTags } from '$lib/utils/nostrUtils';
-  import { onMount } from 'svelte';
+  import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { onMount } from "svelte";
 
   // TODO: Fix move between parents.
 

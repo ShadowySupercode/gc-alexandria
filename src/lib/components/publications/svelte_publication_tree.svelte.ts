@@ -80,9 +80,9 @@ export class SveltePublicationTree {
 
   /**
    * Observer function that is invoked whenever a new node is resolved on the publication tree.
-   * 
+   *
    * @param address The address of the resolved node.
-   * 
+   *
    * This member is declared as an arrow function to ensure that the correct `this` context is
    * used when the function is invoked in this class's constructor.
    */
@@ -91,13 +91,13 @@ export class SveltePublicationTree {
     for (const observer of this.#nodeResolvedObservers) {
       observer(address);
     }
-  }
+  };
 
   /**
    * Observer function that is invoked whenever the bookmark is moved on the publication tree.
-   * 
+   *
    * @param address The address of the new bookmark.
-   * 
+   *
    * This member is declared as an arrow function to ensure that the correct `this` context is
    * used when the function is invoked in this class's constructor.
    */
@@ -105,7 +105,7 @@ export class SveltePublicationTree {
     for (const observer of this.#bookmarkMovedObservers) {
       observer(address);
     }
-  }
+  };
 
   // #endregion
 }

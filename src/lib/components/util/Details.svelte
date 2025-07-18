@@ -4,37 +4,54 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { P } from "flowbite-svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
-  import { goto } from '$app/navigation';
+  import { goto } from "$app/navigation";
 
   // isModal
   //  - don't show interactions in modal view
   //  - don't show all the details when _not_ in modal view
   let { event, isModal = false } = $props();
 
-  let title: string = $derived(getMatchingTags(event, 'title')[0]?.[1]);
+  let title: string = $derived(getMatchingTags(event, "title")[0]?.[1]);
   let author: string = $derived(
     getMatchingTags(event, "author")[0]?.[1] ?? "unknown",
   );
-  let version: string = $derived(getMatchingTags(event, 'version')[0]?.[1] ?? '1');
-  let image: string = $derived(getMatchingTags(event, 'image')[0]?.[1] ?? null);
-  let summary: string = $derived(getMatchingTags(event, 'summary')[0]?.[1] ?? null);
-  let type: string = $derived(getMatchingTags(event, 'type')[0]?.[1] ?? null);
-  let language: string = $derived(getMatchingTags(event, 'l')[0]?.[1] ?? null);
-  let source: string = $derived(getMatchingTags(event, 'source')[0]?.[1] ?? null);
-  let publisher: string = $derived(getMatchingTags(event, 'published_by')[0]?.[1] ?? null);
-  let identifier: string = $derived(getMatchingTags(event, 'i')[0]?.[1] ?? null);
-  let hashtags: string[] = $derived(getMatchingTags(event, 't').map(tag => tag[1]));
-  let rootId: string = $derived(getMatchingTags(event, 'd')[0]?.[1] ?? null);
+  let version: string = $derived(
+    getMatchingTags(event, "version")[0]?.[1] ?? "1",
+  );
+  let image: string = $derived(getMatchingTags(event, "image")[0]?.[1] ?? null);
+  let summary: string = $derived(
+    getMatchingTags(event, "summary")[0]?.[1] ?? null,
+  );
+  let type: string = $derived(getMatchingTags(event, "type")[0]?.[1] ?? null);
+  let language: string = $derived(getMatchingTags(event, "l")[0]?.[1] ?? null);
+  let source: string = $derived(
+    getMatchingTags(event, "source")[0]?.[1] ?? null,
+  );
+  let publisher: string = $derived(
+    getMatchingTags(event, "published_by")[0]?.[1] ?? null,
+  );
+  let identifier: string = $derived(
+    getMatchingTags(event, "i")[0]?.[1] ?? null,
+  );
+  let hashtags: string[] = $derived(
+    getMatchingTags(event, "t").map((tag) => tag[1]),
+  );
+  let rootId: string = $derived(getMatchingTags(event, "d")[0]?.[1] ?? null);
   let kind = $derived(event.kind);
 
-  let authorTag: string = $derived(getMatchingTags(event, 'author')[0]?.[1] ?? '');
-  let pTag: string = $derived(getMatchingTags(event, 'p')[0]?.[1] ?? '');
+  let authorTag: string = $derived(
+    getMatchingTags(event, "author")[0]?.[1] ?? "",
+  );
+  let pTag: string = $derived(getMatchingTags(event, "p")[0]?.[1] ?? "");
   let originalAuthor: string = $derived(
     getMatchingTags(event, "p")[0]?.[1] ?? null,
   );
 
   function isValidNostrPubkey(str: string): boolean {
-    return /^[a-f0-9]{64}$/i.test(str) || (str.startsWith('npub1') && str.length >= 59 && str.length <= 63);
+    return (
+      /^[a-f0-9]{64}$/i.test(str) ||
+      (str.startsWith("npub1") && str.length >= 59 && str.length <= 63)
+    );
   }
 </script>
 
@@ -42,7 +59,9 @@
   {#if !isModal}
     <div class="flex flex-row justify-between items-center">
       <!-- Index author badge -->
-      <P class='text-base font-normal'>{@render userBadge(event.pubkey, author)}</P>
+      <P class="text-base font-normal"
+        >{@render userBadge(event.pubkey, author)}</P
+      >
       <CardActions {event}></CardActions>
     </div>
   {/if}
@@ -63,11 +82,11 @@
       <h2 class="text-base font-bold">
         by
         {#if authorTag && pTag && isValidNostrPubkey(pTag)}
-          {authorTag} {@render userBadge(pTag, '')}
+          {authorTag} {@render userBadge(pTag, "")}
         {:else if authorTag}
           {authorTag}
         {:else if pTag && isValidNostrPubkey(pTag)}
-          {@render userBadge(pTag, '')}
+          {@render userBadge(pTag, "")}
         {:else if originalAuthor !== null}
           {@render userBadge(originalAuthor, author)}
         {:else}
@@ -111,7 +130,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      {@render userBadge(event.pubkey, '')}
+      {@render userBadge(event.pubkey, "")}
     </h4>
   </div>
 

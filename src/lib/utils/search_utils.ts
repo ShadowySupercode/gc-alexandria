@@ -23,7 +23,7 @@ export function isValidNip05Address(address: string): boolean {
  * Helper function to normalize search terms
  */
 export function normalizeSearchTerm(term: string): string {
-  return term.toLowerCase().replace(/\s+/g, '');
+  return term.toLowerCase().replace(/\s+/g, "");
 }
 
 /**
@@ -32,21 +32,21 @@ export function normalizeSearchTerm(term: string): string {
 export function fieldMatches(field: string, searchTerm: string): boolean {
   if (!field) return false;
   const fieldLower = field.toLowerCase();
-  const fieldNormalized = fieldLower.replace(/\s+/g, '');
+  const fieldNormalized = fieldLower.replace(/\s+/g, "");
   const searchTermLower = searchTerm.toLowerCase();
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
-  
+
   // Check exact match
   if (fieldLower === searchTermLower) return true;
   if (fieldNormalized === normalizedSearchTerm) return true;
-  
+
   // Check if field contains the search term
   if (fieldLower.includes(searchTermLower)) return true;
   if (fieldNormalized.includes(normalizedSearchTerm)) return true;
-  
+
   // Check individual words (handle spaces in display names)
   const words = fieldLower.split(/\s+/);
-  return words.some(word => word.includes(searchTermLower));
+  return words.some((word) => word.includes(searchTermLower));
 }
 
 /**
@@ -57,13 +57,16 @@ export function nip05Matches(nip05: string, searchTerm: string): boolean {
   const nip05Lower = nip05.toLowerCase();
   const searchTermLower = searchTerm.toLowerCase();
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
-  
+
   // Check if the part before @ contains the search term
-  const atIndex = nip05Lower.indexOf('@');
+  const atIndex = nip05Lower.indexOf("@");
   if (atIndex !== -1) {
     const localPart = nip05Lower.substring(0, atIndex);
-    const localPartNormalized = localPart.replace(/\s+/g, '');
-    return localPart.includes(searchTermLower) || localPartNormalized.includes(normalizedSearchTerm);
+    const localPartNormalized = localPart.replace(/\s+/g, "");
+    return (
+      localPart.includes(searchTermLower) ||
+      localPartNormalized.includes(normalizedSearchTerm)
+    );
   }
   return false;
 }
@@ -72,11 +75,11 @@ export function nip05Matches(nip05: string, searchTerm: string): boolean {
  * Common domains for NIP-05 lookups
  */
 export const COMMON_DOMAINS = [
-  'gitcitadel.com',
-  'theforest.nostr1.com',
-  'nostr1.com',
-  'nostr.land',
-  'sovbit.host'
+  "gitcitadel.com",
+  "theforest.nostr1.com",
+  "nostr1.com",
+  "nostr.land",
+  "sovbit.host",
 ] as const;
 
 /**
@@ -99,6 +102,6 @@ export function createProfileFromEvent(event: any, profileData: any): any {
     banner: profileData.banner,
     website: profileData.website,
     lud16: profileData.lud16,
-    pubkey: event.pubkey
+    pubkey: event.pubkey,
   };
-} 
+}

@@ -1,22 +1,23 @@
-<script lang='ts'>
-  import { 
-    TableOfContents, 
-    type TocEntry 
-  } from '$lib/components/publications/table_of_contents.svelte';
-  import { getContext } from 'svelte';
-  import { SidebarDropdownWrapper, SidebarGroup, SidebarItem } from 'flowbite-svelte';
-  import Self from './TableOfContents.svelte';
+<script lang="ts">
+  import {
+    TableOfContents,
+    type TocEntry,
+  } from "$lib/components/publications/table_of_contents.svelte";
+  import { getContext } from "svelte";
+  import {
+    SidebarDropdownWrapper,
+    SidebarGroup,
+    SidebarItem,
+  } from "flowbite-svelte";
+  import Self from "./TableOfContents.svelte";
 
-  let {
-    depth,
-    onSectionFocused,
-  } = $props<{
+  let { depth, onSectionFocused } = $props<{
     rootAddress: string;
     depth: number;
     onSectionFocused?: (address: string) => void;
   }>();
 
-  let toc = getContext('toc') as TableOfContents;
+  let toc = getContext("toc") as TableOfContents;
 
   let entries = $derived.by<TocEntry[]>(() => {
     const newEntries = [];
@@ -53,24 +54,17 @@
       <SidebarItem
         label={entry.title}
         href={`#${address}`}
-        spanClass='px-2 text-ellipsis'
+        spanClass="px-2 text-ellipsis"
         onclick={() => onSectionFocused?.(address)}
       />
     {:else}
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass='flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800'
-        bind:isOpen={
-          () => expanded,
-          (open) => setEntryExpanded(address, open)
-        }
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800"
+        bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self
-          rootAddress={address}
-          depth={childDepth}
-          onSectionFocused={onSectionFocused}
-        />
+        <Self rootAddress={address} depth={childDepth} {onSectionFocused} />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

@@ -60,7 +60,7 @@ function fixAllMathBlocks(html: string): string {
         return `<span class="math-inline">$${trimmedCode}$</span>`;
       }
       return match; // Return original if not LaTeX
-    }
+    },
   );
 
   // Also process code blocks without language class
@@ -72,7 +72,7 @@ function fixAllMathBlocks(html: string): string {
         return `<span class="math-inline">$${trimmedCode}$</span>`;
       }
       return match; // Return original if not LaTeX
-    }
+    },
   );
 
   return html;
@@ -83,7 +83,7 @@ function fixAllMathBlocks(html: string): string {
  */
 function isLaTeXContent(content: string): boolean {
   const trimmed = content.trim();
-  
+
   // Check for common LaTeX patterns
   const latexPatterns = [
     /\\[a-zA-Z]+/, // LaTeX commands like \frac, \sum, etc.
@@ -138,8 +138,8 @@ function isLaTeXContent(content: string): boolean {
     /\\mathfrak\{/, // Fraktur
     /\\mathscr\{/, // Script
   ];
-  
-  return latexPatterns.some(pattern => pattern.test(trimmed));
+
+  return latexPatterns.some((pattern) => pattern.test(trimmed));
 }
 
 /**

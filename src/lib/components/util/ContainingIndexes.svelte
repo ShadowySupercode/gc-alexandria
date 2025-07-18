@@ -17,13 +17,19 @@
   let lastEventId = $state<string | null>(null);
 
   async function loadContainingIndexes() {
-    console.log("[ContainingIndexes] Loading containing indexes for event:", event.id);
+    console.log(
+      "[ContainingIndexes] Loading containing indexes for event:",
+      event.id,
+    );
     loading = true;
     error = null;
 
     try {
       containingIndexes = await findContainingIndexEvents(event);
-      console.log("[ContainingIndexes] Found containing indexes:", containingIndexes.length);
+      console.log(
+        "[ContainingIndexes] Found containing indexes:",
+        containingIndexes.length,
+      );
     } catch (err) {
       error =
         err instanceof Error

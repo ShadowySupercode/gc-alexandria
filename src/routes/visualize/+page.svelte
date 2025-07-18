@@ -71,8 +71,10 @@
         if (tags.length === 0) {
           tags = event.getMatchingTags("e");
         }
-        
-        debug(`Event ${event.id} has ${tags.length} tags (${tags.length > 0 ? (event.getMatchingTags("a").length > 0 ? "a" : "e") : "none"})`);
+
+        debug(
+          `Event ${event.id} has ${tags.length} tags (${tags.length > 0 ? (event.getMatchingTags("a").length > 0 ? "a" : "e") : "none"})`,
+        );
 
         tags.forEach((tag) => {
           const eventId = tag[3];

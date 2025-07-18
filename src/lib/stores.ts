@@ -1,5 +1,5 @@
-import { readable, writable } from 'svelte/store';
-import { FeedType } from './consts.ts';
+import { readable, writable } from "svelte/store";
+import { FeedType } from "./consts.ts";
 
 export let idList = writable<string[]>([]);
 
@@ -22,18 +22,19 @@ const defaultVisibility: PublicationLayoutVisibility = {
   main: true,
   inner: false,
   discussion: false,
-  editing: false
+  editing: false,
 };
 
 function createVisibilityStore() {
-  const { subscribe, set, update }
-    = writable<PublicationLayoutVisibility>({ ...defaultVisibility });
+  const { subscribe, set, update } = writable<PublicationLayoutVisibility>({
+    ...defaultVisibility,
+  });
 
   return {
     subscribe,
     set,
     update,
-    reset: () => set({ ...defaultVisibility })
+    reset: () => set({ ...defaultVisibility }),
   };
 }
 

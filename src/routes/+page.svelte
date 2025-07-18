@@ -1,17 +1,14 @@
 <script lang="ts">
-  import {
-    standardRelays,
-    fallbackRelays,
-  } from "$lib/consts";
+  import { standardRelays, fallbackRelays } from "$lib/consts";
   import { Alert, Input } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
-  import { userStore } from '$lib/stores/userStore';
+  import { userStore } from "$lib/stores/userStore";
   import { inboxRelays, ndkSignedIn } from "$lib/ndk";
-  import PublicationFeed from '$lib/components/publications/PublicationFeed.svelte';
+  import PublicationFeed from "$lib/components/publications/PublicationFeed.svelte";
 
-  let searchQuery = $state('');
+  let searchQuery = $state("");
   let user = $state($userStore);
-  userStore.subscribe(val => user = val);
+  userStore.subscribe((val) => (user = val));
 </script>
 
 <Alert
@@ -26,13 +23,20 @@
   </span>
 </Alert>
 
-<main class='leather flex flex-col flex-grow-0 space-y-4 p-4'>
-  <div class='leather w-full flex flex-row items-center justify-center gap-4 mb-4'>
+<main class="leather flex flex-col flex-grow-0 space-y-4 p-4">
+  <div
+    class="leather w-full flex flex-row items-center justify-center gap-4 mb-4"
+  >
     <Input
       bind:value={searchQuery}
       placeholder="Search publications by title or author..."
       class="flex-grow max-w-2xl min-w-[300px] text-base"
     />
   </div>
-  <PublicationFeed relays={standardRelays} {fallbackRelays} {searchQuery} userRelays={$ndkSignedIn ? $inboxRelays : []} />
+  <PublicationFeed
+    relays={standardRelays}
+    {fallbackRelays}
+    {searchQuery}
+    userRelays={$ndkSignedIn ? $inboxRelays : []}
+  />
 </main>

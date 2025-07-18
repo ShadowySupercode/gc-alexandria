@@ -1,10 +1,19 @@
 <script lang="ts">
-  import { Heading, P, A, Button, Label, Textarea, Input, Modal } from 'flowbite-svelte';
-  import { ndkInstance, ndkSignedIn } from '$lib/ndk';
-  import { userStore } from '$lib/stores/userStore';
-  import { standardRelays } from '$lib/consts';
-  import type NDK from '@nostr-dev-kit/ndk';
-  import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
+  import {
+    Heading,
+    P,
+    A,
+    Button,
+    Label,
+    Textarea,
+    Input,
+    Modal,
+  } from "flowbite-svelte";
+  import { ndkInstance, ndkSignedIn } from "$lib/ndk";
+  import { userStore } from "$lib/stores/userStore";
+  import { standardRelays } from "$lib/consts";
+  import type NDK from "@nostr-dev-kit/ndk";
+  import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue
   import LoginModal from "$lib/components/LoginModal.svelte";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
@@ -44,10 +53,10 @@
     subject: "",
     content: "",
   };
-  
+
   // Subscribe to userStore
   let user = $state($userStore);
-  userStore.subscribe(val => user = val);
+  userStore.subscribe((val) => (user = val));
 
   // Repository event address from the task
   const repoAddress =

@@ -1,15 +1,19 @@
-<script lang='ts'>
+<script lang="ts">
   import { Heading, Button, Alert } from "flowbite-svelte";
   import { PaperPlaneOutline } from "flowbite-svelte-icons";
-  import ZettelEditor from '$lib/components/ZettelEditor.svelte';
+  import ZettelEditor from "$lib/components/ZettelEditor.svelte";
   import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
-  import { publishZettel } from '$lib/services/publisher';
+  import { publishZettel } from "$lib/services/publisher";
 
-  let content = $state('');
+  let content = $state("");
   let showPreview = $state(false);
   let isPublishing = $state(false);
-  let publishResult = $state<{ success: boolean; eventId?: string; error?: string } | null>(null);
+  let publishResult = $state<{
+    success: boolean;
+    eventId?: string;
+    error?: string;
+  } | null>(null);
 
   // Handle content changes from ZettelEditor
   function handleContentChange(newContent: string) {
@@ -34,7 +38,7 @@
       },
       onError: (error) => {
         publishResult = { success: false, error };
-      }
+      },
     });
 
     isPublishing = false;
@@ -48,11 +52,14 @@
 <!-- Main container with 75% width and centered -->
 <div class="w-3/4 mx-auto">
   <div class="flex flex-col space-y-4">
-    <Heading tag="h1" class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+    <Heading
+      tag="h1"
+      class="text-2xl font-bold text-gray-900 dark:text-gray-100"
+    >
       Compose Notes
     </Heading>
 
-    <ZettelEditor 
+    <ZettelEditor
       {content}
       {showPreview}
       onContentChange={handleContentChange}
@@ -60,8 +67,8 @@
     />
 
     <!-- Publish Button -->
-    <Button 
-      on:click={handlePublish} 
+    <Button
+      on:click={handlePublish}
       disabled={isPublishing || !content.trim()}
       class="w-full"
     >
@@ -69,7 +76,7 @@
         Publishing...
       {:else}
         <PaperPlaneOutline class="w-4 h-4 mr-2" />
-        Publish 
+        Publish
       {/if}
     </Button>
 
@@ -77,12 +84,12 @@
     {#if publishResult}
       {#if publishResult.success}
         <Alert color="green" dismissable>
-          <span class="font-medium">Success!</span> 
+          <span class="font-medium">Success!</span>
           Event published successfully. Event ID: {publishResult.eventId}
         </Alert>
       {:else}
         <Alert color="red" dismissable>
-          <span class="font-medium">Error!</span> 
+          <span class="font-medium">Error!</span>
           {publishResult.error}
         </Alert>
       {/if}

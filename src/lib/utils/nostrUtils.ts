@@ -10,7 +10,7 @@ import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
 import { wellKnownUrl } from "./search_utility";
-import { TIMEOUTS, VALIDATION } from './search_constants';
+import { TIMEOUTS, VALIDATION } from "./search_constants";
 
 const badgeCheckSvg =
   '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>';
@@ -52,10 +52,13 @@ function escapeHtml(text: string): string {
 /**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
-export async function getUserMetadata(identifier: string, force = false): Promise<NostrProfile> {
+export async function getUserMetadata(
+  identifier: string,
+  force = false,
+): Promise<NostrProfile> {
   // Remove nostr: prefix if present
-  const cleanId = identifier.replace(/^nostr:/, '');
-  
+  const cleanId = identifier.replace(/^nostr:/, "");
+
   if (!force && npubCache.has(cleanId)) {
     return npubCache.get(cleanId)!;
   }
@@ -125,7 +128,7 @@ export function createProfileLink(
   const escapedId = escapeHtml(cleanId);
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  
+
   // Remove target="_blank" for internal navigation
   return `<a href="./events?id=${escapedId}" class="npub-badge">@${escapedText}</a>`;
 }
@@ -156,24 +159,26 @@ export async function createProfileLinkWithVerification(
   const userRelays = Array.from(ndk.pool?.relays.values() || []).map(
     (r) => r.url,
   );
-  
+
   // Filter out problematic relays
   const filterProblematicRelays = (relays: string[]) => {
-    return relays.filter(relay => {
-      if (relay.includes('gitcitadel.nostr1.com')) {
-        console.info(`[nostrUtils.ts] Filtering out problematic relay: ${relay}`);
+    return relays.filter((relay) => {
+      if (relay.includes("gitcitadel.nostr1.com")) {
+        console.info(
+          `[nostrUtils.ts] Filtering out problematic relay: ${relay}`,
+        );
         return false;
       }
       return true;
     });
   };
-  
+
   const allRelays = [
     ...standardRelays,
     ...userRelays,
     ...fallbackRelays,
   ].filter((url, idx, arr) => arr.indexOf(url) === idx);
-  
+
   const filteredRelays = filterProblematicRelays(allRelays);
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(filteredRelays, ndk);
   const profileEvent = await ndk.fetchEvent(
@@ -207,9 +212,9 @@ export async function createProfileLinkWithVerification(
   // TODO: Make this work with an enum in case we add more types.
   const type = nip05.endsWith("edu") ? "edu" : "standard";
   switch (type) {
-    case 'edu':
+    case "edu":
       return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${graduationCapSvg}</span>`;
-    case 'standard':
+    case "standard":
       return `<span class="npub-badge"><a href="./events?id=${escapedId}">@${displayIdentifier}</a>${badgeCheckSvg}</span>`;
   }
 }
@@ -280,51 +285,59 @@ export async function processNostrIdentifiers(
 export async function getNpubFromNip05(nip05: string): Promise<string | null> {
   try {
     // Parse the NIP-05 address
-    const [name, domain] = nip05.split('@');
+    const [name, domain] = nip05.split("@");
     if (!name || !domain) {
-      console.error('[getNpubFromNip05] Invalid NIP-05 format:', nip05);
+      console.error("[getNpubFromNip05] Invalid NIP-05 format:", nip05);
       return null;
     }
 
     // Fetch the well-known.json file with timeout and CORS handling
     const url = wellKnownUrl(domain, name);
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
+
     try {
       const response = await fetch(url, {
         signal: controller.signal,
-        mode: 'cors',
+        mode: "cors",
         headers: {
-          'Accept': 'application/json'
-        }
+          Accept: "application/json",
+        },
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
-        console.error('[getNpubFromNip05] HTTP error:', response.status, response.statusText);
+        console.error(
+          "[getNpubFromNip05] HTTP error:",
+          response.status,
+          response.statusText,
+        );
         return null;
       }
 
       const data = await response.json();
-      
+
       // Try exact match first
       let pubkey = data.names?.[name];
-      
+
       // If not found, try case-insensitive search
       if (!pubkey && data.names) {
         const names = Object.keys(data.names);
-        const matchingName = names.find(n => n.toLowerCase() === name.toLowerCase());
+        const matchingName = names.find(
+          (n) => n.toLowerCase() === name.toLowerCase(),
+        );
         if (matchingName) {
           pubkey = data.names[matchingName];
-          console.log(`[getNpubFromNip05] Found case-insensitive match: ${name} -> ${matchingName}`);
+          console.log(
+            `[getNpubFromNip05] Found case-insensitive match: ${name} -> ${matchingName}`,
+          );
         }
       }
-      
+
       if (!pubkey) {
-        console.error('[getNpubFromNip05] No pubkey found for name:', name);
+        console.error("[getNpubFromNip05] No pubkey found for name:", name);
         return null;
       }
 
@@ -333,10 +346,10 @@ export async function getNpubFromNip05(nip05: string): Promise<string | null> {
       return npub;
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.warn('[getNpubFromNip05] Request timeout for:', url);
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        console.warn("[getNpubFromNip05] Request timeout for:", url);
       } else {
-        console.warn('[getNpubFromNip05] CORS or network error for:', url);
+        console.warn("[getNpubFromNip05] CORS or network error for:", url);
       }
       return null;
     }
@@ -414,7 +427,7 @@ export async function fetchEventWithFallback(
     ? Array.from(ndk.pool?.relays.values() || [])
         .filter((r) => r.status === 1) // Only use connected relays
         .map((r) => r.url)
-        .filter(url => !url.includes('gitcitadel.nostr1.com')) // Filter out problematic relay
+        .filter((url) => !url.includes("gitcitadel.nostr1.com")) // Filter out problematic relay
     : [];
 
   // Determine which relays to use based on user authentication status
@@ -442,7 +455,7 @@ export async function fetchEventWithFallback(
 
       if (
         typeof filterOrId === "string" &&
-        new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(filterOrId)
+        new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(filterOrId)
       ) {
         return await ndk
           .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
@@ -512,7 +525,7 @@ export async function fetchEventWithFallback(
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
-    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(pubkey)) {
+    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
     if (pubkey.startsWith("npub1")) return pubkey;
@@ -575,76 +588,89 @@ export async function signEvent(event: {
 }
 
 /**
- * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:" 
+ * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:"
  * if they are not already prefixed and are not part of a hyperlink
  */
 export function prefixNostrAddresses(content: string): string {
   // Regex to match Nostr addresses that are not already prefixed with "nostr:"
   // and are not part of a markdown link or HTML link
   // Must be followed by at least 20 alphanumeric characters to be considered an address
-  const nostrAddressPattern = /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
-  
+  const nostrAddressPattern =
+    /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
+
   return content.replace(nostrAddressPattern, (match, offset) => {
     // Check if this match is part of a markdown link [text](url)
     const beforeMatch = content.substring(0, offset);
     const afterMatch = content.substring(offset + match.length);
-    
+
     // Check if it's part of a markdown link
-    const beforeBrackets = beforeMatch.lastIndexOf('[');
-    const afterParens = afterMatch.indexOf(')');
-    
+    const beforeBrackets = beforeMatch.lastIndexOf("[");
+    const afterParens = afterMatch.indexOf(")");
+
     if (beforeBrackets !== -1 && afterParens !== -1) {
       const textBeforeBrackets = beforeMatch.substring(0, beforeBrackets);
-      const lastOpenBracket = textBeforeBrackets.lastIndexOf('[');
-      const lastCloseBracket = textBeforeBrackets.lastIndexOf(']');
-      
+      const lastOpenBracket = textBeforeBrackets.lastIndexOf("[");
+      const lastCloseBracket = textBeforeBrackets.lastIndexOf("]");
+
       // If we have [text] before this, it might be a markdown link
       if (lastOpenBracket !== -1 && lastCloseBracket > lastOpenBracket) {
         return match; // Don't prefix if it's part of a markdown link
       }
     }
-    
+
     // Check if it's part of an HTML link
-    const beforeHref = beforeMatch.lastIndexOf('href=');
+    const beforeHref = beforeMatch.lastIndexOf("href=");
     if (beforeHref !== -1) {
       const afterHref = afterMatch.indexOf('"');
       if (afterHref !== -1) {
         return match; // Don't prefix if it's part of an HTML link
       }
     }
-    
+
     // Check if it's already prefixed with "nostr:"
-    const beforeNostr = beforeMatch.lastIndexOf('nostr:');
+    const beforeNostr = beforeMatch.lastIndexOf("nostr:");
     if (beforeNostr !== -1) {
       const textAfterNostr = beforeMatch.substring(beforeNostr + 6);
-      if (!textAfterNostr.includes(' ')) {
+      if (!textAfterNostr.includes(" ")) {
         return match; // Already prefixed
       }
     }
-    
+
     // Additional check: ensure it's actually a valid Nostr address format
     // The part after the prefix should be a valid bech32 string
     const addressPart = match.substring(4); // Remove npub, nprofile, etc.
     if (addressPart.length < 20) {
       return match; // Too short to be a valid address
     }
-    
+
     // Check if it looks like a valid bech32 string (alphanumeric, no special chars)
     if (!/^[a-zA-Z0-9]+$/.test(addressPart)) {
       return match; // Not a valid bech32 format
     }
-    
+
     // Additional check: ensure the word before is not a common word that would indicate
     // this is just a general reference, not an actual address
     const wordBefore = beforeMatch.match(/\b(\w+)\s*$/);
     if (wordBefore) {
       const beforeWord = wordBefore[1].toLowerCase();
-      const commonWords = ['the', 'a', 'an', 'this', 'that', 'my', 'your', 'his', 'her', 'their', 'our'];
+      const commonWords = [
+        "the",
+        "a",
+        "an",
+        "this",
+        "that",
+        "my",
+        "your",
+        "his",
+        "her",
+        "their",
+        "our",
+      ];
       if (commonWords.includes(beforeWord)) {
         return match; // Likely just a general reference, not an actual address
       }
     }
-    
+
     // Prefix with "nostr:"
     return `nostr:${match}`;
   });

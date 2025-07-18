@@ -1,5 +1,5 @@
-import { communityRelay } from '$lib/consts';
-import { RELAY_CONSTANTS, SEARCH_LIMITS } from './search_constants';
+import { communityRelay } from "$lib/consts";
+import { RELAY_CONSTANTS, SEARCH_LIMITS } from "./search_constants";
 
 // Cache for pubkeys with kind 1 events on communityRelay
 const communityCache = new Map<string, boolean>();
@@ -11,27 +11,31 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
   if (communityCache.has(pubkey)) {
     return communityCache.get(pubkey)!;
   }
-  
+
   try {
     const relayUrl = communityRelay;
     const ws = new WebSocket(relayUrl);
     return await new Promise((resolve) => {
       ws.onopen = () => {
-        ws.send(JSON.stringify([
-          'REQ', RELAY_CONSTANTS.COMMUNITY_REQUEST_ID, { 
-            kinds: RELAY_CONSTANTS.COMMUNITY_REQUEST_KINDS, 
-            authors: [pubkey], 
-            limit: SEARCH_LIMITS.COMMUNITY_CHECK 
-          }
-        ]));
+        ws.send(
+          JSON.stringify([
+            "REQ",
+            RELAY_CONSTANTS.COMMUNITY_REQUEST_ID,
+            {
+              kinds: RELAY_CONSTANTS.COMMUNITY_REQUEST_KINDS,
+              authors: [pubkey],
+              limit: SEARCH_LIMITS.COMMUNITY_CHECK,
+            },
+          ]),
+        );
       };
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data[0] === 'EVENT' && data[2]?.kind === 1) {
+        if (data[0] === "EVENT" && data[2]?.kind === 1) {
           communityCache.set(pubkey, true);
           ws.close();
           resolve(true);
-        } else if (data[0] === 'EOSE') {
+        } else if (data[0] === "EOSE") {
           communityCache.set(pubkey, false);
           ws.close();
           resolve(false);
@@ -52,35 +56,37 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
 /**
  * Check community status for multiple profiles
  */
-export async function checkCommunityStatus(profiles: Array<{ pubkey?: string }>): Promise<Record<string, boolean>> {
+export async function checkCommunityStatus(
+  profiles: Array<{ pubkey?: string }>,
+): Promise<Record<string, boolean>> {
   const communityStatus: Record<string, boolean> = {};
-  
+
   // Run all community checks in parallel with timeout
   const checkPromises = profiles.map(async (profile) => {
-    if (!profile.pubkey) return { pubkey: '', status: false };
-    
+    if (!profile.pubkey) return { pubkey: "", status: false };
+
     try {
       const status = await Promise.race([
         checkCommunity(profile.pubkey),
         new Promise<boolean>((resolve) => {
           setTimeout(() => resolve(false), 2000); // 2 second timeout per check
-        })
+        }),
       ]);
       return { pubkey: profile.pubkey, status };
     } catch (error) {
-      console.warn('Community status check failed for', profile.pubkey, error);
+      console.warn("Community status check failed for", profile.pubkey, error);
       return { pubkey: profile.pubkey, status: false };
     }
   });
-  
+
   // Wait for all checks to complete
   const results = await Promise.allSettled(checkPromises);
-  
+
   for (const result of results) {
-    if (result.status === 'fulfilled' && result.value.pubkey) {
+    if (result.status === "fulfilled" && result.value.pubkey) {
       communityStatus[result.value.pubkey] = result.value.status;
     }
   }
-  
+
   return communityStatus;
-} 
+}

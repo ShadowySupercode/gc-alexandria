@@ -168,11 +168,16 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
     if (tags.length === 0) {
       tags = getMatchingTags(event, "e");
     }
-    
+
     debug("Processing tags for event", {
       eventId: event.id,
       tagCount: tags.length,
-      tagType: tags.length > 0 ? (getMatchingTags(event, "a").length > 0 ? "a" : "e") : "none"
+      tagType:
+        tags.length > 0
+          ? getMatchingTags(event, "a").length > 0
+            ? "a"
+            : "e"
+          : "none",
     });
 
     tags.forEach((tag) => {
@@ -295,7 +300,7 @@ export function processIndexEvent(
   if (tags.length === 0) {
     tags = getMatchingTags(indexEvent, "e");
   }
-  
+
   const sequence = tags
     .map((tag) => extractEventIdFromATag(tag))
     .filter((id): id is string => id !== null)

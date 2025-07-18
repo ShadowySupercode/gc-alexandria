@@ -1,11 +1,15 @@
 <script lang="ts">
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { logoutUser } from '$lib/stores/userStore';
-  import { ndkInstance } from '$lib/ndk';
-  import { ArrowRightToBracketOutline, UserOutline, FileSearchOutline } from "flowbite-svelte-icons";
+  import { logoutUser } from "$lib/stores/userStore";
+  import { ndkInstance } from "$lib/ndk";
+  import {
+    ArrowRightToBracketOutline,
+    UserOutline,
+    FileSearchOutline,
+  } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
   import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
-  import { get } from 'svelte/store';
+  import { get } from "svelte/store";
   import { goto } from "$app/navigation";
 
   let { pubkey, isNav = false } = $props();
@@ -19,14 +23,13 @@
   $effect(() => {
     const ndk = get(ndkInstance);
     if (!ndk) return;
-    
+
     const user = ndk.getUser({ pubkey: pubkey ?? undefined });
     npub = user.npub;
 
-    user.fetchProfile()
-      .then((userProfile: NDKUserProfile | null) => {
-        profile = userProfile;
-      });
+    user.fetchProfile().then((userProfile: NDKUserProfile | null) => {
+      profile = userProfile;
+    });
   });
 
   async function handleSignOutClick() {
