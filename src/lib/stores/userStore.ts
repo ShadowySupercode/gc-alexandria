@@ -210,6 +210,7 @@ export async function loginWithExtension() {
   
   console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
+  userPubkey.set(user.pubkey);
   
   // Update relay stores with the new user's relays
   try {

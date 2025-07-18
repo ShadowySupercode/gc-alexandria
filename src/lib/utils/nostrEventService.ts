@@ -2,11 +2,10 @@ import { nip19 } from "nostr-tools";
 import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
-import type { NDKEvent } from "./nostrUtils";
 import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from "./search_constants";
 import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { ndkInstance } from "$lib/ndk";
-import { NDKRelaySet } from "@nostr-dev-kit/ndk";
+import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 
 export interface RootEventInfo {
   rootId: string;
@@ -360,12 +359,12 @@ export async function createSignedEvent(
 
 /**
  * Publishes an event to relays using the new relay management system
- * @param event The event to publish
+ * @param event The event to publish (can be NDKEvent or plain event object)
  * @param relayUrls Array of relay URLs to publish to
  * @returns Promise that resolves to array of successful relay URLs
  */
 export async function publishEvent(
-  event: NDKEvent,
+  event: NDKEvent | any,
   relayUrls: string[],
 ): Promise<string[]> {
   const successfulRelays: string[] = [];
@@ -379,15 +378,25 @@ export async function publishEvent(
   const relaySet = NDKRelaySet.fromRelayUrls(relayUrls, ndk);
 
   try {
+    // If event is a plain object, create an NDKEvent from it
+    let ndkEvent: NDKEvent;
+    if (event.publish && typeof event.publish === 'function') {
+      // It's already an NDKEvent
+      ndkEvent = event;
+    } else {
+      // It's a plain event object, create NDKEvent
+      ndkEvent = new NDKEvent(ndk, event);
+    }
+
     // Publish with timeout
-    await event.publish(relaySet).withTimeout(5000);
+    await ndkEvent.publish(relaySet).withTimeout(5000);
     
     // For now, assume all relays were successful
     // In a more sophisticated implementation, you'd track individual relay responses
     successfulRelays.push(...relayUrls);
     
     console.debug("[nostrEventService] Published event successfully:", {
-      eventId: event.id,
+      eventId: ndkEvent.id,
       relayCount: relayUrls.length,
       successfulRelays
     });
