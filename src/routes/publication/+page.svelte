@@ -68,6 +68,7 @@
   {#await data.waitable}
     <TextPlaceholder divClass="skeleton-leather w-full" size="xxl" />
   {:then}
+    {@const debugInfo = console.debug(`[Publication Page] Data loaded, rendering Publication component with publicationType: ${data.publicationType}, rootAddress: ${data.indexEvent.tagAddress()}`)}
     <Publication
       rootAddress={data.indexEvent.tagAddress()}
       publicationType={data.publicationType}

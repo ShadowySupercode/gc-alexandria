@@ -1,4 +1,3 @@
-
 <script lang='ts'>
   import { Heading, Button, Alert } from "flowbite-svelte";
   import { PaperPlaneOutline } from "flowbite-svelte-icons";
