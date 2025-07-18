@@ -1,3 +1,5 @@
+// AI SHOULD NEVER CHANGE THIS FILE
+
 export const wikiKind = 30818;
 export const indexKind = 30040;
 export const zettelKinds = [30041, 30818];

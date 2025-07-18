@@ -325,7 +325,7 @@ export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<stri
  */
 async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
   const workingRelays: string[] = [];
-  const maxConcurrent = 3; // Test 3 relays at a time to avoid overwhelming them
+  const maxConcurrent = 2; // Reduce to 2 relays at a time to avoid overwhelming them
 
   for (let i = 0; i < relayUrls.length; i += maxConcurrent) {
     const batch = relayUrls.slice(i, i + maxConcurrent);
@@ -335,12 +335,16 @@ async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
         const result = await testRelayConnection(url, ndk);
         return result.connected ? url : null;
       } catch (error) {
+        console.debug(`[relay_management.ts] Failed to test relay ${url}:`, error);
         return null;
       }
     });
 
-    const batchResults = await Promise.all(batchPromises);
-    const batchWorkingRelays = batchResults.filter((url): url is string => url !== null);
+    const batchResults = await Promise.allSettled(batchPromises);
+    const batchWorkingRelays = batchResults
+      .filter((result): result is PromiseFulfilledResult<string | null> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter((url): url is string => url !== null);
     workingRelays.push(...batchWorkingRelays);
   }
 
@@ -369,13 +373,13 @@ export async function buildCompleteRelaySet(
     try {
       userOutboxRelays = await getUserOutboxRelays(ndk, user);
     } catch (error) {
-      // Silently ignore user relay fetch errors
+      console.debug('[relay_management.ts] Error fetching user outbox relays:', error);
     }
 
     try {
       userLocalRelays = await getUserLocalRelays(ndk, user);
     } catch (error) {
-      // Silently ignore user local relay fetch errors
+      console.debug('[relay_management.ts] Error fetching user local relays:', error);
     }
 
     try {

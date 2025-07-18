@@ -558,9 +558,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
       currentEvent = this.#events.get(currentAddress!);
       if (!currentEvent) {
-        throw new Error(
+        console.warn(
           `[PublicationTree] Event with address ${currentAddress} not found.`,
         );
+        return null;
       }
 
       // Stop immediately if the target of the search is found.

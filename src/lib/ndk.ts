@@ -349,7 +349,7 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
   const connectionTimeout = setTimeout(() => {
     console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
     relay.disconnect();
-  }, 10000); // 10 second timeout
+  }, 5000); // 5 second timeout
 
   // Set up custom authentication handling only if user is signed in
   if (ndk.signer && ndk.activeUser) {
@@ -509,7 +509,7 @@ export function initNdk(): NDK {
 
   // Connect with better error handling and reduced retry attempts
   let retryCount = 0;
-  const maxRetries = 2;
+  const maxRetries = 1; // Reduce to 1 retry
 
   const attemptConnection = async () => {
     try {
@@ -526,7 +526,7 @@ export function initNdk(): NDK {
       if (retryCount < maxRetries) {
         retryCount++;
         console.debug(`[NDK.ts] Attempting to reconnect (${retryCount}/${maxRetries})...`);
-        setTimeout(attemptConnection, 3000);
+        setTimeout(attemptConnection, 2000); // Reduce timeout to 2 seconds
       } else {
         console.warn("[NDK.ts] Max retries reached, continuing with limited functionality");
         // Still try to update relay stores even if connection failed
