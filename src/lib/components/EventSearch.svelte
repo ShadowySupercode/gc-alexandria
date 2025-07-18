@@ -251,6 +251,11 @@
       return;
     }
 
+    // Check if we've already processed this searchValue
+    if (searchValue === lastProcessedSearchValue) {
+      return;
+    }
+
     // If we already have the event for this searchValue, do nothing
     if (foundEvent) {
       const currentEventId = foundEvent.id;
@@ -307,6 +312,7 @@
         (currentNprofile && searchValue === currentNprofile)
       ) {
         // Already displaying the event for this searchValue
+        lastProcessedSearchValue = searchValue;
         return;
       }
     }
@@ -318,6 +324,7 @@
     searchTimeout = setTimeout(() => {
       isProcessingSearch = true;
       isWaitingForSearchResult = true;
+      lastProcessedSearchValue = searchValue;
       if (searchValue) {
         handleSearchEvent(false, searchValue);
       }
@@ -585,6 +592,11 @@
       isProcessingSearch = false;
       currentProcessingSearchValue = null;
       isWaitingForSearchResult = false;
+      
+      // Update last processed search value to prevent re-processing
+      if (searchValue) {
+        lastProcessedSearchValue = searchValue;
+      }
     } catch (error) {
       if (error instanceof Error && error.message === "Search cancelled") {
         isProcessingSearch = false;
@@ -628,6 +640,11 @@
       isProcessingSearch = false;
       currentProcessingSearchValue = null;
       isWaitingForSearchResult = false;
+      
+      // Update last processed search value to prevent re-processing even on error
+      if (searchValue) {
+        lastProcessedSearchValue = searchValue;
+      }
     }
   }
 

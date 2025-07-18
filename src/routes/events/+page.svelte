@@ -79,7 +79,19 @@
   // Use Svelte 5 idiomatic effect to update searchValue when $page.url.searchParams.get('id') changes
   $effect(() => {
     const url = $page.url.searchParams;
-    searchValue = url.get("id") ?? url.get("d");
+    const idParam = url.get("id");
+    const dParam = url.get("d");
+    
+    if (idParam) {
+      searchValue = idParam;
+      dTagValue = null;
+    } else if (dParam) {
+      searchValue = null;
+      dTagValue = dParam.toLowerCase();
+    } else {
+      searchValue = null;
+      dTagValue = null;
+    }
   });
 
   // Add support for t and n parameters
@@ -92,12 +104,28 @@
       // Decode the t parameter and set it as searchValue with t: prefix
       const decodedT = decodeURIComponent(tParam);
       searchValue = `t:${decodedT}`;
-    }
-
-    if (nParam) {
+      dTagValue = null;
+    } else if (nParam) {
       // Decode the n parameter and set it as searchValue with n: prefix
       const decodedN = decodeURIComponent(nParam);
       searchValue = `n:${decodedN}`;
+      dTagValue = null;
+    }
+  });
+
+  // Handle side panel visibility based on search type
+  $effect(() => {
+    const url = $page.url.searchParams;
+    const hasIdParam = url.get("id");
+    const hasDParam = url.get("d");
+    const hasTParam = url.get("t");
+    const hasNParam = url.get("n");
+
+    // Close side panel for searches that return multiple results
+    if (hasDParam || hasTParam || hasNParam) {
+      showSidePanel = false;
+      event = null;
+      profile = null;
     }
   });
 
@@ -316,190 +344,7 @@
     communityStatus = { ...communityStatus, ...newCommunityStatus };
   }
 
-  function updateSearchFromURL() {
-    const id = $page.url.searchParams.get("id");
-    const dTag = $page.url.searchParams.get("d");
-    const tParam = $page.url.searchParams.get("t");
-    const nParam = $page.url.searchParams.get("n");
 
-    console.log("Events page URL update:", {
-      id,
-      dTag,
-      tParam,
-      nParam,
-      searchValue,
-    });
-
-    if (id !== searchValue) {
-      console.log("ID changed, updating searchValue:", {
-        old: searchValue,
-        new: id,
-      });
-      searchValue = id;
-      dTagValue = null;
-      // Only close side panel if we're clearing the search
-      if (!id) {
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    if (dTag !== dTagValue) {
-      console.log("DTag changed, updating dTagValue:", {
-        old: dTagValue,
-        new: dTag,
-      });
-      // Normalize d-tag to lowercase for consistent searching
-      dTagValue = dTag ? dTag.toLowerCase() : null;
-      searchValue = null;
-      // For d-tag searches (which return multiple results), close side panel
-      showSidePanel = false;
-      event = null;
-      profile = null;
-    }
-
-    // Handle t parameter
-    if (tParam) {
-      const decodedT = decodeURIComponent(tParam);
-      const tSearchValue = `t:${decodedT}`;
-      if (tSearchValue !== searchValue) {
-        console.log("T parameter changed, updating searchValue:", {
-          old: searchValue,
-          new: tSearchValue,
-        });
-        searchValue = tSearchValue;
-        dTagValue = null;
-        // For t-tag searches (which return multiple results), close side panel
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Handle n parameter
-    if (nParam) {
-      const decodedN = decodeURIComponent(nParam);
-      const nSearchValue = `n:${decodedN}`;
-      if (nSearchValue !== searchValue) {
-        console.log("N parameter changed, updating searchValue:", {
-          old: searchValue,
-          new: nSearchValue,
-        });
-        searchValue = nSearchValue;
-        dTagValue = null;
-        // For n-tag searches (which return multiple results), close side panel
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Reset state if all parameters are absent
-    if (!id && !dTag && !tParam && !nParam) {
-      event = null;
-      searchResults = [];
-      profile = null;
-      searchType = null;
-      searchTerm = null;
-      showSidePanel = false;
-      searchInProgress = false;
-      secondOrderSearchMessage = null;
-    }
-  }
-
-  // Force search when URL changes
-  function handleUrlChange() {
-    const id = $page.url.searchParams.get("id");
-    const dTag = $page.url.searchParams.get("d");
-    const tParam = $page.url.searchParams.get("t");
-    const nParam = $page.url.searchParams.get("n");
-
-    console.log("Events page URL change:", {
-      id,
-      dTag,
-      tParam,
-      nParam,
-      currentSearchValue: searchValue,
-      currentDTagValue: dTagValue,
-    });
-
-    // Handle ID parameter changes
-    if (id !== searchValue) {
-      console.log("ID parameter changed:", { old: searchValue, new: id });
-      searchValue = id;
-      dTagValue = null;
-      if (!id) {
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Handle d-tag parameter changes
-    if (dTag !== dTagValue) {
-      console.log("d-tag parameter changed:", { old: dTagValue, new: dTag });
-      dTagValue = dTag ? dTag.toLowerCase() : null;
-      searchValue = null;
-      showSidePanel = false;
-      event = null;
-      profile = null;
-    }
-
-    // Handle t parameter changes
-    if (tParam) {
-      const decodedT = decodeURIComponent(tParam);
-      const tSearchValue = `t:${decodedT}`;
-      if (tSearchValue !== searchValue) {
-        console.log("t parameter changed:", {
-          old: searchValue,
-          new: tSearchValue,
-        });
-        searchValue = tSearchValue;
-        dTagValue = null;
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Handle n parameter changes
-    if (nParam) {
-      const decodedN = decodeURIComponent(nParam);
-      const nSearchValue = `n:${decodedN}`;
-      if (nSearchValue !== searchValue) {
-        console.log("n parameter changed:", {
-          old: searchValue,
-          new: nSearchValue,
-        });
-        searchValue = nSearchValue;
-        dTagValue = null;
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Reset state if all parameters are absent
-    if (!id && !dTag && !tParam && !nParam) {
-      console.log("All parameters absent, resetting state");
-      event = null;
-      searchResults = [];
-      profile = null;
-      searchType = null;
-      searchTerm = null;
-      showSidePanel = false;
-      searchInProgress = false;
-      secondOrderSearchMessage = null;
-      searchValue = null;
-      dTagValue = null;
-    }
-  }
-
-  // Listen for URL changes
-  $effect(() => {
-    handleUrlChange();
-  });
 
   // Log relay configuration when page mounts
   onMount(() => {
