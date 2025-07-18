@@ -8,17 +8,17 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
+  import { userStore } from "$lib/stores/userStore";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
-  import EventInput from '$lib/components/EventInput.svelte';
-  import { userPubkey, isLoggedIn } from '$lib/stores/authStore.Svelte';
-  import { testAllRelays, logRelayDiagnostics } from '$lib/utils/relayDiagnostics';
-  import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
-  import { neventEncode, naddrEncode } from '$lib/utils';
-  import { standardRelays } from '$lib/consts';
-  import { getEventType } from '$lib/utils/mime';
-  import ViewPublicationLink from '$lib/components/util/ViewPublicationLink.svelte';
-  import { checkCommunity } from '$lib/utils/search_utility';
+  import EventInput from "$lib/components/EventInput.svelte";
+  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
+  import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
+  import { neventEncode, naddrEncode } from "$lib/utils";
+  import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
+  import { getEventType } from "$lib/utils/mime";
+  import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
+  import { checkCommunity } from "$lib/utils/search_utility";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -42,11 +42,14 @@
     lud16?: string;
     nip05?: string;
   } | null>(null);
+  let user = $state($userStore);
   let userRelayPreference = $state(false);
   let showSidePanel = $state(false);
   let searchInProgress = $state(false);
   let secondOrderSearchMessage = $state<string | null>(null);
   let communityStatus = $state<Record<string, boolean>>({});
+
+  userStore.subscribe((val) => (user = val));
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -61,7 +64,7 @@
     searchTerm = null;
     searchInProgress = false;
     secondOrderSearchMessage = null;
-    
+
     if (newEvent.kind === 0) {
       try {
         profile = JSON.parse(newEvent.content);
@@ -73,7 +76,68 @@
     }
   }
 
-  function handleSearchResults(results: NDKEvent[], secondOrder: NDKEvent[] = [], tTagEvents: NDKEvent[] = [], eventIds: Set<string> = new Set(), addresses: Set<string> = new Set(), searchTypeParam?: string, searchTermParam?: string) {
+  // Use Svelte 5 idiomatic effect to update searchValue when $page.url.searchParams.get('id') changes
+  $effect(() => {
+    const url = $page.url.searchParams;
+    const idParam = url.get("id");
+    const dParam = url.get("d");
+    
+    if (idParam) {
+      searchValue = idParam;
+      dTagValue = null;
+    } else if (dParam) {
+      searchValue = null;
+      dTagValue = dParam.toLowerCase();
+    } else {
+      searchValue = null;
+      dTagValue = null;
+    }
+  });
+
+  // Add support for t and n parameters
+  $effect(() => {
+    const url = $page.url.searchParams;
+    const tParam = url.get("t");
+    const nParam = url.get("n");
+
+    if (tParam) {
+      // Decode the t parameter and set it as searchValue with t: prefix
+      const decodedT = decodeURIComponent(tParam);
+      searchValue = `t:${decodedT}`;
+      dTagValue = null;
+    } else if (nParam) {
+      // Decode the n parameter and set it as searchValue with n: prefix
+      const decodedN = decodeURIComponent(nParam);
+      searchValue = `n:${decodedN}`;
+      dTagValue = null;
+    }
+  });
+
+  // Handle side panel visibility based on search type
+  $effect(() => {
+    const url = $page.url.searchParams;
+    const hasIdParam = url.get("id");
+    const hasDParam = url.get("d");
+    const hasTParam = url.get("t");
+    const hasNParam = url.get("n");
+
+    // Close side panel for searches that return multiple results
+    if (hasDParam || hasTParam || hasNParam) {
+      showSidePanel = false;
+      event = null;
+      profile = null;
+    }
+  });
+
+  function handleSearchResults(
+    results: NDKEvent[],
+    secondOrder: NDKEvent[] = [],
+    tTagEvents: NDKEvent[] = [],
+    eventIds: Set<string> = new Set(),
+    addresses: Set<string> = new Set(),
+    searchTypeParam?: string,
+    searchTermParam?: string,
+  ) {
     searchResults = results;
     secondOrderResults = secondOrder;
     tTagResults = tTagEvents;
@@ -81,19 +145,28 @@
     originalAddresses = addresses;
     searchType = searchTypeParam || null;
     searchTerm = searchTermParam || null;
-    
+
     // Track search progress
-    searchInProgress = loading || (results.length > 0 && secondOrder.length === 0);
-    
+    searchInProgress =
+      loading || (results.length > 0 && secondOrder.length === 0);
+
     // Show second-order search message when we have first-order results but no second-order yet
-    if (results.length > 0 && secondOrder.length === 0 && searchTypeParam === 'n') {
+    if (
+      results.length > 0 &&
+      secondOrder.length === 0 &&
+      searchTypeParam === "n"
+    ) {
       secondOrderSearchMessage = `Found ${results.length} profile(s). Starting second-order search for events mentioning these profiles...`;
-    } else if (results.length > 0 && secondOrder.length === 0 && searchTypeParam === 'd') {
+    } else if (
+      results.length > 0 &&
+      secondOrder.length === 0 &&
+      searchTypeParam === "d"
+    ) {
       secondOrderSearchMessage = `Found ${results.length} event(s). Starting second-order search for events referencing these events...`;
     } else if (secondOrder.length > 0) {
       secondOrderSearchMessage = null;
     }
-    
+
     // Check community status for all search results
     if (results.length > 0) {
       checkCommunityStatusForResults(results);
@@ -104,7 +177,7 @@
     if (tTagEvents.length > 0) {
       checkCommunityStatusForResults(tTagEvents);
     }
-    
+
     // Don't clear the current event - let the user continue viewing it
     // event = null;
     // profile = null;
@@ -124,7 +197,7 @@
     searchInProgress = false;
     secondOrderSearchMessage = null;
     communityStatus = {};
-    goto('/events', { replaceState: true });
+    goto("/events", { replaceState: true });
   }
 
   function closeSidePanel() {
@@ -148,7 +221,11 @@
     return getMatchingTags(event, "deferral")[0]?.[1];
   }
 
-  function getReferenceType(event: NDKEvent, originalEventIds: Set<string>, originalAddresses: Set<string>): string {
+  function getReferenceType(
+    event: NDKEvent,
+    originalEventIds: Set<string>,
+    originalAddresses: Set<string>,
+  ): string {
     // Check if this event has e-tags referencing original events
     const eTags = getMatchingTags(event, "e");
     for (const tag of eTags) {
@@ -156,38 +233,52 @@
         return "Reply/Reference (e-tag)";
       }
     }
-    
-    // Check if this event has a-tags referencing original events
-    const aTags = getMatchingTags(event, "a");
-    for (const tag of aTags) {
+
+    // Check if this event has a-tags or e-tags referencing original events
+    let tags = getMatchingTags(event, "a");
+    if (tags.length === 0) {
+      tags = getMatchingTags(event, "e");
+    }
+
+    for (const tag of tags) {
       if (originalAddresses.has(tag[1])) {
         return "Reply/Reference (a-tag)";
       }
     }
-    
+
     // Check if this event has content references
     if (event.content) {
       for (const id of originalEventIds) {
-        const neventPattern = new RegExp(`nevent1[a-z0-9]{50,}`, 'i');
-        const notePattern = new RegExp(`note1[a-z0-9]{50,}`, 'i');
-        if (neventPattern.test(event.content) || notePattern.test(event.content)) {
+        const neventPattern = new RegExp(`nevent1[a-z0-9]{50,}`, "i");
+        const notePattern = new RegExp(`note1[a-z0-9]{50,}`, "i");
+        if (
+          neventPattern.test(event.content) ||
+          notePattern.test(event.content)
+        ) {
           return "Content Reference";
         }
       }
-      
+
       for (const address of originalAddresses) {
-        const naddrPattern = new RegExp(`naddr1[a-z0-9]{50,}`, 'i');
+        const naddrPattern = new RegExp(`naddr1[a-z0-9]{50,}`, "i");
         if (naddrPattern.test(event.content)) {
           return "Content Reference";
         }
       }
     }
-    
+
     return "Reference";
   }
 
-  function getNeventAddress(event: NDKEvent): string {
-    return neventEncode(event, standardRelays);
+  function getNeventUrl(event: NDKEvent): string {
+    if (event.kind === 0) {
+      return neventEncode(event, $activeInboxRelays);
+    }
+    return neventEncode(event, $activeInboxRelays);
+  }
+
+  function getNaddrUrl(event: NDKEvent): string {
+    return naddrEncode(event, $activeInboxRelays);
   }
 
   function isAddressableEvent(event: NDKEvent): boolean {
@@ -199,7 +290,7 @@
       return null;
     }
     try {
-      return naddrEncode(event, standardRelays);
+      return naddrEncode(event, $activeInboxRelays);
     } catch {
       return null;
     }
@@ -211,19 +302,20 @@
     if (deferralNaddr) {
       return deferralNaddr;
     }
-    
+
     // Otherwise, use the event's own naddr if it's addressable
     return getNaddrAddress(event);
   }
 
   function shortenAddress(addr: string, head = 10, tail = 10): string {
     if (!addr || addr.length <= head + tail + 3) return addr;
-    return addr.slice(0, head) + '…' + addr.slice(-tail);
+    return addr.slice(0, head) + "…" + addr.slice(-tail);
   }
 
   function onLoadingChange(val: boolean) {
     loading = val;
-    searchInProgress = val || (searchResults.length > 0 && secondOrderResults.length === 0);
+    searchInProgress =
+      val || (searchResults.length > 0 && secondOrderResults.length === 0);
   }
 
   /**
@@ -231,121 +323,34 @@
    */
   async function checkCommunityStatusForResults(events: NDKEvent[]) {
     const newCommunityStatus: Record<string, boolean> = {};
-    
+
     for (const event of events) {
       if (event.pubkey && !communityStatus[event.pubkey]) {
         try {
           newCommunityStatus[event.pubkey] = await checkCommunity(event.pubkey);
         } catch (error) {
-          console.error('Error checking community status for', event.pubkey, error);
+          console.error(
+            "Error checking community status for",
+            event.pubkey,
+            error,
+          );
           newCommunityStatus[event.pubkey] = false;
         }
       } else if (event.pubkey) {
         newCommunityStatus[event.pubkey] = communityStatus[event.pubkey];
       }
     }
-    
+
     communityStatus = { ...communityStatus, ...newCommunityStatus };
   }
 
-  function updateSearchFromURL() {
-    const id = $page.url.searchParams.get("id");
-    const dTag = $page.url.searchParams.get("d");
 
-    console.log("Events page URL update:", { id, dTag, searchValue });
 
-    if (id !== searchValue) {
-      console.log("ID changed, updating searchValue:", { old: searchValue, new: id });
-      searchValue = id;
-      dTagValue = null;
-      // Only close side panel if we're clearing the search
-      if (!id) {
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    if (dTag !== dTagValue) {
-      console.log("DTag changed, updating dTagValue:", { old: dTagValue, new: dTag });
-      // Normalize d-tag to lowercase for consistent searching
-      dTagValue = dTag ? dTag.toLowerCase() : null;
-      searchValue = null;
-      // For d-tag searches (which return multiple results), close side panel
-      showSidePanel = false;
-      event = null;
-      profile = null;
-    }
-
-    // Reset state if both id and dTag are absent
-    if (!id && !dTag) {
-      event = null;
-      searchResults = [];
-      profile = null;
-      searchType = null;
-      searchTerm = null;
-      showSidePanel = false;
-      searchInProgress = false;
-      secondOrderSearchMessage = null;
-    }
-  }
-
-  // Force search when URL changes
-  function handleUrlChange() {
-    const id = $page.url.searchParams.get("id");
-    const dTag = $page.url.searchParams.get("d");
-
-    console.log("Events page URL change:", { id, dTag, currentSearchValue: searchValue, currentDTagValue: dTagValue });
-
-    // Handle ID parameter changes
-    if (id !== searchValue) {
-      console.log("ID parameter changed:", { old: searchValue, new: id });
-      searchValue = id;
-      dTagValue = null;
-      if (!id) {
-        showSidePanel = false;
-        event = null;
-        profile = null;
-      }
-    }
-
-    // Handle d-tag parameter changes
-    if (dTag !== dTagValue) {
-      console.log("d-tag parameter changed:", { old: dTagValue, new: dTag });
-      dTagValue = dTag ? dTag.toLowerCase() : null;
-      searchValue = null;
-      showSidePanel = false;
-      event = null;
-      profile = null;
-    }
-
-    // Reset state if both parameters are absent
-    if (!id && !dTag) {
-      console.log("Both ID and d-tag parameters absent, resetting state");
-      event = null;
-      searchResults = [];
-      profile = null;
-      searchType = null;
-      searchTerm = null;
-      showSidePanel = false;
-      searchInProgress = false;
-      secondOrderSearchMessage = null;
-      searchValue = null;
-      dTagValue = null;
-    }
-  }
-
-  // Listen for URL changes
-  $effect(() => {
-    handleUrlChange();
-  });
-
+  // Log relay configuration when page mounts
   onMount(() => {
-    userRelayPreference = localStorage.getItem('useUserRelays') === 'true';
-    
-    // Run relay diagnostics to help identify connection issues
-    testAllRelays().then(logRelayDiagnostics).catch(console.error);
+    logCurrentRelayConfiguration();
   });
+
 </script>
 
 <div class="w-full flex justify-center">
@@ -380,11 +385,13 @@
           onEventFound={handleEventFound}
           onSearchResults={handleSearchResults}
           onClear={handleClear}
-          onLoadingChange={onLoadingChange}
+          {onLoadingChange}
         />
 
         {#if secondOrderSearchMessage}
-          <div class="mt-4 p-4 text-sm text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-200 rounded-lg">
+          <div
+            class="mt-4 p-4 text-sm text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-200 rounded-lg"
+          >
             {secondOrderSearchMessage}
           </div>
         {/if}
@@ -392,12 +399,14 @@
         {#if searchResults.length > 0}
           <div class="mt-8">
             <Heading tag="h2" class="h-leather mb-4">
-              {#if searchType === 'n'}
+              {#if searchType === "n"}
                 Search Results for name: "{searchTerm}" ({searchResults.length} profiles)
-              {:else if searchType === 't'}
-                Search Results for t-tag: "{searchTerm}" ({searchResults.length} events)
+              {:else if searchType === "t"}
+                Search Results for t-tag: "{searchTerm}" ({searchResults.length}
+                events)
               {:else}
-                Search Results for d-tag: "{searchTerm || dTagValue?.toLowerCase()}" ({searchResults.length} events)
+                Search Results for d-tag: "{searchTerm ||
+                  dTagValue?.toLowerCase()}" ({searchResults.length} events)
               {/if}
             </Heading>
             <div class="space-y-4">
@@ -409,15 +418,25 @@
                   <div class="flex flex-col gap-1">
                     <div class="flex items-center gap-2 mb-1">
                       <span class="font-medium text-gray-800 dark:text-gray-100"
-                        >{searchType === 'n' ? 'Profile' : 'Event'} {index + 1}</span
+                        >{searchType === "n" ? "Profile" : "Event"}
+                        {index + 1}</span
                       >
                       <span class="text-xs text-gray-600 dark:text-gray-400"
                         >Kind: {result.kind}</span
                       >
                       {#if result.pubkey && communityStatus[result.pubkey]}
-                        <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
-                          <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                          title="Has posted to the community"
+                        >
+                          <svg
+                            class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            />
                           </svg>
                         </div>
                       {:else}
@@ -433,7 +452,9 @@
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
                         {result.created_at
-                          ? new Date(result.created_at * 1000).toLocaleDateString()
+                          ? new Date(
+                              result.created_at * 1000,
+                            ).toLocaleDateString()
                           : "Unknown date"}
                       </span>
                     </div>
@@ -453,13 +474,17 @@
                           class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
                           onclick={(e) => {
                             e.stopPropagation();
-                            navigateToPublication(getDeferralNaddr(result) || '');
+                            navigateToPublication(
+                              getDeferralNaddr(result) || "",
+                            );
                           }}
                           onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               e.stopPropagation();
-                              navigateToPublication(getDeferralNaddr(result) || '');
+                              navigateToPublication(
+                                getDeferralNaddr(result) || "",
+                              );
                             }
                           }}
                           tabindex="0"
@@ -470,7 +495,9 @@
                       </div>
                     {/if}
                     {#if isAddressableEvent(result)}
-                      <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                      <div
+                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
+                      >
                         <ViewPublicationLink event={result} />
                       </div>
                     {/if}
@@ -478,7 +505,8 @@
                       <div
                         class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                       >
-                        {result.content.slice(0, 200)}{result.content.length > 200
+                        {result.content.slice(0, 200)}{result.content.length >
+                        200
                           ? "..."
                           : ""}
                       </div>
@@ -496,13 +524,14 @@
               Second-Order Events (References, Replies, Quotes) ({secondOrderResults.length}
               events)
             </Heading>
-            {#if (searchType === 'n' || searchType === 'd') && secondOrderResults.length === 100}
+            {#if (searchType === "n" || searchType === "d") && secondOrderResults.length === 100}
               <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
                 Showing the 100 newest events. More results may be available.
               </P>
             {/if}
             <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-              Events that reference, reply to, highlight, or quote the original events.
+              Events that reference, reply to, highlight, or quote the original
+              events.
             </P>
             <div class="space-y-4">
               {#each secondOrderResults as result, index}
@@ -519,9 +548,18 @@
                         >Kind: {result.kind}</span
                       >
                       {#if result.pubkey && communityStatus[result.pubkey]}
-                        <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
-                          <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                          title="Has posted to the community"
+                        >
+                          <svg
+                            class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            />
                           </svg>
                         </div>
                       {:else}
@@ -537,12 +575,18 @@
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
                         {result.created_at
-                          ? new Date(result.created_at * 1000).toLocaleDateString()
+                          ? new Date(
+                              result.created_at * 1000,
+                            ).toLocaleDateString()
                           : "Unknown date"}
                       </span>
                     </div>
                     <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
-                      {getReferenceType(result, originalEventIds, originalAddresses)}
+                      {getReferenceType(
+                        result,
+                        originalEventIds,
+                        originalAddresses,
+                      )}
                     </div>
                     {#if getSummary(result)}
                       <div
@@ -560,13 +604,17 @@
                           class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
                           onclick={(e) => {
                             e.stopPropagation();
-                            navigateToPublication(getDeferralNaddr(result) || '');
+                            navigateToPublication(
+                              getDeferralNaddr(result) || "",
+                            );
                           }}
                           onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               e.stopPropagation();
-                              navigateToPublication(getDeferralNaddr(result) || '');
+                              navigateToPublication(
+                                getDeferralNaddr(result) || "",
+                              );
                             }
                           }}
                           tabindex="0"
@@ -577,7 +625,9 @@
                       </div>
                     {/if}
                     {#if isAddressableEvent(result)}
-                      <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                      <div
+                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
+                      >
                         <ViewPublicationLink event={result} />
                       </div>
                     {/if}
@@ -585,7 +635,8 @@
                       <div
                         class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                       >
-                        {result.content.slice(0, 200)}{result.content.length > 200
+                        {result.content.slice(0, 200)}{result.content.length >
+                        200
                           ? "..."
                           : ""}
                       </div>
@@ -600,7 +651,8 @@
         {#if tTagResults.length > 0}
           <div class="mt-8">
             <Heading tag="h2" class="h-leather mb-4">
-              Search Results for t-tag: "{searchTerm || dTagValue?.toLowerCase()}" ({tTagResults.length} events)
+              Search Results for t-tag: "{searchTerm ||
+                dTagValue?.toLowerCase()}" ({tTagResults.length} events)
             </Heading>
             <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Events that are tagged with the t-tag.
@@ -620,9 +672,18 @@
                         >Kind: {result.kind}</span
                       >
                       {#if result.pubkey && communityStatus[result.pubkey]}
-                        <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
-                          <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                          title="Has posted to the community"
+                        >
+                          <svg
+                            class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            />
                           </svg>
                         </div>
                       {:else}
@@ -638,7 +699,9 @@
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
                         {result.created_at
-                          ? new Date(result.created_at * 1000).toLocaleDateString()
+                          ? new Date(
+                              result.created_at * 1000,
+                            ).toLocaleDateString()
                           : "Unknown date"}
                       </span>
                     </div>
@@ -658,13 +721,17 @@
                           class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
                           onclick={(e) => {
                             e.stopPropagation();
-                            navigateToPublication(getDeferralNaddr(result) || '');
+                            navigateToPublication(
+                              getDeferralNaddr(result) || "",
+                            );
                           }}
                           onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               e.stopPropagation();
-                              navigateToPublication(getDeferralNaddr(result) || '');
+                              navigateToPublication(
+                                getDeferralNaddr(result) || "",
+                              );
                             }
                           }}
                           tabindex="0"
@@ -675,7 +742,9 @@
                       </div>
                     {/if}
                     {#if isAddressableEvent(result)}
-                      <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                      <div
+                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
+                      >
                         <ViewPublicationLink event={result} />
                       </div>
                     {/if}
@@ -683,7 +752,8 @@
                       <div
                         class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                       >
-                        {result.content.slice(0, 200)}{result.content.length > 200
+                        {result.content.slice(0, 200)}{result.content.length >
+                        200
                           ? "..."
                           : ""}
                       </div>
@@ -719,8 +789,8 @@
         {#if event.kind !== 0}
           <div class="flex flex-col gap-2 mb-4 break-all">
             <CopyToClipboard
-              displayText={shortenAddress(getNeventAddress(event))}
-              copyText={getNeventAddress(event)}
+              displayText={shortenAddress(getNeventUrl(event))}
+              copyText={getNeventUrl(event)}
             />
             {#if isAddressableEvent(event)}
               {@const naddrAddress = getViewPublicationNaddr(event)}
@@ -736,10 +806,10 @@
             {/if}
           </div>
         {/if}
-        
+
         <EventDetails {event} {profile} {searchValue} />
         <RelayActions {event} />
-        
+
         {#if isLoggedIn && userPubkey}
           <div class="mt-8">
             <Heading tag="h3" class="h-leather mb-4">Add Comment</Heading>

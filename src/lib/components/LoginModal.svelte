@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button, Modal } from "flowbite-svelte";
-  import { loginWithExtension, ndkSignedIn } from "$lib/ndk";
+  import { loginWithExtension } from "$lib/stores/userStore";
+  import { userStore } from "$lib/stores/userStore";
 
   const {
     show = false,
@@ -14,14 +15,17 @@
 
   let signInFailed = $state<boolean>(false);
   let errorMessage = $state<string>("");
+  let user = $state($userStore);
   let modalOpen = $state(show);
+
+  userStore.subscribe((val) => (user = val));
 
   $effect(() => {
     modalOpen = show;
   });
 
   $effect(() => {
-    if ($ndkSignedIn && show) {
+    if (user.signedIn && show) {
       onLoginSuccess();
       onClose();
     }
@@ -38,10 +42,7 @@
       signInFailed = false;
       errorMessage = "";
 
-      const user = await loginWithExtension();
-      if (!user) {
-        throw new Error("The NIP-07 extension did not return a user.");
-      }
+      await loginWithExtension();
     } catch (e: unknown) {
       console.error(e);
       signInFailed = true;

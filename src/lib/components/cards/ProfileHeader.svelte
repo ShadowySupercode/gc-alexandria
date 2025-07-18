@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { Card, Img, Modal, Button, P } from "flowbite-svelte";
+  import { Card, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils.ts";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
-  import { lnurlpWellKnownUrl, checkCommunity } from "$lib/utils/search_utility";
+  import LazyImage from "$components/util/LazyImage.svelte";
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import {
+    lnurlpWellKnownUrl,
+    checkCommunity,
+  } from "$lib/utils/search_utility";
   // @ts-ignore
   import { bech32 } from "https://esm.sh/bech32";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -41,11 +46,13 @@
 
   $effect(() => {
     if (event?.pubkey) {
-      checkCommunity(event.pubkey).then((status) => {
-        communityStatus = status;
-      }).catch(() => {
-        communityStatus = false;
-      });
+      checkCommunity(event.pubkey)
+        .then((status) => {
+          communityStatus = status;
+        })
+        .catch(() => {
+          communityStatus = false;
+        });
     }
   });
 
@@ -57,18 +64,22 @@
 {#if profile}
   <Card class="ArticleBox card-leather w-full max-w-2xl">
     <div class="space-y-4">
-      {#if profile.banner}
-        <div class="ArticleBoxImage flex col justify-center">
-          <Img
+      <div class="ArticleBoxImage flex col justify-center">
+        {#if profile.banner}
+          <LazyImage
             src={profile.banner}
-            class="rounded w-full max-h-72 object-cover"
             alt="Profile banner"
-            onerror={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
+            eventId={event.id}
+            className="rounded w-full max-h-72 object-cover"
           />
-        </div>
-      {/if}
+        {:else}
+          <div 
+            class="rounded w-full max-h-72"
+            style="background-color: {generateDarkPastelColor(event.id)};"
+          >
+          </div>
+        {/if}
+      </div>
       <div class="flex flex-row space-x-4 items-center">
         {#if profile.picture}
           <img
@@ -89,9 +100,18 @@
               event.pubkey,
           )}
           {#if communityStatus === true}
-            <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
-              <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            <div
+              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+              title="Has posted to the community"
+            >
+              <svg
+                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                />
               </svg>
             </div>
           {:else if communityStatus === false}
@@ -156,12 +176,12 @@
                 <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
                 <dd class="break-all">
                   {#if id.link}
-                    <Button
-                      class="text-primary-700 dark:text-primary-200"
+                    <button
+                      class="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline hover:no-underline transition-colors"
                       onclick={() => navigateToIdentifier(id.link)}
                     >
                       {id.value}
-                    </Button>
+                    </button>
                   {:else}
                     {id.value}
                   {/if}

@@ -1,5 +1,5 @@
 import type { NDKEvent } from "./nostrUtils";
-import { CACHE_DURATIONS, TIMEOUTS } from './search_constants';
+import { CACHE_DURATIONS, TIMEOUTS } from "./search_constants";
 
 export interface IndexEventCacheEntry {
   events: NDKEvent[];
@@ -16,7 +16,7 @@ class IndexEventCache {
    * Generate a cache key based on relay URLs
    */
   private generateKey(relayUrls: string[]): string {
-    return relayUrls.sort().join('|');
+    return relayUrls.sort().join("|");
   }
 
   /**
@@ -32,15 +32,17 @@ class IndexEventCache {
   get(relayUrls: string[]): NDKEvent[] | null {
     const key = this.generateKey(relayUrls);
     const entry = this.cache.get(key);
-    
+
     if (!entry || this.isExpired(entry)) {
       if (entry) {
         this.cache.delete(key);
       }
       return null;
     }
-    
-    console.log(`[IndexEventCache] Using cached index events for ${relayUrls.length} relays`);
+
+    console.log(
+      `[IndexEventCache] Using cached index events for ${relayUrls.length} relays`,
+    );
     return entry.events;
   }
 
@@ -49,7 +51,7 @@ class IndexEventCache {
    */
   set(relayUrls: string[], events: NDKEvent[]): void {
     const key = this.generateKey(relayUrls);
-    
+
     // Implement LRU eviction if cache is full
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
       const oldestKey = this.cache.keys().next().value;
@@ -57,14 +59,16 @@ class IndexEventCache {
         this.cache.delete(oldestKey);
       }
     }
-    
+
     this.cache.set(key, {
       events,
       timestamp: Date.now(),
-      relayUrls: [...relayUrls]
+      relayUrls: [...relayUrls],
     });
-    
-    console.log(`[IndexEventCache] Cached ${events.length} index events for ${relayUrls.length} relays`);
+
+    console.log(
+      `[IndexEventCache] Cached ${events.length} index events for ${relayUrls.length} relays`,
+    );
   }
 
   /**
@@ -105,21 +109,25 @@ class IndexEventCache {
   /**
    * Get cache statistics
    */
-  getStats(): { size: number; totalEvents: number; oldestEntry: number | null } {
+  getStats(): {
+    size: number;
+    totalEvents: number;
+    oldestEntry: number | null;
+  } {
     let totalEvents = 0;
     let oldestTimestamp: number | null = null;
-    
+
     for (const entry of this.cache.values()) {
       totalEvents += entry.events.length;
       if (oldestTimestamp === null || entry.timestamp < oldestTimestamp) {
         oldestTimestamp = entry.timestamp;
       }
     }
-    
+
     return {
       size: this.cache.size,
       totalEvents,
-      oldestEntry: oldestTimestamp
+      oldestEntry: oldestTimestamp,
     };
   }
 }
@@ -129,4 +137,4 @@ export const indexEventCache = new IndexEventCache();
 // Clean up expired entries periodically
 setInterval(() => {
   indexEventCache.cleanup();
-}, TIMEOUTS.CACHE_CLEANUP); // Check every minute 
+}, TIMEOUTS.CACHE_CLEANUP); // Check every minute

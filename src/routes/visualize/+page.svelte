@@ -66,10 +66,17 @@
       // Step 3: Extract content event IDs from index events
       const contentEventIds = new Set<string>();
       validIndexEvents.forEach((event) => {
-        const aTags = event.getMatchingTags("a");
-        debug(`Event ${event.id} has ${aTags.length} a-tags`);
+        // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+        let tags = event.getMatchingTags("a");
+        if (tags.length === 0) {
+          tags = event.getMatchingTags("e");
+        }
 
-        aTags.forEach((tag) => {
+        debug(
+          `Event ${event.id} has ${tags.length} tags (${tags.length > 0 ? (event.getMatchingTags("a").length > 0 ? "a" : "e") : "none"})`,
+        );
+
+        tags.forEach((tag) => {
           const eventId = tag[3];
           if (eventId) {
             contentEventIds.add(eventId);

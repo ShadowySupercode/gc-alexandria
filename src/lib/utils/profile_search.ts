@@ -1,233 +1,397 @@
-import { ndkInstance } from '$lib/ndk';
-import { getUserMetadata, getNpubFromNip05 } from '$lib/utils/nostrUtils';
-import { NDKRelaySet, NDKEvent } from '@nostr-dev-kit/ndk';
-import { searchCache } from '$lib/utils/searchCache';
-import { communityRelay, profileRelay } from '$lib/consts';
-import { get } from 'svelte/store';
-import type { NostrProfile, ProfileSearchResult } from './search_types';
-import { fieldMatches, nip05Matches, normalizeSearchTerm, COMMON_DOMAINS, createProfileFromEvent } from './search_utils';
-import { checkCommunityStatus } from './community_checker';
-import { TIMEOUTS } from './search_constants';
+import { ndkInstance } from "$lib/ndk";
+import { getUserMetadata, getNpubFromNip05 } from "$lib/utils/nostrUtils";
+import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import { searchCache } from "$lib/utils/searchCache";
+import { communityRelays, secondaryRelays } from "$lib/consts";
+import { get } from "svelte/store";
+import type { NostrProfile, ProfileSearchResult } from "./search_types";
+import {
+  fieldMatches,
+  nip05Matches,
+  normalizeSearchTerm,
+  COMMON_DOMAINS,
+  createProfileFromEvent,
+} from "./search_utils";
+import { checkCommunityStatus } from "./community_checker";
+import { TIMEOUTS } from "./search_constants";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
  */
-export async function searchProfiles(searchTerm: string): Promise<ProfileSearchResult> {
-  const normalizedSearchTerm = searchTerm.toLowerCase().trim();
-  
+export async function searchProfiles(
+  searchTerm: string,
+): Promise<ProfileSearchResult> {
+  const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
+
+  console.log(
+    "searchProfiles called with:",
+    searchTerm,
+    "normalized:",
+    normalizedSearchTerm,
+  );
+
   // Check cache first
-  const cachedResult = searchCache.get('profile', normalizedSearchTerm);
+  const cachedResult = searchCache.get("profile", normalizedSearchTerm);
   if (cachedResult) {
-    const profiles = cachedResult.events.map(event => {
-      try {
-        const profileData = JSON.parse(event.content);
-        return createProfileFromEvent(event, profileData);
-      } catch {
-        return null;
-      }
-    }).filter(Boolean) as NostrProfile[];
-    
-    const communityStatus = await checkCommunityStatus(profiles);
-    return { profiles, Status: communityStatus };
+    console.log("Found cached result for:", normalizedSearchTerm);
+    const profiles = cachedResult.events
+      .map((event) => {
+        try {
+          const profileData = JSON.parse(event.content);
+          return createProfileFromEvent(event, profileData);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean) as NostrProfile[];
+
+    console.log("Cached profiles found:", profiles.length);
+    return { profiles, Status: {} };
   }
 
   const ndk = get(ndkInstance);
   if (!ndk) {
-    throw new Error('NDK not initialized');
+    console.error("NDK not initialized");
+    throw new Error("NDK not initialized");
   }
 
-  let foundProfiles: NostrProfile[] = [];
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  console.log("NDK initialized, starting search logic");
 
-  // Set a timeout to force completion after profile search timeout
-  timeoutId = setTimeout(() => {
-    if (foundProfiles.length === 0) {
-      // Timeout reached, but no need to log this
-    }
-  }, TIMEOUTS.PROFILE_SEARCH);
+  let foundProfiles: NostrProfile[] = [];
 
   try {
     // Check if it's a valid npub/nprofile first
-    if (normalizedSearchTerm.startsWith('npub') || normalizedSearchTerm.startsWith('nprofile')) {
+    if (
+      normalizedSearchTerm.startsWith("npub") ||
+      normalizedSearchTerm.startsWith("nprofile")
+    ) {
       try {
         const metadata = await getUserMetadata(normalizedSearchTerm);
         if (metadata) {
           foundProfiles = [metadata];
         }
       } catch (error) {
-        console.error('Error fetching metadata for npub:', error);
+        console.error("Error fetching metadata for npub:", error);
       }
-    } else if (normalizedSearchTerm.includes('@')) {
-      // Check if it's a NIP-05 address
+    } else if (normalizedSearchTerm.includes("@")) {
+      // Check if it's a NIP-05 address - normalize it properly
+      const normalizedNip05 = normalizedSearchTerm.toLowerCase();
       try {
-        const npub = await getNpubFromNip05(normalizedSearchTerm);
+        const npub = await getNpubFromNip05(normalizedNip05);
         if (npub) {
           const metadata = await getUserMetadata(npub);
           const profile: NostrProfile = {
             ...metadata,
-            pubkey: npub
+            pubkey: npub,
           };
           foundProfiles = [profile];
         }
       } catch (e) {
-        console.error('[Search] NIP-05 lookup failed:', e);
-        // If NIP-05 lookup fails, continue with regular search
+        console.error("[Search] NIP-05 lookup failed:", e);
       }
     } else {
-      // Try searching for NIP-05 addresses that match the search term
+      // Try NIP-05 search first (faster than relay search)
+      console.log("Starting NIP-05 search for:", normalizedSearchTerm);
       foundProfiles = await searchNip05Domains(normalizedSearchTerm, ndk);
+      console.log(
+        "NIP-05 search completed, found:",
+        foundProfiles.length,
+        "profiles",
+      );
 
-      // If no NIP-05 results found, search for profiles across relays
+      // If no NIP-05 results, try quick relay search
       if (foundProfiles.length === 0) {
-        foundProfiles = await searchProfilesAcrossRelays(normalizedSearchTerm, ndk);
+        console.log("No NIP-05 results, trying quick relay search");
+        foundProfiles = await quickRelaySearch(normalizedSearchTerm, ndk);
+        console.log(
+          "Quick relay search completed, found:",
+          foundProfiles.length,
+          "profiles",
+        );
       }
     }
 
-    // Wait for search to complete or timeout
-    await new Promise<void>((resolve) => {
-      const checkComplete = () => {
-        if (timeoutId === null || foundProfiles.length > 0) {
-          resolve();
-        } else {
-          setTimeout(checkComplete, 100);
-        }
-      };
-      checkComplete();
-    });
-
     // Cache the results
     if (foundProfiles.length > 0) {
-      const events = foundProfiles.map(profile => {
+      const events = foundProfiles.map((profile) => {
         const event = new NDKEvent(ndk);
         event.content = JSON.stringify(profile);
-        event.pubkey = profile.pubkey || '';
+        event.pubkey = profile.pubkey || "";
         return event;
       });
-      
+
       const result = {
         events,
         secondOrder: [],
         tTagEvents: [],
         eventIds: new Set<string>(),
         addresses: new Set<string>(),
-        searchType: 'profile',
-        searchTerm: normalizedSearchTerm
+        searchType: "profile",
+        searchTerm: normalizedSearchTerm,
       };
-      searchCache.set('profile', normalizedSearchTerm, result);
+      searchCache.set("profile", normalizedSearchTerm, result);
     }
 
-    // Check community status for all profiles
-    const communityStatus = await checkCommunityStatus(foundProfiles);
-    return { profiles: foundProfiles, Status: communityStatus };
-
+    console.log("Search completed, found profiles:", foundProfiles.length);
+    return { profiles: foundProfiles, Status: {} };
   } catch (error) {
-    console.error('Error searching profiles:', error);
+    console.error("Error searching profiles:", error);
     return { profiles: [], Status: {} };
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
   }
 }
 
 /**
  * Search for NIP-05 addresses across common domains
  */
-async function searchNip05Domains(searchTerm: string, ndk: any): Promise<NostrProfile[]> {
+async function searchNip05Domains(
+  searchTerm: string,
+  ndk: any,
+): Promise<NostrProfile[]> {
+  const foundProfiles: NostrProfile[] = [];
+
+  // Enhanced list of common domains for NIP-05 lookups
+  // Prioritize gitcitadel.com since we know it has profiles
+  const commonDomains = [
+    "gitcitadel.com", // Prioritize this domain
+    "theforest.nostr1.com",
+    "nostr1.com",
+    "nostr.land",
+    "sovbit.host",
+    "damus.io",
+    "snort.social",
+    "iris.to",
+    "coracle.social",
+    "nostr.band",
+    "nostr.wine",
+    "purplepag.es",
+    "relay.noswhere.com",
+    "aggr.nostr.land",
+    "nostr.sovbit.host",
+    "freelay.sovbit.host",
+    "nostr21.com",
+    "greensoul.space",
+    "relay.damus.io",
+    "relay.nostr.band",
+  ];
+
+  // Normalize the search term for NIP-05 lookup
+  const normalizedSearchTerm = searchTerm.toLowerCase().trim();
+  console.log("NIP-05 search: normalized search term:", normalizedSearchTerm);
+
+  // Try gitcitadel.com first with extra debugging
+  const gitcitadelAddress = `${normalizedSearchTerm}@gitcitadel.com`;
+  console.log("NIP-05 search: trying gitcitadel.com first:", gitcitadelAddress);
   try {
-    for (const domain of COMMON_DOMAINS) {
-      const nip05Address = `${searchTerm}@${domain}`;
-      try {
-        const npub = await getNpubFromNip05(nip05Address);
-        if (npub) {
-          const metadata = await getUserMetadata(npub);
-          const profile: NostrProfile = {
-            ...metadata,
-            pubkey: npub
-          };
-          return [profile];
-        }
-      } catch (e) {
-        // Continue to next domain
-      }
+    const npub = await getNpubFromNip05(gitcitadelAddress);
+    if (npub) {
+      console.log(
+        "NIP-05 search: SUCCESS! found npub for gitcitadel.com:",
+        npub,
+      );
+      const metadata = await getUserMetadata(npub);
+      const profile: NostrProfile = {
+        ...metadata,
+        pubkey: npub,
+      };
+      console.log(
+        "NIP-05 search: created profile for gitcitadel.com:",
+        profile,
+      );
+      foundProfiles.push(profile);
+      return foundProfiles; // Return immediately if we found it on gitcitadel.com
+    } else {
+      console.log("NIP-05 search: no npub found for gitcitadel.com");
     }
   } catch (e) {
-    console.error('[Search] NIP-05 domain search failed:', e);
+    console.log("NIP-05 search: error for gitcitadel.com:", e);
   }
-  return [];
+
+  // If gitcitadel.com didn't work, try other domains
+  console.log("NIP-05 search: gitcitadel.com failed, trying other domains...");
+  const otherDomains = commonDomains.filter(
+    (domain) => domain !== "gitcitadel.com",
+  );
+
+  // Search all other domains in parallel with timeout
+  const searchPromises = otherDomains.map(async (domain) => {
+    const nip05Address = `${normalizedSearchTerm}@${domain}`;
+    console.log("NIP-05 search: trying address:", nip05Address);
+    try {
+      const npub = await getNpubFromNip05(nip05Address);
+      if (npub) {
+        console.log("NIP-05 search: found npub for", nip05Address, ":", npub);
+        const metadata = await getUserMetadata(npub);
+        const profile: NostrProfile = {
+          ...metadata,
+          pubkey: npub,
+        };
+        console.log(
+          "NIP-05 search: created profile for",
+          nip05Address,
+          ":",
+          profile,
+        );
+        return profile;
+      } else {
+        console.log("NIP-05 search: no npub found for", nip05Address);
+      }
+    } catch (e) {
+      console.log("NIP-05 search: error for", nip05Address, ":", e);
+      // Continue to next domain
+    }
+    return null;
+  });
+
+  // Wait for all searches with timeout
+  const results = await Promise.allSettled(searchPromises);
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value) {
+      foundProfiles.push(result.value);
+    }
+  }
+
+  console.log("NIP-05 search: total profiles found:", foundProfiles.length);
+  return foundProfiles;
 }
 
 /**
- * Search for profiles across relays
+ * Quick relay search with short timeout
  */
-async function searchProfilesAcrossRelays(searchTerm: string, ndk: any): Promise<NostrProfile[]> {
+async function quickRelaySearch(
+  searchTerm: string,
+  ndk: any,
+): Promise<NostrProfile[]> {
+  console.log("quickRelaySearch called with:", searchTerm);
   const foundProfiles: NostrProfile[] = [];
-  
-  // Prioritize community relays for better search results
-  const allRelays = Array.from(ndk.pool.relays.values()) as any[];
-  const prioritizedRelays = new Set([
-    ...allRelays.filter((relay: any) => relay.url === communityRelay),
-    ...allRelays.filter((relay: any) => relay.url !== communityRelay)
-  ]);
-  const relaySet = new NDKRelaySet(prioritizedRelays as any, ndk);
 
-  // Subscribe to profile events
-  const sub = ndk.subscribe(
-    { kinds: [0] },
-    { closeOnEose: true },
-    relaySet
-  );
+  // Normalize the search term for relay search
+  const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
+  console.log("Normalized search term for relay search:", normalizedSearchTerm);
 
-  return new Promise((resolve) => {
-    sub.on('event', (event: NDKEvent) => {
+  // Use all profile relays for better coverage
+      const quickRelayUrls = [...communityRelays, ...secondaryRelays]; // Use all available relays
+  console.log("Using all relays for search:", quickRelayUrls);
+
+  // Create relay sets for parallel search
+  const relaySets = quickRelayUrls
+    .map((url) => {
       try {
-        if (!event.content) return;
-        const profileData = JSON.parse(event.content);
-        const displayName = profileData.displayName || profileData.display_name || '';
-        const display_name = profileData.display_name || '';
-        const name = profileData.name || '';
-        const nip05 = profileData.nip05 || '';
-        const about = profileData.about || '';
-        
-        // Check if any field matches the search term
-        const matchesDisplayName = fieldMatches(displayName, searchTerm);
-        const matchesDisplay_name = fieldMatches(display_name, searchTerm);
-        const matchesName = fieldMatches(name, searchTerm);
-        const matchesNip05 = nip05Matches(nip05, searchTerm);
-        const matchesAbout = fieldMatches(about, searchTerm);
-        
-        if (matchesDisplayName || matchesDisplay_name || matchesName || matchesNip05 || matchesAbout) {
-          const profile = createProfileFromEvent(event, profileData);
-          
-          // Check if we already have this profile
-          const existingIndex = foundProfiles.findIndex(p => p.pubkey === event.pubkey);
-          if (existingIndex === -1) {
-            foundProfiles.push(profile);
-          }
-        }
+        return NDKRelaySet.fromRelayUrls([url], ndk);
       } catch (e) {
-        // Invalid JSON or other error, skip
+        console.warn(`Failed to create relay set for ${url}:`, e);
+        return null;
       }
-    });
+    })
+    .filter(Boolean);
 
-    sub.on('eose', () => {
-      if (foundProfiles.length > 0) {
-        // Deduplicate by pubkey, keep only newest
-        const deduped: Record<string, { profile: NostrProfile; created_at: number }> = {};
-        for (const profile of foundProfiles) {
-          const pubkey = profile.pubkey;
-          if (pubkey) {
-            // We don't have created_at from getUserMetadata, so just keep the first one
-            if (!deduped[pubkey]) {
-              deduped[pubkey] = { profile, created_at: 0 };
+  // Search all relays in parallel with short timeout
+  const searchPromises = relaySets.map(async (relaySet, index) => {
+    if (!relaySet) return [];
+
+    return new Promise<NostrProfile[]>((resolve) => {
+      const foundInRelay: NostrProfile[] = [];
+      let eventCount = 0;
+
+      console.log(
+        `Starting search on relay ${index + 1}: ${quickRelayUrls[index]}`,
+      );
+
+      const sub = ndk.subscribe(
+        { kinds: [0] },
+        { closeOnEose: true, relaySet },
+      );
+
+      sub.on("event", (event: NDKEvent) => {
+        eventCount++;
+        try {
+          if (!event.content) return;
+          const profileData = JSON.parse(event.content);
+          const displayName =
+            profileData.displayName || profileData.display_name || "";
+          const display_name = profileData.display_name || "";
+          const name = profileData.name || "";
+          const nip05 = profileData.nip05 || "";
+          const about = profileData.about || "";
+
+          // Check if any field matches the search term using normalized comparison
+          const matchesDisplayName = fieldMatches(
+            displayName,
+            normalizedSearchTerm,
+          );
+          const matchesDisplay_name = fieldMatches(
+            display_name,
+            normalizedSearchTerm,
+          );
+          const matchesName = fieldMatches(name, normalizedSearchTerm);
+          const matchesNip05 = nip05Matches(nip05, normalizedSearchTerm);
+          const matchesAbout = fieldMatches(about, normalizedSearchTerm);
+
+          if (
+            matchesDisplayName ||
+            matchesDisplay_name ||
+            matchesName ||
+            matchesNip05 ||
+            matchesAbout
+          ) {
+            console.log(`Found matching profile on relay ${index + 1}:`, {
+              name: profileData.name,
+              display_name: profileData.display_name,
+              nip05: profileData.nip05,
+              pubkey: event.pubkey,
+              searchTerm: normalizedSearchTerm,
+            });
+            const profile = createProfileFromEvent(event, profileData);
+
+            // Check if we already have this profile in this relay
+            const existingIndex = foundInRelay.findIndex(
+              (p) => p.pubkey === event.pubkey,
+            );
+            if (existingIndex === -1) {
+              foundInRelay.push(profile);
             }
           }
+        } catch (e) {
+          // Invalid JSON or other error, skip
         }
-        const dedupedProfiles = Object.values(deduped).map(x => x.profile);
-        resolve(dedupedProfiles);
-      } else {
-        resolve([]);
-      }
+      });
+
+      sub.on("eose", () => {
+        console.log(
+          `Relay ${index + 1} (${quickRelayUrls[index]}) search completed, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+        );
+        resolve(foundInRelay);
+      });
+
+      // Short timeout for quick search
+      setTimeout(() => {
+        console.log(
+          `Relay ${index + 1} (${quickRelayUrls[index]}) search timed out after 1.5s, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+        );
+        sub.stop();
+        resolve(foundInRelay);
+      }, 1500); // 1.5 second timeout per relay
     });
   });
-} 
+
+  // Wait for all searches to complete
+  const results = await Promise.allSettled(searchPromises);
+
+  // Combine and deduplicate results
+  const allProfiles: Record<string, NostrProfile> = {};
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const profile of result.value) {
+        if (profile.pubkey) {
+          allProfiles[profile.pubkey] = profile;
+        }
+      }
+    }
+  }
+
+  console.log(
+    `Total unique profiles found: ${Object.keys(allProfiles).length}`,
+  );
+  return Object.values(allProfiles);
+}

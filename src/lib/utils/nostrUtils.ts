@@ -4,13 +4,14 @@ import { ndkInstance } from "$lib/ndk";
 import { npubCache } from "./npubCache";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { standardRelays, fallbackRelays, anonymousRelays } from "$lib/consts";
+import { communityRelays, secondaryRelays, anonymousRelays } from "$lib/consts";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
 import { wellKnownUrl } from "./search_utility";
-import { TIMEOUTS, VALIDATION } from './search_constants';
+import { TIMEOUTS, VALIDATION } from "./search_constants";
 
 const badgeCheckSvg =
   '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>';
@@ -54,12 +55,17 @@ function escapeHtml(text: string): string {
  */
 export async function getUserMetadata(
   identifier: string,
+  force = false,
 ): Promise<NostrProfile> {
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, "");
 
-  if (npubCache.has(cleanId)) {
-    return npubCache.get(cleanId)!;
+  console.log("getUserMetadata called with identifier:", identifier, "force:", force);
+
+  if (!force && npubCache.has(cleanId)) {
+    const cached = npubCache.get(cleanId)!;
+    console.log("getUserMetadata returning cached profile:", cached);
+    return cached;
   }
 
   const fallback = { name: `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}` };
@@ -67,12 +73,14 @@ export async function getUserMetadata(
   try {
     const ndk = get(ndkInstance);
     if (!ndk) {
+      console.warn("getUserMetadata: No NDK instance available");
       npubCache.set(cleanId, fallback);
       return fallback;
     }
 
     const decoded = nip19.decode(cleanId);
     if (!decoded) {
+      console.warn("getUserMetadata: Failed to decode identifier:", cleanId);
       npubCache.set(cleanId, fallback);
       return fallback;
     }
@@ -84,33 +92,43 @@ export async function getUserMetadata(
     } else if (decoded.type === "nprofile") {
       pubkey = decoded.data.pubkey;
     } else {
+      console.warn("getUserMetadata: Unsupported identifier type:", decoded.type);
       npubCache.set(cleanId, fallback);
       return fallback;
     }
+
+    console.log("getUserMetadata: Fetching profile for pubkey:", pubkey);
 
     const profileEvent = await fetchEventWithFallback(ndk, {
       kinds: [0],
       authors: [pubkey],
     });
+    
+    console.log("getUserMetadata: Profile event found:", profileEvent);
+    
     const profile =
       profileEvent && profileEvent.content
         ? JSON.parse(profileEvent.content)
         : null;
 
+    console.log("getUserMetadata: Parsed profile:", profile);
+
     const metadata: NostrProfile = {
       name: profile?.name || fallback.name,
       displayName: profile?.displayName || profile?.display_name,
       nip05: profile?.nip05,
-      picture: profile?.image,
+      picture: profile?.picture || profile?.image,
       about: profile?.about,
       banner: profile?.banner,
       website: profile?.website,
       lud16: profile?.lud16,
     };
 
+    console.log("getUserMetadata: Final metadata:", metadata);
     npubCache.set(cleanId, metadata);
     return metadata;
   } catch (e) {
+    console.error("getUserMetadata: Error fetching profile:", e);
     npubCache.set(cleanId, fallback);
     return fallback;
   }
@@ -128,6 +146,7 @@ export function createProfileLink(
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
 
+  // Remove target="_blank" for internal navigation
   return `<a href="./events?id=${escapedId}" class="npub-badge">@${escapedText}</a>`;
 }
 
@@ -157,12 +176,28 @@ export async function createProfileLinkWithVerification(
   const userRelays = Array.from(ndk.pool?.relays.values() || []).map(
     (r) => r.url,
   );
+
+  // Filter out problematic relays
+  const filterProblematicRelays = (relays: string[]) => {
+    return relays.filter((relay) => {
+      if (relay.includes("gitcitadel.nostr1.com")) {
+        console.info(
+          `[nostrUtils.ts] Filtering out problematic relay: ${relay}`,
+        );
+        return false;
+      }
+      return true;
+    });
+  };
+
   const allRelays = [
-    ...standardRelays,
+    ...communityRelays,
     ...userRelays,
-    ...fallbackRelays,
+    ...secondaryRelays,
   ].filter((url, idx, arr) => arr.indexOf(url) === idx);
-  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
+
+  const filteredRelays = filterProblematicRelays(allRelays);
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(filteredRelays, ndk);
   const profileEvent = await ndk.fetchEvent(
     { kinds: [0], authors: [user.pubkey] },
     undefined,
@@ -267,32 +302,74 @@ export async function processNostrIdentifiers(
 export async function getNpubFromNip05(nip05: string): Promise<string | null> {
   try {
     // Parse the NIP-05 address
-    const [name, domain] = nip05.split('@');
+    const [name, domain] = nip05.split("@");
     if (!name || !domain) {
-      console.error('[getNpubFromNip05] Invalid NIP-05 format:', nip05);
+      console.error("[getNpubFromNip05] Invalid NIP-05 format:", nip05);
       return null;
     }
 
-    // Fetch the well-known.json file
+    // Fetch the well-known.json file with timeout and CORS handling
     const url = wellKnownUrl(domain, name);
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error('[getNpubFromNip05] HTTP error:', response.status, response.statusText);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        mode: "cors",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "[getNpubFromNip05] HTTP error:",
+          response.status,
+          response.statusText,
+        );
+        return null;
+      }
+
+      const data = await response.json();
+
+      // Try exact match first
+      let pubkey = data.names?.[name];
+
+      // If not found, try case-insensitive search
+      if (!pubkey && data.names) {
+        const names = Object.keys(data.names);
+        const matchingName = names.find(
+          (n) => n.toLowerCase() === name.toLowerCase(),
+        );
+        if (matchingName) {
+          pubkey = data.names[matchingName];
+          console.log(
+            `[getNpubFromNip05] Found case-insensitive match: ${name} -> ${matchingName}`,
+          );
+        }
+      }
+
+      if (!pubkey) {
+        console.error("[getNpubFromNip05] No pubkey found for name:", name);
+        return null;
+      }
+
+      // Convert pubkey to npub
+      const npub = nip19.npubEncode(pubkey);
+      return npub;
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        console.warn("[getNpubFromNip05] Request timeout for:", url);
+      } else {
+        console.warn("[getNpubFromNip05] CORS or network error for:", url);
+      }
       return null;
     }
-
-    const data = await response.json();
-    
-    const pubkey = data.names?.[name];
-    if (!pubkey) {
-      console.error('[getNpubFromNip05] No pubkey found for name:', name);
-      return null;
-    }
-
-    // Convert pubkey to npub
-    const npub = nip19.npubEncode(pubkey);
-    return npub;
   } catch (error) {
     console.error("[getNpubFromNip05] Error getting npub from nip05:", error);
     return null;
@@ -362,98 +439,75 @@ export async function fetchEventWithFallback(
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000,
 ): Promise<NDKEvent | null> {
-  // Get user relays if logged in
-  const userRelays = ndk.activeUser
-    ? Array.from(ndk.pool?.relays.values() || [])
-        .filter((r) => r.status === 1) // Only use connected relays
-        .map((r) => r.url)
-    : [];
-
-  // Determine which relays to use based on user authentication status
-  const isSignedIn = ndk.signer && ndk.activeUser;
-  const primaryRelays = isSignedIn ? standardRelays : anonymousRelays;
-
-  // Create three relay sets in priority order
-  const relaySets = [
-    NDKRelaySetFromNDK.fromRelayUrls(primaryRelays, ndk), // 1. Primary relays (auth or anonymous)
-    NDKRelaySetFromNDK.fromRelayUrls(userRelays, ndk), // 2. User relays (if logged in)
-    NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk), // 3. fallback relays (last resort)
-  ];
+  // Use both inbox and outbox relays for better event discovery
+  const inboxRelays = get(activeInboxRelays);
+  const outboxRelays = get(activeOutboxRelays);
+  const allRelays = [...(inboxRelays || []), ...(outboxRelays || [])];
+  
+  console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
+  console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
+  
+  // Check if we have any relays available
+  if (allRelays.length === 0) {
+    console.warn("fetchEventWithFallback: No relays available for event fetch");
+    return null;
+  }
+  
+  // Create relay set from all available relays
+  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
 
   try {
-    let found: NDKEvent | null = null;
-    const triedRelaySets: string[] = [];
-
-    // Helper function to try fetching from a relay set
-    async function tryFetchFromRelaySet(
-      relaySet: NDKRelaySetFromNDK,
-      setName: string,
-    ): Promise<NDKEvent | null> {
-      if (relaySet.relays.size === 0) return null;
-      triedRelaySets.push(setName);
-
-      if (
-        typeof filterOrId === "string" &&
-        new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(filterOrId)
-      ) {
-        return await ndk
-          .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
-          .withTimeout(timeoutMs);
-      } else {
-        const filter =
-          typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
-        const results = await ndk
-          .fetchEvents(filter, undefined, relaySet)
-          .withTimeout(timeoutMs);
-        return results instanceof Set
-          ? (Array.from(results)[0] as NDKEvent)
-          : null;
-      }
+    if (relaySet.relays.size === 0) {
+      console.warn("fetchEventWithFallback: No relays in relay set for event fetch");
+      return null;
     }
 
-    // Try each relay set in order
-    for (const [index, relaySet] of relaySets.entries()) {
-      const setName =
-        index === 0
-          ? isSignedIn
-            ? "standard relays"
-            : "anonymous relays"
-          : index === 1
-            ? "user relays"
-            : "fallback relays";
+    console.log("fetchEventWithFallback: Relay set size:", relaySet.relays.size);
+    console.log("fetchEventWithFallback: Filter:", filterOrId);
+    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r: any) => r.url));
 
-      found = await tryFetchFromRelaySet(relaySet, setName);
-      if (found) break;
+    let found: NDKEvent | null = null;
+
+    if (
+      typeof filterOrId === "string" &&
+      new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(filterOrId)
+    ) {
+      found = await ndk
+        .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
+        .withTimeout(timeoutMs);
+    } else {
+      const filter =
+        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const results = await ndk
+        .fetchEvents(filter, undefined, relaySet)
+        .withTimeout(timeoutMs);
+      found = results instanceof Set
+        ? (Array.from(results)[0] as NDKEvent)
+        : null;
     }
 
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = relaySets
-        .map((set, i) => {
-          const setName =
-            i === 0
-              ? isSignedIn
-                ? "standard relays"
-                : "anonymous relays"
-              : i === 1
-                ? "user relays"
-                : "fallback relays";
-          const urls = Array.from(set.relays).map((r) => r.url);
-          return urls.length > 0 ? `${setName} (${urls.join(", ")})` : null;
-        })
-        .filter(Boolean)
-        .join(", then ");
-
+      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
       console.warn(
-        `Event not found after ${timeoutSeconds}s timeout. Tried ${relayUrls}. Some relays may be offline or slow.`,
+        `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
       return null;
     }
 
+    console.log("fetchEventWithFallback: Found event:", found.id);
     // Always wrap as NDKEvent
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
-    console.error("Error in fetchEventWithFallback:", err);
+    if (err instanceof Error && err.message === 'Timeout') {
+      const timeoutSeconds = timeoutMs / 1000;
+      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
+      console.warn(
+        `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+      );
+    } else {
+      console.error("fetchEventWithFallback: Error in fetchEventWithFallback:", err);
+    }
     return null;
   }
 }
@@ -464,7 +518,7 @@ export async function fetchEventWithFallback(
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
-    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, 'i').test(pubkey)) {
+    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
     if (pubkey.startsWith("npub1")) return pubkey;
@@ -527,76 +581,89 @@ export async function signEvent(event: {
 }
 
 /**
- * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:" 
+ * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:"
  * if they are not already prefixed and are not part of a hyperlink
  */
 export function prefixNostrAddresses(content: string): string {
   // Regex to match Nostr addresses that are not already prefixed with "nostr:"
   // and are not part of a markdown link or HTML link
   // Must be followed by at least 20 alphanumeric characters to be considered an address
-  const nostrAddressPattern = /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
-  
+  const nostrAddressPattern =
+    /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
+
   return content.replace(nostrAddressPattern, (match, offset) => {
     // Check if this match is part of a markdown link [text](url)
     const beforeMatch = content.substring(0, offset);
     const afterMatch = content.substring(offset + match.length);
-    
+
     // Check if it's part of a markdown link
-    const beforeBrackets = beforeMatch.lastIndexOf('[');
-    const afterParens = afterMatch.indexOf(')');
-    
+    const beforeBrackets = beforeMatch.lastIndexOf("[");
+    const afterParens = afterMatch.indexOf(")");
+
     if (beforeBrackets !== -1 && afterParens !== -1) {
       const textBeforeBrackets = beforeMatch.substring(0, beforeBrackets);
-      const lastOpenBracket = textBeforeBrackets.lastIndexOf('[');
-      const lastCloseBracket = textBeforeBrackets.lastIndexOf(']');
-      
+      const lastOpenBracket = textBeforeBrackets.lastIndexOf("[");
+      const lastCloseBracket = textBeforeBrackets.lastIndexOf("]");
+
       // If we have [text] before this, it might be a markdown link
       if (lastOpenBracket !== -1 && lastCloseBracket > lastOpenBracket) {
         return match; // Don't prefix if it's part of a markdown link
       }
     }
-    
+
     // Check if it's part of an HTML link
-    const beforeHref = beforeMatch.lastIndexOf('href=');
+    const beforeHref = beforeMatch.lastIndexOf("href=");
     if (beforeHref !== -1) {
       const afterHref = afterMatch.indexOf('"');
       if (afterHref !== -1) {
         return match; // Don't prefix if it's part of an HTML link
       }
     }
-    
+
     // Check if it's already prefixed with "nostr:"
-    const beforeNostr = beforeMatch.lastIndexOf('nostr:');
+    const beforeNostr = beforeMatch.lastIndexOf("nostr:");
     if (beforeNostr !== -1) {
       const textAfterNostr = beforeMatch.substring(beforeNostr + 6);
-      if (!textAfterNostr.includes(' ')) {
+      if (!textAfterNostr.includes(" ")) {
         return match; // Already prefixed
       }
     }
-    
+
     // Additional check: ensure it's actually a valid Nostr address format
     // The part after the prefix should be a valid bech32 string
     const addressPart = match.substring(4); // Remove npub, nprofile, etc.
     if (addressPart.length < 20) {
       return match; // Too short to be a valid address
     }
-    
+
     // Check if it looks like a valid bech32 string (alphanumeric, no special chars)
     if (!/^[a-zA-Z0-9]+$/.test(addressPart)) {
       return match; // Not a valid bech32 format
     }
-    
+
     // Additional check: ensure the word before is not a common word that would indicate
     // this is just a general reference, not an actual address
     const wordBefore = beforeMatch.match(/\b(\w+)\s*$/);
     if (wordBefore) {
       const beforeWord = wordBefore[1].toLowerCase();
-      const commonWords = ['the', 'a', 'an', 'this', 'that', 'my', 'your', 'his', 'her', 'their', 'our'];
+      const commonWords = [
+        "the",
+        "a",
+        "an",
+        "this",
+        "that",
+        "my",
+        "your",
+        "his",
+        "her",
+        "their",
+        "our",
+      ];
       if (commonWords.includes(beforeWord)) {
         return match; // Likely just a general reference, not an actual address
       }
     }
-    
+
     // Prefix with "nostr:"
     return `nostr:${match}`;
   });

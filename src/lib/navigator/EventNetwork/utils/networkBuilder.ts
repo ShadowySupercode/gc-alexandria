@@ -8,8 +8,9 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { nip19 } from "nostr-tools";
-import { standardRelays } from "$lib/consts";
+import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { getMatchingTags } from "$lib/utils/nostrUtils";
+import { get } from "svelte/store";
 
 // Configuration
 const DEBUG = false; // Set to true to enable debug logging
@@ -71,13 +72,13 @@ export function createNetworkNode(
         pubkey: event.pubkey,
         identifier: dTag,
         kind: event.kind,
-        relays: standardRelays,
+        relays: [...get(activeInboxRelays), ...get(activeOutboxRelays)],
       });
 
       // Create nevent (NIP-19 event reference) for the event
       node.nevent = nip19.neventEncode({
         id: event.id,
-        relays: standardRelays,
+        relays: [...get(activeInboxRelays), ...get(activeOutboxRelays)],
         kind: event.kind,
       });
     } catch (error) {
@@ -163,13 +164,24 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
   // Build set of referenced event IDs to identify root events
   const referencedIds = new Set<string>();
   events.forEach((event) => {
-    const aTags = getMatchingTags(event, "a");
-    debug("Processing a-tags for event", {
+    // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+    let tags = getMatchingTags(event, "a");
+    if (tags.length === 0) {
+      tags = getMatchingTags(event, "e");
+    }
+
+    debug("Processing tags for event", {
       eventId: event.id,
-      aTagCount: aTags.length,
+      tagCount: tags.length,
+      tagType:
+        tags.length > 0
+          ? getMatchingTags(event, "a").length > 0
+            ? "a"
+            : "e"
+          : "none",
     });
 
-    aTags.forEach((tag) => {
+    tags.forEach((tag) => {
       const id = extractEventIdFromATag(tag);
       if (id) referencedIds.add(id);
     });
@@ -284,7 +296,13 @@ export function processIndexEvent(
   if (level >= maxLevel) return;
 
   // Extract the sequence of nodes referenced by this index
-  const sequence = getMatchingTags(indexEvent, "a")
+  // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+  let tags = getMatchingTags(indexEvent, "a");
+  if (tags.length === 0) {
+    tags = getMatchingTags(indexEvent, "e");
+  }
+
+  const sequence = tags
     .map((tag) => extractEventIdFromATag(tag))
     .filter((id): id is string => id !== null)
     .map((id) => state.nodeMap.get(id))

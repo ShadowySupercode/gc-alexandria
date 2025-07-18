@@ -412,7 +412,11 @@ export async function parseBasicmarkup(text: string): Promise<string> {
       .filter((para) => para.length > 0)
       .map((para) => {
         // Skip wrapping if para already contains block-level elements or math blocks
-        if (/(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr)/i.test(para)) {
+        if (
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr)/i.test(
+            para,
+          )
+        ) {
           return para;
         }
         return `<p class="my-4">${para}</p>`;

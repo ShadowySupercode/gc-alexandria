@@ -9,6 +9,7 @@
   import { getContext } from "svelte";
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
 
   let {
@@ -23,7 +24,7 @@
     ref: (ref: HTMLElement) => void;
   } = $props();
 
-  const publicationTree: PublicationTree = getContext("publicationTree");
+  const publicationTree: SveltePublicationTree = getContext("publicationTree");
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
@@ -47,9 +48,10 @@
   );
 
   let leafContent: Promise<string | Document> = $derived.by(async () => {
-    const rawContent = (await leafEvent)?.content ?? "";
-    const asciidoctorHtml = asciidoctor.convert(rawContent);
-    return await postProcessAdvancedAsciidoctorHtml(asciidoctorHtml.toString());
+    const content = (await leafEvent)?.content ?? "";
+    const converted = asciidoctor.convert(content);
+    const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
+    return processed;
   });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
@@ -124,7 +126,6 @@
 
     ref(sectionRef);
   });
-
 </script>
 
 <section
@@ -135,7 +136,6 @@
   {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
     <TextPlaceholder size="xxl" />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
-    {@const contentString = leafContent.toString()}
     {#each divergingBranches as [branch, depth]}
       {@render sectionHeading(
         getMatchingTags(branch, "title")[0]?.[1] ?? "",
@@ -147,7 +147,7 @@
       {@render sectionHeading(leafTitle, leafDepth)}
     {/if}
     {@render contentParagraph(
-      contentString,
+      leafContent.toString(),
       publicationType ?? "article",
       false,
     )}

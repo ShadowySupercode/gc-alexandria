@@ -1,4 +1,4 @@
-import { EVENT_KINDS } from './search_constants';
+import { EVENT_KINDS } from "./search_constants";
 
 /**
  * Determine the type of Nostr event based on its kind number
@@ -12,16 +12,25 @@ export function getEventType(
   kind: number,
 ): "regular" | "replaceable" | "ephemeral" | "addressable" {
   // Check special ranges first
-  if (kind >= EVENT_KINDS.ADDRESSABLE.MIN && kind < EVENT_KINDS.ADDRESSABLE.MAX) {
+  if (
+    kind >= EVENT_KINDS.ADDRESSABLE.MIN &&
+    kind < EVENT_KINDS.ADDRESSABLE.MAX
+  ) {
     return "addressable";
   }
 
-  if (kind >= EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MIN && kind < EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MAX) {
+  if (
+    kind >= EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MIN &&
+    kind < EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MAX
+  ) {
     return "ephemeral";
   }
 
-  if ((kind >= EVENT_KINDS.REPLACEABLE.MIN && kind < EVENT_KINDS.REPLACEABLE.MAX) || 
-      EVENT_KINDS.REPLACEABLE.SPECIFIC.includes(kind as 0 | 3)) {
+  if (
+    (kind >= EVENT_KINDS.REPLACEABLE.MIN &&
+      kind < EVENT_KINDS.REPLACEABLE.MAX) ||
+    EVENT_KINDS.REPLACEABLE.SPECIFIC.includes(kind as 0 | 3)
+  ) {
     return "replaceable";
   }
 

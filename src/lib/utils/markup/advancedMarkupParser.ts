@@ -10,18 +10,19 @@ hljs.configure({
 
 // Escapes HTML characters for safe display
 function escapeHtml(text: string): string {
-  const div = typeof document !== 'undefined' ? document.createElement('div') : null;
+  const div =
+    typeof document !== "undefined" ? document.createElement("div") : null;
   if (div) {
     div.textContent = text;
     return div.innerHTML;
   }
   // Fallback for non-browser environments
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // Regular expressions for advanced markup elements
@@ -406,7 +407,7 @@ function processDollarMath(content: string): string {
       return `<div class="math-block">$$${expr}$$</div>`;
     } else {
       // Strip all $ or $$ from AsciiMath
-      const clean = expr.replace(/\$+/g, '').trim();
+      const clean = expr.replace(/\$+/g, "").trim();
       return `<div class="math-block" data-math-type="asciimath">${clean}</div>`;
     }
   });
@@ -415,7 +416,7 @@ function processDollarMath(content: string): string {
     if (isLaTeXContent(expr)) {
       return `<span class="math-inline">$${expr}$</span>`;
     } else {
-      const clean = expr.replace(/\$+/g, '').trim();
+      const clean = expr.replace(/\$+/g, "").trim();
       return `<span class="math-inline" data-math-type="asciimath">${clean}</span>`;
     }
   });
@@ -447,19 +448,19 @@ function processMathExpressions(content: string): string {
       // Detect LaTeX display math (\\[...\\])
       if (/^\\\[[\s\S]*\\\]$/.test(trimmedCode)) {
         // Remove the delimiters for rendering
-        const inner = trimmedCode.replace(/^\\\[|\\\]$/g, '');
+        const inner = trimmedCode.replace(/^\\\[|\\\]$/g, "");
         return `<div class="math-block">$$${inner}$$</div>`;
       }
       // Detect display math ($$...$$)
       if (/^\$\$[\s\S]*\$\$$/.test(trimmedCode)) {
         // Remove the delimiters for rendering
-        const inner = trimmedCode.replace(/^\$\$|\$\$$/g, '');
+        const inner = trimmedCode.replace(/^\$\$|\$\$$/g, "");
         return `<div class="math-block">$$${inner}$$</div>`;
       }
       // Detect inline math ($...$)
       if (/^\$[\s\S]*\$$/.test(trimmedCode)) {
         // Remove the delimiters for rendering
-        const inner = trimmedCode.replace(/^\$|\$$/g, '');
+        const inner = trimmedCode.replace(/^\$|\$$/g, "");
         return `<span class="math-inline">$${inner}$</span>`;
       }
       // Default to inline math for any other LaTeX content
@@ -511,7 +512,7 @@ function processMathExpressions(content: string): string {
       ];
 
       // If it matches code patterns, treat as regular code
-      if (codePatterns.some(pattern => pattern.test(trimmedCode))) {
+      if (codePatterns.some((pattern) => pattern.test(trimmedCode))) {
         const escapedCode = trimmedCode
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
@@ -538,27 +539,27 @@ function processMathExpressions(content: string): string {
  */
 function isLaTeXContent(content: string): boolean {
   const trimmed = content.trim();
-  
+
   // Check for simple math expressions first (like AsciiMath)
   if (/^\$[^$]+\$$/.test(trimmed)) {
     return true;
   }
-  
+
   // Check for display math
   if (/^\$\$[\s\S]*\$\$$/.test(trimmed)) {
     return true;
   }
-  
+
   // Check for LaTeX display math
   if (/^\\\[[\s\S]*\\\]$/.test(trimmed)) {
     return true;
   }
-  
+
   // Check for LaTeX environments with double backslashes (like tabular)
   if (/\\\\begin\{[^}]+\}/.test(trimmed) || /\\\\end\{[^}]+\}/.test(trimmed)) {
     return true;
   }
-  
+
   // Check for common LaTeX patterns
   const latexPatterns = [
     /\\[a-zA-Z]+/, // LaTeX commands like \frac, \sum, etc.
@@ -684,8 +685,8 @@ function isLaTeXContent(content: string): boolean {
     /\\mathscr\{/, // Script
     /\\\\mathscr\{/, // Script with double backslashes
   ];
-  
-  return latexPatterns.some(pattern => pattern.test(trimmed));
+
+  return latexPatterns.some((pattern) => pattern.test(trimmed));
 }
 
 /**

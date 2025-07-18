@@ -35,14 +35,11 @@ function replaceWikilinks(html: string): string {
  * Replaces AsciiDoctor-generated empty anchor tags <a id="..."></a> with clickable wikilink-style <a> tags.
  */
 function replaceAsciiDocAnchors(html: string): string {
-  return html.replace(
-    /<a id="([^"]+)"><\/a>/g,
-    (_match, id) => {
-      const normalized = normalizeDTag(id.trim());
-      const url = `./events?d=${normalized}`;
-      return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">${id}</a>`;
-    }
-  );
+  return html.replace(/<a id="([^"]+)"><\/a>/g, (_match, id) => {
+    const normalized = normalizeDTag(id.trim());
+    const url = `./events?d=${normalized}`;
+    return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">${id}</a>`;
+  });
 }
 
 /**

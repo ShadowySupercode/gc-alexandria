@@ -2,7 +2,7 @@ import { error } from "@sveltejs/kit";
 import type { Load } from "@sveltejs/kit";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getActiveRelays } from "$lib/ndk";
+import { getActiveRelaySetAsNDKRelaySet } from "$lib/ndk";
 import { getMatchingTags } from "$lib/utils/nostrUtils";
 
 /**
@@ -68,10 +68,11 @@ async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
  */
 async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
   try {
+    const relaySet = await getActiveRelaySetAsNDKRelaySet(ndk, true); // true for inbox relays
     const event = await ndk.fetchEvent(
       { "#d": [dTag] },
       { closeOnEose: false },
-      getActiveRelays(ndk),
+      relaySet,
     );
 
     if (!event) {
@@ -83,6 +84,7 @@ async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
   }
 }
 
+// TODO: Use path params instead of query params.
 export const load: Load = async ({
   url,
   parent,
@@ -92,7 +94,7 @@ export const load: Load = async ({
 }) => {
   const id = url.searchParams.get("id");
   const dTag = url.searchParams.get("d");
-  const { ndk, parser } = await parent();
+  const { ndk } = await parent();
 
   if (!id && !dTag) {
     throw error(400, "No publication root event ID or d tag provided.");
@@ -104,12 +106,9 @@ export const load: Load = async ({
     : await fetchEventByDTag(ndk, dTag!);
 
   const publicationType = getMatchingTags(indexEvent, "type")[0]?.[1];
-  const fetchPromise = parser.fetch(indexEvent);
 
   return {
-    waitable: fetchPromise,
     publicationType,
     indexEvent,
-    url,
   };
 };
