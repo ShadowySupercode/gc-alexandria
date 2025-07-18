@@ -155,20 +155,6 @@
     @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
-  /* Sidebar */
-  aside.sidebar-leather {
-    @apply fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10;
-    @apply bg-primary-0 dark:bg-primary-1000 px-5 w-full sm:w-auto sm:max-w-xl;
-  }
-
-  aside.sidebar-leather > div {
-    @apply bg-primary-50 dark:bg-gray-800 h-full px-5 py-0;
-  }
-
-  a.sidebar-item-leather {
-    @apply hover:bg-primary-100 dark:hover:bg-gray-800;
-  }
-
   div.skeleton-leather div {
     @apply bg-primary-100 dark:bg-primary-800;
   }

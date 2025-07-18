@@ -43,7 +43,7 @@
     "autoprefixer": "10.x",
     "eslint-plugin-svelte": "2.x",
     "flowbite": "2.x",
-    "flowbite-svelte": "0.x",
+    "flowbite-svelte": "0.48.x",
     "flowbite-svelte-icons": "2.1.x",
     "playwright": "^1.50.1",
     "postcss": "8.x",
