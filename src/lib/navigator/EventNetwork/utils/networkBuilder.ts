@@ -33,6 +33,7 @@ const debug = createDebugFunction("NetworkBuilder");
 export function createNetworkNode(
     event: NDKEvent,
     level: number = 0
+
 ): NetworkNode {
     debug("Creating network node", { eventId: event.id, kind: event.kind, level });
     
