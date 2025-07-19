@@ -6,10 +6,10 @@
  */
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
+import type { NetworkNode, GraphData, GraphState } from "../types.ts";
 import { nip19 } from "nostr-tools";
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-import { getMatchingTags } from "$lib/utils/nostrUtils";
+import { activeInboxRelays, activeOutboxRelays } from "../../../ndk.ts";
+import { getMatchingTags } from "../../../utils/nostrUtils.ts";
 import { get } from "svelte/store";
 
 // Configuration
@@ -20,7 +20,7 @@ const CONTENT_EVENT_KIND = 30041;
 /**
  * Debug logging function that only logs when DEBUG is true
  */
-function debug(...args: any[]) {
+function debug(...args: unknown[]) {
   if (DEBUG) {
     console.log("[NetworkBuilder]", ...args);
   }

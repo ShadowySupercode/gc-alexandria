@@ -1,5 +1,5 @@
-import type { NDKEvent } from "./nostrUtils";
-import { CACHE_DURATIONS, TIMEOUTS } from "./search_constants";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import { CACHE_DURATIONS, TIMEOUTS } from "./search_constants.ts";
 
 export interface SearchResult {
   events: NDKEvent[];
@@ -78,7 +78,6 @@ class SearchCache {
    * Clear expired entries from cache
    */
   cleanup(): void {
-    const now = Date.now();
     for (const [key, result] of this.cache.entries()) {
       if (this.isExpired(result)) {
         this.cache.delete(key);

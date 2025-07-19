@@ -1,17 +1,6 @@
-import { renderTikZ } from "./tikzRenderer";
-import asciidoctor from "asciidoctor";
-
-// Simple math rendering using MathJax CDN
-function renderMath(content: string): string {
-  return `<div class="math-block" data-math="${encodeURIComponent(content)}">
-    <div class="math-content">${content}</div>
-    <script>
-      if (typeof MathJax !== 'undefined') {
-        MathJax.typesetPromise([document.querySelector('.math-content')]);
-      }
-    </script>
-  </div>`;
-}
+// deno-lint-ignore-file no-this-alias no-explicit-any
+import Processor from "asciidoctor";
+import { renderTikZ } from "./tikzRenderer.ts";
 
 // Simple PlantUML rendering using PlantUML server
 function renderPlantUML(content: string): string {
@@ -27,7 +16,7 @@ function renderPlantUML(content: string): string {
  * including Asciimath/Latex, PlantUML, BPMN, and TikZ
  */
 export function createAdvancedExtensions(): any {
-  const Asciidoctor = asciidoctor();
+  const Asciidoctor = Processor();
   const extensions = Asciidoctor.Extensions.create();
 
   // Math rendering extension (Asciimath/Latex)
@@ -95,7 +84,7 @@ export function createAdvancedExtensions(): any {
 /**
  * Processes math blocks (stem blocks) and converts them to rendered HTML
  */
-function processMathBlocks(treeProcessor: any, document: any): void {
+function processMathBlocks(_: any, document: any): void {
   const blocks = document.getBlocks();
   for (const block of blocks) {
     if (block.getContext() === "stem") {
@@ -131,7 +120,7 @@ function processMathBlocks(treeProcessor: any, document: any): void {
 /**
  * Processes PlantUML blocks and converts them to rendered SVG
  */
-function processPlantUMLBlocks(treeProcessor: any, document: any): void {
+function processPlantUMLBlocks(_: any, document: any): void {
   const blocks = document.getBlocks();
 
   for (const block of blocks) {
@@ -156,7 +145,7 @@ function processPlantUMLBlocks(treeProcessor: any, document: any): void {
 /**
  * Processes TikZ blocks and converts them to rendered SVG
  */
-function processTikZBlocks(treeProcessor: any, document: any): void {
+function processTikZBlocks(_: any, document: any): void {
   const blocks = document.getBlocks();
 
   for (const block of blocks) {

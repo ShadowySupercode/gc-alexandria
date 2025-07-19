@@ -1,3 +1,5 @@
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+
 /**
  * Generate well-known NIP-05 URL
  */
@@ -85,14 +87,15 @@ export const COMMON_DOMAINS = [
 /**
  * Check if an event is an emoji reaction (kind 7)
  */
-export function isEmojiReaction(event: any): boolean {
+export function isEmojiReaction(event: NDKEvent): boolean {
   return event.kind === 7;
 }
 
 /**
  * Create a profile object from event data
  */
-export function createProfileFromEvent(event: any, profileData: any): any {
+// deno-lint-ignore no-explicit-any
+export function createProfileFromEvent(event: NDKEvent, profileData: any): any {
   return {
     name: profileData.name,
     displayName: profileData.displayName || profileData.display_name,

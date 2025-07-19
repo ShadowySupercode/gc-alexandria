@@ -1,26 +1,25 @@
-import { ndkInstance } from "$lib/ndk";
-import { getMatchingTags, getNpubFromNip05 } from "$lib/utils/nostrUtils";
-import { nip19 } from "$lib/utils/nostrUtils";
+// deno-lint-ignore-file no-explicit-any
+import { ndkInstance } from "../ndk.ts";
+import { getMatchingTags, getNpubFromNip05 } from "./nostrUtils.ts";
+import { nip19 } from "./nostrUtils.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
-import { searchCache } from "$lib/utils/searchCache";
-import { communityRelays, searchRelays } from "$lib/consts";
+import { searchCache } from "./searchCache.ts";
+import { communityRelays, searchRelays } from "../consts.ts";
 import { get } from "svelte/store";
 import type {
   SearchResult,
   SearchSubscriptionType,
   SearchFilter,
   SearchCallbacks,
-  SecondOrderSearchParams,
-} from "./search_types";
+} from "./search_types.ts";
 import {
   fieldMatches,
   nip05Matches,
-  normalizeSearchTerm,
   COMMON_DOMAINS,
   isEmojiReaction,
-} from "./search_utils";
-import { TIMEOUTS, SEARCH_LIMITS } from "./search_constants";
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+} from "./search_utils.ts";
+import { TIMEOUTS, SEARCH_LIMITS } from "./search_constants.ts";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 
 // Helper function to normalize URLs for comparison
 const normalizeUrl = (url: string): string => {
@@ -132,7 +131,6 @@ export async function searchBySubscription(
           searchFilter,
           searchState,
           callbacks,
-          abortSignal,
           cleanup,
         );
 
@@ -160,7 +158,6 @@ export async function searchBySubscription(
     searchFilter,
     searchState,
     callbacks,
-    abortSignal,
     cleanup,
   );
 }
@@ -215,26 +212,30 @@ async function createSearchFilter(
   });
 
   switch (searchType) {
-    case "d":
+    case "d": {
       const dFilter = {
         filter: { "#d": [normalizedSearchTerm] },
         subscriptionType: "d-tag",
       };
       console.log("subscription_search: Created d-tag filter:", dFilter);
       return dFilter;
-    case "t":
+    }
+    case "t": {
       const tFilter = {
         filter: { "#t": [normalizedSearchTerm] },
         subscriptionType: "t-tag",
       };
       console.log("subscription_search: Created t-tag filter:", tFilter);
       return tFilter;
-    case "n":
+    }
+    case "n": {
       const nFilter = await createProfileSearchFilter(normalizedSearchTerm);
       console.log("subscription_search: Created profile filter:", nFilter);
       return nFilter;
-    default:
+    }
+    default: {
       throw new Error(`Unknown search type: ${searchType}`);
+    }
   }
 }
 
@@ -257,7 +258,7 @@ async function createProfileSearchFilter(
         subscriptionType: "npub-specific",
       };
     }
-  } catch (e) {
+  } catch {
     // Not a valid npub, continue with other strategies
   }
 
@@ -277,11 +278,11 @@ async function createProfileSearchFilter(
             subscriptionType: "nip05-found",
           };
         }
-      } catch (e) {
+      } catch {
         // Continue to next domain
       }
     }
-  } catch (e) {
+  } catch {
     // Fallback to reasonable profile search
   }
 
@@ -520,12 +521,11 @@ function createSearchResult(
 /**
  * Search other relays in background
  */
-async function searchOtherRelaysInBackground(
+function searchOtherRelaysInBackground(
   searchType: SearchSubscriptionType,
   searchFilter: SearchFilter,
   searchState: any,
   callbacks?: SearchCallbacks,
-  abortSignal?: AbortSignal,
   cleanup?: () => void,
 ): Promise<SearchResult> {
   const ndk = get(ndkInstance);
@@ -578,7 +578,7 @@ async function searchOtherRelaysInBackground(
       } else {
         processContentEvent(event, searchType, searchState);
       }
-    } catch (e) {
+    } catch {
       // Invalid JSON or other error, skip
     }
   });

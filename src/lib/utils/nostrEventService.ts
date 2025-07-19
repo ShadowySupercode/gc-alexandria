@@ -1,10 +1,9 @@
 import { nip19 } from "nostr-tools";
-import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils";
+import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils.ts";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
-import { EVENT_KINDS, TIME_CONSTANTS, TIMEOUTS } from "./search_constants";
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-import { ndkInstance } from "$lib/ndk";
+import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
+import { ndkInstance } from "../ndk.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 
 export interface RootEventInfo {
@@ -139,7 +138,6 @@ export function extractParentEventInfo(parent: NDKEvent): ParentEventInfo {
  */
 function buildRootScopeTags(
   rootInfo: RootEventInfo,
-  parentInfo: ParentEventInfo,
 ): string[][] {
   const tags: string[][] = [];
 
@@ -292,7 +290,7 @@ export function buildReplyTags(
       // For regular events, use E/e tags
       if (isReplyToComment) {
         // Reply to a comment - distinguish root from parent
-        addTags(tags, ...buildRootScopeTags(rootInfo, parentInfo));
+        addTags(tags, ...buildRootScopeTags(rootInfo));
         addTags(
           tags,
           createTag("e", parent.id, parentInfo.parentRelay),
@@ -301,7 +299,7 @@ export function buildReplyTags(
         );
       } else {
         // Top-level comment or regular event
-        addTags(tags, ...buildRootScopeTags(rootInfo, parentInfo));
+        addTags(tags, ...buildRootScopeTags(rootInfo));
         addTags(tags, ...buildParentScopeTags(parent, parentInfo, rootInfo));
       }
     }
@@ -318,6 +316,7 @@ export async function createSignedEvent(
   pubkey: string,
   kind: number,
   tags: string[][],
+// deno-lint-ignore no-explicit-any
 ): Promise<{ id: string; sig: string; event: any }> {
   const prefixedContent = prefixNostrAddresses(content);
 
@@ -337,8 +336,8 @@ export async function createSignedEvent(
   };
 
   let sig, id;
-  if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
-    const signed = await window.nostr.signEvent(eventToSign);
+  if (typeof window !== "undefined" && globalThis.nostr && globalThis.nostr.signEvent) {
+    const signed = await globalThis.nostr.signEvent(eventToSign);
     sig = signed.sig as string;
     id = "id" in signed ? (signed.id as string) : getEventHash(eventToSign);
   } else {
@@ -364,7 +363,7 @@ export async function createSignedEvent(
  * @returns Promise that resolves to array of successful relay URLs
  */
 export async function publishEvent(
-  event: NDKEvent | any,
+  event: NDKEvent,
   relayUrls: string[],
 ): Promise<string[]> {
   const successfulRelays: string[] = [];
@@ -427,6 +426,7 @@ export function navigateToEvent(eventId: string): void {
 }
 
 // Helper functions to ensure relay and pubkey are always strings
+// deno-lint-ignore no-explicit-any
 function getRelayString(relay: any): string {
   if (!relay) return "";
   if (typeof relay === "string") return relay;
@@ -434,6 +434,7 @@ function getRelayString(relay: any): string {
   return "";
 }
 
+// deno-lint-ignore no-explicit-any
 function getPubkeyString(pubkey: any): string {
   if (!pubkey) return "";
   if (typeof pubkey === "string") return pubkey;

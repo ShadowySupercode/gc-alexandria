@@ -1,4 +1,4 @@
-import { postProcessAsciidoctorHtml } from "./asciidoctorPostProcessor";
+import { postProcessAsciidoctorHtml } from "./asciidoctorPostProcessor.ts";
 import plantumlEncoder from "plantuml-encoder";
 
 /**
@@ -25,16 +25,16 @@ export async function postProcessAdvancedAsciidoctorHtml(
     processedHtml = processTikZBlocks(processedHtml);
     // After all processing, apply highlight.js if available
     if (
-      typeof window !== "undefined" &&
-      typeof window.hljs?.highlightAll === "function"
+      typeof globalThis !== "undefined" &&
+      typeof globalThis.hljs?.highlightAll === "function"
     ) {
-      setTimeout(() => window.hljs!.highlightAll(), 0);
+      setTimeout(() => globalThis.hljs!.highlightAll(), 0);
     }
     if (
-      typeof window !== "undefined" &&
-      typeof (window as any).MathJax?.typesetPromise === "function"
+      typeof globalThis !== "undefined" &&
+      typeof globalThis.MathJax?.typesetPromise === "function"
     ) {
-      setTimeout(() => (window as any).MathJax.typesetPromise(), 0);
+      setTimeout(() => globalThis.MathJax.typesetPromise(), 0);
     }
     return processedHtml;
   } catch (error) {

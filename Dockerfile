@@ -11,5 +11,7 @@ COPY --from=build /app/src/import_map.json .
 
 ENV ORIGIN=http://localhost:3000
 
+RUN deno cache --import-map=import_map.json ./build/index.js
+
 EXPOSE 3000
 CMD [ "deno", "run", "--allow-env", "--allow-read", "--allow-net", "--import-map=import_map.json", "./build/index.js" ]

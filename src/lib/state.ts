@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 import { writable, type Writable } from "svelte/store";
-import type { Tab } from "./types";
+import type { Tab } from "./types.ts";
 
 export const pathLoaded: Writable<boolean> = writable(false);
 

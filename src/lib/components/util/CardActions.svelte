@@ -9,7 +9,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays } from "$lib/ndk";
-import { userStore } from "$lib/stores/userStore";
+  import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
 

@@ -1,4 +1,4 @@
-import { deduplicateRelayUrls } from './relay_management';
+import { deduplicateRelayUrls } from "./relay_management.ts";
 
 /**
  * Network conditions for relay selection
@@ -26,7 +26,7 @@ export async function isNetworkOnline(): Promise<boolean> {
   for (const endpoint of NETWORK_ENDPOINTS) {
     try {
       // Use a simple fetch without HEAD method to avoid CORS issues
-      const response = await fetch(endpoint, {
+      await fetch(endpoint, {
         method: 'GET',
         cache: 'no-cache',
         signal: AbortSignal.timeout(3000),
@@ -127,8 +127,7 @@ export function getRelaySetForNetworkCondition(
           outboxRelays: []
         };
       }
-      
-    case NetworkCondition.SLOW:
+    case NetworkCondition.SLOW: {
       // Local relays + low bandwidth relays when slow (deduplicated)
       console.debug('[network_detection.ts] Using local + low bandwidth relays (slow network)');
       const slowInboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...lowbandwidthRelays]);
@@ -137,7 +136,7 @@ export function getRelaySetForNetworkCondition(
         inboxRelays: slowInboxRelays,
         outboxRelays: slowOutboxRelays
       };
-      
+    }
     case NetworkCondition.ONLINE:
     default:
       // Full relay set when online
@@ -177,7 +176,7 @@ export function startNetworkMonitoring(
   checkNetwork();
 
   // Set up periodic monitoring
-  intervalId = window.setInterval(checkNetwork, checkInterval);
+  intervalId = globalThis.setInterval(checkNetwork, checkInterval);
 
   // Return function to stop monitoring
   return () => {

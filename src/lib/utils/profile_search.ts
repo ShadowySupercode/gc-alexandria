@@ -1,19 +1,16 @@
-import { ndkInstance } from "$lib/ndk";
-import { getUserMetadata, getNpubFromNip05 } from "$lib/utils/nostrUtils";
-import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
-import { searchCache } from "$lib/utils/searchCache";
-import { communityRelays, secondaryRelays } from "$lib/consts";
+import { ndkInstance } from "../ndk.ts";
+import { getUserMetadata, getNpubFromNip05 } from "./nostrUtils.ts";
+import NDK, { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import { searchCache } from "./searchCache.ts";
+import { communityRelays, secondaryRelays } from "../consts.ts";
 import { get } from "svelte/store";
-import type { NostrProfile, ProfileSearchResult } from "./search_types";
+import type { NostrProfile, ProfileSearchResult } from "./search_types.ts";
 import {
   fieldMatches,
   nip05Matches,
   normalizeSearchTerm,
-  COMMON_DOMAINS,
   createProfileFromEvent,
-} from "./search_utils";
-import { checkCommunityStatus } from "./community_checker";
-import { TIMEOUTS } from "./search_constants";
+} from "./search_utils.ts";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
@@ -92,7 +89,7 @@ export async function searchProfiles(
     } else {
       // Try NIP-05 search first (faster than relay search)
       console.log("Starting NIP-05 search for:", normalizedSearchTerm);
-      foundProfiles = await searchNip05Domains(normalizedSearchTerm, ndk);
+      foundProfiles = await searchNip05Domains(normalizedSearchTerm);
       console.log(
         "NIP-05 search completed, found:",
         foundProfiles.length,
@@ -145,7 +142,6 @@ export async function searchProfiles(
  */
 async function searchNip05Domains(
   searchTerm: string,
-  ndk: any,
 ): Promise<NostrProfile[]> {
   const foundProfiles: NostrProfile[] = [];
 
@@ -260,10 +256,9 @@ async function searchNip05Domains(
  */
 async function quickRelaySearch(
   searchTerm: string,
-  ndk: any,
+  ndk: NDK,
 ): Promise<NostrProfile[]> {
   console.log("quickRelaySearch called with:", searchTerm);
-  const foundProfiles: NostrProfile[] = [];
 
   // Normalize the search term for relay search
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
@@ -286,7 +281,7 @@ async function quickRelaySearch(
     .filter(Boolean);
 
   // Search all relays in parallel with short timeout
-  const searchPromises = relaySets.map(async (relaySet, index) => {
+  const searchPromises = relaySets.map((relaySet, index) => {
     if (!relaySet) return [];
 
     return new Promise<NostrProfile[]>((resolve) => {
@@ -299,7 +294,8 @@ async function quickRelaySearch(
 
       const sub = ndk.subscribe(
         { kinds: [0] },
-        { closeOnEose: true, relaySet },
+        { closeOnEose: true },
+        relaySet,
       );
 
       sub.on("event", (event: NDKEvent) => {
@@ -351,7 +347,7 @@ async function quickRelaySearch(
               foundInRelay.push(profile);
             }
           }
-        } catch (e) {
+        } catch {
           // Invalid JSON or other error, skip
         }
       });

@@ -1,17 +1,17 @@
 import { writable, get } from "svelte/store";
-import type { NostrProfile } from "$lib/utils/nostrUtils";
+import type { NostrProfile } from "../utils/nostrUtils.ts";
 import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
-import {
+import NDK, {
   NDKNip07Signer,
   NDKRelayAuthPolicies,
   NDKRelaySet,
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
-import { getUserMetadata } from "$lib/utils/nostrUtils";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "$lib/ndk";
-import { loginStorageKey } from "$lib/consts";
+import { getUserMetadata } from "../utils/nostrUtils.ts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../ndk.ts";
+import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
-import { userPubkey } from "$lib/stores/authStore.Svelte";
+import { userPubkey } from "../stores/authStore.Svelte.ts";
 
 export interface UserState {
   pubkey: string | null;
@@ -69,7 +69,7 @@ function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
 }
 
 async function getUserPreferredRelays(
-  ndk: any,
+  ndk: NDK,
   user: NDKUser,
       fallbacks: readonly string[] = [...get(activeInboxRelays), ...get(activeOutboxRelays)],
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
@@ -90,9 +90,9 @@ async function getUserPreferredRelays(
   const outboxRelays = new Set<NDKRelay>();
 
   if (relayList == null) {
-    const relayMap = await window.nostr?.getRelays?.();
+    const relayMap = await globalThis.nostr?.getRelays?.();
     Object.entries(relayMap ?? {}).forEach(
-      ([url, relayType]: [string, any]) => {
+      ([url, relayType]: [string, Record<string, boolean | undefined>]) => {
         const relay = new NDKRelay(
           url,
           NDKRelayAuthPolicies.signIn({ ndk }),
@@ -137,15 +137,6 @@ export const loginMethodStorageKey = "alexandria/login/method";
 function persistLogin(user: NDKUser, method: "extension" | "amber" | "npub") {
   localStorage.setItem(loginStorageKey, user.pubkey);
   localStorage.setItem(loginMethodStorageKey, method);
-}
-
-function getPersistedLoginMethod(): "extension" | "amber" | "npub" | null {
-  return (
-    (localStorage.getItem(loginMethodStorageKey) as
-      | "extension"
-      | "amber"
-      | "npub") ?? null
-  );
 }
 
 function clearLogin() {
