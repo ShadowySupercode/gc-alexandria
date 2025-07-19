@@ -3,7 +3,13 @@ export type Tab = {
   type: TabType;
   parent?: number;
   previous?: Tab;
-  data?: any;
+  data?: unknown;
 };
 
-export type TabType = 'welcome' | 'find' | 'article' | 'user' | 'settings' | 'editor';
+export type TabType =
+  | "welcome"
+  | "find"
+  | "article"
+  | "user"
+  | "settings"
+  | "editor";

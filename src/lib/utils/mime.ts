@@ -1,3 +1,5 @@
+import { EVENT_KINDS } from "./search_constants";
+
 /**
  * Determine the type of Nostr event based on its kind number
  * Following NIP specification for kind ranges:
@@ -6,22 +8,34 @@
  * - Addressable: 30000-39999 (latest per d-tag stored)
  * - Regular: all other kinds (stored by relays)
  */
-export function getEventType(kind: number): 'regular' | 'replaceable' | 'ephemeral' | 'addressable' {
+export function getEventType(
+  kind: number,
+): "regular" | "replaceable" | "ephemeral" | "addressable" {
   // Check special ranges first
-  if (kind >= 30000 && kind < 40000) {
-    return 'addressable';
+  if (
+    kind >= EVENT_KINDS.ADDRESSABLE.MIN &&
+    kind < EVENT_KINDS.ADDRESSABLE.MAX
+  ) {
+    return "addressable";
   }
-  
-  if (kind >= 20000 && kind < 30000) {
-    return 'ephemeral';
+
+  if (
+    kind >= EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MIN &&
+    kind < EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MAX
+  ) {
+    return "ephemeral";
   }
-  
-  if ((kind >= 10000 && kind < 20000) || kind === 0 || kind === 3) {
-    return 'replaceable';
+
+  if (
+    (kind >= EVENT_KINDS.REPLACEABLE.MIN &&
+      kind < EVENT_KINDS.REPLACEABLE.MAX) ||
+    EVENT_KINDS.REPLACEABLE.SPECIFIC.includes(kind as 0 | 3)
+  ) {
+    return "replaceable";
   }
-  
+
   // Everything else is regular
-  return 'regular';
+  return "regular";
 }
 
 /**
@@ -36,9 +50,10 @@ export function getMimeTags(kind: number): [string, string][] {
 
   // Determine replaceability based on event type
   const eventType = getEventType(kind);
-  const replaceability = (eventType === 'replaceable' || eventType === 'addressable') 
-    ? "replaceable" 
-    : "nonreplaceable";
+  const replaceability =
+    eventType === "replaceable" || eventType === "addressable"
+      ? "replaceable"
+      : "nonreplaceable";
 
   switch (kind) {
     // Short text note
@@ -93,4 +108,4 @@ export function getMimeTags(kind: number): [string, string][] {
   }
 
   return [mTag, MTag];
-} 
+}

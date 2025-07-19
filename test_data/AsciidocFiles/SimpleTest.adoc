@@ -1,0 +1,73 @@
+= Simple Advanced Rendering Test
+
+This is a simple test document to verify that Alexandria's advanced rendering features are working correctly.
+
+== Math Test
+
+Here's a simple math expression:
+
+[stem]
+++++
+E = mc^2
+++++
+
+And a more complex one:
+
+[stem]
+++++
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+++++
+
+== PlantUML Test
+
+A simple sequence diagram:
+
+[source,plantuml]
+----
+@startuml
+participant User
+participant System
+User -> System: Hello
+System --> User: Hi there!
+@enduml
+----
+
+== BPMN Test
+
+A simple BPMN process:
+
+[source,bpmn]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:process id="Process_1">
+    <bpmn:startEvent id="StartEvent_1" name="Start"/>
+    <bpmn:task id="Task_1" name="Test Task"/>
+    <bpmn:endEvent id="EndEvent_1" name="End"/>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_1"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_1" targetRef="EndEvent_1"/>
+  </bpmn:process>
+</bpmn:definitions>
+----
+
+== TikZ Test
+
+A simple TikZ diagram:
+
+[source,tikz]
+----
+\begin{tikzpicture}
+  \draw[thick,red] (0,0) circle (1cm);
+  \draw[thick,blue] (2,0) rectangle (3,1);
+\end{tikzpicture}
+----
+
+== Conclusion
+
+If you can see:
+1. Rendered math expressions
+2. A PlantUML diagram
+3. A BPMN diagram placeholder with source
+4. A TikZ diagram placeholder with source
+
+Then the advanced rendering is working correctly! 

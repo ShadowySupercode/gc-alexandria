@@ -1,6 +1,6 @@
 <script>
   export let size = 24; // default size
-  export let className = '';
+  export let className = "";
 </script>
 
 <svg
@@ -15,5 +15,5 @@
   class={className}
   viewBox="0 0 24 24"
 >
-  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
 </svg>
