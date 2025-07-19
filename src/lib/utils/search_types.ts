@@ -1,4 +1,4 @@
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKFilter, NDKSubscription } from "@nostr-dev-kit/ndk";
 
 /**
  * Extended NostrProfile interface for search results
@@ -45,7 +45,7 @@ export type SearchSubscriptionType = "d" | "t" | "n";
  * Search filter configuration
  */
 export interface SearchFilter {
-  filter: any;
+  filter: NDKFilter;
   subscriptionType: string;
 }
 
@@ -65,5 +65,5 @@ export interface SecondOrderSearchParams {
  */
 export interface SearchCallbacks {
   onSecondOrderUpdate?: (result: SearchResult) => void;
-  onSubscriptionCreated?: (sub: any) => void;
+  onSubscriptionCreated?: (sub: NDKSubscription) => void;
 }

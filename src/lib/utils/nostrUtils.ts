@@ -1,17 +1,17 @@
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
-import { ndkInstance } from "$lib/ndk";
-import { npubCache } from "./npubCache";
+import { ndkInstance } from "../ndk.ts";
+import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { communityRelays, secondaryRelays, anonymousRelays } from "$lib/consts";
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import type { NDKFilter, NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
+import { communityRelays, secondaryRelays } from "../consts.ts";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
-import { wellKnownUrl } from "./search_utility";
-import { TIMEOUTS, VALIDATION } from "./search_constants";
+import { wellKnownUrl } from "./search_utility.ts";
+import { VALIDATION } from "./search_constants.ts";
 
 const badgeCheckSvg =
   '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>';
@@ -442,7 +442,7 @@ export async function fetchEventWithFallback(
   // Use both inbox and outbox relays for better event discovery
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
-  const allRelays = [...(inboxRelays || []), ...(outboxRelays || [])];
+  const allRelays = [...inboxRelays, ...outboxRelays];
   
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
   console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
@@ -464,7 +464,7 @@ export async function fetchEventWithFallback(
 
     console.log("fetchEventWithFallback: Relay set size:", relaySet.relays.size);
     console.log("fetchEventWithFallback: Filter:", filterOrId);
-    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r: any) => r.url));
+    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r) => r.url));
 
     let found: NDKEvent | null = null;
 
@@ -488,7 +488,7 @@ export async function fetchEventWithFallback(
 
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
       console.warn(
         `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
@@ -501,7 +501,7 @@ export async function fetchEventWithFallback(
   } catch (err) {
     if (err instanceof Error && err.message === 'Timeout') {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r: any) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
       console.warn(
         `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
@@ -536,7 +536,7 @@ export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
   return NDKRelaySetFromNDK.fromRelayUrls(relayUrls, ndk);
 }
 
-export function createNDKEvent(ndk: NDK, rawEvent: any) {
+export function createNDKEvent(ndk: NDK, rawEvent: NDKEvent | NostrEvent | undefined) {
   return new NDKEvent(ndk, rawEvent);
 }
 

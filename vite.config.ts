@@ -1,6 +1,7 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import { execSync } from "child_process";
+import process from "node:process";
 
 // Function to get the latest git tag
 function getAppVersionString() {
@@ -17,7 +18,7 @@ function getAppVersionString() {
     // Get the latest git tag, assuming git is installed and tagged branch is available
     const tag = execSync("git describe --tags --abbrev=0").toString().trim();
     return tag;
-  } catch (error) {
+  } catch {
     return "development";
   }
 }

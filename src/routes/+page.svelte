@@ -1,12 +1,8 @@
 <script lang="ts">
-  import { Alert, Input } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
-  import { userStore } from "$lib/stores/userStore";
-  import { activeInboxRelays, ndkSignedIn } from "$lib/ndk";
+  import { Input } from "flowbite-svelte";
   import PublicationFeed from "$lib/components/publications/PublicationFeed.svelte";
 
   let searchQuery = $state("");
-  let user = $derived($userStore);
   let eventCount = $state({ displayed: 0, total: 0 });
 
   function handleEventCountUpdate(counts: { displayed: number; total: number }) {

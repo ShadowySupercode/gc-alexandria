@@ -1,18 +1,18 @@
-import { ndkInstance } from "$lib/ndk";
-import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
-import { nip19 } from "$lib/utils/nostrUtils";
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { ndkInstance } from "../ndk.ts";
+import { fetchEventWithFallback } from "./nostrUtils.ts";
+import { nip19 } from "nostr-tools";
+import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
 import { get } from "svelte/store";
-import { wellKnownUrl, isValidNip05Address } from "./search_utils";
-import { TIMEOUTS, VALIDATION } from "./search_constants";
+import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
+import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
 
 /**
  * Search for a single event by ID or filter
  */
 export async function searchEvent(query: string): Promise<NDKEvent | null> {
   // Clean the query and normalize to lowercase
-  let cleanedQuery = query.replace(/^nostr:/, "").toLowerCase();
-  let filterOrId: any = cleanedQuery;
+  const cleanedQuery = query.replace(/^nostr:/, "").toLowerCase();
+  let filterOrId: NDKFilter | string = cleanedQuery;
 
   // If it's a valid hex string, try as event id first, then as pubkey (profile)
   if (
@@ -164,7 +164,7 @@ export async function findContainingIndexEvents(
 ): Promise<NDKEvent[]> {
   // Support all content event kinds that can be contained in indexes
   const contentEventKinds = [30041, 30818, 30040, 30023];
-  if (!contentEventKinds.includes(contentEvent.kind)) {
+  if (!contentEventKinds.includes(contentEvent.kind!)) {
     return [];
   }
 

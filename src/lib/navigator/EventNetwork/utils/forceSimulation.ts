@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * D3 Force Simulation Utilities
  *
@@ -5,7 +6,7 @@
  * graph simulations for the event network visualization.
  */
 
-import type { NetworkNode, NetworkLink } from "../types";
+import type { NetworkNode, NetworkLink } from "../types.ts";
 import * as d3 from "d3";
 
 // Configuration

@@ -1,6 +1,5 @@
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-import NDK from "@nostr-dev-kit/ndk";
-import { TIMEOUTS } from "./search_constants";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import { TIMEOUTS } from "./search_constants.ts";
 import { get } from "svelte/store";
 
 export interface RelayDiagnostic {
@@ -14,7 +13,7 @@ export interface RelayDiagnostic {
 /**
  * Tests connection to a single relay
  */
-export async function testRelay(url: string): Promise<RelayDiagnostic> {
+export function testRelay(url: string): Promise<RelayDiagnostic> {
   const startTime = Date.now();
 
   return new Promise((resolve) => {

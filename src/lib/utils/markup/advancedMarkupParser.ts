@@ -1,4 +1,4 @@
-import { parseBasicmarkup } from "./basicMarkupParser";
+import { parseBasicmarkup } from "./basicMarkupParser.ts";
 import hljs from "highlight.js";
 import "highlight.js/lib/common"; // Import common languages
 import "highlight.js/styles/github-dark.css"; // Dark theme only
@@ -35,14 +35,14 @@ const FOOTNOTE_DEFINITION_REGEX = /^\[\^([^\]]+)\]:\s*(.+)$/gm;
 const CODE_BLOCK_REGEX = /^```(\w*)$/;
 
 // LaTeX math regex patterns
-const INLINE_MATH_REGEX = /\$([^$\n]+?)\$/g;
-const DISPLAY_MATH_REGEX = /\$\$([\s\S]*?)\$\$/g;
-const LATEX_BLOCK_REGEX = /\\\[([\s\S]*?)\\\]/g;
-const LATEX_INLINE_REGEX = /\\\(([^)]+?)\\\)/g;
+// const INLINE_MATH_REGEX = /\$([^$\n]+?)\$/g;
+// const DISPLAY_MATH_REGEX = /\$\$([\s\S]*?)\$\$/g;
+// const LATEX_BLOCK_REGEX = /\\\[([\s\S]*?)\\\]/g;
+// const LATEX_INLINE_REGEX = /\\\(([^)]+?)\\\)/g;
 // Add regex for LaTeX display math environments (e.g., \begin{pmatrix}...\end{pmatrix})
 // Improved regex: match optional whitespace/linebreaks before and after, and allow for indented environments
-const LATEX_ENV_BLOCK_REGEX =
-  /(?:^|\n)\s*\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}\s*(?=\n|$)/gm;
+// const LATEX_ENV_BLOCK_REGEX =
+//   /(?:^|\n)\s*\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}\s*(?=\n|$)/gm;
 
 /**
  * Process headings (both styles)
@@ -290,7 +290,7 @@ function processCodeBlocks(text: string): {
         if (currentLanguage.toLowerCase() === "json") {
           try {
             formattedCode = JSON.stringify(JSON.parse(code), null, 2);
-          } catch (e: unknown) {
+          } catch {
             formattedCode = code;
           }
         }
@@ -333,7 +333,7 @@ function processCodeBlocks(text: string): {
     if (currentLanguage.toLowerCase() === "json") {
       try {
         formattedCode = JSON.stringify(JSON.parse(code), null, 2);
-      } catch (e: unknown) {
+      } catch {
         formattedCode = code;
       }
     }
@@ -402,7 +402,7 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
  */
 function processDollarMath(content: string): string {
   // Display math: $$...$$ (multi-line, not empty)
-  content = content.replace(/\$\$([\s\S]*?\S[\s\S]*?)\$\$/g, (match, expr) => {
+  content = content.replace(/\$\$([\s\S]*?\S[\s\S]*?)\$\$/g, (_match, expr) => {
     if (isLaTeXContent(expr)) {
       return `<div class="math-block">$$${expr}$$</div>`;
     } else {
@@ -412,7 +412,7 @@ function processDollarMath(content: string): string {
     }
   });
   // Inline math: $...$ (not empty, not just whitespace)
-  content = content.replace(/\$([^\s$][^$\n]*?)\$/g, (match, expr) => {
+  content = content.replace(/\$([^\s$][^$\n]*?)\$/g, (_match, expr) => {
     if (isLaTeXContent(expr)) {
       return `<span class="math-inline">$${expr}$</span>`;
     } else {
@@ -428,7 +428,7 @@ function processDollarMath(content: string): string {
  */
 function processMathExpressions(content: string): string {
   // Only process LaTeX within inline code blocks (backticks)
-  return content.replace(INLINE_CODE_REGEX, (match, code) => {
+  return content.replace(INLINE_CODE_REGEX, (_match, code) => {
     const trimmedCode = code.trim();
 
     // Check for unsupported LaTeX environments (like tabular) first

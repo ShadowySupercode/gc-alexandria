@@ -1,12 +1,8 @@
 import { get } from "svelte/store";
-import { ndkInstance } from "$lib/ndk";
-import { getMimeTags } from "$lib/utils/mime";
-import {
-  parseAsciiDocSections,
-  type ZettelSection,
-} from "$lib/utils/ZettelParser";
+import { ndkInstance } from "../ndk.ts";
+import { getMimeTags } from "../utils/mime.ts";
+import { parseAsciiDocSections } from "../utils/ZettelParser.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
-import { nip19 } from "nostr-tools";
 
 export interface PublishResult {
   success: boolean;

@@ -1,11 +1,11 @@
-import { getPersistedLogin, initNdk, ndkInstance } from "$lib/ndk";
+import { getPersistedLogin, initNdk, ndkInstance } from "../lib/ndk.ts";
 import {
   loginWithExtension,
   loginWithAmber,
   loginWithNpub,
-} from "$lib/stores/userStore";
-import { loginMethodStorageKey } from "$lib/stores/userStore";
-import Pharos, { pharosInstance } from "$lib/parser";
+} from "../lib/stores/userStore.ts";
+import { loginMethodStorageKey } from "../lib/stores/userStore.ts";
+import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
 
@@ -35,10 +35,11 @@ export const load: LayoutLoad = () => {
         const localNsec = localStorage.getItem("amber/nsec");
         if (localNsec) {
           import("@nostr-dev-kit/ndk").then(
-            async ({ NDKNip46Signer, default: NDK }) => {
+            async ({ NDKNip46Signer }) => {
               const ndk = get(ndkInstance);
               try {
-                const amberSigner = NDKNip46Signer.nostrconnect(
+                // deno-lint-ignore no-explicit-any
+                const amberSigner = (NDKNip46Signer as any).nostrconnect(
                   ndk,
                   relay,
                   localNsec,
@@ -52,7 +53,7 @@ export const load: LayoutLoad = () => {
                 const user = await amberSigner.user();
                 await loginWithAmber(amberSigner, user);
                 console.log("Amber session restored.");
-              } catch (err) {
+              } catch {
                 // If reconnection fails, automatically fallback to npub-only mode
                 console.warn(
                   "Amber session could not be restored. Falling back to npub-only mode.",

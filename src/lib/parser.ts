@@ -1,9 +1,9 @@
+// deno-lint-ignore-file no-this-alias
 import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
-import asciidoctor from "asciidoctor";
+import Processor from "asciidoctor";
 import type {
   AbstractBlock,
   AbstractNode,
-  Asciidoctor,
   Block,
   Document,
   Extensions,
@@ -13,7 +13,7 @@ import type {
 import he from "he";
 import { writable, type Writable } from "svelte/store";
 import { zettelKinds } from "./consts.ts";
-import { getMatchingTags } from "$lib/utils/nostrUtils";
+import { getMatchingTags } from "./utils/nostrUtils.ts";
 
 interface IndexMetadata {
   authors?: string[];
@@ -65,7 +65,7 @@ export default class Pharos {
    * hierarchically to form the Abstract Syntax Tree (AST) representation of the document.
    */
 
-  private asciidoctor: Asciidoctor;
+  private asciidoctor;
 
   private pharosExtensions: Extensions.Registry;
 
@@ -140,7 +140,7 @@ export default class Pharos {
   // #region Public API
 
   constructor(ndk: NDK) {
-    this.asciidoctor = asciidoctor();
+    this.asciidoctor = Processor();
     this.pharosExtensions = this.asciidoctor.Extensions.create();
 
     this.ndk = ndk;
@@ -164,9 +164,9 @@ export default class Pharos {
   private async loadAdvancedExtensions(): Promise<void> {
     try {
       const { createAdvancedExtensions } = await import(
-        "./utils/markup/asciidoctorExtensions"
+        "./utils/markup/asciidoctorExtensions.ts"
       );
-      const advancedExtensions = createAdvancedExtensions();
+      createAdvancedExtensions();
       // Note: Extensions merging might not be available in this version
       // We'll handle this in the parse method instead
     } catch (error) {
@@ -549,7 +549,7 @@ export default class Pharos {
    * - Each ID of a node containing children is mapped to the set of IDs of its children.
    */
   private treeProcessor(
-    treeProcessor: Extensions.TreeProcessor,
+    _: Extensions.TreeProcessor,
     document: Document,
   ) {
     this.rootNodeId = this.generateNodeId(document);
