@@ -1,7 +1,8 @@
 import { ndkInstance } from "../ndk.ts";
 import { fetchEventWithFallback } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
-import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NDKFilter } from "@nostr-dev-kit/ndk";
 import { get } from "svelte/store";
 import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
