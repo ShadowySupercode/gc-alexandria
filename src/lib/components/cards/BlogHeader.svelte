@@ -6,6 +6,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
   import CardActions from "$components/util/CardActions.svelte";
+<<<<<<< HEAD
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";

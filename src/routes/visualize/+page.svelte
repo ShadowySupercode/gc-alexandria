@@ -220,8 +220,14 @@
   /**
    * Fetches events from the Nostr network
    * 
-   * This function fetches index events and their referenced content events,
-   * filters them according to NIP-62, and combines them for visualization.
+   * This function orchestrates the fetching of events through multiple steps:
+   * 1. Setup configuration and loading state
+   * 2. Fetch non-publication events (kinds 1, 3, etc.)
+   * 3. Fetch publication index events
+   * 4. Extract and fetch content events
+   * 5. Deduplicate and combine all events
+   * 6. Fetch profiles for discovered pubkeys
+   * 7. Apply display limits and finalize
    */
   async function fetchEvents() {
     // Prevent concurrent fetches
@@ -238,330 +244,27 @@
       loading = true;
       error = null;
 
-      // Get ALL event configurations (Phase 5: fetch all, display enabled)
-      const config = get(visualizationConfig);
-      const allConfigs = config.eventConfigs;
+      // Step 1: Setup configuration and loading state
+      const { allConfigs, publicationConfigs, otherConfigs, kind0Config } = setupFetchConfiguration();
       
-      debug("All event configs:", allConfigs);
-      debug("Disabled kinds:", config.disabledKinds);
+      // Step 2: Fetch non-publication events
+      const nonPublicationEvents = await fetchNonPublicationEvents(otherConfigs);
       
-      // Set loading event kinds for display (show all being loaded)
-      loadingEventKinds = allConfigs.map(ec => ({
-        kind: ec.kind,
-        limit: ec.limit
-      }));
+      // Step 3: Fetch publication index events
+      const validIndexEvents = await fetchPublicationIndexEvents(publicationConfigs);
       
-      // Separate publication kinds from other kinds
-      const publicationKinds = [30040, 30041, 30818];
-      const publicationConfigs = allConfigs.filter(ec => publicationKinds.includes(ec.kind));
-      const otherConfigs = allConfigs.filter(ec => !publicationKinds.includes(ec.kind));
+      // Step 4: Extract and fetch content events
+      const contentEvents = await fetchContentEvents(validIndexEvents, publicationConfigs);
       
-      let allFetchedEvents: NDKEvent[] = [];
+      // Step 5: Deduplicate and combine all events
+      const combinedEvents = deduplicateAndCombineEvents(nonPublicationEvents, validIndexEvents, contentEvents);
       
-      // First, fetch non-publication events (like kind 1, 3, etc. but NOT kind 0)
-      // We'll fetch kind 0 profiles after we know which pubkeys we need
-      const kind0Config = otherConfigs.find(c => c.kind === 0);
-      const nonProfileConfigs = otherConfigs.filter(c => c.kind !== 0);
+      // Step 6: Fetch profiles for discovered pubkeys
+      const eventsWithProfiles = await fetchProfilesForEvents(combinedEvents, kind0Config);
       
-      if (nonProfileConfigs.length > 0) {
-        debug("Fetching non-publication events (excluding profiles):", nonProfileConfigs);
-        
-        for (const config of nonProfileConfigs) {
-          try {
-            // Special handling for kind 3 (follow lists)
-            if (config.kind === 3) {
-              const followEvents = await fetchFollowLists(config);
-              allFetchedEvents.push(...followEvents);
-            } else {
-              const fetchedEvents = await $ndkInstance.fetchEvents(
-                { 
-                  kinds: [config.kind], 
-                  limit: config.limit 
-                },
-                {
-                  groupable: true,
-                  skipVerification: false,
-                  skipValidation: false,
-                }
-              );
-              debug(`Fetched ${fetchedEvents.size} events of kind ${config.kind}`);
-              allFetchedEvents.push(...Array.from(fetchedEvents));
-            }
-          } catch (e) {
-            console.error(`Error fetching kind ${config.kind}:`, e);
-          }
-        }
-      }
+      // Step 7: Apply display limits and finalize
+      finalizeEventFetch(eventsWithProfiles);
       
-      // Then handle publication events as before
-      let validIndexEvents: Set<NDKEvent> = new Set();
-      const shouldFetchIndex = publicationConfigs.some(ec => ec.kind === INDEX_EVENT_KIND);
-
-      if (data.eventId) {
-        // Fetch specific publication
-        debug(`Fetching specific publication: ${data.eventId}`);
-        const event = await $ndkInstance.fetchEvent(data.eventId);
-        
-        if (!event) {
-          throw new Error(`Publication not found: ${data.eventId}`);
-        }
-        
-        if (event.kind !== INDEX_EVENT_KIND) {
-          throw new Error(`Event ${data.eventId} is not a publication index (kind ${INDEX_EVENT_KIND})`);
-        }
-        
-        validIndexEvents = new Set([event]);
-      } else if (!shouldFetchIndex) {
-        debug("Index events (30040) are disabled, skipping fetch");
-        validIndexEvents = new Set();
-      } else {
-        // Original behavior: fetch all publications
-        debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
-        const indexConfig = publicationConfigs.find(ec => ec.kind === INDEX_EVENT_KIND);
-        const indexLimit = indexConfig?.limit || 20;
-        
-        const indexEvents = await $ndkInstance.fetchEvents(
-          { 
-            kinds: [INDEX_EVENT_KIND], 
-            limit: indexLimit
-          },
-          {
-            groupable: true,
-            skipVerification: false,
-            skipValidation: false,
-          },
-        );
-        debug("Fetched index events:", indexEvents.size);
-
-        // Filter valid index events according to NIP-62
-        validIndexEvents = filterValidIndexEvents(indexEvents);
-        debug("Valid index events after filtering:", validIndexEvents.size);
-      }
-
-      // Step 3: Extract content event references from index events
-      const contentReferences = new Map<string, { kind: number; pubkey: string; dTag: string }>();
-      validIndexEvents.forEach((event) => {
-        const aTags = event.getMatchingTags("a");
-        debug(`Event ${event.id} has ${aTags.length} a-tags`);
-        
-        aTags.forEach((tag) => {
-          // Parse the 'a' tag identifier: kind:pubkey:d-tag
-          if (tag[1]) {
-            const parts = tag[1].split(':');
-            if (parts.length >= 3) {
-              const kind = parseInt(parts[0]);
-              const pubkey = parts[1];
-              const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
-              
-              // Only add if it's a content event kind we're interested in
-              if (CONTENT_EVENT_KINDS.includes(kind)) {
-                const key = `${kind}:${pubkey}:${dTag}`;
-                contentReferences.set(key, { kind, pubkey, dTag });
-              }
-            }
-          }
-        });
-      });
-      debug("Content references to fetch:", contentReferences.size);
-
-      // Step 4: Fetch the referenced content events with author filter
-      // Only fetch content kinds that are enabled
-      const enabledPublicationKinds = publicationConfigs.map(ec => ec.kind);
-      const enabledContentKinds = CONTENT_EVENT_KINDS.filter(kind => enabledPublicationKinds.includes(kind));
-      debug(`Fetching content events (enabled kinds: ${enabledContentKinds.join(', ')})`);
-      
-      // Group by author to make more efficient queries
-      const referencesByAuthor = new Map<string, Array<{ kind: number; dTag: string }>>();
-      contentReferences.forEach(({ kind, pubkey, dTag }) => {
-        // Only include references for enabled kinds
-        if (enabledContentKinds.includes(kind)) {
-          if (!referencesByAuthor.has(pubkey)) {
-            referencesByAuthor.set(pubkey, []);
-          }
-          referencesByAuthor.get(pubkey)!.push({ kind, dTag });
-        }
-      });
-      
-      // Fetch events for each author
-      const contentEventPromises = Array.from(referencesByAuthor.entries()).map(
-        async ([author, refs]) => {
-          const dTags = [...new Set(refs.map(r => r.dTag))]; // Dedupe d-tags
-          return $ndkInstance.fetchEvents({
-            kinds: enabledContentKinds, // Only fetch enabled kinds
-            authors: [author],
-            "#d": dTags,
-          });
-        }
-      );
-      
-      const contentEventSets = await Promise.all(contentEventPromises);
-      
-      // Deduplicate by keeping only the most recent version of each d-tag per author
-      const eventsByCoordinate = new Map<string, NDKEvent>();
-      
-      contentEventSets.forEach((eventSet, idx) => {
-        eventSet.forEach(event => {
-          const dTag = event.tagValue("d");
-          const author = event.pubkey;
-          const kind = event.kind;
-          
-          if (dTag && author && kind) {
-            const coordinate = `${kind}:${author}:${dTag}`;
-            const existing = eventsByCoordinate.get(coordinate);
-            
-            // Keep the most recent event (highest created_at)
-            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
-              eventsByCoordinate.set(coordinate, event);
-              debug(`Keeping newer version of ${coordinate}, created_at: ${event.created_at}`);
-            } else if (existing) {
-              debug(`Skipping older version of ${coordinate}, created_at: ${event.created_at} vs ${existing.created_at}`);
-            }
-          }
-        });
-      });
-      
-      const contentEvents = new Set(eventsByCoordinate.values());
-      debug("Fetched content events after deduplication:", contentEvents.size);
-
-      // Step 5: Combine all events (non-publication + publication events)
-      // First, build coordinate map for replaceable events
-      const coordinateMap = new Map<string, NDKEvent>();
-      const allEventsToProcess = [
-        ...allFetchedEvents, // Non-publication events fetched earlier
-        ...Array.from(validIndexEvents), 
-        ...Array.from(contentEvents)
-      ];
-      
-      // First pass: identify the most recent version of each replaceable event
-      allEventsToProcess.forEach(event => {
-        if (!event.id) return;
-        
-        // For replaceable events (30000-39999), track by coordinate
-        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-          const dTag = event.tagValue("d");
-          const author = event.pubkey;
-          
-          if (dTag && author) {
-            const coordinate = `${event.kind}:${author}:${dTag}`;
-            const existing = coordinateMap.get(coordinate);
-            
-            // Keep the most recent version
-            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
-              coordinateMap.set(coordinate, event);
-            }
-          }
-        }
-      });
-      
-      // Second pass: build final event map
-      const finalEventMap = new Map<string, NDKEvent>();
-      const seenCoordinates = new Set<string>();
-      
-      allEventsToProcess.forEach(event => {
-        if (!event.id) return;
-        
-        // For replaceable events, only add if it's the chosen version
-        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-          const dTag = event.tagValue("d");
-          const author = event.pubkey;
-          
-          if (dTag && author) {
-            const coordinate = `${event.kind}:${author}:${dTag}`;
-            const chosenEvent = coordinateMap.get(coordinate);
-            
-            // Only add this event if it's the chosen one for this coordinate
-            if (chosenEvent && chosenEvent.id === event.id) {
-              if (!seenCoordinates.has(coordinate)) {
-                finalEventMap.set(event.id, event);
-                seenCoordinates.add(coordinate);
-              }
-            }
-            return;
-          }
-        }
-        
-        // Non-replaceable events are added directly
-        finalEventMap.set(event.id, event);
-      });
-      
-      // Replace mode (always replace, no append mode)
-      allEvents = Array.from(finalEventMap.values());
-      followListEvents = [];
-      
-      baseEvents = [...allEvents]; // Store base events for tag expansion
-      
-      // Step 6: Extract all pubkeys and fetch profiles
-      debug("Extracting pubkeys from all events");
-      
-      // Use the utility function to extract ALL pubkeys (authors + p tags + content)
-      const allPubkeys = extractPubkeysFromEvents(allEvents);
-      
-      // Check if follow list is configured with limit > 0
-      const followListConfig = allConfigs.find(c => c.kind === 3);
-      const shouldIncludeFollowPubkeys = followListConfig && followListConfig.limit > 0;
-      
-      // Add pubkeys from follow lists only if follow list limit > 0
-      if (shouldIncludeFollowPubkeys && followListEvents.length > 0) {
-        debug("Including pubkeys from follow lists (limit > 0)");
-        followListEvents.forEach(event => {
-          if (event.pubkey) allPubkeys.add(event.pubkey);
-          event.tags.forEach(tag => {
-            if (tag[0] === 'p' && tag[1]) {
-              allPubkeys.add(tag[1]);
-            }
-          });
-        });
-      } else if (!shouldIncludeFollowPubkeys && followListEvents.length > 0) {
-        debug("Excluding follow list pubkeys (limit = 0, only fetching event authors)");
-      }
-      
-      debug("Profile extraction complete:", {
-        totalPubkeys: allPubkeys.size,
-        fromEvents: allEvents.length,
-        fromFollowLists: followListEvents.length
-      });
-      
-      // Fetch ALL profiles if kind 0 is enabled
-      let profileEvents: NDKEvent[] = [];
-      if (kind0Config) {
-        debug("Fetching profiles for all discovered pubkeys");
-        
-        // Update progress during fetch
-        profileLoadingProgress = { current: 0, total: allPubkeys.size };
-        
-        profileEvents = await batchFetchProfiles(
-          Array.from(allPubkeys),
-          (fetched, total) => {
-            profileLoadingProgress = { current: fetched, total };
-          }
-        );
-        
-        profileLoadingProgress = null;
-        debug("Profile fetch complete, fetched", profileEvents.length, "profiles");
-        
-        // Add profile events to allEvents
-        allEvents = [...allEvents, ...profileEvents];
-        
-        // Update profile stats for display
-        // Use the total number of pubkeys, not just newly fetched profiles
-        profileStats = {
-          totalFetched: allPubkeys.size,
-          displayLimit: kind0Config.limit
-        };
-      }
-      
-      // Step 7: Apply display limits
-      events = filterByDisplayLimits(allEvents, $visualizationConfig);
-      
-      // Step 8: Detect missing events
-      const eventIds = new Set(allEvents.map(e => e.id));
-      missingEventIds = detectMissingEvents(events, eventIds);
-      
-      debug("Total events fetched:", allEvents.length);
-      debug("Events displayed:", events.length);
-      debug("Missing event IDs:", missingEventIds.size);
-      debug("About to set loading to false");
-      debug("Current loading state:", loading);
     } catch (e) {
       console.error("Error fetching events:", e);
       error = e instanceof Error ? e.message : String(e);
@@ -571,6 +274,410 @@
       debug("Loading set to false in fetchEvents");
       debug("Final state check - loading:", loading, "events.length:", events.length, "allEvents.length:", allEvents.length);
     }
+  }
+
+  /**
+   * Step 1: Setup configuration and loading state
+   */
+  function setupFetchConfiguration() {
+    const config = get(visualizationConfig);
+    const allConfigs = config.eventConfigs;
+    
+    debug("All event configs:", allConfigs);
+    debug("Enabled kinds:", allConfigs.filter(ec => ec.enabled !== false).map(ec => ec.kind));
+    
+    // Set loading event kinds for display (show all being loaded)
+    loadingEventKinds = allConfigs.map(ec => ({
+      kind: ec.kind,
+      limit: ec.limit
+    }));
+    
+    // Separate publication kinds from other kinds
+    const publicationKinds = [30040, 30041, 30818];
+    const publicationConfigs = allConfigs.filter(ec => publicationKinds.includes(ec.kind));
+    const otherConfigs = allConfigs.filter(ec => !publicationKinds.includes(ec.kind));
+    
+    // Find kind 0 config for profile fetching
+    const kind0Config = otherConfigs.find(c => c.kind === 0);
+    
+    return { allConfigs, publicationConfigs, otherConfigs, kind0Config };
+  }
+
+  /**
+   * Step 2: Fetch non-publication events (kinds 1, 3, etc. but NOT kind 0)
+   */
+  async function fetchNonPublicationEvents(otherConfigs: any[]): Promise<NDKEvent[]> {
+    const nonProfileConfigs = otherConfigs.filter(c => c.kind !== 0);
+    let allFetchedEvents: NDKEvent[] = [];
+    
+    if (nonProfileConfigs.length > 0) {
+      debug("Fetching non-publication events (excluding profiles):", nonProfileConfigs);
+      
+      for (const config of nonProfileConfigs) {
+        try {
+          // Special handling for kind 3 (follow lists)
+          if (config.kind === 3) {
+            const followEvents = await fetchFollowLists(config);
+            allFetchedEvents.push(...followEvents);
+          } else {
+            const fetchedEvents = await $ndkInstance.fetchEvents(
+              { 
+                kinds: [config.kind], 
+                limit: config.limit 
+              },
+              {
+                groupable: true,
+                skipVerification: false,
+                skipValidation: false,
+              }
+            );
+            debug(`Fetched ${fetchedEvents.size} events of kind ${config.kind}`);
+            allFetchedEvents.push(...Array.from(fetchedEvents));
+          }
+        } catch (e) {
+          console.error(`Error fetching kind ${config.kind}:`, e);
+        }
+      }
+    }
+    
+    return allFetchedEvents;
+  }
+
+  /**
+   * Step 3: Fetch publication index events
+   */
+  async function fetchPublicationIndexEvents(publicationConfigs: any[]): Promise<Set<NDKEvent>> {
+    const shouldFetchIndex = publicationConfigs.some(ec => ec.kind === INDEX_EVENT_KIND);
+
+    if (data.eventId) {
+      // Fetch specific publication
+      debug(`Fetching specific publication: ${data.eventId}`);
+      const event = await $ndkInstance.fetchEvent(data.eventId);
+      
+      if (!event) {
+        throw new Error(`Publication not found: ${data.eventId}`);
+      }
+      
+      if (event.kind !== INDEX_EVENT_KIND) {
+        throw new Error(`Event ${data.eventId} is not a publication index (kind ${INDEX_EVENT_KIND})`);
+      }
+      
+      return new Set([event]);
+    } else if (!shouldFetchIndex) {
+      debug("Index events (30040) are disabled, skipping fetch");
+      return new Set();
+    } else {
+      // Original behavior: fetch all publications
+      debug(`Fetching index events (kind ${INDEX_EVENT_KIND})`);
+      const indexConfig = publicationConfigs.find(ec => ec.kind === INDEX_EVENT_KIND);
+      const indexLimit = indexConfig?.limit || 20;
+      
+      const indexEvents = await $ndkInstance.fetchEvents(
+        { 
+          kinds: [INDEX_EVENT_KIND], 
+          limit: indexLimit
+        },
+        {
+          groupable: true,
+          skipVerification: false,
+          skipValidation: false,
+        },
+      );
+      debug("Fetched index events:", indexEvents.size);
+
+      // Filter valid index events according to NIP-62
+      const validIndexEvents = filterValidIndexEvents(indexEvents);
+      debug("Valid index events after filtering:", validIndexEvents.size);
+      
+      return validIndexEvents;
+    }
+  }
+
+  /**
+   * Step 4: Extract and fetch content events
+   */
+  async function fetchContentEvents(validIndexEvents: Set<NDKEvent>, publicationConfigs: any[]): Promise<Set<NDKEvent>> {
+    // Extract content event references from index events
+    const contentReferences = extractContentReferences(validIndexEvents);
+    debug("Content references to fetch:", contentReferences.size);
+
+    // Fetch the referenced content events with author filter
+    const enabledPublicationKinds = publicationConfigs.map(ec => ec.kind);
+    const enabledContentKinds = CONTENT_EVENT_KINDS.filter(kind => enabledPublicationKinds.includes(kind));
+    debug(`Fetching content events (enabled kinds: ${enabledContentKinds.join(', ')})`);
+    
+    // Group by author to make more efficient queries
+    const referencesByAuthor = groupContentReferencesByAuthor(contentReferences, enabledContentKinds);
+    
+    // Fetch events for each author
+    const contentEventPromises = Array.from(referencesByAuthor.entries()).map(
+      async ([author, refs]) => {
+        const dTags = [...new Set(refs.map(r => r.dTag))]; // Dedupe d-tags
+        return $ndkInstance.fetchEvents({
+          kinds: enabledContentKinds, // Only fetch enabled kinds
+          authors: [author],
+          "#d": dTags,
+        });
+      }
+    );
+    
+    const contentEventSets = await Promise.all(contentEventPromises);
+    
+    // Deduplicate by keeping only the most recent version of each d-tag per author
+    const eventsByCoordinate = deduplicateContentEvents(contentEventSets);
+    const contentEvents = new Set(eventsByCoordinate.values());
+    debug("Fetched content events after deduplication:", contentEvents.size);
+    
+    return contentEvents;
+  }
+
+  /**
+   * Extract content event references from index events
+   */
+  function extractContentReferences(validIndexEvents: Set<NDKEvent>): Map<string, { kind: number; pubkey: string; dTag: string }> {
+    const contentReferences = new Map<string, { kind: number; pubkey: string; dTag: string }>();
+    
+    validIndexEvents.forEach((event) => {
+      const aTags = event.getMatchingTags("a");
+      debug(`Event ${event.id} has ${aTags.length} a-tags`);
+      
+      aTags.forEach((tag) => {
+        // Parse the 'a' tag identifier: kind:pubkey:d-tag
+        if (tag[1]) {
+          const parts = tag[1].split(':');
+          if (parts.length >= 3) {
+            const kind = parseInt(parts[0]);
+            const pubkey = parts[1];
+            const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
+            
+            // Only add if it's a content event kind we're interested in
+            if (CONTENT_EVENT_KINDS.includes(kind)) {
+              const key = `${kind}:${pubkey}:${dTag}`;
+              contentReferences.set(key, { kind, pubkey, dTag });
+            }
+          }
+        }
+      });
+    });
+    
+    return contentReferences;
+  }
+
+  /**
+   * Group content references by author for efficient fetching
+   */
+  function groupContentReferencesByAuthor(
+    contentReferences: Map<string, { kind: number; pubkey: string; dTag: string }>,
+    enabledContentKinds: number[]
+  ): Map<string, Array<{ kind: number; dTag: string }>> {
+    const referencesByAuthor = new Map<string, Array<{ kind: number; dTag: string }>>();
+    
+    contentReferences.forEach(({ kind, pubkey, dTag }) => {
+      // Only include references for enabled kinds
+      if (enabledContentKinds.includes(kind)) {
+        if (!referencesByAuthor.has(pubkey)) {
+          referencesByAuthor.set(pubkey, []);
+        }
+        referencesByAuthor.get(pubkey)!.push({ kind, dTag });
+      }
+    });
+    
+    return referencesByAuthor;
+  }
+
+  /**
+   * Deduplicate content events by keeping only the most recent version
+   */
+  function deduplicateContentEvents(contentEventSets: Set<NDKEvent>[]): Map<string, NDKEvent> {
+    const eventsByCoordinate = new Map<string, NDKEvent>();
+    
+    contentEventSets.forEach((eventSet) => {
+      eventSet.forEach(event => {
+        const dTag = event.tagValue("d");
+        const author = event.pubkey;
+        const kind = event.kind;
+        
+        if (dTag && author && kind) {
+          const coordinate = `${kind}:${author}:${dTag}`;
+          const existing = eventsByCoordinate.get(coordinate);
+          
+          // Keep the most recent event (highest created_at)
+          if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
+            eventsByCoordinate.set(coordinate, event);
+            debug(`Keeping newer version of ${coordinate}, created_at: ${event.created_at}`);
+          } else if (existing) {
+            debug(`Skipping older version of ${coordinate}, created_at: ${event.created_at} vs ${existing.created_at}`);
+          }
+        }
+      });
+    });
+    
+    return eventsByCoordinate;
+  }
+
+  /**
+   * Step 5: Deduplicate and combine all events
+   */
+  function deduplicateAndCombineEvents(
+    nonPublicationEvents: NDKEvent[],
+    validIndexEvents: Set<NDKEvent>,
+    contentEvents: Set<NDKEvent>
+  ): NDKEvent[] {
+    // First, build coordinate map for replaceable events
+    const coordinateMap = new Map<string, NDKEvent>();
+    const allEventsToProcess = [
+      ...nonPublicationEvents, // Non-publication events fetched earlier
+      ...Array.from(validIndexEvents), 
+      ...Array.from(contentEvents)
+    ];
+    
+    // First pass: identify the most recent version of each replaceable event
+    allEventsToProcess.forEach(event => {
+      if (!event.id) return;
+      
+      // For replaceable events (30000-39999), track by coordinate
+      if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+        const dTag = event.tagValue("d");
+        const author = event.pubkey;
+        
+        if (dTag && author) {
+          const coordinate = `${event.kind}:${author}:${dTag}`;
+          const existing = coordinateMap.get(coordinate);
+          
+          // Keep the most recent version
+          if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
+            coordinateMap.set(coordinate, event);
+          }
+        }
+      }
+    });
+    
+    // Second pass: build final event map
+    const finalEventMap = new Map<string, NDKEvent>();
+    const seenCoordinates = new Set<string>();
+    
+    allEventsToProcess.forEach(event => {
+      if (!event.id) return;
+      
+      // For replaceable events, only add if it's the chosen version
+      if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+        const dTag = event.tagValue("d");
+        const author = event.pubkey;
+        
+        if (dTag && author) {
+          const coordinate = `${event.kind}:${author}:${dTag}`;
+          const chosenEvent = coordinateMap.get(coordinate);
+          
+          // Only add this event if it's the chosen one for this coordinate
+          if (chosenEvent && chosenEvent.id === event.id) {
+            if (!seenCoordinates.has(coordinate)) {
+              finalEventMap.set(event.id, event);
+              seenCoordinates.add(coordinate);
+            }
+          }
+          return;
+        }
+      }
+      
+      // Non-replaceable events are added directly
+      finalEventMap.set(event.id, event);
+    });
+    
+    // Replace mode (always replace, no append mode)
+    allEvents = Array.from(finalEventMap.values());
+    followListEvents = [];
+    
+    baseEvents = [...allEvents]; // Store base events for tag expansion
+    
+    return allEvents;
+  }
+
+  /**
+   * Step 6: Fetch profiles for discovered pubkeys
+   */
+  async function fetchProfilesForEvents(combinedEvents: NDKEvent[], kind0Config: any): Promise<NDKEvent[]> {
+    // Extract all pubkeys and fetch profiles
+    debug("Extracting pubkeys from all events");
+    
+    // Use the utility function to extract ALL pubkeys (authors + p tags + content)
+    const allPubkeys = extractPubkeysFromEvents(combinedEvents);
+    
+    // Check if follow list is configured with limit > 0
+    const allConfigs = get(visualizationConfig).eventConfigs;
+    const followListConfig = allConfigs.find(c => c.kind === 3);
+    const shouldIncludeFollowPubkeys = followListConfig && followListConfig.limit > 0;
+    
+    // Add pubkeys from follow lists only if follow list limit > 0
+    if (shouldIncludeFollowPubkeys && followListEvents.length > 0) {
+      debug("Including pubkeys from follow lists (limit > 0)");
+      followListEvents.forEach(event => {
+        if (event.pubkey) allPubkeys.add(event.pubkey);
+        event.tags.forEach(tag => {
+          if (tag[0] === 'p' && tag[1]) {
+            allPubkeys.add(tag[1]);
+          }
+        });
+      });
+    } else if (!shouldIncludeFollowPubkeys && followListEvents.length > 0) {
+      debug("Excluding follow list pubkeys (limit = 0, only fetching event authors)");
+    }
+    
+    debug("Profile extraction complete:", {
+      totalPubkeys: allPubkeys.size,
+      fromEvents: combinedEvents.length,
+      fromFollowLists: followListEvents.length
+    });
+    
+    // Fetch ALL profiles if kind 0 is enabled
+    let profileEvents: NDKEvent[] = [];
+    if (kind0Config) {
+      debug("Fetching profiles for all discovered pubkeys");
+      
+      // Update progress during fetch
+      profileLoadingProgress = { current: 0, total: allPubkeys.size };
+      
+      profileEvents = await batchFetchProfiles(
+        Array.from(allPubkeys),
+        (fetched, total) => {
+          profileLoadingProgress = { current: fetched, total };
+        }
+      );
+      
+      profileLoadingProgress = null;
+      debug("Profile fetch complete, fetched", profileEvents.length, "profiles");
+      
+      // Add profile events to allEvents
+      allEvents = [...combinedEvents, ...profileEvents];
+      
+      // Update profile stats for display
+      // Use the total number of pubkeys, not just newly fetched profiles
+      profileStats = {
+        totalFetched: allPubkeys.size,
+        displayLimit: kind0Config.limit
+      };
+    } else {
+      allEvents = [...combinedEvents];
+    }
+    
+    return allEvents;
+  }
+
+  /**
+   * Step 7: Apply display limits and finalize
+   */
+  function finalizeEventFetch(eventsWithProfiles: NDKEvent[]) {
+    // Apply display limits
+    events = filterByDisplayLimits(eventsWithProfiles, $visualizationConfig);
+    
+    // Detect missing events
+    const eventIds = new Set(eventsWithProfiles.map(e => e.id));
+    missingEventIds = detectMissingEvents(events, eventIds);
+    
+    debug("Total events fetched:", eventsWithProfiles.length);
+    debug("Events displayed:", events.length);
+    debug("Missing event IDs:", missingEventIds.size);
+    debug("About to set loading to false");
+    debug("Current loading state:", loading);
   }
 
 
@@ -793,7 +900,7 @@
 
   // React to display limit and allowed kinds changes
   $effect(() => {
-    debug("Effect triggered: allEvents.length =", allEvents.length, "allowedKinds =", $visualizationConfig.allowedKinds);
+    debug("Effect triggered: allEvents.length =", allEvents.length, "enabledKinds =", $visualizationConfig.eventConfigs.filter(ec => ec.enabled !== false).map(ec => ec.kind));
     if (allEvents.length > 0) {
       const newEvents = filterByDisplayLimits(allEvents, $visualizationConfig);
       
