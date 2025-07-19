@@ -162,7 +162,6 @@
         {/if}
       {/if}
     </div>
-<<<<<<< HEAD
     <div class="flex flex-col flex-grow text justify-center items-center">
       <p class="max-w-[60vw] line-ellipsis">
         <b class="text-nowrap">{title}</b>
