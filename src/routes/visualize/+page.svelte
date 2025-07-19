@@ -257,7 +257,18 @@
       const contentEvents = await fetchContentEvents(validIndexEvents, publicationConfigs);
       
       // Step 5: Deduplicate and combine all events
-      const combinedEvents = deduplicateAndCombineEvents(nonPublicationEvents, validIndexEvents, contentEvents);
+      // Combine all events (relays handle deduplication)
+      const combinedEvents = [
+        ...nonPublicationEvents,
+        ...Array.from(validIndexEvents),
+        ...Array.from(contentEvents)
+      ];
+      debug("Combined events:", { combinedEvents: combinedEvents.length });
+      
+      // Update state
+      allEvents = combinedEvents;
+      followListEvents = [];
+      baseEvents = [...allEvents]; // Store base events for tag expansion
       
       // Step 6: Fetch profiles for discovered pubkeys
       const eventsWithProfiles = await fetchProfilesForEvents(combinedEvents, kind0Config);
@@ -423,10 +434,12 @@
     
     const contentEventSets = await Promise.all(contentEventPromises);
     
-    // Deduplicate by keeping only the most recent version of each d-tag per author
-    const eventsByCoordinate = deduplicateContentEvents(contentEventSets);
-    const contentEvents = new Set(eventsByCoordinate.values());
-    debug("Fetched content events after deduplication:", contentEvents.size);
+    // Combine all content events (relays handle deduplication)
+    const contentEvents = new Set<NDKEvent>();
+    contentEventSets.forEach(eventSet => {
+      eventSet.forEach(event => contentEvents.add(event));
+    });
+    debug("Fetched content events:", contentEvents.size);
     
     return contentEvents;
   }
@@ -485,112 +498,7 @@
     return referencesByAuthor;
   }
 
-  /**
-   * Deduplicate content events by keeping only the most recent version
-   */
-  function deduplicateContentEvents(contentEventSets: Set<NDKEvent>[]): Map<string, NDKEvent> {
-    const eventsByCoordinate = new Map<string, NDKEvent>();
-    
-    contentEventSets.forEach((eventSet) => {
-      eventSet.forEach(event => {
-        const dTag = event.tagValue("d");
-        const author = event.pubkey;
-        const kind = event.kind;
-        
-        if (dTag && author && kind) {
-          const coordinate = `${kind}:${author}:${dTag}`;
-          const existing = eventsByCoordinate.get(coordinate);
-          
-          // Keep the most recent event (highest created_at)
-          if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
-            eventsByCoordinate.set(coordinate, event);
-            debug(`Keeping newer version of ${coordinate}, created_at: ${event.created_at}`);
-          } else if (existing) {
-            debug(`Skipping older version of ${coordinate}, created_at: ${event.created_at} vs ${existing.created_at}`);
-          }
-        }
-      });
-    });
-    
-    return eventsByCoordinate;
-  }
-
-  /**
-   * Step 5: Deduplicate and combine all events
-   */
-  function deduplicateAndCombineEvents(
-    nonPublicationEvents: NDKEvent[],
-    validIndexEvents: Set<NDKEvent>,
-    contentEvents: Set<NDKEvent>
-  ): NDKEvent[] {
-    // First, build coordinate map for replaceable events
-    const coordinateMap = new Map<string, NDKEvent>();
-    const allEventsToProcess = [
-      ...nonPublicationEvents, // Non-publication events fetched earlier
-      ...Array.from(validIndexEvents), 
-      ...Array.from(contentEvents)
-    ];
-    
-    // First pass: identify the most recent version of each replaceable event
-    allEventsToProcess.forEach(event => {
-      if (!event.id) return;
-      
-      // For replaceable events (30000-39999), track by coordinate
-      if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-        const dTag = event.tagValue("d");
-        const author = event.pubkey;
-        
-        if (dTag && author) {
-          const coordinate = `${event.kind}:${author}:${dTag}`;
-          const existing = coordinateMap.get(coordinate);
-          
-          // Keep the most recent version
-          if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
-            coordinateMap.set(coordinate, event);
-          }
-        }
-      }
-    });
-    
-    // Second pass: build final event map
-    const finalEventMap = new Map<string, NDKEvent>();
-    const seenCoordinates = new Set<string>();
-    
-    allEventsToProcess.forEach(event => {
-      if (!event.id) return;
-      
-      // For replaceable events, only add if it's the chosen version
-      if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-        const dTag = event.tagValue("d");
-        const author = event.pubkey;
-        
-        if (dTag && author) {
-          const coordinate = `${event.kind}:${author}:${dTag}`;
-          const chosenEvent = coordinateMap.get(coordinate);
-          
-          // Only add this event if it's the chosen one for this coordinate
-          if (chosenEvent && chosenEvent.id === event.id) {
-            if (!seenCoordinates.has(coordinate)) {
-              finalEventMap.set(event.id, event);
-              seenCoordinates.add(coordinate);
-            }
-          }
-          return;
-        }
-      }
-      
-      // Non-replaceable events are added directly
-      finalEventMap.set(event.id, event);
-    });
-    
-    // Replace mode (always replace, no append mode)
-    allEvents = Array.from(finalEventMap.values());
-    followListEvents = [];
-    
-    baseEvents = [...allEvents]; // Store base events for tag expansion
-    
-    return allEvents;
-  }
+  // Removed deduplication import - relays handle this properly
 
   /**
    * Step 6: Fetch profiles for discovered pubkeys
