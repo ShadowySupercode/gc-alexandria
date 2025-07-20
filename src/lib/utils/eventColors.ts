@@ -3,7 +3,7 @@
  * Uses golden ratio to distribute colors evenly across the spectrum
  */
 
-const GOLDEN_RATIO = 0.618033988749895;
+const GOLDEN_RATIO = (1 + Math.sqrt(5)) / 2;
 
 /**
  * Get a deterministic color for an event kind
