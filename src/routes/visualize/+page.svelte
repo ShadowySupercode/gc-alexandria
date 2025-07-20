@@ -706,36 +706,7 @@
 
 
   
-  // TEMPORARILY DISABLED: Track previous disabled kinds without using $state to avoid infinite loops
-  // let previousDisabledKinds: number[] = [];
-  // let hasInitialized = false;
-  
-  // $effect(() => {
-  //   const currentDisabledKinds = $visualizationConfig.disabledKinds || [];
-    
-  //   // Initialize on first run
-  //   if (!hasInitialized) {
-  //     previousDisabledKinds = [...currentDisabledKinds];
-  //     hasInitialized = true;
-  //     return;
-  //   }
-    
-  //   // Check if any kinds were re-enabled (were in previous but not in current)
-  //   const reEnabledKinds = previousDisabledKinds.filter(
-  //     kind => !currentDisabledKinds.includes(kind)
-  //   );
-    
-  //   if (reEnabledKinds.length > 0) {
-  //     debug("Event kinds re-enabled:", reEnabledKinds);
-  //     // Update tracking before fetch to prevent re-trigger
-  //     previousDisabledKinds = [...currentDisabledKinds];
-  //     // Trigger a fresh fetch to include the newly enabled kinds
-  //     fetchEvents();
-  //   } else {
-  //     // Just update tracking
-  //     previousDisabledKinds = [...currentDisabledKinds];
-  //   }
-  // });
+
 
   /**
    * Clears all accumulated events
