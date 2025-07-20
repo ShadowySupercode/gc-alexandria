@@ -47,12 +47,27 @@
 
   // State
   let allEvents = $state<NDKEvent[]>([]); // All fetched events
-  let events = $state<NDKEvent[]>([]); // Events to display (filtered by limits)
+  let events = $derived.by(() => {
+    if (allEvents.length > 0) {
+      const filtered = filterByDisplayLimits(allEvents, $visualizationConfig);
+      debug("Derived events update:", { allEvents: allEvents.length, filtered: filtered.length });
+      return filtered;
+    }
+    return [];
+  }); // Events to display (filtered by limits)
   let loading = $state(true);
   let error = $state<string | null>(null);
   let showSettings = $state(false);
   let baseEvents = $state<NDKEvent[]>([]); // Store original events before expansion
-  let missingEventIds = $state(new Set<string>()); // Track missing referenced events
+  let missingEventIds = $derived.by(() => {
+    if (allEvents.length > 0) {
+      const eventIds = new Set(allEvents.map(e => e.id));
+      const missing = detectMissingEvents(events, eventIds);
+      debug("Derived missingEventIds update:", { allEvents: allEvents.length, events: events.length, missing: missing.size });
+      return missing;
+    }
+    return new Set<string>();
+  }); // Track missing referenced events
   let loadingEventKinds = $state<Array<{kind: number, limit: number}>>([]);  // Track what kinds are being loaded
   let isFetching = false; // Guard against concurrent fetches
   let followListEvents = $state<NDKEvent[]>([]); // Store follow list events separately
@@ -583,12 +598,8 @@
    * Step 7: Apply display limits and finalize
    */
   function finalizeEventFetch(eventsWithProfiles: NDKEvent[]) {
-    // Apply display limits
-    events = filterByDisplayLimits(eventsWithProfiles, $visualizationConfig);
-    
-    // Detect missing events
-    const eventIds = new Set(eventsWithProfiles.map(e => e.id));
-    missingEventIds = detectMissingEvents(events, eventIds);
+    // Update allEvents - events will be automatically filtered via $derived
+    allEvents = eventsWithProfiles;
     
     debug("Total events fetched:", eventsWithProfiles.length);
     debug("Events displayed:", events.length);
@@ -605,13 +616,6 @@
    * @param newContentEvents Array of new content events
    */
   function updateFinalState(newPublications: NDKEvent[], newContentEvents: NDKEvent[]) {
-    // Apply display limits
-    events = filterByDisplayLimits(allEvents, $visualizationConfig);
-    
-    // Update missing events detection
-    const eventIds = new Set(allEvents.map(e => e.id));
-    missingEventIds = detectMissingEvents(events, eventIds);
-    
     debug("Events after expansion:", {
       base: baseEvents.length,
       newPubs: newPublications.length,
@@ -638,7 +642,6 @@
     if (tags.length === 0) {
       // Reset to base events only
       allEvents = [...baseEvents];
-      events = filterByDisplayLimits(allEvents, $visualizationConfig);
       return;
     }
     
@@ -701,25 +704,7 @@
   }
 
 
-  // React to display limit and allowed kinds changes
-  $effect(() => {
-    debug("Effect triggered: allEvents.length =", allEvents.length, "enabledKinds =", $visualizationConfig.eventConfigs.filter(ec => ec.enabled !== false).map(ec => ec.kind));
-    if (allEvents.length > 0) {
-      const newEvents = filterByDisplayLimits(allEvents, $visualizationConfig);
-      
-      // Only update if actually different to avoid infinite loops
-      if (newEvents.length !== events.length) {
-        debug("Updating events due to display limit change:", events.length, "->", newEvents.length);
-        events = newEvents;
-        
-        // Check for missing events when limits change
-        const eventIds = new Set(allEvents.map(e => e.id));
-        missingEventIds = detectMissingEvents(events, eventIds);
-        
-        debug("Effect: events filtered to", events.length, "missing:", missingEventIds.size);
-      }
-    }
-  });
+
   
   // TEMPORARILY DISABLED: Track previous disabled kinds without using $state to avoid infinite loops
   // let previousDisabledKinds: number[] = [];
@@ -757,10 +742,8 @@
    */
   function clearEvents() {
     allEvents = [];
-    events = [];
     baseEvents = [];
     followListEvents = [];
-    missingEventIds = new Set();
     
     // Clear node positions cache in EventNetwork
     // This will be handled by the component when events change
