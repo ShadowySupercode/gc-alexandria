@@ -216,7 +216,7 @@ export function replaceContentPubkeys(content: string): string {
   if (!content) return content;
   
   // Replace nostr:npub1... references
-  const npubPattern = /nostr:npub1[a-z0-9]{58}/g;
+  const npubPattern = /nostr:npub[a-z0-9]{58}/g;
   let result = content;
   
   const matches = content.match(npubPattern) || [];
