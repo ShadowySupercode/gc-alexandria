@@ -82,7 +82,7 @@
     totalCount?: number;
     onupdate: () => void;
     onclear?: () => void;
-    onTagExpansionChange?: (depth: number, tags: string[]) => void;
+    onTagExpansionChange?: (tags: string[]) => void;
     profileStats?: { totalFetched: number; displayLimit: number };
     allEventCounts?: { [kind: number]: number };
   }>();
@@ -1022,7 +1022,7 @@
         tagTypeChanged
       });
       
-      onTagExpansionChange(0, Array.from(tags));
+      onTagExpansionChange(Array.from(tags));
     }
   });
   

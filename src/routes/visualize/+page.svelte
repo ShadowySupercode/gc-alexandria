@@ -18,6 +18,15 @@
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
   import { activePubkey } from "$lib/ndk";
+  // Import utility functions for tag-based event fetching
+  // These functions handle the complex logic of finding publications by tags
+  // and extracting their associated content events
+  import { 
+    fetchTaggedEventsFromRelays, 
+    findTaggedEventsInFetched,
+    fetchProfilesForNewEvents
+  } from "$lib/utils/tag_event_fetch";
+  import { deduplicateAndCombineEvents } from "$lib/utils/eventDeduplication";
   
   // Configuration
   const DEBUG = true; // Set to true to enable debug logging
@@ -590,12 +599,43 @@
 
 
   /**
-   * Handles tag expansion to fetch related publications
+   * Updates final state after tag expansion (display limits, missing events)
+   * 
+   * @param newPublications Array of new publication events
+   * @param newContentEvents Array of new content events
    */
-  async function handleTagExpansion(depth: number, tags: string[]) {
-    debug("Handling tag expansion", { depth, tags, searchThroughFetched: $visualizationConfig.searchThroughFetched });
+  function updateFinalState(newPublications: NDKEvent[], newContentEvents: NDKEvent[]) {
+    // Apply display limits
+    events = filterByDisplayLimits(allEvents, $visualizationConfig);
     
-    if (depth === 0 || tags.length === 0) {
+    // Update missing events detection
+    const eventIds = new Set(allEvents.map(e => e.id));
+    missingEventIds = detectMissingEvents(events, eventIds);
+    
+    debug("Events after expansion:", {
+      base: baseEvents.length,
+      newPubs: newPublications.length,
+      newContent: newContentEvents.length,
+      totalFetched: allEvents.length,
+      displayed: events.length,
+      missing: missingEventIds.size,
+      searchMode: $visualizationConfig.searchThroughFetched ? "fetched" : "relays"
+    });
+  }
+
+  /**
+   * Handles tag expansion to fetch related publications
+   * 
+   * REFACTORED: This function has been broken down into smaller, focused steps:
+   * 1. Fetch/find tagged events using utility functions
+   * 2. Deduplicate events by coordinate using utility function  
+   * 3. Fetch profiles for new events using utility function
+   * 4. Update final state (display limits, missing events)
+   */
+  async function handleTagExpansion(tags: string[]) {
+    debug("Handling tag expansion", { tags, searchThroughFetched: $visualizationConfig.searchThroughFetched });
+    
+    if (tags.length === 0) {
       // Reset to base events only
       allEvents = [...baseEvents];
       events = filterByDisplayLimits(allEvents, $visualizationConfig);
@@ -612,192 +652,47 @@
       let newPublications: NDKEvent[] = [];
       let newContentEvents: NDKEvent[] = [];
       
+      // Step 1: Fetch or find tagged events using utility functions
       if ($visualizationConfig.searchThroughFetched) {
         // Search through already fetched events only
-        debug("Searching through already fetched events for tags:", tags);
-        
-        // Find publications in allEvents that have the specified tags
-        const taggedPublications = allEvents.filter(event => {
-          if (event.kind !== INDEX_EVENT_KIND) return false;
-          if (existingEventIds.has(event.id)) return false; // Skip base events
-          
-          // Check if event has any of the specified tags
-          const eventTags = event.getMatchingTags("t").map(tag => tag[1]);
-          return tags.some(tag => eventTags.includes(tag));
-        });
-        
-        newPublications = taggedPublications;
-        debug("Found", newPublications.length, "publications in fetched events");
-        
-        // For content events, also search in allEvents
-        const existingContentDTags = new Set(
-          baseEvents
-            .filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind))
-            .map(e => e.tagValue("d"))
-            .filter(d => d !== undefined)
+        const result = findTaggedEventsInFetched(
+          allEvents,
+          tags,
+          existingEventIds,
+          baseEvents,
+          debug
         );
-        
-        const contentEventDTags = new Set<string>();
-        newPublications.forEach((event) => {
-          const aTags = event.getMatchingTags("a");
-          aTags.forEach((tag) => {
-            // Parse the 'a' tag identifier: kind:pubkey:d-tag
-            if (tag[1]) {
-              const parts = tag[1].split(':');
-              if (parts.length >= 3) {
-                const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
-                if (!existingContentDTags.has(dTag)) {
-                  contentEventDTags.add(dTag);
-                }
-              }
-            }
-          });
-        });
-        
-        // Find content events in allEvents
-        newContentEvents = allEvents.filter(event => {
-          if (!CONTENT_EVENT_KINDS.includes(event.kind || 0)) return false;
-          const dTag = event.tagValue("d");
-          return dTag !== undefined && contentEventDTags.has(dTag);
-        });
-        
+        newPublications = result.publications;
+        newContentEvents = result.contentEvents;
       } else {
-        // Fetch from relays as before
-        debug("Fetching from relays for tags:", tags);
-        
-        // Fetch publications that have any of the specified tags
-        const taggedPublications = await $ndkInstance.fetchEvents({
-          kinds: [INDEX_EVENT_KIND],
-          "#t": tags, // Match any of these tags
-          limit: 30 * depth // Reasonable limit based on depth
-        });
-        
-        debug("Found tagged publications from relays:", taggedPublications.size);
-        
-        // Filter to avoid duplicates
-        newPublications = Array.from(taggedPublications).filter(
-          event => !existingEventIds.has(event.id)
+        // Fetch from relays using the utility function
+        const result = await fetchTaggedEventsFromRelays(
+          tags,
+          existingEventIds,
+          baseEvents,
+          debug
         );
-        
-        // Extract content event d-tags from new publications
-        const contentEventDTags = new Set<string>();
-        const existingContentDTags = new Set(
-          baseEvents
-            .filter(e => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind))
-            .map(e => e.tagValue("d"))
-            .filter(d => d !== undefined)
-        );
-        
-        newPublications.forEach((event) => {
-          const aTags = event.getMatchingTags("a");
-          aTags.forEach((tag) => {
-            // Parse the 'a' tag identifier: kind:pubkey:d-tag
-            if (tag[1]) {
-              const parts = tag[1].split(':');
-              if (parts.length >= 3) {
-                const dTag = parts.slice(2).join(':'); // Handle d-tags with colons
-                if (!existingContentDTags.has(dTag)) {
-                  contentEventDTags.add(dTag);
-                }
-              }
-            }
-          });
-        });
-        
-        // Fetch the content events
-        if (contentEventDTags.size > 0) {
-          const contentEventsSet = await $ndkInstance.fetchEvents({
-            kinds: CONTENT_EVENT_KINDS,
-            "#d": Array.from(contentEventDTags), // Use d-tag filter
-          });
-          newContentEvents = Array.from(contentEventsSet);
-        }
+        newPublications = result.publications;
+        newContentEvents = result.contentEvents;
       }
       
-      // Combine all events with coordinate-based deduplication
-      // First, build coordinate map for replaceable events
-      const coordinateMap = new Map<string, NDKEvent>();
-      const allEventsToProcess = [...baseEvents, ...newPublications, ...newContentEvents];
+      // Step 2: Deduplicate events by coordinate using existing utility function
+      allEvents = deduplicateAndCombineEvents(
+        baseEvents, // nonPublicationEvents
+        new Set(newPublications), // validIndexEvents
+        new Set(newContentEvents) // contentEvents
+      );
       
-      // First pass: identify the most recent version of each replaceable event
-      allEventsToProcess.forEach(event => {
-        if (!event.id) return;
-        
-        // For replaceable events (30000-39999), track by coordinate
-        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-          const dTag = event.tagValue("d");
-          const author = event.pubkey;
-          
-          if (dTag && author) {
-            const coordinate = `${event.kind}:${author}:${dTag}`;
-            const existing = coordinateMap.get(coordinate);
-            
-            // Keep the most recent version
-            if (!existing || (event.created_at && existing.created_at && event.created_at > existing.created_at)) {
-              coordinateMap.set(coordinate, event);
-            }
-          }
-        }
-      });
+      // Step 3: Fetch profiles for new events using utility function
+      await fetchProfilesForNewEvents(
+        newPublications,
+        newContentEvents,
+        (progress) => { profileLoadingProgress = progress; },
+        debug
+      );
       
-      // Second pass: build final event map
-      const finalEventMap = new Map<string, NDKEvent>();
-      const seenCoordinates = new Set<string>();
-      
-      allEventsToProcess.forEach(event => {
-        if (!event.id) return;
-        
-        // For replaceable events, only add if it's the chosen version
-        if (event.kind && event.kind >= 30000 && event.kind < 40000) {
-          const dTag = event.tagValue("d");
-          const author = event.pubkey;
-          
-          if (dTag && author) {
-            const coordinate = `${event.kind}:${author}:${dTag}`;
-            const chosenEvent = coordinateMap.get(coordinate);
-            
-            // Only add this event if it's the chosen one for this coordinate
-            if (chosenEvent && chosenEvent.id === event.id && !seenCoordinates.has(coordinate)) {
-              finalEventMap.set(event.id, event);
-              seenCoordinates.add(coordinate);
-            }
-            return;
-          }
-        }
-        
-        // Non-replaceable events are added directly
-        finalEventMap.set(event.id, event);
-      });
-      
-      allEvents = Array.from(finalEventMap.values());
-      
-      // Fetch profiles for new events
-      const newPubkeys = extractPubkeysFromEvents([...newPublications, ...newContentEvents]);
-      if (newPubkeys.size > 0) {
-        debug("Fetching profiles for", newPubkeys.size, "new pubkeys from tag expansion");
-        profileLoadingProgress = { current: 0, total: newPubkeys.size };
-        await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
-          profileLoadingProgress = { current: fetched, total };
-        });
-        profileLoadingProgress = null;
-      }
-      
-      // Apply display limits
-      events = filterByDisplayLimits(allEvents, $visualizationConfig);
-      
-      // Update missing events detection
-      const eventIds = new Set(allEvents.map(e => e.id));
-      missingEventIds = detectMissingEvents(events, eventIds);
-      
-      debug("Events after expansion:", {
-        base: baseEvents.length,
-        newPubs: newPublications.length,
-        newContent: newContentEvents.length,
-        totalFetched: allEvents.length,
-        displayed: events.length,
-        missing: missingEventIds.size,
-        searchMode: $visualizationConfig.searchThroughFetched ? "fetched" : "relays"
-      });
+      // Step 4: Update final state (display limits, missing events)
+      updateFinalState(newPublications, newContentEvents);
       
     } catch (e) {
       console.error("Error expanding tags:", e);
@@ -953,7 +848,7 @@
       <button
         type="button"
         class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mt-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
-        on:click={fetchEvents}
+        onclick={fetchEvents}
       >
         Retry
       </button>
