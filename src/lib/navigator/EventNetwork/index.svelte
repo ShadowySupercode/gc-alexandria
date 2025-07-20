@@ -994,7 +994,7 @@
   });
   
   /**
-   * Watch for tag expansion depth changes
+   * Watch for tag expansion changes
    */
   $effect(() => {
     // Skip if not initialized or no callback

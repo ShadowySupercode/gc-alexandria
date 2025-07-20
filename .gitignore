@@ -9,21 +9,9 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# tests - ignore all test directories and files
-/tests/
-/test/
-/__tests__/
-*.test.js
-*.test.ts
-*.spec.js
-*.spec.ts
-*.test.svelte
-*.spec.svelte
-/coverage/
-/.nyc_output/
-
-# documentation
-/docs/
+# tests
+/tests/e2e/html-report/*.html
+/tests/e2e/test-results/*.last-run.json
 
 # Deno
 /.deno/

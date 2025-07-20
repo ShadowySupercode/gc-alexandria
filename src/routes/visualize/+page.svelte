@@ -687,7 +687,7 @@
       await fetchProfilesForNewEvents(
         newPublications,
         newContentEvents,
-        (progress) => { profileLoadingProgress = progress; },
+        (progress: { current: number; total: number } | null) => { profileLoadingProgress = progress; },
         debug
       );
       
