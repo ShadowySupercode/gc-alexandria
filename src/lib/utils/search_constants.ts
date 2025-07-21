@@ -51,6 +51,15 @@ export const SEARCH_LIMITS = {
 
   /** Limit for second-order search results */
   SECOND_ORDER_RESULTS: 100,
+
+  /** Limit for primary search results (d-tag, t-tag searches) */
+  PRIMARY_SEARCH_RESULTS: 200,
+
+  /** Number of results to load per page */
+  RESULTS_PER_PAGE: 50,
+
+  /** Maximum number of results to display before requiring pagination */
+  MAX_DISPLAY_RESULTS: 100,
 } as const;
 
 // Nostr event kind ranges

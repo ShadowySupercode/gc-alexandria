@@ -214,7 +214,7 @@ async function createSearchFilter(
   switch (searchType) {
     case "d": {
       const dFilter = {
-        filter: { "#d": [normalizedSearchTerm] },
+        filter: { "#d": [normalizedSearchTerm], limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS },
         subscriptionType: "d-tag",
       };
       console.log("subscription_search: Created d-tag filter:", dFilter);
@@ -222,7 +222,7 @@ async function createSearchFilter(
     }
     case "t": {
       const tFilter = {
-        filter: { "#t": [normalizedSearchTerm] },
+        filter: { "#t": [normalizedSearchTerm], limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS },
         subscriptionType: "t-tag",
       };
       console.log("subscription_search: Created t-tag filter:", tFilter);
