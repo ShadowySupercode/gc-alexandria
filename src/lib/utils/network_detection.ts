@@ -156,7 +156,7 @@ export function startNetworkMonitoring(
   checkInterval: number = 60000 // Increased to 60 seconds to reduce spam
 ): () => void {
   let lastCondition: NetworkCondition | null = null;
-  let intervalId: number | null = null;
+  let intervalId: ReturnType<typeof setInterval> | null = null;
 
   const checkNetwork = async () => {
     try {
