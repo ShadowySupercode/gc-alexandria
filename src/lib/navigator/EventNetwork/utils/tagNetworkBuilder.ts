@@ -233,6 +233,47 @@ export function enhanceGraphWithTags(
 }
 
 /**
+ * Applies a gentle pull on each node toward its tag anchors.
+ *
+ * @param nodes - The array of network nodes to update.
+ * @param nodeToAnchors - A map from node IDs to their tag anchor nodes.
+ * @param alpha - The current simulation alpha (cooling factor).
+ */
+export function applyTagGravity(
+  nodes: NetworkNode[],
+  nodeToAnchors: Map<string, NetworkNode[]>,
+  alpha: number
+): void {
+  nodes.forEach((node) => {
+    if (node.isTagAnchor) return; // Tag anchors don't move
+
+    const anchors = nodeToAnchors.get(node.id);
+    if (!anchors || anchors.length === 0) return;
+
+    // Apply gentle pull toward each tag anchor
+    anchors.forEach((anchor) => {
+      if (
+        anchor.x != null &&
+        anchor.y != null &&
+        node.x != null &&
+        node.y != null
+      ) {
+        const dx = anchor.x - node.x;
+        const dy = anchor.y - node.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 0) {
+          // Gentle force that decreases with distance
+          const strength = (0.02 * alpha) / anchors.length;
+          node.vx = (node.vx || 0) + (dx / distance) * strength * distance;
+          node.vy = (node.vy || 0) + (dy / distance) * strength * distance;
+        }
+      }
+    });
+  });
+}
+
+/**
  * Custom force for tag anchor gravity
  */
 export function createTagGravityForce(
@@ -260,36 +301,9 @@ export function createTagGravityForce(
   });
 
   debug("Creating tag gravity force");
-  
-  // Custom force function
+
   function force(alpha: number) {
-    nodes.forEach((node) => {
-      if (node.isTagAnchor) return; // Tag anchors don't move
-
-      const anchors = nodeToAnchors.get(node.id);
-      if (!anchors || anchors.length === 0) return;
-
-      // Apply gentle pull toward each tag anchor
-      anchors.forEach((anchor) => {
-        if (
-          anchor.x != null &&
-          anchor.y != null &&
-          node.x != null &&
-          node.y != null
-        ) {
-          const dx = anchor.x - node.x;
-          const dy = anchor.y - node.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance > 0) {
-            // Gentle force that decreases with distance
-            const strength = (0.02 * alpha) / anchors.length;
-            node.vx = (node.vx || 0) + (dx / distance) * strength * distance;
-            node.vy = (node.vy || 0) + (dy / distance) * strength * distance;
-          }
-        }
-      });
-    });
+    applyTagGravity(nodes, nodeToAnchors, alpha);
   }
 
   force.initialize = function (_: NetworkNode[]) {
