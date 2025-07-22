@@ -313,7 +313,8 @@
   };
 
   // Debounced search function
-  const debouncedSearch = debounce(async (query: string) => {
+  const debouncedSearch = debounce(async (...args: unknown[]) => {
+    const query = args[0] as string;
     console.debug("[PublicationFeed] Search query changed:", query);
     if (query.trim()) {
       const filtered = filterEventsBySearch(allIndexEvents);

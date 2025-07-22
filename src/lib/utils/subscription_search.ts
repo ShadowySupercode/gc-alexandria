@@ -61,10 +61,12 @@ export async function searchBySubscription(
   const cleanup = createCleanupFunction(searchState);
 
   // Set a timeout to force completion after subscription search timeout
+  // Use longer timeout for profile searches since they require NIP-05 lookup
+  const timeoutDuration = searchType === "n" ? TIMEOUTS.PROFILE_SEARCH : TIMEOUTS.SUBSCRIPTION_SEARCH;
   searchState.timeoutId = setTimeout(() => {
     console.log("subscription_search: Search timeout reached");
     cleanup();
-  }, TIMEOUTS.SUBSCRIPTION_SEARCH);
+  }, timeoutDuration);
 
   // Check for abort signal
   if (abortSignal?.aborted) {
@@ -610,7 +612,7 @@ function processEoseResults(
   if (searchType === "n") {
     return processProfileEoseResults(searchState, searchFilter, callbacks);
   } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType);
+    return processContentEoseResults(searchState, searchType, callbacks);
   } else if (searchType === "t") {
     return processTTagEoseResults(searchState);
   }
@@ -694,6 +696,7 @@ function processProfileEoseResults(
 function processContentEoseResults(
   searchState: any,
   searchType: SearchSubscriptionType,
+  callbacks?: SearchCallbacks,
 ): SearchResult {
   if (searchState.firstOrderEvents.length === 0) {
     return createEmptySearchResult(
@@ -721,6 +724,8 @@ function processContentEoseResults(
       dedupedEvents,
       searchState.eventIds,
       searchState.eventAddresses,
+      undefined,
+      callbacks,
     );
   }
 
@@ -782,9 +787,21 @@ async function performSecondOrderSearchInBackground(
   addresses: Set<string> = new Set(),
   targetPubkey?: string,
   callbacks?: SearchCallbacks,
+  retryCount: number = 0,
 ) {
   try {
     const ndk = get(ndkInstance);
+    if (!ndk) {
+      console.error("performSecondOrderSearchInBackground: NDK not initialized");
+      return;
+    }
+
+    // Don't perform second-order search if there are no events to search for
+    if (firstOrderEvents.length === 0 && eventIds.size === 0 && addresses.size === 0) {
+      console.debug("performSecondOrderSearchInBackground: No events to search for, skipping");
+      return;
+    }
+
     let allSecondOrderEvents: NDKEvent[] = [];
 
     // Set a timeout for second-order search
@@ -796,93 +813,142 @@ async function performSecondOrderSearchInBackground(
     });
 
     const searchPromise = (async () => {
-      if (searchType === "n" && targetPubkey) {
-        // Search for events that mention this pubkey via p-tags
-        const pTagFilter = { "#p": [targetPubkey] };
-        const pTagEvents = await ndk.fetchEvents(
-          pTagFilter,
-          { closeOnEose: true },
-          new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
-        );
-        // Filter out emoji reactions
-        const filteredEvents = Array.from(pTagEvents).filter(
-          (event) => !isEmojiReaction(event),
-        );
-        allSecondOrderEvents = [...allSecondOrderEvents, ...filteredEvents];
-      } else if (searchType === "d") {
-        // Parallel fetch for #e and #a tag events
-        const relaySet = new NDKRelaySet(
-          new Set(Array.from(ndk.pool.relays.values())),
-          ndk,
-        );
-        const [eTagEvents, aTagEvents] = await Promise.all([
-          eventIds.size > 0
-            ? ndk.fetchEvents(
+      try {
+        // Use the same relay set creation logic as the primary search
+        const relaySet = createPrimaryRelaySet(searchType, ndk);
+        
+        // Check if we have any relays in the set
+        if (relaySet.relays.size === 0) {
+          const maxRetries = 3;
+          if (retryCount < maxRetries) {
+            console.warn(`performSecondOrderSearchInBackground: No relays available in relay set, will retry in 2 seconds (attempt ${retryCount + 1}/${maxRetries})`);
+            // Retry after a delay to allow relays to connect
+            setTimeout(() => {
+              performSecondOrderSearchInBackground(
+                searchType,
+                firstOrderEvents,
+                eventIds,
+                addresses,
+                targetPubkey,
+                callbacks,
+                retryCount + 1,
+              );
+            }, 2000);
+          } else {
+            console.warn(`performSecondOrderSearchInBackground: No relays available after ${maxRetries} attempts, giving up`);
+          }
+          return;
+        }
+
+        if (searchType === "n" && targetPubkey) {
+          // Search for events that mention this pubkey via p-tags
+          const pTagFilter = { "#p": [targetPubkey] };
+          console.log("performSecondOrderSearchInBackground: Searching for p-tag events with pubkey:", targetPubkey);
+          
+          const pTagEvents = await ndk.fetchEvents(
+            pTagFilter,
+            { closeOnEose: true },
+            relaySet,
+          );
+          
+          // Filter out emoji reactions
+          const filteredEvents = Array.from(pTagEvents).filter(
+            (event) => !isEmojiReaction(event),
+          );
+          allSecondOrderEvents = [...allSecondOrderEvents, ...filteredEvents];
+          console.log("performSecondOrderSearchInBackground: Found", filteredEvents.length, "p-tag events");
+        } else if (searchType === "d") {
+          // Parallel fetch for #e and #a tag events
+          console.log("performSecondOrderSearchInBackground: Searching for e-tag and a-tag events");
+          
+          const searchPromises = [];
+          
+          if (eventIds.size > 0) {
+            console.log("performSecondOrderSearchInBackground: Searching for", eventIds.size, "e-tag events");
+            searchPromises.push(
+              ndk.fetchEvents(
                 { "#e": Array.from(eventIds) },
                 { closeOnEose: true },
                 relaySet,
               )
-            : Promise.resolve([]),
-          addresses.size > 0
-            ? ndk.fetchEvents(
+            );
+          }
+          
+          if (addresses.size > 0) {
+            console.log("performSecondOrderSearchInBackground: Searching for", addresses.size, "a-tag events");
+            searchPromises.push(
+              ndk.fetchEvents(
                 { "#a": Array.from(addresses) },
                 { closeOnEose: true },
                 relaySet,
               )
-            : Promise.resolve([]),
-        ]);
-        // Filter out emoji reactions
-        const filteredETagEvents = Array.from(eTagEvents).filter(
-          (event) => !isEmojiReaction(event),
-        );
-        const filteredATagEvents = Array.from(aTagEvents).filter(
-          (event) => !isEmojiReaction(event),
-        );
-        allSecondOrderEvents = [
-          ...allSecondOrderEvents,
-          ...filteredETagEvents,
-          ...filteredATagEvents,
-        ];
-      }
-
-      // Deduplicate by event ID
-      const uniqueSecondOrder = new Map<string, NDKEvent>();
-      allSecondOrderEvents.forEach((event) => {
-        if (event.id) {
-          uniqueSecondOrder.set(event.id, event);
+            );
+          }
+          
+          if (searchPromises.length > 0) {
+            const results = await Promise.all(searchPromises);
+            const [eTagEvents, aTagEvents] = results.length === 2 ? results : [results[0] || [], []];
+            
+            // Filter out emoji reactions
+            const filteredETagEvents = Array.from(eTagEvents).filter(
+              (event) => !isEmojiReaction(event),
+            );
+            const filteredATagEvents = Array.from(aTagEvents).filter(
+              (event) => !isEmojiReaction(event),
+            );
+            allSecondOrderEvents = [
+              ...allSecondOrderEvents,
+              ...filteredETagEvents,
+              ...filteredATagEvents,
+            ];
+            console.log("performSecondOrderSearchInBackground: Found", filteredETagEvents.length, "e-tag events and", filteredATagEvents.length, "a-tag events");
+          }
         }
-      });
 
-      let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
+        // Deduplicate by event ID
+        const uniqueSecondOrder = new Map<string, NDKEvent>();
+        allSecondOrderEvents.forEach((event) => {
+          if (event.id) {
+            uniqueSecondOrder.set(event.id, event);
+          }
+        });
 
-      // Remove any events already in first order
-      const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
-      deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
-        (e) => !firstOrderIds.has(e.id),
-      );
+        let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
 
-      // Sort by creation date (newest first) and limit to newest results
-      const sortedSecondOrder = deduplicatedSecondOrder
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+        // Remove any events already in first order
+        const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
+        deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
+          (e) => !firstOrderIds.has(e.id),
+        );
 
-      // Update the search results with second-order events
-      const result: SearchResult = {
-        events: firstOrderEvents,
-        secondOrder: sortedSecondOrder,
-        tTagEvents: [],
-        eventIds:
-          searchType === "n"
-            ? new Set(firstOrderEvents.map((p) => p.id))
-            : eventIds,
-        addresses: searchType === "n" ? new Set() : addresses,
-        searchType: searchType,
-        searchTerm: "", // This will be set by the caller
-      };
+        // Sort by creation date (newest first) and limit to newest results
+        const sortedSecondOrder = deduplicatedSecondOrder
+          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+          .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
 
-      // Notify UI of updated results
-      if (callbacks?.onSecondOrderUpdate) {
-        callbacks.onSecondOrderUpdate(result);
+        console.log("performSecondOrderSearchInBackground: Final second-order results:", sortedSecondOrder.length);
+
+        // Update the search results with second-order events
+        const result: SearchResult = {
+          events: firstOrderEvents,
+          secondOrder: sortedSecondOrder,
+          tTagEvents: [],
+          eventIds:
+            searchType === "n"
+              ? new Set(firstOrderEvents.map((p) => p.id))
+              : eventIds,
+          addresses: searchType === "n" ? new Set() : addresses,
+          searchType: searchType,
+          searchTerm: "", // This will be set by the caller
+        };
+
+        // Notify UI of updated results
+        if (callbacks?.onSecondOrderUpdate) {
+          callbacks.onSecondOrderUpdate(result);
+        }
+      } catch (error) {
+        console.error("performSecondOrderSearchInBackground: Error during search:", error);
+        // Don't throw here, just log the error
       }
     })();
 
@@ -890,8 +956,9 @@ async function performSecondOrderSearchInBackground(
     await Promise.race([searchPromise, timeoutPromise]);
   } catch (err) {
     console.error(
-      `[Search] Error in second-order ${searchType}-tag search:`,
+      `performSecondOrderSearchInBackground: Error in second-order ${searchType}-tag search:`,
       err,
     );
+    // Don't re-throw the error to prevent hanging
   }
 }

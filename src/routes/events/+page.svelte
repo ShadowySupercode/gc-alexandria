@@ -20,6 +20,7 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
+  import { decodeSearchParams } from "$lib/utils/url_service";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -33,6 +34,7 @@
   let originalAddresses = $state<Set<string>>(new Set());
   let searchType = $state<string | null>(null);
   let searchTerm = $state<string | null>(null);
+  let currentPage = $state(1);
   let profile = $state<{
     name?: string;
     display_name?: string;
@@ -49,22 +51,16 @@
   let searchInProgress = $state(false);
   let secondOrderSearchMessage = $state<string | null>(null);
   let communityStatus = $state<Record<string, boolean>>({});
+  let searchError = $state<string | null>(null);
+  let searchCompleted = $state(false);
 
   userStore.subscribe((val) => (user = val));
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
     showSidePanel = true;
-    // Clear search results when showing a single event
-    searchResults = [];
-    secondOrderResults = [];
-    tTagResults = [];
-    originalEventIds = new Set();
-    originalAddresses = new Set();
-    searchType = null;
-    searchTerm = null;
-    searchInProgress = false;
-    secondOrderSearchMessage = null;
+    // Don't clear search results when showing a single event
+    // This allows users to continue browsing results while viewing event details
 
     if (newEvent.kind === 0) {
       try {
@@ -77,41 +73,16 @@
     }
   }
 
-  // Use Svelte 5 idiomatic effect to update searchValue when $page.url.searchParams.get('id') changes
+  // Use the URL service to decode search parameters
   $effect(() => {
-    const url = $page.url.searchParams;
-    const idParam = url.get("id");
-    const dParam = url.get("d");
+    const url = $page.url;
+    const decodedParams = decodeSearchParams(url);
     
-    if (idParam) {
-      searchValue = idParam;
-      dTagValue = null;
-    } else if (dParam) {
-      searchValue = null;
-      dTagValue = dParam.toLowerCase();
-    } else {
-      searchValue = null;
-      dTagValue = null;
-    }
-  });
-
-  // Add support for t and n parameters
-  $effect(() => {
-    const url = $page.url.searchParams;
-    const tParam = url.get("t");
-    const nParam = url.get("n");
-
-    if (tParam) {
-      // Decode the t parameter and set it as searchValue with t: prefix
-      const decodedT = decodeURIComponent(tParam);
-      searchValue = `t:${decodedT}`;
-      dTagValue = null;
-    } else if (nParam) {
-      // Decode the n parameter and set it as searchValue with n: prefix
-      const decodedN = decodeURIComponent(nParam);
-      searchValue = `n:${decodedN}`;
-      dTagValue = null;
-    }
+    searchValue = decodedParams.searchValue;
+    dTagValue = decodedParams.dTagValue;
+    searchType = decodedParams.searchType;
+    searchTerm = decodedParams.searchTerm;
+    currentPage = decodedParams.page;
   });
 
   // Handle side panel visibility based on search type
@@ -121,14 +92,21 @@
     const hasDParam = url.get("d");
     const hasTParam = url.get("t");
     const hasNParam = url.get("n");
+    const hasQParam = url.get("q");
 
     // Close side panel for searches that return multiple results
-    if (hasDParam || hasTParam || hasNParam) {
+    if (hasDParam || hasTParam || hasNParam || hasQParam) {
       showSidePanel = false;
       event = null;
       profile = null;
     }
   });
+
+  function handleSearchError(errorMessage: string) {
+    searchError = errorMessage;
+    searchCompleted = true;
+    searchInProgress = false;
+  }
 
   function handleSearchResults(
     results: NDKEvent[],
@@ -150,6 +128,15 @@
     // Track search progress
     searchInProgress =
       loading || (results.length > 0 && secondOrder.length === 0);
+
+    // Track when search completes with no results
+    if (!loading && results.length === 0 && secondOrder.length === 0 && tTagEvents.length === 0) {
+      searchCompleted = true;
+      searchError = null; // Clear any previous errors
+    } else if (results.length > 0 || secondOrder.length > 0 || tTagEvents.length > 0) {
+      searchCompleted = true;
+      searchError = null; // Clear any previous errors
+    }
 
     // Show second-order search message when we have first-order results but no second-order yet
     if (
@@ -197,7 +184,10 @@
     showSidePanel = false;
     searchInProgress = false;
     secondOrderSearchMessage = null;
+    searchError = null;
+    searchCompleted = false;
     communityStatus = {};
+    currentPage = 1;
     goto("/events", { replaceState: true });
   }
 
@@ -211,6 +201,10 @@
 
   function navigateToPublication(dTag: string) {
     goto(`/publications?d=${encodeURIComponent(dTag.toLowerCase())}`);
+  }
+
+  function handlePageChange(page: number) {
+    currentPage = page;
   }
 
   function getSummary(event: NDKEvent): string | undefined {
@@ -387,6 +381,7 @@
           onSearchResults={handleSearchResults}
           onClear={handleClear}
           {onLoadingChange}
+          onError={handleSearchError}
         />
 
         {#if secondOrderSearchMessage}
@@ -405,6 +400,8 @@
               searchTerm={searchTerm || dTagValue?.toLowerCase() || null}
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
+              onPageChange={handlePageChange}
+              currentPage={currentPage}
             />
           </div>
         {/if}
@@ -417,6 +414,8 @@
               searchTerm="Second-Order Events (References, Replies, Quotes)"
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
+              onPageChange={handlePageChange}
+              currentPage={currentPage}
             />
             {#if (searchType === "n" || searchType === "d") && secondOrderResults.length === 100}
               <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
@@ -438,6 +437,8 @@
               searchTerm={searchTerm || dTagValue?.toLowerCase() || null}
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
+              onPageChange={handlePageChange}
+              currentPage={currentPage}
             />
             <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Events that are tagged with the t-tag.
@@ -445,9 +446,21 @@
           </div>
         {/if}
 
-        {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue && !searchInProgress}
+        {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue && !searchInProgress && !searchError && !searchCompleted}
           <div class="mt-8">
             <EventInput />
+          </div>
+        {/if}
+
+        {#if searchError}
+          <div class="mt-8 p-4 text-sm text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-200 rounded-lg">
+            <strong>Search Error:</strong> {searchError}
+          </div>
+        {/if}
+
+        {#if searchCompleted && !searchError && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && (searchValue || dTagValue)}
+          <div class="mt-8 p-4 text-sm text-gray-700 bg-gray-100 dark:bg-gray-900 dark:text-gray-200 rounded-lg">
+            <strong>No Results Found:</strong> No events or profiles were found matching your search criteria.
           </div>
         {/if}
       </div>

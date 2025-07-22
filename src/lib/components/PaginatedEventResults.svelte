@@ -6,6 +6,7 @@
   import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   import ViewPublicationLink from '$lib/components/util/ViewPublicationLink.svelte';
   import { SEARCH_LIMITS } from '$lib/utils/search_constants';
+  import { updatePageURL } from '$lib/utils/url_service';
 
   let {
     events,
@@ -14,6 +15,8 @@
     onEventClick,
     communityStatus = {},
     showPagination = true,
+    onPageChange,
+    currentPage: initialPage = 1,
   }: {
     events: NDKEvent[];
     searchType: string | null;
@@ -21,10 +24,12 @@
     onEventClick: (event: NDKEvent) => void;
     communityStatus?: Record<string, boolean>;
     showPagination?: boolean;
+    onPageChange?: (page: number) => void;
+    currentPage?: number;
   } = $props();
 
   // Pagination state
-  let currentPage = $state(1);
+  let currentPage = $state(initialPage);
   let itemsPerPage = $state(SEARCH_LIMITS.RESULTS_PER_PAGE);
   let showAllResults = $state(false);
 
@@ -34,7 +39,7 @@
   let endIndex = $derived(Math.min(startIndex + itemsPerPage, events.length));
   let displayedEvents = $derived(events.slice(startIndex, endIndex));
   let shouldShowPagination = $derived(
-    showPagination && events.length > SEARCH_LIMITS.MAX_DISPLAY_RESULTS && !showAllResults
+    showPagination && events.length > itemsPerPage && !showAllResults
   );
 
   // Reset pagination when events change
@@ -45,21 +50,36 @@
     }
   });
 
+  // Update current page when prop changes
+  $effect(() => {
+    if (initialPage !== currentPage) {
+      currentPage = initialPage;
+    }
+  });
+
   function nextPage() {
     if (currentPage < totalPages) {
-      currentPage++;
+      const newPage = currentPage + 1;
+      currentPage = newPage;
+      updatePageURL(newPage);
+      onPageChange?.(newPage);
     }
   }
 
   function prevPage() {
     if (currentPage > 1) {
-      currentPage--;
+      const newPage = currentPage - 1;
+      currentPage = newPage;
+      updatePageURL(newPage);
+      onPageChange?.(newPage);
     }
   }
 
   function goToPage(page: number) {
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
+      updatePageURL(page);
+      onPageChange?.(page);
     }
   }
 
@@ -100,7 +120,7 @@
         {/if}
       </h2>
       
-      {#if events.length > SEARCH_LIMITS.MAX_DISPLAY_RESULTS && !showAllResults}
+      {#if events.length > itemsPerPage && !showAllResults}
         <p class="text-sm text-gray-600 dark:text-gray-400">
           Showing {displayedEvents.length} of {events.length} results. 
           <button 

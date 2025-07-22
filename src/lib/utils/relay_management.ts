@@ -76,7 +76,7 @@ export function testRelayConnection(
         error: "Connection timeout",
         actualUrl,
       });
-    }, 3000); // Increased timeout to 3 seconds to give relays more time
+    }, 5000); // Increased timeout to 5 seconds to give relays more time
 
     relay.on("connect", () => {
       connected = true;
@@ -211,7 +211,12 @@ export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
  */
 export async function getUserLocalRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
-    const localRelayEvent = await ndk.fetchEvent(
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Local relay fetch timeout')), 5000); // 5 second timeout
+    });
+    
+    const localRelayEventPromise = ndk.fetchEvent(
       {
         kinds: [10432 as NDKKind],
         authors: [user.pubkey],
@@ -222,6 +227,8 @@ export async function getUserLocalRelays(ndk: NDK, user: NDKUser): Promise<strin
         skipValidation: false,
       }
     );
+    
+    const localRelayEvent = await Promise.race([localRelayEventPromise, timeoutPromise]);
 
     if (!localRelayEvent) {
       return [];
@@ -249,7 +256,12 @@ export async function getUserLocalRelays(ndk: NDK, user: NDKUser): Promise<strin
  */
 export async function getUserBlockedRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
-    const blockedRelayEvent = await ndk.fetchEvent(
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Blocked relay fetch timeout')), 5000); // 5 second timeout
+    });
+    
+    const blockedRelayEventPromise = ndk.fetchEvent(
       {
         kinds: [10006],
         authors: [user.pubkey],
@@ -260,6 +272,8 @@ export async function getUserBlockedRelays(ndk: NDK, user: NDKUser): Promise<str
         skipValidation: false,
       }
     );
+    
+    const blockedRelayEvent = await Promise.race([blockedRelayEventPromise, timeoutPromise]);
 
     if (!blockedRelayEvent) {
       return [];
@@ -288,7 +302,13 @@ export async function getUserBlockedRelays(ndk: NDK, user: NDKUser): Promise<str
 export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
     console.debug('[relay_management.ts] Fetching outbox relays for user:', user.pubkey);
-    const relayList = await ndk.fetchEvent(
+    
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Relay list fetch timeout')), 5000); // 5 second timeout
+    });
+    
+    const relayListPromise = ndk.fetchEvent(
       {
         kinds: [10002],
         authors: [user.pubkey],
@@ -299,6 +319,8 @@ export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<stri
         skipValidation: false,
       }
     );
+    
+    const relayList = await Promise.race([relayListPromise, timeoutPromise]);
 
     if (!relayList) {
       console.debug('[relay_management.ts] No relay list found for user');
@@ -351,7 +373,14 @@ export async function getExtensionRelays(): Promise<string[]> {
     if (globalThis.nostr.getRelays) {
       console.debug('[relay_management.ts] getRelays() method found, calling it...');
       try {
-        const relays = await globalThis.nostr.getRelays();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Extension getRelays timeout')), 3000); // 3 second timeout
+        });
+        
+        const relaysPromise = globalThis.nostr.getRelays();
+        const relays = await Promise.race([relaysPromise, timeoutPromise]);
+        
         console.debug('[relay_management.ts] getRelays() returned:', relays);
         if (relays && typeof relays === 'object') {
           // Convert relay object to array of URLs
@@ -389,17 +418,26 @@ export async function getExtensionRelays(): Promise<string[]> {
  */
 async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
   const workingRelays: string[] = [];
-  const maxConcurrent = 2; // Reduce to 2 relays at a time to avoid overwhelming them
+  const maxConcurrent = 3; // Allow 3 concurrent tests for better performance
+
+  console.debug(`[relay_management.ts] Testing ${relayUrls.length} relays with max ${maxConcurrent} concurrent tests`);
 
   for (let i = 0; i < relayUrls.length; i += maxConcurrent) {
     const batch = relayUrls.slice(i, i + maxConcurrent);
     
     const batchPromises = batch.map(async (url) => {
       try {
+        console.debug(`[relay_management.ts] Testing relay: ${url}`);
         const result = await testRelayConnection(url, ndk);
-        return result.connected ? url : null;
+        if (result.connected) {
+          console.debug(`[relay_management.ts] ✓ Relay ${url} is working`);
+          return url;
+        } else {
+          console.debug(`[relay_management.ts] ✗ Relay ${url} failed: ${result.error}`);
+          return null;
+        }
       } catch (error) {
-        console.debug(`[relay_management.ts] Failed to test relay ${url}:`, error);
+        console.debug(`[relay_management.ts] ✗ Relay ${url} test failed:`, error);
         return null;
       }
     });
@@ -412,6 +450,7 @@ async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
     workingRelays.push(...batchWorkingRelays);
   }
 
+  console.debug(`[relay_management.ts] Relay testing complete. ${workingRelays.length}/${relayUrls.length} relays working:`, workingRelays);
   return workingRelays;
 }
 
@@ -440,32 +479,39 @@ export async function buildCompleteRelaySet(
   if (user) {
     console.debug('[relay_management.ts] buildCompleteRelaySet: Fetching user-specific relays for:', user.pubkey);
     
+    // Run user-specific relay fetching in parallel for better performance
+    const userRelayPromises = [
+      getUserOutboxRelays(ndk, user).catch(error => {
+        console.debug('[relay_management.ts] Error fetching user outbox relays:', error);
+        return [];
+      }),
+      getUserLocalRelays(ndk, user).catch(error => {
+        console.debug('[relay_management.ts] Error fetching user local relays:', error);
+        return [];
+      }),
+      getUserBlockedRelays(ndk, user).catch(() => {
+        // Silently ignore blocked relay fetch errors
+        return [];
+      }),
+      getExtensionRelays().catch(error => {
+        console.debug('[relay_management.ts] Error fetching extension relays:', error);
+        return [];
+      })
+    ];
+
     try {
-      userOutboxRelays = await getUserOutboxRelays(ndk, user);
+      const [userOutboxRelays, userLocalRelays, blockedRelays, extensionRelays] = await Promise.all(userRelayPromises);
       console.debug('[relay_management.ts] buildCompleteRelaySet: User outbox relays:', userOutboxRelays);
-    } catch (error) {
-      console.debug('[relay_management.ts] Error fetching user outbox relays:', error);
-    }
-
-    try {
-      userLocalRelays = await getUserLocalRelays(ndk, user);
       console.debug('[relay_management.ts] buildCompleteRelaySet: User local relays:', userLocalRelays);
-    } catch (error) {
-      console.debug('[relay_management.ts] Error fetching user local relays:', error);
-    }
-
-    try {
-      blockedRelays = await getUserBlockedRelays(ndk, user);
       console.debug('[relay_management.ts] buildCompleteRelaySet: User blocked relays:', blockedRelays);
-    } catch {
-      // Silently ignore blocked relay fetch errors
-    }
-
-    try {
-      extensionRelays = await getExtensionRelays();
       console.debug('[relay_management.ts] Extension relays gathered:', extensionRelays);
     } catch (error) {
-      console.debug('[relay_management.ts] Error fetching extension relays:', error);
+      console.debug('[relay_management.ts] Error in parallel relay fetching:', error);
+      // Fallback to empty arrays if parallel fetching fails
+      userOutboxRelays = [];
+      userLocalRelays = [];
+      blockedRelays = [];
+      extensionRelays = [];
     }
   } else {
     console.debug('[relay_management.ts] buildCompleteRelaySet: No user provided, skipping user-specific relays');

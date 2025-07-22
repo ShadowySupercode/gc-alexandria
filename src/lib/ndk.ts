@@ -467,10 +467,11 @@ export function initNdk(): NDK {
 
   // Connect with better error handling and reduced retry attempts
   let retryCount = 0;
-  const maxRetries = 1; // Reduce to 1 retry
+  const maxRetries = 2; // Allow 2 retries for better reliability
 
   const attemptConnection = async () => {
     try {
+      console.debug("[NDK.ts] Attempting NDK connection...");
       await ndk.connect();
       console.debug("[NDK.ts] NDK connected successfully");
       // Update relay stores after connection
@@ -484,7 +485,7 @@ export function initNdk(): NDK {
       if (retryCount < maxRetries) {
         retryCount++;
         console.debug(`[NDK.ts] Attempting to reconnect (${retryCount}/${maxRetries})...`);
-        setTimeout(attemptConnection, 2000); // Reduce timeout to 2 seconds
+        setTimeout(attemptConnection, 3000); // Increase timeout to 3 seconds
       } else {
         console.warn("[NDK.ts] Max retries reached, continuing with limited functionality");
         // Still try to update relay stores even if connection failed
@@ -495,6 +496,30 @@ export function initNdk(): NDK {
           console.warn("[NDK.ts] Failed to update relay stores:", storeError);
         }
       }
+    }
+  };
+
+  // Add a fallback connection attempt with reduced relay set
+  const attemptFallbackConnection = async () => {
+    try {
+      console.debug("[NDK.ts] Attempting fallback connection with minimal relay set...");
+      // Create a minimal relay set with just the most reliable relays
+      const minimalRelays = ["wss://theforest.nostr1.com", "wss://thecitadel.nostr1.com"];
+      
+      // Try to connect with just these relays by adding them to the pool
+      for (const relayUrl of minimalRelays) {
+        const relay = new NDKRelay(relayUrl, undefined, ndk);
+        ndk.pool?.addRelay(relay);
+      }
+      
+      await ndk.connect();
+      console.debug("[NDK.ts] Fallback connection successful");
+      
+      // Update relay stores
+      await updateActiveRelayStores(ndk);
+      startNetworkMonitoringForRelays();
+    } catch (fallbackError) {
+      console.warn("[NDK.ts] Fallback connection also failed:", fallbackError);
     }
   };
 
