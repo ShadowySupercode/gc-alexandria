@@ -1,6 +1,7 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { VisualizationConfig } from '$lib/stores/visualizationConfig';
 import { isEventId, isCoordinate, parseCoordinate } from './nostr_identifiers';
+import type { NostrEventId } from './nostr_identifiers';
 
 /**
  * Filters events based on visualization configuration
@@ -58,7 +59,7 @@ export function filterByDisplayLimits(events: NDKEvent[], config: VisualizationC
  */
 export function detectMissingEvents(
   events: NDKEvent[], 
-  existingIds: Set<string>,
+  existingIds: Set<NostrEventId>,
   existingCoordinates?: Map<string, NDKEvent>
 ): Set<string> {
   const missing = new Set<string>();
