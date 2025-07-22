@@ -16,7 +16,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-  
+
 - name: Container Image
   steps:
   - !CheckoutStep
@@ -30,7 +30,7 @@ jobs:
     name: build & push image
     dockerfile: Dockerfile
     output: !RegistryOutput
-      tags: '@server@/@project_path@:@branch@ @server@/@project_path@:@commit_hash@'
+      tags: '@server@/@project_path@:@build_number@ @server@/@project_path@:@commit_hash@'
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
