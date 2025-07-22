@@ -4,6 +4,8 @@
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
+  import { checkCommunityStatus } from "$lib/utils/community_checker";
+  import { searchCache } from "$lib/utils/searchCache";
   import type {
     NostrProfile,
     ProfileSearchResult,
@@ -55,7 +57,7 @@
       mentionSearch = "";
       mentionResults = [];
       mentionLoading = false;
-      // Clear any pending search timeout
+
       if (searchTimeout) {
         clearTimeout(searchTimeout);
         searchTimeout = null;
@@ -287,8 +289,8 @@
       clearTimeout(searchTimeout);
     }
 
-    // Clear results if search is empty
-    if (!searchTerm) {
+    // Clear results if search is empty or too short
+    if (!searchTerm || searchTerm.length < 2) {
       mentionResults = [];
       communityStatus = {};
       return;
@@ -296,17 +298,19 @@
 
     // Debounce the search to avoid too many requests
     searchTimeout = setTimeout(async () => {
-      if (searchTerm !== mentionSearch.trim()) {
+      const currentSearchTerm = mentionSearch.trim();
+      if (searchTerm !== currentSearchTerm || currentSearchTerm.length < 2) {
         // Search term changed while we were waiting, ignore this result
         return;
       }
 
       await searchMentions();
-    }, 300); // 300ms debounce delay
+    }, 800); // 800ms debounce delay - longer to allow for natural typing pauses
   });
 
   async function searchMentions() {
-    if (!mentionSearch.trim()) {
+    const searchTerm = mentionSearch.trim();
+    if (!searchTerm || searchTerm.length < 2) {
       mentionResults = [];
       communityStatus = {};
       return;
@@ -317,7 +321,7 @@
       return;
     }
 
-    console.log("Starting search for:", mentionSearch.trim());
+    console.log("Starting search for:", searchTerm);
 
     // Set loading state
     mentionLoading = true;
@@ -325,7 +329,40 @@
 
     try {
       console.log("Search promise created, waiting for result...");
-      const result = await searchProfiles(mentionSearch.trim());
+      
+      // Handle different types of @ searches
+      let result;
+      if (searchTerm.startsWith("@")) {
+        const cleanTerm = searchTerm.slice(1); // Remove the @ symbol
+        
+        if (cleanTerm.includes(".")) {
+          // @domain.com - search for all users from that domain
+          console.log("Searching for users from domain:", cleanTerm);
+          result = await searchProfilesFromDomain(cleanTerm);
+        } else {
+          // @username - search for users with matching display names, names, or NIP-05
+          console.log("Searching for users with username:", cleanTerm);
+          result = await searchProfiles(cleanTerm);
+          
+          // Always check community status for username search results (even if cached)
+          if (result.profiles.length > 0) {
+            const communityStatus = await checkCommunityStatus(result.profiles);
+            result.Status = communityStatus;
+            console.log("Community status for username search:", communityStatus);
+          }
+        }
+      } else {
+        // Regular search (no @ prefix)
+        result = await searchProfiles(searchTerm);
+        
+        // Always check community status for regular search results (even if cached)
+        if (result.profiles.length > 0) {
+          const communityStatus = await checkCommunityStatus(result.profiles);
+          result.Status = communityStatus;
+          console.log("Community status for regular search:", communityStatus);
+        }
+      }
+      
       console.log("Search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
@@ -333,6 +370,13 @@
       // Update state
       mentionResults = result.profiles;
       communityStatus = result.Status;
+      
+      console.log("Final community status:", communityStatus);
+      console.log("Profiles with community status:", mentionResults.map(p => ({
+        name: p.name,
+        pubkey: p.pubkey,
+        hasCommunity: p.pubkey ? communityStatus[p.pubkey] : false
+      })));
 
       console.log(
         "State updated - mentionResults length:",
@@ -355,6 +399,118 @@
         "searching:",
         isSearching,
       );
+    }
+  }
+
+  /**
+   * Search for all users from a specific domain
+   */
+  async function searchProfilesFromDomain(domain: string): Promise<ProfileSearchResult> {
+    try {
+      // First try to get the well-known.json file from the domain
+      const wellKnownUrl = `https://${domain}/.well-known/nostr.json`;
+      console.log("Fetching well-known from:", wellKnownUrl);
+      
+      const response = await fetch(wellKnownUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        console.warn("Well-known not found for domain:", domain);
+        // Fall back to regular search with domain as search term
+        const result = await searchProfiles(domain);
+        // Check community status for fallback results
+        if (result.profiles.length > 0) {
+          const communityStatus = await checkCommunityStatus(result.profiles);
+          result.Status = communityStatus;
+        }
+        return result;
+      }
+      
+      const wellKnownData = await response.json();
+      console.log("Well-known data:", wellKnownData);
+      
+      // Extract pubkeys from the well-known data
+      const pubkeys: string[] = [];
+      if (wellKnownData.names) {
+        // Add all pubkeys from the names object
+        Object.values(wellKnownData.names).forEach((pubkey: any) => {
+          if (typeof pubkey === 'string' && pubkey.length === 64) {
+            pubkeys.push(pubkey);
+          }
+        });
+      }
+      
+      if (wellKnownData.relays) {
+        // Add pubkeys from relays if available
+        Object.values(wellKnownData.relays).forEach((relayData: any) => {
+          if (Array.isArray(relayData)) {
+            relayData.forEach((item: any) => {
+              if (typeof item === 'string' && item.length === 64) {
+                pubkeys.push(item);
+              }
+            });
+          }
+        });
+      }
+      
+      console.log("Found pubkeys from well-known:", pubkeys.length);
+      
+      // Remove duplicates
+      const uniquePubkeys = [...new Set(pubkeys)];
+      
+      if (uniquePubkeys.length === 0) {
+        console.warn("No pubkeys found in well-known for domain:", domain);
+        // Fall back to regular search
+        const result = await searchProfiles(domain);
+        // Check community status for fallback results
+        if (result.profiles.length > 0) {
+          const communityStatus = await checkCommunityStatus(result.profiles);
+          result.Status = communityStatus;
+        }
+        return result;
+      }
+      
+      // Fetch profiles for all pubkeys
+      const profiles: NostrProfile[] = [];
+      for (const pubkey of uniquePubkeys) {
+        try {
+          const npub = toNpub(pubkey);
+          if (npub) {
+            const metadata = await getUserMetadata(npub);
+            if (metadata) {
+              profiles.push({
+                ...metadata,
+                pubkey: pubkey,
+              });
+            }
+          }
+        } catch (error) {
+          console.warn("Error fetching profile for pubkey:", pubkey, error);
+        }
+      }
+      
+      console.log("Successfully fetched profiles for domain:", profiles.length);
+      
+      // Check community status for all profiles
+      const communityStatus = await checkCommunityStatus(profiles);
+      console.log("Community status for domain profiles:", communityStatus);
+      
+      return { profiles, Status: communityStatus };
+      
+    } catch (error) {
+      console.error("Error searching profiles from domain:", error);
+      // Fall back to regular search
+      const result = await searchProfiles(domain);
+      // Check community status for fallback results
+      if (result.profiles.length > 0) {
+        const communityStatus = await checkCommunityStatus(result.profiles);
+        result.Status = communityStatus;
+      }
+      return result;
     }
   }
 
@@ -429,7 +585,7 @@
       <div class="flex gap-2">
         <input
           type="text"
-          placeholder="Search display name, name, NIP-05, or npub..."
+          placeholder="Search users: @username, @domain.com, or name/npub... (min 2 chars)"
           bind:value={mentionSearch}
           bind:this={mentionSearchInput}
           class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
