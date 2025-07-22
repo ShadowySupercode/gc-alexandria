@@ -1,17 +1,39 @@
-version: 39
+version: 40
 jobs:
-  - name: Github Push
-    steps:
-      - !PushRepository
-        name: gc-alexandria
-        remoteUrl: https://github.com/ShadowySupercode/gc-alexandria
-        passwordSecret: github_access_token
-        force: false
-        condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-    triggers:
-      - !BranchUpdateTrigger {}
-      - !TagCreateTrigger {}
-    retryCondition: never
-    maxRetries: 3
-    retryDelay: 30
-    timeout: 14400
+- name: Github Push
+  steps:
+  - !PushRepository
+    name: gc-alexandria
+    remoteUrl: https://github.com/ShadowySupercode/gc-alexandria
+    passwordSecret: github_access_token
+    force: false
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - !BranchUpdateTrigger {}
+  - !TagCreateTrigger {}
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+  
+- name: Container Image
+  steps:
+  - !CheckoutStep
+    name: code checkout
+    cloneCredential: !DefaultCredential {}
+    withLfs: false
+    withSubmodules: false
+    condition: SUCCESSFUL
+    optional: false
+  - !BuildImageStep
+    name: build & push image
+    dockerfile: Dockerfile
+    output: !RegistryOutput
+      tags: '@server@/@project_path@:@branch@ @server@/@project_path@:@commit_hash@'
+    condition: SUCCESSFUL
+    optional: false
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
