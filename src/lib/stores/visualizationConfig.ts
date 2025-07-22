@@ -9,11 +9,22 @@ export interface EventKindConfig {
   showAll?: boolean; // Only for content kinds (30041, 30818) - show all loaded content instead of limit
 }
 
+/**
+ * VisualizationConfig now uses a Map<number, string> for eventConfigs.
+ * The key is the event kind (number), and the value is a JSON stringified EventKindConfig.
+ * This allows O(1) retrieval of config by kind.
+ */
 export interface VisualizationConfig {
-  // Event configurations with per-kind limits
-  eventConfigs: EventKindConfig[];
+  /**
+   * Event configurations with per-kind limits.
+   * Map key: event kind (number)
+   * Map value: JSON stringified EventKindConfig
+   */
+  eventConfigs: Map<number, string>;
 
-  // Graph traversal
+  /**
+   * Whether to search through all fetched events during graph traversal.
+   */
   searchThroughFetched: boolean;
 }
 
