@@ -301,7 +301,7 @@ export function createTagGravityForce(
   });
 
   debug("Creating tag gravity force");
-
+  
   function force(alpha: number) {
     applyTagGravity(nodes, nodeToAnchors, alpha);
   }
