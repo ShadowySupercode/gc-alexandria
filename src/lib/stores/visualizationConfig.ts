@@ -31,109 +31,119 @@ function createVisualizationConfig() {
     eventConfigs: DEFAULT_EVENT_CONFIGS,
     searchThroughFetched: true,
   };
+  
+  const { subscribe, set, update } = writable<VisualizationConfig>(initialConfig);
 
-  const { subscribe, set, update } =
-    writable<VisualizationConfig>(initialConfig);
+  function reset() {
+    set(initialConfig);
+  }
+
+  function addEventKind(kind: number, limit: number = 10) {
+    update((config) => {
+      // Check if kind already exists
+      if (config.eventConfigs.some((ec) => ec.kind === kind)) {
+        return config;
+      }
+      
+      const newConfig: EventKindConfig = { kind, limit, enabled: true };
+      
+      // Add nestedLevels for 30040
+      if (kind === 30040) {
+        newConfig.nestedLevels = 1;
+      }
+      
+      // Add depth for kind 3
+      if (kind === 3) {
+        newConfig.depth = 0;
+      }
+      
+      return {
+        ...config,
+        eventConfigs: [...config.eventConfigs, newConfig],
+      };
+    });
+  }
+
+  function removeEventKind(kind: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.filter((ec) => ec.kind !== kind),
+    }));
+  }
+
+  function updateEventLimit(kind: number, limit: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.map((ec) =>
+        ec.kind === kind ? { ...ec, limit } : ec,
+      ),
+    }));
+  }
+
+  function updateNestedLevels(levels: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.map((ec) =>
+        ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec,
+      ),
+    }));
+  }
+
+  function updateFollowDepth(depth: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.map((ec) =>
+        ec.kind === 3 ? { ...ec, depth: depth } : ec,
+      ),
+    }));
+  }
+
+  function toggleShowAllContent(kind: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.map((ec) =>
+        ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec,
+      ),
+    }));
+  }
+
+  function getEventConfig(kind: number) {
+    let config: EventKindConfig | undefined;
+    subscribe((c) => {
+      config = c.eventConfigs.find((ec) => ec.kind === kind);
+    })();
+    return config;
+  }
+
+  function toggleSearchThroughFetched() {
+    update((config) => ({
+      ...config,
+      searchThroughFetched: !config.searchThroughFetched,
+    }));
+  }
+
+  function toggleKind(kind: number) {
+    update((config) => ({
+      ...config,
+      eventConfigs: config.eventConfigs.map((ec) =>
+        ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec,
+      ),
+    }));
+  }
 
   return {
     subscribe,
     update,
-    reset: () => set(initialConfig),
-
-    // Add a new event kind with default limit
-    addEventKind: (kind: number, limit: number = 10) =>
-      update((config) => {
-        // Check if kind already exists
-        if (config.eventConfigs.some((ec) => ec.kind === kind)) {
-          return config;
-        }
-
-        const newConfig: EventKindConfig = { kind, limit, enabled: true };
-        // Add nestedLevels for 30040
-        if (kind === 30040) {
-          newConfig.nestedLevels = 1;
-        }
-        // Add depth for kind 3
-        if (kind === 3) {
-          newConfig.depth = 0;
-        }
-
-        const updated = {
-          ...config,
-          eventConfigs: [...config.eventConfigs, newConfig],
-        };
-        return updated;
-      }),
-
-    // Remove an event kind
-    removeEventKind: (kind: number) =>
-      update((config) => {
-        const updated = {
-          ...config,
-          eventConfigs: config.eventConfigs.filter((ec) => ec.kind !== kind),
-        };
-        return updated;
-      }),
-
-    // Update limit for a specific kind
-    updateEventLimit: (kind: number, limit: number) =>
-      update((config) => ({
-        ...config,
-        eventConfigs: config.eventConfigs.map((ec) =>
-          ec.kind === kind ? { ...ec, limit } : ec,
-        ),
-      })),
-
-    // Update nested levels for kind 30040
-    updateNestedLevels: (levels: number) =>
-      update((config) => ({
-        ...config,
-        eventConfigs: config.eventConfigs.map((ec) =>
-          ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec,
-        ),
-      })),
-
-    // Update depth for kind 3
-    updateFollowDepth: (depth: number) =>
-      update((config) => ({
-        ...config,
-        eventConfigs: config.eventConfigs.map((ec) =>
-          ec.kind === 3 ? { ...ec, depth: depth } : ec,
-        ),
-      })),
-
-    // Toggle showAll for content kinds (30041, 30818)
-    toggleShowAllContent: (kind: number) =>
-      update((config) => ({
-        ...config,
-        eventConfigs: config.eventConfigs.map((ec) =>
-          ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec,
-        ),
-      })),
-
-    // Get config for a specific kind
-    getEventConfig: (kind: number) => {
-      let config: EventKindConfig | undefined;
-      subscribe((c) => {
-        config = c.eventConfigs.find((ec) => ec.kind === kind);
-      })();
-      return config;
-    },
-
-    toggleSearchThroughFetched: () =>
-      update((config) => ({
-        ...config,
-        searchThroughFetched: !config.searchThroughFetched,
-      })),
-
-    // Toggle enabled state for a specific kind
-    toggleKind: (kind: number) =>
-      update((config) => ({
-        ...config,
-        eventConfigs: config.eventConfigs.map((ec) =>
-          ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec,
-        ),
-      })),
+    reset,
+    addEventKind,
+    removeEventKind,
+    updateEventLimit,
+    updateNestedLevels,
+    updateFollowDepth,
+    toggleShowAllContent,
+    getEventConfig,
+    toggleSearchThroughFetched,
+    toggleKind,
   };
 }
 
@@ -146,11 +156,19 @@ export const enabledEventKinds = derived(visualizationConfig, ($config) =>
     .map((ec) => ec.kind),
 );
 
-// Helper to check if a kind is enabled
-export const isKindEnabled = derived(
+/**
+ * Returns true if the given event kind is enabled in the config.
+ * @param config - The VisualizationConfig object.
+ * @param kind - The event kind number to check.
+ */
+export function isKindEnabledFn(config: VisualizationConfig, kind: number): boolean {
+  const eventConfig = config.eventConfigs.find((ec) => ec.kind === kind);
+  // If not found, return false. Otherwise, return true unless explicitly disabled.
+  return !!eventConfig && eventConfig.enabled !== false;
+}
+
+// Derived store: returns a function that checks if a kind is enabled in the current config.
+export const isKindEnabledStore = derived(
   visualizationConfig,
-  ($config) => (kind: number) => {
-    const eventConfig = $config.eventConfigs.find((ec) => ec.kind === kind);
-    return eventConfig != false;
-  },
+  ($config) => (kind: number) => isKindEnabledFn($config, kind)
 );
