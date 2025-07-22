@@ -25,6 +25,7 @@
     error?: string;
     testing: boolean;
     category: string;
+    categories: string[]; // Store all categories for this relay
   }
 
   let relayStatuses = $state<RelayStatus[]>([]);
@@ -43,6 +44,36 @@
       loginMethod: userState.loginMethod
     });
   });
+
+  // Create a Map for O(1) relay category lookup - supports multiple categories per relay
+  const relayCategoryMap = new Map<string, string[]>();
+  
+  // Initialize the category map
+  function initializeRelayCategoryMap(): void {
+    relayCategoryMap.clear();
+    
+    // Helper function to add relay to category
+    function addRelayToCategory(url: string, category: string): void {
+      const existing = relayCategoryMap.get(url);
+      if (existing) {
+        if (!existing.includes(category)) {
+          existing.push(category);
+        }
+      } else {
+        relayCategoryMap.set(url, [category]);
+      }
+    }
+    
+    // Add relays to their respective categories
+    communityRelays.forEach(url => addRelayToCategory(url, "Community"));
+    searchRelays.forEach(url => addRelayToCategory(url, "Search"));
+    secondaryRelays.forEach(url => addRelayToCategory(url, "Secondary"));
+    anonymousRelays.forEach(url => addRelayToCategory(url, "Anonymous"));
+    lowbandwidthRelays.forEach(url => addRelayToCategory(url, "Low Bandwidth"));
+    localRelays.forEach(url => addRelayToCategory(url, "Local"));
+    $activeInboxRelays.forEach(url => addRelayToCategory(url, "Active Inbox"));
+    $activeOutboxRelays.forEach(url => addRelayToCategory(url, "Active Outbox"));
+  }
 
   // Get all configured relays that could be used by the application
   function getAllConfiguredRelays(): string[] {
@@ -72,6 +103,7 @@
 
   $effect(() => {
     allRelays = getAllConfiguredRelays();
+    initializeRelayCategoryMap();
   });
 
   async function runRelayTests() {
@@ -85,13 +117,17 @@
     const relaysToTest = getAllConfiguredRelays();
     console.log("[RelayStatus] Testing all configured relays:", relaysToTest);
 
-    relayStatuses = relaysToTest.map((url) => ({
-      url,
-      connected: false,
-      requiresAuth: false,
-      testing: true,
-      category: getRelayCategory(url),
-    }));
+    relayStatuses = relaysToTest.map((url) => {
+      const categories = relayCategoryMap.get(url) ?? ["Other"];
+      return {
+        url,
+        connected: false,
+        requiresAuth: false,
+        testing: true,
+        category: categories[0], // Use first category as primary
+        categories: categories,
+      };
+    });
 
     const results = await Promise.allSettled(
       relaysToTest.map(async (url) => {
@@ -130,17 +166,7 @@
     testing = false;
   }
 
-  function getRelayCategory(url: string): string {
-    if (communityRelays.includes(url)) return "Community";
-    if (searchRelays.includes(url)) return "Search";
-    if (secondaryRelays.includes(url)) return "Secondary";
-    if (anonymousRelays.includes(url)) return "Anonymous";
-    if (lowbandwidthRelays.includes(url)) return "Low Bandwidth";
-    if (localRelays.includes(url)) return "Local";
-    if ($activeInboxRelays.includes(url)) return "Active Inbox";
-    if ($activeOutboxRelays.includes(url)) return "Active Outbox";
-    return "Other";
-  }
+  // Removed getRelayCategory function - now using relayCategoryMap for O(1) lookup
 
   $effect(() => {
     // Re-run relay tests when feed type, login state, or relay lists change
@@ -208,9 +234,13 @@
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <div class="font-medium">{status.url}</div>
-            <span class="text-xs px-2 py-1 rounded {getCategoryColor(status.category)}">
-              {status.category}
-            </span>
+            <div class="flex flex-wrap gap-1">
+              {#each status.categories as category}
+                <span class="text-xs px-2 py-1 rounded {getCategoryColor(category)}">
+                  {category}
+                </span>
+              {/each}
+            </div>
           </div>
           <div class="text-sm {getStatusColor(status)}">
             {getStatusText(status)}
