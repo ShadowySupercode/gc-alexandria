@@ -151,6 +151,6 @@ export const isKindEnabled = derived(
   visualizationConfig,
   ($config) => (kind: number) => {
     const eventConfig = $config.eventConfigs.find((ec) => ec.kind === kind);
-    return eventConfig ? eventConfig.enabled !== false : false;
+    return eventConfig != false;
   },
 );
