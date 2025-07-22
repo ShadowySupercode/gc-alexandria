@@ -95,6 +95,19 @@
       clearInterval(fallbackCheckInterval);
       fallbackCheckInterval = null;
     }
+
+    // Reset login-related state when user logs out
+    if (!currentUser.signedIn) {
+      isLoadingExtension = false;
+      isLoadingAmber = false;
+      result = null;
+      nostrConnectUri = undefined;
+      showQrCode = false;
+      qrCodeDataUrl = undefined;
+      showAmberFallback = false;
+      // Clear any fallback flags when user logs out
+      localStorage.removeItem("alexandria/amber/fallback");
+    }
   });
 
   // Auto-refresh profile when user signs in

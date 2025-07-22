@@ -28,7 +28,17 @@ export const load: LayoutLoad = () => {
     if (pubkey && loginMethod && !logoutFlag) {
       if (loginMethod === "extension") {
         console.log("Restoring extension login...");
-        loginWithExtension();
+        console.log("Extension login - pubkey:", pubkey);
+        console.log("Extension login - loginMethod:", loginMethod);
+        // Use setTimeout to avoid blocking the layout load
+        setTimeout(async () => {
+          try {
+            await loginWithExtension();
+            console.log("Extension login restored successfully");
+          } catch (error) {
+            console.error("Failed to restore extension login:", error);
+          }
+        }, 0);
       } else if (loginMethod === "amber") {
         // Attempt to restore Amber (NIP-46) session from localStorage
         const relay = "wss://relay.nsec.app";
@@ -106,6 +116,7 @@ export const load: LayoutLoad = () => {
       }
     } else if (logoutFlag) {
       console.log("Skipping auto-login due to logout flag");
+      // Clear the logout flag after checking it
       localStorage.removeItem("alexandria/logout/flag");
     }
   } catch (e) {

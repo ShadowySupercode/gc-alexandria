@@ -8,7 +8,7 @@ import NDK, {
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../ndk.ts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores, ndkSignedIn } from "../ndk.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 import { userPubkey } from "../stores/authStore.Svelte.ts";
@@ -148,6 +148,7 @@ function clearLogin() {
  * Login with NIP-07 browser extension
  */
 export async function loginWithExtension() {
+  console.log("loginWithExtension called");
   const ndk = get(ndkInstance);
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
@@ -202,6 +203,7 @@ export async function loginWithExtension() {
   console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
+  ndkSignedIn.set(true);
   
   // Update relay stores with the new user's relays
   try {
@@ -214,6 +216,8 @@ export async function loginWithExtension() {
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");
   persistLogin(user, "extension");
+  
+  console.log("Login with extension - completed successfully");
 }
 
 /**
@@ -269,6 +273,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   console.log("Login with Amber - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
+  ndkSignedIn.set(true);
   
   // Update relay stores with the new user's relays
   try {
@@ -343,6 +348,7 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
+  ndkSignedIn.set(true);
   
   // Update relay stores with the new user's relays
   try {
@@ -416,12 +422,17 @@ export function logoutUser() {
     signedIn: false,
   });
   userPubkey.set(null);
+  ndkSignedIn.set(false);
 
   const ndk = get(ndkInstance);
   if (ndk) {
     ndk.activeUser = undefined;
     ndk.signer = undefined;
   }
+
+  // Clear relay stores to trigger re-initialization
+  activeInboxRelays.set([]);
+  activeOutboxRelays.set([]);
 
   console.log("Logout complete");
 }

@@ -14,10 +14,10 @@ export const TIMEOUTS = {
   PROFILE_SEARCH: 15000,
 
   /** Timeout for subscription search operations */
-  SUBSCRIPTION_SEARCH: 10000,
+  SUBSCRIPTION_SEARCH: 8000,
 
   /** Timeout for second-order search operations */
-  SECOND_ORDER_SEARCH: 5000,
+  SECOND_ORDER_SEARCH: 8000,
 
   /** Timeout for relay diagnostics */
   RELAY_DIAGNOSTICS: 5000,
@@ -41,16 +41,25 @@ export const CACHE_DURATIONS = {
 // Search limits
 export const SEARCH_LIMITS = {
   /** Limit for specific profile searches (npub, NIP-05) */
-  SPECIFIC_PROFILE: 10,
+  SPECIFIC_PROFILE: 5,
 
   /** Limit for general profile searches */
-  GENERAL_PROFILE: 500,
+  GENERAL_PROFILE: 100,
 
   /** Limit for community relay checks */
   COMMUNITY_CHECK: 1,
 
   /** Limit for second-order search results */
-  SECOND_ORDER_RESULTS: 100,
+  SECOND_ORDER_RESULTS: 50,
+
+  /** Limit for primary search results (d-tag, t-tag searches) */
+  PRIMARY_SEARCH_RESULTS: 100,
+
+  /** Number of results to load per page */
+  RESULTS_PER_PAGE: 10,
+
+  /** Maximum number of results to display before requiring pagination */
+  MAX_DISPLAY_RESULTS: 50,
 } as const;
 
 // Nostr event kind ranges

@@ -89,7 +89,7 @@
 
   let currentBlog: null | string = $state(null);
   let currentBlogEvent: null | NDKEvent = $state(null);
-  const isLeaf = $derived(indexEvent.kind === 30041);
+  const isContentEvent = $derived([30041, 30023, 30818].includes(indexEvent.kind));
 
   function isInnerActive() {
     return currentBlog !== null && $publicationColumnVisibility.inner;
@@ -167,7 +167,7 @@
       main: !isBlog,
       blog: isBlog,
     }));
-    if (isLeaf || isBlog) {
+    if (isContentEvent || isBlog) {
       publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
     }
 
@@ -193,7 +193,7 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== "blog" || !isLeaf}
+{#if !isContentEvent}
   {#if $publicationColumnVisibility.toc}
     <Sidebar
       activeUrl={`#${activeAddress ?? ""}`}

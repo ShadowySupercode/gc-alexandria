@@ -15,6 +15,8 @@
   import type { SearchResult } from '$lib/utils/search_types';
   import { userStore } from "$lib/stores/userStore";
   import { get } from "svelte/store";
+  import { updateSearchURL, clearSearchURL } from "$lib/utils/url_service";
+  import { TIMEOUTS } from "$lib/utils/search_constants";
 
   // Props definition
   let {
@@ -27,6 +29,7 @@
     event,
     onClear,
     onLoadingChange,
+    onError,
   }: {
     loading: boolean;
     error: string | null;
@@ -45,6 +48,7 @@
     event: NDKEvent | null;
     onClear?: () => void;
     onLoadingChange?: (loading: boolean) => void;
+    onError?: (error: string) => void;
   } = $props();
 
   // Component state
@@ -69,15 +73,45 @@
   // Track last processed values to prevent loops
   let lastProcessedSearchValue = $state<string | null>(null);
   let lastProcessedDTagValue = $state<string | null>(null);
+  let lastProcessedSearchType = $state<string | null>(null); // Track the search type used
   let isProcessingSearch = $state(false);
   let currentProcessingSearchValue = $state<string | null>(null);
   let lastSearchValue = $state<string | null>(null);
   let isWaitingForSearchResult = $state(false);
   let isUserEditing = $state(false);
+  let lastRelayRefreshCount = $state<number>(0); // Track when we last refreshed due to relay changes
+  let relayRefreshAttempts = $state<number>(0); // Track number of refresh attempts to prevent infinite loops
+  let lastSearchResultCount = $state<number | null>(null); // Track last search result count
 
   // Move search handler functions above all $effect runes
   async function handleNip05Search(query: string) {
     try {
+      lastProcessedSearchType = "nip05"; // Set search type for NIP-05 searches
+      
+      // Wait for relays to be available (with timeout)
+      let retryCount = 0;
+      const maxRetries = 20; // Wait up to 10 seconds (20 * 500ms) for relays to be ready
+      
+      while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < maxRetries) {
+        console.debug(`EventSearch: Waiting for relays for NIP-05 search... (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+        retryCount++;
+      }
+      
+      // Check if we have any relays available
+      if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
+        console.warn("EventSearch: No relays available for NIP-05 search after wait, failing search");
+        localError = "No relays available. Please check your connection and try again.";
+        updateSearchState(false, false, null, null);
+        isProcessingSearch = false;
+        return;
+      }
+      
+      console.log("EventSearch: Relays available for NIP-05 search:", {
+        inboxCount: $activeInboxRelays.length,
+        outboxCount: $activeOutboxRelays.length
+      });
+      
       const foundEvent = await searchNip05(query);
       if (foundEvent) {
         handleFoundEvent(foundEvent);
@@ -124,6 +158,32 @@
 
   async function handleEventSearch(query: string) {
     try {
+      lastProcessedSearchType = "id"; // Set search type for event searches
+      
+      // Wait for relays to be available (with timeout)
+      let retryCount = 0;
+      const maxRetries = 20; // Wait up to 10 seconds (20 * 500ms) for relays to be ready
+      
+      while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < maxRetries) {
+        console.debug(`EventSearch: Waiting for relays for event search... (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+        retryCount++;
+      }
+      
+      // Check if we have any relays available
+      if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
+        console.warn("EventSearch: No relays available for event search after wait, failing search");
+        localError = "No relays available. Please check your connection and try again.";
+        updateSearchState(false, false, null, null);
+        isProcessingSearch = false;
+        return;
+      }
+      
+      console.log("EventSearch: Relays available for event search:", {
+        inboxCount: $activeInboxRelays.length,
+        outboxCount: $activeOutboxRelays.length
+      });
+      
       const foundEvent = await searchEvent(query);
       if (!foundEvent) {
         console.warn("[Events] Event not found for query:", query);
@@ -176,7 +236,13 @@
       console.log("EventSearch: Already searching, skipping");
       return;
     }
-    resetSearchState();
+    
+    // Only reset state if this is not a URL-triggered search
+    const isUrlTriggered = queryOverride !== undefined && !isUserEditing;
+    if (!isUrlTriggered) {
+      resetSearchState();
+    }
+    
     localError = null;
     updateSearchState(true);
     isResetting = false;
@@ -198,14 +264,14 @@
       }
     }
     if (query.toLowerCase().startsWith("t:")) {
-      const searchTerm = query.slice(2).trim();
+      const searchTerm = query.slice(2).trim().toLowerCase();
       if (searchTerm) {
         await handleSearchBySubscription("t", searchTerm);
         return;
       }
     }
     if (query.toLowerCase().startsWith("n:")) {
-      const searchTerm = query.slice(2).trim();
+      const searchTerm = query.slice(2).trim().toLowerCase();
       if (searchTerm) {
         await handleSearchBySubscription("n", searchTerm);
         return;
@@ -219,6 +285,7 @@
       navigateToSearch(query, "id");
       // Don't clear searchQuery here - let the effect handle it
     }
+    lastProcessedSearchType = "id"; // Set search type for regular event searches
     await handleEventSearch(query);
   }
 
@@ -246,10 +313,15 @@
     if (
       !searchValue ||
       searching ||
-      isResetting ||
       isProcessingSearch ||
       isWaitingForSearchResult
     ) {
+      return;
+    }
+
+    // Allow processing even if isResetting is true, but only for URL-triggered searches
+    // (when searchValue is set but user is not editing)
+    if (isResetting && isUserEditing) {
       return;
     }
 
@@ -355,6 +427,7 @@
     ) {
       console.log("EventSearch: Processing dTagValue:", dTagValue);
       lastProcessedDTagValue = dTagValue;
+      lastProcessedSearchType = "d"; // Set search type for d-tag searches
       
       // Add a small delay to prevent rapid successive calls
       setTimeout(() => {
@@ -372,6 +445,84 @@
     }
   });
 
+  // Monitor relay changes and refresh search when more relays become available
+  $effect(() => {
+    const currentUser = get(userStore);
+    const inboxCount = $activeInboxRelays.length;
+    const outboxCount = $activeOutboxRelays.length;
+    const totalRelays = inboxCount + outboxCount;
+    
+    // If user is logged in and we have a recent search, refresh when more relays become available
+    // Don't refresh if we have recent results (which means the search is working fine)
+    const hasRecentResults = searchResultCount !== null && searchResultCount > 0;
+    if (currentUser.signedIn && currentUser.pubkey && 
+        (lastProcessedSearchValue || lastProcessedDTagValue) && 
+        !searching && 
+        !isResetting &&
+        !isProcessingSearch &&
+        !isWaitingForSearchResult &&
+        !hasRecentResults &&
+        (inboxCount > 0 || outboxCount > 0)) {
+      
+      // Initialize lastRelayRefreshCount if it's 0 and we have relays
+      if (lastRelayRefreshCount === 0 && totalRelays > 0) {
+        lastRelayRefreshCount = totalRelays;
+        return; // Don't trigger refresh on first initialization
+      }
+      
+      // Only refresh if we have significantly more relays than the last refresh
+      // This prevents infinite loops and excessive refreshing
+      if (totalRelays > 6 && totalRelays > lastRelayRefreshCount + 2) { // At least 2 more relays than last refresh
+        // Prevent infinite loops by limiting refresh attempts and checking if we're getting the same results
+        const maxRefreshAttempts = 3;
+        const isGettingSameResults = lastSearchResultCount === 0 && searchResultCount === 0;
+        
+        // Don't refresh if we're getting cached results (which means the search is working fine)
+        const hasRecentResults = searchResultCount !== null && searchResultCount > 0;
+        if (hasRecentResults) {
+          console.debug(`EventSearch: Skipping relay refresh - we have recent results (${searchResultCount})`);
+          return; // Exit early if we have results
+        }
+        
+        if (relayRefreshAttempts < maxRefreshAttempts && !isGettingSameResults && !searching && !isResetting) {
+          console.debug(`EventSearch: Significantly more relays available (${totalRelays} vs ${lastRelayRefreshCount}), refreshing search for better results (attempt ${relayRefreshAttempts + 1}/${maxRefreshAttempts})`);
+          lastRelayRefreshCount = totalRelays; // Mark that we've refreshed for this count
+          relayRefreshAttempts++; // Increment refresh attempts
+          
+          // Small delay to avoid rapid refreshes
+          setTimeout(() => {
+            if (!searching && !isResetting && !isProcessingSearch && !isWaitingForSearchResult) {
+              // Don't refresh if we're getting cached results (which means the search is working fine)
+              const hasRecentResults = searchResultCount !== null && searchResultCount > 0;
+              if (hasRecentResults) {
+                console.debug(`EventSearch: Skipping relay refresh in setTimeout - we have recent results (${searchResultCount})`);
+                return; // Exit early if we have results
+              }
+              
+              // Refresh the last search with the correct search type
+              // For d-tag searches, use lastProcessedDTagValue which contains the clean tag value
+              if (lastProcessedDTagValue && lastProcessedSearchType === "d") {
+                handleSearchBySubscription("d", lastProcessedDTagValue);
+              } else if (lastProcessedSearchValue && lastProcessedSearchType && 
+                  (lastProcessedSearchType === "t" || lastProcessedSearchType === "n")) {
+                // Extract the actual search term from the processed value (remove prefix if present)
+                let searchTerm = lastProcessedSearchValue;
+                if (lastProcessedSearchValue.startsWith(`${lastProcessedSearchType}:`)) {
+                  searchTerm = lastProcessedSearchValue.slice(lastProcessedSearchType.length + 1);
+                }
+                handleSearchBySubscription(lastProcessedSearchType as "t" | "n", searchTerm);
+              }
+            }
+          }, 1000); // Increased delay to 1 second
+        } else if (relayRefreshAttempts >= maxRefreshAttempts) {
+          console.debug(`EventSearch: Max refresh attempts (${maxRefreshAttempts}) reached, stopping relay refresh`);
+        } else if (isGettingSameResults) {
+          console.debug(`EventSearch: Getting same results (0), stopping relay refresh to prevent infinite loop`);
+        }
+      }
+    }
+  });
+
   // Search utility functions
   function updateSearchState(
     isSearching: boolean,
@@ -383,6 +534,12 @@
     searchCompleted = completed;
     searchResultCount = count;
     searchResultType = type;
+    
+    // Track last search result count for relay refresh logic
+    if (completed && count !== null) {
+      lastSearchResultCount = count;
+    }
+    
     if (onLoadingChange) {
       onLoadingChange(isSearching);
     }
@@ -394,9 +551,13 @@
     localError = null;
     lastProcessedSearchValue = null;
     lastProcessedDTagValue = null;
+    lastProcessedSearchType = null; // Reset search type tracking
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
     lastSearchValue = null;
+    lastRelayRefreshCount = 0; // Reset relay refresh tracking
+    relayRefreshAttempts = 0; // Reset refresh attempts for new searches
+    lastSearchResultCount = null; // Reset last search result count
     updateSearchState(false, false, null, null);
 
     // Cancel ongoing search
@@ -457,7 +618,8 @@
     searchResultType = "event";
 
     // Update last processed search value to prevent re-processing
-    if (searchValue) {
+    // Only update for event searches, not for subscription searches
+    if (searchValue && !lastProcessedSearchType) {
       lastProcessedSearchValue = searchValue;
       lastSearchValue = searchValue;
     }
@@ -470,13 +632,25 @@
     onEventFound(event);
   }
 
-  function navigateToSearch(query: string, paramName: string) {
-    const encoded = encodeURIComponent(query);
-    goto(`?${paramName}=${encoded}`, {
-      replaceState: false,
-      keepFocus: true,
-      noScroll: true,
-    });
+  function navigateToSearch(query: string, searchType: string) {
+    // Extract the search term from the query
+    let searchTerm = query;
+    
+    // Handle prefixed queries
+    if (query.startsWith('d:')) {
+      searchTerm = query.slice(2);
+    } else if (query.startsWith('t:')) {
+      searchTerm = query.slice(2);
+    } else if (query.startsWith('n:')) {
+      searchTerm = query.slice(2);
+    }
+    
+    // Update URL with new search parameters
+    updateSearchURL({
+      q: searchTerm,
+      stype: searchType,
+      p: 1, // Reset to first page for new searches
+    }, false);
   }
 
   // Search handlers
@@ -489,6 +663,19 @@
       searchTerm,
     });
     isResetting = false; // Allow effects to run for new searches
+    lastRelayRefreshCount = 0; // Reset relay refresh tracking for new searches
+    relayRefreshAttempts = 0; // Reset refresh attempts for new searches
+    lastProcessedSearchType = searchType; // Track the search type for relay refresh
+    
+    // Store the search term for relay refresh logic
+    if (searchType === "d") {
+      // For d-tag searches, store the clean tag value
+      lastProcessedDTagValue = searchTerm;
+    } else {
+      // For other searches, store the full search term with prefix
+      lastProcessedSearchValue = `${searchType}:${searchTerm}`;
+    }
+    
     localError = null;
     updateSearchState(true);
     
@@ -505,19 +692,24 @@
     // Additional wait for user-specific relays if user is logged in
     const currentUser = get(userStore);
     if (currentUser.signedIn && currentUser.pubkey) {
-      console.debug(`EventSearch: User is logged in (${currentUser.pubkey}), waiting for user-specific relays...`);
-      retryCount = 0;
-      while ($activeOutboxRelays.length <= 9 && retryCount < maxRetries) {
-        // If we still have the default relay count (9), wait for user-specific relays
-        console.debug(`EventSearch: Waiting for user-specific relays... (attempt ${retryCount + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        retryCount++;
+      console.debug(`EventSearch: User is logged in (${currentUser.pubkey}), checking for user-specific relays...`);
+      
+      // Instead of waiting, just check if we have any relays available and proceed
+      // User-specific relays will be loaded in the background
+      if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
+        console.debug(`EventSearch: No relays available yet, waiting briefly for initial relay setup...`);
+        retryCount = 0;
+        while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < 5) {
+          console.debug(`EventSearch: Waiting for initial relays... (attempt ${retryCount + 1}/5)`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          retryCount++;
+        }
       }
     }
     
     // Check if we have any relays available
     if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
-      console.warn("EventSearch: No relays available after waiting, failing search");
+      console.warn("EventSearch: No relays available after brief wait, failing search");
       localError = "No relays available. Please check your connection and try again.";
       updateSearchState(false, false, null, null);
       isProcessingSearch = false;
@@ -566,11 +758,12 @@
         currentAbortController.signal,
       );
       
-      // Add a 30-second timeout
+      // Add a timeout based on search type
+      const timeoutDuration = searchType === "n" ? TIMEOUTS.PROFILE_SEARCH : TIMEOUTS.SUBSCRIPTION_SEARCH;
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
-          reject(new Error("Search timeout: No results received within 30 seconds"));
-        }, 30000);
+          reject(new Error(`Search timeout: No results received within ${timeoutDuration / 1000} seconds`));
+        }, timeoutDuration);
       });
       
       const result = await Promise.race([searchPromise, timeoutPromise]) as any;
@@ -608,10 +801,8 @@
       currentProcessingSearchValue = null;
       isWaitingForSearchResult = false;
       
-      // Update last processed search value to prevent re-processing
-      if (searchValue) {
-        lastProcessedSearchValue = searchValue;
-      }
+      // Search term storage is handled in handleSearchBySubscription function
+      // No need to update lastProcessedSearchValue here
     } catch (error) {
       if (error instanceof Error && error.message === "Search cancelled") {
         isProcessingSearch = false;
@@ -620,23 +811,24 @@
         return;
       }
       console.error("EventSearch: Search failed:", error);
-      localError = error instanceof Error ? error.message : "Search failed";
+      let errorMessage = error instanceof Error ? error.message : "Search failed";
       // Provide more specific error messages for different failure types
       if (error instanceof Error) {
         if (
           error.message.includes("timeout") ||
           error.message.includes("connection")
         ) {
-          localError =
+          errorMessage =
             "Search timed out. The relays may be temporarily unavailable. Please try again.";
         } else if (error.message.includes("NDK not initialized")) {
-          localError =
+          errorMessage =
             "Nostr client not initialized. Please refresh the page and try again.";
         } else {
-          localError = `Search failed: ${error.message}`;
+          errorMessage = `Search failed: ${error.message}`;
         }
       }
-      localError = null; // Clear local error when search fails
+      localError = errorMessage;
+      onError?.(errorMessage);
       // Stop any ongoing subscription
       if (activeSub) {
         try {
@@ -656,10 +848,8 @@
       currentProcessingSearchValue = null;
       isWaitingForSearchResult = false;
       
-      // Update last processed search value to prevent re-processing even on error
-      if (searchValue) {
-        lastProcessedSearchValue = searchValue;
-      }
+      // Search term storage is handled in handleSearchBySubscription function
+      // No need to update lastProcessedSearchValue here
     }
   }
 
@@ -669,12 +859,8 @@
     isUserEditing = false; // Reset user editing flag
     resetSearchState();
 
-    // Clear URL parameters to reset the page
-    goto("", {
-      replaceState: true,
-      keepFocus: true,
-      noScroll: true,
-    });
+    // Clear URL parameters using the URL service
+    clearSearchURL(true);
 
     // Ensure all search state is cleared
     searching = false;
@@ -733,6 +919,26 @@
   function getNprofileUrl(pubkey: string): string {
     return nprofileEncode(pubkey, $activeInboxRelays);
   }
+
+  /**
+   * Parse NIP-05 error message to extract well-known URL
+   */
+  function parseNip05Error(errorMessage: string): { message: string; wellKnownUrl: string | null } {
+    const urlMatch = errorMessage.match(/Check the well-known file at: (https:\/\/[^\s]+)/);
+    if (urlMatch) {
+      const wellKnownUrl = urlMatch[1];
+      const message = errorMessage.replace(/Check the well-known file at: https:\/\/[^\s]+/, '').trim();
+      return { message, wellKnownUrl };
+    }
+    return { message: errorMessage, wellKnownUrl: null };
+  }
+
+  /**
+   * Open well-known URL in new tab
+   */
+  function openWellKnownUrl(url: string): void {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 </script>
 
 <div class="flex flex-col space-y-6">
@@ -765,11 +971,31 @@
 
   <!-- Error Display -->
   {#if showError}
+    {@const errorText = localError || error}
+    {@const parsedError = parseNip05Error(errorText || '')}
     <div
       class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
       role="alert"
     >
-      {localError || error}
+      <div class="mb-2">
+        {parsedError.message}
+      </div>
+      {#if parsedError.wellKnownUrl}
+        <button
+          onclick={() => {
+            if (parsedError.wellKnownUrl) {
+              openWellKnownUrl(parsedError.wellKnownUrl as string);
+            }
+          }}
+          class="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
+            <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+          </svg>
+          Check Well-Known File
+        </button>
+      {/if}
     </div>
   {/if}
 

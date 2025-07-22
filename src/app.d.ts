@@ -19,9 +19,6 @@ declare global {
 
   var hljs: HLJSApi;
 
-  // deno-lint-ignore no-explicit-any
-  var MathJax: any;
-
   var nostr: NDKNip07Signer & {
     getRelays: () => Promise<Record<string, Record<string, boolean | undefined>>>;
     // deno-lint-ignore no-explicit-any

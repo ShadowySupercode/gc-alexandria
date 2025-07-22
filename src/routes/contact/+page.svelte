@@ -9,7 +9,7 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkInstance, ndkSignedIn, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { communityRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";

@@ -1,7 +1,8 @@
 import { ndkInstance } from "../ndk.ts";
 import { fetchEventWithFallback } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
-import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NDKFilter } from "@nostr-dev-kit/ndk";
 import { get } from "svelte/store";
 import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
@@ -115,18 +116,35 @@ export async function searchNip05(
     throw new Error("Invalid NIP-05 address format. Expected: user@domain");
   }
 
-  try {
-    const [name, domain] = nip05Address.split("@");
+  // Normalize the NIP-05 address to lowercase for consistent lookup
+  const normalizedNip05Address = nip05Address.toLowerCase();
+  const [name, domain] = normalizedNip05Address.split("@");
 
+  try {
     const res = await fetch(wellKnownUrl(domain, name));
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const wellKnownUrlStr = wellKnownUrl(domain, name);
+      throw new Error(
+        `HTTP ${res.status}: ${res.statusText}. Check the well-known file at: ${wellKnownUrlStr}`,
+      );
     }
 
     const data = await res.json();
 
-    const pubkey = data.names?.[name];
+    // Try exact match first
+    let pubkey = data.names?.[name];
+    
+    // If not found, try case-insensitive search
+    if (!pubkey && data.names) {
+      const exactName = Object.keys(data.names).find(
+        (key) => key.toLowerCase() === name.toLowerCase(),
+      );
+      if (exactName) {
+        pubkey = data.names[exactName];
+      }
+    }
+
     if (pubkey) {
       const profileFilter = { kinds: [0], authors: [pubkey] };
       const profileEvent = await fetchEventWithFallback(
@@ -137,12 +155,16 @@ export async function searchNip05(
       if (profileEvent) {
         return profileEvent;
       } else {
+        const wellKnownUrlStr = wellKnownUrl(domain, name);
         throw new Error(
-          `No profile found for ${name}@${domain} (pubkey: ${pubkey})`,
+          `No profile found for ${name}@${domain} (pubkey: ${pubkey}). Check the well-known file at: ${wellKnownUrlStr}`,
         );
       }
     } else {
-      throw new Error(`NIP-05 address not found: ${name}@${domain}`);
+      const wellKnownUrlStr = wellKnownUrl(domain, name);
+      throw new Error(
+        `NIP-05 address not found: ${name}@${domain}. Check the well-known file at: ${wellKnownUrlStr}`,
+      );
     }
   } catch (e) {
     console.error(

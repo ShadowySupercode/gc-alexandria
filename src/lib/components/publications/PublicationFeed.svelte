@@ -57,6 +57,15 @@
 
     if (newRelays.length === 0) {
       console.debug('[PublicationFeed] No relays available, waiting...');
+      // Set a timeout to stop waiting if no relays become available
+      setTimeout(() => {
+        if (loading && newRelays.length === 0) {
+          console.debug('[PublicationFeed] No relays available after timeout, setting loading to false');
+          loading = false;
+          eventsInView = [];
+          endOfFeed = true;
+        }
+      }, 5000);
       return;
     }
 
@@ -95,6 +104,18 @@
         }, 3000);
       }
     }
+
+    // If we've been waiting too long without relays, set loading to false
+    if (loading && hasInitialized && newRelays.length === 0) {
+      const noRelayTimeout = setTimeout(() => {
+        console.debug('[PublicationFeed] No relays available after timeout, setting loading to false');
+        loading = false;
+        eventsInView = [];
+        endOfFeed = true;
+      }, 5000); // Wait 5 seconds for relays to become available
+
+      return () => clearTimeout(noRelayTimeout);
+    }
   });
 
   async function fetchAllIndexEventsFromRelays() {
@@ -112,6 +133,8 @@
     if (allRelays.length === 0) {
       console.debug('[PublicationFeed] No relays available for fetching');
       loading = false;
+      eventsInView = [];
+      endOfFeed = true;
       return;
     }
 
@@ -290,7 +313,8 @@
   };
 
   // Debounced search function
-  const debouncedSearch = debounce(async (query: string) => {
+  const debouncedSearch = debounce(async (...args: unknown[]) => {
+    const query = args[0] as string;
     console.debug("[PublicationFeed] Search query changed:", query);
     if (query.trim()) {
       const filtered = filterEventsBySearch(allIndexEvents);
@@ -380,7 +404,35 @@
       {/each}
     {:else}
       <div class="col-span-full">
-        <p class="text-center">No publications found.</p>
+        {#if allRelays.length === 0}
+          <div class="text-center p-8">
+            <p class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              No relays available
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Alexandria is trying to connect to Nostr relays. This may take a moment.
+            </p>
+            <button 
+              class="btn-leather"
+              onclick={() => {
+                hasInitialized = false;
+                loading = true;
+                initializeAndFetch();
+              }}
+            >
+              Retry Connection
+            </button>
+          </div>
+        {:else}
+          <div class="text-center p-8">
+            <p class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              No publications found
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              Try adjusting your search terms or check back later for new content.
+            </p>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
