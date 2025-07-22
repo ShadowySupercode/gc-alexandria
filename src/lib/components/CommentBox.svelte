@@ -1,16 +1,10 @@
 <script lang="ts">
-  import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { Button, Alert } from "flowbite-svelte";
+  import CommentBoxModals from "./CommentBoxModals.svelte";
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
-  import { searchProfiles } from "$lib/utils/search_utility";
-  import { checkCommunityStatus } from "$lib/utils/community_checker";
-  import { searchCache } from "$lib/utils/searchCache";
-  import type {
-    NostrProfile,
-    ProfileSearchResult,
-  } from "$lib/utils/search_utility";
-
+  import { searchService } from "$lib/services/searchService";
+  import type { NostrProfile } from "$lib/utils/search_utility";
   import { userPubkey } from "$lib/stores/authStore.Svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -19,71 +13,95 @@
     buildReplyTags,
     createSignedEvent,
     publishEvent,
-    navigateToEvent,
   } from "$lib/utils/nostrEventService";
-  import { tick } from "svelte";
   import { goto } from "$app/navigation";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { createEditorUtils } from "$lib/utils/editor_utils";
+  import { createModalState, type ModalState } from "$lib/composables/modalState.svelte";
+  import { createSubmissionHandler } from "$lib/composables/submissionHandler";
 
+  // Component props
   const props = $props<{
-    event: NDKEvent;
-    userRelayPreference: boolean;
+    placeholder?: string;
+    initialContent?: string;
+    showToolbar?: boolean;
+    minHeight?: string;
+    event?: NDKEvent;
+    userRelayPreference?: boolean;
+    kind?: number;
+    tags?: string[][];
+    onSubmit?: (content: string) => Promise<{ success: boolean; error?: string; eventId?: string }>;
+    submitButtonText?: string;
+    showUserProfile?: boolean;
+    showMentions?: boolean;
+    showWikilinks?: boolean;
   }>();
 
-  let content = $state("");
-  let preview = $state("");
+  // Default values
+  const {
+    placeholder = "Write your comment...",
+    initialContent = "",
+    showToolbar = true,
+    minHeight = "200px",
+    event,
+    userRelayPreference = false,
+    kind,
+    tags = [],
+    onSubmit,
+    submitButtonText = "Post Comment",
+    showUserProfile = true,
+    showMentions = true,
+    showWikilinks = true,
+  } = props;
+
+  // Core state
+  let content = $state(initialContent);
   let isSubmitting = $state(false);
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
-  let showOtherRelays = $state(false);
-  let showSecondaryRelays = $state(false);
   let userProfile = $state<NostrProfile | null>(null);
 
-  // Add state for modals and search
-  let showMentionModal = $state(false);
-  let showWikilinkModal = $state(false);
-  let mentionSearch = $state("");
-  let mentionResults = $state<NostrProfile[]>([]);
-  let mentionLoading = $state(false);
-  let wikilinkTarget = $state("");
-  let wikilinkLabel = $state("");
-  let mentionSearchTimeout: ReturnType<typeof setTimeout> | null = null;
-  let mentionSearchInput: HTMLInputElement | undefined;
+  // Editor state
+  let editorRef = $state<HTMLDivElement | undefined>(undefined);
+  let showMarkup = $state(false);
+  let markupText = $state("");
 
-  // Reset modal state when it opens/closes
-  $effect(() => {
-    if (showMentionModal) {
-      // Reset search when modal opens
-      mentionSearch = "";
-      mentionResults = [];
-      mentionLoading = false;
-
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-        searchTimeout = null;
-      }
-      // Focus the search input after a brief delay to ensure modal is rendered
-      setTimeout(() => {
-        mentionSearchInput?.focus();
-      }, 100);
-    } else {
-      // Reset search when modal closes
-      mentionSearch = "";
-      mentionResults = [];
-      mentionLoading = false;
-      // Clear any pending search timeout
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-        searchTimeout = null;
-      }
+  // Create composables
+  const { modalState, communityStatus, openModal, closeModal } = createModalState();
+  const { handleSubmit, handleViewComment } = createSubmissionHandler({
+    content: () => content,
+    event,
+    kind,
+    tags,
+    onSubmit,
+    userRelayPreference,
+    onSuccess: (result: { relay: string; eventId: string }) => {
+      success = result;
+      clearForm();
+    },
+    onError: (errorMessage: string) => {
+      error = errorMessage;
+    },
+    onSubmitting: (submitting: boolean) => {
+      isSubmitting = submitting;
     }
   });
 
+  // Create editor utilities
+  const editorUtils = createEditorUtils({
+    editorRef: () => editorRef,
+    content: () => content,
+    setContent: (newContent: string) => { content = newContent; },
+    showMarkup: () => showMarkup,
+    markupText: () => markupText,
+    setMarkupText: (newMarkup: string) => { markupText = newMarkup; },
+  });
+
+  // Effects
   $effect(() => {
     const trimmedPubkey = $userPubkey?.trim();
     const npub = toNpub(trimmedPubkey);
     if (npub) {
-      // Call an async function, but don't make the effect itself async
       getUserMetadata(npub).then((metadata) => {
         userProfile = metadata;
       });
@@ -98,723 +116,756 @@
 
   $effect(() => {
     if (!success) return;
-
     content = "";
-    preview = "";
   });
 
-  // Markup buttons
-  const markupButtons = [
-    { label: "Bold", action: () => insertMarkup("**", "**") },
-    { label: "Italic", action: () => insertMarkup("_", "_") },
-    { label: "Strike", action: () => insertMarkup("~~", "~~") },
-    { label: "Link", action: () => insertMarkup("[", "](url)") },
-    { label: "Image", action: () => insertMarkup("![", "](url)") },
-    { label: "Quote", action: () => insertMarkup("> ", "") },
-    { label: "List", action: () => insertMarkup("* ", "") },
-    { label: "Numbered List", action: () => insertMarkup("1. ", "") },
-    { label: "Hashtag", action: () => insertMarkup("#", "") },
-    {
-      label: "@",
-      action: () => {
-        mentionSearch = "";
-        mentionResults = [];
-        showMentionModal = true;
+  $effect(() => {
+    if (showMarkup) {
+      // Apply highlighting when switching to markup mode
+      setTimeout(() => {
+        editorUtils.updateMarkupHighlighting();
+      }, 100);
+    }
+  });
+
+  $effect(() => {
+    if (showMarkup && markupText) {
+      // Apply highlighting when markup text changes
+      setTimeout(() => {
+        editorUtils.updateMarkupHighlighting();
+      }, 50);
+    }
+  });
+
+  // Reactive search effect
+  $effect(() => {
+    const searchTerm = modalState.mention.search.trim();
+    
+    if (!searchTerm || searchTerm.length < 2) {
+      modalState.mention.results = [];
+      Object.assign(communityStatus, {});
+      return;
+    }
+
+    searchService.searchProfiles(
+      searchTerm,
+      (results) => {
+        modalState.mention.results = results.profiles;
+        Object.assign(communityStatus, results.communityStatus);
+        modalState.mention.loading = results.isLoading;
       },
-    },
-    {
-      label: "Wikilink",
-      action: () => {
-        showWikilinkModal = true;
-      },
-    },
-  ];
+      (isLoading) => {
+        modalState.mention.loading = isLoading;
+      }
+    );
+  });
 
-  function insertMarkup(prefix: string, suffix: string) {
-    const textarea = document.querySelector("textarea");
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-
-    content =
-      content.substring(0, start) +
-      prefix +
-      selectedText +
-      suffix +
-      content.substring(end);
-    updatePreview();
-
-    // Set cursor position after the inserted markup
-    setTimeout(() => {
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd =
-        start + prefix.length + selectedText.length + suffix.length;
-    }, 0);
-  }
-
-  async function updatePreview() {
-    preview = await parseBasicmarkup(content);
-  }
-
+  // Helper functions
   function clearForm() {
     content = "";
-    preview = "";
-    error = null;
-    showOtherRelays = false;
-    showSecondaryRelays = false;
-  }
-
-  function removeFormatting() {
-    content = content
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/_(.*?)_/g, "$1")
-      .replace(/~~(.*?)~~/g, "$1")
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-      .replace(/!\[(.*?)\]\(.*?\)/g, "$1")
-      .replace(/^>\s*/gm, "")
-      .replace(/^[-*]\s*/gm, "")
-      .replace(/^\d+\.\s*/gm, "")
-      .replace(/#(\w+)/g, "$1");
-    updatePreview();
-  }
-
-  async function handleSubmit(
-    useOtherRelays = false,
-    useSecondaryRelays = false,
-  ) {
-    isSubmitting = true;
+    markupText = "";
     error = null;
     success = null;
-
-    try {
-      const pk = $userPubkey || "";
-      const npub = toNpub(pk);
-
-      if (!npub) {
-        throw new Error(
-          "Invalid public key: must be a 64-character hex string.",
-        );
-      }
-
-      if (props.event.kind === undefined || props.event.kind === null) {
-        throw new Error("Invalid event: missing kind");
-      }
-
-      const parent = props.event;
-      // Use the same kind as parent for replies, or 1111 for generic replies
-      const kind = parent.kind === 1 ? 1 : 1111;
-
-      // Extract root and parent event information
-      const rootInfo = extractRootEventInfo(parent);
-      const parentInfo = extractParentEventInfo(parent);
-
-      // Build tags for the reply
-      const tags = buildReplyTags(parent, rootInfo, parentInfo, kind);
-
-      // Create and sign the event
-      const { event: signedEvent } = await createSignedEvent(
-        content,
-        pk,
-        kind,
-        tags,
-      );
-
-      // Publish the event using the new relay system
-      let relays = $activeOutboxRelays;
-      
-      if (useOtherRelays && !useSecondaryRelays) {
-        relays = [...$activeOutboxRelays, ...$activeInboxRelays];
-      } else if (useSecondaryRelays) {
-        // For secondary relays, use a subset of outbox relays
-        relays = $activeOutboxRelays.slice(0, 3); // Use first 3 outbox relays
-      }
-
-      const successfulRelays = await publishEvent(signedEvent, relays);
-
-      success = {
-        relay: successfulRelays[0] || "Unknown relay",
-        eventId: signedEvent.id,
-      };
-
-      // Clear form after successful submission
-      content = "";
-      preview = "";
-      showOtherRelays = false;
-      showSecondaryRelays = false;
-    } catch (e) {
-      error = e instanceof Error ? e.message : "Unknown error occurred";
-    } finally {
-      isSubmitting = false;
+    
+    // Clear the editor if it exists
+    if (editorRef) {
+      editorRef.innerHTML = "";
     }
   }
 
-  // Add a helper to shorten npub
   function shortenNpub(npub: string | undefined) {
     if (!npub) return "";
     return npub.slice(0, 8) + "…" + npub.slice(-4);
   }
 
-  async function insertAtCursor(text: string) {
-    const textarea = document.querySelector("textarea");
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    content = content.substring(0, start) + text + content.substring(end);
-    updatePreview();
-
-    // Wait for DOM updates to complete
-    await tick();
-
-    textarea.focus();
-    textarea.selectionStart = textarea.selectionEnd = start + text.length;
-  }
-
-  // Add mention search functionality using centralized search utility
-  let communityStatus: Record<string, boolean> = $state({});
-  let isSearching = $state(false);
-
-  // Add reactive search with debouncing
-  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  // Reactive search effect - triggers automatically as user types
-  $effect(() => {
-    const searchTerm = mentionSearch.trim();
-    
-    // Clear existing timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    // Clear results if search is empty or too short
-    if (!searchTerm || searchTerm.length < 2) {
-      mentionResults = [];
-      communityStatus = {};
-      return;
-    }
-
-    // Debounce the search to avoid too many requests
-    searchTimeout = setTimeout(async () => {
-      const currentSearchTerm = mentionSearch.trim();
-      if (searchTerm !== currentSearchTerm || currentSearchTerm.length < 2) {
-        // Search term changed while we were waiting, ignore this result
-        return;
-      }
-
-      await searchMentions();
-    }, 800); // 800ms debounce delay - longer to allow for natural typing pauses
-  });
-
-  async function searchMentions() {
-    const searchTerm = mentionSearch.trim();
-    if (!searchTerm || searchTerm.length < 2) {
-      mentionResults = [];
-      communityStatus = {};
-      return;
-    }
-
-    // Prevent multiple concurrent searches
-    if (isSearching) {
-      return;
-    }
-
-    console.log("Starting search for:", searchTerm);
-
-    // Set loading state
-    mentionLoading = true;
-    isSearching = true;
-
-    try {
-      console.log("Search promise created, waiting for result...");
-      
-      // Handle different types of @ searches
-      let result;
-      if (searchTerm.startsWith("@")) {
-        const cleanTerm = searchTerm.slice(1); // Remove the @ symbol
-        
-        if (cleanTerm.includes(".")) {
-          // @domain.com - search for all users from that domain
-          console.log("Searching for users from domain:", cleanTerm);
-          result = await searchProfilesFromDomain(cleanTerm);
-        } else {
-          // @username - search for users with matching display names, names, or NIP-05
-          console.log("Searching for users with username:", cleanTerm);
-          result = await searchProfiles(cleanTerm);
-          
-          // Always check community status for username search results (even if cached)
-          if (result.profiles.length > 0) {
-            const communityStatus = await checkCommunityStatus(result.profiles);
-            result.Status = communityStatus;
-            console.log("Community status for username search:", communityStatus);
-          }
-        }
-      } else {
-        // Regular search (no @ prefix)
-        result = await searchProfiles(searchTerm);
-        
-        // Always check community status for regular search results (even if cached)
-        if (result.profiles.length > 0) {
-          const communityStatus = await checkCommunityStatus(result.profiles);
-          result.Status = communityStatus;
-          console.log("Community status for regular search:", communityStatus);
-        }
-      }
-      
-      console.log("Search completed, found profiles:", result.profiles.length);
-      console.log("Profile details:", result.profiles);
-      console.log("Community status:", result.Status);
-
-      // Update state
-      mentionResults = result.profiles;
-      communityStatus = result.Status;
-      
-      console.log("Final community status:", communityStatus);
-      console.log("Profiles with community status:", mentionResults.map(p => ({
-        name: p.name,
-        pubkey: p.pubkey,
-        hasCommunity: p.pubkey ? communityStatus[p.pubkey] : false
-      })));
-
-      console.log(
-        "State updated - mentionResults length:",
-        mentionResults.length,
-      );
-      console.log(
-        "State updated - communityStatus keys:",
-        Object.keys(communityStatus),
-      );
-    } catch (error) {
-      console.error("Error searching mentions:", error);
-      mentionResults = [];
-      communityStatus = {};
-    } finally {
-      mentionLoading = false;
-      isSearching = false;
-      console.log(
-        "Search finished - loading:",
-        mentionLoading,
-        "searching:",
-        isSearching,
-      );
-    }
-  }
-
-  /**
-   * Search for all users from a specific domain
-   */
-  async function searchProfilesFromDomain(domain: string): Promise<ProfileSearchResult> {
-    try {
-      // First try to get the well-known.json file from the domain
-      const wellKnownUrl = `https://${domain}/.well-known/nostr.json`;
-      console.log("Fetching well-known from:", wellKnownUrl);
-      
-      const response = await fetch(wellKnownUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        console.warn("Well-known not found for domain:", domain);
-        // Fall back to regular search with domain as search term
-        const result = await searchProfiles(domain);
-        // Check community status for fallback results
-        if (result.profiles.length > 0) {
-          const communityStatus = await checkCommunityStatus(result.profiles);
-          result.Status = communityStatus;
-        }
-        return result;
-      }
-      
-      const wellKnownData = await response.json();
-      console.log("Well-known data:", wellKnownData);
-      
-      // Extract pubkeys from the well-known data
-      const pubkeys: string[] = [];
-      if (wellKnownData.names) {
-        // Add all pubkeys from the names object
-        Object.values(wellKnownData.names).forEach((pubkey: any) => {
-          if (typeof pubkey === 'string' && pubkey.length === 64) {
-            pubkeys.push(pubkey);
-          }
-        });
-      }
-      
-      if (wellKnownData.relays) {
-        // Add pubkeys from relays if available
-        Object.values(wellKnownData.relays).forEach((relayData: any) => {
-          if (Array.isArray(relayData)) {
-            relayData.forEach((item: any) => {
-              if (typeof item === 'string' && item.length === 64) {
-                pubkeys.push(item);
-              }
-            });
-          }
-        });
-      }
-      
-      console.log("Found pubkeys from well-known:", pubkeys.length);
-      
-      // Remove duplicates
-      const uniquePubkeys = [...new Set(pubkeys)];
-      
-      if (uniquePubkeys.length === 0) {
-        console.warn("No pubkeys found in well-known for domain:", domain);
-        // Fall back to regular search
-        const result = await searchProfiles(domain);
-        // Check community status for fallback results
-        if (result.profiles.length > 0) {
-          const communityStatus = await checkCommunityStatus(result.profiles);
-          result.Status = communityStatus;
-        }
-        return result;
-      }
-      
-      // Fetch profiles for all pubkeys
-      const profiles: NostrProfile[] = [];
-      for (const pubkey of uniquePubkeys) {
-        try {
-          const npub = toNpub(pubkey);
-          if (npub) {
-            const metadata = await getUserMetadata(npub);
-            if (metadata) {
-              profiles.push({
-                ...metadata,
-                pubkey: pubkey,
-              });
-            }
-          }
-        } catch (error) {
-          console.warn("Error fetching profile for pubkey:", pubkey, error);
-        }
-      }
-      
-      console.log("Successfully fetched profiles for domain:", profiles.length);
-      
-      // Check community status for all profiles
-      const communityStatus = await checkCommunityStatus(profiles);
-      console.log("Community status for domain profiles:", communityStatus);
-      
-      return { profiles, Status: communityStatus };
-      
-    } catch (error) {
-      console.error("Error searching profiles from domain:", error);
-      // Fall back to regular search
-      const result = await searchProfiles(domain);
-      // Check community status for fallback results
-      if (result.profiles.length > 0) {
-        const communityStatus = await checkCommunityStatus(result.profiles);
-        result.Status = communityStatus;
-      }
-      return result;
-    }
-  }
-
+  // Modal action handlers
   function selectMention(profile: NostrProfile) {
     let mention = "";
     if (profile.pubkey) {
       try {
         const npub = toNpub(profile.pubkey);
-        if (npub) {
-          mention = `nostr:${npub}`;
-        } else {
-          // If toNpub fails, fallback to pubkey
-          mention = `nostr:${profile.pubkey}`;
-        }
+        mention = npub ? `nostr:${npub}` : `nostr:${profile.pubkey}`;
       } catch (e) {
-        console.error("Error in toNpub:", e);
-        // Fallback to pubkey if conversion fails
         mention = `nostr:${profile.pubkey}`;
       }
     } else {
-      console.warn("No pubkey in profile, falling back to display name");
       mention = `@${profile.displayName || profile.name}`;
     }
-    insertAtCursor(mention);
-    showMentionModal = false;
-    mentionSearch = "";
-    mentionResults = [];
+    editorUtils.insertText(mention);
+    closeModal('mention');
   }
 
   function insertWikilink() {
-    let markup = "";
-    if (wikilinkLabel.trim()) {
-      markup = `[[${wikilinkTarget}|${wikilinkLabel}]]`;
-    } else {
-      markup = `[[${wikilinkTarget}]]`;
-    }
-    insertAtCursor(markup);
-    showWikilinkModal = false;
-    wikilinkTarget = "";
-    wikilinkLabel = "";
+    const { target, label } = modalState.wikilink;
+    const markup = label.trim() ? `[[${target}|${label}]]` : `[[${target}]]`;
+    editorUtils.insertText(markup);
+    closeModal('wikilink');
   }
 
-  function handleViewComment() {
+  function insertLink() {
+    const { url, text } = modalState.link;
+    const markup = `[${text || 'link'}](${url})`;
+    editorUtils.insertText(markup);
+    closeModal('link');
+  }
+
+  function insertImage() {
+    const { url, alt } = modalState.image;
+    console.log('insertImage called with:', { url, alt });
+    const markup = `![${alt || 'image'}](${url})`;
+    console.log('Generated markup:', markup);
+    editorUtils.insertText(markup);
+    closeModal('image');
+  }
+
+  function insertTable() {
+    const { data } = modalState.table;
+    let tableMarkup = "";
+    
+    if (data.headers.length > 0) {
+      tableMarkup += "| " + data.headers.join(" | ") + " |\n";
+      tableMarkup += "| " + data.headers.map(() => "---").join(" | ") + " |\n";
+    }
+    
+    data.rows.forEach(row => {
+      tableMarkup += "| " + row.join(" | ") + " |\n";
+    });
+    
+    editorUtils.insertText(tableMarkup);
+    closeModal('table');
+  }
+
+  function insertFootnote() {
+    const { id, text } = modalState.footnote;
+    const markup = `[^${id}]`;
+    const footnoteDef = `\n\n[^${id}]: ${text}`;
+    editorUtils.insertText(markup + footnoteDef);
+    closeModal('footnote');
+  }
+
+  function insertHeading() {
+    const { level, text } = modalState.heading;
+    const headingMarkup = "#".repeat(level) + " " + text;
+    editorUtils.insertText(headingMarkup);
+    closeModal('heading');
+  }
+
+  function insertHorizontalRule() {
+    editorUtils.insertText("\n---\n");
+  }
+
+  // Table manipulation functions
+  function addTableRow() {
+    const newRow = new Array(modalState.table.data.headers.length || 2).fill("");
+    modalState.table.data.rows = [...modalState.table.data.rows, newRow];
+  }
+
+  function removeTableRow(index: number) {
+    modalState.table.data.rows = modalState.table.data.rows.filter((_, i) => i !== index);
+  }
+
+  function addTableColumn() {
+    const newColIndex = modalState.table.data.headers.length;
+    modalState.table.data.headers = [...modalState.table.data.headers, `Header ${newColIndex + 1}`];
+    modalState.table.data.rows = modalState.table.data.rows.map(row => [...row, ""]);
+  }
+
+  function removeTableColumn(index: number) {
+    modalState.table.data.headers = modalState.table.data.headers.filter((_, i) => i !== index);
+    modalState.table.data.rows = modalState.table.data.rows.map(row => row.filter((_, i) => i !== index));
+  }
+
+  // Toolbar actions with proper icons
+  const formattingActions = [
+    { label: "Bold", icon: "B", action: () => editorUtils.applyFormatting('strong'), shortcut: "Ctrl+B", class: "font-bold" },
+    { label: "Italic", icon: "I", action: () => editorUtils.applyFormatting('em'), shortcut: "Ctrl+I", class: "italic" },
+    { label: "Strikethrough", icon: "S", action: () => editorUtils.applyFormatting('del'), class: "line-through" }
+  ];
+
+  const listActions = [
+    { label: "Bullet List", icon: "•", action: () => editorUtils.insertListItem('bullet'), class: "list-disc" },
+    { label: "Numbered List", icon: "1.", action: () => editorUtils.insertListItem('numbered'), class: "list-decimal" },
+    { label: "Blockquote", icon: "☰", action: () => editorUtils.insertBlockquote(), class: "" }
+  ];
+
+  // Emoji data
+  const emojis = [
+    { emoji: "❤️", name: "heart" },
+    { emoji: "🚀", name: "rocket" },
+    { emoji: "😊", name: "smile" },
+    { emoji: "😂", name: "lol" },
+    { emoji: "🎉", name: "party" },
+    { emoji: "👍", name: "thumbs up" },
+    { emoji: "👎", name: "thumbs down" },
+    { emoji: "🔥", name: "fire" },
+    { emoji: "💯", name: "100" },
+    { emoji: "✨", name: "sparkles" },
+    { emoji: "🎯", name: "target" },
+    { emoji: "💡", name: "lightbulb" },
+    { emoji: "📚", name: "books" },
+    { emoji: "🎨", name: "art" },
+    { emoji: "⚡", name: "lightning" },
+    { emoji: "🌟", name: "star" },
+    { emoji: "💪", name: "muscle" },
+    { emoji: "🎵", name: "music" },
+    { emoji: "🏆", name: "trophy" },
+    { emoji: "💎", name: "gem" }
+  ];
+
+  // Insert actions
+  const insertActions = [
+    { label: "Code", icon: "< >", action: () => editorUtils.applyCodeFormatting(), class: "font-mono" },
+    { label: "Link", icon: "link", action: () => openModal('link'), class: "" },
+    { label: "Image", icon: "img", action: () => openModal('image'), class: "text-xs" },
+    { label: "Table", icon: "⊞", action: () => openModal('table'), class: "" },
+    { label: "Footnote", icon: "*", action: () => openModal('footnote'), class: "" },
+    { label: "Heading", icon: "H", action: () => openModal('heading'), class: "font-bold" },
+    { label: "Horizontal Rule", icon: "—", action: () => insertHorizontalRule(), class: "" },
+    { label: "LaTeX Inline", icon: "∑", action: () => editorUtils.insertLaTeX(), class: "" },
+    { label: "LaTeX Display", icon: "∑∑", action: () => editorUtils.insertDisplayLaTeX(), class: "" },
+    { label: "Emoji", icon: "😊", action: () => openModal('emoji'), class: "" },
+    ...(showMentions ? [{ label: "Mention", icon: "@", action: () => openModal('mention'), class: "" }] : []),
+    ...(showWikilinks ? [{ label: "Wikilink", icon: "[[", action: () => openModal('wikilink'), class: "" }] : [])
+  ];
+
+  function insertEmoji(emoji: string) {
+    editorUtils.insertText(emoji);
+    closeModal('emoji');
+  }
+
+  function toggleMarkup() {
+    if (showMarkup) {
+      // Switching from markup to WYSIWYG
+      const html = editorUtils.convertMarkupToHtml(markupText);
+      content = html;
+      showMarkup = false;
+      
+      // Wait for editor to be available before setting innerHTML
+      setTimeout(() => {
+        if (editorRef) {
+          editorRef.innerHTML = html;
+        }
+      }, 10);
+    } else {
+      // Switching from WYSIWYG to markup
+      let cleanContent = content;
+      
+      // Clean up any empty divs or br tags that might cause issues
+      if (cleanContent.includes('<div><br></div>')) {
+        cleanContent = cleanContent.replace(/<div><br><\/div>/g, '');
+      }
+      
+      markupText = editorUtils.convertHtmlToMarkup(cleanContent);
+      showMarkup = true;
+      
+      // Apply highlighting after switching to markup mode
+      setTimeout(() => {
+        editorUtils.updateMarkupHighlighting();
+      }, 100);
+    }
+  }
+
+  function handleEditorInput() {
+    if (!showMarkup) {
+      editorUtils.updateContentFromEditor();
+    }
+  }
+
+  function handleEditorKeydown(event: KeyboardEvent) {
+    editorUtils.handleEditorKeydown(event);
+  }
+
+  function setEditorFocused(focused: boolean) {
+    editorUtils.setEditorFocused(focused);
+  }
+
+  function handleViewCommentClick() {
     if (success?.eventId) {
-      const nevent = nip19.neventEncode({ id: success.eventId });
-      goto(`/events?id=${encodeURIComponent(nevent)}`);
+      handleViewComment(success.eventId);
+    }
+  }
+
+  function handleSubmitClick() {
+    handleSubmit();
+  }
+
+  function handleMarkupKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      const textarea = event.target as HTMLTextAreaElement;
+      const cursorPos = textarea.selectionStart;
+      const currentText = markupText;
+      
+      // Get the current line
+      const lines = currentText.split('\n');
+      let currentLineIndex = 0;
+      let charCount = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (charCount + lines[i].length + 1 > cursorPos) {
+          currentLineIndex = i;
+          break;
+        }
+        charCount += lines[i].length + 1; // +1 for newline
+      }
+      
+      const currentLine = lines[currentLineIndex];
+      
+      // Check if current line is a list item or blockquote
+      const bulletMatch = currentLine.match(/^(\s*)(\*)\s/);
+      const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s/);
+      const blockquoteMatch = currentLine.match(/^(\s*)(>)\s/);
+      
+      if (bulletMatch) {
+        event.preventDefault();
+        const indent = bulletMatch[1];
+        const marker = bulletMatch[2];
+        
+        // Insert new bullet item
+        const beforeCursor = currentText.substring(0, cursorPos);
+        const afterCursor = currentText.substring(cursorPos);
+        const newText = beforeCursor + '\n' + indent + marker + ' ' + afterCursor;
+        
+        markupText = newText;
+        
+        // Set cursor position after the new marker
+        setTimeout(() => {
+          textarea.focus();
+          const newCursorPos = cursorPos + 1 + indent.length + marker.length + 1; // +1 for '\n', +1 for ' '
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 10);
+      } else if (numberedMatch) {
+        event.preventDefault();
+        const indent = numberedMatch[1];
+        const number = parseInt(numberedMatch[2]);
+        
+        // Insert new numbered item
+        const beforeCursor = currentText.substring(0, cursorPos);
+        const afterCursor = currentText.substring(cursorPos);
+        const newText = beforeCursor + '\n' + indent + (number + 1) + '. ' + afterCursor;
+        
+        markupText = newText;
+        
+        // Set cursor position after the new marker
+        setTimeout(() => {
+          textarea.focus();
+          const newCursorPos = cursorPos + 1 + indent.length + (number + 1).toString().length + 2; // +1 for '\n', +2 for '. '
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 10);
+      } else if (blockquoteMatch) {
+        event.preventDefault();
+        const indent = blockquoteMatch[1];
+        const marker = blockquoteMatch[2];
+        
+        // Insert new blockquote line
+        const beforeCursor = currentText.substring(0, cursorPos);
+        const afterCursor = currentText.substring(cursorPos);
+        const newText = beforeCursor + '\n' + indent + marker + ' ' + afterCursor;
+        
+        markupText = newText;
+        
+        // Set cursor position after the new marker
+        setTimeout(() => {
+          textarea.focus();
+          const newCursorPos = cursorPos + 1 + indent.length + marker.length + 1; // +1 for '\n', +1 for ' '
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 10);
+      }
     }
   }
 </script>
 
 <div class="w-full space-y-4">
-  <div class="flex flex-wrap gap-2">
-    {#each markupButtons as button}
-      <Button size="xs" on:click={button.action}>{button.label}</Button>
-    {/each}
-    <Button size="xs" color="alternative" on:click={removeFormatting}
-      >Remove Formatting</Button
-    >
-    <Button size="xs" color="alternative" on:click={clearForm}>Clear</Button>
-  </div>
+  <!-- WYSIWYG Toolbar -->
+  {#if showToolbar}
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+      <!-- Main toolbar -->
+      <div class="flex items-center justify-between p-1 border-b border-gray-200 dark:border-gray-700 min-w-0">
+        <div class="flex items-center space-x-0.5 flex-1 min-w-0 overflow-hidden">
+          <!-- Text formatting -->
+          <div class="flex items-center space-x-0.5 pr-1 border-r border-gray-300 dark:border-gray-600">
+            {#each formattingActions as action}
+              <button
+                type="button"
+                class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                title="{action.label} ({action.shortcut})"
+                onclick={action.action}
+              >
+                <span class="text-sm {action.class}">{action.icon}</span>
+              </button>
+            {/each}
+          </div>
 
-  <!-- Mention Modal -->
-  <Modal
-    class="modal-leather"
-    title="Mention User"
-    bind:open={showMentionModal}
-    autoclose
-    outsideclose
-    size="sm"
-  >
-    <div class="space-y-4">
-      <div class="flex gap-2">
-        <input
-          type="text"
-          placeholder="Search users: @username, @domain.com, or name/npub... (min 2 chars)"
-          bind:value={mentionSearch}
-          bind:this={mentionSearchInput}
-          class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
-        />
-        {#if mentionLoading}
-          <div class="flex items-center text-sm text-gray-500">
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Searching...
+          <!-- Lists -->
+          <div class="flex items-center space-x-0.5 px-1 border-r border-gray-300 dark:border-gray-600">
+            {#each listActions as action}
+              <button
+                type="button"
+                class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                title={action.label}
+                onclick={action.action}
+              >
+                <span class="text-sm {action.class}">{action.icon}</span>
+              </button>
+            {/each}
+          </div>
+
+          <!-- Insert options -->
+          <div class="flex items-center space-x-0.5 px-1 flex-wrap gap-0.5">
+            {#each insertActions as action}
+              <button
+                type="button"
+                class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                title={action.label}
+                onclick={action.action}
+              >
+                <span class="text-sm {action.class}">{action.icon}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Right side actions -->
+        <div class="flex items-center space-x-0.5 flex-shrink-0">
+          <button
+            type="button"
+            class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title="Remove Formatting"
+            onclick={() => editorUtils.removeFormatting()}
+          >
+            <span class="text-sm italic underline relative">T<span class="absolute -bottom-1 -right-1 text-xs rotate-12">×</span></span>
+          </button>
+          <button
+            type="button"
+            class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title="Clear"
+            onclick={clearForm}
+          >
+            <span class="text-sm font-medium">clear</span>
+          </button>
+          <div class="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+          <button
+            type="button"
+            class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title="Show/Hide Markup"
+            onclick={toggleMarkup}
+          >
+            <span class="text-sm font-bold">{showMarkup ? 'WYSIWYG' : 'M↑'}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- WYSIWYG Editor or Markup Editor -->
+      <div class="relative" style="height: {minHeight};">
+        {#if showMarkup}
+          <!-- Markup Editor with Syntax Highlighting -->
+          <div class="relative h-full markup-editor-container">
+            <div
+              class="absolute inset-0 w-full p-4 pointer-events-none font-mono text-sm overflow-hidden z-0"
+              style="font-family: 'Courier New', monospace; line-height: 1.5;"
+            >
+              <div class="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100" id="markup-highlight"></div>
+            </div>
+            <textarea
+              bind:value={markupText}
+              class="absolute inset-0 w-full p-4 bg-transparent focus:outline-none focus:ring-0 resize-none font-mono text-sm caret-gray-900 dark:caret-gray-100 z-10 text-gray-900 dark:text-gray-100"
+              style="font-family: 'Courier New', monospace; line-height: 1.5;"
+              placeholder={placeholder}
+              oninput={(e) => {
+                // Update highlighting when text changes
+                setTimeout(() => {
+                  editorUtils.updateMarkupHighlighting();
+                }, 50);
+              }}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') {
+                  handleMarkupKeydown(e);
+                }
+              }}
+              onscroll={(e) => {
+                const textarea = e.target as HTMLTextAreaElement;
+                const highlightDiv = textarea.previousElementSibling?.querySelector('#markup-highlight') as HTMLDivElement;
+                if (highlightDiv) {
+                  highlightDiv.scrollTop = textarea.scrollTop;
+                  highlightDiv.scrollLeft = textarea.scrollLeft;
+                }
+              }}
+            ></textarea>
+          </div>
+        {:else}
+          <!-- WYSIWYG Editor -->
+          <div class="relative h-full">
+            <div
+              bind:this={editorRef}
+              contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              tabindex="0"
+              class="p-4 text-gray-900 dark:text-gray-100 bg-transparent focus:outline-none focus:ring-0 resize-none h-full overflow-y-auto"
+              placeholder={placeholder}
+              oninput={handleEditorInput}
+              onfocus={() => setEditorFocused(true)}
+              onblur={() => setEditorFocused(false)}
+              onkeydown={handleEditorKeydown}
+              data-placeholder={placeholder}
+            ></div>
           </div>
         {/if}
       </div>
-
-      {#if mentionLoading}
-        <div class="text-center py-4">Searching...</div>
-      {:else if mentionResults.length > 0}
-        <div class="text-center py-2 text-xs text-gray-500">
-          Found {mentionResults.length} results
-        </div>
-        <div
-          class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg"
-        >
-          <ul class="space-y-1 p-2">
-            {#each mentionResults as profile}
-              <button
-                type="button"
-                class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
-                onclick={() => selectMention(profile)}
-              >
-                {#if profile.pubkey && communityStatus[profile.pubkey]}
-                  <div
-                    class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                    title="Has posted to the community"
-                  >
-                    <svg
-                      class="w-4 h-4 text-yellow-600 dark:text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                      />
-                    </svg>
-                  </div>
-                {:else}
-                  <div class="flex-shrink-0 w-6 h-6"></div>
-                {/if}
-                {#if profile.picture}
-                  <img
-                    src={profile.picture}
-                    alt="Profile"
-                    class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
-                {:else}
-                  <div
-                    class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
-                  ></div>
-                {/if}
-                <div class="flex flex-col text-left min-w-0 flex-1">
-                  <span class="font-semibold truncate">
-                    {profile.displayName || profile.name || mentionSearch}
-                  </span>
-                  {#if profile.nip05}
-                    <span class="text-xs text-gray-500 flex items-center gap-1">
-                      <svg
-                        class="inline w-4 h-4 text-primary-500"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                        ><path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M5 13l4 4L19 7"
-                        /></svg
-                      >
-                      {profile.nip05}
-                    </span>
-                  {/if}
-                  <span class="text-xs text-gray-400 font-mono truncate"
-                    >{shortenNpub(profile.pubkey)}</span
-                  >
-                </div>
-              </button>
-            {/each}
-          </ul>
-        </div>
-      {:else if mentionSearch.trim() && !mentionLoading}
-        <div class="text-center py-4 text-gray-500">No results found</div>
-      {:else if !mentionSearch.trim()}
-        <div class="text-center py-4 text-gray-500">
-          Start typing to search for users
-        </div>
-      {/if}
     </div>
-  </Modal>
-
-  <!-- Wikilink Modal -->
-  <Modal
-    class="modal-leather"
-    title="Insert Wikilink"
-    bind:open={showWikilinkModal}
-    autoclose
-    outsideclose
-    size="sm"
-  >
-    <Input
-      type="text"
-      placeholder="Target page (e.g. target page or target-page)"
-      bind:value={wikilinkTarget}
-      class="mb-2"
-    />
-    <Input
-      type="text"
-      placeholder="Display text (optional)"
-      bind:value={wikilinkLabel}
-      class="mb-4"
-    />
-    <div class="flex justify-end gap-2">
-      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button
-      >
-      <Button
-        size="xs"
-        color="alternative"
-        on:click={() => {
-          showWikilinkModal = false;
-        }}>Cancel</Button
-      >
+  {:else}
+    <!-- Simple textarea without toolbar -->
+    <div class="relative" style="height: {minHeight};">
+      <div
+        bind:this={editorRef}
+        contenteditable="true"
+        class="border border-gray-300 dark:border-gray-600 rounded-lg p-4 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none h-full overflow-y-auto"
+        placeholder={placeholder}
+        oninput={handleEditorInput}
+        onfocus={() => setEditorFocused(true)}
+        onblur={() => setEditorFocused(false)}
+        data-placeholder={placeholder}
+      ></div>
     </div>
-  </Modal>
-
-  <div class="space-y-4">
-    <div>
-      <Textarea
-        bind:value={content}
-        on:input={updatePreview}
-        placeholder="Write your comment..."
-        rows={10}
-        class="w-full"
-      />
-    </div>
-    <div
-      class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg"
-    >
-      {@html preview}
-    </div>
-  </div>
-
-  {#if error}
-    <Alert color="red" dismissable>
-      {error}
-      {#if showOtherRelays}
-        <Button size="xs" class="mt-2" on:click={() => handleSubmit(true)}
-          >Try Other Relays</Button
-        >
-      {/if}
-      {#if showSecondaryRelays}
-        <Button
-          size="xs"
-          class="mt-2"
-          on:click={() => handleSubmit(false, true)}>Try Fallback Relays</Button
-        >
-      {/if}
-    </Alert>
-  {/if}
-
-  {#if success}
-    <Alert color="green" dismissable>
-      Comment published successfully to {success.relay}!<br />
-      Event ID: <span class="font-mono">{success.eventId}</span>
-      <button
-        onclick={handleViewComment}
-        class="text-primary-600 dark:text-primary-500 hover:underline ml-2"
-      >
-        View your comment
-      </button>
-    </Alert>
-  {/if}
-
-  <div class="flex justify-end items-center gap-4">
-    {#if userProfile}
-      <div class="flex items-center gap-2 text-sm">
-        {#if userProfile.picture}
-          <img
-            src={userProfile.picture}
-            alt={userProfile.name || "Profile"}
-            class="w-8 h-8 rounded-full"
-            onerror={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(img.alt)}`;
-            }}
-          />
-        {/if}
-        <span class="text-gray-900 dark:text-gray-100">
-          {userProfile.displayName ||
-            userProfile.name ||
-            nip19.npubEncode($userPubkey || "").slice(0, 8) + "..."}
-        </span>
-      </div>
-    {/if}
-    <Button
-      on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !$userPubkey}
-      class="w-full md:w-auto"
-    >
-      {#if !$userPubkey}
-        Not Signed In
-      {:else if isSubmitting}
-        Publishing...
-      {:else}
-        Post Comment
-      {/if}
-    </Button>
-  </div>
-
-  {#if !$userPubkey}
-    <Alert color="yellow" class="mt-4">
-      Please sign in to post comments. Your comments will be signed with your
-      current account.
-    </Alert>
   {/if}
 </div>
 
+<!-- Modals Component -->
+<CommentBoxModals
+  showMentionModal={modalState.mention.show}
+  showWikilinkModal={modalState.wikilink.show}
+  showImageModal={modalState.image.show}
+  showLinkModal={modalState.link.show}
+  showTableModal={modalState.table.show}
+  showFootnoteModal={modalState.footnote.show}
+  showHeadingModal={modalState.heading.show}
+  showEmojiModal={modalState.emoji.show}
+  mentionSearch={modalState.mention.search}
+  mentionResults={modalState.mention.results}
+  mentionLoading={modalState.mention.loading}
+  wikilinkTarget={modalState.wikilink.target}
+  wikilinkLabel={modalState.wikilink.label}
+  imageUrl={modalState.image.url}
+  imageAlt={modalState.image.alt}
+  linkUrl={modalState.link.url}
+  linkText={modalState.link.text}
+  tableData={modalState.table.data}
+  footnoteId={modalState.footnote.id}
+  footnoteText={modalState.footnote.text}
+  headingLevel={modalState.heading.level}
+  headingText={modalState.heading.text}
+  onMentionSelect={selectMention}
+  onWikilinkInsert={insertWikilink}
+  onImageInsert={insertImage}
+  onLinkInsert={insertLink}
+  onTableInsert={insertTable}
+  onFootnoteInsert={insertFootnote}
+  onHeadingInsert={insertHeading}
+  onEmojiSelect={insertEmoji}
+  onAddTableRow={addTableRow}
+  onRemoveTableRow={removeTableRow}
+  onAddTableColumn={addTableColumn}
+  onRemoveTableColumn={removeTableColumn}
+  communityStatus={communityStatus}
+  onCloseModal={(modalName: string) => closeModal(modalName as keyof ModalState)}
+  onImageUrlChange={(value: string) => { modalState.image.url = value; }}
+  onImageAltChange={(value: string) => { modalState.image.alt = value; }}
+  onMentionSearchChange={(value: string) => { modalState.mention.search = value; }}
+  onWikilinkTargetChange={(value: string) => { modalState.wikilink.target = value; }}
+  onWikilinkLabelChange={(value: string) => { modalState.wikilink.label = value; }}
+  onLinkUrlChange={(value: string) => { modalState.link.url = value; }}
+  onLinkTextChange={(value: string) => { modalState.link.text = value; }}
+  onTableHeaderChange={(index: number, value: string) => { modalState.table.data.headers[index] = value; }}
+  onTableCellChange={(rowIndex: number, colIndex: number, value: string) => { modalState.table.data.rows[rowIndex][colIndex] = value; }}
+  onFootnoteIdChange={(value: string) => { modalState.footnote.id = value; }}
+  onFootnoteTextChange={(value: string) => { modalState.footnote.text = value; }}
+  onHeadingLevelChange={(value: number) => { modalState.heading.level = value; }}
+  onHeadingTextChange={(value: string) => { modalState.heading.text = value; }}
+/>
+
+{#if error}
+  <Alert color="red" dismissable>
+    {error}
+  </Alert>
+{/if}
+
+{#if success}
+  <Alert color="green" dismissable>
+    Comment published successfully to {success.relay}!<br />
+    Event ID: <span class="font-mono">{success.eventId}</span>
+    <button
+      onclick={handleViewCommentClick}
+      class="text-primary-600 dark:text-primary-500 hover:underline ml-2"
+    >
+      View your comment
+    </button>
+  </Alert>
+{/if}
+
+<div class="flex justify-end items-center gap-4 mt-4">
+  {#if showUserProfile && userProfile}
+    <div class="flex items-center gap-2 text-sm">
+      {#if userProfile.picture}
+        <img
+          src={userProfile.picture}
+          alt={userProfile.name || "Profile"}
+          class="w-8 h-8 rounded-full"
+          onerror={(e) => {
+            const img = e.target as HTMLImageElement;
+            img.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(img.alt)}`;
+          }}
+        />
+      {/if}
+      <span class="text-gray-900 dark:text-gray-100">
+        {userProfile.displayName ||
+          userProfile.name ||
+          nip19.npubEncode($userPubkey || "").slice(0, 8) + "..."}
+      </span>
+    </div>
+  {/if}
+  <Button
+    onclick={handleSubmitClick}
+    disabled={isSubmitting || !content.trim() || !$userPubkey}
+    class="w-full md:w-auto"
+  >
+    {#if !$userPubkey}
+      Not Signed In
+    {:else if isSubmitting}
+      Publishing...
+    {:else}
+      {submitButtonText}
+    {/if}
+  </Button>
+</div>
+
+{#if !$userPubkey}
+  <Alert color="yellow" class="mt-4">
+    Please sign in to post comments. Your comments will be signed with your
+    current account.
+  </Alert>
+{/if}
+
 <style>
-  /* Add styles for disabled state */
-  :global(.disabled) {
-    opacity: 0.6;
-    cursor: not-allowed;
+  /* WYSIWYG Editor Styles */
+  [contenteditable="true"]:empty:before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
   }
+
+  [contenteditable="true"]:focus {
+    outline: none;
+  }
+
+  /* Custom toolbar button styles */
+  .toolbar-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .toolbar-button:hover {
+    background-color: #f3f4f6;
+  }
+
+
+
+  /* Bold button - make it more bold */
+  .toolbar-button .font-bold {
+    font-weight: 900;
+  }
+
+  /* Italic button - make it more slanted */
+  .toolbar-button .italic {
+    font-style: italic;
+    transform: skew(-10deg);
+  }
+
+  /* Strikethrough button - fix positioning */
+  .toolbar-button .line-through {
+    position: relative;
+  }
+
+  .toolbar-button .line-through::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: currentColor;
+    transform: translateY(-50%);
+  }
+
+  /* Code button styling */
+  .toolbar-button .font-mono {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+  }
+
+
+  /* Ensure the highlighting div text is visible in both light and dark modes */
+  /* Using :global() since the element is created dynamically */
+  :global(#markup-highlight) {
+    color: #111827; /* gray-900 for light mode */
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem; /* text-sm */
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  :global(.dark #markup-highlight) {
+    color: #f9fafb; /* gray-50 for dark mode */
+  }
+
+  /* Markup highlighting styles - these are applied dynamically via JavaScript */
+  /* Using :global() to prevent Svelte from removing these styles */
+  :global(.markup-highlight) {
+    color: #9ca3af !important; /* gray-400 - lighter for light mode */
+  }
+
+  :global(.dark .markup-highlight) {
+    color: #6b7280 !important; /* gray-500 - darker for dark mode */
+  }
+
+  /* Ensure highlighting works in both light and dark modes */
+  :global(#markup-highlight .markup-highlight) {
+    color: #9ca3af !important; /* gray-400 - lighter for light mode */
+  }
+
+  :global(.dark #markup-highlight .markup-highlight) {
+    color: #6b7280 !important; /* gray-500 - darker for dark mode */
+  }
+
+  /* Ensure perfect synchronization between textarea and highlight div */
+  :global(.markup-editor-container) {
+    position: relative;
+  }
+
+  :global(.markup-editor-container textarea) {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem; /* text-sm */
+    line-height: 1.5;
+    padding: 1rem; /* p-4 */
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    caret-color: #111827; /* gray-900 for light mode */
+  }
+
+  :global(.dark .markup-editor-container textarea) {
+    caret-color: #f9fafb; /* gray-50 for dark mode */
+  }
+
 </style>
