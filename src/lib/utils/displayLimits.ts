@@ -1,5 +1,6 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { VisualizationConfig } from '$lib/stores/visualizationConfig';
+import { isEventId, isCoordinate, parseCoordinate } from './nostr_identifiers';
 
 /**
  * Filters events based on visualization configuration
@@ -51,51 +52,90 @@ export function filterByDisplayLimits(events: NDKEvent[], config: VisualizationC
 /**
  * Detects events that are referenced but not present in the current set
  * @param events - Current events
- * @param existingIds - Set of all known event IDs
+ * @param existingIds - Set of all known event IDs (hex format)
+ * @param existingCoordinates - Optional map of existing coordinates for NIP-33 detection
  * @returns Set of missing event identifiers
  */
-export function detectMissingEvents(events: NDKEvent[], existingIds: Set<string>): Set<string> {
+export function detectMissingEvents(
+  events: NDKEvent[], 
+  existingIds: Set<string>,
+  existingCoordinates?: Map<string, NDKEvent>
+): Set<string> {
   const missing = new Set<string>();
 
   for (const event of events) {
+    // Check 'e' tags for direct event references (hex IDs)
+    const eTags = event.getMatchingTags('e');
+    for (const eTag of eTags) {
+      if (eTag.length < 2) continue;
+      
+      const eventId = eTag[1];
+      
+      // Type check: ensure it's a valid hex event ID
+      if (!isEventId(eventId)) {
+        console.warn('Invalid event ID in e tag:', eventId);
+        continue;
+      }
+      
+      if (!existingIds.has(eventId)) {
+        missing.add(eventId);
+      }
+    }
+
     // Check 'a' tags for NIP-33 references (kind:pubkey:d-tag)
     const aTags = event.getMatchingTags('a');
     for (const aTag of aTags) {
       if (aTag.length < 2) continue;
       
       const identifier = aTag[1];
-      const parts = identifier.split(':');
       
-      if (parts.length >= 3) {
-        const [kind, pubkey, dTag] = parts;
-        // Create a synthetic ID for checking
-        const syntheticId = `${kind}:${pubkey}:${dTag}`;
-        
-        // Check if we have an event matching this reference
-        const hasEvent = Array.from(existingIds).some(id => {
-          // This is a simplified check - in practice, you'd need to
-          // check the actual event's d-tag value
-          return id === dTag || id === syntheticId;
-        });
-        
-        if (!hasEvent) {
-          missing.add(dTag);
-        }
+      // Type check: ensure it's a valid coordinate
+      if (!isCoordinate(identifier)) {
+        console.warn('Invalid coordinate in a tag:', identifier);
+        continue;
       }
-    }
-
-    // Check 'e' tags for direct event references
-    const eTags = event.getMatchingTags('e');
-    for (const eTag of eTags) {
-      if (eTag.length < 2) continue;
       
-      const eventId = eTag[1];
-      if (!existingIds.has(eventId)) {
-        missing.add(eventId);
+      // Parse the coordinate
+      const parsed = parseCoordinate(identifier);
+      if (!parsed) continue;
+      
+      // If we have existing coordinates, check if this one exists
+      if (existingCoordinates) {
+        if (!existingCoordinates.has(identifier)) {
+          missing.add(identifier);
+        }
+      } else {
+        // Without coordinate map, we can't detect missing NIP-33 events
+        // This is a limitation when we only have hex IDs
+        console.debug('Cannot detect missing NIP-33 events without coordinate map:', identifier);
       }
     }
   }
 
   return missing;
+}
+
+/**
+ * Builds a map of coordinates to events for NIP-33 detection
+ * @param events - Array of events to build coordinate map from
+ * @returns Map of coordinate strings to events
+ */
+export function buildCoordinateMap(events: NDKEvent[]): Map<string, NDKEvent> {
+  const coordinateMap = new Map<string, NDKEvent>();
+  
+  for (const event of events) {
+    // Only process replaceable events (kinds 30000-39999)
+    if (event.kind && event.kind >= 30000 && event.kind < 40000) {
+      const dTag = event.tagValue('d');
+      const author = event.pubkey;
+      
+      if (dTag && author) {
+        const coordinate = `${event.kind}:${author}:${dTag}`;
+        coordinateMap.set(coordinate, event);
+      }
+    }
+  }
+  
+  return coordinateMap;
 }
 

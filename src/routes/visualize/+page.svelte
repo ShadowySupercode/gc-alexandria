@@ -13,7 +13,7 @@
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
   import { visualizationConfig, type EventKindConfig } from "$lib/stores/visualizationConfig";
-  import { filterByDisplayLimits, detectMissingEvents } from "$lib/utils/displayLimits";
+  import { filterByDisplayLimits, detectMissingEvents, buildCoordinateMap } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
@@ -62,8 +62,14 @@
   let missingEventIds = $derived.by(() => {
     if (allEvents.length > 0) {
       const eventIds = new Set(allEvents.map(e => e.id));
-      const missing = detectMissingEvents(events, eventIds);
-      debug("Derived missingEventIds update:", { allEvents: allEvents.length, events: events.length, missing: missing.size });
+      const coordinateMap = buildCoordinateMap(allEvents);
+      const missing = detectMissingEvents(events, eventIds, coordinateMap);
+      debug("Derived missingEventIds update:", { 
+        allEvents: allEvents.length, 
+        events: events.length, 
+        missing: missing.size,
+        coordinates: coordinateMap.size 
+      });
       return missing;
     }
     return new Set<string>();
