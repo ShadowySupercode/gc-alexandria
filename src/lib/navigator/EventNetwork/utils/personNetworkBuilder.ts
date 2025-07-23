@@ -142,6 +142,45 @@ function buildEligiblePerson(
   };
 }
 
+type EligiblePerson = {
+  pubkey: string;
+  connection: PersonConnection;
+  totalConnections: number;
+  connectedEventIds: Set<string>;
+};
+
+function getEligiblePersons(
+  personMap: Map<string, PersonConnection>,
+  showSignedBy: boolean,
+  showReferenced: boolean,
+  limit: number
+): EligiblePerson[] {
+  // Build eligible persons and keep only top N using a min-heap or partial sort
+  const eligible: EligiblePerson[] = [];
+
+  for (const [pubkey, connection] of personMap) {
+    let totalConnections = 0;
+    if (showSignedBy) totalConnections += connection.signedByEventIds.size;
+    if (showReferenced) totalConnections += connection.referencedInEventIds.size;
+    if (totalConnections === 0) continue;
+
+    // Only build the set if this person is eligible
+    const connectedEventIds = new Set<string>();
+    if (showSignedBy) {
+      connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
+    }
+    if (showReferenced) {
+      connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
+    }
+
+    eligible.push({ pubkey, connection, totalConnections, connectedEventIds });
+  }
+
+  // Partial sort: get top N by totalConnections
+  eligible.sort((a, b) => b.totalConnections - a.totalConnections);
+  return eligible.slice(0, limit);
+}
+
 /**
  * Creates person anchor nodes
  */
@@ -159,25 +198,17 @@ export function createPersonAnchorNodes(
   const centerY = height / 2;
 
   // Calculate eligible persons and their connection counts
-  const eligiblePersons = Array.from(personMap.entries())
-    .map(([pubkey, connection]) =>
-      buildEligiblePerson(pubkey, connection, showSignedBy, showReferenced)
-    )
-    .filter((p): p is NonNullable<typeof p> => p !== null);
-
-  // Sort by total connections (descending) and take only top N
-  eligiblePersons.sort((a, b) => b.totalConnections - a.totalConnections);
-  const limitedPersons = eligiblePersons.slice(0, limit);
+  const eligiblePersons = getEligiblePersons(personMap, showSignedBy, showReferenced, limit);
 
   // Create nodes for the limited set
   debug("Creating person anchor nodes", { 
     eligibleCount: eligiblePersons.length, 
-    limitedCount: limitedPersons.length,
+    limitedCount: eligiblePersons.length,
     showSignedBy,
     showReferenced 
   });
 
-  limitedPersons.forEach(({ pubkey, connection, connectedEventIds }) => {
+  eligiblePersons.forEach(({ pubkey, connection, connectedEventIds }) => {
     // Create seeded random generator for consistent positioning
     const rng = new SeededRandom(createSeed(pubkey));
 
