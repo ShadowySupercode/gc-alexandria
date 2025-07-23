@@ -59,11 +59,13 @@ export function extractUniquePersons(
       }
       // People in follow lists (p tags)
       if (event.tags) {
-        event.tags.forEach(tag => {
-          if (tag[0] === "p" && tag[1]) {
+        event.tags
+          .filter(tag => {
+            tag[0] === 'p'
+          })
+          .forEach(tag => {
             followListPubkeys.add(tag[1]);
-          }
-        });
+          });
       }
     });
   }
