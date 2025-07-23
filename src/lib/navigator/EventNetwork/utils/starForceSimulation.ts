@@ -112,12 +112,51 @@ export function createStarSimulation(
 }
 
 /**
+ * Applies the radial force to keep content nodes in orbit around their star center
+ * @param nodes - The array of network nodes
+ * @param nodeToCenter - Map of content node IDs to their star center node
+ * @param targetDistance - The desired distance from center to content node
+ * @param alpha - The current simulation alpha
+ */
+function applyRadialForce(
+  nodes: NetworkNode[],
+  nodeToCenter: Map<string, NetworkNode>,
+  targetDistance: number,
+  alpha: number
+): void {
+  nodes.forEach(node => {
+    if (node.kind === 30041) {
+      const center = nodeToCenter.get(node.id);
+      if (
+        center &&
+        center.x != null &&
+        center.y != null &&
+        node.x != null &&
+        node.y != null
+      ) {
+        // Calculate desired position
+        const dx = node.x - center.x;
+        const dy = node.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 0) {
+          // Normalize and apply force
+          const force = (distance - targetDistance) * alpha * 0.3; // Reduced force
+          node.vx = (node.vx || 0) - (dx / distance) * force;
+          node.vy = (node.vy || 0) - (dy / distance) * force;
+        }
+      }
+    }
+  });
+}
+
+/**
  * Creates a custom radial force that keeps content nodes in orbit around their star center
  */
 function createRadialForce(nodes: NetworkNode[], links: NetworkLink[]): any {
   // Build a map of content nodes to their star centers
   const nodeToCenter = new Map<string, NetworkNode>();
-  
+
   links.forEach(link => {
     const source = link.source as NetworkNode;
     const target = link.target as NetworkNode;
@@ -126,27 +165,8 @@ function createRadialForce(nodes: NetworkNode[], links: NetworkLink[]): any {
     }
   });
 
-  // Custom force function
   function force(alpha: number) {
-    nodes.forEach(node => {
-      if (node.kind === 30041) {
-        const center = nodeToCenter.get(node.id);
-        if (center && center.x != null && center.y != null && node.x != null && node.y != null) {
-          // Calculate desired position
-          const dx = node.x - center.x;
-          const dy = node.y - center.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (distance > 0) {
-            // Normalize and apply force
-            const targetDistance = STAR_LINK_DISTANCE;
-            const force = (distance - targetDistance) * alpha * 0.3; // Reduced force
-            node.vx = (node.vx || 0) - (dx / distance) * force;
-            node.vy = (node.vy || 0) - (dy / distance) * force;
-          }
-        }
-      }
-    });
+    applyRadialForce(nodes, nodeToCenter, STAR_LINK_DISTANCE, alpha);
   }
 
   force.initialize = function(_: NetworkNode[]) {
