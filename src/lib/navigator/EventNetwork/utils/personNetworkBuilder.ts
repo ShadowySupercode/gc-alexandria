@@ -223,16 +223,15 @@ export function createPersonLinks(
 ): PersonLink[] {
   debug("Creating person links", { anchorCount: personAnchors.length, nodeCount: nodes.length });
   
-  const links: PersonLink[] = [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  personAnchors.forEach((anchor) => {
+  const links: PersonLink = personAnchors.map((anchor) => {
     if (!anchor.connectedNodes || !anchor.pubkey) return;
 
     const connection = personMap.get(anchor.pubkey);
     if (!connection) return;
 
-    anchor.connectedNodes.forEach((nodeId) => {
+    return ...anchor.connectedNodes.map((nodeId) => {
       const node = nodeMap.get(nodeId);
       if (node) {
         // Determine connection type
@@ -243,12 +242,12 @@ export function createPersonLinks(
           connectionType = "referenced";
         }
 
-        links.push({
+        return {
           source: anchor,
           target: node,
           isSequential: false,
           connectionType,
-        });
+        };
       }
     });
   });
