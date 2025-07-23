@@ -228,6 +228,639 @@
       .attr("stroke-width", 1);
   }
 
+
+  /**
+   * Validates that required elements are available for graph rendering
+   */
+  function validateGraphElements() {
+    if (!svg) {
+      throw new Error("SVG element not found");
+    }
+
+    if (!events?.length) {
+      throw new Error("No events to render");
+    }
+
+    if (!svgGroup) {
+      throw new Error("SVG group not found");
+    }
+  }
+
+  /**
+   * Generates graph data from events, including tag and person anchors
+   */
+  function generateGraphData() {
+    debug("Generating graph with events", {
+      eventCount: events.length,
+      currentLevels,
+      starVisualization,
+      showTagAnchors,
+    });
+
+    let graphData = starVisualization
+      ? generateStarGraph(events, Number(currentLevels))
+      : generateGraph(events, Number(currentLevels));
+
+    // Enhance with tag anchors if enabled
+    if (showTagAnchors) {
+      debug("Enhancing graph with tags", {
+        selectedTagType,
+        eventCount: events.length,
+        width,
+        height
+      });
+      
+      // Get the display limit based on tag type
+      let displayLimit: number | undefined;
+      
+      graphData = enhanceGraphWithTags(
+        graphData,
+        events,
+        selectedTagType,
+        width,
+        height,
+        displayLimit,
+      );
+
+      // Extract tag anchor info for legend
+      const tagAnchors = graphData.nodes.filter((n) => n.isTagAnchor);
+      
+      debug("Tag anchors created", {
+        count: tagAnchors.length,
+        anchors: tagAnchors
+      });
+      
+      tagAnchorInfo = tagAnchors.map((n) => ({
+          type: n.tagType,
+          label: n.title,
+          count: n.connectedNodes?.length || 0,
+          color: getTagAnchorColor(n.tagType || ""),
+        }));
+    } else {
+      tagAnchorInfo = [];
+    }
+
+    // Add person nodes if enabled
+    if (showPersonNodes) {
+      debug("Creating person anchor nodes");
+      
+      // Extract unique persons from events and follow lists
+      personMap = extractUniquePersons(events, followListEvents);
+      
+      // Create person anchor nodes based on filters
+      const personResult = createPersonAnchorNodes(
+        personMap, 
+        width, 
+        height, 
+        showSignedBy, 
+        showReferenced
+      );
+      
+      const personAnchors = personResult.nodes;
+      totalPersonCount = personResult.totalCount;
+      displayedPersonCount = personAnchors.length;
+      
+      // Create links between person anchors and their events
+      const personLinks = createPersonLinks(personAnchors, graphData.nodes, personMap);
+      
+      // Add person anchors to the graph
+      graphData.nodes = [...graphData.nodes, ...personAnchors];
+      graphData.links = [...graphData.links, ...personLinks];
+      
+      // Extract person info for legend
+      personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
+      
+      // Auto-disable all person nodes by default (only on first time showing)
+      if (!hasInitializedPersons && personAnchors.length > 0) {
+        personAnchors.forEach(anchor => {
+          if (anchor.pubkey) {
+            disabledPersons.add(anchor.pubkey);
+          }
+        });
+        hasInitializedPersons = true;
+      }
+      
+      debug("Person anchors created", {
+        count: personAnchors.length,
+        disabled: disabledPersons.size,
+        showSignedBy,
+        showReferenced
+      });
+    } else {
+      personAnchorInfo = [];
+      // Reset initialization flag when person nodes are hidden
+      if (hasInitializedPersons && personAnchorInfo.length === 0) {
+        hasInitializedPersons = false;
+        disabledPersons.clear();
+      }
+    }
+
+    return graphData;
+  }
+
+  /**
+   * Filters nodes and links based on disabled tags and persons
+   */
+  function filterNodesAndLinks(graphData: { nodes: NetworkNode[]; links: NetworkLink[] }) {
+    let nodes = graphData.nodes;
+    let links = graphData.links;
+    
+    // Filter out disabled tag anchors and person nodes from nodes and links
+    if ((showTagAnchors && disabledTags.size > 0) || (showPersonNodes && disabledPersons.size > 0)) {
+      // Filter out disabled nodes
+      nodes = nodes.filter((node: NetworkNode) => {
+        if (node.isTagAnchor) {
+          const tagId = `${node.tagType}-${node.title}`;
+          return !disabledTags.has(tagId);
+        }
+        if (node.isPersonAnchor && node.pubkey) {
+          return !disabledPersons.has(node.pubkey);
+        }
+        return true;
+      });
+      
+      // Filter out links to disabled nodes
+      links = links.filter((link: NetworkLink) => {
+        const source = link.source as NetworkNode;
+        const target = link.target as NetworkNode;
+        
+        // Check if either node is disabled
+        if (source.isTagAnchor) {
+          const tagId = `${source.tagType}-${source.title}`;
+          if (disabledTags.has(tagId)) return false;
+        }
+        if (target.isTagAnchor) {
+          const tagId = `${target.tagType}-${target.title}`;
+          if (disabledTags.has(tagId)) return false;
+        }
+        if (source.isPersonAnchor && source.pubkey) {
+          if (disabledPersons.has(source.pubkey)) return false;
+        }
+        if (target.isPersonAnchor && target.pubkey) {
+          if (disabledPersons.has(target.pubkey)) return false;
+        }
+        
+        return true;
+      });
+      
+      debug("Filtered links for disabled tags", {
+        originalCount: graphData.links.length,
+        filteredCount: links.length,
+        disabledTags: Array.from(disabledTags)
+      });
+    }
+
+    return { nodes, links };
+  }
+
+  /**
+   * Saves current node positions to preserve them across updates
+   */
+  function saveNodePositions(nodes: NetworkNode[]) {
+    if (simulation && nodes.length > 0) {
+      nodes.forEach(node => {
+        if (node.x != null && node.y != null) {
+          nodePositions.set(node.id, { 
+            x: node.x, 
+            y: node.y,
+            vx: node.vx,
+            vy: node.vy
+          });
+        }
+      });
+      debug("Saved positions for", nodePositions.size, "nodes");
+    }
+  }
+
+  /**
+   * Restores node positions from cache and initializes new nodes
+   */
+  function restoreNodePositions(nodes: NetworkNode[]): number {
+    let restoredCount = 0;
+    nodes.forEach(node => {
+      const savedPos = nodePositions.get(node.id);
+      if (savedPos && !node.isTagAnchor) { // Don't restore tag anchor positions as they're fixed
+        node.x = savedPos.x;
+        node.y = savedPos.y;
+        node.vx = savedPos.vx || 0;
+        node.vy = savedPos.vy || 0;
+        restoredCount++;
+      } else if (!node.x && !node.y && !node.isTagAnchor && !node.isPersonAnchor) {
+        // Give disconnected nodes (like kind 0) random initial positions
+        node.x = width / 2 + (Math.random() - 0.5) * width * 0.5;
+        node.y = height / 2 + (Math.random() - 0.5) * height * 0.5;
+        node.vx = 0;
+        node.vy = 0;
+      }
+    });
+    return restoredCount;
+  }
+
+  /**
+   * Sets up the D3 force simulation and drag handlers
+   */
+  function setupSimulation(nodes: NetworkNode[], links: NetworkLink[], restoredCount: number) {
+    // Stop any existing simulation
+    if (simulation) {
+      debug("Stopping existing simulation");
+      simulation.stop();
+    }
+
+    // Create new simulation
+    debug("Creating new simulation");
+    const hasRestoredPositions = restoredCount > 0;
+    let newSimulation: Simulation<NetworkNode, NetworkLink>;
+    
+    if (starVisualization) {
+      // Use star-specific simulation
+      newSimulation = createStarSimulation(nodes, links, width, height);
+      // Apply initial star positioning only if we don't have restored positions
+      if (!hasRestoredPositions) {
+        applyInitialStarPositions(nodes, links, width, height);
+      }
+    } else {
+      // Use regular simulation
+      newSimulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
+      
+      // Add center force for disconnected nodes (like kind 0)
+      newSimulation.force("center", d3.forceCenter(width / 2, height / 2).strength(0.05));
+      
+      // Add radial force to keep disconnected nodes in view
+      newSimulation.force("radial", d3.forceRadial(Math.min(width, height) / 3, width / 2, height / 2)
+        .strength((d: NetworkNode) => {
+          // Apply radial force only to nodes without links (disconnected nodes)
+          const hasLinks = links.some(l => 
+            (l.source as NetworkNode).id === d.id || 
+            (l.target as NetworkNode).id === d.id
+          );
+          return hasLinks ? 0 : 0.1;
+        }));
+    }
+    
+    // Use gentler alpha for updates with restored positions
+    if (hasRestoredPositions) {
+      newSimulation.alpha(0.3); // Gentler restart
+    }
+
+    // Center the nodes when the simulation is done
+    newSimulation.on("end", () => {
+      if (!starVisualization) {
+        centerGraph();
+      }
+    });
+
+    // Create drag handler
+    const dragHandler = starVisualization
+      ? createStarDragHandler(newSimulation)
+      : setupDragHandlers(newSimulation);
+
+    return { simulation: newSimulation, dragHandler };
+  }
+
+  /**
+   * Renders links in the SVG
+   */
+  function renderLinks(links: NetworkLink[]) {
+    debug("Updating links");
+    return svgGroup
+      .selectAll("path.link")
+      .data(links, (d: NetworkLink) => `${d.source.id}-${d.target.id}`)
+      .join(
+        (enter: any) =>
+          enter
+            .append("path")
+            .attr("class", (d: any) => {
+              let classes = "link network-link-leather";
+              if (d.connectionType === "signed-by") {
+                classes += " person-link-signed";
+              } else if (d.connectionType === "referenced") {
+                classes += " person-link-referenced";
+              }
+              return classes;
+            })
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#arrowhead)"),
+        (update: any) => update.attr("class", (d: any) => {
+          let classes = "link network-link-leather";
+          if (d.connectionType === "signed-by") {
+            classes += " person-link-signed";
+          } else if (d.connectionType === "referenced") {
+            classes += " person-link-referenced";
+          }
+          return classes;
+        }),
+        (exit: any) => exit.remove(),
+      );
+  }
+
+  /**
+   * Creates the node group and attaches drag handlers
+   */
+  function createNodeGroup(enter: any, dragHandler: any) {
+    const nodeEnter = enter
+      .append('g')
+      .attr('class', 'node network-node-leather')
+      .call(dragHandler);
+
+    // Larger transparent circle for better drag handling
+    nodeEnter
+      .append('circle')
+      .attr('class', 'drag-circle')
+      .attr('r', NODE_RADIUS * 2.5)
+      .attr('fill', 'transparent')
+      .attr('stroke', 'transparent')
+      .style('cursor', 'move');
+
+    // Add shape based on node type
+    nodeEnter.each(function (this: SVGGElement, d: NetworkNode) {
+      const g = d3.select(this);
+      if (d.isPersonAnchor) {
+        // Diamond shape for person anchors
+        g.append('rect')
+          .attr('class', 'visual-shape visual-diamond')
+          .attr('width', NODE_RADIUS * 1.5)
+          .attr('height', NODE_RADIUS * 1.5)
+          .attr('x', -NODE_RADIUS * 0.75)
+          .attr('y', -NODE_RADIUS * 0.75)
+          .attr('transform', 'rotate(45)')
+          .attr('stroke-width', 2);
+      } else {
+        // Circle for other nodes
+        g.append('circle')
+          .attr('class', 'visual-shape visual-circle')
+          .attr('r', NODE_RADIUS)
+          .attr('stroke-width', 2);
+      }
+    });
+
+    // Node label
+    nodeEnter
+      .append('text')
+      .attr('dy', '0.35em')
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'black')
+      .attr('font-size', '12px')
+      .attr('stroke', 'none')
+      .attr('font-weight', 'bold')
+      .style('pointer-events', 'none');
+
+    return nodeEnter;
+  }
+
+  /**
+   * Updates visual properties for all nodes
+   */
+  function updateNodeAppearance(node: any) {
+    node
+      .select('.visual-shape')
+      .attr('class', (d: NetworkNode) => {
+        const shapeClass = d.isPersonAnchor ? 'visual-diamond' : 'visual-circle';
+        const baseClasses = `visual-shape ${shapeClass} network-node-leather`;
+        if (d.isPersonAnchor) {
+          return `${baseClasses} person-anchor-node`;
+        }
+        if (d.isTagAnchor) {
+          return `${baseClasses} tag-anchor-node`;
+        }
+        if (!d.isContainer) {
+          return `${baseClasses} network-node-content`;
+        }
+        if (starVisualization && d.kind === 30040) {
+          return `${baseClasses} star-center-node`;
+        }
+        return baseClasses;
+      })
+      .style('fill', (d: NetworkNode) => {
+        if (d.isPersonAnchor) {
+          if (d.isFromFollowList) {
+            return getEventKindColor(3);
+          }
+          return '#10B981';
+        }
+        if (d.isTagAnchor) {
+          return getTagAnchorColor(d.tagType || '');
+        }
+        const color = getEventKindColor(d.kind);
+        return color;
+      })
+      .attr('opacity', 1)
+      .attr('r', (d: NetworkNode) => {
+        if (d.isPersonAnchor) return null;
+        if (d.isTagAnchor) {
+          return NODE_RADIUS * 0.75;
+        }
+        if (starVisualization && d.isContainer && d.kind === 30040) {
+          return NODE_RADIUS * 1.5;
+        }
+        return NODE_RADIUS;
+      })
+      .attr('width', (d: NetworkNode) => {
+        if (!d.isPersonAnchor) return null;
+        return NODE_RADIUS * 1.5;
+      })
+      .attr('height', (d: NetworkNode) => {
+        if (!d.isPersonAnchor) return null;
+        return NODE_RADIUS * 1.5;
+      })
+      .attr('x', (d: NetworkNode) => {
+        if (!d.isPersonAnchor) return null;
+        return -NODE_RADIUS * 0.75;
+      })
+      .attr('y', (d: NetworkNode) => {
+        if (!d.isPersonAnchor) return null;
+        return -NODE_RADIUS * 0.75;
+      })
+      .attr('stroke-width', (d: NetworkNode) => {
+        if (d.isPersonAnchor) {
+          return 3;
+        }
+        if (d.isTagAnchor) {
+          return 3;
+        }
+        return 2;
+      });
+  }
+
+  /**
+   * Updates the text label for all nodes
+   */
+  function updateNodeLabels(node: any) {
+    node
+      .select('text')
+      .text((d: NetworkNode) => {
+        if (d.isTagAnchor) {
+          return d.tagType === 't' ? '#' : 'T';
+        }
+        return '';
+      })
+      .attr('font-size', (d: NetworkNode) => {
+        if (d.isTagAnchor) {
+          return '10px';
+        }
+        if (starVisualization && d.isContainer && d.kind === 30040) {
+          return '14px';
+        }
+        return '12px';
+      })
+      .attr('fill', (d: NetworkNode) => {
+        if (d.isTagAnchor) {
+          return 'white';
+        }
+        return 'black';
+      })
+      .style('fill', (d: NetworkNode) => {
+        if (d.isTagAnchor) {
+          return 'white';
+        }
+        return null;
+      })
+      .attr('stroke', 'none')
+      .style('stroke', 'none');
+  }
+
+  /**
+   * Renders nodes in the SVG (refactored for clarity)
+   */
+  function renderNodes(nodes: NetworkNode[], dragHandler: any) {
+    debug('Updating nodes');
+    const node = svgGroup
+      .selectAll('g.node')
+      .data(nodes, (d: NetworkNode) => d.id)
+      .join(
+        (enter: any) => createNodeGroup(enter, dragHandler),
+        (update: any) => {
+          update.call(dragHandler);
+          return update;
+        },
+        (exit: any) => exit.remove(),
+      );
+
+    updateNodeAppearance(node);
+    updateNodeLabels(node);
+
+    return node;
+  }
+
+  /**
+   * Sets up mouse interactions for nodes (hover and click)
+   */
+  function setupNodeInteractions(node: any) {
+    debug("Setting up node interactions");
+    node
+      .on("mouseover", (event: any, d: NetworkNode) => {
+        if (!selectedNodeId) {
+          tooltipVisible = true;
+          tooltipNode = d;
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
+        }
+      })
+      .on("mousemove", (event: any) => {
+        if (!selectedNodeId) {
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
+        }
+      })
+      .on("mouseout", () => {
+        if (!selectedNodeId) {
+          tooltipVisible = false;
+          tooltipNode = null;
+        }
+      })
+      .on("click", (event: any, d: NetworkNode) => {
+        event.stopPropagation();
+        if (selectedNodeId === d.id) {
+          // Clicking the selected node again deselects it
+          selectedNodeId = null;
+          tooltipVisible = false;
+        } else {
+          // Select the node and show its tooltip
+          selectedNodeId = d.id;
+          tooltipVisible = true;
+          tooltipNode = d;
+          tooltipX = event.pageX;
+          tooltipY = event.pageY;
+        }
+      });
+  }
+
+  /**
+   * Sets up the simulation tick handler for animation
+   */
+  function setupSimulationTickHandler(
+    simulation: Simulation<NetworkNode, NetworkLink> | null,
+    nodes: NetworkNode[],
+    links: NetworkLink[],
+    link: any,
+    node: any
+  ) {
+    debug("Setting up simulation tick handler");
+    if (simulation) {
+      simulation.on("tick", () => {
+        // Apply custom forces to each node
+        if (!starVisualization) {
+          nodes.forEach((node) => {
+            // Pull nodes toward the center
+            applyGlobalLogGravity(
+              node,
+              width / 2,
+              height / 2,
+              simulation!.alpha(),
+            );
+            // Pull connected nodes toward each other
+            applyConnectedGravity(node, links, simulation!.alpha());
+          });
+        }
+
+        // Update link positions
+        link.attr("d", (d: NetworkLink) => {
+          // Calculate angle between source and target
+          const dx = d.target.x! - d.source.x!;
+          const dy = d.target.y! - d.source.y!;
+          const angle = Math.atan2(dy, dx);
+
+          // Calculate start and end points with offsets for node radius
+          const sourceRadius =
+            starVisualization &&
+            d.source.isContainer &&
+            d.source.kind === 30040
+              ? NODE_RADIUS * 1.5
+              : NODE_RADIUS;
+          const targetRadius =
+            starVisualization &&
+            d.target.isContainer &&
+            d.target.kind === 30040
+              ? NODE_RADIUS * 1.5
+              : NODE_RADIUS;
+
+          const sourceGap = sourceRadius;
+          const targetGap = targetRadius + ARROW_DISTANCE;
+
+          const startX = d.source.x! + sourceGap * Math.cos(angle);
+          const startY = d.source.y! + sourceGap * Math.sin(angle);
+          const endX = d.target.x! - targetGap * Math.cos(angle);
+          const endY = d.target.y! - targetGap * Math.sin(angle);
+
+          return `M${startX},${startY}L${endX},${endY}`;
+        });
+
+        // Update node positions
+        node.attr(
+          "transform",
+          (d: NetworkNode) => `translate(${d.x},${d.y})`,
+        );
+      });
+    }
+  }
+
+  /**
+   * Handles errors that occur during graph updates
+   */
+  function handleGraphError(error: unknown) {
+    console.error("Error in updateGraph:", error);
+    errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
   /**
    * Updates the graph with new data
    * Generates the graph from events, creates the simulation, and renders nodes and links
@@ -242,604 +875,30 @@
     });
     errorMessage = null;
 
-    // Create variables to hold our selections
-    let link: any;
-    let node: any;
-    let dragHandler: any;
-    let nodes: NetworkNode[] = [];
-    let links: NetworkLink[] = [];
-
     try {
-      // Validate required elements
-      if (!svg) {
-        throw new Error("SVG element not found");
-      }
-
-      if (!events?.length) {
-        throw new Error("No events to render");
-      }
-
-      if (!svgGroup) {
-        throw new Error("SVG group not found");
-      }
-
-      // Generate graph data from events
-      debug("Generating graph with events", {
-        eventCount: events.length,
-        currentLevels,
-        starVisualization,
-        showTagAnchors,
-      });
-
-      let graphData = starVisualization
-        ? generateStarGraph(events, Number(currentLevels))
-        : generateGraph(events, Number(currentLevels));
-
-      // Enhance with tag anchors if enabled
-      if (showTagAnchors) {
-        debug("Enhancing graph with tags", {
-          selectedTagType,
-          eventCount: events.length,
-          width,
-          height
-        });
-        
-        // Get the display limit based on tag type
-        let displayLimit: number | undefined;
-        
-        graphData = enhanceGraphWithTags(
-          graphData,
-          events,
-          selectedTagType,
-          width,
-          height,
-          displayLimit,
-        );
-
-        // Extract tag anchor info for legend
-        const tagAnchors = graphData.nodes.filter((n) => n.isTagAnchor);
-        
-        debug("Tag anchors created", {
-          count: tagAnchors.length,
-          anchors: tagAnchors
-        });
-        
-        tagAnchorInfo = tagAnchors.map((n) => ({
-            type: n.tagType,
-            label: n.title,
-            count: n.connectedNodes?.length || 0,
-            color: getTagAnchorColor(n.tagType || ""),
-          }));
-      } else {
-        tagAnchorInfo = [];
-      }
-
-      // Add person nodes if enabled
-      if (showPersonNodes) {
-        debug("Creating person anchor nodes");
-        
-        // Extract unique persons from events and follow lists
-        personMap = extractUniquePersons(events, followListEvents);
-        
-        // Create person anchor nodes based on filters
-        const personResult = createPersonAnchorNodes(
-          personMap, 
-          width, 
-          height, 
-          showSignedBy, 
-          showReferenced
-        );
-        
-        const personAnchors = personResult.nodes;
-        totalPersonCount = personResult.totalCount;
-        displayedPersonCount = personAnchors.length;
-        
-        // Create links between person anchors and their events
-        const personLinks = createPersonLinks(personAnchors, graphData.nodes, personMap);
-        
-        // Add person anchors to the graph
-        graphData.nodes = [...graphData.nodes, ...personAnchors];
-        graphData.links = [...graphData.links, ...personLinks];
-        
-        // Extract person info for legend
-        personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
-        
-        // Auto-disable all person nodes by default (only on first time showing)
-        if (!hasInitializedPersons && personAnchors.length > 0) {
-          personAnchors.forEach(anchor => {
-            if (anchor.pubkey) {
-              disabledPersons.add(anchor.pubkey);
-            }
-          });
-          hasInitializedPersons = true;
-        }
-        
-        debug("Person anchors created", {
-          count: personAnchors.length,
-          disabled: disabledPersons.size,
-          showSignedBy,
-          showReferenced
-        });
-      } else {
-        personAnchorInfo = [];
-        // Reset initialization flag when person nodes are hidden
-        if (hasInitializedPersons && personAnchorInfo.length === 0) {
-          hasInitializedPersons = false;
-          disabledPersons.clear();
-        }
-      }
-
-      // Save current node positions before updating
-      if (simulation && nodes.length > 0) {
-        nodes.forEach(node => {
-          if (node.x != null && node.y != null) {
-            nodePositions.set(node.id, { 
-              x: node.x, 
-              y: node.y,
-              vx: node.vx,
-              vy: node.vy
-            });
-          }
-        });
-        debug("Saved positions for", nodePositions.size, "nodes");
-      }
-
-      nodes = graphData.nodes;
-      links = graphData.links;
+      validateGraphElements();
+      const graphData = generateGraphData();
       
-      // Filter out disabled tag anchors and person nodes from nodes and links
-      if ((showTagAnchors && disabledTags.size > 0) || (showPersonNodes && disabledPersons.size > 0)) {
-        // Filter out disabled nodes
-        nodes = nodes.filter((node: NetworkNode) => {
-          if (node.isTagAnchor) {
-            const tagId = `${node.tagType}-${node.title}`;
-            return !disabledTags.has(tagId);
-          }
-          if (node.isPersonAnchor && node.pubkey) {
-            return !disabledPersons.has(node.pubkey);
-          }
-          return true;
-        });
-        
-        // Filter out links to disabled nodes
-        links = links.filter((link: NetworkLink) => {
-          const source = link.source as NetworkNode;
-          const target = link.target as NetworkNode;
-          
-          // Check if either node is disabled
-          if (source.isTagAnchor) {
-            const tagId = `${source.tagType}-${source.title}`;
-            if (disabledTags.has(tagId)) return false;
-          }
-          if (target.isTagAnchor) {
-            const tagId = `${target.tagType}-${target.title}`;
-            if (disabledTags.has(tagId)) return false;
-          }
-          if (source.isPersonAnchor && source.pubkey) {
-            if (disabledPersons.has(source.pubkey)) return false;
-          }
-          if (target.isPersonAnchor && target.pubkey) {
-            if (disabledPersons.has(target.pubkey)) return false;
-          }
-          
-          return true;
-        });
-        
-        debug("Filtered links for disabled tags", {
-          originalCount: graphData.links.length,
-          filteredCount: links.length,
-          disabledTags: Array.from(disabledTags)
-        });
-      }
+      // Save current positions before filtering
+      saveNodePositions(graphData.nodes);
       
-      // Event counts are now derived, no need to set them here
-      debug("Event counts by kind:", eventCounts);
+      const { nodes, links } = filterNodesAndLinks(graphData);
+      const restoredCount = restoreNodePositions(nodes);
       
-      // Restore positions for existing nodes
-      let restoredCount = 0;
-      nodes.forEach(node => {
-        const savedPos = nodePositions.get(node.id);
-        if (savedPos && !node.isTagAnchor) { // Don't restore tag anchor positions as they're fixed
-          node.x = savedPos.x;
-          node.y = savedPos.y;
-          node.vx = savedPos.vx || 0;
-          node.vy = savedPos.vy || 0;
-          restoredCount++;
-        } else if (!node.x && !node.y && !node.isTagAnchor && !node.isPersonAnchor) {
-          // Give disconnected nodes (like kind 0) random initial positions
-          node.x = width / 2 + (Math.random() - 0.5) * width * 0.5;
-          node.y = height / 2 + (Math.random() - 0.5) * height * 0.5;
-          node.vx = 0;
-          node.vy = 0;
-        }
-      });
-
-      debug("Generated graph data", {
-        nodeCount: nodes.length,
-        linkCount: links.length,
-        restoredPositions: restoredCount
-      });
-
       if (!nodes.length) {
         throw new Error("No nodes to render");
       }
-
-      // Stop any existing simulation
-      if (simulation) {
-        debug("Stopping existing simulation");
-        simulation.stop();
-      }
-
-      // Create new simulation
-      debug("Creating new simulation");
-      const hasRestoredPositions = restoredCount > 0;
       
-      if (starVisualization) {
-        // Use star-specific simulation
-        simulation = createStarSimulation(nodes, links, width, height);
-        // Apply initial star positioning only if we don't have restored positions
-        if (!hasRestoredPositions) {
-          applyInitialStarPositions(nodes, links, width, height);
-        }
-      } else {
-        // Use regular simulation
-        simulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
-        
-        // Add center force for disconnected nodes (like kind 0)
-        simulation.force("center", d3.forceCenter(width / 2, height / 2).strength(0.05));
-        
-        // Add radial force to keep disconnected nodes in view
-        simulation.force("radial", d3.forceRadial(Math.min(width, height) / 3, width / 2, height / 2)
-          .strength((d: NetworkNode) => {
-            // Apply radial force only to nodes without links (disconnected nodes)
-            const hasLinks = links.some(l => 
-              (l.source as NetworkNode).id === d.id || 
-              (l.target as NetworkNode).id === d.id
-            );
-            return hasLinks ? 0 : 0.1;
-          }));
-      }
+      const { simulation: newSimulation, dragHandler } = setupSimulation(nodes, links, restoredCount);
+      simulation = newSimulation;
       
-      // Use gentler alpha for updates with restored positions
-      if (hasRestoredPositions) {
-        simulation.alpha(0.3); // Gentler restart
-      }
-
-      // Center the nodes when the simulation is done
-      if (simulation) {
-        simulation.on("end", () => {
-          if (!starVisualization) {
-            centerGraph();
-          }
-        });
-      }
-
-      // Create drag handler
-      if (simulation) {
-        dragHandler = starVisualization
-          ? createStarDragHandler(simulation)
-          : setupDragHandlers(simulation);
-      }
-
-      // Update links
-      debug("Updating links");
-      link = svgGroup
-        .selectAll("path.link")
-        .data(links, (d: NetworkLink) => `${d.source.id}-${d.target.id}`)
-        .join(
-          (enter: any) =>
-            enter
-              .append("path")
-              .attr("class", (d: any) => {
-                let classes = "link network-link-leather";
-                if (d.connectionType === "signed-by") {
-                  classes += " person-link-signed";
-                } else if (d.connectionType === "referenced") {
-                  classes += " person-link-referenced";
-                }
-                return classes;
-              })
-              .attr("stroke-width", 2)
-              .attr("marker-end", "url(#arrowhead)"),
-          (update: any) => update.attr("class", (d: any) => {
-            let classes = "link network-link-leather";
-            if (d.connectionType === "signed-by") {
-              classes += " person-link-signed";
-            } else if (d.connectionType === "referenced") {
-              classes += " person-link-referenced";
-            }
-            return classes;
-          }),
-          (exit: any) => exit.remove(),
-        );
-
-      // Update nodes
-      debug("Updating nodes");
-      node = svgGroup
-        .selectAll("g.node")
-        .data(nodes, (d: NetworkNode) => d.id)
-        .join(
-          (enter: any) => {
-            const nodeEnter = enter
-              .append("g")
-              .attr("class", "node network-node-leather")
-              .call(dragHandler);
-
-            // Larger transparent circle for better drag handling
-            nodeEnter
-              .append("circle")
-              .attr("class", "drag-circle")
-              .attr("r", NODE_RADIUS * 2.5)
-              .attr("fill", "transparent")
-              .attr("stroke", "transparent")
-              .style("cursor", "move");
-
-            // Add shape based on node type
-            nodeEnter.each(function(d: NetworkNode) {
-              const g = d3.select(this);
-              if (d.isPersonAnchor) {
-                // Diamond shape for person anchors
-                g.append("rect")
-                  .attr("class", "visual-shape visual-diamond")
-                  .attr("width", NODE_RADIUS * 1.5)
-                  .attr("height", NODE_RADIUS * 1.5)
-                  .attr("x", -NODE_RADIUS * 0.75)
-                  .attr("y", -NODE_RADIUS * 0.75)
-                  .attr("transform", "rotate(45)")
-                  .attr("stroke-width", 2);
-              } else {
-                // Circle for other nodes
-                g.append("circle")
-                  .attr("class", "visual-shape visual-circle")
-                  .attr("r", NODE_RADIUS)
-                  .attr("stroke-width", 2);
-              }
-            });
-
-            // Node label
-            nodeEnter
-              .append("text")
-              .attr("dy", "0.35em")
-              .attr("text-anchor", "middle")
-              .attr("fill", "black")
-              .attr("font-size", "12px")
-              .attr("stroke", "none")
-              .attr("font-weight", "bold")
-              .style("pointer-events", "none");
-
-            return nodeEnter;
-          },
-          (update: any) => {
-            // Ensure drag handler is applied to updated nodes
-            update.call(dragHandler);
-            return update;
-          },
-          (exit: any) => exit.remove(),
-        );
-
-      // Update node appearances
-      debug("Updating node appearances");
+      const link = renderLinks(links);
+      const node = renderNodes(nodes, dragHandler);
       
-      // Update visual properties for ALL nodes (both new and existing)
-      node
-        .select(".visual-shape")
-        .attr("class", (d: NetworkNode) => {
-          const shapeClass = d.isPersonAnchor ? "visual-diamond" : "visual-circle";
-          const baseClasses = `visual-shape ${shapeClass} network-node-leather`;
-          if (d.isPersonAnchor) {
-            return `${baseClasses} person-anchor-node`;
-          }
-          if (d.isTagAnchor) {
-            return `${baseClasses} tag-anchor-node`;
-          }
-          if (!d.isContainer) {
-            return `${baseClasses} network-node-content`;
-          }
-          if (starVisualization && d.kind === 30040) {
-            return `${baseClasses} star-center-node`;
-          }
-          return baseClasses;
-        })
-        .style("fill", (d: NetworkNode) => {
-          // Person anchors - color based on source
-          if (d.isPersonAnchor) {
-            // If from follow list, use kind 3 color
-            if (d.isFromFollowList) {
-              return getEventKindColor(3);
-            }
-            // Otherwise green for event authors
-            return "#10B981";
-          }
-          // Tag anchors get their specific colors
-          if (d.isTagAnchor) {
-            return getTagAnchorColor(d.tagType || "");
-          }
-          // Use deterministic color based on event kind
-          const color = getEventKindColor(d.kind);
-          return color;
-        })
-        .attr("opacity", 1)
-        .attr("r", (d: NetworkNode) => {
-          // Only set radius for circles
-          if (d.isPersonAnchor) return null;
-          // Tag anchors are smaller
-          if (d.isTagAnchor) {
-            return NODE_RADIUS * 0.75;
-          }
-          // Make star center nodes larger
-          if (starVisualization && d.isContainer && d.kind === 30040) {
-            return NODE_RADIUS * 1.5;
-          }
-          return NODE_RADIUS;
-        })
-        .attr("width", (d: NetworkNode) => {
-          // Only set width/height for diamonds
-          if (!d.isPersonAnchor) return null;
-          return NODE_RADIUS * 1.5;
-        })
-        .attr("height", (d: NetworkNode) => {
-          // Only set width/height for diamonds
-          if (!d.isPersonAnchor) return null;
-          return NODE_RADIUS * 1.5;
-        })
-        .attr("x", (d: NetworkNode) => {
-          // Only set x/y for diamonds
-          if (!d.isPersonAnchor) return null;
-          return -NODE_RADIUS * 0.75;
-        })
-        .attr("y", (d: NetworkNode) => {
-          // Only set x/y for diamonds
-          if (!d.isPersonAnchor) return null;
-          return -NODE_RADIUS * 0.75;
-        })
-        .attr("stroke-width", (d: NetworkNode) => {
-          // Person anchors have thicker stroke
-          if (d.isPersonAnchor) {
-            return 3;
-          }
-          // Tag anchors have thicker stroke
-          if (d.isTagAnchor) {
-            return 3;
-          }
-          return 2;
-        });
-
-      node
-        .select("text")
-        .text((d: NetworkNode) => {
-          // Tag anchors show abbreviated type
-          if (d.isTagAnchor) {
-            return d.tagType === "t" ? "#" : "T";
-          }
-          // No text for regular nodes - just show the colored circle
-          return "";
-        })
-        .attr("font-size", (d: NetworkNode) => {
-          if (d.isTagAnchor) {
-            return "10px";
-          }
-          if (starVisualization && d.isContainer && d.kind === 30040) {
-            return "14px";
-          }
-          return "12px";
-        })
-        .attr("fill", (d: NetworkNode) => {
-          // White text on tag anchors
-          if (d.isTagAnchor) {
-            return "white";
-          }
-          return "black";
-        })
-        .style("fill", (d: NetworkNode) => {
-          // Force fill style for tag anchors
-          if (d.isTagAnchor) {
-            return "white";
-          }
-          return null;
-        })
-        .attr("stroke", "none")
-        .style("stroke", "none");
-
-      // Set up node interactions
-      debug("Setting up node interactions");
-      node
-        .on("mouseover", (event: any, d: NetworkNode) => {
-          if (!selectedNodeId) {
-            tooltipVisible = true;
-            tooltipNode = d;
-            tooltipX = event.pageX;
-            tooltipY = event.pageY;
-          }
-        })
-        .on("mousemove", (event: any) => {
-          if (!selectedNodeId) {
-            tooltipX = event.pageX;
-            tooltipY = event.pageY;
-          }
-        })
-        .on("mouseout", () => {
-          if (!selectedNodeId) {
-            tooltipVisible = false;
-            tooltipNode = null;
-          }
-        })
-        .on("click", (event: any, d: NetworkNode) => {
-          event.stopPropagation();
-          if (selectedNodeId === d.id) {
-            // Clicking the selected node again deselects it
-            selectedNodeId = null;
-            tooltipVisible = false;
-          } else {
-            // Select the node and show its tooltip
-            selectedNodeId = d.id;
-            tooltipVisible = true;
-            tooltipNode = d;
-            tooltipX = event.pageX;
-            tooltipY = event.pageY;
-          }
-        });
-
-      // Set up simulation tick handler
-      debug("Setting up simulation tick handler");
-      if (simulation) {
-        simulation.on("tick", () => {
-          // Apply custom forces to each node
-          if (!starVisualization) {
-            nodes.forEach((node) => {
-              // Pull nodes toward the center
-              applyGlobalLogGravity(
-                node,
-                width / 2,
-                height / 2,
-                simulation!.alpha(),
-              );
-              // Pull connected nodes toward each other
-              applyConnectedGravity(node, links, simulation!.alpha());
-            });
-          }
-
-          // Update link positions
-          link.attr("d", (d: NetworkLink) => {
-            // Calculate angle between source and target
-            const dx = d.target.x! - d.source.x!;
-            const dy = d.target.y! - d.source.y!;
-            const angle = Math.atan2(dy, dx);
-
-            // Calculate start and end points with offsets for node radius
-            const sourceRadius =
-              starVisualization &&
-              d.source.isContainer &&
-              d.source.kind === 30040
-                ? NODE_RADIUS * 1.5
-                : NODE_RADIUS;
-            const targetRadius =
-              starVisualization &&
-              d.target.isContainer &&
-              d.target.kind === 30040
-                ? NODE_RADIUS * 1.5
-                : NODE_RADIUS;
-
-            const sourceGap = sourceRadius;
-            const targetGap = targetRadius + ARROW_DISTANCE;
-
-            const startX = d.source.x! + sourceGap * Math.cos(angle);
-            const startY = d.source.y! + sourceGap * Math.sin(angle);
-            const endX = d.target.x! - targetGap * Math.cos(angle);
-            const endY = d.target.y! - targetGap * Math.sin(angle);
-
-            return `M${startX},${startY}L${endX},${endY}`;
-          });
-
-          // Update node positions
-          node.attr(
-            "transform",
-            (d: NetworkNode) => `translate(${d.x},${d.y})`,
-          );
-        });
-      }
+      setupNodeInteractions(node);
+      setupSimulationTickHandler(simulation, nodes, links, link, node);
     } catch (error) {
-      console.error("Error in updateGraph:", error);
-      errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
+      handleGraphError(error);
     }
   }
 
