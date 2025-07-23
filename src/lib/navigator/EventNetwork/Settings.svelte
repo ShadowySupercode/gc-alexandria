@@ -59,9 +59,16 @@
       </span>
       
       <!-- Event Configuration Section (combines types and limits) -->
-      <div class="settings-section">
-        <div class="settings-section-header" onclick={toggleEventTypes}>
-          <h4 class="settings-section-title">Event Configuration</h4>
+      <div
+        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+      >
+        <div
+          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
+          onclick={toggleEventTypes}
+        >
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
+            Event Configuration
+          </h4>
           <div class="pointer-events-none">
             {#if eventTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -78,9 +85,16 @@
 
 
       <!-- Visual Settings Section -->
-      <div class="settings-section">
-        <div class="settings-section-header" onclick={toggleVisualSettings}>
-          <h4 class="settings-section-title">Visual Settings</h4>
+      <div
+        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+      >
+        <div
+          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
+          onclick={toggleVisualSettings}
+        >
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
+            Visual Settings
+          </h4>
           <div class="pointer-events-none">
             {#if visualSettingsExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -119,51 +133,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .settings-section {
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .settings-section:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-  }
-
-  .settings-section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    margin-bottom: 0.75rem;
-  }
-
-  .settings-section-header:hover {
-    background-color: #f9fafb;
-    border-radius: 0.375rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-  }
-
-  .settings-section-title {
-    font-weight: 600;
-    color: #374151;
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
-  :global(.dark) .settings-section-header:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-
-  :global(.dark) .settings-section-title {
-    color: #d1d5db;
-  }
-
-  :global(.dark) .settings-section {
-    border-bottom-color: #374151;
-  }
-</style>
