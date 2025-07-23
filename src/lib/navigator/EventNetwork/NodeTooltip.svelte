@@ -9,7 +9,11 @@
   import { onMount } from "svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
-  import { getDisplayNameSync, replacePubkeysWithDisplayNames } from "$lib/utils/profileCache";
+  import {
+    getDisplayNameSync,
+    replacePubkeysWithDisplayNames,
+  } from "$lib/utils/profileCache";
+  import {indexKind, zettelKinds } from "$lib/consts";
 
   // Component props
   let {
@@ -35,9 +39,9 @@
 
   // Maximum content length to display
   const MAX_CONTENT_LENGTH = 200;
-  
+
   // Publication event kinds (text/article based)
-  const PUBLICATION_KINDS = [30040, 30041, 30818, 30023]; // Added 30023 (long-form content)
+  const PUBLICATION_KINDS = [wikiKind, indexKind, ...zettelKinds];
 
   /**
    * Gets the author name from the event tags
@@ -81,14 +85,14 @@
     }
     return "View Publication";
   }
-  
+
   /**
    * Checks if this is a publication event
    */
   function isPublicationEvent(kind: number): boolean {
     return PUBLICATION_KINDS.includes(kind);
   }
-  
+
   /**
    * Gets the appropriate URL for the event
    */
@@ -98,7 +102,7 @@
     }
     return `/events?id=${node.id}`;
   }
-  
+
   /**
    * Gets display text for the link
    */
@@ -238,17 +242,23 @@
       {#if node.event?.content}
         <div class="tooltip-content-preview">
           <span class="font-semibold">Content:</span>
-          <pre class="whitespace-pre-wrap">{truncateContent(node.event.content)}</pre>
+          <pre class="whitespace-pre-wrap">{truncateContent(
+              node.event.content,
+            )}</pre>
         </div>
       {/if}
-      
+
       <!-- Show some relevant tags for non-publication events -->
       {#if node.event?.tags && node.event.tags.length > 0}
         <div class="tooltip-metadata">
           Tags: {node.event.tags.length}
           {#if node.event.tags.length <= 3}
             {#each node.event.tags as tag}
-              <span class="text-xs">· {tag[0]}{tag[1] ? `: ${tag[0] === 'p' ? getDisplayNameSync(tag[1]) : tag[1].substring(0, 20)}${tag[1].length > 20 && tag[0] !== 'p' ? '...' : ''}` : ''}</span>
+              <span class="text-xs"
+                >· {tag[0]}{tag[1]
+                  ? `: ${tag[0] === "p" ? getDisplayNameSync(tag[1]) : tag[1].substring(0, 20)}${tag[1].length > 20 && tag[0] !== "p" ? "..." : ""}`
+                  : ""}</span
+              >
             {/each}
           {/if}
         </div>
