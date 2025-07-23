@@ -226,35 +226,63 @@ export function applyInitialStarPositions(
 }
 
 /**
+ * Handler for the start of a drag event in the star network simulation.
+ * Sets the fixed position of the node to its current position.
+ * @param event - The drag event from d3
+ * @param d - The node being dragged
+ * @param simulation - The d3 force simulation instance
+ */
+function dragstarted(event: any, d: NetworkNode, simulation: Simulation<NetworkNode, NetworkLink>) {
+  // If no other drag is active, set a low alpha target to keep the simulation running smoothly
+  if (!event.active) {
+    simulation.alphaTarget(0.1).restart();
+  }
+  // Set the node's fixed position to its current position
+  d.fx = d.x;
+  d.fy = d.y;
+}
+
+/**
+ * Handler for the drag event in the star network simulation.
+ * Updates the node's fixed position to follow the mouse.
+ * @param event - The drag event from d3
+ * @param d - The node being dragged
+ */
+function dragged(event: any, d: NetworkNode) {
+  // Update the node's fixed position to the current mouse position
+  d.fx = event.x;
+  d.fy = event.y;
+}
+
+/**
+ * Handler for the end of a drag event in the star network simulation.
+ * Keeps the node fixed at its new position after dragging.
+ * @param event - The drag event from d3
+ * @param d - The node being dragged
+ * @param simulation - The d3 force simulation instance
+ */
+function dragended(event: any, d: NetworkNode, simulation: Simulation<NetworkNode, NetworkLink>) {
+  // If no other drag is active, lower the alpha target to let the simulation cool down
+  if (!event.active) {
+    simulation.alphaTarget(0);
+  }
+  // Keep the node fixed at its new position
+  d.fx = event.x;
+  d.fy = event.y;
+}
+
+/**
  * Custom drag handler for star networks
+ * @param simulation - The d3 force simulation instance
+ * @returns The d3 drag behavior
  */
 export function createStarDragHandler(
   simulation: Simulation<NetworkNode, NetworkLink>
 ): any {
-  function dragstarted(event: any, d: NetworkNode) {
-    if (!event.active) simulation.alphaTarget(0.1).restart(); // Lower target for smoother dragging
-    
-    // For all nodes, set their fixed position at start
-    d.fx = d.x;
-    d.fy = d.y;
-  }
-
-  function dragged(event: any, d: NetworkNode) {
-    d.fx = event.x;
-    d.fy = event.y;
-  }
-
-  function dragended(event: any, d: NetworkNode) {
-    if (!event.active) simulation.alphaTarget(0);
-    
-    // Keep all nodes fixed after dragging
-    // This allows users to manually position any node type
-    d.fx = event.x;
-    d.fy = event.y;
-  }
-
+  // These handlers are now top-level functions, so we use closures to pass simulation to them.
+  // This is a common pattern in JavaScript/TypeScript when you need to pass extra arguments to event handlers.
   return d3.drag()
-    .on("start", dragstarted)
-    .on("drag", dragged)
-    .on("end", dragended);
+    .on('start', function(event: any, d: NetworkNode) { dragstarted(event, d, simulation); })
+    .on('drag', dragged)
+    .on('end', function(event: any, d: NetworkNode) { dragended(event, d, simulation); });
 }

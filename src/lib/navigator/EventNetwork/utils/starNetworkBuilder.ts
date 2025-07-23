@@ -66,7 +66,7 @@ export function createStarNetwork(
     const node = state.nodeMap.get(id);
     if (node) {
       // Set the peripheral node level
-      node.level = level + 1;
+      node.level += 1;
       peripheralNodes.push(node);
       
       // Create link from center to peripheral node
