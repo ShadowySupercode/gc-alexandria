@@ -12,10 +12,8 @@ import type { NetworkNode, NetworkLink, GraphData, GraphState } from "../types";
 import { getMatchingTags } from '$lib/utils/nostrUtils';
 import { createNetworkNode, createEventMap, extractEventIdFromATag, getEventColor } from './networkBuilder';
 import { createDebugFunction } from './common';
+import { wikiKind, indexKind, zettelKinds } from '$lib/consts';
 
-// Configuration
-const INDEX_EVENT_KIND = 30040;
-const CONTENT_EVENT_KIND = 30041;
 
 // Debug function
 const debug = createDebugFunction("StarNetworkBuilder");
@@ -124,8 +122,8 @@ export function createStarNetworks(
   };
 
   // Find all index events and non-publication events
-  const publicationKinds = [30040, 30041, 30818];
-  const indexEvents = events.filter(event => event.kind === INDEX_EVENT_KIND);
+  const publicationKinds = [wikiKind, indexKind, ...zettelKinds];
+  const indexEvents = events.filter(event => event.kind === indexKind);
   const nonPublicationEvents = events.filter(event => 
     event.kind !== undefined && !publicationKinds.includes(event.kind)
   );
