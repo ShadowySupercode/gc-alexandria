@@ -107,6 +107,42 @@ export function extractUniquePersons(
 }
 
 /**
+ * Helper to build eligible person info for anchor nodes.
+ */
+function buildEligiblePerson(
+  pubkey: string,
+  connection: PersonConnection,
+  showSignedBy: boolean,
+  showReferenced: boolean
+): {
+  pubkey: string;
+  connection: PersonConnection;
+  connectedEventIds: Set<string>;
+  totalConnections: number;
+} | null {
+  const connectedEventIds = new Set<string>();
+
+  if (showSignedBy) {
+    connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
+  }
+
+  if (showReferenced) {
+    connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
+  }
+
+  if (connectedEventIds.size === 0) {
+    return null;
+  }
+
+  return {
+    pubkey,
+    connection,
+    connectedEventIds,
+    totalConnections: connectedEventIds.size
+  };
+}
+
+/**
  * Creates person anchor nodes
  */
 export function createPersonAnchorNodes(
@@ -123,35 +159,11 @@ export function createPersonAnchorNodes(
   const centerY = height / 2;
 
   // Calculate eligible persons and their connection counts
-  const eligiblePersons: Array<{
-    pubkey: string;
-    connection: PersonConnection;
-    connectedEventIds: Set<string>;
-    totalConnections: number;
-  }> = [];
-
-  Array.from(personMap.entries()).forEach(([pubkey, connection]) => {
-    // Get all connected event IDs based on filters
-    const connectedEventIds = new Set<string>();
-    
-    if (showSignedBy) {
-      connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
-    }
-    
-    if (showReferenced) {
-      connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
-    }
-    
-    // Skip if no connections match the filter
-    if (connectedEventIds.size === 0) return;
-
-    eligiblePersons.push({
-      pubkey,
-      connection,
-      connectedEventIds,
-      totalConnections: connectedEventIds.size
-    });
-  });
+  const eligiblePersons = Array.from(personMap.entries())
+    .map(([pubkey, connection]) =>
+      buildEligiblePerson(pubkey, connection, showSignedBy, showReferenced)
+    )
+    .filter((p): p is NonNullable<typeof p> => p !== null);
 
   // Sort by total connections (descending) and take only top N
   eligiblePersons.sort((a, b) => b.totalConnections - a.totalConnections);
