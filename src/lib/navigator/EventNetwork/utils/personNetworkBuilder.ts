@@ -225,31 +225,36 @@ export function createPersonLinks(
   
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  const links: PersonLink = personAnchors.map((anchor) => {
-    if (!anchor.connectedNodes || !anchor.pubkey) return;
+  const links: PersonLink[] = personAnchors.flatMap((anchor) => {
+    if (!anchor.connectedNodes || !anchor.pubkey) {
+      return [];
+    }
 
     const connection = personMap.get(anchor.pubkey);
-    if (!connection) return;
+    if (!connection) {
+      return [];
+    }
 
-    return ...anchor.connectedNodes.map((nodeId) => {
+    return anchor.connectedNodes.map((nodeId) => {
       const node = nodeMap.get(nodeId);
-      if (node) {
-        // Determine connection type
-        let connectionType: "signed-by" | "referenced" | undefined;
-        if (connection.signedByEventIds.has(nodeId)) {
-          connectionType = "signed-by";
-        } else if (connection.referencedInEventIds.has(nodeId)) {
-          connectionType = "referenced";
-        }
-
-        return {
-          source: anchor,
-          target: node,
-          isSequential: false,
-          connectionType,
-        };
+      if (!node) {
+        return undefined;
       }
-    });
+
+      let connectionType: 'signed-by' | 'referenced' | undefined;
+      if (connection.signedByEventIds.has(nodeId)) {
+        connectionType = 'signed-by';
+      } else if (connection.referencedInEventIds.has(nodeId)) {
+        connectionType = 'referenced';
+      }
+
+      return {
+        source: anchor,
+        target: node,
+        isSequential: false,
+        connectionType,
+      };
+    }).filter(Boolean); // Remove undefineds
   });
 
   debug("Created person links", { linkCount: links.length });
