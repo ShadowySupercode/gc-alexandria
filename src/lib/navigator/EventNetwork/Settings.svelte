@@ -60,13 +60,13 @@
       
       <!-- Event Configuration Section (combines types and limits) -->
       <div
-        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+        class="settings-section border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
       >
         <div
-          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
+          class="settings-section-header flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
           onclick={toggleEventTypes}
         >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
+          <h4 class="settings-section-title font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
             Event Configuration
           </h4>
           <div class="pointer-events-none">
@@ -86,13 +86,13 @@
 
       <!-- Visual Settings Section -->
       <div
-        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+        class="settings-section border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
       >
         <div
-          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
+          class="settings-section-header flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-white/5 hover:rounded-md hover:px-2"
           onclick={toggleVisualSettings}
         >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
+          <h4 class="settings-section-title font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">
             Visual Settings
           </h4>
           <div class="pointer-events-none">
