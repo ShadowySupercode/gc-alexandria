@@ -19,6 +19,12 @@ In reader mode, Alexandria loads a document tree from a root publication index e
 
 Svelte components in Alexandria use TypeScript exclusively over plain JavaScript.  Styles are defined via Tailwind 4 utility classes, and some custom utility classes are defined in [app.css](mdc:src/app.css).  The app runs on Deno, but maintains compatibility with Node.js.
 
+### Utilities
+
+The project contains a number of modules that define utility classes and functions to support the app's operations.  Make use of these utilities when they are relevant to reduce code duplication and maintain common patterns:
+
+- Use the `WebSocketPool` class defined in [websocket_pool.ts](../src/lib/data_structures/websocket_pool.ts) when handling raw WebSockets to efficiently manage connections.
+
 ## General Guidelines
 
 When responding to prompts, adhere to the following rules:
