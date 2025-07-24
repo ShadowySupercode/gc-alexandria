@@ -17,13 +17,12 @@
   let showAddInput = $state(false);
   let inputError = $state('');
 
-  function validateKind(value: string | number): number | null {
-    const strValue = String(value);
-    if (!strValue || strValue.trim() === '') {
+  function validateKind(value: string): number | null {
+    if (!value || value.trim() === '') {
       inputError = '';
       return null;
     }
-    const kind = parseInt(strValue.trim());
+    const kind = parseInt(value.trim());
     if (isNaN(kind)) {
       inputError = 'Must be a number';
       return null;
@@ -42,7 +41,7 @@
 
   function handleAddKind() {
     const kind = validateKind(newKind);
-    if (kind !== null) {
+    if (kind != null) {
       visualizationConfig.addEventKind(kind);
       newKind = '';
       showAddInput = false;
