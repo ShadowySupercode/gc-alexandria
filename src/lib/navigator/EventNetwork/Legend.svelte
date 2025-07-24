@@ -92,11 +92,8 @@
     <div class="space-y-4">
       <!-- Node Types Section -->
       <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <div 
-          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
-          onclick={toggleNodeTypes}
-        >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Node Types</h4>
+        <div class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3" onclick={toggleNodeTypes}>
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Node Types</h4>
           <div class="pointer-events-none">
             {#if nodeTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -111,9 +108,10 @@
             <!-- Dynamic event kinds -->
             {#each Object.entries(eventCounts).sort(([a], [b]) => Number(a) - Number(b)) as [kindStr, count]}
               {@const kind = Number(kindStr)}
+              {@const countNum = count as number}
               {@const color = getEventKindColor(kind)}
               {@const name = getEventKindName(kind)}
-              {#if (count as number) > 0}
+              {#if countNum > 0}
                 <li class="flex items-center mb-2 last:mb-0">
                   <div class="flex items-center mr-2">
                     <span
@@ -122,8 +120,8 @@
                     >
                     </span>
                   </div>
-                  <span class="text-sm">
-                    {kind} - {name} ({count})
+                  <span class="text-sm text-gray-700 dark:text-gray-300">
+                    {kind} - {name} ({countNum})
                   </span>
                 </li>
               {/if}
@@ -139,7 +137,7 @@
                   fill="none"
                 />
               </svg>
-              <span class="text-sm">
+              <span class="text-sm text-gray-700 dark:text-gray-300">
                 {#if starMode}
                   Radial connections from centers to related events
                 {:else}
@@ -159,7 +157,7 @@
                     fill="none"
                   />
                 </svg>
-                <span class="text-xs">
+                <span class="text-xs text-gray-700 dark:text-gray-300">
                   Authored by person
                 </span>
               </li>
@@ -172,7 +170,7 @@
                     fill="none"
                   />
                 </svg>
-                <span class="text-xs">
+                <span class="text-xs text-gray-700 dark:text-gray-300">
                   References person
                 </span>
               </li>
@@ -183,11 +181,8 @@
 
       <!-- Tag Anchor Controls Section -->
       <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <div 
-          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
-          onclick={() => tagControlsExpanded = !tagControlsExpanded}
-        >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Tag Anchor Controls</h4>
+        <div class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3" onclick={() => tagControlsExpanded = !tagControlsExpanded}>
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Tag Anchor Controls</h4>
           <div class="pointer-events-none">
             {#if tagControlsExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -206,7 +201,7 @@
                   showTagAnchors = !showTagAnchors;
                   onTagSettingsChange();
                 }}
-                class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium cursor-pointer transition-all min-w-12 hover:bg-gray-200 dark:hover:bg-gray-600 {showTagAnchors ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}"
+                class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showTagAnchors ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
               >
                 {showTagAnchors ? 'ON' : 'OFF'}
               </button>
@@ -238,11 +233,8 @@
       <!-- Tag Anchors section -->
       {#if showTags && tagAnchors.length > 0}
         <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-          <div 
-            class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
-            onclick={toggleTagAnchors}
-          >
-            <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Active Tag Anchors: {tagAnchors[0].type}</h4>
+          <div class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3" onclick={toggleTagAnchors}>
+            <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Active Tag Anchors: {tagAnchors[0].type}</h4>
             <div class="pointer-events-none">
               {#if tagAnchorsExpanded}
                 <CaretUpOutline class="w-3 h-3" />
@@ -314,32 +306,32 @@
               {#each sortedAnchors as anchor}
                 {@const tagId = `${anchor.type}-${anchor.label}`}
                 {@const isDisabled = disabledTags.has(tagId)}
-                <button
-                  class="flex items-center gap-1 p-1 border-none bg-transparent cursor-pointer transition-all rounded w-full text-left hover:bg-black/5 dark:hover:bg-white/5 {isDisabled ? 'opacity-50' : ''}"
-                  onclick={() => onTagToggle(tagId)}
-                  title={isDisabled ? `Click to show ${anchor.label}` : `Click to hide ${anchor.label}`}
-                >
-                  <div class="flex items-center mr-1">
-                    <span
-                      class="w-4 h-4 rounded-full border-2 border-white"
-                      style="background-color: {anchor.color}; opacity: {isDisabled ? 0.3 : 1};"
-                    >
-                      <span class="text-xs text-white font-bold flex items-center justify-center w-full h-full">
-                        {anchor.type === "t"
-                          ? "#"
-                          : anchor.type === "author"
-                            ? "A"
-                            : anchor.type.charAt(0).toUpperCase()}
+                                  <button
+                    class="flex items-center gap-1 p-1 rounded w-full text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+                    onclick={() => onTagToggle(tagId)}
+                    title={isDisabled ? `Click to show ${anchor.label}` : `Click to hide ${anchor.label}`}
+                  >
+                    <div class="flex items-center">
+                      <span
+                        class="w-4.5 h-4.5 rounded-full border-2 border-white flex items-center justify-center"
+                        style="background-color: {anchor.color}; opacity: {isDisabled ? 0.3 : 1};"
+                      >
+                        <span class="text-xs text-white font-bold">
+                          {anchor.type === "t"
+                            ? "#"
+                            : anchor.type === "author"
+                              ? "A"
+                              : anchor.type.charAt(0).toUpperCase()}
+                        </span>
                       </span>
+                    </div>
+                    <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
+                      {anchor.label}
+                      {#if !isDisabled}
+                        <span class="text-gray-500 dark:text-gray-400">({anchor.count})</span>
+                      {/if}
                     </span>
-                  </div>
-                  <span class="text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
-                    {anchor.label}
-                    {#if !isDisabled}
-                      <span class="text-gray-500">({anchor.count})</span>
-                    {/if}
-                  </span>
-                </button>
+                  </button>
               {/each}
             </div>
           {/if}
@@ -348,11 +340,8 @@
       
       <!-- Person Visualizer Section -->
       <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <div 
-          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
-          onclick={() => personVisualizerExpanded = !personVisualizerExpanded}
-        >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Person Visualizer</h4>
+        <div class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3" onclick={() => personVisualizerExpanded = !personVisualizerExpanded}>
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Person Visualizer</h4>
           <div class="pointer-events-none">
             {#if personVisualizerExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -372,7 +361,7 @@
                     showPersonNodes = !showPersonNodes;
                     onPersonSettingsChange();
                   }}
-                  class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium cursor-pointer transition-all min-w-12 hover:bg-gray-200 dark:hover:bg-gray-600 {showPersonNodes ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}"
+                  class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showPersonNodes ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                 >
                   {showPersonNodes ? 'ON' : 'OFF'}
                 </button>
@@ -437,31 +426,31 @@
               >
                 {#each personAnchors as person}
                   {@const isDisabled = disabledPersons.has(person.pubkey)}
-                  <button
-                    class="flex items-center gap-1 p-1 border-none bg-transparent cursor-pointer transition-all rounded w-full text-left hover:bg-black/5 dark:hover:bg-white/5 {isDisabled ? 'opacity-50' : ''} {!showPersonNodes ? 'cursor-not-allowed' : ''}"
-                    onclick={() => {
-                      if (showPersonNodes) {
-                        onPersonToggle(person.pubkey);
-                      }
-                    }}
-                    disabled={!showPersonNodes}
-                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
-                  >
-                    <div class="flex items-center mr-1">
-                      <span
-                        class="w-3.5 h-3.5 border-2 border-white"
-                        style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1}; transform: rotate(45deg);"
-                      />
-                    </div>
-                    <span class="text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
-                      {person.displayName || person.pubkey.slice(0, 8) + '...'}
-                      {#if !isDisabled}
-                        <span class="text-gray-500">
-                          ({person.signedByCount || 0}s/{person.referencedCount || 0}r)
-                        </span>
-                      {/if}
-                    </span>
-                  </button>
+                                      <button
+                      class="flex items-center gap-1 p-1 rounded w-full text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+                      onclick={() => {
+                        if (showPersonNodes) {
+                          onPersonToggle(person.pubkey);
+                        }
+                      }}
+                      disabled={!showPersonNodes}
+                      title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
+                    >
+                      <div class="flex items-center">
+                        <span
+                          class="inline-block w-3.5 h-3.5 rotate-45 border-2 border-white"
+                          style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
+                        />
+                      </div>
+                      <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
+                        {person.displayName || person.pubkey.slice(0, 8) + '...'}
+                        {#if !isDisabled}
+                          <span class="text-gray-500 dark:text-gray-400">
+                            ({person.signedByCount || 0}s/{person.referencedCount || 0}r)
+                          </span>
+                        {/if}
+                      </span>
+                    </button>
                 {/each}
               </div>
             {:else if showPersonNodes}
@@ -475,36 +464,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  /* Custom scrollbar styles that are difficult to express with Tailwind */
-  .grid.max-h-96::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .grid.max-h-96::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-  }
-  
-  .grid.max-h-96::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
-  }
-  
-  .grid.max-h-96::-webkit-scrollbar-thumb:hover {
-    background: #555;
-  }
-  
-  :global(.dark) .grid.max-h-96::-webkit-scrollbar-track {
-    background: #374151;
-  }
-  
-  :global(.dark) .grid.max-h-96::-webkit-scrollbar-thumb {
-    background: #6b7280;
-  }
-  
-  :global(.dark) .grid.max-h-96::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-  }
-</style>

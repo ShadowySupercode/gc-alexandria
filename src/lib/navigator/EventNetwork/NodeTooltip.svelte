@@ -13,7 +13,7 @@
     getDisplayNameSync,
     replacePubkeysWithDisplayNames,
   } from "$lib/utils/profileCache";
-  import {indexKind, zettelKinds } from "$lib/consts";
+  import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
 
   // Component props
   let {
