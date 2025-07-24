@@ -1,6 +1,7 @@
 <script lang="ts">
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
+  import type { EventCounts } from "$lib/types";
 
   const TAG_LEGEND_COLUMNS = 3; // Number of columns for tag anchor table
   let {
@@ -31,7 +32,7 @@
     starMode?: boolean;
     showTags?: boolean;
     tagAnchors?: any[];
-    eventCounts?: { [kind: number]: number };
+    eventCounts?: EventCounts;
     disabledTags?: Set<string>;
     onTagToggle?: (tagId: string) => void;
     autoDisabledTags?: boolean;

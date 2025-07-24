@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { visualizationConfig } from '$lib/stores/visualizationConfig';
+  import { visualizationConfig, enabledEventKinds } from '$lib/stores/visualizationConfig';
   import { Button, Badge } from 'flowbite-svelte';
   import { CloseCircleOutline } from 'flowbite-svelte-icons';
   import type { EventCounts } from "$lib/types";
+  import { NostrKind } from '$lib/types';
   
   let {
     onReload = () => {},
@@ -15,9 +16,8 @@
   let newKind = $state('');
   let showAddInput = $state(false);
   let inputError = $state('');
-  
+
   function validateKind(value: string | number): number | null {
-    // Convert to string for consistent handling
     const strValue = String(value);
     if (!strValue || strValue.trim() === '') {
       inputError = '';
@@ -32,31 +32,24 @@
       inputError = 'Must be positive';
       return null;
     }
-    if ($visualizationConfig.allowedKinds.includes(kind)) {
+    if ($visualizationConfig.eventConfigs.some(ec => ec.kind === kind)) {
       inputError = 'Already added';
       return null;
     }
     inputError = '';
     return kind;
   }
-  
+
   function handleAddKind() {
-    console.log('[EventKindFilter] handleAddKind called with:', newKind);
     const kind = validateKind(newKind);
-    console.log('[EventKindFilter] Validation result:', kind);
     if (kind !== null) {
-      console.log('[EventKindFilter] Before adding, allowedKinds:', $visualizationConfig.allowedKinds);
-      visualizationConfig.addKind(kind);
-      // Force a small delay to ensure store update propagates
-      setTimeout(() => {
-        console.log('[EventKindFilter] After adding, allowedKinds:', $visualizationConfig.allowedKinds);
-      }, 10);
+      visualizationConfig.addEventKind(kind);
       newKind = '';
       showAddInput = false;
       inputError = '';
     }
   }
-  
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       handleAddKind();
@@ -66,23 +59,22 @@
       inputError = '';
     }
   }
-  
+
   function removeKind(kind: number) {
-    visualizationConfig.removeKind(kind);
+    visualizationConfig.removeEventKind(kind);
   }
-  
+
   function toggleKind(kind: number) {
     visualizationConfig.toggleKind(kind);
   }
-  
-  // Get kind name for display
+
   function getKindName(kind: number): string {
     switch (kind) {
-      case 30040: return 'Publication Index';
-      case 30041: return 'Publication Content';
-      case 30818: return 'Wiki';
-      case 1: return 'Text Note';
-      case 0: return 'Metadata';
+      case NostrKind.PublicationIndex: return 'Publication Index';
+      case NostrKind.PublicationContent: return 'Publication Content';
+      case NostrKind.Wiki: return 'Wiki';
+      case NostrKind.TextNote: return 'Text Note';
+      case NostrKind.UserMetadata: return 'Metadata';
       default: return `Kind ${kind}`;
     }
   }
@@ -90,30 +82,30 @@
 
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center">
-    {#each $visualizationConfig.allowedKinds as kind}
-      {@const isDisabled = $visualizationConfig.disabledKinds.includes(kind)}
-      {@const isLoaded = (eventCounts[kind] || 0) > 0}
+    {#each $visualizationConfig.eventConfigs as ec}
+      {@const isEnabled = ec.enabled !== false}
+      {@const isLoaded = (eventCounts[ec.kind] || 0) > 0}
       {@const borderColor = isLoaded ? 'border-green-500' : 'border-red-500'}
       <button
-        class="badge-container {isDisabled ? 'disabled' : ''} {isLoaded ? 'loaded' : 'not-loaded'}"
-        onclick={() => toggleKind(kind)}
-        title={isDisabled ? `Click to enable ${getKindName(kind)}` : `Click to disable ${getKindName(kind)}`}
+        class="badge-container {isEnabled ? '' : 'disabled'} {isLoaded ? 'loaded' : 'not-loaded'}"
+        onclick={() => toggleKind(ec.kind)}
+        title={isEnabled ? `Click to disable ${getKindName(ec.kind)}` : `Click to enable ${getKindName(ec.kind)}`}
       >
         <Badge 
           color="dark" 
-          class="flex items-center gap-1 px-2 py-1 {isDisabled ? 'opacity-40' : ''} border-2 {borderColor}"
+          class="flex items-center gap-1 px-2 py-1 {isEnabled ? '' : 'opacity-40'} border-2 {borderColor}"
         >
-          <span class="text-xs">{kind}</span>
+          <span class="text-xs">{ec.kind}</span>
           {#if isLoaded}
-            <span class="text-xs text-gray-400">({eventCounts[kind]})</span>
+            <span class="text-xs text-gray-400">({eventCounts[ec.kind]})</span>
           {/if}
           <button
             onclick={(e) => {
               e.stopPropagation();
-              removeKind(kind);
+              removeKind(ec.kind);
             }}
             class="ml-1 text-red-500 hover:text-red-700 transition-colors"
-            title="Remove {getKindName(kind)}"
+            title="Remove {getKindName(ec.kind)}"
           >
             <CloseCircleOutline class="w-3 h-3" />
           </button>
@@ -192,17 +184,6 @@
       <span>Red border = Not loaded (click Reload to fetch)</span>
     </p>
   </div>
-  
-  <label class="flex items-center gap-2 text-xs">
-    <input
-      type="checkbox"
-      checked={$visualizationConfig.allowFreeEvents}
-      onchange={() => visualizationConfig.toggleFreeEvents()}
-      class="rounded dark:bg-gray-700 dark:border-gray-600"
-    />
-    <span>Allow free events <span class="text-orange-500 font-normal">(not tested)</span></span>
-    <span class="text-gray-500 dark:text-gray-400">(not connected to 30040)</span>
-  </label>
 </div>
 
 <style>
