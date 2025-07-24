@@ -2,8 +2,7 @@
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
 
-  // TODO: Move this to settings panel for user control
-  const TAG_LEGEND_COLUMNS = 4; // Number of columns for tag anchor table
+  const TAG_LEGEND_COLUMNS = 3; // Number of columns for tag anchor table
   let {
     collapsedOnInteraction = false,
     className = "",
@@ -337,8 +336,8 @@
                         </span>
                       </span>
                     </div>
-                    <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
-                      {anchor.label}
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title={anchor.label}>
+                      {anchor.label.length > 25 ? anchor.label.slice(0, 22) + '...' : anchor.label}
                       {#if !isDisabled}
                         <span class="text-gray-500 dark:text-gray-400">({anchor.count})</span>
                       {/if}
