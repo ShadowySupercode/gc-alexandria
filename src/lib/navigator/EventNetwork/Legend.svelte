@@ -74,6 +74,26 @@
   function toggleTagAnchors() {
     tagAnchorsExpanded = !tagAnchorsExpanded;
   }
+
+  function invertTagSelection() {
+    // Invert selection - toggle all tags one by one
+    const allTagIds = tagAnchors.map((anchor: any) => `${anchor.type}-${anchor.label}`);
+    
+    // Process all tags
+    allTagIds.forEach((tagId: string) => {
+      onTagToggle(tagId);
+    });
+  }
+
+  function invertPersonSelection() {
+    // Invert selection - toggle all person nodes
+    const allPubkeys = personAnchors.map((person: any) => person.pubkey);
+    
+    // Process all persons
+    allPubkeys.forEach((pubkey: string) => {
+      onPersonToggle(pubkey);
+    });
+  }
 </script>
 
 <div class={`leather-legend ${className}`}>
@@ -284,15 +304,7 @@
               <label class="flex items-center gap-1 cursor-pointer">
                 <input
                   type="checkbox"
-                  onclick={() => {
-                    // Invert selection - toggle all tags one by one
-                    const allTagIds = tagAnchors.map((anchor: any) => `${anchor.type}-${anchor.label}`);
-                    
-                    // Process all tags
-                    allTagIds.forEach((tagId: string) => {
-                      onTagToggle(tagId);
-                    });
-                  }}
+                  onclick={invertTagSelection}
                   class="w-3 h-3"
                 />
                 <span class="text-xs">Invert Selection</span>
@@ -405,15 +417,7 @@
                 <label class="flex items-center gap-1 cursor-pointer">
                   <input
                     type="checkbox"
-                    onclick={() => {
-                      // Invert selection - toggle all person nodes
-                      const allPubkeys = personAnchors.map((person: any) => person.pubkey);
-                      
-                      // Process all persons
-                      allPubkeys.forEach((pubkey: string) => {
-                        onPersonToggle(pubkey);
-                      });
-                    }}
+                    onclick={invertPersonSelection}
                     class="w-3 h-3"
                   />
                   <span class="text-xs">Invert Selection</span>
