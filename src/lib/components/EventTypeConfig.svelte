@@ -3,6 +3,11 @@
   import { Button, Input } from 'flowbite-svelte';
   import { CloseCircleOutline } from 'flowbite-svelte-icons';
   import { getEventKindName, getEventKindColor } from '$lib/utils/eventColors';
+  import { 
+    validateEventKind, 
+    handleAddEventKind, 
+    handleEventKindKeydown 
+  } from '$lib/utils/event_kind_utils';
   
   let {
     onReload = () => {},
@@ -18,53 +23,36 @@
   let showAddInput = $state(false);
   let inputError = $state('');
   
-  function validateKind(value: string | number): number | null {
-    // Convert to string for consistent handling
-    const strValue = String(value);
-    if (strValue === null || strValue === undefined || strValue.trim() === '') {
-      inputError = '';
-      return null;
-    }
-    const kind = parseInt(strValue.trim());
-    if (isNaN(kind)) {
-      inputError = 'Must be a number';
-      return null;
-    }
-    if (kind < 0) {
-      inputError = 'Must be non-negative';
-      return null;
-    }
-    if ($visualizationConfig.eventConfigs.some(ec => ec.kind === kind)) {
-      inputError = 'Already added';
-      return null;
-    }
-    inputError = '';
-    return kind;
-  }
+  // Get existing kinds for validation
+  let existingKinds = $derived($visualizationConfig.eventConfigs.map((ec: any) => ec.kind));
   
   function handleAddKind() {
-    console.log('[EventTypeConfig] handleAddKind called with:', newKind);
-    const kind = validateKind(newKind);
-    console.log('[EventTypeConfig] Validation result:', kind);
-    if (kind !== null) {
-      console.log('[EventTypeConfig] Adding event kind:', kind);
-      visualizationConfig.addEventKind(kind);
-      newKind = '';
-      showAddInput = false;
-      inputError = '';
-    } else {
-      console.log('[EventTypeConfig] Validation failed:', inputError);
+    const result = handleAddEventKind(
+      newKind,
+      existingKinds,
+      (kind) => visualizationConfig.addEventKind(kind),
+      () => {
+        newKind = '';
+        showAddInput = false;
+        inputError = '';
+      }
+    );
+    
+    if (!result.success) {
+      inputError = result.error;
     }
   }
   
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      handleAddKind();
-    } else if (e.key === 'Escape') {
-      showAddInput = false;
-      newKind = '';
-      inputError = '';
-    }
+    handleEventKindKeydown(
+      e,
+      handleAddKind,
+      () => {
+        showAddInput = false;
+        newKind = '';
+        inputError = '';
+      }
+    );
   }
   
   function handleLimitChange(kind: number, value: string) {
@@ -95,7 +83,7 @@
 
 <div class="space-y-3">
   <span class="text-xs text-gray-600 dark:text-gray-400">
-    Showing {Object.values(eventCounts).reduce((a, b) => a + b, 0)} of {Object.values(eventCounts).reduce((a, b) => a + b, 0)} events
+    Showing {Object.values(eventCounts).reduce((a: any, b: any) => a + b, 0)} of {Object.values(eventCounts).reduce((a: any, b: any) => a + b, 0)} events
   </span>
   
   <!-- Event configurations -->
@@ -220,7 +208,10 @@
         placeholder="Enter event kind number (e.g. 1)"
         class="flex-1 px-3 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         onkeydown={handleKeydown}
-        oninput={(e) => validateKind(e.currentTarget.value)}
+        oninput={(e) => {
+          const validation = validateEventKind(e.currentTarget.value, existingKinds);
+          inputError = validation.error;
+        }}
       />
       <Button size="xs" onclick={handleAddKind} disabled={newKind === '' || !!inputError}>
         Add

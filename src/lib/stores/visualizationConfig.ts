@@ -17,10 +17,8 @@ export interface EventKindConfig {
 export interface VisualizationConfig {
   /**
    * Event configurations with per-kind limits.
-   * Map key: event kind (number)
-   * Map value: JSON stringified EventKindConfig
    */
-  eventConfigs: Map<number, string>;
+  eventConfigs: EventKindConfig[];
 
   /**
    * Whether to search through all fetched events during graph traversal.
