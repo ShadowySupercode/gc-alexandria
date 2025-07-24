@@ -49,7 +49,7 @@ Observe the following style guidelines when writing code:
 - Use blocks enclosed by curly brackets when writing control flow expressions such as `for` and `while` loops, and `if` and `switch` statements.
 - Begin `case` expressions in a `switch` statement at the same indentation level as the `switch` itself.  Indent code within a `case` block.
 - Limit line length to 100 characters; break statements across lines if necessary.
-- Default to single quotes.
+- Default to double quotes.
 
 ### HTML
 
@@ -57,5 +57,3 @@ Observe the following style guidelines when writing code:
 - Break long tags across multiple lines.
 - Use Tailwind 4 utility classes for styling.
 - Default to single quotes.
-
-
