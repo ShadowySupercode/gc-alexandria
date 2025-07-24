@@ -9,11 +9,10 @@ The settings panel controls how events are fetched and displayed in the visualiz
 Controls which types of Nostr events are fetched and how many of each type.
 
 *** Key Event Types
-- *Kind 0* (Profiles/Metadata): User profile information (names, pictures, etc.)
-- *Kind 3* (Follow Lists): Who each user follows
 - *Kind 30040* (Index Events): Publication indices
 - *Kind 30041* (Content Events): Publication content
-- *Kind 30818* (Content Events): Alternative publication format
+- *Kind 30818* (Content Events): Alternative content format
+- *Kind 30023* (Content Events): Alternative content format
 
 *** How Limits Work
 Each event kind has a limit number that controls different things:
