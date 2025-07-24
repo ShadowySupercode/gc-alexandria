@@ -28,11 +28,10 @@ export interface VisualizationConfig {
 
 // Default configurations for common event kinds
 const DEFAULT_EVENT_CONFIGS: EventKindConfig[] = [
-  { kind: 0, limit: 5, enabled: false }, // Metadata events (profiles) - controls how many profiles to display
-  { kind: 3, limit: 0, depth: 0, enabled: false }, // Follow lists - limit 0 = don't fetch, >0 = fetch follow lists
   { kind: 30040, limit: 20, nestedLevels: 1, enabled: true },
   { kind: 30041, limit: 20, enabled: false },
   { kind: 30818, limit: 20, enabled: false },
+  { kind: 30023, limit: 20, enabled: false },
 ];
 
 function createVisualizationConfig() {
