@@ -45,6 +45,7 @@
   import { Button } from "flowbite-svelte";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { get } from "svelte/store";
+  import type { EventCounts } from "$lib/types";
 
   // Type alias for D3 selections
   type Selection = any;
@@ -84,7 +85,7 @@
     onclear?: () => void;
     onTagExpansionChange?: (tags: string[]) => void;
     profileStats?: { totalFetched: number; displayLimit: number };
-    allEventCounts?: { [kind: number]: number };
+    allEventCounts?: EventCounts;
   }>();
 
   // Error state

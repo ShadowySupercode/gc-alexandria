@@ -2,13 +2,14 @@
   import { visualizationConfig } from '$lib/stores/visualizationConfig';
   import { Button, Badge } from 'flowbite-svelte';
   import { CloseCircleOutline } from 'flowbite-svelte-icons';
+  import type { EventCounts } from "$lib/types";
   
   let {
     onReload = () => {},
     eventCounts = {}
   } = $props<{
     onReload?: () => void;
-    eventCounts?: { [kind: number]: number };
+    eventCounts?: EventCounts;
   }>();
   
   let newKind = $state('');

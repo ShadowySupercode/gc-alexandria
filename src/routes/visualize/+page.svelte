@@ -27,6 +27,7 @@
     fetchProfilesForNewEvents
   } from "$lib/utils/tag_event_fetch";
   import { deduplicateAndCombineEvents } from "$lib/utils/eventDeduplication";
+  import type { EventCounts } from "$lib/types";
   
   // Configuration
   const DEBUG = true; // Set to true to enable debug logging
@@ -94,7 +95,7 @@
   
   // Event counts from all events (not just filtered)
   let allEventCounts = $derived.by(() => {
-    const counts: { [kind: number]: number } = {};
+    const counts: EventCounts = {};
     allEvents.forEach((event: NDKEvent) => {
       if (event.kind !== undefined) {
         counts[event.kind] = (counts[event.kind] || 0) + 1;

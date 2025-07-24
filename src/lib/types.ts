@@ -13,3 +13,5 @@ export type TabType =
   | "user"
   | "settings"
   | "editor";
+
+export type EventCounts = { [kind: number]: number };

@@ -3,6 +3,7 @@
   import EventTypeConfig from "$lib/components/EventTypeConfig.svelte";
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { Toggle } from "flowbite-svelte";
+  import type { EventCounts } from "$lib/types";
 
   let {
     count = 0,
@@ -19,7 +20,7 @@
     onclear?: () => void;
 
     starVisualization?: boolean;
-    eventCounts?: { [kind: number]: number };
+    eventCounts?: EventCounts;
     profileStats?: { totalFetched: number; displayLimit: number };
   }>();
 

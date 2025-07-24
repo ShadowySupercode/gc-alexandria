@@ -8,6 +8,7 @@
     handleAddEventKind, 
     handleEventKindKeydown 
   } from '$lib/utils/event_kind_utils';
+  import type { EventCounts } from "$lib/types";
   
   let {
     onReload = () => {},
@@ -15,7 +16,7 @@
     profileStats = { totalFetched: 0, displayLimit: 50 }
   } = $props<{
     onReload?: () => void;
-    eventCounts?: { [kind: number]: number };
+    eventCounts?: EventCounts;
     profileStats?: { totalFetched: number; displayLimit: number };
   }>();
   
