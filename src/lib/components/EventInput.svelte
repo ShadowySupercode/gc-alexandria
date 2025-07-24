@@ -3,7 +3,6 @@
     getTitleTagForEvent,
     getDTagForEvent,
     requiresDTag,
-    hasDTag,
     validateNotAsciidoc,
     validateAsciiDoc,
     build30040EventSet,
@@ -22,7 +21,6 @@
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { Button } from "flowbite-svelte";
-  import { nip19 } from "nostr-tools";
   import { goto } from "$app/navigation";
 
   let kind = $state<number>(30023);
