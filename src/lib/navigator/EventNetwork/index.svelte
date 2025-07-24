@@ -1042,7 +1042,7 @@
   });
 
   // Track previous values to avoid unnecessary calls
-  let previousTagType = $state(selectedTagType);
+  let previousTagType = $state<string | undefined>(undefined);
   let isInitialized = $state(false);
   
   // Mark as initialized after first render
@@ -1068,9 +1068,9 @@
       
       // Extract unique tags from current events
       const tags = new Set<string>();
-      events.forEach(event => {
+      events.forEach((event: NDKEvent) => {
         const eventTags = event.getMatchingTags(selectedTagType);
-        eventTags.forEach(tag => {
+        eventTags.forEach((tag: string[]) => {
           if (tag[1]) tags.add(tag[1]);
         });
       });

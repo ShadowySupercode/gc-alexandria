@@ -89,11 +89,14 @@
   </div>
 
   {#if expanded}
-    <div class="legend-content">
+    <div class="space-y-4">
       <!-- Node Types Section -->
-      <div class="legend-section">
-        <div class="legend-section-header" onclick={toggleNodeTypes}>
-          <h4 class="legend-section-title">Node Types</h4>
+      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
+        <div 
+          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
+          onclick={toggleNodeTypes}
+        >
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Node Types</h4>
           <div class="pointer-events-none">
             {#if nodeTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -104,22 +107,22 @@
         </div>
         
         {#if nodeTypesExpanded}
-          <ul class="legend-list">
+          <ul class="space-y-2">
             <!-- Dynamic event kinds -->
             {#each Object.entries(eventCounts).sort(([a], [b]) => Number(a) - Number(b)) as [kindStr, count]}
               {@const kind = Number(kindStr)}
               {@const color = getEventKindColor(kind)}
               {@const name = getEventKindName(kind)}
-              {#if count > 0}
-                <li class="legend-item">
-                  <div class="legend-icon">
+              {#if (count as number) > 0}
+                <li class="flex items-center mb-2 last:mb-0">
+                  <div class="flex items-center mr-2">
                     <span
-                      class="legend-circle"
+                      class="w-4 h-4 rounded-full"
                       style="background-color: {color}"
                     >
                     </span>
                   </div>
-                  <span class="legend-text">
+                  <span class="text-sm">
                     {kind} - {name} ({count})
                   </span>
                 </li>
@@ -127,7 +130,7 @@
             {/each}
 
             <!-- Connection lines -->
-            <li class="legend-item">
+            <li class="flex items-center mb-2 last:mb-0">
               <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
                 <path
                   d="M4 12h16M16 6l6 6-6 6"
@@ -136,7 +139,7 @@
                   fill="none"
                 />
               </svg>
-              <span class="legend-text">
+              <span class="text-sm">
                 {#if starMode}
                   Radial connections from centers to related events
                 {:else}
@@ -147,7 +150,7 @@
             
             <!-- Edge colors for person connections -->
             {#if showPersonNodes && personAnchors.length > 0}
-              <li class="legend-item">
+              <li class="flex items-center mb-2 last:mb-0">
                 <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
                   <path
                     d="M4 12h16"
@@ -156,11 +159,11 @@
                     fill="none"
                   />
                 </svg>
-                <span class="legend-text text-xs">
+                <span class="text-xs">
                   Authored by person
                 </span>
               </li>
-              <li class="legend-item">
+              <li class="flex items-center mb-2 last:mb-0">
                 <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24">
                   <path
                     d="M4 12h16"
@@ -169,7 +172,7 @@
                     fill="none"
                   />
                 </svg>
-                <span class="legend-text text-xs">
+                <span class="text-xs">
                   References person
                 </span>
               </li>
@@ -179,9 +182,12 @@
       </div>
 
       <!-- Tag Anchor Controls Section -->
-      <div class="legend-section">
-        <div class="legend-section-header" onclick={() => tagControlsExpanded = !tagControlsExpanded}>
-          <h4 class="legend-section-title">Tag Anchor Controls</h4>
+      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
+        <div 
+          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
+          onclick={() => tagControlsExpanded = !tagControlsExpanded}
+        >
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Tag Anchor Controls</h4>
           <div class="pointer-events-none">
             {#if tagControlsExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -200,7 +206,7 @@
                   showTagAnchors = !showTagAnchors;
                   onTagSettingsChange();
                 }}
-                class="toggle-button {showTagAnchors ? 'active' : ''}"
+                class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium cursor-pointer transition-all min-w-12 hover:bg-gray-200 dark:hover:bg-gray-600 {showTagAnchors ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}"
               >
                 {showTagAnchors ? 'ON' : 'OFF'}
               </button>
@@ -231,9 +237,12 @@
 
       <!-- Tag Anchors section -->
       {#if showTags && tagAnchors.length > 0}
-        <div class="legend-section">
-          <div class="legend-section-header" onclick={toggleTagAnchors}>
-            <h4 class="legend-section-title">Active Tag Anchors: {tagAnchors[0].type}</h4>
+        <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
+          <div 
+            class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
+            onclick={toggleTagAnchors}
+          >
+            <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Active Tag Anchors: {tagAnchors[0].type}</h4>
             <div class="pointer-events-none">
               {#if tagAnchorsExpanded}
                 <CaretUpOutline class="w-3 h-3" />
@@ -285,10 +294,10 @@
                   type="checkbox"
                   onclick={() => {
                     // Invert selection - toggle all tags one by one
-                    const allTagIds = tagAnchors.map(anchor => `${anchor.type}-${anchor.label}`);
+                    const allTagIds = tagAnchors.map((anchor: any) => `${anchor.type}-${anchor.label}`);
                     
                     // Process all tags
-                    allTagIds.forEach(tagId => {
+                    allTagIds.forEach((tagId: string) => {
                       onTagToggle(tagId);
                     });
                   }}
@@ -299,23 +308,23 @@
             </div>
             
             <div
-              class="tag-grid {tagAnchors.length > 20 ? 'scrollable' : ''}"
+              class="grid gap-1 {tagAnchors.length > 20 ? 'max-h-96 overflow-y-auto pr-2' : ''}"
               style="grid-template-columns: repeat({TAG_LEGEND_COLUMNS}, 1fr);"
             >
               {#each sortedAnchors as anchor}
                 {@const tagId = `${anchor.type}-${anchor.label}`}
                 {@const isDisabled = disabledTags.has(tagId)}
                 <button
-                  class="tag-grid-item {isDisabled ? 'disabled' : ''}"
+                  class="flex items-center gap-1 p-1 border-none bg-transparent cursor-pointer transition-all rounded w-full text-left hover:bg-black/5 dark:hover:bg-white/5 {isDisabled ? 'opacity-50' : ''}"
                   onclick={() => onTagToggle(tagId)}
                   title={isDisabled ? `Click to show ${anchor.label}` : `Click to hide ${anchor.label}`}
                 >
-                  <div class="legend-icon">
+                  <div class="flex items-center mr-1">
                     <span
-                      class="legend-circle"
-                      style="background-color: {anchor.color}; width: 18px; height: 18px; border: 2px solid white; opacity: {isDisabled ? 0.3 : 1};"
+                      class="w-4 h-4 rounded-full border-2 border-white"
+                      style="background-color: {anchor.color}; opacity: {isDisabled ? 0.3 : 1};"
                     >
-                      <span class="legend-letter text-xs text-white font-bold">
+                      <span class="text-xs text-white font-bold flex items-center justify-center w-full h-full">
                         {anchor.type === "t"
                           ? "#"
                           : anchor.type === "author"
@@ -324,7 +333,7 @@
                       </span>
                     </span>
                   </div>
-                  <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
+                  <span class="text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
                     {anchor.label}
                     {#if !isDisabled}
                       <span class="text-gray-500">({anchor.count})</span>
@@ -338,9 +347,12 @@
       {/if}
       
       <!-- Person Visualizer Section -->
-      <div class="legend-section">
-        <div class="legend-section-header" onclick={() => personVisualizerExpanded = !personVisualizerExpanded}>
-          <h4 class="legend-section-title">Person Visualizer</h4>
+      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
+        <div 
+          class="flex justify-between items-center cursor-pointer py-2 mb-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-md px-2 -mx-2 transition-colors" 
+          onclick={() => personVisualizerExpanded = !personVisualizerExpanded}
+        >
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 m-0 text-sm">Person Visualizer</h4>
           <div class="pointer-events-none">
             {#if personVisualizerExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -360,7 +372,7 @@
                     showPersonNodes = !showPersonNodes;
                     onPersonSettingsChange();
                   }}
-                  class="toggle-button {showPersonNodes ? 'active' : ''}"
+                  class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium cursor-pointer transition-all min-w-12 hover:bg-gray-200 dark:hover:bg-gray-600 {showPersonNodes ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}"
                 >
                   {showPersonNodes ? 'ON' : 'OFF'}
                 </button>
@@ -406,10 +418,10 @@
                     type="checkbox"
                     onclick={() => {
                       // Invert selection - toggle all person nodes
-                      const allPubkeys = personAnchors.map(person => person.pubkey);
+                      const allPubkeys = personAnchors.map((person: any) => person.pubkey);
                       
                       // Process all persons
-                      allPubkeys.forEach(pubkey => {
+                      allPubkeys.forEach((pubkey: string) => {
                         onPersonToggle(pubkey);
                       });
                     }}
@@ -420,13 +432,13 @@
               </div>
               
               <div
-                class="tag-grid {personAnchors.length > 20 ? 'scrollable' : ''}"
+                class="grid gap-1 {personAnchors.length > 20 ? 'max-h-96 overflow-y-auto pr-2' : ''}"
                 style="grid-template-columns: repeat(2, 1fr);"
               >
                 {#each personAnchors as person}
                   {@const isDisabled = disabledPersons.has(person.pubkey)}
                   <button
-                    class="tag-grid-item {isDisabled ? 'disabled' : ''}"
+                    class="flex items-center gap-1 p-1 border-none bg-transparent cursor-pointer transition-all rounded w-full text-left hover:bg-black/5 dark:hover:bg-white/5 {isDisabled ? 'opacity-50' : ''} {!showPersonNodes ? 'cursor-not-allowed' : ''}"
                     onclick={() => {
                       if (showPersonNodes) {
                         onPersonToggle(person.pubkey);
@@ -435,13 +447,13 @@
                     disabled={!showPersonNodes}
                     title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
                   >
-                    <div class="legend-icon">
+                    <div class="flex items-center mr-1">
                       <span
-                        class="legend-diamond"
-                        style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
+                        class="w-3.5 h-3.5 border-2 border-white"
+                        style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1}; transform: rotate(45deg);"
                       />
                     </div>
-                    <span class="legend-text text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
+                    <span class="text-xs" style="opacity: {isDisabled ? 0.5 : 1};">
                       {person.displayName || person.pubkey.slice(0, 8) + '...'}
                       {#if !isDisabled}
                         <span class="text-gray-500">
@@ -465,195 +477,34 @@
 </div>
 
 <style>
-  .legend-section {
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .legend-section:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-  }
-
-  .legend-section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    margin-bottom: 0.75rem;
-  }
-
-  .legend-section-header:hover {
-    background-color: #f9fafb;
-    border-radius: 0.375rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-  }
-
-  .legend-section-title {
-    font-weight: 600;
-    color: #374151;
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .legend-item:last-child {
-    margin-bottom: 0;
-  }
-
-  .tag-grid-item {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem;
-    border: none;
-    background: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-radius: 0.25rem;
-    width: 100%;
-    text-align: left;
-  }
-  
-  .tag-grid-item:hover:not(.disabled) {
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-  
-  .tag-grid-item.disabled {
-    cursor: pointer;
-  }
-  
-  .tag-grid-item:hover.disabled {
-    background-color: rgba(0, 0, 0, 0.02);
-  }
-  
-  .tag-grid {
-    display: grid;
-    gap: 0.25rem;
-  }
-  
-  .tag-grid.scrollable {
-    max-height: 400px;
-    overflow-y: auto;
-    padding-right: 0.5rem;
-  }
-  
-  .tag-grid.scrollable::-webkit-scrollbar {
+  /* Custom scrollbar styles that are difficult to express with Tailwind */
+  .grid.max-h-96::-webkit-scrollbar {
     width: 6px;
   }
   
-  .tag-grid.scrollable::-webkit-scrollbar-track {
+  .grid.max-h-96::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 3px;
   }
   
-  .tag-grid.scrollable::-webkit-scrollbar-thumb {
+  .grid.max-h-96::-webkit-scrollbar-thumb {
     background: #888;
     border-radius: 3px;
   }
   
-  .tag-grid.scrollable::-webkit-scrollbar-thumb:hover {
+  .grid.max-h-96::-webkit-scrollbar-thumb:hover {
     background: #555;
   }
   
-  :global(.dark) .legend-section-header:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-  
-  :global(.dark) .legend-section-title {
-    color: #d1d5db;
-  }
-  
-  :global(.dark) .legend-section {
-    border-bottom-color: #374151;
-  }
-  
-  :global(.dark) .tag-grid-item:hover:not(.disabled) {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-  
-  :global(.dark) .tag-grid-item:hover.disabled {
-    background-color: rgba(255, 255, 255, 0.02);
-  }
-  
-  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-track {
+  :global(.dark) .grid.max-h-96::-webkit-scrollbar-track {
     background: #374151;
   }
   
-  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-thumb {
+  :global(.dark) .grid.max-h-96::-webkit-scrollbar-thumb {
     background: #6b7280;
   }
   
-  :global(.dark) .tag-grid.scrollable::-webkit-scrollbar-thumb:hover {
+  :global(.dark) .grid.max-h-96::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
-  }
-  
-  .toggle-button {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
-    background-color: #f3f4f6;
-    color: #6b7280;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    min-width: 3rem;
-  }
-  
-  .toggle-button.small {
-    padding: 0.125rem 0.375rem;
-    font-size: 0.625rem;
-    min-width: 2.5rem;
-  }
-  
-  .toggle-button:hover {
-    background-color: #e5e7eb;
-  }
-  
-  .toggle-button.active {
-    background-color: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
-  }
-  
-  .toggle-button.active:hover {
-    background-color: #2563eb;
-  }
-  
-  :global(.dark) .toggle-button {
-    background-color: #374151;
-    border-color: #4b5563;
-    color: #9ca3af;
-  }
-  
-  :global(.dark) .toggle-button:hover {
-    background-color: #4b5563;
-  }
-  
-  :global(.dark) .toggle-button.active {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
-    color: white;
-  }
-  
-  :global(.dark) .toggle-button.active:hover {
-    background-color: #2563eb;
-  }
-  
-  .legend-diamond {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    transform: rotate(45deg);
-    border: 2px solid white;
   }
 </style>
