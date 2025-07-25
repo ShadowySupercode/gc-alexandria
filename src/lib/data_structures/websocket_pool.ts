@@ -14,7 +14,7 @@ interface WebSocketPoolWaitingQueueItem {
  * the connection is closed.
  */
 export class WebSocketPool {
-  static #instance: WebSocketPool;
+  static #shared: WebSocketPool;
 
   #pool: Map<string, WebSocket> = new Map();
   #connecting: Map<string, Promise<WebSocket>> = new Map();
@@ -41,10 +41,10 @@ export class WebSocketPool {
    * @returns The singleton instance.
    */
   public static get instance(): WebSocketPool {
-    if (!WebSocketPool.#instance) {
-      WebSocketPool.#instance = new WebSocketPool();
+    if (!WebSocketPool.#shared) {
+      WebSocketPool.#shared = new WebSocketPool();
     }
-    return WebSocketPool.#instance;
+    return WebSocketPool.#shared;
   }
 
   // #region Resource Management Interface
