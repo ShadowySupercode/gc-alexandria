@@ -161,7 +161,7 @@
   onMount(fetchMyNotes);
 </script>
 
-<div class="flex flex-row max-w-screen-xl mx-auto py-8 px-8 gap-20 min-w-0">
+<div class="flex flex-row max-w-screen-xl mx-auto py-8 px-8 gap-20 min-w-0 overflow-hidden">
   <!-- Tag Filter Sidebar -->
   <aside class="w-80 flex-shrink-0 self-start">
     <h2 class="text-lg font-bold mb-4">Tag Type</h2>
@@ -209,7 +209,7 @@
   </aside>
 
   <!-- Notes Feed -->
-  <div class="flex-1 max-w-4xl ml-auto px-4 min-w-0">
+  <div class="flex-1 max-w-4xl ml-auto px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
     {#if loading}
       <div class="text-gray-500">Loading…</div>
@@ -244,7 +244,7 @@
             <div class="text-sm text-gray-400 mb-2">
               {event.created_at ? new Date(event.created_at * 1000).toLocaleString() : ''}
             </div>
-            <div class="prose prose-sm dark:prose-invert max-w-none asciidoc-content" >{@html renderedContent[event.id] || ''}</div>
+            <div class="prose prose-sm dark:prose-invert max-w-none asciidoc-content overflow-x-auto break-words" >{@html renderedContent[event.id] || ''}</div>
           </li>
         {/each}
       </ul>
