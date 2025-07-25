@@ -1,4 +1,5 @@
 import { communityRelays } from "$lib/consts";
+import { WebSocketPool } from "../data_structures/websocket_pool.ts";
 import { RELAY_CONSTANTS, SEARCH_LIMITS } from "./search_constants";
 
 // Cache for pubkeys with kind 1 events on communityRelay
@@ -16,36 +17,30 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
     // Try each community relay until we find one that works
     for (const relayUrl of communityRelays) {
       try {
-        const ws = new WebSocket(relayUrl);
+        const ws = await WebSocketPool.instance.acquire(relayUrl);
         const result = await new Promise<boolean>((resolve) => {
-          ws.onopen = () => {
-            ws.send(
-              JSON.stringify([
-                "REQ",
-                RELAY_CONSTANTS.COMMUNITY_REQUEST_ID,
-                {
-                  kinds: RELAY_CONSTANTS.COMMUNITY_REQUEST_KINDS,
-                  authors: [pubkey],
-                  limit: SEARCH_LIMITS.COMMUNITY_CHECK,
-                },
-              ]),
-            );
-          };
+          ws.send(
+            JSON.stringify([
+              "REQ",
+              RELAY_CONSTANTS.COMMUNITY_REQUEST_ID,
+              {
+                kinds: RELAY_CONSTANTS.COMMUNITY_REQUEST_KINDS,
+                authors: [pubkey],
+                limit: SEARCH_LIMITS.COMMUNITY_CHECK,
+              },
+            ]),
+          );
           ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data[0] === "EVENT" && data[2]?.kind === 1) {
               communityCache.set(pubkey, true);
-              ws.close();
+              WebSocketPool.instance.release(ws);
               resolve(true);
             } else if (data[0] === "EOSE") {
               communityCache.set(pubkey, false);
-              ws.close();
+              WebSocketPool.instance.release(ws);
               resolve(false);
             }
-          };
-          ws.onerror = () => {
-            ws.close();
-            resolve(false);
           };
         });
         
