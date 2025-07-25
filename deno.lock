@@ -3,7 +3,6 @@
   "specifiers": {
     "npm:@noble/curves@^1.9.4": "1.9.4",
     "npm:@noble/hashes@^1.8.0": "1.8.0",
-    "npm:@noble/secp256k1@^2.3.0": "2.3.0",
     "npm:@nostr-dev-kit/ndk-cache-dexie@2.6": "2.6.33_nostr-tools@2.15.1__typescript@5.8.3_typescript@5.8.3",
     "npm:@nostr-dev-kit/ndk-cache-dexie@^2.6.33": "2.6.33_nostr-tools@2.15.1__typescript@5.8.3_typescript@5.8.3",
     "npm:@nostr-dev-kit/ndk@^2.14.32": "2.14.32_nostr-tools@2.15.1__typescript@5.8.3_typescript@5.8.3",
