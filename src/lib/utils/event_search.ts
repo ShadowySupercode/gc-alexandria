@@ -1,7 +1,8 @@
 import { ndkInstance } from "../ndk.ts";
 import { fetchEventWithFallback } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
-import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { Filter } from "./search_types.ts";
 import { get } from "svelte/store";
 import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
@@ -12,7 +13,7 @@ import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
 export async function searchEvent(query: string): Promise<NDKEvent | null> {
   // Clean the query and normalize to lowercase
   const cleanedQuery = query.replace(/^nostr:/, "").toLowerCase();
-  let filterOrId: NDKFilter | string = cleanedQuery;
+  let filterOrId: Filter | string = cleanedQuery;
 
   // If it's a valid hex string, try as event id first, then as pubkey (profile)
   if (

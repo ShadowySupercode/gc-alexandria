@@ -1,4 +1,18 @@
-import { NDKEvent, NDKFilter, NDKSubscription } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKSubscription } from "@nostr-dev-kit/ndk";
+
+/**
+ * Nostr filter interface
+ */
+export interface Filter {
+  ids?: string[];
+  authors?: string[];
+  kinds?: number[];
+  since?: number;
+  until?: number;
+  limit?: number;
+  search?: string;
+  [key: string]: any;
+}
 
 /**
  * Extended NostrProfile interface for search results
@@ -45,7 +59,7 @@ export type SearchSubscriptionType = "d" | "t" | "n";
  * Search filter configuration
  */
 export interface SearchFilter {
-  filter: NDKFilter;
+  filter: Filter;
   subscriptionType: string;
 }
 
