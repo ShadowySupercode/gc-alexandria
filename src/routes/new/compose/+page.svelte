@@ -4,15 +4,15 @@
   import ZettelEditor from "$lib/components/ZettelEditor.svelte";
   import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
-  import { publishZettel } from "$lib/services/publisher";
+  import { publishMultipleZettels } from "$lib/services/publisher";
 
   let content = $state("");
   let showPreview = $state(false);
   let isPublishing = $state(false);
-  let publishResult = $state<{
-    success: boolean;
-    eventId?: string;
-    error?: string;
+  let publishResults = $state<{
+    successCount: number;
+    total: number;
+    errors: string[];
   } | null>(null);
 
   // Handle content changes from ZettelEditor
@@ -27,20 +27,23 @@
 
   async function handlePublish() {
     isPublishing = true;
-    publishResult = null;
+    publishResults = null;
 
-    const result = await publishZettel({
+    const results = await publishMultipleZettels({
       content,
-      onSuccess: (eventId) => {
-        publishResult = { success: true, eventId };
-        const nevent = nip19.neventEncode({ id: eventId });
-        goto(`/events?id=${nevent}`);
-      },
       onError: (error) => {
-        publishResult = { success: false, error };
+        // Only used for catastrophic errors
+        publishResults = { successCount: 0, total: 0, errors: [error] };
       },
     });
 
+    const successCount = results.filter(r => r.success).length;
+    const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
+    publishResults = {
+      successCount,
+      total: results.length,
+      errors,
+    };
     isPublishing = false;
   }
 </script>
@@ -81,16 +84,19 @@
     </Button>
 
     <!-- Status Messages -->
-    {#if publishResult}
-      {#if publishResult.success}
+    {#if publishResults}
+      {#if publishResults.successCount === publishResults.total}
         <Alert color="green" dismissable>
           <span class="font-medium">Success!</span>
-          Event published successfully. Event ID: {publishResult.eventId}
+          {publishResults.successCount} events published.
         </Alert>
       {:else}
         <Alert color="red" dismissable>
-          <span class="font-medium">Error!</span>
-          {publishResult.error}
+          <span class="font-medium">Some events failed to publish.</span>
+          {publishResults.successCount} of {publishResults.total} events published.<br />
+          {#each publishResults.errors as error}
+            <div>{error}</div>
+          {/each}
         </Alert>
       {/if}
     {/if}
