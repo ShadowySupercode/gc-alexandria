@@ -161,9 +161,9 @@
   onMount(fetchMyNotes);
 </script>
 
-<div class="flex flex-row max-w-screen-xl mx-auto py-8 px-8 gap-20 min-w-0 overflow-hidden">
+<div class="flex flex-row max-w-7xl mx-auto py-8 px-6 gap-12 min-w-0 overflow-hidden">
   <!-- Tag Filter Sidebar -->
-  <aside class="w-80 flex-shrink-0 self-start">
+  <aside class="w-72 flex-shrink-0 self-start">
     <h2 class="text-lg font-bold mb-4">Tag Type</h2>
     <div class="flex flex-wrap gap-2 mb-6">
       {#each tagTypes as type}
@@ -209,7 +209,7 @@
   </aside>
 
   <!-- Notes Feed -->
-  <div class="flex-1 max-w-4xl ml-auto px-4 min-w-0 overflow-hidden">
+  <div class="flex-1 max-w-3xl ml-auto px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
     {#if loading}
       <div class="text-gray-500">Loading…</div>
