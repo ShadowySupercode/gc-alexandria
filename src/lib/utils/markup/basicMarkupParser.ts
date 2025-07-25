@@ -1,4 +1,4 @@
-import { processNostrIdentifiers } from "../nostrUtils";
+import { processNostrIdentifiers } from "../nostrUtils.ts";
 import * as emoji from "node-emoji";
 import { nip19 } from "nostr-tools";
 
@@ -236,7 +236,7 @@ function processBasicFormatting(content: string): string {
     processedText = replaceAlexandriaNostrLinks(processedText);
 
     // Process markup images first
-    processedText = processedText.replace(MARKUP_IMAGE, (match, alt, url) => {
+    processedText = processedText.replace(MARKUP_IMAGE, (_match, alt, url) => {
       url = stripTrackingParams(url);
       if (YOUTUBE_URL_REGEX.test(url)) {
         const videoId = extractYouTubeVideoId(url);
@@ -261,7 +261,7 @@ function processBasicFormatting(content: string): string {
     // Process markup links
     processedText = processedText.replace(
       MARKUP_LINK,
-      (match, text, url) =>
+      (_match, text, url) =>
         `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
     );
 
@@ -303,7 +303,7 @@ function processBasicFormatting(content: string): string {
     });
     processedText = processedText.replace(
       STRIKETHROUGH_REGEX,
-      (match, doubleText, singleText) => {
+      (_match, doubleText, singleText) => {
         const text = doubleText || singleText;
         return `<del class="line-through">${text}</del>`;
       },

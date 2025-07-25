@@ -2,8 +2,9 @@ import { error } from "@sveltejs/kit";
 import type { Load } from "@sveltejs/kit";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getActiveRelaySetAsNDKRelaySet } from "$lib/ndk";
-import { getMatchingTags } from "$lib/utils/nostrUtils";
+import { getActiveRelaySetAsNDKRelaySet } from "../../lib/ndk.ts";
+import { getMatchingTags } from "../../lib/utils/nostrUtils.ts";
+import type NDK from "@nostr-dev-kit/ndk";
 
 /**
  * Decodes an naddr identifier and returns a filter object
@@ -30,7 +31,7 @@ function decodeNaddr(id: string) {
 /**
  * Fetches an event by ID or filter
  */
-async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
+async function fetchEventById(ndk: NDK, id: string): Promise<NDKEvent> {
   const filter = decodeNaddr(id);
 
   // Handle the case where filter is null (decoding error)
@@ -66,7 +67,7 @@ async function fetchEventById(ndk: any, id: string): Promise<NDKEvent> {
 /**
  * Fetches an event by d tag
  */
-async function fetchEventByDTag(ndk: any, dTag: string): Promise<NDKEvent> {
+async function fetchEventByDTag(ndk: NDK, dTag: string): Promise<NDKEvent> {
   try {
     const relaySet = await getActiveRelaySetAsNDKRelaySet(ndk, true); // true for inbox relays
     const event = await ndk.fetchEvent(
@@ -90,7 +91,7 @@ export const load: Load = async ({
   parent,
 }: {
   url: URL;
-  parent: () => Promise<any>;
+  parent: () => Promise<Partial<Record<string, NDK>>>;
 }) => {
   const id = url.searchParams.get("id");
   const dTag = url.searchParams.get("d");
@@ -102,8 +103,8 @@ export const load: Load = async ({
 
   // Fetch the event based on available parameters
   const indexEvent = id
-    ? await fetchEventById(ndk, id)
-    : await fetchEventByDTag(ndk, dTag!);
+    ? await fetchEventById(ndk!, id)
+    : await fetchEventByDTag(ndk!, dTag!);
 
   const publicationType = getMatchingTags(indexEvent, "type")[0]?.[1];
 

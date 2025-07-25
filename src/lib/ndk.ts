@@ -8,29 +8,20 @@ import NDK, {
 } from "@nostr-dev-kit/ndk";
 import { get, writable, type Writable } from "svelte/store";
 import {
-  secondaryRelays,
-  FeedType,
   loginStorageKey,
-  communityRelays,
-  anonymousRelays,
-  searchRelays,
-} from "./consts";
+} from "./consts.ts";
 import {
   buildCompleteRelaySet,
   testRelayConnection,
-  discoverLocalRelays,
-  getUserLocalRelays,
-  getUserBlockedRelays,
-  getUserOutboxRelays,
   deduplicateRelayUrls,
-} from "./utils/relay_management";
+} from "./utils/relay_management.ts";
 
 // Re-export testRelayConnection for components that need it
 export { testRelayConnection };
-import { startNetworkMonitoring, NetworkCondition } from "./utils/network_detection";
-import { userStore } from "./stores/userStore";
-import { userPubkey } from "$lib/stores/authStore.Svelte";
-import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore";
+import { userStore } from "./stores/userStore.ts";
+import { userPubkey } from "./stores/authStore.Svelte.ts";
+import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
+import { WebSocketPool } from "./data_structures/websocket_pool.ts";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
@@ -59,7 +50,7 @@ class CustomRelayAuthPolicy {
    * @param relay The relay to authenticate with
    * @returns Promise that resolves when authentication is complete
    */
-  async authenticate(relay: NDKRelay): Promise<void> {
+  authenticate(relay: NDKRelay): void {
     if (!this.ndk.signer || !this.ndk.activeUser) {
       console.warn(
         "[NDK.ts] No signer or active user available for relay authentication",
@@ -84,7 +75,7 @@ class CustomRelayAuthPolicy {
       relay.on("notice", (message: string) => {
         if (message.includes("auth-required")) {
           console.debug(`[NDK.ts] Auth required from ${relay.url}:`, message);
-          this.handleAuthRequired(relay, message);
+          this.handleAuthRequired(relay);
         }
       });
 
@@ -94,7 +85,7 @@ class CustomRelayAuthPolicy {
       });
 
       // Listen for authentication failures
-      relay.on("auth:failed", (error: any) => {
+      relay.on("auth:failed", (error) => {
         console.error(
           `[NDK.ts] Authentication failed for ${relay.url}:`,
           error,
@@ -151,10 +142,7 @@ class CustomRelayAuthPolicy {
   /**
    * Handles auth-required error from relay
    */
-  private async handleAuthRequired(
-    relay: NDKRelay,
-    message: string,
-  ): Promise<void> {
+  private async handleAuthRequired(relay: NDKRelay): Promise<void> {
     const challenge = this.challenges.get(relay.url);
     if (challenge) {
       await this.handleAuthChallenge(relay, challenge);
@@ -173,13 +161,13 @@ export function checkEnvironmentForWebSocketDowngrade(): void {
   console.debug("[NDK.ts] Environment Check for WebSocket Protocol:");
 
   const isLocalhost =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1";
-  const isHttp = window.location.protocol === "http:";
-  const isHttps = window.location.protocol === "https:";
+    globalThis.location.hostname === "localhost" ||
+    globalThis.location.hostname === "127.0.0.1";
+  const isHttp = globalThis.location.protocol === "http:";
+  const isHttps = globalThis.location.protocol === "https:";
 
   console.debug("[NDK.ts] - Is localhost:", isLocalhost);
-  console.debug("[NDK.ts] - Protocol:", window.location.protocol);
+  console.debug("[NDK.ts] - Protocol:", globalThis.location.protocol);
   console.debug("[NDK.ts] - Is HTTP:", isHttp);
   console.debug("[NDK.ts] - Is HTTPS:", isHttps);
 
@@ -205,23 +193,21 @@ export function checkEnvironmentForWebSocketDowngrade(): void {
  */
 export function checkWebSocketSupport(): void {
   console.debug("[NDK.ts] WebSocket Support Diagnostics:");
-  console.debug("[NDK.ts] - Protocol:", window.location.protocol);
-  console.debug("[NDK.ts] - Hostname:", window.location.hostname);
-  console.debug("[NDK.ts] - Port:", window.location.port);
+  console.debug("[NDK.ts] - Protocol:", globalThis.location.protocol);
+  console.debug("[NDK.ts] - Hostname:", globalThis.location.hostname);
+  console.debug("[NDK.ts] - Port:", globalThis.location.port);
   console.debug("[NDK.ts] - User Agent:", navigator.userAgent);
 
   // Test if secure WebSocket is supported
   try {
-    const testWs = new WebSocket("wss://echo.websocket.org");
-    testWs.onopen = () => {
+    WebSocketPool.instance.acquire("wss://echo.websocket.org").then((ws) => {
       console.debug("[NDK.ts] ✓ Secure WebSocket (wss://) is supported");
-      testWs.close();
-    };
-    testWs.onerror = () => {
+      WebSocketPool.instance.release(ws);
+    }).catch((_) => {
       console.warn("[NDK.ts] ✗ Secure WebSocket (wss://) may not be supported");
-    };
-  } catch (error) {
-    console.warn("[NDK.ts] ✗ WebSocket test failed:", error);
+    });
+  } catch {
+    console.warn("[NDK.ts] ✗ WebSocket test failed");
   }
 }
 
@@ -264,46 +250,6 @@ export function clearLogin(): void {
  */
 function getRelayStorageKey(user: NDKUser, type: "inbox" | "outbox"): string {
   return `${loginStorageKey}/${user.pubkey}/${type}`;
-}
-
-/**
- * Stores the user's relay lists in local storage.
- * @param user The user for whom to store the relay lists.
- * @param inboxes The user's inbox relays.
- * @param outboxes The user's outbox relays.
- */
-function persistRelays(
-  user: NDKUser,
-  inboxes: Set<NDKRelay>,
-  outboxes: Set<NDKRelay>,
-): void {
-  localStorage.setItem(
-    getRelayStorageKey(user, "inbox"),
-    JSON.stringify(Array.from(inboxes).map((relay) => relay.url)),
-  );
-  localStorage.setItem(
-    getRelayStorageKey(user, "outbox"),
-    JSON.stringify(Array.from(outboxes).map((relay) => relay.url)),
-  );
-}
-
-/**
- * Retrieves the user's relay lists from local storage.
- * @param user The user for whom to retrieve the relay lists.
- * @returns A tuple of relay sets of the form `[inboxRelays, outboxRelays]`.  Either set may be
- * empty if no relay lists were stored for the user.
- */
-function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
-  const inboxes = new Set<string>(
-    JSON.parse(localStorage.getItem(getRelayStorageKey(user, "inbox")) ?? "[]"),
-  );
-  const outboxes = new Set<string>(
-    JSON.parse(
-      localStorage.getItem(getRelayStorageKey(user, "outbox")) ?? "[]",
-    ),
-  );
-
-  return [inboxes, outboxes];
 }
 
 export function clearPersistedRelays(user: NDKUser): void {
@@ -468,7 +414,7 @@ export async function refreshRelayStoresOnNetworkChange(ndk: NDK): Promise<void>
  * Starts network monitoring for relay optimization
  * @param ndk NDK instance
  */
-export function startNetworkMonitoringForRelays(ndk: NDK): void {
+export function startNetworkMonitoringForRelays(): void {
   // Use centralized network monitoring instead of separate monitoring
   startNetworkStatusMonitoring();
 }
@@ -529,7 +475,7 @@ export function initNdk(): NDK {
       // Update relay stores after connection
       await updateActiveRelayStores(ndk);
       // Start network monitoring for relay optimization
-      startNetworkMonitoringForRelays(ndk);
+      startNetworkMonitoringForRelays();
     } catch (error) {
       console.warn("[NDK.ts] Failed to connect NDK:", error);
       
@@ -543,7 +489,7 @@ export function initNdk(): NDK {
         // Still try to update relay stores even if connection failed
         try {
           await updateActiveRelayStores(ndk);
-          startNetworkMonitoringForRelays(ndk);
+          startNetworkMonitoringForRelays();
         } catch (storeError) {
           console.warn("[NDK.ts] Failed to update relay stores:", storeError);
         }

@@ -1,7 +1,7 @@
-import NDK, { NDKRelay, NDKUser } from "@nostr-dev-kit/ndk";
-import { communityRelays, searchRelays, secondaryRelays, anonymousRelays, lowbandwidthRelays, localRelays } from "../consts";
-import { getRelaySetForNetworkCondition, NetworkCondition } from "./network_detection";
-import { networkCondition } from "../stores/networkStore";
+import NDK, { NDKKind, NDKRelay, NDKUser } from "@nostr-dev-kit/ndk";
+import { searchRelays, secondaryRelays, anonymousRelays, lowbandwidthRelays, localRelays } from "../consts.ts";
+import { getRelaySetForNetworkCondition } from "./network_detection.ts";
+import { networkCondition } from "../stores/networkStore.ts";
 import { get } from "svelte/store";
 
 /**
@@ -48,7 +48,7 @@ export function deduplicateRelayUrls(urls: string[]): string[] {
  * @param ndk The NDK instance
  * @returns Promise that resolves to connection status
  */
-export async function testRelayConnection(
+export function testRelayConnection(
   relayUrl: string,
   ndk: NDK,
 ): Promise<{
@@ -163,7 +163,7 @@ async function testLocalRelays(localRelayUrls: string[], ndk: NDK): Promise<stri
         } else {
           console.debug(`[relay_management.ts] Local relay failed: ${url} - ${result.error}`);
         }
-      } catch (error) {
+      } catch {
         // Silently ignore local relay failures - they're optional
         console.debug(`[relay_management.ts] Local relay error (ignored): ${url}`);
       }
@@ -188,7 +188,7 @@ export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
     }
     
     // Convert wss:// URLs from consts to ws:// for local testing
-    const localRelayUrls = localRelays.map(url => 
+    const localRelayUrls = localRelays.map((url: string) => 
       url.replace(/^wss:\/\//, 'ws://')
     );
     
@@ -197,7 +197,7 @@ export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
     // If no local relays are working, return empty array
     // The network detection logic will provide fallback relays
     return workingRelays;
-  } catch (error) {
+  } catch {
     // Silently fail and return empty array
     return [];
   }
@@ -213,7 +213,7 @@ export async function getUserLocalRelays(ndk: NDK, user: NDKUser): Promise<strin
   try {
     const localRelayEvent = await ndk.fetchEvent(
       {
-        kinds: [10432 as any],
+        kinds: [10432 as NDKKind],
         authors: [user.pubkey],
       },
       {
@@ -338,8 +338,8 @@ export async function getUserOutboxRelays(ndk: NDK, user: NDKUser): Promise<stri
 export async function getExtensionRelays(): Promise<string[]> {
   try {
     // Check if we're in a browser environment with extension support
-    if (typeof window === 'undefined' || !window.nostr) {
-      console.debug('[relay_management.ts] No window.nostr available');
+    if (typeof window === 'undefined' || !globalThis.nostr) {
+      console.debug('[relay_management.ts] No globalThis.nostr available');
       return [];
     }
 
@@ -348,10 +348,10 @@ export async function getExtensionRelays(): Promise<string[]> {
     
     // Try to get relays from the extension's API
     // Different extensions may expose their relay config differently
-    if (window.nostr.getRelays) {
+    if (globalThis.nostr.getRelays) {
       console.debug('[relay_management.ts] getRelays() method found, calling it...');
       try {
-        const relays = await window.nostr.getRelays();
+        const relays = await globalThis.nostr.getRelays();
         console.debug('[relay_management.ts] getRelays() returned:', relays);
         if (relays && typeof relays === 'object') {
           // Convert relay object to array of URLs
@@ -363,7 +363,7 @@ export async function getExtensionRelays(): Promise<string[]> {
         console.debug('[relay_management.ts] Extension getRelays() failed:', error);
       }
     } else {
-      console.debug('[relay_management.ts] getRelays() method not found on window.nostr');
+      console.debug('[relay_management.ts] getRelays() method not found on globalThis.nostr');
     }
 
     // If getRelays() didn't work, try alternative methods
@@ -457,7 +457,7 @@ export async function buildCompleteRelaySet(
     try {
       blockedRelays = await getUserBlockedRelays(ndk, user);
       console.debug('[relay_management.ts] buildCompleteRelaySet: User blocked relays:', blockedRelays);
-    } catch (error) {
+    } catch {
       // Silently ignore blocked relay fetch errors
     }
 
@@ -511,8 +511,8 @@ export async function buildCompleteRelaySet(
 
   // Filter out blocked relays and deduplicate final sets
   const finalRelaySet = {
-    inboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.inboxRelays.filter(r => !blockedRelays.includes(r))),
-    outboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.outboxRelays.filter(r => !blockedRelays.includes(r)))
+    inboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.inboxRelays.filter((r: string) => !blockedRelays.includes(r))),
+    outboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.outboxRelays.filter((r: string) => !blockedRelays.includes(r)))
   };
 
   // If no relays are working, use anonymous relays as fallback

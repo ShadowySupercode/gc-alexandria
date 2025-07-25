@@ -1,6 +1,6 @@
-import type { NDKEvent } from "./nostrUtils";
+import type { NDKEvent } from "./nostrUtils.ts";
 import { get } from "svelte/store";
-import { ndkInstance } from "$lib/ndk";
+import { ndkInstance } from "../ndk.ts";
 import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
 import { EVENT_KINDS } from "./search_constants";
 
@@ -150,13 +150,6 @@ function extractAsciiDocDocumentHeader(content: string): string | null {
 }
 
 /**
- * Extracts all section headers (lines starting with '== ').
- */
-function extractAsciiDocSectionHeaders(content: string): string[] {
-  return Array.from(content.matchAll(/^==\s+(.+)$/gm)).map((m) => m[1].trim());
-}
-
-/**
  * Extracts the topmost Markdown # header (line starting with '# ').
  */
 function extractMarkdownTopHeader(content: string): string | null {
@@ -181,7 +174,7 @@ function splitAsciiDocSections(content: string): {
   let current: string[] = [];
   let foundFirstSection = false;
   let hasPreamble = false;
-  let preambleContent: string[] = [];
+  const preambleContent: string[] = [];
 
   for (const line of lines) {
     // Skip document title lines (= header)

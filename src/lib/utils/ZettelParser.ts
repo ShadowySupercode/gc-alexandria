@@ -1,9 +1,3 @@
-import { ndkInstance } from "$lib/ndk";
-import { signEvent, getEventHash } from "$lib/utils/nostrUtils";
-import { getMimeTags } from "$lib/utils/mime";
-import { communityRelays } from "$lib/consts";
-import { nip19 } from "nostr-tools";
-
 export interface ZettelSection {
   title: string;
   content: string;
@@ -37,7 +31,7 @@ export function splitAsciiDocByHeadingLevel(
 export function parseZettelSection(section: string): ZettelSection {
   const lines = section.split("\n");
   let title = "Untitled";
-  let contentLines: string[] = [];
+  const contentLines: string[] = [];
   let inHeader = true;
   let tags: string[][] = [];
   tags = extractTags(section);

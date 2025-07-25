@@ -1,6 +1,6 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getMatchingTags } from "./utils/nostrUtils";
+import { getMatchingTags } from "./utils/nostrUtils.ts";
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -97,8 +97,8 @@ export function isElementInViewport(el: string | HTMLElement) {
     rect.top >= 0 &&
     rect.left >= 0 &&
     rect.bottom <=
-      (window.innerHeight || document.documentElement.clientHeight) &&
-    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+      (globalThis.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (globalThis.innerWidth || document.documentElement.clientWidth)
   );
 }
 
@@ -169,7 +169,7 @@ Array.prototype.findIndexAsync = function <T>(
  * @param wait The number of milliseconds to delay
  * @returns A debounced version of the function
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number,
 ): (...args: Parameters<T>) => void {

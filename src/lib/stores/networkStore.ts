@@ -1,5 +1,5 @@
-import { writable, type Writable } from 'svelte/store';
-import { detectNetworkCondition, NetworkCondition, startNetworkMonitoring } from '$lib/utils/network_detection';
+import { writable } from "svelte/store";
+import { detectNetworkCondition, NetworkCondition, startNetworkMonitoring } from '../utils/network_detection.ts';
 
 // Network status store
 export const networkCondition = writable<NetworkCondition>(NetworkCondition.ONLINE);
