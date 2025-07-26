@@ -88,6 +88,9 @@
     try {
       lastProcessedSearchType = "nip05"; // Set search type for NIP-05 searches
       
+      // Update URL for NIP-05 searches
+      navigateToSearch(query, "nip05");
+      
       // Wait for relays to be available (with timeout)
       let retryCount = 0;
       const maxRetries = 20; // Wait up to 10 seconds (20 * 500ms) for relays to be ready
@@ -159,6 +162,9 @@
   async function handleEventSearch(query: string) {
     try {
       lastProcessedSearchType = "id"; // Set search type for event searches
+      
+      // Update URL for event searches
+      navigateToSearch(query, "id");
       
       // Wait for relays to be available (with timeout)
       let retryCount = 0;
@@ -282,7 +288,6 @@
       return;
     }
     if (clearInput) {
-      navigateToSearch(query, "id");
       // Don't clear searchQuery here - let the effect handle it
     }
     lastProcessedSearchType = "id"; // Set search type for regular event searches
@@ -666,6 +671,9 @@
     lastRelayRefreshCount = 0; // Reset relay refresh tracking for new searches
     relayRefreshAttempts = 0; // Reset refresh attempts for new searches
     lastProcessedSearchType = searchType; // Track the search type for relay refresh
+    
+    // Update URL for all subscription searches
+    navigateToSearch(searchTerm, searchType);
     
     // Store the search term for relay refresh logic
     if (searchType === "d") {

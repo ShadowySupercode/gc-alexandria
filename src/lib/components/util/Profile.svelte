@@ -22,6 +22,7 @@
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import { activeInboxRelays } from "$lib/ndk";
+  import { getWorkingRelays } from "$lib/utils/relay_management.ts";
 
   let { pubkey, isNav = false } = $props<{ pubkey?: string, isNav?: boolean }>();
 
@@ -353,7 +354,7 @@
   async function handleSignOutClick() {
     localStorage.removeItem("amber/nsec");
     localStorage.removeItem("alexandria/amber/fallback");
-    logoutUser();
+    await logoutUser();
   }
 
   function handleViewProfile() {

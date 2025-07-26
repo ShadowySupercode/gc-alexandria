@@ -16,6 +16,7 @@
     communityStatus = {},
     showPagination = true,
     onPageChange,
+    currentPage = 1,
   }: {
     events: NDKEvent[];
     searchType: string | null;
@@ -24,6 +25,7 @@
     communityStatus?: Record<string, boolean>;
     showPagination?: boolean;
     onPageChange?: (page: number) => void;
+    currentPage?: number;
   } = $props();
 
   // Pagination state
@@ -31,7 +33,6 @@
   let showAllResults = $state(false);
 
   // Derived values - get current page from URL
-  let currentPage = $derived(getCurrentPage(new URL(window.location.href)));
   let totalPages = $derived(Math.ceil(events.length / itemsPerPage));
   let startIndex = $derived((currentPage - 1) * itemsPerPage);
   let endIndex = $derived(Math.min(startIndex + itemsPerPage, events.length));
@@ -92,6 +93,13 @@
   function isAddressableEvent(event: NDKEvent): boolean {
     // This would need to be imported or passed as a prop
     return (event.kind || 0) >= 30000 && (event.kind || 0) < 40000;
+  }
+
+  function getPageWindow(current: number, total: number): number[] {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, 5];
+    if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+    return [current - 2, current - 1, current, current + 1, current + 2];
   }
 </script>
 
@@ -221,28 +229,35 @@
       >
         Previous
       </Button>
-      
-      {#each Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1) as pageNum}
-        <Button
-          size="sm"
-          color={pageNum === currentPage ? 'primary' : 'light'}
-          onclick={() => goToPage(pageNum)}
-        >
-          {pageNum}
-        </Button>
-      {/each}
-      
-      {#if totalPages > 5}
+      {#if totalPages <= 5}
+        {#each Array.from({ length: totalPages }, (_, i) => i + 1) as pageNum}
+          <Button
+            size="sm"
+            color={pageNum === currentPage ? 'primary' : 'light'}
+            onclick={() => goToPage(pageNum)}
+          >
+            {pageNum}
+          </Button>
+        {/each}
+      {:else}
+        {#each getPageWindow(currentPage, totalPages) as pageNum}
+          <Button
+            size="sm"
+            color={pageNum === currentPage ? 'primary' : 'light'}
+            onclick={() => goToPage(pageNum)}
+          >
+            {pageNum}
+          </Button>
+        {/each}
         <span class="text-gray-500 dark:text-gray-400">...</span>
         <Button
           size="sm"
-          color="light"
+          color={totalPages === currentPage ? 'primary' : 'light'}
           onclick={() => goToPage(totalPages)}
         >
           {totalPages}
         </Button>
       {/if}
-      
       <Button
         size="sm"
         color="light"

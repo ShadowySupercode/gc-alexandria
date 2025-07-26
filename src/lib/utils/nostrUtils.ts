@@ -481,7 +481,7 @@ export async function fetchEventWithFallback(
       const results = await ndk
         .fetchEvents(filter, undefined, relaySet)
         .withTimeout(timeoutMs);
-      found = results instanceof Set
+      found = results instanceof Set && results.size > 0
         ? (Array.from(results)[0] as NDKEvent)
         : null;
     }

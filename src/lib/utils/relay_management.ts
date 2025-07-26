@@ -76,7 +76,7 @@ export function testRelayConnection(
         error: "Connection timeout",
         actualUrl,
       });
-    }, 5000); // Increased timeout to 5 seconds to give relays more time
+    }, 3000); // Reduced timeout to 3 seconds for faster response
 
     relay.on("connect", () => {
       connected = true;
@@ -464,9 +464,44 @@ export async function buildCompleteRelaySet(
   ndk: NDK,
   user: NDKUser | null
 ): Promise<{ inboxRelays: string[]; outboxRelays: string[] }> {
+  // Add a timeout to prevent the function from hanging
+  const timeoutPromise = new Promise<{ inboxRelays: string[]; outboxRelays: string[] }>((_, reject) => {
+    setTimeout(() => {
+      console.debug('[relay_management.ts] buildCompleteRelaySet: Timeout reached, returning fallback relays');
+      reject(new Error('buildCompleteRelaySet timeout'));
+    }, 10000); // 10 second timeout
+  });
+
+  try {
+    return await Promise.race([
+      buildCompleteRelaySetInternal(ndk, user),
+      timeoutPromise
+    ]);
+  } catch (error) {
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Error or timeout, returning fallback relays:', error);
+    // Return fallback relays on timeout or error
+    if (user) {
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(secondaryRelays)
+      };
+    } else {
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(anonymousRelays)
+      };
+    }
+  }
+}
+
+async function buildCompleteRelaySetInternal(
+  ndk: NDK,
+  user: NDKUser | null
+): Promise<{ inboxRelays: string[]; outboxRelays: string[] }> {
   console.debug('[relay_management.ts] buildCompleteRelaySet: Starting with user:', user?.pubkey || 'null');
   
-  // Discover local relays first
+  // Discover local relays first (available to everyone)
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Discovering local relays...');
   const discoveredLocalRelays = await discoverLocalRelays(ndk);
   console.debug('[relay_management.ts] buildCompleteRelaySet: Discovered local relays:', discoveredLocalRelays);
 
@@ -517,34 +552,70 @@ export async function buildCompleteRelaySet(
     console.debug('[relay_management.ts] buildCompleteRelaySet: No user provided, skipping user-specific relays');
   }
 
-  // Build initial relay sets and deduplicate
-  const finalInboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...userLocalRelays]);
-  const finalOutboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...userOutboxRelays, ...extensionRelays]);
+  // Build relay sets according to the corrected logic
+  let inboxRelays: string[];
+  let outboxRelays: string[];
+
+  if (user) {
+    // Logged-in users
+    // Inbox: secondaryRelays + localRelays
+    inboxRelays = deduplicateRelayUrls([...secondaryRelays, ...discoveredLocalRelays]);
+    
+    // Outbox: localRelays + outboxRelays (with secondary fallback if empty)
+    const userOutboxWithLocal = [...discoveredLocalRelays, ...userOutboxRelays];
+    outboxRelays = userOutboxWithLocal.length > 0 
+      ? deduplicateRelayUrls(userOutboxWithLocal)
+      : deduplicateRelayUrls([...discoveredLocalRelays, ...secondaryRelays]);
+  } else {
+    // Anonymous users
+    // Inbox: secondaryRelays + localRelays
+    inboxRelays = deduplicateRelayUrls([...secondaryRelays, ...discoveredLocalRelays]);
+    
+    // Outbox: localRelays + anonRelays
+    outboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...anonymousRelays]);
+  }
+
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Initial relay sets - inbox:', inboxRelays.length, 'outbox:', outboxRelays.length);
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Initial inbox relays:', inboxRelays);
+  console.debug('[relay_management.ts] buildCompleteRelaySet: Initial outbox relays:', outboxRelays);
 
   // Test relays and filter out non-working ones
   let testedInboxRelays: string[] = [];
   let testedOutboxRelays: string[] = [];
 
-  if (finalInboxRelays.length > 0) {
-    testedInboxRelays = await testRelaySet(finalInboxRelays, ndk);
+  if (inboxRelays.length > 0) {
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Testing inbox relays...');
+    testedInboxRelays = await testRelaySet(inboxRelays, ndk);
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Tested inbox relays:', testedInboxRelays);
   }
 
-  if (finalOutboxRelays.length > 0) {
-    testedOutboxRelays = await testRelaySet(finalOutboxRelays, ndk);
+  if (outboxRelays.length > 0) {
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Testing outbox relays...');
+    testedOutboxRelays = await testRelaySet(outboxRelays, ndk);
+    console.debug('[relay_management.ts] buildCompleteRelaySet: Tested outbox relays:', testedOutboxRelays);
   }
 
-  // If no relays passed testing, use remote relays without testing
+  // If no relays passed testing, use fallback relays
   if (testedInboxRelays.length === 0 && testedOutboxRelays.length === 0) {
-    const remoteRelays = deduplicateRelayUrls([...secondaryRelays, ...searchRelays]);
-    return {
-      inboxRelays: remoteRelays,
-      outboxRelays: remoteRelays
-    };
+    console.debug('[relay_management.ts] buildCompleteRelaySet: No relays passed testing, using fallback relays');
+    if (user) {
+      // Logged-in user fallback
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(secondaryRelays)
+      };
+    } else {
+      // Anonymous user fallback
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(anonymousRelays)
+      };
+    }
   }
 
   // Use tested relays and deduplicate
-  const inboxRelays = testedInboxRelays.length > 0 ? deduplicateRelayUrls(testedInboxRelays) : deduplicateRelayUrls(secondaryRelays);
-  const outboxRelays = testedOutboxRelays.length > 0 ? deduplicateRelayUrls(testedOutboxRelays) : deduplicateRelayUrls(secondaryRelays);
+  const finalInboxRelays = testedInboxRelays.length > 0 ? deduplicateRelayUrls(testedInboxRelays) : deduplicateRelayUrls(secondaryRelays);
+  const finalOutboxRelays = testedOutboxRelays.length > 0 ? deduplicateRelayUrls(testedOutboxRelays) : (user ? deduplicateRelayUrls(secondaryRelays) : deduplicateRelayUrls(anonymousRelays));
 
   // Apply network condition optimization
   const currentNetworkCondition = get(networkCondition);
@@ -552,7 +623,7 @@ export async function buildCompleteRelaySet(
     currentNetworkCondition,
     discoveredLocalRelays,
     lowbandwidthRelays,
-    { inboxRelays, outboxRelays }
+    { inboxRelays: finalInboxRelays, outboxRelays: finalOutboxRelays }
   );
 
   // Filter out blocked relays and deduplicate final sets
@@ -561,12 +632,22 @@ export async function buildCompleteRelaySet(
     outboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.outboxRelays.filter((r: string) => !blockedRelays.includes(r)))
   };
 
-  // If no relays are working, use anonymous relays as fallback
+  // If no relays are working, use fallback relays
   if (finalRelaySet.inboxRelays.length === 0 && finalRelaySet.outboxRelays.length === 0) {
-    return {
-      inboxRelays: deduplicateRelayUrls(anonymousRelays),
-      outboxRelays: deduplicateRelayUrls(anonymousRelays)
-    };
+    console.debug('[relay_management.ts] buildCompleteRelaySet: No relays working, using fallback relays');
+    if (user) {
+      // Logged-in user fallback
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(secondaryRelays)
+      };
+    } else {
+      // Anonymous user fallback
+      return {
+        inboxRelays: deduplicateRelayUrls(secondaryRelays),
+        outboxRelays: deduplicateRelayUrls(anonymousRelays)
+      };
+    }
   }
 
   console.debug('[relay_management.ts] buildCompleteRelaySet: Final relay sets - inbox:', finalRelaySet.inboxRelays.length, 'outbox:', finalRelaySet.outboxRelays.length);
@@ -574,4 +655,66 @@ export async function buildCompleteRelaySet(
   console.debug('[relay_management.ts] buildCompleteRelaySet: Final outbox relays:', finalRelaySet.outboxRelays);
   
   return finalRelaySet;
+} 
+
+/**
+ * Gets the relay set specifically for search operations
+ * @param ndk NDK instance
+ * @param user Current user (null for anonymous)
+ * @returns Promise that resolves to search relay URLs
+ */
+export async function getSearchRelaySet(ndk: NDK, user: NDKUser | null): Promise<string[]> {
+  console.debug('[relay_management.ts] getSearchRelaySet: Getting search relays for user:', user?.pubkey || 'null');
+  
+  // Discover local relays (available to everyone)
+  const discoveredLocalRelays = await discoverLocalRelays(ndk);
+  
+  // Base search relays: searchRelays + secondaryRelays + localRelays
+  let searchRelayUrls = deduplicateRelayUrls([...searchRelays, ...secondaryRelays, ...discoveredLocalRelays]);
+  
+  if (user) {
+    // For logged-in users, also include their inbox relays
+    const userRelaySet = await buildCompleteRelaySet(ndk, user);
+    searchRelayUrls = deduplicateRelayUrls([...searchRelayUrls, ...userRelaySet.inboxRelays]);
+  }
+  
+  console.debug('[relay_management.ts] getSearchRelaySet: Final search relays:', searchRelayUrls);
+  return searchRelayUrls;
+} 
+
+/**
+ * Gets a simple list of working relays for the application
+ * @returns Array of working relay URLs
+ */
+export function getWorkingRelays(): string[] {
+  return [
+    "wss://theforest.nostr1.com",
+    "wss://thecitadel.nostr1.com", 
+    "wss://nostr.land",
+    "wss://nostr.wine",
+    "wss://relay.damus.io",
+    "wss://relay.nostr.band"
+  ];
+}
+
+/**
+ * Initializes relay stores with working relays
+ * @param activeInboxRelays Store for inbox relays
+ * @param activeOutboxRelays Store for outbox relays
+ */
+export function initializeRelayStores(
+  activeInboxRelays: any,
+  activeOutboxRelays: any
+): void {
+  const workingRelays = getWorkingRelays();
+  console.debug('[relay_management.ts] Initializing relay stores with working relays:', workingRelays);
+  
+  activeInboxRelays.set(workingRelays);
+  activeOutboxRelays.set(workingRelays);
+  
+  console.debug('[relay_management.ts] Relay stores initialized:', {
+    inboxCount: workingRelays.length,
+    outboxCount: workingRelays.length,
+    relays: workingRelays
+  });
 } 

@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
+  import NetworkStatus from "$lib/components/NetworkStatus.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { Alert } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
-  import { logCurrentRelayConfiguration } from "$lib/ndk";
+  import { ndkInstance } from "$lib/ndk";
+  import { get } from "svelte/store";
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
@@ -17,11 +17,10 @@
     "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
 
   onMount(() => {
-    const rect = document.body.getBoundingClientRect();
-    // document.body.style.height = `${rect.height}px`;
-    
-    // Log relay configuration when layout mounts
-    logCurrentRelayConfiguration();
+    const ndk = get(ndkInstance);
+    if (ndk) {
+      console.debug("[+layout.svelte] NDK instance available");
+    }
   });
 </script>
 

@@ -16,7 +16,7 @@
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -52,6 +52,7 @@
   let communityStatus = $state<Record<string, boolean>>({});
   let searchError = $state<string | null>(null);
   let searchCompleted = $state(false);
+  let currentPage = $derived(parseInt($page.url.searchParams.get('p') || '1', 10));
 
   userStore.subscribe((val) => (user = val));
 
@@ -308,6 +309,11 @@
       val || (searchResults.length > 0 && secondOrderResults.length === 0);
   }
 
+  function handlePageChange(page: number) {
+    // This can be used for analytics or side effects if needed
+    // For now, do nothing
+  }
+
   /**
    * Check community status for all search results
    */
@@ -338,7 +344,8 @@
 
   // Log relay configuration when page mounts
   onMount(() => {
-    logCurrentRelayConfiguration();
+    // Remove the logCurrentRelayConfiguration call since it's no longer available
+    console.debug("[events/+page.svelte] Events page mounted");
   });
 
 </script>
@@ -395,6 +402,9 @@
               searchTerm={searchTerm || dTagValue?.toLowerCase() || null}
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
+              showPagination={true}
+              onPageChange={handlePageChange}
+              currentPage={currentPage}
             />
           </div>
         {/if}

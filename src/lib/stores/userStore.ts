@@ -8,7 +8,8 @@ import NDK, {
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores, ndkSignedIn } from "../ndk.ts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays, ndkSignedIn, logout as ndkLogout } from "../ndk.ts";
+import { initializeRelayStores } from "../utils/relay_management.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 import { userPubkey } from "../stores/authStore.Svelte.ts";
@@ -208,7 +209,7 @@ export async function loginWithExtension() {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
+    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
   } catch (error) {
     console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
   }
@@ -278,7 +279,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
+    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
   } catch (error) {
     console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
   }
@@ -353,7 +354,7 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
+    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
   } catch (error) {
     console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
   }
@@ -366,13 +367,13 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
 /**
  * Logout and clear all user state
  */
-export function logoutUser() {
+export async function logoutUser() {
   console.log("Logging out user...");
   const currentUser = get(userStore);
+  
   if (currentUser.ndkUser) {
-    // Clear persisted relays for the user
-    localStorage.removeItem(getRelayStorageKey(currentUser.ndkUser, "inbox"));
-    localStorage.removeItem(getRelayStorageKey(currentUser.ndkUser, "outbox"));
+    // Use the proper logout function from ndk.ts
+    await ndkLogout(currentUser.ndkUser);
   }
 
   // Clear all possible login states from localStorage
@@ -423,16 +424,6 @@ export function logoutUser() {
   });
   userPubkey.set(null);
   ndkSignedIn.set(false);
-
-  const ndk = get(ndkInstance);
-  if (ndk) {
-    ndk.activeUser = undefined;
-    ndk.signer = undefined;
-  }
-
-  // Clear relay stores to trigger re-initialization
-  activeInboxRelays.set([]);
-  activeOutboxRelays.set([]);
 
   console.log("Logout complete");
 }

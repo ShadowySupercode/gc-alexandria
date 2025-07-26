@@ -6,6 +6,68 @@ import type { NDKFilter } from "@nostr-dev-kit/ndk";
 import { get } from "svelte/store";
 import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
+import { getSearchRelaySet } from "./relay_management.ts";
+import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
+import { userStore } from "../stores/userStore.ts";
+
+/**
+ * Fetch event using search relay set for better coverage
+ */
+async function fetchEventWithSearchRelays(
+  ndk: any,
+  filterOrId: NDKFilter | string,
+  timeoutMs: number = 10000,
+): Promise<NDKEvent | null> {
+  try {
+    const userState = get(userStore);
+    const user = userState.signedIn ? userState.ndkUser : null;
+    const searchRelays = await getSearchRelaySet(ndk, user);
+    
+    if (searchRelays.length === 0) {
+      console.warn("fetchEventWithSearchRelays: No search relays available");
+      return null;
+    }
+    
+    const relaySet = NDKRelaySetFromNDK.fromRelayUrls(searchRelays, ndk);
+    
+    console.log("fetchEventWithSearchRelays: Using search relays:", searchRelays);
+    console.log("fetchEventWithSearchRelays: Filter:", filterOrId);
+    
+    let found: NDKEvent | null = null;
+    
+    if (
+      typeof filterOrId === "string" &&
+      new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(filterOrId)
+    ) {
+      found = await ndk
+        .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
+        .withTimeout(timeoutMs);
+    } else {
+      const filter =
+        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const results = await ndk
+        .fetchEvents(filter, undefined, relaySet)
+        .withTimeout(timeoutMs);
+      found = results instanceof Set && results.size > 0
+        ? (Array.from(results)[0] as NDKEvent)
+        : null;
+    }
+    
+    if (!found) {
+      const timeoutSeconds = timeoutMs / 1000;
+      console.warn(
+        `fetchEventWithSearchRelays: Event not found after ${timeoutSeconds}s timeout. Tried search relays: ${searchRelays.join(", ")}`,
+      );
+      return null;
+    }
+    
+    console.log("fetchEventWithSearchRelays: Found event:", found.id);
+    return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
+  } catch (err) {
+    console.error("fetchEventWithSearchRelays: Error:", err);
+    return null;
+  }
+}
 
 /**
  * Search for a single event by ID or filter
@@ -76,6 +138,56 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
             kinds: [0],
             authors: [decoded.data],
           };
+          // Use search relays for npub searches
+          try {
+            const event = await fetchEventWithSearchRelays(
+              get(ndkInstance),
+              filterOrId,
+              TIMEOUTS.EVENT_FETCH,
+            );
+            
+            if (!event) {
+              console.warn("[Search] Profile not found for npub:", cleanedQuery);
+              
+              // Create a default profile event for npub searches
+              try {
+                const decoded = nip19.decode(cleanedQuery);
+                if (decoded && decoded.type === 'npub') {
+                  const pubkey = decoded.data;
+                  const defaultName = `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+                  
+                  // Create a default profile event
+                  const defaultProfile = {
+                    kind: 0,
+                    pubkey: pubkey,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [],
+                    content: JSON.stringify({
+                      name: defaultName,
+                      display_name: defaultName,
+                      about: "No profile published yet"
+                    })
+                  };
+                  
+                  const ndk = get(ndkInstance);
+                  if (ndk) {
+                    const defaultEvent = new NDKEvent(ndk, defaultProfile);
+                    console.log("[Search] Created default profile for npub:", cleanedQuery);
+                    return defaultEvent;
+                  }
+                }
+              } catch (decodeError) {
+                console.error("[Search] Error creating default profile:", decodeError);
+              }
+              
+              throw new Error("Profile not found for this npub. The user may not have published a profile event.");
+            }
+            
+            return event;
+          } catch (searchError) {
+            console.error("[Search] Error in npub search:", searchError);
+            throw searchError;
+          }
           break;
         default:
           filterOrId = cleanedQuery;

@@ -5,6 +5,7 @@ import { nip19 } from "nostr-tools";
 import { getActiveRelaySetAsNDKRelaySet } from "../../lib/ndk.ts";
 import { getMatchingTags } from "../../lib/utils/nostrUtils.ts";
 import type NDK from "@nostr-dev-kit/ndk";
+import Pharos from "../../lib/parser.ts";
 
 /**
  * Decodes an naddr identifier and returns a filter object
@@ -97,19 +98,28 @@ export const load: Load = async ({
   const dTag = url.searchParams.get("d");
   const { ndk } = await parent();
 
+  if (!ndk) {
+    throw error(500, "NDK instance not available");
+  }
+
   if (!id && !dTag) {
     throw error(400, "No publication root event ID or d tag provided.");
   }
 
   // Fetch the event based on available parameters
   const indexEvent = id
-    ? await fetchEventById(ndk!, id)
-    : await fetchEventByDTag(ndk!, dTag!);
+    ? await fetchEventById(ndk, id)
+    : await fetchEventByDTag(ndk, dTag!);
 
   const publicationType = getMatchingTags(indexEvent, "type")[0]?.[1];
+
+  // Create parser instance
+  const parser = new Pharos(ndk);
 
   return {
     publicationType,
     indexEvent,
+    ndk,
+    parser,
   };
 };
