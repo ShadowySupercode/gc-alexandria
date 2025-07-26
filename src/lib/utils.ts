@@ -2,31 +2,55 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
 
-export function neventEncode(event: NDKEvent, relays: string[]) {
-  return nip19.neventEncode({
-    id: event.id,
-    kind: event.kind,
-    relays,
-    author: event.pubkey,
-  });
-}
-
-export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = getMatchingTags(event, "d")[0]?.[1];
-  if (!dTag) {
-    throw new Error("Event does not have a d tag");
+export function neventEncode(event: NDKEvent, relays: string[]): string | null {
+  try {
+    // Ensure pubkey is a valid 64-character hex string
+    // If pubkey is 63 characters, add leading zero
+    const paddedPubkey = event.pubkey.length === 63 ? '0' + event.pubkey : event.pubkey;
+    return nip19.neventEncode({
+      id: event.id,
+      kind: event.kind,
+      relays,
+      author: paddedPubkey,
+    });
+  } catch (error) {
+    console.warn('Error encoding nevent:', error);
+    return null;
   }
-
-  return nip19.naddrEncode({
-    identifier: dTag,
-    pubkey: event.pubkey,
-    kind: event.kind || 0,
-    relays,
-  });
 }
 
-export function nprofileEncode(pubkey: string, relays: string[]) {
-  return nip19.nprofileEncode({ pubkey, relays });
+export function naddrEncode(event: NDKEvent, relays: string[]): string | null {
+  try {
+    const dTag = getMatchingTags(event, "d")[0]?.[1];
+    if (!dTag) {
+      throw new Error("Event does not have a d tag");
+    }
+
+    // Ensure pubkey is a valid 64-character hex string
+    // If pubkey is 63 characters, add leading zero
+    const paddedPubkey = event.pubkey.length === 63 ? '0' + event.pubkey : event.pubkey;
+    return nip19.naddrEncode({
+      identifier: dTag,
+      pubkey: paddedPubkey,
+      kind: event.kind || 0,
+      relays,
+    });
+  } catch (error) {
+    console.warn('Error encoding naddr:', error);
+    return null;
+  }
+}
+
+export function nprofileEncode(pubkey: string, relays: string[]): string | null {
+  try {
+    // Ensure pubkey is a valid 64-character hex string
+    // If pubkey is 63 characters, add leading zero
+    const paddedPubkey = pubkey.length === 63 ? '0' + pubkey : pubkey;
+    return nip19.nprofileEncode({ pubkey: paddedPubkey, relays });
+  } catch (error) {
+    console.warn('Error encoding nprofile:', error);
+    return null;
+  }
 }
 
 export function formatDate(unixtimestamp: number) {

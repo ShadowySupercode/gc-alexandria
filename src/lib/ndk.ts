@@ -333,8 +333,13 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
  */
 export async function refreshRelayStores(ndk: NDK): Promise<void> {
   console.debug('[NDK.ts] Refreshing relay stores due to user state change');
-  // This function is now handled by relay_management.ts
-  // The relay stores are updated automatically when needed
+  try {
+    const user = get(userStore);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, user.ndkUser);
+    console.debug('[NDK.ts] Relay stores refreshed successfully');
+  } catch (error) {
+    console.error('[NDK.ts] Failed to refresh relay stores:', error);
+  }
 }
 
 /**
@@ -343,8 +348,13 @@ export async function refreshRelayStores(ndk: NDK): Promise<void> {
  */
 export async function refreshRelayStoresOnNetworkChange(ndk: NDK): Promise<void> {
   console.debug('[NDK.ts] Refreshing relay stores due to network condition change');
-  // This function is now handled by relay_management.ts
-  // The relay stores are updated automatically when needed
+  try {
+    const user = get(userStore);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, user.ndkUser);
+    console.debug('[NDK.ts] Relay stores refreshed due to network change');
+  } catch (error) {
+    console.error('[NDK.ts] Failed to refresh relay stores on network change:', error);
+  }
 }
 
 /**
@@ -519,6 +529,14 @@ export async function loginWithExtension(
 
     ndkInstance.set(ndk);
     ndkSignedIn.set(true);
+
+    // Refresh relay stores for the logged-in user
+    try {
+      await refreshRelayStores(ndk);
+      console.debug("[NDK.ts] Relay stores refreshed for logged-in user");
+    } catch (error) {
+      console.warn("[NDK.ts] Failed to refresh relay stores on login:", error);
+    }
 
     return user;
   } catch (e) {

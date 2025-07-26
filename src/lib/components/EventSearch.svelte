@@ -4,13 +4,15 @@
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import {
-    searchEvent,
-    searchBySubscription,
-    searchNip05,
-  } from "$lib/utils/search_utility";
-  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
+import {
+  searchEvent,
+  searchBySubscription,
+  searchNip05,
+  searchProfiles,
+} from "$lib/utils/search_utility";
+import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+import { activeInboxRelays, activeOutboxRelays, ndkInstance } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import type { SearchResult } from '$lib/utils/search_types';
   import { userStore } from "$lib/stores/userStore";
@@ -738,7 +740,38 @@
         currentAbortController.abort();
       }
       currentAbortController = new AbortController();
-      // Add a timeout to prevent hanging searches
+      
+      // Use different search functions based on search type
+      if (searchType === "n") {
+        // Use searchProfiles for profile searches (same as mentions modal)
+        console.log("EventSearch: Using searchProfiles for profile search");
+        const profileResult = await searchProfiles(searchTerm);
+        
+        // Convert profile results to the expected format
+        const ndk = get(ndkInstance);
+        const events = profileResult.profiles.map(profile => {
+          const event = new NDKEventClass(ndk);
+          event.content = JSON.stringify(profile);
+          event.pubkey = profile.pubkey || "";
+          event.kind = 0; // Profile event kind
+          return event;
+        });
+        
+        onSearchResults(
+          events,
+          [], // No second-order results for profile searches
+          [], // No t-tag events for profile searches
+          new Set(),
+          new Set(),
+          searchType,
+          searchTerm,
+        );
+        
+        updateSearchState(false, true, events.length, searchType);
+        return;
+      }
+      
+      // Use searchBySubscription for other search types
       const searchPromise = searchBySubscription(
         searchType,
         searchTerm,
@@ -766,8 +799,8 @@
         currentAbortController.signal,
       );
       
-      // Add a timeout based on search type
-      const timeoutDuration = searchType === "n" ? TIMEOUTS.PROFILE_SEARCH : TIMEOUTS.SUBSCRIPTION_SEARCH;
+      // Add a timeout based on search type (only for non-profile searches since profile searches are handled above)
+      const timeoutDuration = TIMEOUTS.SUBSCRIPTION_SEARCH;
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           reject(new Error(`Search timeout: No results received within ${timeoutDuration / 1000} seconds`));
@@ -900,15 +933,15 @@
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
   }
 
-  function getNeventUrl(event: NDKEvent): string {
+  function getNeventUrl(event: NDKEvent): string | null {
     return neventEncode(event, $activeInboxRelays);
   }
 
-  function getNaddrUrl(event: NDKEvent): string {
+  function getNaddrUrl(event: NDKEvent): string | null {
     return naddrEncode(event, $activeInboxRelays);
   }
 
-  function getNprofileUrl(pubkey: string): string {
+  function getNprofileUrl(pubkey: string): string | null {
     return nprofileEncode(pubkey, $activeInboxRelays);
   }
 

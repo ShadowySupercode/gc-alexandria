@@ -204,7 +204,7 @@
             const naddr = naddrEncode(mockEvent, $activeInboxRelays);
             return {
               text: `a:${tag[1]}`,
-              gotoValue: naddr,
+              gotoValue: naddr || undefined,
             };
           } catch (error) {
             console.warn("Failed to encode naddr for a tag:", tag[1], error);
@@ -233,7 +233,7 @@
           const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return {
             text: `e:${tag[1]}`,
-            gotoValue: nevent,
+            gotoValue: nevent || undefined,
           };
         } catch (error) {
           console.warn("Failed to encode nevent for e tag:", tag[1], error);
@@ -264,7 +264,7 @@
           const nevent = neventEncode(mockEvent, $activeInboxRelays);
           return {
             text: `note:${tag[1]}`,
-            gotoValue: nevent,
+            gotoValue: nevent || undefined,
           };
         } catch (error) {
           console.warn("Failed to encode nevent for note tag:", tag[1], error);
@@ -290,15 +290,15 @@
     return { text: `${tag[0]}:${tag[1]}` };
   }
 
-  function getNeventUrl(event: NDKEvent): string {
+  function getNeventUrl(event: NDKEvent): string | null {
     return neventEncode(event, $activeInboxRelays);
   }
 
-  function getNaddrUrl(event: NDKEvent): string {
+  function getNaddrUrl(event: NDKEvent): string | null {
     return naddrEncode(event, $activeInboxRelays);
   }
 
-  function getNprofileUrl(pubkey: string): string {
+  function getNprofileUrl(pubkey: string): string | null {
     return nprofileEncode(pubkey, $activeInboxRelays);
   }
 
@@ -349,30 +349,41 @@
       if (npub)
         ids.push({ label: "npub", value: npub, link: `/events?id=${npub}` });
       // nprofile
-      ids.push({
-        label: "nprofile",
-        value: nprofileEncode(event.pubkey, $activeInboxRelays),
-        link: `/events?id=${nprofileEncode(event.pubkey, $activeInboxRelays)}`,
-      });
+      const nprofile = nprofileEncode(event.pubkey, $activeInboxRelays);
+      if (nprofile) {
+        ids.push({
+          label: "nprofile",
+          value: nprofile,
+          link: `/events?id=${nprofile}`,
+        });
+      }
       // nevent
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
+      const nevent = neventEncode(event, $activeInboxRelays);
+      if (nevent) {
+        ids.push({
+          label: "nevent",
+          value: nevent,
+          link: `/events?id=${nevent}`,
+        });
+      }
       // hex pubkey
       ids.push({ label: "pubkey", value: event.pubkey });
     } else {
       // nevent
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
+      const nevent = neventEncode(event, $activeInboxRelays);
+      if (nevent) {
+        ids.push({
+          label: "nevent",
+          value: nevent,
+          link: `/events?id=${nevent}`,
+        });
+      }
       // naddr (if addressable)
       try {
         const naddr = naddrEncode(event, $activeInboxRelays);
-        ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
+        if (naddr) {
+          ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
+        }
       } catch {}
       // hex id
       ids.push({ label: "id", value: event.id });

@@ -96,11 +96,11 @@
   }
 
   /**
-   * Gets the appropriate identifier (nevent or naddr) for copying
+   * Gets the encoded identifier for the event
    * @param type - The type of identifier to get ('nevent' or 'naddr')
-   * @returns The encoded identifier string
+   * @returns The encoded identifier string or null if encoding fails
    */
-  function getIdentifier(type: "nevent" | "naddr"): string {
+  function getIdentifier(type: "nevent" | "naddr"): string | null {
     const encodeFn = type === "nevent" ? neventEncode : naddrEncode;
     const identifier = encodeFn(event, activeRelays);
     return identifier;
@@ -118,7 +118,9 @@
    */
   function viewEventDetails() {
     const nevent = getIdentifier("nevent");
-    goto(`/events?id=${encodeURIComponent(nevent)}`);
+    if (nevent) {
+      goto(`/events?id=${encodeURIComponent(nevent)}`);
+    }
   }
 </script>
 
@@ -161,14 +163,14 @@
             <li>
               <CopyToClipboard
                 displayText="Copy naddr address"
-                copyText={getIdentifier("naddr")}
+                copyText={getIdentifier("naddr") || ""}
                 icon={ClipboardCleanOutline}
               />
             </li>
             <li>
               <CopyToClipboard
                 displayText="Copy nevent address"
-                copyText={getIdentifier("nevent")}
+                copyText={getIdentifier("nevent") || ""}
                 icon={ClipboardCleanOutline}
               />
             </li>

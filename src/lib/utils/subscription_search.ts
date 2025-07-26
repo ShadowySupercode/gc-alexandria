@@ -1,964 +1,469 @@
-// deno-lint-ignore-file no-explicit-any
-import { ndkInstance } from "../ndk.ts";
-import { getMatchingTags, getNpubFromNip05 } from "./nostrUtils.ts";
-import { nip19 } from "./nostrUtils.ts";
-import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
-import { searchCache } from "./searchCache.ts";
-import { communityRelays, searchRelays } from "../consts.ts";
-import { get } from "svelte/store";
-import type {
-  SearchResult,
-  SearchSubscriptionType,
-  SearchFilter,
-  SearchCallbacks,
-} from "./search_types.ts";
-import {
-  fieldMatches,
-  nip05Matches,
-  COMMON_DOMAINS,
-  isEmojiReaction,
-} from "./search_utils.ts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import { NDKEvent, NDKSubscription, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import type { NDKFilter } from "@nostr-dev-kit/ndk";
+import type NDK from "@nostr-dev-kit/ndk";
+import { WebSocketPool } from "../data_structures/websocket_pool.ts";
 import { TIMEOUTS, SEARCH_LIMITS } from "./search_constants.ts";
-import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import type { SearchResult, SearchCallbacks, SearchSubscriptionType } from "./search_types.ts";
+import { userStore } from "../stores/userStore.ts";
+import { get } from "svelte/store";
 
-// Helper function to normalize URLs for comparison
-const normalizeUrl = (url: string): string => {
-  return url.replace(/\/$/, ''); // Remove trailing slash
+/**
+ * Interface for search options
+ */
+interface SearchOptions {
+  /** Maximum number of results to return */
+  limit?: number;
+  /** Timeout in milliseconds */
+  timeout?: number;
+  /** Whether to perform second-order searches */
+  enableSecondOrder?: boolean;
+  /** Whether to include t-tag events in results */
+  includeTTagEvents?: boolean;
+}
+
+/**
+ * Default search options
+ */
+const DEFAULT_SEARCH_OPTIONS: Required<SearchOptions> = {
+  limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS,
+  timeout: TIMEOUTS.SUBSCRIPTION_SEARCH,
+  enableSecondOrder: true,
+  includeTTagEvents: true,
 };
 
 /**
- * Search for events by subscription type (d, t, n)
+ * Search result accumulator
+ */
+class SearchResultAccumulator {
+  private events: NDKEvent[] = [];
+  private secondOrder: NDKEvent[] = [];
+  private tTagEvents: NDKEvent[] = [];
+  private eventIds: Set<string> = new Set();
+  private addresses: Set<string> = new Set();
+  private searchType: string;
+  private searchTerm: string;
+  private limit: number;
+  private callbacks: SearchCallbacks;
+
+  constructor(
+    searchType: string,
+    searchTerm: string,
+    limit: number,
+    callbacks: SearchCallbacks
+  ) {
+    this.searchType = searchType;
+    this.searchTerm = searchTerm;
+    this.limit = limit;
+    this.callbacks = callbacks;
+  }
+
+  /**
+   * Add a primary event to the results
+   */
+  addEvent(event: NDKEvent): void {
+    if (this.events.length >= this.limit) {
+      return;
+    }
+
+    if (!this.eventIds.has(event.id)) {
+      this.events.push(event);
+      this.eventIds.add(event.id);
+      this.notifyUpdate();
+    }
+  }
+
+  /**
+   * Add a second-order event to the results
+   */
+  addSecondOrderEvent(event: NDKEvent): void {
+    if (!this.eventIds.has(event.id)) {
+      this.secondOrder.push(event);
+      this.eventIds.add(event.id);
+      this.notifyUpdate();
+    }
+  }
+
+  /**
+   * Add a t-tag event to the results
+   */
+  addTTagEvent(event: NDKEvent): void {
+    if (!this.eventIds.has(event.id)) {
+      this.tTagEvents.push(event);
+      this.eventIds.add(event.id);
+      this.notifyUpdate();
+    }
+  }
+
+  /**
+   * Add an address to the results
+   */
+  addAddress(address: string): void {
+    this.addresses.add(address);
+  }
+
+  /**
+   * Get the current search result
+   */
+  getResult(): SearchResult {
+    return {
+      events: this.events,
+      secondOrder: this.secondOrder,
+      tTagEvents: this.tTagEvents,
+      eventIds: this.eventIds,
+      addresses: this.addresses,
+      searchType: this.searchType,
+      searchTerm: this.searchTerm,
+    };
+  }
+
+  /**
+   * Notify callbacks of updates
+   */
+  private notifyUpdate(): void {
+    if (this.callbacks.onSecondOrderUpdate) {
+      this.callbacks.onSecondOrderUpdate(this.getResult());
+    }
+  }
+}
+
+/**
+ * Creates a filter for the given search type and term
+ */
+function createSearchFilter(
+  searchType: SearchSubscriptionType,
+  searchTerm: string
+): NDKFilter {
+  const normalizedTerm = searchTerm.toLowerCase().trim();
+
+  switch (searchType) {
+    case "d":
+      return {
+        "#d": [normalizedTerm],
+        limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS,
+      };
+
+    case "t":
+      return {
+        "#t": [normalizedTerm],
+        limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS,
+      };
+
+    case "n":
+      return {
+        authors: [normalizedTerm],
+        kinds: [0], // Profile metadata
+        limit: SEARCH_LIMITS.SPECIFIC_PROFILE,
+      };
+
+    default:
+      throw new Error(`Unsupported search type: ${searchType}`);
+  }
+}
+
+/**
+ * Performs a second-order search based on the primary search results
+ */
+async function performSecondOrderSearch(
+  searchType: SearchSubscriptionType,
+  primaryEvents: NDKEvent[],
+  accumulator: SearchResultAccumulator,
+  abortSignal?: AbortSignal,
+  ndk?: NDK
+): Promise<void> {
+  if (searchType !== "d" && searchType !== "n") {
+    return;
+  }
+
+  const secondOrderEvents: NDKEvent[] = [];
+  const processedIds = new Set<string>();
+
+  for (const event of primaryEvents) {
+    if (abortSignal?.aborted) {
+      break;
+    }
+
+    // Extract event IDs and addresses for second-order search
+    const eventIds = event.getMatchingTags("e").map(tag => tag[1]).filter(Boolean);
+    const addresses = event.getMatchingTags("a").map(tag => tag[1]).filter(Boolean);
+
+    for (const eventId of eventIds) {
+      if (!processedIds.has(eventId)) {
+        processedIds.add(eventId);
+        accumulator.addAddress(eventId);
+      }
+    }
+
+    for (const address of addresses) {
+      if (!processedIds.has(address)) {
+        processedIds.add(address);
+        accumulator.addAddress(address);
+      }
+    }
+
+    // For d-tag searches, also look for related content events
+    if (searchType === "d" && ndk) {
+      const dTag = event.getMatchingTags("d")[0]?.[1];
+      if (dTag) {
+        try {
+          // Get all available relays for second-order search
+          const inboxRelays = get(activeInboxRelays);
+          const outboxRelays = get(activeOutboxRelays);
+          const allRelays = [...inboxRelays, ...outboxRelays];
+          
+          if (allRelays.length > 0) {
+            // Create relay set for second-order search - use all relays directly
+            const availableRelayUrls = allRelays;
+            
+            if (availableRelayUrls.length > 0) {
+              const relaySet = NDKRelaySet.fromRelayUrls(availableRelayUrls, ndk);
+              
+              const relatedEvents = await ndk.fetchEvents(
+                {
+                  "#d": [dTag],
+                  kinds: [1, 30023], // Text notes and articles
+                  limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+                },
+                {
+                  groupable: true,
+                  skipVerification: false,
+                  skipValidation: false,
+                  relaySet: relaySet,
+                }
+              );
+
+              for (const relatedEvent of relatedEvents) {
+                if (abortSignal?.aborted) {
+                  break;
+                }
+                accumulator.addSecondOrderEvent(relatedEvent);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("Error fetching related events:", error);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Performs a subscription-based search for Nostr events
  */
 export async function searchBySubscription(
   searchType: SearchSubscriptionType,
   searchTerm: string,
-  callbacks?: SearchCallbacks,
+  callbacks: SearchCallbacks = {},
   abortSignal?: AbortSignal,
+  options: SearchOptions = {}
 ): Promise<SearchResult> {
-  const normalizedSearchTerm = searchTerm.toLowerCase().trim();
+  const mergedOptions = { ...DEFAULT_SEARCH_OPTIONS, ...options };
+  const { limit, timeout, enableSecondOrder, includeTTagEvents } = mergedOptions;
 
-  console.log("subscription_search: Starting search:", {
-    searchType,
-    searchTerm,
-    normalizedSearchTerm,
-  });
-
-  // Check cache first
-  const cachedResult = searchCache.get(searchType, normalizedSearchTerm);
-  if (cachedResult) {
-    console.log("subscription_search: Found cached result:", cachedResult);
-    return cachedResult;
+  // Validate inputs
+  if (!searchTerm || typeof searchTerm !== "string") {
+    throw new Error("Search term must be a non-empty string");
   }
 
+  if (!["d", "t", "n"].includes(searchType)) {
+    throw new Error("Search type must be 'd', 't', or 'n'");
+  }
+
+  // Check if NDK is available
   const ndk = get(ndkInstance);
   if (!ndk) {
-    console.error("subscription_search: NDK not initialized");
     throw new Error("NDK not initialized");
   }
 
-  console.log("subscription_search: NDK initialized, creating search state");
-  const searchState = createSearchState();
-  const cleanup = createCleanupFunction(searchState);
-
-  // Set a timeout to force completion after subscription search timeout
-  // Use longer timeout for profile searches since they require NIP-05 lookup
-  const timeoutDuration = searchType === "n" ? TIMEOUTS.PROFILE_SEARCH : TIMEOUTS.SUBSCRIPTION_SEARCH;
-  searchState.timeoutId = setTimeout(() => {
-    console.log("subscription_search: Search timeout reached");
-    cleanup();
-  }, timeoutDuration);
-
-  // Check for abort signal
-  if (abortSignal?.aborted) {
-    console.log("subscription_search: Search aborted");
-    cleanup();
-    throw new Error("Search cancelled");
-  }
-
-  const searchFilter = await createSearchFilter(
-    searchType,
-    normalizedSearchTerm,
-  );
-  console.log("subscription_search: Created search filter:", searchFilter);
-  const primaryRelaySet = createPrimaryRelaySet(searchType, ndk);
-  console.log(
-    "subscription_search: Created primary relay set with",
-    primaryRelaySet.relays.size,
-    "relays",
-  );
-
-  // Phase 1: Search primary relay
-  if (primaryRelaySet.relays.size > 0) {
-    try {
-      console.log(
-        "subscription_search: Searching primary relay with filter:",
-        searchFilter.filter,
-      );
-      const primaryEvents = await ndk.fetchEvents(
-        searchFilter.filter,
-        { closeOnEose: true },
-        primaryRelaySet,
-      );
-
-      console.log(
-        "subscription_search: Primary relay returned",
-        primaryEvents.size,
-        "events",
-      );
-      processPrimaryRelayResults(
-        primaryEvents,
-        searchType,
-        searchFilter.subscriptionType,
-        normalizedSearchTerm,
-        searchState,
-        abortSignal,
-        cleanup,
-      );
-
-      // If we found results from primary relay, return them immediately
-      if (hasResults(searchState, searchType)) {
-        console.log(
-          "subscription_search: Found results from primary relay, returning immediately",
-        );
-        const immediateResult = createSearchResult(
-          searchState,
-          searchType,
-          normalizedSearchTerm,
-        );
-        searchCache.set(searchType, normalizedSearchTerm, immediateResult);
-
-        // Start Phase 2 in background for additional results
-        searchOtherRelaysInBackground(
-          searchType,
-          searchFilter,
-          searchState,
-          callbacks,
-          cleanup,
-        );
-
-        return immediateResult;
-      } else {
-        console.log(
-          "subscription_search: No results from primary relay, continuing to Phase 2",
-        );
-      }
-    } catch (error) {
-      console.error(
-        `subscription_search: Error searching primary relay:`,
-        error,
-      );
-    }
-  } else {
-    console.log(
-      "subscription_search: No primary relays available, skipping Phase 1",
-    );
-  }
-
-  // Always do Phase 2: Search all other relays in parallel
-  return searchOtherRelaysInBackground(
-    searchType,
-    searchFilter,
-    searchState,
-    callbacks,
-    cleanup,
-  );
-}
-
-/**
- * Create search state object
- */
-function createSearchState() {
-  return {
-    timeoutId: null as ReturnType<typeof setTimeout> | null,
-    firstOrderEvents: [] as NDKEvent[],
-    secondOrderEvents: [] as NDKEvent[],
-    tTagEvents: [] as NDKEvent[],
-    eventIds: new Set<string>(),
-    eventAddresses: new Set<string>(),
-    foundProfiles: [] as NDKEvent[],
-    isCompleted: false,
-    currentSubscription: null as any,
-  };
-}
-
-/**
- * Create cleanup function
- */
-function createCleanupFunction(searchState: any) {
-  return () => {
-    if (searchState.timeoutId) {
-      clearTimeout(searchState.timeoutId);
-      searchState.timeoutId = null;
-    }
-    if (searchState.currentSubscription) {
-      try {
-        searchState.currentSubscription.stop();
-      } catch (e) {
-        console.warn("Error stopping subscription:", e);
-      }
-      searchState.currentSubscription = null;
-    }
-  };
-}
-
-/**
- * Create search filter based on search type
- */
-async function createSearchFilter(
-  searchType: SearchSubscriptionType,
-  normalizedSearchTerm: string,
-): Promise<SearchFilter> {
-  console.log("subscription_search: Creating search filter for:", {
-    searchType,
-    normalizedSearchTerm,
-  });
-
-  switch (searchType) {
-    case "d": {
-      const dFilter = {
-        filter: { "#d": [normalizedSearchTerm], limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS },
-        subscriptionType: "d-tag",
-      };
-      console.log("subscription_search: Created d-tag filter:", dFilter);
-      return dFilter;
-    }
-    case "t": {
-      const tFilter = {
-        filter: { "#t": [normalizedSearchTerm], limit: SEARCH_LIMITS.PRIMARY_SEARCH_RESULTS },
-        subscriptionType: "t-tag",
-      };
-      console.log("subscription_search: Created t-tag filter:", tFilter);
-      return tFilter;
-    }
-    case "n": {
-      const nFilter = await createProfileSearchFilter(normalizedSearchTerm);
-      console.log("subscription_search: Created profile filter:", nFilter);
-      return nFilter;
-    }
-    default: {
-      throw new Error(`Unknown search type: ${searchType}`);
-    }
-  }
-}
-
-/**
- * Create profile search filter
- */
-async function createProfileSearchFilter(
-  normalizedSearchTerm: string,
-): Promise<SearchFilter> {
-  // For npub searches, try to decode the search term first
-  try {
-    const decoded = nip19.decode(normalizedSearchTerm);
-    if (decoded && decoded.type === "npub") {
-      return {
-        filter: {
-          kinds: [0],
-          authors: [decoded.data],
-          limit: SEARCH_LIMITS.SPECIFIC_PROFILE,
-        },
-        subscriptionType: "npub-specific",
-      };
-    }
-  } catch {
-    // Not a valid npub, continue with other strategies
-  }
-
-  // Try NIP-05 lookup first
-  try {
-    for (const domain of COMMON_DOMAINS) {
-      const nip05Address = `${normalizedSearchTerm}@${domain}`;
-      try {
-        const npub = await getNpubFromNip05(nip05Address);
-        if (npub) {
-          return {
-            filter: {
-              kinds: [0],
-              authors: [npub],
-              limit: SEARCH_LIMITS.SPECIFIC_PROFILE,
-            },
-            subscriptionType: "nip05-found",
-          };
-        }
-      } catch {
-        // Continue to next domain
-      }
-    }
-  } catch {
-    // Fallback to reasonable profile search
-  }
-
-  return {
-    filter: { kinds: [0], limit: SEARCH_LIMITS.GENERAL_PROFILE },
-    subscriptionType: "profile",
-  };
-}
-
-/**
- * Create primary relay set based on search type
- */
-function createPrimaryRelaySet(
-  searchType: SearchSubscriptionType,
-  ndk: any,
-): NDKRelaySet {
-  // Use the new relay management system
-  const searchRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
-  console.debug('subscription_search: Active relay stores:', {
-    inboxRelays: get(activeInboxRelays),
-    outboxRelays: get(activeOutboxRelays),
-    searchRelays
-  });
+  // Get all available relays (inbox and outbox)
+  const inboxRelays = get(activeInboxRelays);
+  const outboxRelays = get(activeOutboxRelays);
+  const allRelays = [...inboxRelays, ...outboxRelays];
   
-  // Debug: Log all relays in NDK pool
-  const poolRelays = Array.from(ndk.pool.relays.values());
-  console.debug('subscription_search: NDK pool relays:', poolRelays.map((r: any) => r.url));
-  
-  if (searchType === "n") {
-    // For profile searches, use search relays first
-    const profileRelaySet = poolRelays.filter(
-      (relay: any) =>
-        searchRelays.some(
-          (searchRelay: string) =>
-            normalizeUrl(relay.url) === normalizeUrl(searchRelay),
-        ),
-    );
-    console.debug('subscription_search: Profile relay set:', profileRelaySet.map((r: any) => r.url));
-    return new NDKRelaySet(new Set(profileRelaySet) as any, ndk);
-  } else {
-    // For other searches, use active relays first
-    const activeRelaySet = poolRelays.filter(
-      (relay: any) =>
-        searchRelays.some(
-          (searchRelay: string) =>
-            normalizeUrl(relay.url) === normalizeUrl(searchRelay),
-        ),
-    );
-    console.debug('subscription_search: Active relay set:', activeRelaySet.map((r: any) => r.url));
-    return new NDKRelaySet(new Set(activeRelaySet) as any, ndk);
-  }
-}
-
-/**
- * Process primary relay results
- */
-function processPrimaryRelayResults(
-  events: Set<NDKEvent>,
-  searchType: SearchSubscriptionType,
-  subscriptionType: string,
-  normalizedSearchTerm: string,
-  searchState: any,
-  abortSignal?: AbortSignal,
-  cleanup?: () => void,
-) {
-  console.log(
-    "subscription_search: Processing",
-    events.size,
-    "events from primary relay",
-  );
-
-  for (const event of events) {
-    // Check for abort signal
-    if (abortSignal?.aborted) {
-      cleanup?.();
-      throw new Error("Search cancelled");
-    }
-
-    try {
-      if (searchType === "n") {
-        processProfileEvent(
-          event,
-          subscriptionType,
-          normalizedSearchTerm,
-          searchState,
-        );
-      } else {
-        processContentEvent(event, searchType, searchState);
-      }
-    } catch (e) {
-      console.warn("subscription_search: Error processing event:", e);
-      // Invalid JSON or other error, skip
-    }
+  if (allRelays.length === 0) {
+    throw new Error("No relays available");
   }
 
-  console.log(
-    "subscription_search: Processed events - firstOrder:",
-    searchState.firstOrderEvents.length,
-    "profiles:",
-    searchState.foundProfiles.length,
-    "tTag:",
-    searchState.tTagEvents.length,
-  );
-}
-
-/**
- * Process profile event
- */
-function processProfileEvent(
-  event: NDKEvent,
-  subscriptionType: string,
-  normalizedSearchTerm: string,
-  searchState: any,
-) {
-  if (!event.content) return;
-
-  // If this is a specific npub search or NIP-05 found search, include all matching events
-  if (
-    subscriptionType === "npub-specific" ||
-    subscriptionType === "nip05-found"
-  ) {
-    searchState.foundProfiles.push(event);
-    return;
-  }
-
-  // For general profile searches, filter by content
-  const profileData = JSON.parse(event.content);
-  const displayName = profileData.display_name || profileData.displayName || "";
-  const name = profileData.name || "";
-  const nip05 = profileData.nip05 || "";
-  const username = profileData.username || "";
-  const about = profileData.about || "";
-  const bio = profileData.bio || "";
-  const description = profileData.description || "";
-
-  const matchesDisplayName = fieldMatches(displayName, normalizedSearchTerm);
-  const matchesName = fieldMatches(name, normalizedSearchTerm);
-  const matchesNip05 = nip05Matches(nip05, normalizedSearchTerm);
-  const matchesUsername = fieldMatches(username, normalizedSearchTerm);
-  const matchesAbout = fieldMatches(about, normalizedSearchTerm);
-  const matchesBio = fieldMatches(bio, normalizedSearchTerm);
-  const matchesDescription = fieldMatches(description, normalizedSearchTerm);
-
-  if (
-    matchesDisplayName ||
-    matchesName ||
-    matchesNip05 ||
-    matchesUsername ||
-    matchesAbout ||
-    matchesBio ||
-    matchesDescription
-  ) {
-    searchState.foundProfiles.push(event);
-  }
-}
-
-/**
- * Process content event
- */
-function processContentEvent(
-  event: NDKEvent,
-  searchType: SearchSubscriptionType,
-  searchState: any,
-) {
-  if (isEmojiReaction(event)) return; // Skip emoji reactions
-
-  if (searchType === "d") {
-    console.log("subscription_search: Processing d-tag event:", {
-      id: event.id,
-      kind: event.kind,
-      pubkey: event.pubkey,
-    });
-    searchState.firstOrderEvents.push(event);
-
-    // Collect event IDs and addresses for second-order search
-    if (event.id) {
-      searchState.eventIds.add(event.id);
-    }
-    // Handle both "a" tags (NIP-62) and "e" tags (legacy)
-    let tags = getMatchingTags(event, "a");
-    if (tags.length === 0) {
-      tags = getMatchingTags(event, "e");
-    }
-
-    tags.forEach((tag: string[]) => {
-      if (tag[1]) {
-        searchState.eventAddresses.add(tag[1]);
-      }
-    });
-  } else if (searchType === "t") {
-    searchState.tTagEvents.push(event);
-  }
-}
-
-/**
- * Check if search state has results
- */
-function hasResults(
-  searchState: any,
-  searchType: SearchSubscriptionType,
-): boolean {
-  if (searchType === "n") {
-    return searchState.foundProfiles.length > 0;
-  } else if (searchType === "d") {
-    return searchState.firstOrderEvents.length > 0;
-  } else if (searchType === "t") {
-    return searchState.tTagEvents.length > 0;
-  }
-  return false;
-}
-
-/**
- * Create search result from state
- */
-function createSearchResult(
-  searchState: any,
-  searchType: SearchSubscriptionType,
-  normalizedSearchTerm: string,
-): SearchResult {
-  return {
-    events:
-      searchType === "n"
-        ? searchState.foundProfiles
-        : searchType === "t"
-          ? searchState.tTagEvents
-          : searchState.firstOrderEvents,
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: searchState.eventIds,
-    addresses: searchState.eventAddresses,
-    searchType: searchType,
-    searchTerm: normalizedSearchTerm,
-  };
-}
-
-/**
- * Search other relays in background
- */
-function searchOtherRelaysInBackground(
-  searchType: SearchSubscriptionType,
-  searchFilter: SearchFilter,
-  searchState: any,
-  callbacks?: SearchCallbacks,
-  cleanup?: () => void,
-): Promise<SearchResult> {
-  const ndk = get(ndkInstance);
-
-  const otherRelays = new NDKRelaySet(
-    new Set(
-      Array.from(ndk.pool.relays.values()).filter((relay: any) => {
-        if (searchType === "n") {
-          // For profile searches, exclude search relays from fallback search
-          return !searchRelays.some(
-            (searchRelay: string) =>
-              normalizeUrl(relay.url) === normalizeUrl(searchRelay),
-          );
-        } else {
-          // For other searches, exclude community relays from fallback search
-          return !communityRelays.some(
-            (communityRelay: string) =>
-              normalizeUrl(relay.url) === normalizeUrl(communityRelay),
-          );
-        }
-      }),
-    ),
-    ndk,
-  );
-
-  // Subscribe to events from other relays
-  const sub = ndk.subscribe(
-    searchFilter.filter,
-    { closeOnEose: true },
-    otherRelays,
-  );
-
-  // Store the subscription for cleanup
-  searchState.currentSubscription = sub;
-
-  // Notify the component about the subscription for cleanup
-  if (callbacks?.onSubscriptionCreated) {
-    callbacks.onSubscriptionCreated(sub);
-  }
-
-  sub.on("event", (event: NDKEvent) => {
-    try {
-      if (searchType === "n") {
-        processProfileEvent(
-          event,
-          searchFilter.subscriptionType,
-          searchState.normalizedSearchTerm,
-          searchState,
-        );
-      } else {
-        processContentEvent(event, searchType, searchState);
-      }
-    } catch {
-      // Invalid JSON or other error, skip
-    }
+  console.log("Subscription search starting:", {
+    searchType,
+    searchTerm,
+    relayCount: allRelays.length,
+    inboxRelayCount: inboxRelays.length,
+    outboxRelayCount: outboxRelays.length,
+    timeout,
+    limit,
   });
 
-  return new Promise<SearchResult>((resolve) => {
-    sub.on("eose", () => {
-      const result = processEoseResults(
-        searchType,
-        searchState,
-        searchFilter,
-        callbacks,
-      );
-      searchCache.set(searchType, searchState.normalizedSearchTerm, result);
-      cleanup?.();
-      resolve(result);
-    });
-  });
-}
+  // Create result accumulator
+  const accumulator = new SearchResultAccumulator(
+    searchType,
+    searchTerm,
+    limit,
+    callbacks
+  );
 
-/**
- * Process EOSE results
- */
-function processEoseResults(
-  searchType: SearchSubscriptionType,
-  searchState: any,
-  searchFilter: SearchFilter,
-  callbacks?: SearchCallbacks,
-): SearchResult {
-  if (searchType === "n") {
-    return processProfileEoseResults(searchState, searchFilter, callbacks);
-  } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType, callbacks);
-  } else if (searchType === "t") {
-    return processTTagEoseResults(searchState);
-  }
+  // Create search filter
+  const filter = createSearchFilter(searchType, searchTerm);
 
-  return createEmptySearchResult(searchType, searchState.normalizedSearchTerm);
-}
-
-/**
- * Process profile EOSE results
- */
-function processProfileEoseResults(
-  searchState: any,
-  searchFilter: SearchFilter,
-  callbacks?: SearchCallbacks,
-): SearchResult {
-  if (searchState.foundProfiles.length === 0) {
-    return createEmptySearchResult("n", searchState.normalizedSearchTerm);
-  }
-
-  // Deduplicate by pubkey, keep only newest
-  const deduped: Record<string, { event: NDKEvent; created_at: number }> = {};
-  for (const event of searchState.foundProfiles) {
-    const pubkey = event.pubkey;
-    const created_at = event.created_at || 0;
-    if (!deduped[pubkey] || deduped[pubkey].created_at < created_at) {
-      deduped[pubkey] = { event, created_at };
-    }
-  }
-
-  // Sort by creation time (newest first) and take only the most recent profiles
-  const dedupedProfiles = Object.values(deduped)
-    .sort((a, b) => b.created_at - a.created_at)
-    .map((x) => x.event);
-
-  // Perform second-order search for npub searches
-  if (
-    searchFilter.subscriptionType === "npub-specific" ||
-    searchFilter.subscriptionType === "nip05-found"
-  ) {
-    const targetPubkey = dedupedProfiles[0]?.pubkey;
-    if (targetPubkey) {
-      performSecondOrderSearchInBackground(
-        "n",
-        dedupedProfiles,
-        new Set(),
-        new Set(),
-        targetPubkey,
-        callbacks,
-      );
-    }
-  } else if (searchFilter.subscriptionType === "profile") {
-    // For general profile searches, perform second-order search for each found profile
-    for (const profile of dedupedProfiles) {
-      if (profile.pubkey) {
-        performSecondOrderSearchInBackground(
-          "n",
-          dedupedProfiles,
-          new Set(),
-          new Set(),
-          profile.pubkey,
-          callbacks,
-        );
-      }
-    }
-  }
-
-  return {
-    events: dedupedProfiles,
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: new Set(dedupedProfiles.map((p) => p.id)),
-    addresses: new Set(),
-    searchType: "n",
-    searchTerm: searchState.normalizedSearchTerm,
-  };
-}
-
-/**
- * Process content EOSE results
- */
-function processContentEoseResults(
-  searchState: any,
-  searchType: SearchSubscriptionType,
-  callbacks?: SearchCallbacks,
-): SearchResult {
-  if (searchState.firstOrderEvents.length === 0) {
-    return createEmptySearchResult(
-      searchType,
-      searchState.normalizedSearchTerm,
-    );
-  }
-
-  // Deduplicate by kind, pubkey, and d-tag, keep only newest event for each combination
-  const deduped: Record<string, { event: NDKEvent; created_at: number }> = {};
-  for (const event of searchState.firstOrderEvents) {
-    const dTag = getMatchingTags(event, "d")[0]?.[1] || "";
-    const key = `${event.kind}:${event.pubkey}:${dTag}`;
-    const created_at = event.created_at || 0;
-    if (!deduped[key] || deduped[key].created_at < created_at) {
-      deduped[key] = { event, created_at };
-    }
-  }
-  const dedupedEvents = Object.values(deduped).map((x) => x.event);
-
-  // Perform second-order search for d-tag searches
-  if (dedupedEvents.length > 0) {
-    performSecondOrderSearchInBackground(
-      "d",
-      dedupedEvents,
-      searchState.eventIds,
-      searchState.eventAddresses,
-      undefined,
-      callbacks,
-    );
-  }
-
-  return {
-    events: dedupedEvents,
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: searchState.eventIds,
-    addresses: searchState.eventAddresses,
-    searchType: searchType,
-    searchTerm: searchState.normalizedSearchTerm,
-  };
-}
-
-/**
- * Process t-tag EOSE results
- */
-function processTTagEoseResults(searchState: any): SearchResult {
-  if (searchState.tTagEvents.length === 0) {
-    return createEmptySearchResult("t", searchState.normalizedSearchTerm);
-  }
-
-  return {
-    events: searchState.tTagEvents,
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: new Set(),
-    addresses: new Set(),
-    searchType: "t",
-    searchTerm: searchState.normalizedSearchTerm,
-  };
-}
-
-/**
- * Create empty search result
- */
-function createEmptySearchResult(
-  searchType: SearchSubscriptionType,
-  searchTerm: string,
-): SearchResult {
-  return {
-    events: [],
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: new Set(),
-    addresses: new Set(),
-    searchType: searchType,
-    searchTerm: searchTerm,
-  };
-}
-
-/**
- * Perform second-order search in background
- */
-async function performSecondOrderSearchInBackground(
-  searchType: "n" | "d",
-  firstOrderEvents: NDKEvent[],
-  eventIds: Set<string> = new Set(),
-  addresses: Set<string> = new Set(),
-  targetPubkey?: string,
-  callbacks?: SearchCallbacks,
-  retryCount: number = 0,
-) {
-  try {
+  // Create subscription with timeout
+  const subscriptionPromise = new Promise<SearchResult>((resolve, reject) => {
+    let subscription: NDKSubscription | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
+    let eventCount = 0;
     const ndk = get(ndkInstance);
-    if (!ndk) {
-      console.error("performSecondOrderSearchInBackground: NDK not initialized");
-      return;
-    }
 
-    // Don't perform second-order search if there are no events to search for
-    if (firstOrderEvents.length === 0 && eventIds.size === 0 && addresses.size === 0) {
-      console.debug("performSecondOrderSearchInBackground: No events to search for, skipping");
-      return;
-    }
+    const cleanup = () => {
+      if (subscription) {
+        try {
+          subscription.stop();
+        } catch (error) {
+          console.warn("Error stopping subscription:", error);
+        }
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
 
-    let allSecondOrderEvents: NDKEvent[] = [];
+    const handleTimeout = () => {
+      cleanup();
+      const result = accumulator.getResult();
+      console.log("Subscription search completed (timeout):", {
+        searchType,
+        searchTerm,
+        eventCount: result.events.length,
+        secondOrderCount: result.secondOrder.length,
+        tTagCount: result.tTagEvents.length,
+      });
+      resolve(result);
+    };
 
-    // Set a timeout for second-order search
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Second-order search timeout")),
-        TIMEOUTS.SECOND_ORDER_SEARCH,
-      );
-    });
+    const handleError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
 
-    const searchPromise = (async () => {
-      try {
-        // Use the same relay set creation logic as the primary search
-        const relaySet = createPrimaryRelaySet(searchType, ndk);
-        
-        // Check if we have any relays in the set
-        if (relaySet.relays.size === 0) {
-          const maxRetries = 3;
-          if (retryCount < maxRetries) {
-            console.warn(`performSecondOrderSearchInBackground: No relays available in relay set, will retry in 2 seconds (attempt ${retryCount + 1}/${maxRetries})`);
-            // Retry after a delay to allow relays to connect
-            setTimeout(() => {
-              performSecondOrderSearchInBackground(
-                searchType,
-                firstOrderEvents,
-                eventIds,
-                addresses,
-                targetPubkey,
-                callbacks,
-                retryCount + 1,
-              );
-            }, 2000);
-          } else {
-            console.warn(`performSecondOrderSearchInBackground: No relays available after ${maxRetries} attempts, giving up`);
-          }
+    try {
+      // Set up timeout
+      timeoutId = setTimeout(handleTimeout, timeout);
+
+      // Create subscription using all available relays
+      if (!ndk) {
+        throw new Error("NDK not available for subscription");
+      }
+      
+      // Create relay set from all available relays for parallel search
+      // Use all relay URLs directly since NDK will handle connection management
+      const availableRelayUrls = allRelays;
+      
+      if (availableRelayUrls.length === 0) {
+        throw new Error("No working relays available for subscription");
+      }
+      
+      console.log("Creating subscription with", availableRelayUrls.length, "relays:", availableRelayUrls);
+      
+      // Create NDKRelaySet from relay URLs - NDK will handle connection management
+      const relaySet = NDKRelaySet.fromRelayUrls(availableRelayUrls, ndk);
+      
+      subscription = ndk.subscribe(filter, {
+        groupable: true,
+        skipVerification: false,
+        skipValidation: false,
+        closeOnEose: true,
+        relaySet: relaySet,
+      });
+
+      // Notify callback about subscription creation
+      if (callbacks.onSubscriptionCreated && subscription) {
+        callbacks.onSubscriptionCreated(subscription);
+      }
+
+      // Handle events
+      subscription.on("event", (event: NDKEvent) => {
+        if (abortSignal?.aborted) {
+          cleanup();
+          reject(new Error("Search cancelled"));
           return;
         }
 
-        if (searchType === "n" && targetPubkey) {
-          // Search for events that mention this pubkey via p-tags
-          const pTagFilter = { "#p": [targetPubkey] };
-          console.log("performSecondOrderSearchInBackground: Searching for p-tag events with pubkey:", targetPubkey);
-          
-          const pTagEvents = await ndk.fetchEvents(
-            pTagFilter,
-            { closeOnEose: true },
-            relaySet,
-          );
-          
-          // Filter out emoji reactions
-          const filteredEvents = Array.from(pTagEvents).filter(
-            (event) => !isEmojiReaction(event),
-          );
-          allSecondOrderEvents = [...allSecondOrderEvents, ...filteredEvents];
-          console.log("performSecondOrderSearchInBackground: Found", filteredEvents.length, "p-tag events");
-        } else if (searchType === "d") {
-          // Parallel fetch for #e and #a tag events
-          console.log("performSecondOrderSearchInBackground: Searching for e-tag and a-tag events");
-          
-          const searchPromises = [];
-          
-          if (eventIds.size > 0) {
-            console.log("performSecondOrderSearchInBackground: Searching for", eventIds.size, "e-tag events");
-            searchPromises.push(
-              ndk.fetchEvents(
-                { "#e": Array.from(eventIds) },
-                { closeOnEose: true },
-                relaySet,
-              )
-            );
-          }
-          
-          if (addresses.size > 0) {
-            console.log("performSecondOrderSearchInBackground: Searching for", addresses.size, "a-tag events");
-            searchPromises.push(
-              ndk.fetchEvents(
-                { "#a": Array.from(addresses) },
-                { closeOnEose: true },
-                relaySet,
-              )
-            );
-          }
-          
-          if (searchPromises.length > 0) {
-            const results = await Promise.all(searchPromises);
-            const [eTagEvents, aTagEvents] = results.length === 2 ? results : [results[0] || [], []];
-            
-            // Filter out emoji reactions
-            const filteredETagEvents = Array.from(eTagEvents).filter(
-              (event) => !isEmojiReaction(event),
-            );
-            const filteredATagEvents = Array.from(aTagEvents).filter(
-              (event) => !isEmojiReaction(event),
-            );
-            allSecondOrderEvents = [
-              ...allSecondOrderEvents,
-              ...filteredETagEvents,
-              ...filteredATagEvents,
-            ];
-            console.log("performSecondOrderSearchInBackground: Found", filteredETagEvents.length, "e-tag events and", filteredATagEvents.length, "a-tag events");
+        eventCount++;
+        accumulator.addEvent(event);
+
+        // Add t-tag events if enabled
+        if (includeTTagEvents) {
+          const tTags = event.getMatchingTags("t");
+          if (tTags.length > 0) {
+            accumulator.addTTagEvent(event);
           }
         }
 
-        // Deduplicate by event ID
-        const uniqueSecondOrder = new Map<string, NDKEvent>();
-        allSecondOrderEvents.forEach((event) => {
-          if (event.id) {
-            uniqueSecondOrder.set(event.id, event);
-          }
+        // Check if we've reached the limit
+        if (eventCount >= limit) {
+          cleanup();
+          const result = accumulator.getResult();
+          console.log("Subscription search completed (limit reached):", {
+            searchType,
+            searchTerm,
+            eventCount: result.events.length,
+            secondOrderCount: result.secondOrder.length,
+            tTagCount: result.tTagEvents.length,
+          });
+          resolve(result);
+        }
+      });
+
+      // Handle subscription end
+      subscription.on("eose", () => {
+        cleanup();
+        const result = accumulator.getResult();
+        console.log("Subscription search completed (EOSE):", {
+          searchType,
+          searchTerm,
+          eventCount: result.events.length,
+          secondOrderCount: result.secondOrder.length,
+          tTagCount: result.tTagEvents.length,
         });
+        resolve(result);
+      });
 
-        let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
-
-        // Remove any events already in first order
-        const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
-        deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
-          (e) => !firstOrderIds.has(e.id),
-        );
-
-        // Sort by creation date (newest first) and limit to newest results
-        const sortedSecondOrder = deduplicatedSecondOrder
-          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-          .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
-
-        console.log("performSecondOrderSearchInBackground: Final second-order results:", sortedSecondOrder.length);
-
-        // Update the search results with second-order events
-        const result: SearchResult = {
-          events: firstOrderEvents,
-          secondOrder: sortedSecondOrder,
-          tTagEvents: [],
-          eventIds:
-            searchType === "n"
-              ? new Set(firstOrderEvents.map((p) => p.id))
-              : eventIds,
-          addresses: searchType === "n" ? new Set() : addresses,
-          searchType: searchType,
-          searchTerm: "", // This will be set by the caller
-        };
-
-        // Notify UI of updated results
-        if (callbacks?.onSecondOrderUpdate) {
-          callbacks.onSecondOrderUpdate(result);
-        }
-      } catch (error) {
-        console.error("performSecondOrderSearchInBackground: Error during search:", error);
-        // Don't throw here, just log the error
+      // Handle subscription errors
+      if (subscription) {
+        subscription.on("close", () => {
+          // Handle subscription close
+        });
       }
-    })();
 
-    // Race between search and timeout
-    await Promise.race([searchPromise, timeoutPromise]);
-  } catch (err) {
-    console.error(
-      `performSecondOrderSearchInBackground: Error in second-order ${searchType}-tag search:`,
-      err,
-    );
-    // Don't re-throw the error to prevent hanging
+    } catch (error) {
+      cleanup();
+      handleError(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+
+  // Wait for subscription to complete or timeout
+  const result = await Promise.race([
+    subscriptionPromise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Search timeout: No results received within ${timeout / 1000} seconds`));
+      }, timeout);
+    }),
+  ]);
+
+  // Perform second-order search if enabled
+  if (enableSecondOrder && result.events.length > 0) {
+    try {
+      await performSecondOrderSearch(
+        searchType,
+        result.events,
+        accumulator,
+        abortSignal,
+        ndk
+      );
+    } catch (error) {
+      console.warn("Second-order search failed:", error);
+    }
   }
+
+  return accumulator.getResult();
 }

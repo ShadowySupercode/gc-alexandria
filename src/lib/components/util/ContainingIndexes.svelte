@@ -52,14 +52,16 @@
       // Fallback to naddr
       try {
         const naddr = naddrEncode(indexEvent, $activeInboxRelays);
-        goto(`/publication?id=${encodeURIComponent(naddr)}`);
+        if (naddr) {
+          goto(`/publication?id=${encodeURIComponent(naddr)}`);
+        }
       } catch (err) {
         console.error("[ContainingIndexes] Error creating naddr:", err);
       }
     }
   }
 
-  function getNaddrUrl(event: NDKEvent): string {
+  function getNaddrUrl(event: NDKEvent): string | null {
     return naddrEncode(event, $activeInboxRelays);
   }
 

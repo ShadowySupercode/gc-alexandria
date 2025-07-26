@@ -149,7 +149,8 @@
       searchTypeParam === "d"
     ) {
       secondOrderSearchMessage = `Found ${results.length} event(s). Starting second-order search for events referencing these events...`;
-    } else if (secondOrder.length > 0) {
+    } else if (secondOrder.length > 0 || searchCompleted) {
+      // Clear message when second-order search completes (with or without results)
       secondOrderSearchMessage = null;
     }
 
@@ -275,14 +276,14 @@
     return "Reference";
   }
 
-  function getNeventUrl(event: NDKEvent): string {
+  function getNeventUrl(event: NDKEvent): string | null {
     if (event.kind === 0) {
       return neventEncode(event, $activeInboxRelays);
     }
     return neventEncode(event, $activeInboxRelays);
   }
 
-  function getNaddrUrl(event: NDKEvent): string {
+  function getNaddrUrl(event: NDKEvent): string | null {
     return naddrEncode(event, $activeInboxRelays);
   }
 
@@ -493,10 +494,12 @@
 
         {#if event.kind !== 0}
           <div class="flex flex-col gap-2 mb-4 break-all">
-            <CopyToClipboard
-              displayText={shortenAddress(getNeventUrl(event))}
-              copyText={getNeventUrl(event)}
-            />
+            {#if getNeventUrl(event)}
+              <CopyToClipboard
+                displayText={shortenAddress(getNeventUrl(event) || "")}
+                copyText={getNeventUrl(event) || ""}
+              />
+            {/if}
             {#if isAddressableEvent(event)}
               {@const naddrAddress = getViewPublicationNaddr(event)}
               {#if naddrAddress}

@@ -2,6 +2,7 @@ import NDK, { NDKUser } from "@nostr-dev-kit/ndk";
 import { RelayDiscoveryService } from "./relay_discovery.ts";
 import { UserRelayService } from "./user_relay_service.ts";
 import { RelaySetBuilder } from "./relay_set_builder.ts";
+import { NDKRelay } from "@nostr-dev-kit/ndk";
 
 /**
  * Main service for managing relay operations
@@ -107,6 +108,32 @@ export class RelayManagementService {
         inboxRelays: relaySet.inboxRelays,
         outboxRelays: relaySet.outboxRelays
       });
+
+      // Add relays to NDK pool so they can be used by subscription search
+      console.debug('[RelayManagementService] Adding relays to NDK pool...');
+      const allRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
+      const uniqueRelays = [...new Set(allRelays)];
+      
+      for (const relayUrl of uniqueRelays) {
+        try {
+          // Check if relay is already in the pool
+          const existingRelay = ndk.pool?.getRelay(relayUrl);
+          if (!existingRelay) {
+            // Create new relay and add to pool
+            const relay = new NDKRelay(relayUrl, undefined, ndk);
+            ndk.pool?.addRelay(relay);
+            console.debug('[RelayManagementService] Added relay to NDK pool:', relayUrl);
+          } else {
+            console.debug('[RelayManagementService] Relay already in NDK pool:', relayUrl);
+          }
+        } catch (error) {
+          console.warn('[RelayManagementService] Failed to add relay to NDK pool:', relayUrl, error);
+        }
+      }
+      
+      console.debug('[RelayManagementService] NDK pool relays after initialization:', 
+        Array.from(ndk.pool?.relays.values() || []).map((r: any) => r.url));
+      
     } catch (error) {
       console.error('[RelayManagementService] Error initializing relay stores:', error);
       // Set empty arrays as fallback
