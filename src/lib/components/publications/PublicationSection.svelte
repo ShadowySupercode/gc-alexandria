@@ -48,7 +48,17 @@
   );
 
   let leafContent: Promise<string | Document> = $derived.by(async () => {
-    const content = (await leafEvent)?.content ?? "";
+    const event = await leafEvent;
+    const content = event?.content ?? "";
+    const kind = event?.kind;
+    
+    // For kind 30023 events, use the advanced markup parser instead of Asciidoctor
+    if (kind === 30023) {
+      const { parseAdvancedmarkup } = await import("$lib/utils/markup/advancedMarkupParser");
+      return await parseAdvancedmarkup(content);
+    }
+    
+    // For other kinds (30041, 30818, etc.), use Asciidoctor as before
     const converted = asciidoctor.convert(content);
     const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
     return processed;
@@ -125,6 +135,16 @@
     }
 
     ref(sectionRef);
+  });
+
+  // Trigger MathJax rendering when content changes
+  $effect(() => {
+    if (typeof globalThis !== "undefined" && (globalThis as any).MathJax?.typesetPromise) {
+      // Wait for the next tick to ensure content is rendered
+      setTimeout(() => {
+        (globalThis as any).MathJax.typesetPromise();
+      }, 100);
+    }
   });
 </script>
 

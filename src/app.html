@@ -20,13 +20,30 @@
           processEscapes: true,
           processEnvironments: true,
         },
+        asciimath: {
+          delimiters: [
+            ["$", "$"],
+            ["$$", "$$"],
+          ],
+        },
         options: {
           ignoreHtmlClass: "tex2jax_ignore",
           processHtmlClass: "tex2jax_process",
         },
+        startup: {
+          pageReady: () => {
+            return MathJax.startup.defaultPageReady().then(() => {
+              // Re-process math after content is loaded
+              if (MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+              }
+            });
+          },
+        },
       };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/asciimath.js"></script>
 
     <!-- highlight.js for code highlighting -->
     <link

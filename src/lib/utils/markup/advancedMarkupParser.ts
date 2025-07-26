@@ -28,7 +28,7 @@ function escapeHtml(text: string): string {
 // Regular expressions for advanced markup elements
 const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
 const ALTERNATE_HEADING_REGEX = /^([^\n]+)\n(=+|-+)\n/gm;
-const INLINE_CODE_REGEX = /`([^`\n]+)`/g;
+const INLINE_CODE_REGEX = /`([^`]+)`/g;
 const HORIZONTAL_RULE_REGEX = /^(?:[-*_]\s*){3,}$/gm;
 const FOOTNOTE_REFERENCE_REGEX = /\[\^([^\]]+)\]/g;
 const FOOTNOTE_DEFINITION_REGEX = /^\[\^([^\]]+)\]:\s*(.+)$/gm;
@@ -560,6 +560,95 @@ function isLaTeXContent(content: string): boolean {
     return true;
   }
 
+  // Check for AsciiMath patterns
+  const asciiMathPatterns = [
+    /sum_/, // AsciiMath sum
+    /int_/, // AsciiMath integral
+    /sqrt/, // AsciiMath square root
+    /frac/, // AsciiMath fraction
+    /lim/, // AsciiMath limit
+    /infty/, // AsciiMath infinity
+    /alpha/, // AsciiMath Greek letters
+    /beta/,
+    /gamma/,
+    /delta/,
+    /theta/,
+    /lambda/,
+    /mu/,
+    /pi/,
+    /sigma/,
+    /phi/,
+    /omega/,
+    /partial/, // AsciiMath partial derivative
+    /nabla/, // AsciiMath nabla
+    /cdot/, // AsciiMath dot product
+    /times/, // AsciiMath times
+    /div/, // AsciiMath division
+    /pm/, // AsciiMath plus-minus
+    /mp/, // AsciiMath minus-plus
+    /leq/, // AsciiMath less than or equal
+    /geq/, // AsciiMath greater than or equal
+    /neq/, // AsciiMath not equal
+    /approx/, // AsciiMath approximately equal
+    /equiv/, // AsciiMath equivalent
+    /propto/, // AsciiMath proportional
+    /in/, // AsciiMath element of
+    /notin/, // AsciiMath not element of
+    /subset/, // AsciiMath subset
+    /supset/, // AsciiMath superset
+    /subseteq/, // AsciiMath subset or equal
+    /supseteq/, // AsciiMath superset or equal
+    /cup/, // AsciiMath union
+    /cap/, // AsciiMath intersection
+    /emptyset/, // AsciiMath empty set
+    /forall/, // AsciiMath for all
+    /exists/, // AsciiMath exists
+    /nexists/, // AsciiMath not exists
+    /therefore/, // AsciiMath therefore
+    /because/, // AsciiMath because
+    /implies/, // AsciiMath implies
+    /iff/, // AsciiMath if and only if
+    /text\(/, // AsciiMath text function
+    /\(\(/, // AsciiMath matrix notation
+    /\)\)/, // AsciiMath matrix notation
+    /\[/, // AsciiMath bracket notation
+    /\]/, // AsciiMath bracket notation
+    /\{/, // AsciiMath brace notation
+    /\}/, // AsciiMath brace notation
+    /_/, // AsciiMath subscript
+    /\^/, // AsciiMath superscript
+    /xx/, // AsciiMath multiplication
+    /\+-/, // AsciiMath plus-minus
+    /-+/, // AsciiMath minus-plus
+    /<=/, // AsciiMath less than or equal
+    />=/, // AsciiMath greater than or equal
+    /!=/, // AsciiMath not equal
+    /~~/, // AsciiMath approximately equal
+    /==/, // AsciiMath equivalent
+    /prop/, // AsciiMath proportional
+    /\bin\b/, // AsciiMath element of
+    /notin/, // AsciiMath not element of
+    /sub/, // AsciiMath subset
+    /sup/, // AsciiMath superset
+    /sube/, // AsciiMath subset or equal
+    /supe/, // AsciiMath superset or equal
+    /uu/, // AsciiMath union
+    /nn/, // AsciiMath intersection
+    /O/, // AsciiMath empty set
+    /AA/, // AsciiMath for all
+    /EE/, // AsciiMath exists
+    /_\|/, // AsciiMath not exists
+    /:\./, // AsciiMath therefore
+    /:'/, // AsciiMath because
+    /=>/, // AsciiMath implies
+    /<=>/, // AsciiMath if and only if
+  ];
+
+  // Check if any AsciiMath patterns match
+  if (asciiMathPatterns.some(pattern => pattern.test(trimmed))) {
+    return true;
+  }
+
   // Check for common LaTeX patterns
   const latexPatterns = [
     /\\[a-zA-Z]+/, // LaTeX commands like \frac, \sum, etc.
@@ -700,27 +789,32 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
     const { text: withoutCode, blocks } = processCodeBlocks(text);
     let processedText = withoutCode;
 
-    // Step 2: Process $...$ and $$...$$ math blocks (LaTeX or AsciiMath)
-    processedText = processDollarMath(processedText);
-
-    // Step 3: Process LaTeX math expressions ONLY within inline code blocks (legacy support)
+    // Step 2: Process LaTeX math expressions ONLY within inline code blocks
     processedText = processMathExpressions(processedText);
 
-    // Step 4: Process block-level elements (tables, blockquotes, headings, horizontal rules)
+    // Step 3: Process block-level elements (tables, blockquotes, headings, horizontal rules)
     processedText = processTables(processedText);
     processedText = processBlockquotes(processedText);
     processedText = processHeadings(processedText);
     processedText = processHorizontalRules(processedText);
 
-    // Step 5: Process footnotes (only references, not definitions)
+    // Step 4: Process footnotes (only references, not definitions)
     processedText = processFootnotes(processedText);
 
-    // Step 6: Process basic markup (which will also handle Nostr identifiers)
+    // Step 5: Process basic markup (which will also handle Nostr identifiers)
     // This includes paragraphs, inline code, links, lists, etc.
     processedText = await parseBasicmarkup(processedText);
 
-    // Step 7: Restore code blocks
+    // Step 6: Restore code blocks
     processedText = restoreCodeBlocks(processedText, blocks);
+
+    // Step 7: Trigger MathJax rendering if available
+    if (
+      typeof globalThis !== "undefined" &&
+      typeof (globalThis as any).MathJax?.typesetPromise === "function"
+    ) {
+      setTimeout(() => (globalThis as any).MathJax.typesetPromise(), 0);
+    }
 
     return processedText;
   } catch (e: unknown) {
