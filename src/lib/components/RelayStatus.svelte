@@ -228,7 +228,7 @@
 
   <div class="space-y-2">
     {#each relayStatuses as status}
-      <div class="flex items-center justify-between p-3 border rounded-lg">
+      <div class="flex items-center justify-between p-3 rounded-lg">
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <div class="font-medium">{status.url}</div>
