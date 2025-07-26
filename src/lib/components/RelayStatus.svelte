@@ -48,21 +48,21 @@
   // Create a Map for O(1) relay category lookup - supports multiple categories per relay
   const relayCategoryMap = new Map<string, string[]>();
   
+  // Helper function to add relay to category
+  function addRelayToCategory(url: string, category: string): void {
+    const existing = relayCategoryMap.get(url);
+    if (existing) {
+      if (!existing.includes(category)) {
+        existing.push(category);
+      }
+    } else {
+      relayCategoryMap.set(url, [category]);
+    }
+  }
+  
   // Initialize the category map
   function initializeRelayCategoryMap(): void {
     relayCategoryMap.clear();
-    
-    // Helper function to add relay to category
-    function addRelayToCategory(url: string, category: string): void {
-      const existing = relayCategoryMap.get(url);
-      if (existing) {
-        if (!existing.includes(category)) {
-          existing.push(category);
-        }
-      } else {
-        relayCategoryMap.set(url, [category]);
-      }
-    }
     
     // Add relays to their respective categories
     communityRelays.forEach(url => addRelayToCategory(url, "Community"));
