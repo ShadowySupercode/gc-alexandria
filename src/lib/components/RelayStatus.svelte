@@ -166,8 +166,6 @@
     testing = false;
   }
 
-  // Removed getRelayCategory function - now using relayCategoryMap for O(1) lookup
-
   $effect(() => {
     // Re-run relay tests when feed type, login state, or relay lists change
     void runRelayTests();

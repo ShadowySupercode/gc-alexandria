@@ -6,7 +6,7 @@
   import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   import ViewPublicationLink from '$lib/components/util/ViewPublicationLink.svelte';
   import { SEARCH_LIMITS } from '$lib/utils/search_constants';
-  import { updatePageURL } from '$lib/utils/url_service';
+  import { updatePageURL, getCurrentPage } from '$lib/utils/url_service';
 
   let {
     events,
@@ -16,7 +16,6 @@
     communityStatus = {},
     showPagination = true,
     onPageChange,
-    currentPage: initialPage = 1,
   }: {
     events: NDKEvent[];
     searchType: string | null;
@@ -25,15 +24,14 @@
     communityStatus?: Record<string, boolean>;
     showPagination?: boolean;
     onPageChange?: (page: number) => void;
-    currentPage?: number;
   } = $props();
 
   // Pagination state
-  let currentPage = $state(initialPage);
   let itemsPerPage = $state(SEARCH_LIMITS.RESULTS_PER_PAGE);
   let showAllResults = $state(false);
 
-  // Derived values
+  // Derived values - get current page from URL
+  let currentPage = $derived(getCurrentPage(new URL(window.location.href)));
   let totalPages = $derived(Math.ceil(events.length / itemsPerPage));
   let startIndex = $derived((currentPage - 1) * itemsPerPage);
   let endIndex = $derived(Math.min(startIndex + itemsPerPage, events.length));
@@ -45,22 +43,15 @@
   // Reset pagination when events change
   $effect(() => {
     if (events.length > 0) {
-      currentPage = 1;
       showAllResults = false;
-    }
-  });
-
-  // Update current page when prop changes
-  $effect(() => {
-    if (initialPage !== currentPage) {
-      currentPage = initialPage;
+      // Reset to page 1 by updating URL
+      updatePageURL(1);
     }
   });
 
   function nextPage() {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
-      currentPage = newPage;
       updatePageURL(newPage);
       onPageChange?.(newPage);
     }
@@ -69,7 +60,6 @@
   function prevPage() {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
-      currentPage = newPage;
       updatePageURL(newPage);
       onPageChange?.(newPage);
     }
@@ -77,7 +67,6 @@
 
   function goToPage(page: number) {
     if (page >= 1 && page <= totalPages) {
-      currentPage = page;
       updatePageURL(page);
       onPageChange?.(page);
     }

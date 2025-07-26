@@ -34,7 +34,6 @@
   let originalAddresses = $state<Set<string>>(new Set());
   let searchType = $state<string | null>(null);
   let searchTerm = $state<string | null>(null);
-  let currentPage = $state(1);
   let profile = $state<{
     name?: string;
     display_name?: string;
@@ -82,7 +81,6 @@
     dTagValue = decodedParams.dTagValue;
     searchType = decodedParams.searchType;
     searchTerm = decodedParams.searchTerm;
-    currentPage = decodedParams.page;
   });
 
   // Handle side panel visibility based on search type
@@ -187,7 +185,6 @@
     searchError = null;
     searchCompleted = false;
     communityStatus = {};
-    currentPage = 1;
     goto("/events", { replaceState: true });
   }
 
@@ -203,9 +200,7 @@
     goto(`/publications?d=${encodeURIComponent(dTag.toLowerCase())}`);
   }
 
-  function handlePageChange(page: number) {
-    currentPage = page;
-  }
+
 
   function getSummary(event: NDKEvent): string | undefined {
     return getMatchingTags(event, "summary")[0]?.[1];
@@ -400,8 +395,6 @@
               searchTerm={searchTerm || dTagValue?.toLowerCase() || null}
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
-              onPageChange={handlePageChange}
-              currentPage={currentPage}
             />
           </div>
         {/if}
@@ -414,8 +407,6 @@
               searchTerm="Second-Order Events (References, Replies, Quotes)"
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
-              onPageChange={handlePageChange}
-              currentPage={currentPage}
             />
             {#if (searchType === "n" || searchType === "d") && secondOrderResults.length === 100}
               <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
@@ -437,8 +428,6 @@
               searchTerm={searchTerm || dTagValue?.toLowerCase() || null}
               onEventClick={handleEventFound}
               communityStatus={communityStatus}
-              onPageChange={handlePageChange}
-              currentPage={currentPage}
             />
             <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Events that are tagged with the t-tag.
