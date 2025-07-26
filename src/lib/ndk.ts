@@ -21,6 +21,7 @@ export { testRelayConnection };
 import { userStore } from "./stores/userStore.ts";
 import { userPubkey } from "./stores/authStore.Svelte.ts";
 import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
+import { WebSocketPool } from "./data_structures/websocket_pool.ts";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
@@ -199,16 +200,14 @@ export function checkWebSocketSupport(): void {
 
   // Test if secure WebSocket is supported
   try {
-    const testWs = new WebSocket("wss://echo.websocket.org");
-    testWs.onopen = () => {
+    WebSocketPool.instance.acquire("wss://echo.websocket.org").then((ws) => {
       console.debug("[NDK.ts] ✓ Secure WebSocket (wss://) is supported");
-      testWs.close();
-    };
-    testWs.onerror = () => {
+      WebSocketPool.instance.release(ws);
+    }).catch((_) => {
       console.warn("[NDK.ts] ✗ Secure WebSocket (wss://) may not be supported");
-    };
-  } catch (error) {
-    console.warn("[NDK.ts] ✗ WebSocket test failed:", error);
+    });
+  } catch {
+    console.warn("[NDK.ts] ✗ WebSocket test failed");
   }
 }
 

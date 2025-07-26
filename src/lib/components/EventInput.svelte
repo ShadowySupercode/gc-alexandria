@@ -3,7 +3,6 @@
     getTitleTagForEvent,
     getDTagForEvent,
     requiresDTag,
-    hasDTag,
     validateNotAsciidoc,
     validateAsciiDoc,
     build30040EventSet,
@@ -22,8 +21,8 @@
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { Button } from "flowbite-svelte";
-  import { nip19 } from "nostr-tools";
   import { goto } from "$app/navigation";
+  import { WebSocketPool } from "$lib/data_structures/websocket_pool";
 
   let kind = $state<number>(30023);
   let tags = $state<[string, string][]>([]);
@@ -308,16 +307,13 @@
 
           for (const relayUrl of relays) {
             try {
-              const ws = new WebSocket(relayUrl);
+              const ws = await WebSocketPool.instance.acquire(relayUrl);
+
               await new Promise<void>((resolve, reject) => {
                 const timeout = setTimeout(() => {
-                  ws.close();
+                  WebSocketPool.instance.release(ws);
                   reject(new Error("Timeout"));
                 }, 5000);
-
-                ws.onopen = () => {
-                  ws.send(JSON.stringify(["EVENT", signedEvent]));
-                };
 
                 ws.onmessage = (e) => {
                   const [type, id, ok, message] = JSON.parse(e.data);
@@ -326,19 +322,13 @@
                     if (ok) {
                       published = true;
                       relaysPublished.push(relayUrl);
-                      ws.close();
+                      WebSocketPool.instance.release(ws);
                       resolve();
                     } else {
-                      ws.close();
+                      WebSocketPool.instance.release(ws);
                       reject(new Error(message));
                     }
                   }
-                };
-
-                ws.onerror = () => {
-                  clearTimeout(timeout);
-                  ws.close();
-                  reject(new Error("WebSocket error"));
                 };
               });
               if (published) break;
