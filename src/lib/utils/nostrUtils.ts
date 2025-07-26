@@ -12,6 +12,7 @@ import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
 import { wellKnownUrl } from "./search_utility.ts";
 import { VALIDATION } from "./search_constants.ts";
+import { TIMEOUTS } from "./search_constants.ts";
 
 const badgeCheckSvg =
   '<svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-.791 0-1.55.314-2.11.874l-.893.893a.985.985 0 0 1-.696.288H7.04A2.984 2.984 0 0 0 4.055 7.04v1.262a.986.986 0 0 1-.288.696l-.893.893a2.984 2.984 0 0 0 0 4.22l.893.893a.985.985 0 0 1 .288.696v1.262a2.984 2.984 0 0 0 2.984 2.984h1.262c.261 0 .512.104.696.288l.893.893a2.984 2.984 0 0 0 4.22 0l.893-.893a.985.985 0 0 1 .696-.288h1.262a2.984 2.984 0 0 0 2.984-2.984V15.7c0-.261.104-.512.288-.696l.893-.893a2.984 2.984 0 0 0 0-4.22l-.893-.893a.985.985 0 0 1-.288-.696V7.04a2.984 2.984 0 0 0-2.984-2.984h-1.262a.985.985 0 0 1-.696-.288l-.893-.893A2.984 2.984 0 0 0 12 2Zm3.683 7.73a1 1 0 1 0-1.414-1.413l-4.253 4.253-1.277-1.277a1 1 0 0 0-1.415 1.414l1.985 1.984a1 1 0 0 0 1.414 0l4.96-4.96Z" clip-rule="evenodd"/></svg>';
@@ -198,10 +199,10 @@ export async function createProfileLinkWithVerification(
 
   const filteredRelays = filterProblematicRelays(allRelays);
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(filteredRelays, ndk);
-  const profileEvent = await ndk.fetchEvent(
+  const profileEvent = await fetchEventWithFallback(
+    ndk,
     { kinds: [0], authors: [user.pubkey] },
-    undefined,
-    relaySet,
+    TIMEOUTS.EVENT_FETCH
   );
   const profile = profileEvent?.content
     ? JSON.parse(profileEvent.content)
@@ -438,23 +439,38 @@ export async function fetchEventWithFallback(
   ndk: NDK,
   filterOrId: string | NDKFilter<NDKKind>,
   timeoutMs: number = 3000,
+  customRelaySet?: NDKRelaySet,
 ): Promise<NDKEvent | null> {
-  // Use both inbox and outbox relays for better event discovery
-  const inboxRelays = get(activeInboxRelays);
-  const outboxRelays = get(activeOutboxRelays);
-  const allRelays = [...inboxRelays, ...outboxRelays];
+  // Use custom relay set if provided, otherwise use default relay set
+  let relaySet: NDKRelaySet;
   
-  console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
-  console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
-  
-  // Check if we have any relays available
-  if (allRelays.length === 0) {
-    console.warn("fetchEventWithFallback: No relays available for event fetch");
-    return null;
+  if (customRelaySet) {
+    relaySet = customRelaySet;
+    console.log("fetchEventWithFallback: Using custom relay set with", relaySet.relays.size, "relays");
+  } else {
+    // Use both inbox and outbox relays for better event discovery
+    const inboxRelays = get(activeInboxRelays);
+    const outboxRelays = get(activeOutboxRelays);
+    
+    // Import search relays for better event discovery
+    const { searchRelays } = await import("../consts.ts");
+    
+    // Combine all relay types for maximum coverage
+    const allRelays = [...inboxRelays, ...outboxRelays, ...searchRelays];
+    
+    console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
+    console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
+    console.log("fetchEventWithFallback: Using search relays:", searchRelays);
+    
+    // Check if we have any relays available
+    if (allRelays.length === 0) {
+      console.warn("fetchEventWithFallback: No relays available for event fetch");
+      return null;
+    }
+    
+    // Create relay set from all available relays
+    relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
   }
-  
-  // Create relay set from all available relays
-  const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
 
   try {
     if (relaySet.relays.size === 0) {
@@ -490,7 +506,7 @@ export async function fetchEventWithFallback(
       const timeoutSeconds = timeoutMs / 1000;
       const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
       console.warn(
-        `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+        `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
       return null;
     }
@@ -503,7 +519,7 @@ export async function fetchEventWithFallback(
       const timeoutSeconds = timeoutMs / 1000;
       const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
       console.warn(
-        `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
+        `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
     } else {
       console.error("fetchEventWithFallback: Error in fetchEventWithFallback:", err);

@@ -7,6 +7,8 @@
     createRelaySetFromUrls,
     createNDKEvent,
   } from "$lib/utils/nostrUtils";
+  import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
+  import { TIMEOUTS } from "$lib/utils/search_constants";
   import RelayDisplay, {
     getConnectedRelays,
     getEventRelays,
@@ -53,9 +55,7 @@
       allRelays.map(async (relay: string) => {
         try {
           const relaySet = createRelaySetFromUrls([relay], ndk);
-          const found = await ndk
-            .fetchEvent({ ids: [event?.id || ""] }, undefined, relaySet)
-            .withTimeout(2000);
+          const found = await fetchEventWithFallback(ndk, event?.id || "", TIMEOUTS.EVENT_FETCH);
           relaySearchResults = {
             ...relaySearchResults,
             [relay]: found ? "found" : "notfound",

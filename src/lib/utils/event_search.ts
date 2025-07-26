@@ -9,6 +9,21 @@ import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
 import { getSearchRelaySet } from "./relay_management.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { userStore } from "../stores/userStore.ts";
+import { npubCache } from "./npubCache";
+import { getUserMetadata } from "./nostrUtils";
+
+/**
+ * Generates a tag address for an event in the format kind:pubkey:dTag
+ * @param event The NDKEvent to generate an address for
+ * @returns The address string
+ */
+function generateTagAddress(event: NDKEvent): string {
+  const dTag = event.getMatchingTags("d")[0]?.[1];
+  if (!dTag) {
+    throw new Error("Event does not have a d tag");
+  }
+  return `${event.kind}:${event.pubkey}:${dTag}`;
+}
 
 /**
  * Fetch event using search relay set for better coverage
@@ -149,14 +164,91 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
             if (!event) {
               console.warn("[Search] Profile not found for npub:", cleanedQuery);
               
-              // Create a default profile event for npub searches
+              // Check cache first, then relays, then create synthetic event if nothing found
               try {
+                console.log("[Search] Checking cache and relays for profile data for npub:", cleanedQuery);
+                
+                // First check cache (fast)
+                let profileData = await getUserMetadata(cleanedQuery, false);
+                
+                // If no cache or only default data, try fresh fetch from relays
+                if (!profileData || !profileData.name || profileData.name === `${cleanedQuery.slice(0, 8)}...${cleanedQuery.slice(-4)}`) {
+                  console.log("[Search] No valid cache data, fetching from relays for npub:", cleanedQuery);
+                  profileData = await getUserMetadata(cleanedQuery, true); // Force fresh fetch
+                }
+                
+                // If we found actual profile data, create synthetic event with it
+                if (profileData && profileData.name && profileData.name !== `${cleanedQuery.slice(0, 8)}...${cleanedQuery.slice(-4)}`) {
+                  console.log("[Search] Found profile data, creating synthetic event for npub:", cleanedQuery);
+                  
+                  const decoded = nip19.decode(cleanedQuery);
+                  if (decoded && decoded.type === 'npub') {
+                    const pubkey = decoded.data;
+                    
+                    // Create a synthetic profile event with actual data
+                    const syntheticProfile = {
+                      kind: 0,
+                      pubkey: pubkey,
+                      created_at: Math.floor(Date.now() / 1000),
+                      tags: [],
+                      content: JSON.stringify({
+                        name: profileData.name,
+                        display_name: profileData.displayName,
+                        about: profileData.about || "Profile data available",
+                        picture: profileData.picture,
+                        banner: profileData.banner,
+                        website: profileData.website,
+                        lud16: profileData.lud16,
+                        nip05: profileData.nip05
+                      })
+                    };
+                    
+                    const ndk = get(ndkInstance);
+                    if (ndk) {
+                      const syntheticEvent = new NDKEvent(ndk, syntheticProfile);
+                      console.log("[Search] Created synthetic profile with actual data for npub:", cleanedQuery);
+                      return syntheticEvent;
+                    }
+                  }
+                } else {
+                  console.log("[Search] No profile data found anywhere, creating default profile for npub:", cleanedQuery);
+                  
+                  // No profile data found anywhere, create default profile event
+                  const decoded = nip19.decode(cleanedQuery);
+                  if (decoded && decoded.type === 'npub') {
+                    const pubkey = decoded.data;
+                    const defaultName = `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+                    
+                    // Create a default profile event
+                    const defaultProfile = {
+                      kind: 0,
+                      pubkey: pubkey,
+                      created_at: Math.floor(Date.now() / 1000),
+                      tags: [],
+                      content: JSON.stringify({
+                        name: defaultName,
+                        display_name: defaultName,
+                        about: "No profile published yet"
+                      })
+                    };
+                    
+                    const ndk = get(ndkInstance);
+                    if (ndk) {
+                      const defaultEvent = new NDKEvent(ndk, defaultProfile);
+                      console.log("[Search] Created default profile for npub:", cleanedQuery);
+                      return defaultEvent;
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error("[Search] Error checking cache/relays for profile data:", error);
+                
+                // Fallback to default profile if everything fails
                 const decoded = nip19.decode(cleanedQuery);
                 if (decoded && decoded.type === 'npub') {
                   const pubkey = decoded.data;
                   const defaultName = `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
                   
-                  // Create a default profile event
                   const defaultProfile = {
                     kind: 0,
                     pubkey: pubkey,
@@ -172,12 +264,10 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
                   const ndk = get(ndkInstance);
                   if (ndk) {
                     const defaultEvent = new NDKEvent(ndk, defaultProfile);
-                    console.log("[Search] Created default profile for npub:", cleanedQuery);
+                    console.log("[Search] Created default profile after error for npub:", cleanedQuery);
                     return defaultEvent;
                   }
                 }
-              } catch (decodeError) {
-                console.error("[Search] Error creating default profile:", decodeError);
               }
               
               throw new Error("Profile not found for this npub. The user may not have published a profile event.");
@@ -299,19 +389,38 @@ export async function findContainingIndexEvents(
   // Support all content event kinds that can be contained in indexes
   const contentEventKinds = [30041, 30818, 30040, 30023];
   if (!contentEventKinds.includes(contentEvent.kind!)) {
+    console.debug("[findContainingIndexEvents] Event kind not supported:", contentEvent.kind);
     return [];
   }
 
   try {
     const ndk = get(ndkInstance);
+    if (!ndk) {
+      console.warn("[findContainingIndexEvents] No NDK instance available");
+      return [];
+    }
 
-    // Search for 30040 events that reference this content event
-    // We need to search for events that have an 'a' tag or 'e' tag referencing this event
+    console.debug("[findContainingIndexEvents] Searching for containing indexes for event:", contentEvent.id);
+
+    // Get search relay set for better coverage
+    const userState = get(userStore);
+    const user = userState.signedIn ? userState.ndkUser : null;
+    const searchRelays = await getSearchRelaySet(ndk, user);
+    
+    if (searchRelays.length === 0) {
+      console.warn("[findContainingIndexEvents] No search relays available");
+      return [];
+    }
+    
+    const relaySet = NDKRelaySetFromNDK.fromRelayUrls(searchRelays, ndk);
+
     const contentEventId = contentEvent.id;
-    const contentEventAddress = contentEvent.tagAddress();
+    const contentEventAddress = generateTagAddress(contentEvent);
 
-    // Search for index events that reference this content event
-    const indexEvents = await ndk.fetchEvents(
+    console.debug("[findContainingIndexEvents] Content event address:", contentEventAddress);
+
+    // Search for index events that reference this content event using 'a' tags
+    const indexEventsWithATags = await ndk.fetchEvents(
       {
         kinds: [30040],
         "#a": [contentEventAddress],
@@ -321,7 +430,10 @@ export async function findContainingIndexEvents(
         skipVerification: false,
         skipValidation: false,
       },
-    );
+      relaySet,
+    ).withTimeout(TIMEOUTS.EVENT_FETCH);
+
+    console.debug("[findContainingIndexEvents] Found index events with 'a' tags:", indexEventsWithATags.size);
 
     // Also search for events with 'e' tags (legacy format)
     const indexEventsWithETags = await ndk.fetchEvents(
@@ -334,10 +446,15 @@ export async function findContainingIndexEvents(
         skipVerification: false,
         skipValidation: false,
       },
-    );
+      relaySet,
+    ).withTimeout(TIMEOUTS.EVENT_FETCH);
+
+    console.debug("[findContainingIndexEvents] Found index events with 'e' tags:", indexEventsWithETags.size);
 
     // Combine and deduplicate results
-    const allIndexEvents = new Set([...indexEvents, ...indexEventsWithETags]);
+    const allIndexEvents = new Set([...indexEventsWithATags, ...indexEventsWithETags]);
+
+    console.debug("[findContainingIndexEvents] Total unique index events found:", allIndexEvents.size);
 
     // Filter to only include valid index events
     const validIndexEvents = Array.from(allIndexEvents).filter((event) => {
@@ -347,12 +464,25 @@ export async function findContainingIndexEvents(
       const hasATags = event.getMatchingTags("a").length > 0;
       const hasETags = event.getMatchingTags("e").length > 0;
 
-      return hasTitle && hasDTag && (hasATags || hasETags);
+      const isValid = hasTitle && hasDTag && (hasATags || hasETags);
+      
+      if (!isValid) {
+        console.debug("[findContainingIndexEvents] Filtered out invalid index event:", {
+          id: event.id,
+          hasTitle,
+          hasDTag,
+          hasATags,
+          hasETags
+        });
+      }
+      
+      return isValid;
     });
 
+    console.debug("[findContainingIndexEvents] Valid index events after filtering:", validIndexEvents.length);
     return validIndexEvents;
   } catch (error) {
-    console.error("[Search] Error finding containing index events:", error);
+    console.error("[findContainingIndexEvents] Error finding containing index events:", error);
     return [];
   }
 }

@@ -14,6 +14,8 @@ import he from "he";
 import { writable, type Writable } from "svelte/store";
 import { zettelKinds } from "./consts.ts";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
+import { fetchEventWithFallback } from "./utils/nostrUtils.ts";
+import { TIMEOUTS } from "./utils/search_constants.ts";
 
 interface IndexMetadata {
   authors?: string[];
@@ -206,7 +208,7 @@ export default class Pharos {
     let content: string;
 
     if (typeof event === "string") {
-      const index = await this.ndk.fetchEvent({ ids: [event] });
+      const index = await fetchEventWithFallback(this.ndk, { ids: [event] }, TIMEOUTS.EVENT_FETCH);
       if (!index) {
         throw new Error("Failed to fetch publication.");
       }

@@ -21,7 +21,7 @@
   const href = $derived.by(() => {
     const d = event.getMatchingTags("d")[0]?.[1];
     if (d != null) {
-      return `publication?d=${d}`;
+      return `publication?d=${encodeURIComponent(d)}`;
     } else {
       return `publication?id=${naddrEncode(event, relays)}`;
     }

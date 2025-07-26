@@ -9,10 +9,15 @@
   import { TableOfContents } from "$lib/components/publications/table_of_contents.svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
+  import { ndkInstance } from "$lib/ndk";
+  import { get } from "svelte/store";
 
   let { data }: PageProps = $props();
 
-  const publicationTree = new SveltePublicationTree(data.indexEvent, data.ndk);
+  // Use NDK from data or fallback to store
+  const ndk = data.ndk || get(ndkInstance);
+  
+  const publicationTree = new SveltePublicationTree(data.indexEvent, ndk);
   const toc = new TableOfContents(
     data.indexEvent.tagAddress(),
     publicationTree,

@@ -20,7 +20,6 @@
   import { nip19 } from "nostr-tools";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { getWorkingRelays } from "$lib/utils/relay_management.ts";
 
   // Function to close the success message
   function closeSuccessMessage() {
@@ -63,12 +62,8 @@
   const repoAddress =
     "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
 
-  // Use the centralized relay management system
-  const allRelays = [
-    ...getWorkingRelays(),
-    ...$activeInboxRelays,
-    ...$activeOutboxRelays,
-  ];
+  // Use outbox relays for publishing contact form submissions
+  const publishRelays = $activeOutboxRelays;
 
   // Hard-coded repository owner pubkey and ID from the task
   // These values are extracted from the naddr
@@ -208,7 +203,7 @@
 
       // Collect all unique relays
       const uniqueRelays = new Set([
-        ...allRelays.map(normalizeRelayUrl),
+        ...publishRelays.map(normalizeRelayUrl),
         ...(ndk.pool
           ? Array.from(ndk.pool.relays.values())
               .map((relay) => normalizeRelayUrl(relay.url))

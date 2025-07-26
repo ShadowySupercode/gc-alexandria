@@ -316,13 +316,23 @@
       authorDisplayName = undefined;
       return;
     }
-    getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
-      authorDisplayName =
-        profile.displayName ||
-        (profile as any).display_name ||
-        profile.name ||
-        event.pubkey;
-    });
+    
+    console.debug("[EventDetails] Fetching profile for pubkey:", event.pubkey);
+    
+    getUserMetadata(toNpub(event.pubkey) as string)
+      .then((profile) => {
+        console.debug("[EventDetails] Profile fetched:", profile);
+        authorDisplayName =
+          profile.displayName ||
+          (profile as any).display_name ||
+          profile.name ||
+          event.pubkey;
+        console.debug("[EventDetails] Author display name set to:", authorDisplayName);
+      })
+      .catch((error) => {
+        console.error("[EventDetails] Error fetching profile:", error);
+        authorDisplayName = event.pubkey;
+      });
   });
 
   // --- Identifier helpers ---
@@ -405,12 +415,12 @@
       <span class="text-gray-600 dark:text-gray-400"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
-          profile?.display_name || event.pubkey,
+          authorDisplayName || profile?.display_name || event.pubkey,
         )}</span
       >
     {:else}
       <span class="text-gray-600 dark:text-gray-400"
-        >Author: {profile?.display_name || event.pubkey}</span
+        >Author: {authorDisplayName || profile?.display_name || event.pubkey}</span
       >
     {/if}
   </div>

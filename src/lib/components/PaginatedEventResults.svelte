@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Button } from 'flowbite-svelte';
+  import { Button, Input } from 'flowbite-svelte';
+  import { page } from '$app/stores';
   import type { NDKEvent } from '$lib/utils/nostrUtils';
   import { getMatchingTags, toNpub } from '$lib/utils/nostrUtils';
   import { userBadge } from '$lib/snippets/UserSnippets.svelte';
   import ViewPublicationLink from '$lib/components/util/ViewPublicationLink.svelte';
   import { SEARCH_LIMITS } from '$lib/utils/search_constants';
-  import { updatePageURL, getCurrentPage } from '$lib/utils/url_service';
+  import { updatePageURL } from '$lib/utils/url_service';
 
   let {
     events,
@@ -16,7 +17,6 @@
     communityStatus = {},
     showPagination = true,
     onPageChange,
-    currentPage = 1,
   }: {
     events: NDKEvent[];
     searchType: string | null;
@@ -25,14 +25,15 @@
     communityStatus?: Record<string, boolean>;
     showPagination?: boolean;
     onPageChange?: (page: number) => void;
-    currentPage?: number;
   } = $props();
 
   // Pagination state
   let itemsPerPage = $state(SEARCH_LIMITS.RESULTS_PER_PAGE);
   let showAllResults = $state(false);
+  let pageInputValue = $state("");
 
-  // Derived values - get current page from URL
+  // Derived values - get current page from URL directly
+  let currentPage = $derived(parseInt($page.url.searchParams.get('p') || '1', 10));
   let totalPages = $derived(Math.ceil(events.length / itemsPerPage));
   let startIndex = $derived((currentPage - 1) * itemsPerPage);
   let endIndex = $derived(Math.min(startIndex + itemsPerPage, events.length));
@@ -41,12 +42,10 @@
     showPagination && events.length > itemsPerPage && !showAllResults
   );
 
-  // Reset pagination when events change
+  // Reset showAllResults when events change, but don't reset pagination
   $effect(() => {
     if (events.length > 0) {
       showAllResults = false;
-      // Reset to page 1 by updating URL
-      updatePageURL(1);
     }
   });
 
@@ -70,6 +69,21 @@
     if (page >= 1 && page <= totalPages) {
       updatePageURL(page);
       onPageChange?.(page);
+    }
+  }
+
+  function handlePageInput() {
+    const pageNum = parseInt(pageInputValue, 10);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+      goToPage(pageNum);
+      pageInputValue = ""; // Clear input after successful navigation
+    }
+  }
+
+  function handlePageInputKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handlePageInput();
     }
   }
 
@@ -265,6 +279,28 @@
         onclick={nextPage}
       >
         Next
+      </Button>
+    </div>
+    
+    <div class="flex justify-center items-center gap-2 mt-2">
+      <span class="text-sm text-gray-600 dark:text-gray-400">Go to page:</span>
+      <Input
+        type="number"
+        size="sm"
+        class="w-20 text-center"
+        placeholder="Page"
+        min="1"
+        max={totalPages}
+        bind:value={pageInputValue}
+        onkeydown={handlePageInputKeydown}
+      />
+      <Button
+        size="sm"
+        color="light"
+        onclick={handlePageInput}
+        disabled={!pageInputValue || parseInt(pageInputValue, 10) < 1 || parseInt(pageInputValue, 10) > totalPages}
+      >
+        Go
       </Button>
     </div>
     

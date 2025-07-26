@@ -26,5 +26,7 @@ export const load: LayoutLoad = async () => {
   // The relay stores are now managed by relay_management.ts
   // No need to manually update them here
 
-  return {};
+  return {
+    ndk,
+  };
 };

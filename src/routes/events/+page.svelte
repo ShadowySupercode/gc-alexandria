@@ -52,7 +52,6 @@
   let communityStatus = $state<Record<string, boolean>>({});
   let searchError = $state<string | null>(null);
   let searchCompleted = $state(false);
-  let currentPage = $derived(parseInt($page.url.searchParams.get('p') || '1', 10));
 
   userStore.subscribe((val) => (user = val));
 
@@ -171,21 +170,36 @@
   }
 
   function handleClear() {
+    // Reset all search-related state
     searchType = null;
     searchTerm = null;
+    searchValue = null;
+    dTagValue = null;
     searchResults = [];
     secondOrderResults = [];
     tTagResults = [];
     originalEventIds = new Set();
     originalAddresses = new Set();
+    
+    // Reset event and profile state
     event = null;
     profile = null;
     showSidePanel = false;
+    
+    // Reset search progress and messages
     searchInProgress = false;
     secondOrderSearchMessage = null;
     searchError = null;
     searchCompleted = false;
+    
+    // Reset loading and error states
+    loading = false;
+    error = null;
+    
+    // Reset community status
     communityStatus = {};
+    
+    // Navigate to clean events page
     goto("/events", { replaceState: true });
   }
 
@@ -404,7 +418,6 @@
               communityStatus={communityStatus}
               showPagination={true}
               onPageChange={handlePageChange}
-              currentPage={currentPage}
             />
           </div>
         {/if}
@@ -423,7 +436,7 @@
                 Showing the 100 newest events. More results may be available.
               </P>
             {/if}
-            <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <P class="mt-8 mb-4 text-sm text-gray-600 dark:text-gray-400 text-center">
               Events that reference, reply to, highlight, or quote the original
               events.
             </P>

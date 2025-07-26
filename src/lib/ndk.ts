@@ -14,13 +14,13 @@ import {
   buildCompleteRelaySet,
   testRelayConnection,
   deduplicateRelayUrls,
-  initializeRelayStores,
-  getWorkingRelays,
 } from "./utils/relay_management.ts";
+import { RelayManagementService } from "./services/relay_management_service.ts";
 import { userStore } from "./stores/userStore.ts";
 import { userPubkey } from "./stores/authStore.Svelte.ts";
 import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
 import { WebSocketPool } from "./data_structures/websocket_pool.ts";
+import { secondaryRelays, anonymousRelays } from "./consts.ts";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
@@ -394,7 +394,8 @@ export async function getActiveRelaySetAsNDKRelaySet(
 async function initializeAnonymousRelayStores(ndk: NDK): Promise<void> {
   try {
     console.debug('[NDK.ts] Initializing relay stores for anonymous user');
-    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, null);
+    console.debug('[NDK.ts] Relay stores initialized successfully');
   } catch (error) {
     console.error('[NDK.ts] Failed to initialize anonymous relay stores:', error);
   }
@@ -410,6 +411,14 @@ export function initNdk(): NDK {
   const ndk = new NDK({
     autoConnectUserRelays: false, // We'll manage relays manually
     enableOutboxModel: true,
+  });
+
+  // Set default relays immediately so components have something to work with
+  activeInboxRelays.set(secondaryRelays);
+  activeOutboxRelays.set(anonymousRelays);
+  console.debug("[NDK.ts] Set default relays immediately:", {
+    inboxRelays: secondaryRelays,
+    outboxRelays: anonymousRelays
   });
 
   // Set up custom authentication policy
@@ -454,7 +463,8 @@ export function initNdk(): NDK {
     try {
       console.debug("[NDK.ts] Attempting fallback connection with minimal relay set...");
       // Use the centralized relay management for fallback relays
-      const minimalRelays = getWorkingRelays().slice(0, 2); // Use first 2 relays for fallback
+      const allWorkingRelays = await RelayManagementService.getWorkingRelays(ndk, null);
+      const minimalRelays = allWorkingRelays.slice(0, 2); // Use first 2 relays for fallback
       
       // Try to connect with just these relays by adding them to the pool
       for (const relayUrl of minimalRelays) {

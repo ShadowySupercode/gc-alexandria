@@ -23,7 +23,6 @@
   import { Button } from "flowbite-svelte";
   import { goto } from "$app/navigation";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
-  import { getWorkingRelays } from "$lib/utils/relay_management.ts";
 
   let kind = $state<number>(30023);
   let tags = $state<[string, string][]>([]);
@@ -298,9 +297,7 @@
 
           // Try to publish to relays directly
           const relays = [
-            ...getWorkingRelays(),
-            ...$activeOutboxRelays,
-            ...$activeInboxRelays,
+            ...$activeOutboxRelays
           ];
           let published = false;
 

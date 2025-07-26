@@ -1,15 +1,13 @@
-import { writable, get } from "svelte/store";
-import type { NostrProfile } from "../utils/nostrUtils.ts";
-import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
-import NDK, {
-  NDKNip07Signer,
-  NDKRelayAuthPolicies,
-  NDKRelaySet,
-  NDKRelay,
-} from "@nostr-dev-kit/ndk";
-import { getUserMetadata } from "../utils/nostrUtils.ts";
+import { get } from "svelte/store";
+import { writable } from "svelte/store";
 import { ndkInstance, activeInboxRelays, activeOutboxRelays, ndkSignedIn, logout as ndkLogout } from "../ndk.ts";
-import { initializeRelayStores } from "../utils/relay_management.ts";
+import type NDK from "@nostr-dev-kit/ndk";
+import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
+import { NDKNip07Signer, NDKRelay, NDKRelaySet, NDKRelayAuthPolicies } from "@nostr-dev-kit/ndk";
+import { getUserMetadata, type NostrProfile, fetchEventWithFallback } from "../utils/nostrUtils.ts";
+import { TIMEOUTS } from "../utils/search_constants.ts";
+
+import { RelayManagementService } from "../services/relay_management_service.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 import { userPubkey } from "../stores/authStore.Svelte.ts";
@@ -74,17 +72,13 @@ async function getUserPreferredRelays(
   user: NDKUser,
       fallbacks: readonly string[] = [...get(activeInboxRelays), ...get(activeOutboxRelays)],
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayList = await ndk.fetchEvent(
+  const relayList = await fetchEventWithFallback(
+    ndk,
     {
       kinds: [10002],
       authors: [user.pubkey],
     },
-    {
-      groupable: false,
-      skipVerification: false,
-      skipValidation: false,
-    },
-    NDKRelaySet.fromRelayUrls(fallbacks, ndk),
+    TIMEOUTS.EVENT_FETCH
   );
 
   const inboxRelays = new Set<NDKRelay>();
@@ -209,7 +203,7 @@ export async function loginWithExtension() {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
-    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, user);
   } catch (error) {
     console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
   }
@@ -279,7 +273,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
-    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, user);
   } catch (error) {
     console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
   }
@@ -354,7 +348,7 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
-    initializeRelayStores(activeInboxRelays, activeOutboxRelays);
+    await RelayManagementService.initializeRelayStores(activeInboxRelays, activeOutboxRelays, ndk, user);
   } catch (error) {
     console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
   }

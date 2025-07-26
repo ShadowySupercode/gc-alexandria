@@ -865,28 +865,12 @@
     isResetting = true;
     searchQuery = "";
     isUserEditing = false; // Reset user editing flag
-    resetSearchState();
-
+    
     // Clear URL parameters using the URL service
     clearSearchURL(true);
 
-    // Ensure all search state is cleared
-    searching = false;
-    searchCompleted = false;
-    searchResultCount = null;
-    searchResultType = null;
-    foundEvent = null;
-    localError = null;
-    isProcessingSearch = false;
-    currentProcessingSearchValue = null;
-    lastSearchValue = null;
-    isWaitingForSearchResult = false;
-
-    // Clear any pending timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-      searchTimeout = null;
-    }
+    // Call resetSearchState to properly clear all search state variables
+    resetSearchState();
 
     if (onClear) {
       onClear();

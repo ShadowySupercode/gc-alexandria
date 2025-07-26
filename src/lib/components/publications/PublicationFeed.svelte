@@ -14,6 +14,9 @@
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
+  import { RelaySetBuilder } from "$lib/services/relay_set_builder";
+  import { npubCache } from "$lib/utils/npubCache";
+  import { userStore } from "$lib/stores/userStore";
 
   const props = $props<{
     searchQuery?: string;
@@ -43,15 +46,29 @@
       return;
     }
 
-    // Get relays from active stores
-    const inboxRelays = $activeInboxRelays;
-    const outboxRelays = $activeOutboxRelays;
-    const newRelays = [...inboxRelays, ...outboxRelays];
+    // Get user for search relay selection
+    const user = $userStore;
+    const currentUser = user.signedIn ? ndk.getUser({ pubkey: user.pubkey! }) : null;
+
+    // Use search relays for better event discovery
+    let newRelays: string[] = [];
+    try {
+      console.debug('[PublicationFeed] Getting search relays for user:', currentUser?.pubkey || 'anonymous');
+      newRelays = await RelaySetBuilder.getSearchRelaySet(ndk, currentUser);
+      console.debug('[PublicationFeed] Search relays obtained:', {
+        count: newRelays.length,
+        relays: newRelays
+      });
+    } catch (error) {
+      console.warn('[PublicationFeed] Error getting search relays, falling back to active relays:', error);
+      // Fallback to active relays if search relay fetch fails
+      const inboxRelays = $activeInboxRelays;
+      const outboxRelays = $activeOutboxRelays;
+      newRelays = [...inboxRelays, ...outboxRelays];
+    }
 
     console.debug('[PublicationFeed] Available relays:', {
-      inboxCount: inboxRelays.length,
-      outboxCount: outboxRelays.length,
-      totalCount: newRelays.length,
+      searchRelayCount: newRelays.length,
       relays: newRelays
     });
 
@@ -76,15 +93,39 @@
     if (currentRelaysString !== newRelaysString) {
       allRelays = newRelays;
       console.debug('[PublicationFeed] Relays updated, fetching events');
+      
+      // Clear profile cache on first load to avoid showing deleted events
+      if (!hasInitialized) {
+        console.debug('[PublicationFeed] First load, clearing profile cache');
+        npubCache.clear();
+      }
+      
       await fetchAllIndexEventsFromRelays();
     }
   }
 
-  // Watch for relay store changes
+  // Watch for relay store changes and user changes
   $effect(() => {
     const inboxRelays = $activeInboxRelays;
     const outboxRelays = $activeOutboxRelays;
-    const newRelays = [...inboxRelays, ...outboxRelays];
+    const user = $userStore;
+    
+    // Use search relays when available, fallback to active relays
+    let newRelays = [...inboxRelays, ...outboxRelays];
+    
+    // Try to get search relays if NDK is available
+    if (ndk && user.signedIn) {
+      const currentUser = ndk.getUser({ pubkey: user.pubkey! });
+      RelaySetBuilder.getSearchRelaySet(ndk, currentUser)
+        .then(searchRelays => {
+          if (searchRelays.length > 0) {
+            newRelays = searchRelays;
+          }
+        })
+        .catch(error => {
+          console.debug('[PublicationFeed] Could not get search relays, using active relays:', error);
+        });
+    }
 
     if (newRelays.length > 0 && !hasInitialized) {
       console.debug('[PublicationFeed] Relays available, initializing');

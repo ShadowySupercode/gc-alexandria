@@ -1,6 +1,7 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Lazy } from "./lazy.ts";
+import { fetchEventWithFallback } from "../utils/nostrUtils.ts";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -73,7 +74,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   #bookmarkMovedObservers: Array<(address: string) => void> = [];
 
   constructor(rootEvent: NDKEvent, ndk: NDK) {
-    const rootAddress = rootEvent.tagAddress();
+    const rootAddress = this.#generateAddress(rootEvent);
     this.#root = {
       type: PublicationTreeNodeType.Branch,
       status: PublicationTreeNodeStatus.Resolved,
@@ -94,6 +95,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
+   * Generates a proper address for an event in the format kind:pubkey:dTag
+   * For events without d tags (like those fetched by e tags), uses the event ID as the address
+   * @param event The NDKEvent to generate an address for
+   * @returns The address string
+   */
+  #generateAddress(event: NDKEvent): string {
+    const dTag = event.getMatchingTags("d")[0]?.[1];
+    if (dTag) {
+      // Event has a d tag, use the standard format
+      return `${event.kind}:${event.pubkey}:${dTag}`;
+    } else {
+      // Event doesn't have a d tag, use the event ID as the address
+      return event.id;
+    }
+  }
+
+  /**
    * Adds an event to the publication tree.
    * @param event The event to be added.
    * @param parentEvent The parent event of the event to be added.
@@ -102,8 +120,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
   async addEvent(event: NDKEvent, parentEvent: NDKEvent) {
-    const address = event.tagAddress();
-    const parentAddress = parentEvent.tagAddress();
+    const address = this.#generateAddress(event);
+    const parentAddress = this.#generateAddress(parentEvent);
     const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
@@ -134,7 +152,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * {@link PublicationTree.getEvent} to retrieve an event already in the tree.
    */
   async addEventByAddress(address: string, parentEvent: NDKEvent) {
-    const parentAddress = parentEvent.tagAddress();
+    const parentAddress = this.#generateAddress(parentEvent);
     const parentNode = await this.#nodes.get(parentAddress)?.value();
 
     if (!parentNode) {
@@ -207,15 +225,15 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * Sets a start point for iteration over the leaves of the tree.
-   * @param address The address of the event to bookmark.
+   * Sets the bookmark to the given address.
+   *
+   * @param address The address to set the bookmark to.
    */
   setBookmark(address: string) {
     this.#bookmark = address;
-    this.#cursor.tryMoveTo(address).then((success) => {
-      if (success) {
-        this.#bookmarkMovedObservers.forEach((observer) => observer(address));
-      }
+    // Ensure tree is built up to the bookmark address
+    this.#ensureTreeBuilt(address).then(() => {
+      this.#bookmarkMovedObservers.forEach((observer) => observer(address));
     });
   }
 
@@ -255,7 +273,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
           return false;
         }
         this.target = await this.#tree.#nodes
-          .get(startEvent.tagAddress())
+          .get(this.#tree.#generateAddress(startEvent))
           ?.value();
       } else {
         this.target = await this.#tree.#nodes.get(address)?.value();
@@ -397,15 +415,25 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * Return the next event in the tree for the given traversal mode.
-   *
-   * @param mode The traversal mode. Can be {@link TreeTraversalMode.Leaves} or
-   * {@link TreeTraversalMode.All}.
-   * @returns The next event in the tree, or null if the tree is empty.
+   * Ensures the tree is built up to the specified address or the first leaf
+   * @param address Optional address to build up to
    */
+  async #ensureTreeBuilt(address?: string): Promise<void> {
+    if (address) {
+      // Build tree up to the specified address
+      await this.#depthFirstRetrieve(address);
+    } else {
+      // Build tree up to the first leaf
+      await this.#depthFirstRetrieve();
+    }
+  }
+
   async next(
     mode: TreeTraversalMode = TreeTraversalMode.Leaves,
   ): Promise<IteratorResult<NDKEvent | null>> {
+    // Ensure tree is built before navigation
+    await this.#ensureTreeBuilt();
+    
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
         return this.#yieldEventAtCursor(false);
@@ -430,6 +458,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   async previous(
     mode: TreeTraversalMode = TreeTraversalMode.Leaves,
   ): Promise<IteratorResult<NDKEvent | null>> {
+    // Ensure tree is built before navigation
+    await this.#ensureTreeBuilt();
+    
     if (!this.#cursor.target) {
       if (await this.#cursor.tryMoveTo(this.#bookmark)) {
         return this.#yieldEventAtCursor(false);
@@ -579,12 +610,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         return currentEvent;
       }
 
-      const currentChildAddresses = currentEvent.tags
-        .filter((tag) => tag[0] === "a")
-        .map((tag) => tag[1]);
+      const childAddresses = currentEvent.tags
+        .filter((tag) => tag[0] === "a" || tag[0] === "e")
+        .map((tag) => {
+          if (tag[0] === "a") {
+            // a tags are already in the correct format (kind:pubkey:dTag)
+            return tag[1];
+          } else if (tag[0] === "e") {
+            // e tags need to be converted to nevent format for proper event references
+            // For now, we'll use the event ID directly, but ideally we'd convert to nevent
+            return tag[1]; // This is the event ID
+          }
+          return null;
+        })
+        .filter((address) => address !== null) as string[];
 
       // If the current event has no children, it is a leaf.
-      if (currentChildAddresses.length === 0) {
+      if (childAddresses.length === 0) {
         // Return the first leaf if no address was provided.
         if (address == null) {
           return currentEvent!;
@@ -594,15 +636,15 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       }
 
       // Augment the tree with the children of the current event.
-      const childPromises = currentChildAddresses
+      const childPromises = childAddresses
         .filter(childAddress => !this.#nodes.has(childAddress))
         .map(childAddress => this.#addNode(childAddress, currentNode!));
       
       await Promise.all(childPromises);
 
       // Push the popped address's children onto the stack for the next iteration.
-      while (currentChildAddresses.length > 0) {
-        const nextAddress = currentChildAddresses.pop()!;
+      while (childAddresses.length > 0) {
+        const nextAddress = childAddresses.pop()!;
         stack.push(nextAddress);
       }
     }
@@ -637,22 +679,66 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     let event = this.#eventCache.get(address);
     
     if (!event) {
-      const [kind, pubkey, dTag] = address.split(":");
-      const fetchedEvent = await this.#ndk.fetchEvent({
-        kinds: [parseInt(kind)],
-        authors: [pubkey],
-        "#d": [dTag],
-      });
+      // Check if this is an event ID (64 hex characters) or an addressable event (kind:pubkey:dTag)
+      const isEventId = /^[0-9a-fA-F]{64}$/.test(address);
       
-      // Cache the event if found
-      if (fetchedEvent) {
-        this.#eventCache.set(address, fetchedEvent);
-        event = fetchedEvent;
+      if (isEventId) {
+        // This is an event ID from an e tag, fetch by ID
+        try {
+          console.debug(`[PublicationTree] Fetching event by ID: ${address}`);
+          const fetchedEvent = await fetchEventWithFallback(this.#ndk, address);
+          
+          if (fetchedEvent) {
+            this.#eventCache.set(address, fetchedEvent);
+            event = fetchedEvent;
+            console.debug(`[PublicationTree] Successfully fetched event by ID: ${address}`);
+          } else {
+            console.warn(`[PublicationTree] Event not found by ID: ${address}`);
+          }
+        } catch (error) {
+          console.error(`[PublicationTree] Error fetching event by ID ${address}:`, error);
+        }
+      } else {
+        // This is an addressable event (kind:pubkey:dTag format)
+        const [kind, pubkey, dTag] = address.split(":");
+        
+        // Validate the address format
+        if (!kind || !pubkey || !dTag) {
+          console.warn(`[PublicationTree] Invalid address format: ${address}`);
+          return {
+            type: PublicationTreeNodeType.Leaf,
+            status: PublicationTreeNodeStatus.Error,
+            address,
+            parent: parentNode,
+            children: [],
+          };
+        }
+        
+        // Fetch the event using fetchEventWithFallback for better reliability
+        try {
+          console.debug(`[PublicationTree] Fetching addressable event: ${address}`);
+          const fetchedEvent = await fetchEventWithFallback(this.#ndk, {
+            kinds: [parseInt(kind)],
+            authors: [pubkey],
+            "#d": [dTag],
+          });
+          
+          // Cache the event if found
+          if (fetchedEvent) {
+            this.#eventCache.set(address, fetchedEvent);
+            event = fetchedEvent;
+            console.debug(`[PublicationTree] Successfully fetched addressable event: ${address}`);
+          } else {
+            console.warn(`[PublicationTree] Addressable event not found on relays: ${address}`);
+          }
+        } catch (error) {
+          console.error(`[PublicationTree] Error fetching addressable event ${address}:`, error);
+        }
       }
     }
 
     if (!event) {
-      console.debug(
+      console.warn(
         `[PublicationTree] Event with address ${address} not found.`,
       );
 
@@ -668,8 +754,19 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     this.#events.set(address, event);
 
     const childAddresses = event.tags
-      .filter((tag) => tag[0] === "a")
-      .map((tag) => tag[1]);
+      .filter((tag) => tag[0] === "a" || tag[0] === "e")
+      .map((tag) => {
+        if (tag[0] === "a") {
+          // a tags are already in the correct format (kind:pubkey:dTag)
+          return tag[1];
+        } else if (tag[0] === "e") {
+          // e tags need to be converted to nevent format for proper event references
+          // For now, we'll use the event ID directly, but ideally we'd convert to nevent
+          return tag[1]; // This is the event ID
+        }
+        return null;
+      })
+      .filter((address) => address !== null) as string[];
 
     const node: PublicationTreeNode = {
       type: this.#getNodeType(event),
@@ -679,10 +776,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
-    const childPromises = childAddresses.map(address => 
-      this.addEventByAddress(address, event)
-    );
-    await Promise.all(childPromises);
+    // Only add child nodes if this is a branch node
+    if (node.type === PublicationTreeNodeType.Branch) {
+      const childPromises = childAddresses.map(childAddress => 
+        this.#addNode(childAddress, node)
+      );
+      await Promise.all(childPromises);
+    }
 
     this.#nodeResolvedObservers.forEach((observer) => observer(address));
 
@@ -690,7 +790,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    if (event.kind === 30040 && event.tags.some((tag) => tag[0] === "a")) {
+    // Any event with "a" or "e" tags should be considered a branch node
+    // as it references other events that need to be loaded
+    if (event.tags.some((tag) => tag[0] === "a" || tag[0] === "e")) {
       return PublicationTreeNodeType.Branch;
     }
 
