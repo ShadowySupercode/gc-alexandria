@@ -175,6 +175,7 @@ async function performSecondOrderSearch(
     return;
   }
 
+  console.log(`[subscription_search] Starting second-order search for ${primaryEvents.length} primary events`);
   const secondOrderEvents: NDKEvent[] = [];
   const processedIds = new Set<string>();
 
@@ -182,6 +183,8 @@ async function performSecondOrderSearch(
     if (abortSignal?.aborted) {
       break;
     }
+
+    console.log(`[subscription_search] Processing event ${event.id} for second-order search`);
 
     // Extract event IDs and addresses for second-order search
     const eventIds = event.getMatchingTags("e").map(tag => tag[1]).filter(Boolean);
@@ -201,26 +204,53 @@ async function performSecondOrderSearch(
       }
     }
 
-    // For d-tag searches, also look for related content events
+    // For d-tag searches, look for events that reference the found events
     if (searchType === "d" && ndk) {
-      const dTag = event.getMatchingTags("d")[0]?.[1];
-      if (dTag) {
-        try {
-          // Get all available relays for second-order search
-          const inboxRelays = get(activeInboxRelays);
-          const outboxRelays = get(activeOutboxRelays);
-          const allRelays = [...inboxRelays, ...outboxRelays];
+      try {
+        // Get all available relays for second-order search
+        const inboxRelays = get(activeInboxRelays);
+        const outboxRelays = get(activeOutboxRelays);
+        const allRelays = [...inboxRelays, ...outboxRelays];
+        
+        if (allRelays.length > 0) {
+          // Create relay set for second-order search - use all relays directly
+          const availableRelayUrls = allRelays;
           
-          if (allRelays.length > 0) {
-            // Create relay set for second-order search - use all relays directly
-            const availableRelayUrls = allRelays;
+          if (availableRelayUrls.length > 0) {
+            const relaySet = NDKRelaySet.fromRelayUrls(availableRelayUrls, ndk);
             
-            if (availableRelayUrls.length > 0) {
-              const relaySet = NDKRelaySet.fromRelayUrls(availableRelayUrls, ndk);
-              
-              const relatedEvents = await ndk.fetchEvents(
+            console.log(`[subscription_search] Looking for events referencing event ID: ${event.id}`);
+            // Look for events that reference the found event by its ID
+            const relatedEvents = await ndk.fetchEvents(
+              {
+                "#e": [event.id],
+                kinds: [1, 30023], // Text notes and articles
+                limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+              },
+              {
+                groupable: true,
+                skipVerification: false,
+                skipValidation: false,
+                relaySet: relaySet,
+              }
+            );
+
+            console.log(`[subscription_search] Found ${relatedEvents.size} events referencing event ID`);
+            for (const relatedEvent of relatedEvents) {
+              if (abortSignal?.aborted) {
+                break;
+              }
+              accumulator.addSecondOrderEvent(relatedEvent);
+            }
+
+            // Also look for events that reference the found event by its address (if it's addressable)
+            const dTag = event.getMatchingTags("d")[0]?.[1];
+            if (dTag) {
+              const address = `${event.kind}:${event.pubkey}:${dTag}`;
+              console.log(`[subscription_search] Looking for events referencing address: ${address}`);
+              const addressRelatedEvents = await ndk.fetchEvents(
                 {
-                  "#d": [dTag],
+                  "#a": [address],
                   kinds: [1, 30023], // Text notes and articles
                   limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
                 },
@@ -232,20 +262,23 @@ async function performSecondOrderSearch(
                 }
               );
 
-              for (const relatedEvent of relatedEvents) {
+              console.log(`[subscription_search] Found ${addressRelatedEvents.size} events referencing address`);
+              for (const addressRelatedEvent of addressRelatedEvents) {
                 if (abortSignal?.aborted) {
                   break;
                 }
-                accumulator.addSecondOrderEvent(relatedEvent);
+                accumulator.addSecondOrderEvent(addressRelatedEvent);
               }
             }
           }
-        } catch (error) {
-          console.warn("Error fetching related events:", error);
         }
+      } catch (error) {
+        console.warn("Error fetching related events:", error);
       }
     }
   }
+  
+  console.log(`[subscription_search] Second-order search completed`);
 }
 
 /**
@@ -453,13 +486,22 @@ export async function searchBySubscription(
   // Perform second-order search if enabled
   if (enableSecondOrder && result.events.length > 0) {
     try {
-      await performSecondOrderSearch(
-        searchType,
-        result.events,
-        accumulator,
-        abortSignal,
-        ndk
-      );
+      console.log(`[subscription_search] Starting second-order search with timeout: ${timeout * 2}ms`);
+      await Promise.race([
+        performSecondOrderSearch(
+          searchType,
+          result.events,
+          accumulator,
+          abortSignal,
+          ndk
+        ),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Second-order search timeout: No results received within ${(timeout * 2) / 1000} seconds`));
+          }, timeout * 2);
+        }),
+      ]);
+      console.log(`[subscription_search] Second-order search completed successfully`);
     } catch (error) {
       console.warn("Second-order search failed:", error);
     }
