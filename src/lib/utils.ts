@@ -187,3 +187,29 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     timeout = setTimeout(later, wait);
   };
 }
+
+/**
+ * Creates a debounced async function that delays invoking func until after wait milliseconds have elapsed
+ * since the last time the debounced function was invoked.
+ * @param func The async function to debounce
+ * @param wait The number of milliseconds to delay
+ * @returns A debounced version of the async function
+ */
+export function debounceAsync(
+  func: (query: string) => Promise<void>,
+  wait: number,
+): (query: string) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return function executedFunction(query: string) {
+    const later = () => {
+      timeout = undefined;
+      func(query);
+    };
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
