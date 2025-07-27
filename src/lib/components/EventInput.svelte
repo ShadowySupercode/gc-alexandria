@@ -75,6 +75,8 @@
       const extracted = extractTitleFromContent(content);
       console.log("Content input - extracted title:", extracted);
       title = extracted;
+      // Reset dTagManuallyEdited when title changes so d-tag can be auto-generated
+      dTagManuallyEdited = false;
     }
     
     // Extract metadata from AsciiDoc content for 30040 and 30041 events

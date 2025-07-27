@@ -415,9 +415,10 @@ function splitAsciiDocSections(content: string): string[] {
 export function metadataToTags(metadata: AsciiDocMetadata | SectionMetadata): [string, string][] {
   const tags: [string, string][] = [];
 
-  if (metadata.title) {
-    tags.push(['title', metadata.title]);
-  }
+  // Don't add title to tags since it has its own dedicated field
+  // if (metadata.title) {
+  //   tags.push(['title', metadata.title]);
+  // }
 
   if (metadata.authors && metadata.authors.length > 0) {
     metadata.authors.forEach(author => {
