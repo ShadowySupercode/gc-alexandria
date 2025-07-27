@@ -32,9 +32,9 @@ export async function postProcessAdvancedAsciidoctorHtml(
     }
     if (
       typeof globalThis !== "undefined" &&
-      typeof globalThis.MathJax?.typesetPromise === "function"
+      typeof (globalThis.MathJax as any)?.typesetPromise === "function"
     ) {
-      setTimeout(() => globalThis.MathJax.typesetPromise(), 0);
+      setTimeout(() => (globalThis.MathJax as any).typesetPromise(), 0);
     }
     return processedHtml;
   } catch (error) {

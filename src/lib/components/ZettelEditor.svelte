@@ -51,6 +51,35 @@ Note content here...
 </script>
 
 <div class="flex flex-col space-y-4">
+  <!-- Informative text about ZettelEditor purpose -->
+  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+    <div class="flex items-start space-x-3">
+      <div class="flex-shrink-0">
+        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+          Note-Taking Tool
+        </h3>
+        <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">
+          This editor is for creating individual notes (30041 events) only. Each section becomes a separate note event.
+          To create structured publications with a 30040 index event that ties multiple notes together, 
+          use the <a href="/events?kind=30040" class="font-medium underline hover:text-blue-600 dark:hover:text-blue-400">Events form</a>.
+        </p>
+        <div class="flex space-x-2">
+          <a 
+            href="/events?kind=30040" 
+            class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+          >
+            Create Publication
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="flex items-center justify-between">
     <Button
       color="light"
