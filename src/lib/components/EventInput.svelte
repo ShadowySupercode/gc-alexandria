@@ -14,6 +14,7 @@
   } from "$lib/utils/event_input_utils";
   import { 
     extractDocumentMetadata, 
+    extractSmartMetadata,
     metadataToTags,
     removeMetadataFromContent 
   } from "$lib/utils/asciidoc_metadata";
@@ -65,60 +66,45 @@
       sessionStorage.removeItem('zettelEditorContent');
       sessionStorage.removeItem('zettelEditorSource');
       
-      // Extract title from content
-      const extracted = extractTitleFromContent(content);
-      if (extracted) {
-        title = extracted;
+      // Extract title and metadata using the standardized parser
+      const { metadata } = extractSmartMetadata(content);
+      if (metadata.title) {
+        title = metadata.title;
         titleManuallyEdited = false;
         dTagManuallyEdited = false;
       }
       
-      // For content from ZettelEditor, don't extract any metadata
-      // since ZettelEditor content never has document metadata
+      // Extract metadata for 30040 and 30041 events
       if (kind === 30040 || kind === 30041) {
-        extractedMetadata = [];
+        extractedMetadata = metadataToTags(metadata);
       }
     }
   });
 
   /**
-   * Extracts the first Markdown/AsciiDoc header as the title.
+   * Extracts the first Markdown/AsciiDoc header as the title using the standardized parser.
    */
   function extractTitleFromContent(content: string): string {
-    // Match Markdown (# Title) or AsciiDoc (= Title) headers
-    // Look for document title (=) first, then fall back to section headers (==)
-    const documentMatch = content.match(/^=\s*(.+)$/m);
-    if (documentMatch) {
-      const title = documentMatch[1].trim();
-      // Only return the title if it's not empty (malformed titles like "=|" will be empty)
-      if (title) {
-        return title;
-      }
-    }
-    
-    // If no valid document title, look for the first section header
-    const sectionMatch = content.match(/^==\s*(.+)$/m);
-    if (sectionMatch) {
-      return sectionMatch[1].trim();
-    }
-    
-    return "";
+    const { metadata } = extractSmartMetadata(content);
+    return metadata.title || "";
   }
 
   function handleContentInput(e: Event) {
     content = (e.target as HTMLTextAreaElement).value;
+    
+    // Extract title and metadata using the standardized parser
+    const { metadata } = extractSmartMetadata(content);
+    
     if (!titleManuallyEdited) {
-      const extracted = extractTitleFromContent(content);
-      console.log("Content input - extracted title:", extracted);
-      title = extracted;
+      console.log("Content input - extracted title:", metadata.title);
+      title = metadata.title || "";
       // Reset dTagManuallyEdited when title changes so d-tag can be auto-generated
       dTagManuallyEdited = false;
     }
     
     // Extract metadata from AsciiDoc content for 30040 and 30041 events
     if (kind === 30040 || kind === 30041) {
-      // Don't extract metadata - let users add tags manually
-      extractedMetadata = [];
+      extractedMetadata = metadataToTags(metadata);
     } else {
       extractedMetadata = [];
     }

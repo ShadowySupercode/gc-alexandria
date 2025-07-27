@@ -3,16 +3,16 @@ import {
   extractDocumentMetadata, 
   extractSectionMetadata, 
   parseAsciiDocWithMetadata,
-  metadataToTags 
+  metadataToTags,
+  extractSmartMetadata
 } from "../../src/lib/utils/asciidoc_metadata.ts";
 
 describe("AsciiDoc Metadata Extraction", () => {
   const testContent = `= Test Document with Metadata
 John Doe <john@example.com>
-1.0, 2024-01-15, Alexandria Test
+1.0, 2024-01-15: Alexandria Test
 :summary: This is a test document for metadata extraction
 :author: Jane Smith
-:version: 2.0
 :published_on: 2024-01-15
 :published_by: Alexandria Project
 :type: article
@@ -78,6 +78,53 @@ This is the content of the first section.`;
     expect(content).toBe("This is the content of the first section.");
   });
 
+  it("extractSectionMetadata should extract standalone author names and remove them from content", () => {
+    const sectionContent = `== Section Header1
+Stella
+:description: Some summary
+
+Some context text`;
+
+    const { metadata, content, title } = extractSectionMetadata(sectionContent);
+    
+    expect(title).toBe("Section Header1");
+    expect(metadata.authors).toEqual(["Stella"]);
+    expect(metadata.summary).toBe("Some summary");
+    expect(content.trim()).toBe("Some context text");
+  });
+
+  it("extractSectionMetadata should handle multiple standalone author names", () => {
+    const sectionContent = `== Section Header1
+Stella
+:author: John Doe
+:description: Some summary
+
+Some context text`;
+
+    const { metadata, content, title } = extractSectionMetadata(sectionContent);
+    
+    expect(title).toBe("Section Header1");
+    expect(metadata.authors).toEqual(["Stella", "John Doe"]);
+    expect(metadata.summary).toBe("Some summary");
+    expect(content.trim()).toBe("Some context text");
+  });
+
+  it("extractSectionMetadata should not extract non-author lines as authors", () => {
+    const sectionContent = `== Section Header1
+Stella
+This is not an author line
+:description: Some summary
+
+Some context text`;
+
+    const { metadata, content, title } = extractSectionMetadata(sectionContent);
+    
+    expect(title).toBe("Section Header1");
+    expect(metadata.authors).toEqual(["Stella"]);
+    expect(metadata.summary).toBe("Some summary");
+    expect(content.trim()).toBe("This is not an author line\nSome context text");
+  });
+
   it("parseAsciiDocWithMetadata should parse complete document", () => {
     const parsed = parseAsciiDocWithMetadata(testContent);
     
@@ -132,7 +179,7 @@ index card`;
     const contentWithKeywords = `= Test Document
 :keywords: keyword1, keyword2, keyword3
 
-Content here.`;
+Some content here.`;
 
     const { metadata } = extractDocumentMetadata(contentWithKeywords);
     
@@ -144,7 +191,7 @@ Content here.`;
 :tags: tag1, tag2
 :keywords: keyword1, keyword2
 
-Content here.`;
+Some content here.`;
 
     const { metadata } = extractDocumentMetadata(contentWithBoth);
     
@@ -179,5 +226,97 @@ Content here.`;
     
     expect(summaryMetadata.summary).toBe("This is a summary");
     expect(descriptionMetadata.summary).toBe("This is a description");
+  });
+
+  describe('Smart metadata extraction', () => {
+    it('should handle section-only content correctly', () => {
+      const sectionOnlyContent = `== First Section
+:author: Section Author
+:description: This is the first section
+:tags: section1, content
+
+This is the content of the first section.
+
+== Second Section
+:summary: This is the second section
+:type: chapter
+
+This is the content of the second section.`;
+
+      const { metadata, content } = extractSmartMetadata(sectionOnlyContent);
+      
+      // Should extract title from first section
+      expect(metadata.title).toBe('First Section');
+      
+      // Should not have document-level metadata since there's no document header
+      expect(metadata.authors).toBeUndefined();
+      expect(metadata.version).toBeUndefined();
+      expect(metadata.publicationDate).toBeUndefined();
+      
+      // Content should be preserved
+      expect(content).toBe(sectionOnlyContent);
+    });
+
+    it('should handle minimal document header (just title) correctly', () => {
+      const minimalDocumentHeader = `= Test Document
+
+== First Section
+:author: Section Author
+:description: This is the first section
+
+This is the content of the first section.
+
+== Second Section
+:summary: This is the second section
+:type: chapter
+
+This is the content of the second section.`;
+
+      const { metadata, content } = extractSmartMetadata(minimalDocumentHeader);
+      
+      // Should extract title from document header
+      expect(metadata.title).toBe('Test Document');
+      
+      // Should not have document-level metadata since there's no other metadata
+      expect(metadata.authors).toBeUndefined();
+      // Note: version might be set from section attributes like :type: chapter
+      expect(metadata.publicationDate).toBeUndefined();
+      
+      // Content should preserve the title line for 30040 events
+      expect(content).toContain('= Test Document');
+      expect(content).toContain('== First Section');
+      expect(content).toContain('== Second Section');
+    });
+
+    it('should handle document with full header correctly', () => {
+      const documentWithHeader = `= Test Document
+John Doe <john@example.com>
+1.0, 2024-01-15: Alexandria Test
+:summary: This is a test document
+:author: Jane Smith
+
+== First Section
+:author: Section Author
+:description: This is the first section
+
+This is the content.`;
+
+      const { metadata, content } = extractSmartMetadata(documentWithHeader);
+      
+      // Should extract document-level metadata
+      expect(metadata.title).toBe('Test Document');
+      expect(metadata.authors).toEqual(['John Doe', 'Jane Smith']);
+      expect(metadata.version).toBe('1.0');
+      expect(metadata.publishedBy).toBe('Alexandria Test');
+      expect(metadata.publicationDate).toBe('2024-01-15');
+      expect(metadata.summary).toBe('This is a test document');
+      
+      // Content should be cleaned
+      expect(content).not.toContain('= Test Document');
+      expect(content).not.toContain('John Doe <john@example.com>');
+      expect(content).not.toContain('1.0, 2024-01-15: Alexandria Test');
+      expect(content).not.toContain(':summary: This is a test document');
+      expect(content).not.toContain(':author: Jane Smith');
+    });
   });
 }); 

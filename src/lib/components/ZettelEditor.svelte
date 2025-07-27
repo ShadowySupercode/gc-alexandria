@@ -2,17 +2,12 @@
   import { Textarea, Button } from "flowbite-svelte";
   import { EyeOutline } from "flowbite-svelte-icons";
   import {
-    parseAsciiDocSections,
-    type ZettelSection,
-  } from "$lib/utils/ZettelParser";
-  import {
-    extractDocumentMetadata,
-    extractSectionMetadata,
-    parseAsciiDocWithMetadata,
-    type AsciiDocMetadata,
-    metadataToTags,
-  } from "$lib/utils/asciidoc_metadata";
-  import asciidoctor from "asciidoctor";
+  extractSmartMetadata,
+  parseAsciiDocWithMetadata,
+  type AsciiDocMetadata,
+  metadataToTags,
+} from "$lib/utils/asciidoc_metadata";
+import asciidoctor from "asciidoctor";
 
   // Component props
   let {
@@ -45,34 +40,20 @@ Note content here...
     onPreviewToggle?: (show: boolean) => void;
   }>();
 
-  // Initialize AsciiDoctor processor
-  const asciidoctorProcessor = asciidoctor();
-
-  // Parse sections for preview using the new metadata service
+  // Parse sections for preview using the smart metadata service
   let parsedSections = $derived.by(() => {
     if (!content.trim()) return [];
     
-    // Check if content starts with a document header (level 0 header)
-    const hasDocumentHeader = content.match(/^=\s+/m);
+    // Use smart metadata extraction that handles both document headers and section-only content
+    const { metadata: docMetadata } = extractSmartMetadata(content);
     
-    let sections;
-    if (hasDocumentHeader) {
-      // Use the proper metadata service for documents with headers
-      const parsed = parseAsciiDocWithMetadata(content);
-      sections = parsed.sections;
-    } else {
-      // For content that starts directly with sections, split manually
-      const sectionStrings = content.split(/(?=^==\s+)/gm).filter((section: string) => section.trim());
-      sections = sectionStrings.map((sectionString: string) => {
-        const { metadata, content, title } = extractSectionMetadata(sectionString);
-        return { metadata, content, title };
-      });
-    }
+    // Parse the content using the standardized parser
+    const parsed = parseAsciiDocWithMetadata(content);
     
     // Debug logging
-    console.log("Parsed sections:", sections);
+    console.log("Parsed sections:", parsed.sections);
     
-    return sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
+    return parsed.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
       // Use only section metadata for each section
       // Don't combine with document metadata to avoid overriding section-specific metadata
       const tags = metadataToTags(section.metadata);
@@ -259,7 +240,7 @@ Note content here...
                     <div
                       class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content"
                     >
-                      {@html asciidoctorProcessor.convert(
+                      {@html asciidoctor().convert(
                         `== ${section.title}\n\n${section.content}`,
                         {
                           standalone: false,

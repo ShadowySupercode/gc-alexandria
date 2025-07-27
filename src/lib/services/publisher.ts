@@ -1,7 +1,7 @@
 import { get } from "svelte/store";
 import { ndkInstance } from "../ndk.ts";
 import { getMimeTags } from "../utils/mime.ts";
-import { parseAsciiDocSections } from "../utils/ZettelParser.ts";
+import { parseAsciiDocWithMetadata, metadataToTags } from "../utils/asciidoc_metadata.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
@@ -44,18 +44,18 @@ export async function publishZettel(
   }
 
   try {
-    // Parse content into sections
-    const sections = parseAsciiDocSections(content, 2);
+    // Parse content into sections using the standardized parser
+    const parsed = parseAsciiDocWithMetadata(content);
 
-    if (sections.length === 0) {
+    if (parsed.sections.length === 0) {
       throw new Error("No valid sections found in content");
     }
 
     // For now, publish only the first section
-    const firstSection = sections[0];
+    const firstSection = parsed.sections[0];
     const title = firstSection.title;
     const cleanContent = firstSection.content;
-    const sectionTags = firstSection.tags || [];
+    const sectionTags = metadataToTags(firstSection.metadata);
 
     // Generate d-tag and create event
     const dTag = generateDTag(title);
@@ -128,8 +128,8 @@ export async function publishMultipleZettels(
   }
 
   try {
-    const sections = parseAsciiDocSections(content, 2);
-    if (sections.length === 0) {
+    const parsed = parseAsciiDocWithMetadata(content);
+    if (parsed.sections.length === 0) {
       throw new Error('No valid sections found in content');
     }
 
@@ -141,10 +141,10 @@ export async function publishMultipleZettels(
 
     const results: PublishResult[] = [];
     const publishedEvents: NDKEvent[] = [];
-    for (const section of sections) {
+    for (const section of parsed.sections) {
       const title = section.title;
       const cleanContent = section.content;
-      const sectionTags = section.tags || [];
+      const sectionTags = metadataToTags(section.metadata);
       const dTag = generateDTag(title);
       const [mTag, MTag] = getMimeTags(kind);
       const tags: string[][] = [["d", dTag], mTag, MTag, ["title", title]];

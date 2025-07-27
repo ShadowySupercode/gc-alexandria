@@ -5,7 +5,7 @@
   import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
   import { publishMultipleZettels } from "$lib/services/publisher";
-  import { parseAsciiDocSections } from "$lib/utils/ZettelParser";
+  import { parseAsciiDocWithMetadata } from "$lib/utils/asciidoc_metadata";
 
   let content = $state("");
   let showPreview = $state(false);
@@ -44,12 +44,12 @@
     const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
     
     // Extract successful events with their titles
-    const sections = parseAsciiDocSections(content, 2);
+    const parsed = parseAsciiDocWithMetadata(content);
     const successfulEvents = results
       .filter(r => r.success && r.eventId)
       .map((r, index) => ({
         eventId: r.eventId!,
-        title: sections[index]?.title || `Note ${index + 1}`
+        title: parsed.sections[index]?.title || `Note ${index + 1}`
       }));
     
     // Extract failed events with their titles and errors
@@ -57,7 +57,7 @@
       .map((r, index) => ({ result: r, index }))
       .filter(({ result }) => !result.success)
       .map(({ result, index }) => ({
-        title: sections[index]?.title || `Note ${index + 1}`,
+        title: parsed.sections[index]?.title || `Note ${index + 1}`,
         error: result.error || 'Unknown error',
         sectionIndex: index
       }));
@@ -78,8 +78,8 @@
     isPublishing = true;
     
     // Get the specific section content
-    const sections = parseAsciiDocSections(content, 2);
-    const section = sections[sectionIndex];
+    const parsed = parseAsciiDocWithMetadata(content);
+    const section = parsed.sections[sectionIndex];
     if (!section) return;
     
     // Reconstruct the section content for publishing
