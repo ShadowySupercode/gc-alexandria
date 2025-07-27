@@ -48,6 +48,38 @@
   let warningMessage = $state("");
   let pendingPublish = $state(false);
   let extractedMetadata = $state<[string, string][]>([]);
+  let hasLoadedFromStorage = $state(false);
+
+  // Load content from sessionStorage if available (from ZettelEditor)
+  $effect(() => {
+    if (hasLoadedFromStorage) return; // Prevent multiple loads
+    
+    const storedContent = sessionStorage.getItem('zettelEditorContent');
+    const storedSource = sessionStorage.getItem('zettelEditorSource');
+    
+    if (storedContent && storedSource === 'publication-format') {
+      content = storedContent;
+      hasLoadedFromStorage = true;
+      
+      // Clear the stored content after loading
+      sessionStorage.removeItem('zettelEditorContent');
+      sessionStorage.removeItem('zettelEditorSource');
+      
+      // Extract title from content
+      const extracted = extractTitleFromContent(content);
+      if (extracted) {
+        title = extracted;
+        titleManuallyEdited = false;
+        dTagManuallyEdited = false;
+      }
+      
+      // For content from ZettelEditor, don't extract any metadata
+      // since ZettelEditor content never has document metadata
+      if (kind === 30040 || kind === 30041) {
+        extractedMetadata = [];
+      }
+    }
+  });
 
   /**
    * Extracts the first Markdown/AsciiDoc header as the title.
@@ -57,10 +89,14 @@
     // Look for document title (=) first, then fall back to section headers (==)
     const documentMatch = content.match(/^=\s*(.+)$/m);
     if (documentMatch) {
-      return documentMatch[1].trim();
+      const title = documentMatch[1].trim();
+      // Only return the title if it's not empty (malformed titles like "=|" will be empty)
+      if (title) {
+        return title;
+      }
     }
     
-    // If no document title, look for the first section header
+    // If no valid document title, look for the first section header
     const sectionMatch = content.match(/^==\s*(.+)$/m);
     if (sectionMatch) {
       return sectionMatch[1].trim();
@@ -81,16 +117,8 @@
     
     // Extract metadata from AsciiDoc content for 30040 and 30041 events
     if (kind === 30040 || kind === 30041) {
-      try {
-        const { metadata } = extractDocumentMetadata(content);
-        const metadataTags = metadataToTags(metadata);
-        extractedMetadata = metadataTags;
-        console.log("Extracted metadata:", metadata);
-        console.log("Metadata tags:", metadataTags);
-      } catch (error) {
-        console.error("Error extracting metadata:", error);
-        extractedMetadata = [];
-      }
+      // Don't extract metadata - let users add tags manually
+      extractedMetadata = [];
     } else {
       extractedMetadata = [];
     }
