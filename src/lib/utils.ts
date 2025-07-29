@@ -1,6 +1,7 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
+import { AddressPointer, EventPointer } from "nostr-tools/nip19";
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -32,7 +33,7 @@ export function nprofileEncode(pubkey: string, relays: string[]) {
 /**
  * Decodes an naddr identifier and returns the decoded data
  */
-export function naddrDecode(naddr: string) {
+export function naddrDecode(naddr: string): AddressPointer {
   try {
     if (!naddr.startsWith('naddr')) {
       throw new Error('Invalid naddr format');
@@ -50,7 +51,7 @@ export function naddrDecode(naddr: string) {
 /**
  * Decodes an nevent identifier and returns the decoded data
  */
-export function neventDecode(nevent: string) {
+export function neventDecode(nevent: string): EventPointer {
   try {
     if (!nevent.startsWith('nevent')) {
       throw new Error('Invalid nevent format');
