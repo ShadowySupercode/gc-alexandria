@@ -5,6 +5,8 @@ import { getMatchingTags, fetchEventById, fetchEventByDTag, fetchEventByNaddr, f
 
 export const load: LayoutServerLoad = async ({ params, parent, url }) => {
   const { type, identifier } = params;
+
+  // TODO: Remove the need for NDK in nostrUtils dependencies, since NDK is not available on the server.
   // deno-lint-ignore no-explicit-any
   const { ndk } = (await parent()) as any;
 

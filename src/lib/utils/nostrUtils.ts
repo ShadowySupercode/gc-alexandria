@@ -430,6 +430,9 @@ Promise.prototype.withTimeout = function <T>(
   return withTimeout(timeoutMs, this);
 };
 
+// TODO: Implement fetch for no-auth relays using the WebSocketPool and raw WebSockets.
+// This fetch function will be used for server-side loading.
+
 /**
  * Fetches an event using a two-step relay strategy:
  * 1. First tries standard relays with timeout

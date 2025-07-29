@@ -5,6 +5,7 @@
   const { metadata } = data;
 </script>
 
+<!-- TODO: Provide fallback metadata values to use if the publication is on an auth-to-read relay. -->
 <svelte:head>
   <!-- Basic meta tags -->
   <title>{metadata.title}</title>
