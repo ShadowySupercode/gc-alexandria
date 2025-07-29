@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = ({ url }) => {
   const id = url.searchParams.get("id");
   const dTag = url.searchParams.get("d");
 
@@ -20,6 +20,7 @@ export const load: PageServerLoad = async ({ url }) => {
     throw redirect(301, `/publication/d/${dTag}`);
   }
 
-  // If no query parameters, redirect to the start page or show publication feed
+  // If no query parameters, redirect to the start page or show publication feed\
+  // AI-TODO: Redirect to a "not found" page.
   throw redirect(301, "/start");
 }; 
