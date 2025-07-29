@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { naddrEncode } from "$lib/utils";
+  import { naddrEncode, neventEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { activeInboxRelays } from "$lib/ndk";
   import { Card } from "flowbite-svelte";
@@ -20,10 +20,19 @@
 
   const href = $derived.by(() => {
     const d = event.getMatchingTags("d")[0]?.[1];
-    if (d != null) {
-      return `publication?d=${d}`;
+    const isReplaceableEvent = event.kind === 30040 || event.kind === 30041;
+    
+    if (d != null && isReplaceableEvent) {
+      // For replaceable events with d tag, use naddr encoding
+      const naddr = naddrEncode(event, relays);
+      return `publication/naddr/${naddr}`;
+    } else if (event.id) {
+      // For non-replaceable events or events without d tag, use nevent encoding
+      const nevent = neventEncode(event, relays);
+      return `publication/nevent/${nevent}`;
     } else {
-      return `publication?id=${naddrEncode(event, relays)}`;
+      // Fallback to d tag if available
+      return d ? `publication/d/${d}` : null;
     }
   });
 

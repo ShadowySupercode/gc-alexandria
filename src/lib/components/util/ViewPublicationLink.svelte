@@ -64,7 +64,7 @@
         "ViewPublicationLink: Navigating to publication:",
         naddrAddress,
       );
-      goto(`/publication?id=${encodeURIComponent(naddrAddress)}`);
+      goto(`/publication/naddr/${encodeURIComponent(naddrAddress)}`);
     } else {
       console.log("ViewPublicationLink: No naddr address found for event");
     }

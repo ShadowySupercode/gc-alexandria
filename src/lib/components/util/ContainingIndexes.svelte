@@ -47,12 +47,12 @@
   function navigateToIndex(indexEvent: NDKEvent) {
     const dTag = getMatchingTags(indexEvent, "d")[0]?.[1];
     if (dTag) {
-      goto(`/publication?d=${encodeURIComponent(dTag)}`);
+              goto(`/publication/d/${encodeURIComponent(dTag)}`);
     } else {
       // Fallback to naddr
       try {
         const naddr = naddrEncode(indexEvent, $activeInboxRelays);
-        goto(`/publication?id=${encodeURIComponent(naddr)}`);
+        goto(`/publication/naddr/${encodeURIComponent(naddr)}`);
       } catch (err) {
         console.error("[ContainingIndexes] Error creating naddr:", err);
       }

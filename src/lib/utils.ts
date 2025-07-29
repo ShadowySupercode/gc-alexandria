@@ -29,6 +29,42 @@ export function nprofileEncode(pubkey: string, relays: string[]) {
   return nip19.nprofileEncode({ pubkey, relays });
 }
 
+/**
+ * Decodes an naddr identifier and returns the decoded data
+ */
+export function naddrDecode(naddr: string) {
+  try {
+    if (!naddr.startsWith('naddr')) {
+      throw new Error('Invalid naddr format');
+    }
+    const decoded = nip19.decode(naddr);
+    if (decoded.type !== 'naddr') {
+      throw new Error('Decoded result is not an naddr');
+    }
+    return decoded.data;
+  } catch (error) {
+    throw new Error(`Failed to decode naddr: ${error}`);
+  }
+}
+
+/**
+ * Decodes an nevent identifier and returns the decoded data
+ */
+export function neventDecode(nevent: string) {
+  try {
+    if (!nevent.startsWith('nevent')) {
+      throw new Error('Invalid nevent format');
+    }
+    const decoded = nip19.decode(nevent);
+    if (decoded.type !== 'nevent') {
+      throw new Error('Decoded result is not an nevent');
+    }
+    return decoded.data;
+  } catch (error) {
+    throw new Error(`Failed to decode nevent: ${error}`);
+  }
+}
+
 export function formatDate(unixtimestamp: number) {
   const months = [
     "Jan",

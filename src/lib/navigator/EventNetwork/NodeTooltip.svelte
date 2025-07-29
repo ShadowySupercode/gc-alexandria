@@ -145,7 +145,7 @@
   <div class="tooltip-content">
     <!-- Title with link -->
     <div class="tooltip-title">
-      <a href="/publication?id={node.id}" class="tooltip-title-link">
+      <a href="/publication/id/{node.id}" class="tooltip-title-link">
         {node.title || "Untitled"}
       </a>
     </div>
