@@ -9,11 +9,7 @@ You are senior full-stack software engineer with 20 years of experience writing 
 
 ## Project Overview
 
-Alexandria is a Nostr project written in Svelte 5 and SvelteKit 2.  It is a web app for reading, commenting on, and publishing books, blogs, and other long-form content stored on Nostr relays.  It revolves around breaking long AsciiDoc documents into Nostr events, with each event containing a paragraph or so of text from the document.  These individual content events are organized by index events into publications.  An index contains an ordered list of references to other index events or content events, forming a tree.
-
-### Reader Features
-
-In reader mode, Alexandria loads a document tree from a root publication index event.  The AsciiDoc text content of the various content events, along with headers specified by tags in the index events, is composed and rendered as a single document from the user's point of view.
+Alexandria is a Nostr project written in Svelte 5 and SvelteKit 2.  It is a web app for reading, commenting on, and publishing books, blogs, and other long-form content stored on Nostr relays.
 
 ### Tech Stack
 
@@ -36,7 +32,13 @@ When responding to prompts, adhere to the following rules:
 - Avoid proposing code edits unless I specifically tell you to do so.
 - When giving examples from my codebase, include the file name and line numbers so I can find the relevant code easily.
 
-## AI Anchor Comments Format
+## Coding Guidelines
+
+### Prime Directive
+
+NEVER assume developer intent. If you are unsure about something, ALWAYS stop and ask the developer for clarification before proceeding.
+
+### AI Anchor Comments
 
 - Use anchor comments prefixed with `AI-NOTE:`, `AI-TODO:`, or `AI-QUESTION:` to share context between AI agents and developers across time.
  - Use all-caps prefixes.
@@ -49,12 +51,6 @@ When responding to prompts, adhere to the following rules:
  - Code is critical to security, performance, or functionality.
  - Code is confusing.
  - Code could have a bug.
-
-## Coding Guidelines
-
-### Prime Directive
-
-NEVER assume developer intent. If you are unsure about something, ALWAYS stop and ask the developer for clarification before proceeding.
 
 ### General Guidance
 
