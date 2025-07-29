@@ -1,4 +1,4 @@
-import { NDKEvent, NDKFilter, NDKSubscription } from "@nostr-dev-kit/ndk";
+import type { NDKEvent, NDKFilter, NDKSubscription } from "@nostr-dev-kit/ndk";
 
 /**
  * Extended NostrProfile interface for search results

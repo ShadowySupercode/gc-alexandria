@@ -1,6 +1,22 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
+// Route pattern constants
+const ROUTES = {
+  PUBLICATION_BASE: "/publication",
+  NADDR: "/publication/naddr",
+  NEVENT: "/publication/nevent", 
+  ID: "/publication/id",
+  D_TAG: "/publication/d",
+  START: "/start",
+} as const;
+
+// Identifier prefixes
+const IDENTIFIER_PREFIXES = {
+  NADDR: "naddr",
+  NEVENT: "nevent",
+} as const;
+
 export const load: PageServerLoad = ({ url }) => {
   const id = url.searchParams.get("id");
   const dTag = url.searchParams.get("d");
@@ -8,19 +24,18 @@ export const load: PageServerLoad = ({ url }) => {
   // Handle backward compatibility for old query-based routes
   if (id) {
     // Check if id is an naddr or nevent
-    if (id.startsWith("naddr")) {
-      throw redirect(301, `/publication/naddr/${id}`);
-    } else if (id.startsWith("nevent")) {
-      throw redirect(301, `/publication/nevent/${id}`);
+    if (id.startsWith(IDENTIFIER_PREFIXES.NADDR)) {
+      throw redirect(301, `${ROUTES.NADDR}/${id}`);
+    } else if (id.startsWith(IDENTIFIER_PREFIXES.NEVENT)) {
+      throw redirect(301, `${ROUTES.NEVENT}/${id}`);
     } else {
       // Assume it's a hex ID
-      throw redirect(301, `/publication/id/${id}`);
+      throw redirect(301, `${ROUTES.ID}/${id}`);
     }
   } else if (dTag) {
-    throw redirect(301, `/publication/d/${dTag}`);
+    throw redirect(301, `${ROUTES.D_TAG}/${dTag}`);
   }
 
-  // If no query parameters, redirect to the start page or show publication feed\
-  // AI-TODO: Redirect to a "not found" page.
-  throw redirect(301, "/start");
+  // If no query parameters, redirect to the start page
+  throw redirect(301, ROUTES.START);
 }; 

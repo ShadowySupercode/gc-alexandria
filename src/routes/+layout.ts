@@ -8,12 +8,13 @@ import { loginMethodStorageKey } from "../lib/stores/userStore.ts";
 import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
+import { browser } from "$app/environment";
 
-export const load: LayoutLoad = () => {
-  // Initialize NDK with new relay management system
-  const ndk = initNdk();
-  ndkInstance.set(ndk);
-
+/**
+   * Attempts to restore the user's authentication session from localStorage.
+   * Handles extension, Amber (NIP-46), and npub login methods.
+   */
+async function restoreAuthSession() {
   try {
     const pubkey = getPersistedLogin();
     const loginMethod = localStorage.getItem(loginMethodStorageKey);
@@ -111,9 +112,19 @@ export const load: LayoutLoad = () => {
       `Failed to restore login: ${e}\n\nContinuing with anonymous session.`,
     );
   }
+}
+
+export const load: LayoutLoad = () => {
+  // Initialize NDK with new relay management system
+  const ndk = initNdk();
+  ndkInstance.set(ndk);
+
+  if (browser) {
+    restoreAuthSession();
+  }
 
   const parser = new Pharos(ndk);
-  pharosInstance.set(parser);
+  pharosInstance.set(parser);  
 
   return {
     ndk,

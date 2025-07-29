@@ -1,7 +1,21 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
-import { AddressPointer, EventPointer } from "nostr-tools/nip19";
+import type { AddressPointer, EventPointer } from "nostr-tools/nip19";
+
+export class DecodeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DecodeError";
+  }
+}
+
+export class InvalidKindError extends DecodeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidKindError";
+  }
+}
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -31,39 +45,41 @@ export function nprofileEncode(pubkey: string, relays: string[]) {
 }
 
 /**
+ * Decodes a nostr identifier (naddr, nevent) and returns the decoded data.
+ * @param identifier The nostr identifier to decode.
+ * @param expectedType The expected type of the decoded data ('naddr' or 'nevent').
+ * @returns The decoded data.
+ */
+function decodeNostrIdentifier<T extends AddressPointer | EventPointer>(
+  identifier: string,
+  expectedType: "naddr" | "nevent",
+): T {
+  try {
+    if (!identifier.startsWith(expectedType)) {
+      throw new InvalidKindError(`Invalid ${expectedType} format`);
+    }
+    const decoded = nip19.decode(identifier);
+    if (decoded.type !== expectedType) {
+      throw new InvalidKindError(`Decoded result is not an ${expectedType}`);
+    }
+    return decoded.data as T;
+  } catch (error) {
+    throw new DecodeError(`Failed to decode ${expectedType}: ${error}`);
+  }
+}
+
+/**
  * Decodes an naddr identifier and returns the decoded data
  */
 export function naddrDecode(naddr: string): AddressPointer {
-  try {
-    if (!naddr.startsWith('naddr')) {
-      throw new Error('Invalid naddr format');
-    }
-    const decoded = nip19.decode(naddr);
-    if (decoded.type !== 'naddr') {
-      throw new Error('Decoded result is not an naddr');
-    }
-    return decoded.data;
-  } catch (error) {
-    throw new Error(`Failed to decode naddr: ${error}`);
-  }
+  return decodeNostrIdentifier<AddressPointer>(naddr, "naddr");
 }
 
 /**
  * Decodes an nevent identifier and returns the decoded data
  */
 export function neventDecode(nevent: string): EventPointer {
-  try {
-    if (!nevent.startsWith('nevent')) {
-      throw new Error('Invalid nevent format');
-    }
-    const decoded = nip19.decode(nevent);
-    if (decoded.type !== 'nevent') {
-      throw new Error('Decoded result is not an nevent');
-    }
-    return decoded.data;
-  } catch (error) {
-    throw new Error(`Failed to decode nevent: ${error}`);
-  }
+  return decodeNostrIdentifier<EventPointer>(nevent, "nevent");
 }
 
 export function formatDate(unixtimestamp: number) {
@@ -206,7 +222,8 @@ Array.prototype.findIndexAsync = function <T>(
  * @param wait The number of milliseconds to delay
  * @returns A debounced version of the function
  */
-export function debounce<T extends (...args: unknown[]) => unknown>(
+// deno-lint-ignore no-explicit-any
+export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
 ): (...args: Parameters<T>) => void {
