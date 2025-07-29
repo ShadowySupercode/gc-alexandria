@@ -7,6 +7,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import { indexKind } from "$lib/consts";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -19,20 +20,16 @@
   });
 
   const href = $derived.by(() => {
-    const d = event.getMatchingTags("d")[0]?.[1];
-    const isReplaceableEvent = event.kind === 30040 || event.kind === 30041;
+    const dTag = event.getMatchingTags("d")[0]?.[1];
+    const isIndexEvent = event.kind === indexKind;
     
-    if (d != null && isReplaceableEvent) {
-      // For replaceable events with d tag, use naddr encoding
+    if (dTag != null && isIndexEvent) {
+      // For index events with d tag, use naddr encoding
       const naddr = naddrEncode(event, relays);
       return `publication/naddr/${naddr}`;
-    } else if (event.id) {
-      // For non-replaceable events or events without d tag, use nevent encoding
-      const nevent = neventEncode(event, relays);
-      return `publication/nevent/${nevent}`;
     } else {
       // Fallback to d tag if available
-      return d ? `publication/d/${d}` : null;
+      return dTag ? `publication/d/${dTag}` : null;
     }
   });
 
