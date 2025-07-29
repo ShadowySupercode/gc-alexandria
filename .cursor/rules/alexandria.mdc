@@ -58,6 +58,7 @@ NEVER assume developer intent. If you are unsure about something, ALWAYS stop an
 
 ### General Guidance
 
+- Prefer to use Deno to manage dependencies, build the project, and run tests.
 - Use snake_case names for plain TypeScript files.
 - Use comments sparingly; aim to make code readable and self-documenting.
 
