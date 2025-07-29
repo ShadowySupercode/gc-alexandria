@@ -36,14 +36,30 @@ When responding to prompts, adhere to the following rules:
 - Avoid proposing code edits unless I specifically tell you to do so.
 - When giving examples from my codebase, include the file name and line numbers so I can find the relevant code easily.
 
-## Code Style
+## AI Anchor Comments Format
 
-Observe the following style guidelines when writing code:
+- Use anchor comments prefixed with `AI-NOTE:`, `AI-TODO:`, or `AI-QUESTION:` to share context between AI agents and developers across time.
+ - Use all-caps prefixes.
+ - Also _read_ (but do not write) variants of this format that begin with `AI-<date>:` where `<date>` is some date in `MM/DD/YYYY` format. Anchor comments with this format are used by developers to record context.
+- **Important:** Before scanning files, ALWAYS search first for `AI-` anchor comments in relevant subdirectories.
+- ALWAYS update relevant anchor comments when modifying associated code.
+- NEVER remove `AI-` comments unless the developer explicitly instructs it.
+- Add new anchor comments as relevant when:
+ - Code is unusually complex.
+ - Code is critical to security, performance, or functionality.
+ - Code is confusing.
+ - Code could have a bug.
+
+## Coding Guidelines
+
+### Prime Directive
+
+NEVER assume developer intent. If you are unsure about something, ALWAYS stop and ask the developer for clarification before proceeding.
 
 ### General Guidance
 
 - Use snake_case names for plain TypeScript files.
-- Use comments sparingly; code should be self-documenting.
+- Use comments sparingly; aim to make code readable and self-documenting.
 
 ### JavaScript/TypeScript
 
