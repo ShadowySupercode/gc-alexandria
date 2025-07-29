@@ -6,6 +6,8 @@ import { getMatchingTags } from "../../../../lib/utils/nostrUtils.ts";
 import { naddrDecode, neventDecode } from "../../../../lib/utils.ts";
 import type NDK from "@nostr-dev-kit/ndk";
 
+// AI-TODO: Use `fetchEventWithFallback` from `nostrUtils.ts` to retrieve events in this file.
+
 /**
  * Fetches an event by hex ID
  */

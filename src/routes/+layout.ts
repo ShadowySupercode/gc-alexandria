@@ -9,8 +9,6 @@ import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
 
-export const ssr = false;
-
 export const load: LayoutLoad = () => {
   // Initialize NDK with new relay management system
   const ndk = initNdk();

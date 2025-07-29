@@ -80,11 +80,11 @@
   });
 </script>
 
-  <ArticleNav
-    publicationType={data.publicationType}
-    rootId={data.indexEvent.id}
-    indexEvent={data.indexEvent}
-  />
+<ArticleNav
+  publicationType={data.publicationType}
+  rootId={data.indexEvent.id}
+  indexEvent={data.indexEvent}
+/>
 
 <main class="publication {data.publicationType}">
   <Publication
