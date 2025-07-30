@@ -10,11 +10,14 @@ import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
 import { browser } from "$app/environment";
 
+// AI-NOTE: Leave SSR off until event fetches are implemented server-side.
+export const ssr = false;
+
 /**
    * Attempts to restore the user's authentication session from localStorage.
    * Handles extension, Amber (NIP-46), and npub login methods.
    */
-async function restoreAuthSession() {
+function restoreAuthSession() {
   try {
     const pubkey = getPersistedLogin();
     const loginMethod = localStorage.getItem(loginMethodStorageKey);
