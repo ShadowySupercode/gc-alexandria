@@ -12,19 +12,30 @@ import asciidoctor from "asciidoctor";
   // Component props
   let {
     content = "",
-    placeholder = `== Note Title
+    placeholder = `// PUBLISHING MODES:
+// Use "= Article Title" to publish an article/collection of notes
+// Use only "== Note Title" headings for scattered notes (30041 events only)
+
+= Article Title (Full Collection)
 :author: Your Name
 :version: 1.0
 :published_on: 2024-01-01
 :published_by: Alexandria
-:summary: A brief description of this note
-:tags: note, example, metadata
+:summary: A brief description of this article
+:tags: article, example, metadata
 :image: https://example.com/image.jpg
+:type: book
 
-note content here...
+== Chapter 1: Introduction
+:author: Your Name
+:keywords: introduction, chapter, example
+:description: This is the first chapter of the article
+
+Chapter content here...
+
 
 == Note Title 2
-Some Other Author (this weeks even if there is no :author: attribute)
+Some Other Author (this works even if there is no :author: attribute)
 :keywords: second, note, example (keywords are converted to tags)
 :description: This is a description of the note (description is converted to a summary tag)
 Note content here...
