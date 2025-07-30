@@ -1,6 +1,5 @@
 <script lang="ts">
   import Publication from "$lib/components/publications/Publication.svelte";
-  import { TextPlaceholder } from "flowbite-svelte";
   import type { PageProps } from "./$types";
   import { onDestroy, onMount, setContext } from "svelte";
   import Processor from "asciidoctor";
@@ -9,12 +8,14 @@
   import { TableOfContents } from "$lib/components/publications/table_of_contents.svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
+  import { createNDKEvent } from "$lib/utils/nostrUtils";
 
   let { data }: PageProps = $props();
 
-  const publicationTree = new SveltePublicationTree(data.indexEvent, data.ndk);
+  const indexEvent = createNDKEvent(data.ndk, data.indexEvent);
+  const publicationTree = new SveltePublicationTree(indexEvent, data.ndk);
   const toc = new TableOfContents(
-    data.indexEvent.tagAddress(),
+    indexEvent.tagAddress(),
     publicationTree,
     page.url.pathname ?? "",
   );
@@ -40,7 +41,7 @@
     db.onsuccess = () => {
       const transaction = db.result.transaction(["bookmarks"], "readwrite");
       const store = transaction.objectStore("bookmarks");
-      const bookmarkKey = `${data.indexEvent.tagAddress()}`;
+      const bookmarkKey = `${indexEvent.tagAddress()}`;
       store.put({ key: bookmarkKey, address });
     };
   });
@@ -58,7 +59,7 @@
     db.onsuccess = () => {
       const transaction = db.result.transaction(["bookmarks"], "readonly");
       const store = transaction.objectStore("bookmarks");
-      const bookmarkKey = `${data.indexEvent.tagAddress()}`;
+      const bookmarkKey = `${indexEvent.tagAddress()}`;
       const request = store.get(bookmarkKey);
 
       request.onsuccess = () => {
@@ -83,13 +84,13 @@
 <ArticleNav
   publicationType={data.publicationType}
   rootId={data.indexEvent.id}
-  indexEvent={data.indexEvent}
+  indexEvent={indexEvent}
 />
 
 <main class="publication {data.publicationType}">
   <Publication
-    rootAddress={data.indexEvent.tagAddress()}
+    rootAddress={indexEvent.tagAddress()}
     publicationType={data.publicationType}
-    indexEvent={data.indexEvent}
+    indexEvent={indexEvent}
   />
 </main> 

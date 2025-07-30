@@ -1,44 +1,35 @@
 import { error } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { getMatchingTags, fetchEventById, fetchEventByDTag, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/nostrUtils.ts";
+import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent, NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
-export const load: LayoutServerLoad = async ({ params, parent, url }) => {
+export const load: LayoutServerLoad = async ({ params, url }) => {
   const { type, identifier } = params;
 
-  // TODO: Remove the need for NDK in nostrUtils dependencies, since NDK is not available on the server.
-  // deno-lint-ignore no-explicit-any
-  const { ndk } = (await parent()) as any;
-
-  if (!ndk) {
-    throw error(500, "NDK not available");
-  }
-
-  let indexEvent: NDKEvent;
+  let indexEvent: NostrEvent;
 
   // Handle different identifier types
   switch (type) {
     case 'id':
-      indexEvent = await fetchEventById(ndk, identifier);
+      indexEvent = await fetchEventById(identifier);
       break;
     case 'd':
-      indexEvent = await fetchEventByDTag(ndk, identifier);
+      indexEvent = await fetchEventByDTag(identifier);
       break;
     case 'naddr':
-      indexEvent = await fetchEventByNaddr(ndk, identifier);
+      indexEvent = await fetchEventByNaddr(identifier);
       break;
     case 'nevent':
-      indexEvent = await fetchEventByNevent(ndk, identifier);
+      indexEvent = await fetchEventByNevent(identifier);
       break;
     default:
       throw error(400, `Unsupported identifier type: ${type}`);
   }
 
   // Extract metadata for meta tags
-  const title = getMatchingTags(indexEvent, "title")[0]?.[1] || "Alexandria Publication";
-  const summary = getMatchingTags(indexEvent, "summary")[0]?.[1] || 
+  const title = indexEvent.tags.find((tag) => tag[0] === "title")?.[1] || "Alexandria Publication";
+  const summary = indexEvent.tags.find((tag) => tag[0] === "summary")?.[1] || 
     "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
-  const image = getMatchingTags(indexEvent, "image")[0]?.[1] || "/screenshots/old_books.jpg";
+  const image = indexEvent.tags.find((tag) => tag[0] === "image")?.[1] || "/screenshots/old_books.jpg";
   const currentUrl = `${url.origin}${url.pathname}`;
 
   return {

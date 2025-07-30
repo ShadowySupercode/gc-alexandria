@@ -1,42 +1,38 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { getMatchingTags, fetchEventById, fetchEventByDTag, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/nostrUtils.ts";   
+import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent, NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
-export const load: PageServerLoad = async ({ params, parent }) => {
+export const load: PageServerLoad = async ({ params }) => {
   const { type, identifier } = params;
-  // deno-lint-ignore no-explicit-any
-  const { ndk } = (await parent()) as any;
 
-  if (!ndk) {
-    throw error(500, "NDK not available");
-  }
-
-  let indexEvent: NDKEvent;
+  let indexEvent: NostrEvent | null;
 
   // Handle different identifier types
   switch (type) {
     case 'id':
-      indexEvent = await fetchEventById(ndk, identifier);
+      indexEvent = await fetchEventById(identifier);
       break;
     case 'd':
-      indexEvent = await fetchEventByDTag(ndk, identifier);
+      indexEvent = await fetchEventByDTag(identifier);
       break;
     case 'naddr':
-      indexEvent = await fetchEventByNaddr(ndk, identifier);
+      indexEvent = await fetchEventByNaddr(identifier);
       break;
     case 'nevent':
-      indexEvent = await fetchEventByNevent(ndk, identifier);
+      indexEvent = await fetchEventByNevent(identifier);
       break;
     default:
       throw error(400, `Unsupported identifier type: ${type}`);
   }
 
-  const publicationType = getMatchingTags(indexEvent, "type")[0]?.[1];
+  if (!indexEvent) {
+    throw error(404, `Event not found for ${type}: ${identifier}`);
+  }
+
+  const publicationType = indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
   return {
     publicationType,
     indexEvent,
-    ndk, // Pass ndk to the page for the publication tree
   };
 }; 
