@@ -78,7 +78,7 @@
 
   /* Tooltip styles - specific to visualization tooltips */
   .tooltip-close-btn {
-    @apply absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 
+    @apply absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600
                rounded-full p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200;
   }
 
@@ -108,5 +108,71 @@
 
   .tooltip-help-text {
     @apply mt-2 text-xs text-gray-500 dark:text-gray-400 italic;
+  }
+
+  /* Star network visualization styles */
+  .star-center-node {
+    @apply transition-all duration-300;
+    stroke-width: 3px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.2));
+  }
+
+  .star-center-node:hover {
+    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
+    transform: scale(1.05);
+  }
+
+  .network-node-content {
+    @apply transition-all duration-200;
+  }
+
+  .network-node-content:hover {
+    @apply transform scale-110;
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.3));
+  }
+
+  /* Tag anchor nodes */
+  .tag-anchor-node {
+    @apply transition-all duration-300;
+    stroke: rgba(255, 255, 255, 0.8);
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
+    cursor: default !important;
+  }
+
+  .tag-anchor-node:hover {
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.6));
+    transform: scale(1.1);
+  }
+
+  /* Ensure drag cursor doesn't appear on tag anchors */
+  .node.drag-circle {
+    cursor: move;
+  }
+
+  .node.tag-anchor-node .drag-circle {
+    cursor: default !important;
+  }
+
+  /* Tag grid layout in legend */
+  .tag-grid {
+    display: grid;
+    gap: 0.5rem; /* Change this value to adjust spacing between columns and rows */
+    column-gap: 1.75rem; /* Use this to set column spacing independently */
+    row-gap: 0.5rem; /* Use this to set row spacing independently */
+    width: 100%;
+  }
+
+  .tag-grid-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow: hidden;
+  }
+
+  .tag-grid-item .legend-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
   }
 }
