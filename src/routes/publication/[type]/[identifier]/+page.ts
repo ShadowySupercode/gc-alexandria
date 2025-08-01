@@ -1,23 +1,18 @@
 import { error } from "@sveltejs/kit";
-import type { LayoutLoad } from "./$types";
+import type { PageLoad } from "./$types";
 import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/websocket_utils.ts";
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 import { browser } from "$app/environment";
 
-export const load: LayoutLoad = async ({ params, url }) => {
+export const load: PageLoad = async ({ params }) => {
   const { type, identifier } = params;
 
   // Only fetch on the client side where WebSocket is available
   if (!browser) {
-    // Return basic metadata for SSR
+    // Return basic data for SSR
     return {
+      publicationType: "",
       indexEvent: null,
-      metadata: {
-        title: "Alexandria Publication",
-        summary: "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.",
-        image: "/screenshots/old_books.jpg",
-        currentUrl: `${url.origin}${url.pathname}`,
-      },
     };
   }
 
@@ -42,24 +37,18 @@ export const load: LayoutLoad = async ({ params, url }) => {
         throw error(400, `Unsupported identifier type: ${type}`);
     }
 
-    // Extract metadata for meta tags
-    const title = indexEvent.tags.find((tag) => tag[0] === "title")?.[1] || "Alexandria Publication";
-    const summary = indexEvent.tags.find((tag) => tag[0] === "summary")?.[1] || 
-      "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
-    const image = indexEvent.tags.find((tag) => tag[0] === "image")?.[1] || "/screenshots/old_books.jpg";
-    const currentUrl = `${url.origin}${url.pathname}`;
+    if (!indexEvent) {
+      throw error(404, `Event not found for ${type}: ${identifier}`);
+    }
+
+    const publicationType = indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
     return {
+      publicationType,
       indexEvent,
-      metadata: {
-        title,
-        summary,
-        image,
-        currentUrl,
-      },
     };
   } catch (err) {
     console.error('Failed to fetch publication:', err);
     throw error(404, `Failed to load publication: ${err}`);
   }
-};
+}; 
