@@ -18,6 +18,17 @@ The broadest level of relay selection is based on these categories.
 - For logged-in users, public and private read relays are initially rated equally for read operations.
 - For logged-in users, private write relays are preferred above public relays for write operations.
 
+### User Preferences
+
+The relay selector will respect user relay preferences while still attempting to optimize for responsiveness and success rate.
+
+- User inbox relays will be stored in a separate list from general-purpose relays, and weighted and sorted separately using the same algorithm as the general-purpose relay list.
+- Local relays (beginning with `wss://localhost` or `ws://localhost`) will be stored _unranked_ in a separate list, and used when the relay selector is operating on a web browser (as opposed to a server).
+- When a caller requests relays from the relay selector, the selector will return:
+  - The highest-ranked general-purpose relay
+  - The highest-ranked user inbox relay
+  - (If on browser) any local relays
+
 ### Weighted Metrics
 
 Several weighted metrics are used to compute a relay's score. The score is used to rank relays to determine which to prefer when fetching events.
@@ -141,4 +152,48 @@ Function addSuccessRateDatum:
   wInit[r] = rtWeight * succRate + rT[r] + rV[r]
   wCurr[r] = wInit[r] + conn[r] * CW
   sort rSorted by wCurr
+```
+
+### Add Relay
+
+```pseudocode
+Constants and Variables:
+  general  // A list of general-purpose relay URLs
+  inbox    // A list of user-defined inbox relay URLs
+  local    // A list of local relay URLs
+
+Parameters:
+  r      // The relay URL
+  rType  // The relay type (general, inbox, or local)
+
+Function addRelay:
+  if rType is "general":
+    add r to general
+    sort general by current weights
+  if rType is "inbox":
+    add r to inbox
+    sort inbox by current weights
+  if rType is "local":
+    add r to local
+```
+
+### Get Relay
+
+```
+Constants and Variables:
+  general  // A sorted list of general-purpose relay URLs
+  inbox    // A sorted list of user-defined inbox relay URLs
+  local    // An unsorted list of local relay URLs
+
+Parameters:
+  rank  // The requested rank
+
+Function getRelay:
+  selected = []
+  if local has members:
+    add all local members to selected
+  if rank less than length of inbox:
+    add inbox[rank] to selected
+  if rank less than length of general:
+    add general[rank] to selected
 ```
