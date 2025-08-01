@@ -27,7 +27,7 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> 
   const ws = await WebSocketPool.instance.acquire("wss://thecitadel.nostr1.com");
   const subId = crypto.randomUUID();
 
-  const res = new Promise<NostrEvent | null>((resolve, reject) => {
+  const res = new Promise<NostrEvent>((resolve, reject) => {
     ws.addEventListener("message", (ev) => {
       const data = JSON.parse(ev.data);
 
@@ -42,7 +42,7 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> 
           reject(new Error(`[WebSocket Utils]: Subscription ${subId} closed`));
           break;
         case "EOSE":
-          resolve(null);
+          reject(new Error(`[WebSocket Utils]: Event not found`));
           break;
       }
 

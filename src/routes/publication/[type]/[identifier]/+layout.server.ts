@@ -1,6 +1,7 @@
 import { error } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
-import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent, NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
+import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/websocket_utils.ts";
+import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
 export const load: LayoutServerLoad = async ({ params, url }) => {
   const { type, identifier } = params;
