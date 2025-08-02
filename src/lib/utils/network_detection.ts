@@ -153,10 +153,12 @@ export function getRelaySetForNetworkCondition(
  */
 export function startNetworkMonitoring(
   onNetworkChange: (condition: NetworkCondition) => void,
-  checkInterval: number = 60000 // Increased to 60 seconds to reduce spam
+  checkInterval: number = 60000, // Increased to 60 seconds to reduce spam
 ): () => void {
   let lastCondition: NetworkCondition | null = null;
   let intervalId: ReturnType<typeof setInterval> | null = null;
+  // deno-lint-ignore no-explicit-any
+  let intervalId: any = null;
 
   const checkNetwork = async () => {
     try {

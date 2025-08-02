@@ -26,11 +26,11 @@
 
     <P class="mb-3">
       Alexandria is a reader and writer for <A
-        href="./publication?d=gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
+        href="./publication/d/gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
         >curated publications</A
       > (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form
       articles (markup). It is produced by the <A
-        href="./publication?d=gitcitadel-project-documentation-by-stella-v-1"
+        href="./publication/d/gitcitadel-project-documentation-by-stella-v-1"
         >GitCitadel project team</A
       >.
     </P>

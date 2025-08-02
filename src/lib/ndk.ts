@@ -6,7 +6,7 @@ import NDK, {
   NDKUser,
   NDKEvent,
 } from "@nostr-dev-kit/ndk";
-import { get, writable, type Writable } from "svelte/store";
+import { writable, get, type Writable } from "svelte/store";
 import {
   loginStorageKey,
 } from "./consts.ts";
@@ -32,6 +32,11 @@ export const outboxRelays = writable<string[]>([]);
 // New relay management stores
 export const activeInboxRelays = writable<string[]>([]);
 export const activeOutboxRelays = writable<string[]>([]);
+
+// Subscribe to userStore changes and update ndkSignedIn accordingly
+userStore.subscribe((userState) => {
+  ndkSignedIn.set(userState.signedIn);
+});
 
 /**
  * Custom authentication policy that handles NIP-42 authentication manually

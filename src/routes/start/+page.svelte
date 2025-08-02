@@ -91,7 +91,7 @@
 
     <P class="mb-3">
       An example of a book is <a
-        href="/publication?d=jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition"
+        href="/publication/d/jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition"
         >Jane Eyre</a
       >
     </P>
@@ -127,7 +127,7 @@
 
     <P class="mb-3">
       An example of a research paper is <a
-        href="/publication?d=less-partnering-less-children-or-both-by-julia-hellstrand-v-1"
+        href="/publication/d/less-partnering-less-children-or-both-by-julia-hellstrand-v-1"
         >Less Partnering, Less Children, or Both?</a
       >
     </P>
@@ -145,9 +145,9 @@
 
     <P class="mb-3">
       Our own team uses Alexandria to document the app, to display our <a
-        href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</a
+        href="/publication/d/the-gitcitadel-blog-by-stella-v-1">blog entries</a
       >, as well as to store copies of our most interesting
-      <a href="/publication?d=gitcitadel-project-documentation-by-stella-v-1"
+      <a href="/publication/d/gitcitadel-project-documentation-by-stella-v-1"
         >technical specifications</a
       >.
     </P>
@@ -168,7 +168,7 @@
       collaborative knowledge bases and documentation. Wiki pages, such as this
       one about the <button
         class="underline text-primary-700 bg-transparent border-none p-0"
-        onclick={() => goto("/publication?d=sybil")}>Sybil utility</button
+        onclick={() => goto("/publication/d/sybil")}>Sybil utility</button
       > use the same Asciidoc format as other publications but are specifically designed
       for interconnected, evolving content.
     </P>

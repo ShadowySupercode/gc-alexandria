@@ -292,7 +292,7 @@
   // Debounced search function
   const debouncedSearch = debounceAsync(async (query: string) => {
     console.debug("[PublicationFeed] Search query changed:", query);
-    if (query.trim()) {
+    if (query && query.trim()) {
       const filtered = filterEventsBySearch(allIndexEvents);
       eventsInView = filtered.slice(0, 30);
       endOfFeed = filtered.length <= 30;
@@ -303,10 +303,6 @@
   }, 300);
 
   $effect(() => {
-    console.debug(
-      "[PublicationFeed] Search query effect triggered:",
-      props.searchQuery,
-    );
     debouncedSearch(props.searchQuery);
   });
 
