@@ -12,12 +12,12 @@
   }>();
 
   // Computed property for unique tags
-  let uniqueTags = $derived(() => {
-    const tagMap = new Map();
+  let uniqueTags = $derived.by(() => {
+    const tagMap = new Map<string, { value: string; count: number; firstEvent: string }>();
     
-    events.forEach(event => {
+    events.forEach((event: NDKEvent) => {
       const tags = event.tags || [];
-      tags.forEach(tag => {
+      tags.forEach((tag: string[]) => {
         if (tag[0] === selectedTagType) {
           const tagValue = tag[1];
           const count = tagMap.get(tagValue)?.count || 0;

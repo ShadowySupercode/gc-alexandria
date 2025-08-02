@@ -293,13 +293,15 @@ export function createPersonLinks(
         connectionType = 'referenced';
       }
 
-      return {
+      const link: PersonLink = {
         source: anchor,
         target: node,
         isSequential: false,
         connectionType,
       };
-    }).filter(Boolean); // Remove undefineds
+      
+      return link;
+    }).filter((link): link is PersonLink => link !== undefined); // Remove undefineds and type guard
   });
 
   debug("Created person links", { linkCount: links.length });

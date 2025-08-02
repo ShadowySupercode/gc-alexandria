@@ -188,7 +188,7 @@
   <div class="tooltip-content">
     <!-- Title with link -->
     <div class="tooltip-title">
-      <a href={getEventUrl(node)} class="tooltip-title-link">
+      <a href="/publication?id={node.id}" class="tooltip-title-link">
         {getLinkText(node)}
       </a>
     </div>

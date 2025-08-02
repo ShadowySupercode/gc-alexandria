@@ -1,9 +1,9 @@
 import { VALIDATION } from './search_constants';
-import type { NostrEventId } from './nostr_identifiers';
 
 /**
  * Nostr identifier types
  */
+export type NostrEventId = string; // 64-character hex string
 export type NostrCoordinate = string; // kind:pubkey:d-tag format
 export type NostrIdentifier = NostrEventId | NostrCoordinate;
 

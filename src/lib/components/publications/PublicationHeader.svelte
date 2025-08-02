@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { naddrEncode } from "$lib/utils";
+  import { naddrEncode, neventEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { activeInboxRelays } from "$lib/ndk";
   import { Card } from "flowbite-svelte";
@@ -7,6 +7,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import { indexKind } from "$lib/consts";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -19,11 +20,16 @@
   });
 
   const href = $derived.by(() => {
-    const d = event.getMatchingTags("d")[0]?.[1];
-    if (d != null) {
-      return `publication?d=${d}`;
+    const dTag = event.getMatchingTags("d")[0]?.[1];
+    const isIndexEvent = event.kind === indexKind;
+    
+    if (dTag != null && isIndexEvent) {
+      // For index events with d tag, use naddr encoding
+      const naddr = naddrEncode(event, relays);
+      return `publication/naddr/${naddr}`;
     } else {
-      return `publication?id=${naddrEncode(event, relays)}`;
+      // Fallback to d tag if available
+      return dTag ? `publication/d/${dTag}` : null;
     }
   });
 

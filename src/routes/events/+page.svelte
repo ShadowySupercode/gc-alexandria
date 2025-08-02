@@ -354,9 +354,9 @@
 </script>
 
 <div class="w-full flex justify-center">
-  <div class="flex w-full max-w-7xl my-6 px-4 mx-auto gap-6">
+  <div class="flex flex-col lg:flex-row w-full max-w-7xl my-6 px-4 mx-auto gap-6">
     <!-- Left Panel: Search and Results -->
-    <div class={showSidePanel ? "w-80 min-w-80" : "flex-1 max-w-4xl mx-auto"}>
+    <div class={showSidePanel ? "w-full lg:w-80 lg:min-w-80" : "flex-1 max-w-4xl mx-auto"}>
       <div class="main-leather flex flex-col space-y-6">
         <div class="flex justify-between items-center">
           <Heading tag="h1" class="h-leather mb-2">Events</Heading>
@@ -775,7 +775,7 @@
 
     <!-- Right Panel: Event Details -->
     {#if showSidePanel && event}
-      <div class="flex-1 min-w-0 main-leather flex flex-col space-y-6">
+      <div class="w-full lg:flex-1 lg:min-w-0 main-leather flex flex-col space-y-6">
         <div class="flex justify-between items-center">
           <Heading tag="h2" class="h-leather mb-2">Event Details</Heading>
           <button
