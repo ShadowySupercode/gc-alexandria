@@ -157,8 +157,6 @@ export function startNetworkMonitoring(
 ): () => void {
   let lastCondition: NetworkCondition | null = null;
   let intervalId: ReturnType<typeof setInterval> | null = null;
-  // deno-lint-ignore no-explicit-any
-  let intervalId: any = null;
 
   const checkNetwork = async () => {
     try {

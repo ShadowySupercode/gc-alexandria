@@ -4,7 +4,7 @@ import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 import { browser } from "$app/environment";
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params }: { params: { type: string; identifier: string } }) => {
   const { type, identifier } = params;
 
   // Only fetch on the client side where WebSocket is available
