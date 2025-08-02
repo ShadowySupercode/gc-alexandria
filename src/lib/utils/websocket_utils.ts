@@ -70,14 +70,14 @@ export async function fetchEventById(id: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ ids: [id], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for ID: ${id}`);
+      error(404, `Event not found for ID: ${id}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by ID: ${err}`);
+    error(404, `Failed to fetch event by ID: ${err}`);
   }
 }
 
@@ -88,14 +88,14 @@ export async function fetchEventByDTag(dTag: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ "#d": [dTag], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for d-tag: ${dTag}`);
+      error(404, `Event not found for d-tag: ${dTag}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by d-tag: ${err}`);
+    error(404, `Failed to fetch event by d-tag: ${err}`);
   }
 }
 
@@ -112,14 +112,14 @@ export async function fetchEventByNaddr(naddr: string): Promise<NostrEvent> {
     };
     const event = await fetchNostrEvent(filter);
     if (!event) {
-      throw error(404, `Event not found for naddr: ${naddr}`);
+      error(404, `Event not found for naddr: ${naddr}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by naddr: ${err}`);
+    error(404, `Failed to fetch event by naddr: ${err}`);
   }
 }
 
@@ -131,13 +131,13 @@ export async function fetchEventByNevent(nevent: string): Promise<NostrEvent> {
     const decoded = neventDecode(nevent);
     const event = await fetchNostrEvent({ ids: [decoded.id], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for nevent: ${nevent}`);
+      error(404, `Event not found for nevent: ${nevent}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by nevent: ${err}`);
+    error(404, `Failed to fetch event by nevent: ${err}`);
   }
 }

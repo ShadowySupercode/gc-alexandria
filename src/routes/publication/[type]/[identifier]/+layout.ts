@@ -39,7 +39,7 @@ export const load: LayoutLoad = async ({ params, url }) => {
         indexEvent = await fetchEventByNevent(identifier);
         break;
       default:
-        throw error(400, `Unsupported identifier type: ${type}`);
+        error(400, `Unsupported identifier type: ${type}`);
     }
 
     // Extract metadata for meta tags
@@ -60,6 +60,6 @@ export const load: LayoutLoad = async ({ params, url }) => {
     };
   } catch (err) {
     console.error('Failed to fetch publication:', err);
-    throw error(404, `Failed to load publication: ${err}`);
+    error(404, `Failed to load publication: ${err}`);
   }
 };

@@ -25,17 +25,17 @@ export const load: PageServerLoad = ({ url }) => {
   if (id) {
     // Check if id is an naddr or nevent
     if (id.startsWith(IDENTIFIER_PREFIXES.NADDR)) {
-      throw redirect(301, `${ROUTES.NADDR}/${id}`);
+      redirect(301, `${ROUTES.NADDR}/${id}`);
     } else if (id.startsWith(IDENTIFIER_PREFIXES.NEVENT)) {
-      throw redirect(301, `${ROUTES.NEVENT}/${id}`);
+      redirect(301, `${ROUTES.NEVENT}/${id}`);
     } else {
       // Assume it's a hex ID
-      throw redirect(301, `${ROUTES.ID}/${id}`);
+      redirect(301, `${ROUTES.ID}/${id}`);
     }
   } else if (dTag) {
-    throw redirect(301, `${ROUTES.D_TAG}/${dTag}`);
+    redirect(301, `${ROUTES.D_TAG}/${dTag}`);
   }
 
   // If no query parameters, redirect to the start page
-  throw redirect(301, ROUTES.START);
+  redirect(301, ROUTES.START);
 }; 
