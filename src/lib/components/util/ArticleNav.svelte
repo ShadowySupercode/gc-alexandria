@@ -27,6 +27,7 @@
     indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
   );
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
+  let isIndexEvent: boolean = $derived(indexEvent.kind === 30040);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
@@ -140,7 +141,7 @@
           <span class="hidden sm:inline">Back</span>
         </Button>
       {/if}
-      {#if !isLeaf}
+      {#if isIndexEvent}
         {#if publicationType === "blog"}
           <Button
             class={`btn-leather hidden sm:flex !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}

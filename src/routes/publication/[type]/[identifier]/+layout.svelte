@@ -3,6 +3,8 @@
   import type { LayoutProps } from "./$types";
 
   let { data, children }: LayoutProps = $props();
+  
+  // AI-NOTE: Use metadata from server-side load for SEO and social sharing
   const { metadata } = data;
 </script>
 

@@ -7,10 +7,9 @@
   import { onMount, onDestroy } from "svelte";
   import {
     getMatchingTags,
-    NDKRelaySetFromNDK,
-    type NDKEvent,
-    type NDKRelaySet,
   } from "$lib/utils/nostrUtils";
+  import { WebSocketPool } from "$lib/data_structures/websocket_pool";
+  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
@@ -139,21 +138,54 @@
     async function fetchFromRelay(relay: string): Promise<void> {
       try {
         console.debug(`[PublicationFeed] Fetching from relay: ${relay}`);
-        const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
-        let eventSet = await ndk
-          .fetchEvents(
-            {
-              kinds: [indexKind],
-              limit: 1000, // Increased limit to get more events
-            },
-            {
-              groupable: false,
-              skipVerification: false,
-              skipValidation: false,
-            },
-            relaySet,
-          )
-          .withTimeout(5000); // Reduced timeout to 5 seconds for faster response
+        
+        // Use WebSocketPool to get a pooled connection
+        const ws = await WebSocketPool.instance.acquire(relay);
+        const subId = crypto.randomUUID();
+        
+        // Create a promise that resolves with the events
+        const eventPromise = new Promise<Set<NDKEvent>>((resolve, reject) => {
+          const events = new Set<NDKEvent>();
+          
+          const messageHandler = (ev: MessageEvent) => {
+            try {
+              const data = JSON.parse(ev.data);
+              
+              if (data[0] === "EVENT" && data[1] === subId) {
+                const event = new NDKEvent(ndk, data[2]);
+                events.add(event);
+              } else if (data[0] === "EOSE" && data[1] === subId) {
+                resolve(events);
+              }
+            } catch (error) {
+              console.error(`[PublicationFeed] Error parsing message from ${relay}:`, error);
+            }
+          };
+          
+          const errorHandler = (ev: Event) => {
+            reject(new Error(`WebSocket error for ${relay}: ${ev}`));
+          };
+          
+          ws.addEventListener("message", messageHandler);
+          ws.addEventListener("error", errorHandler);
+          
+          // Send the subscription request
+          ws.send(JSON.stringify([
+            "REQ", 
+            subId, 
+            { kinds: [indexKind], limit: 1000 }
+          ]));
+          
+          // Set up cleanup
+          setTimeout(() => {
+            ws.removeEventListener("message", messageHandler);
+            ws.removeEventListener("error", errorHandler);
+            WebSocketPool.instance.release(ws);
+            resolve(events);
+          }, 5000);
+        });
+        
+        let eventSet = await eventPromise;
         
         console.debug(`[PublicationFeed] Raw events from ${relay}:`, eventSet.size);
         eventSet = filterValidIndexEvents(eventSet);
@@ -364,7 +396,7 @@
 
 <div class="flex flex-col space-y-4">
   <div
-    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full"
+    class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full"
   >
     {#if loading && eventsInView.length === 0}
       {#each getSkeletonIds() as id}

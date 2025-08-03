@@ -14,8 +14,16 @@
 
   // data.indexEvent can be null from server-side rendering
   // We need to handle this case properly
-  const indexEvent = data.indexEvent ? createNDKEvent(data.ndk, data.indexEvent) : null;
+  // AI-NOTE: Always create NDK event since we now ensure NDK is available
+  console.debug('[Publication] data.indexEvent:', data.indexEvent);
+  console.debug('[Publication] data.ndk:', data.ndk);
   
+  const indexEvent = data.indexEvent && data.ndk 
+    ? createNDKEvent(data.ndk, data.indexEvent) 
+    : null; // No event if no NDK or no event data
+  
+  console.debug('[Publication] indexEvent created:', indexEvent);
+
   // Only create publication tree if we have a valid index event
   const publicationTree = indexEvent ? new SveltePublicationTree(indexEvent, data.ndk) : null;
   const toc = indexEvent ? new TableOfContents(
@@ -92,6 +100,8 @@
 </script>
 
 {#if indexEvent && data.indexEvent}
+  {@const debugInfo = `indexEvent: ${!!indexEvent}, data.indexEvent: ${!!data.indexEvent}`}
+  {@const debugElement = console.debug('[Publication] Rendering publication with:', debugInfo)}
   <ArticleNav
     publicationType={data.publicationType}
     rootId={data.indexEvent.id}
@@ -106,6 +116,8 @@
     />
   </main>
 {:else}
+  {@const debugInfo = `indexEvent: ${!!indexEvent}, data.indexEvent: ${!!data.indexEvent}`}
+  {@const debugElement = console.debug('[Publication] NOT rendering publication with:', debugInfo)}
   <main class="publication">
     <div class="flex items-center justify-center min-h-screen">
       <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>

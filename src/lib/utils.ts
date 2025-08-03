@@ -2,6 +2,7 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
 import type { AddressPointer, EventPointer } from "nostr-tools/nip19";
+import type { NostrEvent } from "./utils/websocket_utils.ts";
 
 export class DecodeError extends Error {
   constructor(message: string) {
@@ -36,6 +37,26 @@ export function naddrEncode(event: NDKEvent, relays: string[]) {
     identifier: dTag,
     pubkey: event.pubkey,
     kind: event.kind || 0,
+    relays,
+  });
+}
+
+/**
+ * Creates a tag address from a raw Nostr event (for compatibility with NDK events)
+ * @param event The raw Nostr event
+ * @param relays Optional relay list for the address
+ * @returns A tag address string
+ */
+export function createTagAddress(event: NostrEvent, relays: string[] = []): string {
+  const dTag = event.tags.find((tag: string[]) => tag[0] === "d")?.[1];
+  if (!dTag) {
+    throw new Error("Event does not have a d tag");
+  }
+
+  return nip19.naddrEncode({
+    identifier: dTag,
+    pubkey: event.pubkey,
+    kind: event.kind,
     relays,
   });
 }
