@@ -1,6 +1,8 @@
 import { WebSocketPool } from "../data_structures/websocket_pool.ts";
 import { error } from "@sveltejs/kit";
 import { naddrDecode, neventDecode } from "../utils.ts";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import { get } from "svelte/store";
 
 export interface NostrEvent {
   id: string;
@@ -25,8 +27,9 @@ export interface NostrFilter {
 type ResolveCallback<T> = (value: T | PromiseLike<T>) => void;
 type RejectCallback = (reason?: any) => void;
 type EventHandler = (ev: Event) => void;
+type MessageEventHandler = (ev: MessageEvent) => void;
 type EventHandlerReject = (reject: RejectCallback) => EventHandler; 
-type EventHandlerResolve<T> = (resolve: ResolveCallback<T>) => EventHandlerReject;
+type EventHandlerResolve<T> = (resolve: ResolveCallback<T>) => (reject: RejectCallback) => MessageEventHandler;
 
 function handleMessage(
   ev: MessageEvent,
@@ -67,14 +70,31 @@ function handleError(
 }
 
 export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> {
-  // TODO: Improve relay selection when relay management is implemented.
-  const ws = await WebSocketPool.instance.acquire("wss://thecitadel.nostr1.com");
+  // AI-NOTE: Updated to use active relay stores instead of hardcoded relay URL
+  // This ensures the function uses the user's configured relays and can find events
+  // across multiple relays rather than being limited to a single hardcoded relay.
+  
+  // Get available relays from the active relay stores
+  const inboxRelays = get(activeInboxRelays);
+  const outboxRelays = get(activeOutboxRelays);
+  
+  // Combine all available relays, prioritizing inbox relays
+  const availableRelays = [...inboxRelays, ...outboxRelays];
+  
+  if (availableRelays.length === 0) {
+    throw new Error("[WebSocket Utils]: No relays available for fetching events");
+  }
+  
+  // Select a relay - prefer inbox relays if available, otherwise use any available relay
+  const selectedRelay = inboxRelays.length > 0 ? inboxRelays[0] : availableRelays[0];
+  
+  const ws = await WebSocketPool.instance.acquire(selectedRelay);
   const subId = crypto.randomUUID();
 
   // AI-NOTE: Currying is used here to abstract the internal handler logic away from the WebSocket
   // handling logic. The message and error handlers themselves can be refactored without affecting
   // the WebSocket handling logic.
-  const curriedMessageHandler: (subId: string) => EventHandlerResolve<NostrEvent> =
+  const curriedMessageHandler: (subId: string) => (resolve: ResolveCallback<NostrEvent>) => (reject: RejectCallback) => MessageEventHandler =
     (subId) =>
       (resolve) =>
         (reject) =>
@@ -87,7 +107,7 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> 
 
   // AI-NOTE: These variables store references to partially-applied handlers so that the `finally`
   // block receives the correct references to clean up the listeners.
-  let messageHandler: EventHandler;
+  let messageHandler: MessageEventHandler;
   let errorHandler: EventHandler;
 
   const res = new Promise<NostrEvent>((resolve, reject) => {

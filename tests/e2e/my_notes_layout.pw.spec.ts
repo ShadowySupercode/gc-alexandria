@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // Utility to check for horizontal scroll bar
-async function hasHorizontalScroll(page, selector) {
-  return await page.evaluate((sel) => {
+async function hasHorizontalScroll(page: Page, selector: string) {
+  return await page.evaluate((sel: string) => {
     const el = document.querySelector(sel);
     if (!el) return false;
     return el.scrollWidth > el.clientWidth;
