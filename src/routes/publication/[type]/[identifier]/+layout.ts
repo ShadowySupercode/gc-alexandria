@@ -4,6 +4,8 @@ import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 import { browser } from "$app/environment";
 
+export const ssr = true;
+
 export const load: LayoutLoad = async ({ params, url }) => {
   const { type, identifier } = params;
 
