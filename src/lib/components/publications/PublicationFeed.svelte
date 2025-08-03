@@ -1,7 +1,7 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
   import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-  import { filterValidIndexEvents, debounce } from "$lib/utils";
+  import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
   import { onMount, onDestroy } from "svelte";
@@ -290,7 +290,7 @@
   };
 
   // Debounced search function
-  const debouncedSearch = debounce((query: string | undefined) => {
+  const debouncedSearch = debounceAsync(async (query: string) => {
     console.debug("[PublicationFeed] Search query changed:", query);
     if (query && query.trim()) {
       const filtered = filterEventsBySearch(allIndexEvents);

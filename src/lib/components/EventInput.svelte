@@ -12,6 +12,12 @@
     analyze30040Event,
     get30040FixGuidance,
   } from "$lib/utils/event_input_utils";
+  import { 
+    extractDocumentMetadata, 
+    extractSmartMetadata,
+    metadataToTags,
+    removeMetadataFromContent 
+  } from "$lib/utils/asciidoc_metadata";
   import { get } from "svelte/store";
   import { ndkInstance } from "$lib/ndk";
   import { userPubkey } from "$lib/stores/authStore.Svelte";
@@ -24,7 +30,7 @@
   import { goto } from "$app/navigation";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
 
-  let kind = $state<number>(30023);
+  let kind = $state<number>(30040);
   let tags = $state<[string, string][]>([]);
   let content = $state("");
   let createdAt = $state<number>(Math.floor(Date.now() / 1000));
@@ -39,22 +45,68 @@
   let dTagManuallyEdited = $state(false);
   let dTagError = $state("");
   let lastPublishedEventId = $state<string | null>(null);
+  let showWarning = $state(false);
+  let warningMessage = $state("");
+  let pendingPublish = $state(false);
+  let extractedMetadata = $state<[string, string][]>([]);
+  let hasLoadedFromStorage = $state(false);
+
+  // Load content from sessionStorage if available (from ZettelEditor)
+  $effect(() => {
+    if (hasLoadedFromStorage) return; // Prevent multiple loads
+    
+    const storedContent = sessionStorage.getItem('zettelEditorContent');
+    const storedSource = sessionStorage.getItem('zettelEditorSource');
+    
+    if (storedContent && storedSource === 'publication-format') {
+      content = storedContent;
+      hasLoadedFromStorage = true;
+      
+      // Clear the stored content after loading
+      sessionStorage.removeItem('zettelEditorContent');
+      sessionStorage.removeItem('zettelEditorSource');
+      
+      // Extract title and metadata using the standardized parser
+      const { metadata } = extractSmartMetadata(content);
+      if (metadata.title) {
+        title = metadata.title;
+        titleManuallyEdited = false;
+        dTagManuallyEdited = false;
+      }
+      
+      // Extract metadata for 30040 and 30041 events
+      if (kind === 30040 || kind === 30041) {
+        extractedMetadata = metadataToTags(metadata);
+      }
+    }
+  });
 
   /**
-   * Extracts the first Markdown/AsciiDoc header as the title.
+   * Extracts the first Markdown/AsciiDoc header as the title using the standardized parser.
    */
   function extractTitleFromContent(content: string): string {
-    // Match Markdown (# Title) or AsciiDoc (= Title) headers
-    const match = content.match(/^(#|=)\s*(.+)$/m);
-    return match ? match[2].trim() : "";
+    const { metadata } = extractSmartMetadata(content);
+    return metadata.title || "";
   }
 
   function handleContentInput(e: Event) {
     content = (e.target as HTMLTextAreaElement).value;
+    
+    // Extract title and metadata using the standardized parser
+    const { metadata } = extractSmartMetadata(content);
+    
     if (!titleManuallyEdited) {
-      const extracted = extractTitleFromContent(content);
-      console.log("Content input - extracted title:", extracted);
-      title = extracted;
+      console.log("Content input - extracted title:", metadata.title);
+      title = metadata.title || "";
+      // Reset dTagManuallyEdited when title changes so d-tag can be auto-generated
+      dTagManuallyEdited = false;
+    }
+    
+    // Extract metadata from AsciiDoc content for 30040 and 30041 events
+    if (kind === 30040 || kind === 30041) {
+      extractedMetadata = metadataToTags(metadata);
+    } else {
+      extractedMetadata = [];
     }
   }
 
@@ -92,12 +144,24 @@
     tags = tags.filter((_, i) => i !== index);
   }
 
+  function addExtractedTag(key: string, value: string): void {
+    // Check if tag already exists
+    const existingIndex = tags.findIndex(([k]) => k === key);
+    if (existingIndex >= 0) {
+      // Update existing tag
+      tags = tags.map((t, i) => (i === existingIndex ? [key, value] : t));
+    } else {
+      // Add new tag
+      tags = [...tags, [key, value]];
+    }
+  }
+
   function isValidKind(kind: number | string): boolean {
     const n = Number(kind);
     return Number.isInteger(n) && n >= 0 && n <= 65535;
   }
 
-  function validate(): { valid: boolean; reason?: string } {
+  function validate(): { valid: boolean; reason?: string; warning?: string } {
     const currentUserPubkey = get(userPubkey as any);
     const userState = get(userStore);
     
@@ -113,6 +177,7 @@
     if (kind === 30040) {
       const v = validate30040EventSet(content);
       if (!v.valid) return v;
+      if (v.warning) return { valid: true, warning: v.warning };
     }
     if (kind === 30041 || kind === 30818) {
       const v = validateAsciiDoc(content);
@@ -124,10 +189,26 @@
   function handleSubmit(e: Event) {
     e.preventDefault();
     dTagError = "";
+    error = null; // Clear any previous errors
+    
     if (requiresDTag(kind) && (!dTag || dTag.trim() === "")) {
       dTagError = "A d-tag is required.";
       return;
     }
+    
+    const validation = validate();
+    if (!validation.valid) {
+      error = validation.reason || "Validation failed.";
+      return;
+    }
+    
+    if (validation.warning) {
+      warningMessage = validation.warning;
+      showWarning = true;
+      pendingPublish = true;
+      return;
+    }
+    
     handlePublish();
   }
 
@@ -235,8 +316,14 @@
           eventTags = [...eventTags, ["title", titleValue]];
         }
 
+        // For AsciiDoc events, remove metadata from content
+        let finalContent = content;
+        if (kind === 30040 || kind === 30041) {
+          finalContent = removeMetadataFromContent(content);
+        }
+        
         // Prefix Nostr addresses before publishing
-        const prefixedContent = prefixNostrAddresses(content);
+        const prefixedContent = prefixNostrAddresses(finalContent);
 
         // Create event with proper serialization
         const eventData = {
@@ -330,6 +417,9 @@
                     }
                   }
                 };
+
+                // Send the event to the relay
+                ws.send(JSON.stringify(["EVENT", signedEvent]));
               });
               if (published) break;
             } catch (e) {
@@ -391,6 +481,18 @@
       goto(`/events?id=${encodeURIComponent(lastPublishedEventId)}`);
     }
   }
+
+  function confirmWarning() {
+    showWarning = false;
+    pendingPublish = false;
+    handlePublish();
+  }
+
+  function cancelWarning() {
+    showWarning = false;
+    pendingPublish = false;
+    warningMessage = "";
+  }
 </script>
 
 <div
@@ -412,9 +514,9 @@
           Kind must be an integer between 0 and 65535 (NIP-01).
         </div>
       {/if}
-      {#if kind === 30040}
+      {#if Number(kind) === 30040}
         <div
-          class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-900 p-2 rounded"
+          class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-50 dark:text-blue-800 p-2 rounded whitespace-pre-wrap"
         >
           <strong>30040 - Publication Index:</strong>
           {get30040EventDescription()}
@@ -423,6 +525,36 @@
     </div>
     <div>
       <label class="block font-medium mb-1" for="tags-container">Tags</label>
+      
+      <!-- Extracted Metadata Section -->
+      {#if extractedMetadata.length > 0}
+        <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+            Extracted Metadata (from AsciiDoc header)
+          </h4>
+          <div class="space-y-2">
+            {#each extractedMetadata as [key, value], i}
+              <div class="flex gap-2 items-center">
+                <span class="text-xs text-blue-600 dark:text-blue-400 min-w-[60px]">{key}:</span>
+                <input
+                  type="text"
+                  class="input input-bordered input-sm flex-1 text-sm"
+                  value={value}
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline btn-primary"
+                  onclick={() => addExtractedTag(key, value)}
+                >
+                  Add to Tags
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+      
       <div id="tags-container" class="space-y-2">
         {#each tags as [key, value], i}
           <div class="flex gap-2">
@@ -525,6 +657,31 @@
           </Button>
         </div>
       {/if}
-    {/if}
-  </form>
-</div>
+          {/if}
+    </form>
+  </div>
+
+  {#if showWarning}
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+        <h3 class="text-lg font-bold mb-4">Warning</h3>
+        <p class="mb-4">{warningMessage}</p>
+        <div class="flex justify-end space-x-2">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={cancelWarning}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick={confirmWarning}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}

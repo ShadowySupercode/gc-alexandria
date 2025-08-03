@@ -3,7 +3,8 @@ import { nip19 } from "nostr-tools";
 import { ndkInstance } from "../ndk.ts";
 import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type { NDKFilter, NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
+import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
+import type { Filter } from "./search_types.ts";
 import { communityRelays, secondaryRelays } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
@@ -439,7 +440,7 @@ Promise.prototype.withTimeout = function <T>(
  */
 export async function fetchEventWithFallback(
   ndk: NDK,
-  filterOrId: string | NDKFilter<NDKKind>,
+  filterOrId: string | Filter,
   timeoutMs: number = 3000,
 ): Promise<NDKEvent | null> {
   // Use both inbox and outbox relays for better event discovery
