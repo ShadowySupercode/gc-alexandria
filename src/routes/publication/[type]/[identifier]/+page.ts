@@ -27,7 +27,28 @@ export const load: PageLoad = async ({ params }: { params: { type: string; ident
   }
 
   if (!indexEvent) {
-    error(404, `Event not found for ${type}: ${identifier}`);
+    // AI-NOTE: Handle case where no relays are available during preloading
+    // This prevents 404 errors when relay stores haven't been populated yet
+    console.warn(`[Publication Load] Event not found for ${type}: ${identifier} - may be due to no relays available`);
+    
+    // Create appropriate search link based on type
+    let searchParam = '';
+    switch (type) {
+      case 'id':
+        searchParam = `id=${identifier}`;
+        break;
+      case 'd':
+        searchParam = `d=${identifier}`;
+        break;
+      case 'naddr':
+      case 'nevent':
+        searchParam = `id=${identifier}`;
+        break;
+      default:
+        searchParam = `q=${identifier}`;
+    }
+    
+    error(404, `Event not found for ${type}: ${identifier}. href="/events?${searchParam}"`);
   }
 
   const publicationType = indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";

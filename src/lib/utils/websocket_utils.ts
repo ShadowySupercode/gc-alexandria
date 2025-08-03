@@ -69,7 +69,7 @@ function handleError(
   reject(ev);
 }
 
-export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> {
+export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent | null> {
   // AI-NOTE: Updated to use active relay stores instead of hardcoded relay URL
   // This ensures the function uses the user's configured relays and can find events
   // across multiple relays rather than being limited to a single hardcoded relay.
@@ -82,7 +82,11 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> 
   const availableRelays = [...inboxRelays, ...outboxRelays];
   
   if (availableRelays.length === 0) {
-    throw new Error("[WebSocket Utils]: No relays available for fetching events");
+    // AI-NOTE: Return null instead of throwing error when no relays are available
+    // This allows the publication routes to handle the case gracefully during preloading
+    // when relay stores haven't been populated yet
+    console.warn("[WebSocket Utils]: No relays available for fetching events, returning null");
+    return null;
   }
   
   // Select a relay - prefer inbox relays if available, otherwise use any available relay
@@ -135,7 +139,7 @@ export async function fetchEventById(id: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ ids: [id], limit: 1 });
     if (!event) {
-      error(404, `Event not found for ID: ${id}`);
+      error(404, `Event not found for ID: ${id}. href="/events?id=${id}"`);
     }
     return event;
   } catch (err) {
@@ -153,7 +157,7 @@ export async function fetchEventByDTag(dTag: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ "#d": [dTag], limit: 1 });
     if (!event) {
-      error(404, `Event not found for d-tag: ${dTag}`);
+      error(404, `Event not found for d-tag: ${dTag}. href="/events?d=${dTag}"`);
     }
     return event;
   } catch (err) {
@@ -177,7 +181,7 @@ export async function fetchEventByNaddr(naddr: string): Promise<NostrEvent> {
     };
     const event = await fetchNostrEvent(filter);
     if (!event) {
-      error(404, `Event not found for naddr: ${naddr}`);
+      error(404, `Event not found for naddr: ${naddr}. href="/events?id=${naddr}"`);
     }
     return event;
   } catch (err) {
@@ -196,7 +200,7 @@ export async function fetchEventByNevent(nevent: string): Promise<NostrEvent> {
     const decoded = neventDecode(nevent);
     const event = await fetchNostrEvent({ ids: [decoded.id], limit: 1 });
     if (!event) {
-      error(404, `Event not found for nevent: ${nevent}`);
+      error(404, `Event not found for nevent: ${nevent}. href="/events?id=${nevent}"`);
     }
     return event;
   } catch (err) {
