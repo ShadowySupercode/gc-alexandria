@@ -43,4 +43,16 @@ export default defineConfig({
     // Expose the app version as a global variable
     "import.meta.env.APP_VERSION": JSON.stringify(getAppVersionString()),
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
+  server: {
+    fs: {
+      allow: ['..'],
+    },
+  },
 });

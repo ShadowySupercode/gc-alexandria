@@ -3,7 +3,7 @@ import type { PageLoad } from "./$types";
 import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/websocket_utils.ts";
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params }: { params: { type: string; identifier: string } }) => {
   const { type, identifier } = params;
 
   let indexEvent: NostrEvent | null;
