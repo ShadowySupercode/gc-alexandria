@@ -152,26 +152,25 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
     }
   });
 
-  // Wait for the first successful result with timeout
-  const timeoutPromise = new Promise<null>((resolve) => {
-    setTimeout(() => {
-      console.warn("[WebSocket Utils]: Fetch timeout reached");
-      resolve(null);
-    }, 5000); // 5 second timeout for the entire fetch operation
-  });
-
-  // Race between individual relay results and the timeout
-  const result = await Promise.race([
-    // Wait for the first successful result from any relay
-    Promise.race(relayPromises.filter(p => p !== null)),
-    timeoutPromise
-  ]);
+  // Wait for all relay results and find the first successful one
+  const results = await Promise.allSettled(relayPromises);
   
-  if (result) {
-    return result;
+  // Find the first successful result
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value) {
+      console.debug(`[WebSocket Utils]: Returning successful result from relay`);
+      return result.value;
+    }
   }
   
-  console.warn("[WebSocket Utils]: Failed to fetch event from all relays (timeout or no results)");
+  // Debug: log all results to see what happened
+  console.debug(`[WebSocket Utils]: All relay results:`, results.map((r, i) => ({
+    relay: availableRelays[i],
+    status: r.status,
+    value: r.status === 'fulfilled' ? r.value : r.reason
+  })));
+  
+  console.warn("[WebSocket Utils]: Failed to fetch event from all relays (no successful results)");
   return null;
 }
 
@@ -222,12 +221,15 @@ export async function fetchEventByNaddr(naddr: string): Promise<NostrEvent> {
       authors: [decoded.pubkey],
       "#d": [decoded.identifier],
     };
+    console.debug(`[fetchEventByNaddr] Calling fetchNostrEvent with filter:`, filter);
     const event = await fetchNostrEvent(filter);
+    console.debug(`[fetchEventByNaddr] fetchNostrEvent returned:`, event ? 'success' : 'null');
     if (!event) {
       error(404, `Event not found for naddr: ${naddr}. href="/events?id=${naddr}"`);
     }
     return event;
   } catch (err) {
+    console.error(`[fetchEventByNaddr] Error:`, err);
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }

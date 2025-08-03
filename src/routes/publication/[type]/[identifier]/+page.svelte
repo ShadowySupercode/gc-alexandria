@@ -9,12 +9,20 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { createNDKEvent } from "$lib/utils/nostrUtils";
+  import { createTagAddress } from "$lib/utils";
+  import { get } from "svelte/store";
+  import { activeInboxRelays } from "$lib/ndk";
 
   let { data }: PageProps = $props();
 
   // data.indexEvent can be null from server-side rendering
   // We need to handle this case properly
-  const indexEvent = data.indexEvent ? createNDKEvent(data.ndk, data.indexEvent) : null;
+  // AI-NOTE: Always create NDK event since we now ensure NDK is available
+  const indexEvent = data.indexEvent && data.ndk 
+    ? createNDKEvent(data.ndk, data.indexEvent) 
+    : null; // No event if no NDK or no event data
+
+
   
   // Only create publication tree if we have a valid index event
   const publicationTree = indexEvent ? new SveltePublicationTree(indexEvent, data.ndk) : null;
