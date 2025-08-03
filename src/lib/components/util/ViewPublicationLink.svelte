@@ -21,6 +21,53 @@
     return getEventType(event.kind || 0) === "addressable";
   }
 
+  // AI-NOTE: Always ensure the returned address is a valid naddr1... string.
+  // If the tag value is a raw coordinate (kind:pubkey:d-tag), encode it.
+  // If it's already naddr1..., use as-is. Otherwise, fallback to event's own naddr.
+  function getViewPublicationNaddr(event: NDKEvent): string | null {
+    // First, check for a-tags with 'defer' - these indicate the event is deferring to someone else's version
+    const aTags = getMatchingTags(event, "a");
+    for (const tag of aTags) {
+      if (tag.length >= 2 && tag.includes("defer")) {
+        const value = tag[1];
+        if (value.startsWith("naddr1")) {
+          return value;
+        }
+        // Check for coordinate format: kind:pubkey:d-tag
+        const coordMatch = value.match(/^(\d+):([0-9a-fA-F]{64}):(.+)$/);
+        if (coordMatch) {
+          const [_, kind, pubkey, dTag] = coordMatch;
+          try {
+            return naddrEncode({ kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent, $activeInboxRelays);
+          } catch {
+            return null;
+          }
+        }
+        // Fallback: if not naddr1 or coordinate, ignore
+      }
+    }
+
+    // For deferred events with deferral tag, use the deferral naddr instead of the event's own naddr
+    const deferralNaddr = getDeferralNaddr(event);
+    if (deferralNaddr) {
+      if (deferralNaddr.startsWith("naddr1")) {
+        return deferralNaddr;
+      }
+      const coordMatch = deferralNaddr.match(/^(\d+):([0-9a-fA-F]{64}):(.+)$/);
+      if (coordMatch) {
+        const [_, kind, pubkey, dTag] = coordMatch;
+        try {
+          return naddrEncode({ kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent, $activeInboxRelays);
+        } catch {
+          return null;
+        }
+      }
+    }
+
+    // Otherwise, use the event's own naddr if it's addressable
+    return getNaddrAddress(event);
+  }
+
   function getNaddrAddress(event: NDKEvent): string | null {
     if (!isAddressableEvent(event)) {
       return null;
@@ -32,41 +79,11 @@
     }
   }
 
-  function getViewPublicationNaddr(event: NDKEvent): string | null {
-    // First, check for a-tags with 'defer' - these indicate the event is deferring to someone else's version
-    const aTags = getMatchingTags(event, "a");
-    for (const tag of aTags) {
-      if (tag.length >= 2 && tag.includes("defer")) {
-        // This is a deferral to someone else's addressable event
-        return tag[1]; // Return the addressable event address
-      }
-    }
-
-    // For deferred events with deferral tag, use the deferral naddr instead of the event's own naddr
-    const deferralNaddr = getDeferralNaddr(event);
-    if (deferralNaddr) {
-      return deferralNaddr;
-    }
-
-    // Otherwise, use the event's own naddr if it's addressable
-    return getNaddrAddress(event);
-  }
-
   function navigateToPublication() {
     const naddrAddress = getViewPublicationNaddr(event);
-    console.log("ViewPublicationLink: navigateToPublication called", {
-      eventKind: event.kind,
-      naddrAddress,
-      isAddressable: isAddressableEvent(event),
-    });
     if (naddrAddress) {
-      console.log(
-        "ViewPublicationLink: Navigating to publication:",
-        naddrAddress,
-      );
-      goto(`/publication/naddr/${naddrAddress}`);
-    } else {
-      console.log("ViewPublicationLink: No naddr address found for event");
+      const url = `/publication/naddr/${naddrAddress}`;
+      goto(url);
     }
   }
 
