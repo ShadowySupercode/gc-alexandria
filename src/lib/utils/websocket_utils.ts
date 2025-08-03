@@ -79,57 +79,106 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
   const outboxRelays = get(activeOutboxRelays);
   
   // Combine all available relays, prioritizing inbox relays
-  const availableRelays = [...inboxRelays, ...outboxRelays];
+  let availableRelays = [...inboxRelays, ...outboxRelays];
   
+  // AI-NOTE: Use fallback relays when stores are empty (e.g., during SSR)
+  // This ensures publications can still load even when relay stores haven't been populated
   if (availableRelays.length === 0) {
-    // AI-NOTE: Return null instead of throwing error when no relays are available
-    // This allows the publication routes to handle the case gracefully during preloading
-    // when relay stores haven't been populated yet
-    console.warn("[WebSocket Utils]: No relays available for fetching events, returning null");
-    return null;
+    console.warn("[WebSocket Utils]: No relays in stores, using fallback relays");
+    // Import fallback relays from constants
+    const { searchRelays, secondaryRelays } = await import("../consts.ts");
+    availableRelays = [...searchRelays, ...secondaryRelays];
+    
+    if (availableRelays.length === 0) {
+      console.warn("[WebSocket Utils]: No fallback relays available, using thecitadel.nostr1.com as final fallback");
+      availableRelays = ["wss://thecitadel.nostr1.com"];
+    }
   }
   
-  // Select a relay - prefer inbox relays if available, otherwise use any available relay
-  const selectedRelay = inboxRelays.length > 0 ? inboxRelays[0] : availableRelays[0];
-  
-  const ws = await WebSocketPool.instance.acquire(selectedRelay);
-  const subId = crypto.randomUUID();
+  // Try all available relays in parallel and return the first result
+  const relayPromises = availableRelays.map(async (relay) => {
+    try {
+      console.debug(`[WebSocket Utils]: Trying relay: ${relay}`);
+      
+      const ws = await WebSocketPool.instance.acquire(relay);
+      const subId = crypto.randomUUID();
 
-  // AI-NOTE: Currying is used here to abstract the internal handler logic away from the WebSocket
-  // handling logic. The message and error handlers themselves can be refactored without affecting
-  // the WebSocket handling logic.
-  const curriedMessageHandler: (subId: string) => (resolve: ResolveCallback<NostrEvent>) => (reject: RejectCallback) => MessageEventHandler =
-    (subId) =>
-      (resolve) =>
+      // AI-NOTE: Currying is used here to abstract the internal handler logic away from the WebSocket
+      // handling logic. The message and error handlers themselves can be refactored without affecting
+      // the WebSocket handling logic.
+      const curriedMessageHandler: (subId: string) => (resolve: ResolveCallback<NostrEvent>) => (reject: RejectCallback) => MessageEventHandler =
+        (subId) =>
+          (resolve) =>
+            (reject) =>
+              (ev: MessageEvent) =>
+                handleMessage(ev, subId, resolve, reject);
+      const curriedErrorHandler: EventHandlerReject =
         (reject) =>
-          (ev: MessageEvent) =>
-            handleMessage(ev, subId, resolve, reject);
-  const curriedErrorHandler: EventHandlerReject =
-    (reject) =>
-      (ev: Event) =>
-        handleError(ev, reject);
+          (ev: Event) =>
+            handleError(ev, reject);
 
-  // AI-NOTE: These variables store references to partially-applied handlers so that the `finally`
-  // block receives the correct references to clean up the listeners.
-  let messageHandler: MessageEventHandler;
-  let errorHandler: EventHandler;
+      // AI-NOTE: These variables store references to partially-applied handlers so that the `finally`
+      // block receives the correct references to clean up the listeners.
+      let messageHandler: MessageEventHandler;
+      let errorHandler: EventHandler;
 
-  const res = new Promise<NostrEvent>((resolve, reject) => {
-    messageHandler = curriedMessageHandler(subId)(resolve)(reject);
-    errorHandler = curriedErrorHandler(reject);
+      const res = new Promise<NostrEvent>((resolve, reject) => {
+        messageHandler = curriedMessageHandler(subId)(resolve)(reject);
+        errorHandler = curriedErrorHandler(reject);
 
-    ws.addEventListener("message", messageHandler);
-    ws.addEventListener("error", errorHandler);
-  })
-  .withTimeout(2000)
-  .finally(() => {
-    ws.removeEventListener("message", messageHandler);
-    ws.removeEventListener("error", errorHandler);
-    WebSocketPool.instance.release(ws);
+        ws.addEventListener("message", messageHandler);
+        ws.addEventListener("error", errorHandler);
+      })
+      .withTimeout(2000)
+      .finally(() => {
+        ws.removeEventListener("message", messageHandler);
+        ws.removeEventListener("error", errorHandler);
+        WebSocketPool.instance.release(ws);
+      });
+
+      ws.send(JSON.stringify(["REQ", subId, filter]));
+      
+      const result = await res;
+      if (result) {
+        console.debug(`[WebSocket Utils]: Found event on relay: ${relay}`);
+        return result;
+      }
+      
+      console.debug(`[WebSocket Utils]: No event found on relay: ${relay}`);
+      return null;
+    } catch (err) {
+      console.warn(`[WebSocket Utils]: Failed to fetch from relay ${relay}:`, err);
+      return null;
+    }
   });
 
-  ws.send(JSON.stringify(["REQ", subId, filter]));
-  return res;
+  // Wait for the first successful result or all to fail with timeout
+  const timeoutPromise = new Promise<null>((resolve) => {
+    setTimeout(() => {
+      console.warn("[WebSocket Utils]: Fetch timeout reached");
+      resolve(null);
+    }, 5000); // 5 second timeout for the entire fetch operation
+  });
+
+  const fetchPromise = Promise.allSettled(relayPromises).then((results) => {
+    // Find the first successful result
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        return result.value;
+      }
+    }
+    return null;
+  });
+
+  // Race between the fetch and the timeout
+  const result = await Promise.race([fetchPromise, timeoutPromise]);
+  
+  if (result) {
+    return result;
+  }
+  
+  console.warn("[WebSocket Utils]: Failed to fetch event from all relays (timeout or no results)");
+  return null;
 }
 
 /**
