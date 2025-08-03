@@ -170,10 +170,10 @@
 </script>
 
 <div
-  class="flex flex-row w-full max-w-none py-8 px-8 gap-24 min-w-0 overflow-hidden"
+  class="flex flex-col lg:flex-row w-full max-w-7xl mx-auto py-8 px-8 gap-8 lg:gap-24 min-w-0 overflow-hidden"
 >
   <!-- Tag Filter Sidebar -->
-  <aside class="w-80 flex-shrink-0 self-start">
+  <aside class="w-full lg:w-80 flex-shrink-0 self-start">
     <h2 class="text-lg font-bold mb-4">Tag Type</h2>
     <div class="flex flex-wrap gap-2 mb-6">
       {#each tagTypes as type}
@@ -224,7 +224,7 @@
   </aside>
 
   <!-- Notes Feed -->
-  <div class="flex-1 max-w-5xl ml-auto px-4 min-w-0 overflow-hidden">
+  <div class="flex-1 w-full lg:max-w-5xl lg:ml-auto px-0 lg:px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
     {#if loading}
       <div class="text-gray-500">Loading…</div>
@@ -235,11 +235,11 @@
     {:else}
       <ul class="space-y-4 w-full">
         {#each filteredEvents as event}
-          <li class="p-4 bg-white dark:bg-gray-800 rounded shadow w-full">
-            <div class="flex items-center justify-between mb-2">
-              <div class="font-semibold text-lg">{getTitle(event)}</div>
+          <li class="p-4 bg-white dark:bg-gray-800 rounded shadow w-full overflow-hidden">
+            <div class="flex items-center justify-between mb-2 min-w-0">
+              <div class="font-semibold text-lg truncate flex-1 mr-2">{getTitle(event)}</div>
               <button
-                class="ml-2 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                class="flex-shrink-0 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
                 on:click={() => toggleTags(event.id)}
                 aria-label="Show tags"
               >
