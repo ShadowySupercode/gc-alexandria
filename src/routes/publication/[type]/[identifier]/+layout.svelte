@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
   import type { LayoutProps } from "./$types";
 
   let { data, children }: LayoutProps = $props();
@@ -26,4 +27,6 @@
   <meta name="twitter:image" content={metadata.image} />
 </svelte:head>
 
-{@render children()} 
+{#if browser}
+  {@render children()}
+{/if}
