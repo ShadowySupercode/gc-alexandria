@@ -152,7 +152,7 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
     }
   });
 
-  // Wait for the first successful result or all to fail with timeout
+  // Wait for the first successful result with timeout
   const timeoutPromise = new Promise<null>((resolve) => {
     setTimeout(() => {
       console.warn("[WebSocket Utils]: Fetch timeout reached");
@@ -160,18 +160,12 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
     }, 5000); // 5 second timeout for the entire fetch operation
   });
 
-  const fetchPromise = Promise.allSettled(relayPromises).then((results) => {
-    // Find the first successful result
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        return result.value;
-      }
-    }
-    return null;
-  });
-
-  // Race between the fetch and the timeout
-  const result = await Promise.race([fetchPromise, timeoutPromise]);
+  // Race between individual relay results and the timeout
+  const result = await Promise.race([
+    // Wait for the first successful result from any relay
+    Promise.race(relayPromises.filter(p => p !== null)),
+    timeoutPromise
+  ]);
   
   if (result) {
     return result;
