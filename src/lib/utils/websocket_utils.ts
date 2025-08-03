@@ -22,42 +22,87 @@ export interface NostrFilter {
   limit?: number;
 }
 
+type ResolveCallback<T> = (value: T | PromiseLike<T>) => void;
+type RejectCallback = (reason?: any) => void;
+type EventHandler = (ev: Event) => void;
+type EventHandlerReject = (reject: RejectCallback) => EventHandler; 
+type EventHandlerResolve<T> = (resolve: ResolveCallback<T>) => EventHandlerReject;
+
+function handleMessage(
+  ev: MessageEvent,
+  subId: string,
+  resolve: (event: NostrEvent) => void,
+  reject: (reason: any) => void
+) {
+  const data = JSON.parse(ev.data);
+
+  if (data[1] !== subId) {
+    return;
+  }
+
+  switch (data[0]) {
+    case "EVENT":
+      break;
+    case "CLOSED":
+      reject(new Error(`[WebSocket Utils]: Subscription ${subId} closed`));
+      break;
+    case "EOSE":
+      reject(new Error(`[WebSocket Utils]: Event not found`));
+      break;
+  }
+
+  const event = data[2] as NostrEvent;
+  if (!event) {
+    return;
+  }
+
+  resolve(event);
+}
+
+function handleError(
+  ev: Event,
+  reject: (reason: any) => void
+) {
+  reject(ev);
+}
+
 export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent> {
   // TODO: Improve relay selection when relay management is implemented.
   const ws = await WebSocketPool.instance.acquire("wss://thecitadel.nostr1.com");
   const subId = crypto.randomUUID();
 
+  // AI-NOTE: Currying is used here to abstract the internal handler logic away from the WebSocket
+  // handling logic. The message and error handlers themselves can be refactored without affecting
+  // the WebSocket handling logic.
+  const curriedMessageHandler: (subId: string) => EventHandlerResolve<NostrEvent> =
+    (subId) =>
+      (resolve) =>
+        (reject) =>
+          (ev: MessageEvent) =>
+            handleMessage(ev, subId, resolve, reject);
+  const curriedErrorHandler: EventHandlerReject =
+    (reject) =>
+      (ev: Event) =>
+        handleError(ev, reject);
+
+  // AI-NOTE: These variables store references to partially-applied handlers so that the `finally`
+  // block receives the correct references to clean up the listeners.
+  let messageHandler: EventHandler;
+  let errorHandler: EventHandler;
+
   const res = new Promise<NostrEvent>((resolve, reject) => {
-    ws.addEventListener("message", (ev) => {
-      const data = JSON.parse(ev.data);
+    messageHandler = curriedMessageHandler(subId)(resolve)(reject);
+    errorHandler = curriedErrorHandler(reject);
 
-      if (data[1] !== subId) {
-        return;
-      }
-
-      switch (data[0]) {
-        case "EVENT":
-          break;
-        case "CLOSED":
-          reject(new Error(`[WebSocket Utils]: Subscription ${subId} closed`));
-          break;
-        case "EOSE":
-          reject(new Error(`[WebSocket Utils]: Event not found`));
-          break;
-      }
-
-      const event = data[2] as NostrEvent;
-      if (!event) {
-        return;
-      }
-
-      resolve(event);
-    });
-
-    ws.addEventListener("error", (ev) => {
-      reject(ev);
-    });
-  }).withTimeout(2000);
+    ws.addEventListener("message", messageHandler);
+    ws.addEventListener("error", errorHandler);
+  })
+  .withTimeout(2000)
+  .finally(() => {
+    ws.removeEventListener("message", messageHandler);
+    ws.removeEventListener("error", errorHandler);
+    WebSocketPool.instance.release(ws);
+  });
 
   ws.send(JSON.stringify(["REQ", subId, filter]));
   return res;
@@ -70,14 +115,14 @@ export async function fetchEventById(id: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ ids: [id], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for ID: ${id}`);
+      error(404, `Event not found for ID: ${id}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by ID: ${err}`);
+    error(404, `Failed to fetch event by ID: ${err}`);
   }
 }
 
@@ -88,14 +133,14 @@ export async function fetchEventByDTag(dTag: string): Promise<NostrEvent> {
   try {
     const event = await fetchNostrEvent({ "#d": [dTag], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for d-tag: ${dTag}`);
+      error(404, `Event not found for d-tag: ${dTag}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by d-tag: ${err}`);
+    error(404, `Failed to fetch event by d-tag: ${err}`);
   }
 }
 
@@ -112,14 +157,14 @@ export async function fetchEventByNaddr(naddr: string): Promise<NostrEvent> {
     };
     const event = await fetchNostrEvent(filter);
     if (!event) {
-      throw error(404, `Event not found for naddr: ${naddr}`);
+      error(404, `Event not found for naddr: ${naddr}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by naddr: ${err}`);
+    error(404, `Failed to fetch event by naddr: ${err}`);
   }
 }
 
@@ -131,13 +176,13 @@ export async function fetchEventByNevent(nevent: string): Promise<NostrEvent> {
     const decoded = neventDecode(nevent);
     const event = await fetchNostrEvent({ ids: [decoded.id], limit: 1 });
     if (!event) {
-      throw error(404, `Event not found for nevent: ${nevent}`);
+      error(404, `Event not found for nevent: ${nevent}`);
     }
     return event;
   } catch (err) {
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
-    throw error(404, `Failed to fetch event by nevent: ${err}`);
+    error(404, `Failed to fetch event by nevent: ${err}`);
   }
 }
