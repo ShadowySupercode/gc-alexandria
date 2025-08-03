@@ -34,11 +34,11 @@ export const load: PageLoad = async ({ params }) => {
         indexEvent = await fetchEventByNevent(identifier);
         break;
       default:
-        throw error(400, `Unsupported identifier type: ${type}`);
+        error(400, `Unsupported identifier type: ${type}`);
     }
 
     if (!indexEvent) {
-      throw error(404, `Event not found for ${type}: ${identifier}`);
+      error(404, `Event not found for ${type}: ${identifier}`);
     }
 
     const publicationType = indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
@@ -49,6 +49,6 @@ export const load: PageLoad = async ({ params }) => {
     };
   } catch (err) {
     console.error('Failed to fetch publication:', err);
-    throw error(404, `Failed to load publication: ${err}`);
+    error(404, `Failed to load publication: ${err}`);
   }
 }; 

@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ params }) => {
   // Validate the identifier type for SSR
   const validTypes = ['id', 'd', 'naddr', 'nevent'];
   if (!validTypes.includes(type)) {
-    throw error(400, `Unsupported identifier type: ${type}`);
+    error(400, `Unsupported identifier type: ${type}`);
   }
 
   // Provide basic data for SSR - actual fetching will happen on client

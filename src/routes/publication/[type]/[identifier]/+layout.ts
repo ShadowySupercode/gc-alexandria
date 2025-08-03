@@ -4,6 +4,8 @@ import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 import { browser } from "$app/environment";
 
+export const ssr = true;
+
 export const load: LayoutLoad = async ({ params, url }) => {
   const { type, identifier } = params;
 
@@ -39,7 +41,7 @@ export const load: LayoutLoad = async ({ params, url }) => {
         indexEvent = await fetchEventByNevent(identifier);
         break;
       default:
-        throw error(400, `Unsupported identifier type: ${type}`);
+        error(400, `Unsupported identifier type: ${type}`);
     }
 
     // Extract metadata for meta tags
@@ -60,6 +62,6 @@ export const load: LayoutLoad = async ({ params, url }) => {
     };
   } catch (err) {
     console.error('Failed to fetch publication:', err);
-    throw error(404, `Failed to load publication: ${err}`);
+    error(404, `Failed to load publication: ${err}`);
   }
 };
