@@ -84,13 +84,11 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
   // AI-NOTE: Use fallback relays when stores are empty (e.g., during SSR)
   // This ensures publications can still load even when relay stores haven't been populated
   if (availableRelays.length === 0) {
-    console.warn("[WebSocket Utils]: No relays in stores, using fallback relays");
     // Import fallback relays from constants
     const { searchRelays, secondaryRelays } = await import("../consts.ts");
     availableRelays = [...searchRelays, ...secondaryRelays];
     
     if (availableRelays.length === 0) {
-      console.warn("[WebSocket Utils]: No fallback relays available, using thecitadel.nostr1.com as final fallback");
       availableRelays = ["wss://thecitadel.nostr1.com"];
     }
   }
@@ -98,8 +96,6 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
   // Try all available relays in parallel and return the first result
   const relayPromises = availableRelays.map(async (relay) => {
     try {
-      console.debug(`[WebSocket Utils]: Trying relay: ${relay}`);
-      
       const ws = await WebSocketPool.instance.acquire(relay);
       const subId = crypto.randomUUID();
 
@@ -140,14 +136,11 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
       
       const result = await res;
       if (result) {
-        console.debug(`[WebSocket Utils]: Found event on relay: ${relay}`);
         return result;
       }
       
-      console.debug(`[WebSocket Utils]: No event found on relay: ${relay}`);
       return null;
     } catch (err) {
-      console.warn(`[WebSocket Utils]: Failed to fetch from relay ${relay}:`, err);
       return null;
     }
   });
@@ -158,19 +151,10 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
   // Find the first successful result
   for (const result of results) {
     if (result.status === 'fulfilled' && result.value) {
-      console.debug(`[WebSocket Utils]: Returning successful result from relay`);
       return result.value;
     }
   }
   
-  // Debug: log all results to see what happened
-  console.debug(`[WebSocket Utils]: All relay results:`, results.map((r, i) => ({
-    relay: availableRelays[i],
-    status: r.status,
-    value: r.status === 'fulfilled' ? r.value : r.reason
-  })));
-  
-  console.warn("[WebSocket Utils]: Failed to fetch event from all relays (no successful results)");
   return null;
 }
 
@@ -221,15 +205,12 @@ export async function fetchEventByNaddr(naddr: string): Promise<NostrEvent> {
       authors: [decoded.pubkey],
       "#d": [decoded.identifier],
     };
-    console.debug(`[fetchEventByNaddr] Calling fetchNostrEvent with filter:`, filter);
     const event = await fetchNostrEvent(filter);
-    console.debug(`[fetchEventByNaddr] fetchNostrEvent returned:`, event ? 'success' : 'null');
     if (!event) {
       error(404, `Event not found for naddr: ${naddr}. href="/events?id=${naddr}"`);
     }
     return event;
   } catch (err) {
-    console.error(`[fetchEventByNaddr] Error:`, err);
     if (err && typeof err === "object" && "status" in err) {
       throw err;
     }
