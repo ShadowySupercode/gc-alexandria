@@ -1,6 +1,21 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
-import { getMatchingTags } from "./utils/nostrUtils";
+import { getMatchingTags } from "./utils/nostrUtils.ts";
+import type { AddressPointer, EventPointer } from "nostr-tools/nip19";
+
+export class DecodeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DecodeError";
+  }
+}
+
+export class InvalidKindError extends DecodeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidKindError";
+  }
+}
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
   return nip19.neventEncode({
@@ -12,11 +27,11 @@ export function neventEncode(event: NDKEvent, relays: string[]) {
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
-  const dTag = getMatchingTags(event, 'd')[0]?.[1];
+  const dTag = getMatchingTags(event, "d")[0]?.[1];
   if (!dTag) {
-    throw new Error('Event does not have a d tag');
+    throw new Error("Event does not have a d tag");
   }
-  
+
   return nip19.naddrEncode({
     identifier: dTag,
     pubkey: event.pubkey,
@@ -27,6 +42,44 @@ export function naddrEncode(event: NDKEvent, relays: string[]) {
 
 export function nprofileEncode(pubkey: string, relays: string[]) {
   return nip19.nprofileEncode({ pubkey, relays });
+}
+
+/**
+ * Decodes a nostr identifier (naddr, nevent) and returns the decoded data.
+ * @param identifier The nostr identifier to decode.
+ * @param expectedType The expected type of the decoded data ('naddr' or 'nevent').
+ * @returns The decoded data.
+ */
+function decodeNostrIdentifier<T extends AddressPointer | EventPointer>(
+  identifier: string,
+  expectedType: "naddr" | "nevent",
+): T {
+  try {
+    if (!identifier.startsWith(expectedType)) {
+      throw new InvalidKindError(`Invalid ${expectedType} format`);
+    }
+    const decoded = nip19.decode(identifier);
+    if (decoded.type !== expectedType) {
+      throw new InvalidKindError(`Decoded result is not an ${expectedType}`);
+    }
+    return decoded.data as T;
+  } catch (error) {
+    throw new DecodeError(`Failed to decode ${expectedType}: ${error}`);
+  }
+}
+
+/**
+ * Decodes an naddr identifier and returns the decoded data
+ */
+export function naddrDecode(naddr: string): AddressPointer {
+  return decodeNostrIdentifier<AddressPointer>(naddr, "naddr");
+}
+
+/**
+ * Decodes an nevent identifier and returns the decoded data
+ */
+export function neventDecode(nevent: string): EventPointer {
+  return decodeNostrIdentifier<EventPointer>(nevent, "nevent");
 }
 
 export function formatDate(unixtimestamp: number) {
@@ -97,8 +150,8 @@ export function isElementInViewport(el: string | HTMLElement) {
     rect.top >= 0 &&
     rect.left >= 0 &&
     rect.bottom <=
-      (window.innerHeight || document.documentElement.clientHeight) &&
-    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+      (globalThis.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (globalThis.innerWidth || document.documentElement.clientWidth)
   );
 }
 
@@ -110,16 +163,14 @@ export function isElementInViewport(el: string | HTMLElement) {
 export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
   // The filter object supports only limited parameters, so we need to filter out events that
   // don't respect NKBIP-01.
-  events.forEach(event => {
+  events.forEach((event) => {
     // Index events have no content, and they must have `title`, `d`, and `e` tags.
     if (
-      (event.content != null && event.content.length > 0)
-      || getMatchingTags(event, 'title').length === 0
-      || getMatchingTags(event, 'd').length === 0
-      || (
-        getMatchingTags(event, 'a').length === 0
-        && getMatchingTags(event, 'e').length === 0
-      )
+      (event.content != null && event.content.length > 0) ||
+      getMatchingTags(event, "title").length === 0 ||
+      getMatchingTags(event, "d").length === 0 ||
+      (getMatchingTags(event, "a").length === 0 &&
+        getMatchingTags(event, "e").length === 0)
     ) {
       events.delete(event);
     }
@@ -138,7 +189,7 @@ export function filterValidIndexEvents(events: Set<NDKEvent>): Set<NDKEvent> {
  */
 export async function findIndexAsync<T>(
   array: T[],
-  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
 ): Promise<number> {
   for (let i = 0; i < array.length; i++) {
     if (await predicate(array[i], i, array)) {
@@ -152,14 +203,14 @@ export async function findIndexAsync<T>(
 declare global {
   interface Array<T> {
     findIndexAsync(
-      predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+      predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
     ): Promise<number>;
   }
 }
 
-Array.prototype.findIndexAsync = function<T>(
+Array.prototype.findIndexAsync = function <T>(
   this: T[],
-  predicate: (element: T, index: number, array: T[]) => Promise<boolean>
+  predicate: (element: T, index: number, array: T[]) => Promise<boolean>,
 ): Promise<number> {
   return findIndexAsync(this, predicate);
 };
@@ -171,9 +222,10 @@ Array.prototype.findIndexAsync = function<T>(
  * @param wait The number of milliseconds to delay
  * @returns A debounced version of the function
  */
+// deno-lint-ignore no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -181,6 +233,32 @@ export function debounce<T extends (...args: any[]) => any>(
     const later = () => {
       timeout = undefined;
       func(...args);
+    };
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Creates a debounced async function that delays invoking func until after wait milliseconds have elapsed
+ * since the last time the debounced function was invoked.
+ * @param func The async function to debounce
+ * @param wait The number of milliseconds to delay
+ * @returns A debounced version of the async function
+ */
+export function debounceAsync(
+  func: (query: string) => Promise<void>,
+  wait: number,
+): (query: string) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return function executedFunction(query: string) {
+    const later = () => {
+      timeout = undefined;
+      func(query);
     };
 
     if (timeout) {

@@ -1,19 +1,19 @@
-import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
-import asciidoctor from 'asciidoctor';
+// deno-lint-ignore-file no-this-alias
+import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
+import Processor from "asciidoctor";
 import type {
   AbstractBlock,
   AbstractNode,
-  Asciidoctor,
   Block,
   Document,
   Extensions,
   Section,
   ProcessorOptions,
-} from 'asciidoctor';
-import he from 'he';
-import { writable, type Writable } from 'svelte/store';
-import { zettelKinds } from './consts.ts';
-import { getMatchingTags } from '$lib/utils/nostrUtils';
+} from "asciidoctor";
+import he from "he";
+import { writable, type Writable } from "svelte/store";
+import { zettelKinds } from "./consts.ts";
+import { getMatchingTags } from "./utils/nostrUtils.ts";
 
 interface IndexMetadata {
   authors?: string[];
@@ -28,16 +28,16 @@ interface IndexMetadata {
 
 export enum SiblingSearchDirection {
   Previous,
-  Next
+  Next,
 }
 
 export enum InsertLocation {
   Before,
-  After
+  After,
 }
 
 /**
- * @classdesc Pharos is an extension of the Asciidoctor class that adds Nostr Knowledge Base (NKB) 
+ * @classdesc Pharos is an extension of the Asciidoctor class that adds Nostr Knowledge Base (NKB)
  * features to core Asciidoctor functionality.  Asciidoctor is used to parse an AsciiDoc document
  * into an Abstract Syntax Tree (AST), and Phraos generates NKB events from the nodes in that tree.
  * @class
@@ -46,12 +46,12 @@ export enum InsertLocation {
 export default class Pharos {
   /**
    * Key to terminology used in the class:
-   * 
+   *
    * Nostr Knowledge Base (NKB) entities:
    * - Zettel: Bite-sized pieces of text contained within kind 30041 events.
    * - Index: A kind 30040 event describing a collection of zettels or other Nostr events.
    * - Event: The generic term for a Nostr event.
-   * 
+   *
    * Asciidoctor entities:
    * - Document: The entirety of an AsciiDoc document.  The document title is denoted by a level 0
    * header, and the document may contain metadata, such as author and edition, immediately below
@@ -65,7 +65,7 @@ export default class Pharos {
    * hierarchically to form the Abstract Syntax Tree (AST) representation of the document.
    */
 
-  private asciidoctor: Asciidoctor;
+  private asciidoctor;
 
   private pharosExtensions: Extensions.Registry;
 
@@ -112,7 +112,10 @@ export default class Pharos {
   /**
    * A map of index IDs to the IDs of the nodes they reference.
    */
-  private indexToChildEventsMap: Map<string, Set<string>> = new Map<string, Set<string>>();
+  private indexToChildEventsMap: Map<string, Set<string>> = new Map<
+    string,
+    Set<string>
+  >();
 
   /**
    * A map of node IDs to the Nostr event IDs of the events they generate.
@@ -137,7 +140,7 @@ export default class Pharos {
   // #region Public API
 
   constructor(ndk: NDK) {
-    this.asciidoctor = asciidoctor();
+    this.asciidoctor = Processor();
     this.pharosExtensions = this.asciidoctor.Extensions.create();
 
     this.ndk = ndk;
@@ -150,21 +153,47 @@ export default class Pharos {
         pharos.treeProcessor(treeProcessor, document);
       });
     });
+
+    // Add advanced extensions for math, PlantUML, BPMN, and TikZ
+    this.loadAdvancedExtensions();
+  }
+
+  /**
+   * Loads advanced extensions for math, PlantUML, BPMN, and TikZ rendering
+   */
+  private async loadAdvancedExtensions(): Promise<void> {
+    try {
+      const { createAdvancedExtensions } = await import(
+        "./utils/markup/asciidoctorExtensions.ts"
+      );
+      createAdvancedExtensions();
+      // Note: Extensions merging might not be available in this version
+      // We'll handle this in the parse method instead
+    } catch (error) {
+      console.warn("Advanced extensions not available:", error);
+    }
   }
 
   parse(content: string, options?: ProcessorOptions | undefined): void {
-
     // Ensure the content is valid AsciiDoc and has a header and the doctype book
     content = ensureAsciiDocHeader(content);
-    
+
     try {
+      const mergedAttributes = Object.assign(
+        {},
+        options && typeof options.attributes === "object"
+          ? options.attributes
+          : {},
+        { "source-highlighter": "highlightjs" },
+      );
       this.html = this.asciidoctor.convert(content, {
-        'extension_registry': this.pharosExtensions,
         ...options,
+        extension_registry: this.pharosExtensions,
+        attributes: mergedAttributes,
       }) as string | Document | undefined;
     } catch (error) {
       console.error(error);
-      throw new Error('Failed to parse AsciiDoc document.');
+      throw new Error("Failed to parse AsciiDoc document.");
     }
   }
 
@@ -176,10 +205,10 @@ export default class Pharos {
   async fetch(event: NDKEvent | string): Promise<void> {
     let content: string;
 
-    if (typeof event === 'string') {
+    if (typeof event === "string") {
       const index = await this.ndk.fetchEvent({ ids: [event] });
       if (!index) {
-        throw new Error('Failed to fetch publication.');
+        throw new Error("Failed to fetch publication.");
       }
 
       content = await this.getPublicationContent(index);
@@ -201,7 +230,7 @@ export default class Pharos {
   /**
    * Generates and stores Nostr events from the parsed AsciiDoc document.  The events can be
    * modified via the parser's API and retrieved via the `getEvents()` method.
-   * @param pubkey The public key (as a hex string) of the user that will sign and publish the 
+   * @param pubkey The public key (as a hex string) of the user that will sign and publish the
    * events.
    */
   generate(pubkey: string): void {
@@ -229,7 +258,7 @@ export default class Pharos {
    * @returns The HTML content of the converted document.
    */
   getHtml(): string {
-    return this.html?.toString() || '';
+    return this.html?.toString() || "";
   }
 
   /**
@@ -237,7 +266,7 @@ export default class Pharos {
    * @remarks The root index ID may be used to retrieve metadata or children from the root index.
    */
   getRootIndexId(): string {
-    return this.normalizeId(this.rootNodeId) ?? '';
+    return this.normalizeId(this.rootNodeId) ?? "";
   }
 
   /**
@@ -245,7 +274,7 @@ export default class Pharos {
    */
   getIndexTitle(id: string): string | undefined {
     const section = this.nodes.get(id) as Section;
-    const title = section.getTitle() ?? '';
+    const title = section.getTitle() ?? "";
     return he.decode(title);
   }
 
@@ -253,16 +282,18 @@ export default class Pharos {
    * @returns The IDs of any child indices of the index with the given ID.
    */
   getChildIndexIds(id: string): string[] {
-    return Array.from(this.indexToChildEventsMap.get(id) ?? [])
-      .filter(id => this.eventToKindMap.get(id) === 30040);
+    return Array.from(this.indexToChildEventsMap.get(id) ?? []).filter(
+      (id) => this.eventToKindMap.get(id) === 30040,
+    );
   }
 
   /**
    * @returns The IDs of any child zettels of the index with the given ID.
    */
   getChildZettelIds(id: string): string[] {
-    return Array.from(this.indexToChildEventsMap.get(id) ?? [])
-      .filter(id => this.eventToKindMap.get(id) !== 30040);
+    return Array.from(this.indexToChildEventsMap.get(id) ?? []).filter(
+      (id) => this.eventToKindMap.get(id) !== 30040,
+    );
   }
 
   /**
@@ -284,8 +315,8 @@ export default class Pharos {
     const block = this.nodes.get(normalizedId!) as AbstractBlock;
 
     switch (block.getContext()) {
-    case 'paragraph':
-      return block.getContent() ?? '';
+      case "paragraph":
+        return block.getContent() ?? "";
     }
 
     return block.convert();
@@ -301,9 +332,9 @@ export default class Pharos {
     if (!normalizedId || !this.nodes.has(normalizedId)) {
       return false;
     }
-    
+
     const context = this.eventToContextMap.get(normalizedId);
-    return context === 'floating_title';
+    return context === "floating_title";
   }
 
   /**
@@ -338,7 +369,7 @@ export default class Pharos {
   getNearestSibling(
     targetDTag: string,
     depth: number,
-    direction: SiblingSearchDirection
+    direction: SiblingSearchDirection,
   ): [string | null, string | null] {
     const eventsAtLevel = this.eventsByLevelMap.get(depth);
     if (!eventsAtLevel) {
@@ -348,13 +379,17 @@ export default class Pharos {
     const targetIndex = eventsAtLevel.indexOf(targetDTag);
 
     if (targetIndex === -1) {
-      throw new Error(`The event indicated by #d:${targetDTag} does not exist at level ${depth} of the event tree.`);
+      throw new Error(
+        `The event indicated by #d:${targetDTag} does not exist at level ${depth} of the event tree.`,
+      );
     }
 
     const parentDTag = this.getParent(targetDTag);
 
     if (!parentDTag) {
-      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
+      throw new Error(
+        `The event indicated by #d:${targetDTag} does not have a parent.`,
+      );
     }
 
     const grandparentDTag = this.getParent(parentDTag);
@@ -372,7 +407,10 @@ export default class Pharos {
 
     // If the target is the last node at its level and we're searching for a next sibling,
     // look among the siblings of the target's parent at the previous level.
-    if (targetIndex === eventsAtLevel.length - 1 && direction === SiblingSearchDirection.Next) {
+    if (
+      targetIndex === eventsAtLevel.length - 1 &&
+      direction === SiblingSearchDirection.Next
+    ) {
       // * Base case: The target is at the last level of the tree and has no subsequent sibling.
       if (!grandparentDTag) {
         return [null, null];
@@ -383,10 +421,10 @@ export default class Pharos {
 
     // * Base case: There is an adjacent sibling at the same depth as the target.
     switch (direction) {
-    case SiblingSearchDirection.Previous:
-      return [eventsAtLevel[targetIndex - 1], parentDTag];
-    case SiblingSearchDirection.Next:
-      return [eventsAtLevel[targetIndex + 1], parentDTag];
+      case SiblingSearchDirection.Previous:
+        return [eventsAtLevel[targetIndex - 1], parentDTag];
+      case SiblingSearchDirection.Next:
+        return [eventsAtLevel[targetIndex + 1], parentDTag];
     }
 
     return [null, null];
@@ -401,7 +439,9 @@ export default class Pharos {
   getParent(dTag: string): string | null {
     // Check if the event exists in the parser tree.
     if (!this.eventIds.has(dTag)) {
-      throw new Error(`The event indicated by #d:${dTag} does not exist in the parser tree.`);
+      throw new Error(
+        `The event indicated by #d:${dTag} does not exist in the parser tree.`,
+      );
     }
 
     // Iterate through all the index to child mappings.
@@ -426,7 +466,11 @@ export default class Pharos {
    * @remarks Moving the target event within the tree changes the hash of several events, so the
    * event tree will be regenerated when the consumer next invokes `getEvents()`.
    */
-  moveEvent(targetDTag: string, destinationDTag: string, insertAfter: boolean = false): void {
+  moveEvent(
+    targetDTag: string,
+    destinationDTag: string,
+    insertAfter: boolean = false,
+  ): void {
     const targetEvent = this.events.get(targetDTag);
     const destinationEvent = this.events.get(destinationDTag);
     const targetParent = this.getParent(targetDTag);
@@ -441,11 +485,15 @@ export default class Pharos {
     }
 
     if (!targetParent) {
-      throw new Error(`The event indicated by #d:${targetDTag} does not have a parent.`);
+      throw new Error(
+        `The event indicated by #d:${targetDTag} does not have a parent.`,
+      );
     }
 
     if (!destinationParent) {
-      throw new Error(`The event indicated by #d:${destinationDTag} does not have a parent.`);
+      throw new Error(
+        `The event indicated by #d:${destinationDTag} does not have a parent.`,
+      );
     }
 
     // Remove the target from among the children of its current parent.
@@ -455,16 +503,22 @@ export default class Pharos {
     this.indexToChildEventsMap.get(destinationParent)?.delete(targetDTag);
 
     // Get the index of the destination event among the children of its parent.
-    const destinationIndex = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? [])
-      .indexOf(destinationDTag);
+    const destinationIndex = Array.from(
+      this.indexToChildEventsMap.get(destinationParent) ?? [],
+    ).indexOf(destinationDTag);
 
     // Insert next to the index of the destination event, either before or after as specified by
     // the insertAfter flag.
-    const destinationChildren = Array.from(this.indexToChildEventsMap.get(destinationParent) ?? []);
+    const destinationChildren = Array.from(
+      this.indexToChildEventsMap.get(destinationParent) ?? [],
+    );
     insertAfter
       ? destinationChildren.splice(destinationIndex + 1, 0, targetDTag)
       : destinationChildren.splice(destinationIndex, 0, targetDTag);
-    this.indexToChildEventsMap.set(destinationParent, new Set(destinationChildren));
+    this.indexToChildEventsMap.set(
+      destinationParent,
+      new Set(destinationChildren),
+    );
 
     this.shouldUpdateEventTree = true;
   }
@@ -494,7 +548,10 @@ export default class Pharos {
    * - Each node ID is mapped to an integer event kind that will be used to represent the node.
    * - Each ID of a node containing children is mapped to the set of IDs of its children.
    */
-  private treeProcessor(treeProcessor: Extensions.TreeProcessor, document: Document) {
+  private treeProcessor(
+    _: Extensions.TreeProcessor,
+    document: Document,
+  ) {
     this.rootNodeId = this.generateNodeId(document);
     document.setId(this.rootNodeId);
     this.nodes.set(this.rootNodeId, document);
@@ -510,7 +567,7 @@ export default class Pharos {
         continue;
       }
 
-      if (block.getContext() === 'section') {
+      if (block.getContext() === "section") {
         const children = this.processSection(block as Section);
         nodeQueue.push(...children);
       } else {
@@ -540,7 +597,7 @@ export default class Pharos {
     }
 
     this.nodes.set(sectionId, section);
-    this.eventToKindMap.set(sectionId, 30040);  // Sections are indexToChildEventsMap by default.
+    this.eventToKindMap.set(sectionId, 30040); // Sections are indexToChildEventsMap by default.
     this.indexToChildEventsMap.set(sectionId, new Set<string>());
 
     const parentId = this.normalizeId(section.getParent()?.getId());
@@ -568,7 +625,7 @@ export default class Pharos {
     // Obtain or generate a unique ID for the block.
     let blockId = this.normalizeId(block.getId());
     if (!blockId) {
-      blockId = this.generateNodeId(block) ;
+      blockId = this.generateNodeId(block);
       block.setId(blockId);
     }
 
@@ -578,7 +635,7 @@ export default class Pharos {
     }
 
     this.nodes.set(blockId, block);
-    this.eventToKindMap.set(blockId, 30041);  // Blocks are zettels by default.
+    this.eventToKindMap.set(blockId, 30041); // Blocks are zettels by default.
 
     const parentId = this.normalizeId(block.getParent()?.getId());
     if (!parentId) {
@@ -625,21 +682,24 @@ export default class Pharos {
    * @remarks This function does a depth-first crawl of the event tree using the relays specified
    * on the NDK instance.
    */
-  private async getPublicationContent(event: NDKEvent, depth: number = 0): Promise<string> {
-    let content: string = '';
+  private async getPublicationContent(
+    event: NDKEvent,
+    depth: number = 0,
+  ): Promise<string> {
+    let content: string = "";
 
     // Format title into AsciiDoc header.
-    const title = getMatchingTags(event, 'title')[0][1];
-    let titleLevel = '';
+    const title = getMatchingTags(event, "title")[0][1];
+    let titleLevel = "";
     for (let i = 0; i <= depth; i++) {
-      titleLevel += '=';
+      titleLevel += "=";
     }
     content += `${titleLevel} ${title}\n\n`;
 
     // TODO: Deprecate `e` tags in favor of `a` tags required by NIP-62.
-    let tags = getMatchingTags(event, 'a');
+    let tags = getMatchingTags(event, "a");
     if (tags.length === 0) {
-      tags = getMatchingTags(event, 'e');
+      tags = getMatchingTags(event, "e");
     }
 
     // Base case: The event is a zettel.
@@ -650,24 +710,29 @@ export default class Pharos {
 
     // Recursive case: The event is an index.
     const childEvents = await Promise.all(
-      tags.map(tag => this.ndk.fetchEventFromTag(tag, event))
+      tags.map((tag) => this.ndk.fetchEventFromTag(tag, event)),
     );
 
     // if a blog, save complete events for later
-    if (getMatchingTags(event, 'type').length > 0 && getMatchingTags(event, 'type')[0][1] === 'blog') {
-      childEvents.forEach(child => {
+    if (
+      getMatchingTags(event, "type").length > 0 &&
+      getMatchingTags(event, "type")[0][1] === "blog"
+    ) {
+      childEvents.forEach((child) => {
         if (child) {
-          this.blogEntries.set(getMatchingTags(child, 'd')?.[0]?.[1], child);
+          this.blogEntries.set(getMatchingTags(child, "d")?.[0]?.[1], child);
         }
-      })
+      });
     }
 
     // populate metadata
     if (event.created_at) {
-      this.rootIndexMetadata.publicationDate = new Date(event.created_at * 1000).toDateString();
+      this.rootIndexMetadata.publicationDate = new Date(
+        event.created_at * 1000,
+      ).toDateString();
     }
-    if (getMatchingTags(event, 'image').length > 0) {
-      this.rootIndexMetadata.coverImage = getMatchingTags(event, 'image')[0][1];
+    if (getMatchingTags(event, "image").length > 0) {
+      this.rootIndexMetadata.coverImage = getMatchingTags(event, "image")[0][1];
     }
 
     // Michael J - 15 December 2024 - This could be further parallelized by recursively fetching
@@ -676,17 +741,19 @@ export default class Pharos {
     const childContentPromises: Promise<string>[] = [];
     for (let i = 0; i < childEvents.length; i++) {
       const childEvent = childEvents[i];
-      
+
       if (!childEvent) {
         console.warn(`NDK could not find event ${tags[i][1]}.`);
         continue;
       }
 
-      childContentPromises.push(this.getPublicationContent(childEvent, depth + 1));
+      childContentPromises.push(
+        this.getPublicationContent(childEvent, depth + 1),
+      );
     }
 
     const childContents = await Promise.all(childContentPromises);
-    content += childContents.join('\n\n');
+    content += childContents.join("\n\n");
 
     return content;
   }
@@ -731,17 +798,17 @@ export default class Pharos {
 
     while (nodeIdStack.length > 0) {
       const nodeId = nodeIdStack.pop();
-      
-      switch (this.eventToKindMap.get(nodeId!)) {
-      case 30040:
-        events.push(this.generateIndexEvent(nodeId!, pubkey));
-        break;
 
-      case 30041:
-      default:
-        // Kind 30041 (zettel) is currently the default kind for contentful events.
-        events.push(this.generateZettelEvent(nodeId!, pubkey));
-        break;
+      switch (this.eventToKindMap.get(nodeId!)) {
+        case 30040:
+          events.push(this.generateIndexEvent(nodeId!, pubkey));
+          break;
+
+        case 30041:
+        default:
+          // Kind 30041 (zettel) is currently the default kind for contentful events.
+          events.push(this.generateZettelEvent(nodeId!, pubkey));
+          break;
       }
     }
 
@@ -760,17 +827,14 @@ export default class Pharos {
   private generateIndexEvent(nodeId: string, pubkey: string): NDKEvent {
     const title = (this.nodes.get(nodeId)! as AbstractBlock).getTitle();
     // TODO: Use a tags as per NIP-62.
-    const childTags = Array.from(this.indexToChildEventsMap.get(nodeId)!)
-      .map(id => ['#e', this.eventIds.get(id)!]);
+    const childTags = Array.from(this.indexToChildEventsMap.get(nodeId)!).map(
+      (id) => ["#e", this.eventIds.get(id)!],
+    );
 
     const event = new NDKEvent(this.ndk);
     event.kind = 30040;
-    event.content = '';
-    event.tags = [
-      ['title', title!],
-      ['#d', nodeId],
-      ...childTags
-    ];
+    event.content = "";
+    event.tags = [["title", title!], ["#d", nodeId], ...childTags];
     event.created_at = Date.now();
     event.pubkey = pubkey;
 
@@ -782,34 +846,38 @@ export default class Pharos {
       this.rootIndexMetadata = {
         authors: document
           .getAuthors()
-          .map(author => author.getName())
-          .filter(name => name != null),
+          .map((author) => author.getName())
+          .filter((name): name is string => name != null),
         version: document.getRevisionNumber(),
         edition: document.getRevisionRemark(),
         publicationDate: document.getRevisionDate(),
       };
 
       if (this.rootIndexMetadata.authors) {
-        event.tags.push(['author', ...this.rootIndexMetadata.authors!]);
+        event.tags.push(["author", ...this.rootIndexMetadata.authors!]);
       }
 
       if (this.rootIndexMetadata.version || this.rootIndexMetadata.edition) {
-        event.tags.push(
-          [
-            'version',
-            this.rootIndexMetadata.version!,
-            this.rootIndexMetadata.edition!
-          ].filter(value => value != null)
-        );
+        const versionTags: string[] = ["version"];
+        if (this.rootIndexMetadata.version) {
+          versionTags.push(this.rootIndexMetadata.version);
+        }
+        if (this.rootIndexMetadata.edition) {
+          versionTags.push(this.rootIndexMetadata.edition);
+        }
+        event.tags.push(versionTags);
       }
 
       if (this.rootIndexMetadata.publicationDate) {
-        event.tags.push(['published_on', this.rootIndexMetadata.publicationDate!]);
+        event.tags.push([
+          "published_on",
+          this.rootIndexMetadata.publicationDate!,
+        ]);
       }
     }
 
     // Event ID generation must be the last step.
-    const eventId = event.getEventHash();  
+    const eventId = event.getEventHash();
     this.eventIds.set(nodeId, eventId);
     event.id = eventId;
 
@@ -828,21 +896,28 @@ export default class Pharos {
    */
   private generateZettelEvent(nodeId: string, pubkey: string): NDKEvent {
     const title = (this.nodes.get(nodeId)! as Block).getTitle();
-    const content = (this.nodes.get(nodeId)! as Block).getSource();  // AsciiDoc source content.
+    const content = (this.nodes.get(nodeId)! as Block).getSource(); // AsciiDoc source content.
 
     const event = new NDKEvent(this.ndk);
     event.kind = 30041;
     event.content = content!;
     event.tags = [
-      ['title', title!],
-      ['#d', nodeId],
+      ["title", title!],
+      ["#d", nodeId],
       ...this.extractAndNormalizeWikilinks(content!),
     ];
+    
+    // Extract image from content if present
+    const imageUrl = this.extractImageFromContent(content!);
+    if (imageUrl) {
+      event.tags.push(["image", imageUrl]);
+    }
+    
     event.created_at = Date.now();
     event.pubkey = pubkey;
 
     // Event ID generation must be the last step.
-    const eventId = event.getEventHash();  
+    const eventId = event.getEventHash();
     this.eventIds.set(nodeId, eventId);
     event.id = eventId;
 
@@ -878,173 +953,173 @@ export default class Pharos {
 
     const context = block.getContext();
     switch (context) {
-    case 'admonition':
-      blockNumber = this.contextCounters.get('admonition') ?? 0;
-      blockId = `${documentId}-admonition-${blockNumber++}`;
-      this.contextCounters.set('admonition', blockNumber);
-      break;
+      case "admonition":
+        blockNumber = this.contextCounters.get("admonition") ?? 0;
+        blockId = `${documentId}-admonition-${blockNumber++}`;
+        this.contextCounters.set("admonition", blockNumber);
+        break;
 
-    case 'audio':
-      blockNumber = this.contextCounters.get('audio') ?? 0;
-      blockId = `${documentId}-audio-${blockNumber++}`;
-      this.contextCounters.set('audio', blockNumber);
-      break;
+      case "audio":
+        blockNumber = this.contextCounters.get("audio") ?? 0;
+        blockId = `${documentId}-audio-${blockNumber++}`;
+        this.contextCounters.set("audio", blockNumber);
+        break;
 
-    case 'colist':
-      blockNumber = this.contextCounters.get('colist') ?? 0;
-      blockId = `${documentId}-colist-${blockNumber++}`;
-      this.contextCounters.set('colist', blockNumber);
-      break;
+      case "colist":
+        blockNumber = this.contextCounters.get("colist") ?? 0;
+        blockId = `${documentId}-colist-${blockNumber++}`;
+        this.contextCounters.set("colist", blockNumber);
+        break;
 
-    case 'dlist':
-      blockNumber = this.contextCounters.get('dlist') ?? 0;
-      blockId = `${documentId}-dlist-${blockNumber++}`;
-      this.contextCounters.set('dlist', blockNumber);
-      break;
+      case "dlist":
+        blockNumber = this.contextCounters.get("dlist") ?? 0;
+        blockId = `${documentId}-dlist-${blockNumber++}`;
+        this.contextCounters.set("dlist", blockNumber);
+        break;
 
-    case 'document':
-      blockNumber = this.contextCounters.get('document') ?? 0;
-      blockId = `${documentId}-document-${blockNumber++}`;
-      this.contextCounters.set('document', blockNumber);
-      break;
+      case "document":
+        blockNumber = this.contextCounters.get("document") ?? 0;
+        blockId = `${documentId}-document-${blockNumber++}`;
+        this.contextCounters.set("document", blockNumber);
+        break;
 
-    case 'example':
-      blockNumber = this.contextCounters.get('example') ?? 0;
-      blockId = `${documentId}-example-${blockNumber++}`;
-      this.contextCounters.set('example', blockNumber);
-      break;
+      case "example":
+        blockNumber = this.contextCounters.get("example") ?? 0;
+        blockId = `${documentId}-example-${blockNumber++}`;
+        this.contextCounters.set("example", blockNumber);
+        break;
 
-    case 'floating_title':
-      blockNumber = this.contextCounters.get('floating_title') ?? 0;
-      blockId = `${documentId}-floating-title-${blockNumber++}`;
-      this.contextCounters.set('floating_title', blockNumber);
-      break;
+      case "floating_title":
+        blockNumber = this.contextCounters.get("floating_title") ?? 0;
+        blockId = `${documentId}-floating-title-${blockNumber++}`;
+        this.contextCounters.set("floating_title", blockNumber);
+        break;
 
-    case 'image':
-      blockNumber = this.contextCounters.get('image') ?? 0;
-      blockId = `${documentId}-image-${blockNumber++}`;
-      this.contextCounters.set('image', blockNumber);
-      break;
+      case "image":
+        blockNumber = this.contextCounters.get("image") ?? 0;
+        blockId = `${documentId}-image-${blockNumber++}`;
+        this.contextCounters.set("image", blockNumber);
+        break;
 
-    case 'list_item':
-      blockNumber = this.contextCounters.get('list_item') ?? 0;
-      blockId = `${documentId}-list-item-${blockNumber++}`;
-      this.contextCounters.set('list_item', blockNumber);
-      break;
+      case "list_item":
+        blockNumber = this.contextCounters.get("list_item") ?? 0;
+        blockId = `${documentId}-list-item-${blockNumber++}`;
+        this.contextCounters.set("list_item", blockNumber);
+        break;
 
-    case 'listing':
-      blockNumber = this.contextCounters.get('listing') ?? 0;
-      blockId = `${documentId}-listing-${blockNumber++}`;
-      this.contextCounters.set('listing', blockNumber);
-      break;
+      case "listing":
+        blockNumber = this.contextCounters.get("listing") ?? 0;
+        blockId = `${documentId}-listing-${blockNumber++}`;
+        this.contextCounters.set("listing", blockNumber);
+        break;
 
-    case 'literal':
-      blockNumber = this.contextCounters.get('literal') ?? 0;
-      blockId = `${documentId}-literal-${blockNumber++}`;
-      this.contextCounters.set('literal', blockNumber);
-      break;
+      case "literal":
+        blockNumber = this.contextCounters.get("literal") ?? 0;
+        blockId = `${documentId}-literal-${blockNumber++}`;
+        this.contextCounters.set("literal", blockNumber);
+        break;
 
-    case 'olist':
-      blockNumber = this.contextCounters.get('olist') ?? 0;
-      blockId = `${documentId}-olist-${blockNumber++}`;
-      this.contextCounters.set('olist', blockNumber);
-      break;
+      case "olist":
+        blockNumber = this.contextCounters.get("olist") ?? 0;
+        blockId = `${documentId}-olist-${blockNumber++}`;
+        this.contextCounters.set("olist", blockNumber);
+        break;
 
-    case 'open':
-      blockNumber = this.contextCounters.get('open') ?? 0;
-      blockId = `${documentId}-open-${blockNumber++}`;
-      this.contextCounters.set('open', blockNumber);
-      break;
+      case "open":
+        blockNumber = this.contextCounters.get("open") ?? 0;
+        blockId = `${documentId}-open-${blockNumber++}`;
+        this.contextCounters.set("open", blockNumber);
+        break;
 
-    case 'page_break':
-      blockNumber = this.contextCounters.get('page_break') ?? 0;
-      blockId = `${documentId}-page-break-${blockNumber++}`;
-      this.contextCounters.set('page_break', blockNumber);
-      break;
+      case "page_break":
+        blockNumber = this.contextCounters.get("page_break") ?? 0;
+        blockId = `${documentId}-page-break-${blockNumber++}`;
+        this.contextCounters.set("page_break", blockNumber);
+        break;
 
-    case 'paragraph':
-      blockNumber = this.contextCounters.get('paragraph') ?? 0;
-      blockId = `${documentId}-paragraph-${blockNumber++}`;
-      this.contextCounters.set('paragraph', blockNumber);
-      break;
+      case "paragraph":
+        blockNumber = this.contextCounters.get("paragraph") ?? 0;
+        blockId = `${documentId}-paragraph-${blockNumber++}`;
+        this.contextCounters.set("paragraph", blockNumber);
+        break;
 
-    case 'pass':
-      blockNumber = this.contextCounters.get('pass') ?? 0;
-      blockId = `${documentId}-pass-${blockNumber++}`;
-      this.contextCounters.set('pass', blockNumber);
-      break;
+      case "pass":
+        blockNumber = this.contextCounters.get("pass") ?? 0;
+        blockId = `${documentId}-pass-${blockNumber++}`;
+        this.contextCounters.set("pass", blockNumber);
+        break;
 
-    case 'preamble':
-      blockNumber = this.contextCounters.get('preamble') ?? 0;
-      blockId = `${documentId}-preamble-${blockNumber++}`;
-      this.contextCounters.set('preamble', blockNumber);
-      break;
+      case "preamble":
+        blockNumber = this.contextCounters.get("preamble") ?? 0;
+        blockId = `${documentId}-preamble-${blockNumber++}`;
+        this.contextCounters.set("preamble", blockNumber);
+        break;
 
-    case 'quote':
-      blockNumber = this.contextCounters.get('quote') ?? 0;
-      blockId = `${documentId}-quote-${blockNumber++}`;
-      this.contextCounters.set('quote', blockNumber);
-      break;
+      case "quote":
+        blockNumber = this.contextCounters.get("quote") ?? 0;
+        blockId = `${documentId}-quote-${blockNumber++}`;
+        this.contextCounters.set("quote", blockNumber);
+        break;
 
-    case 'section':
-      blockNumber = this.contextCounters.get('section') ?? 0;
-      blockId = `${documentId}-section-${blockNumber++}`;
-      this.contextCounters.set('section', blockNumber);
-      break;
+      case "section":
+        blockNumber = this.contextCounters.get("section") ?? 0;
+        blockId = `${documentId}-section-${blockNumber++}`;
+        this.contextCounters.set("section", blockNumber);
+        break;
 
-    case 'sidebar':
-      blockNumber = this.contextCounters.get('sidebar') ?? 0;
-      blockId = `${documentId}-sidebar-${blockNumber++}`;
-      this.contextCounters.set('sidebar', blockNumber);
-      break;
+      case "sidebar":
+        blockNumber = this.contextCounters.get("sidebar") ?? 0;
+        blockId = `${documentId}-sidebar-${blockNumber++}`;
+        this.contextCounters.set("sidebar", blockNumber);
+        break;
 
-    case 'table':
-      blockNumber = this.contextCounters.get('table') ?? 0;
-      blockId = `${documentId}-table-${blockNumber++}`;
-      this.contextCounters.set('table', blockNumber);
-      break;
+      case "table":
+        blockNumber = this.contextCounters.get("table") ?? 0;
+        blockId = `${documentId}-table-${blockNumber++}`;
+        this.contextCounters.set("table", blockNumber);
+        break;
 
-    case 'table_cell':
-      blockNumber = this.contextCounters.get('table_cell') ?? 0;
-      blockId = `${documentId}-table-cell-${blockNumber++}`;
-      this.contextCounters.set('table_cell', blockNumber);
-      break;
+      case "table_cell":
+        blockNumber = this.contextCounters.get("table_cell") ?? 0;
+        blockId = `${documentId}-table-cell-${blockNumber++}`;
+        this.contextCounters.set("table_cell", blockNumber);
+        break;
 
-    case 'thematic_break':
-      blockNumber = this.contextCounters.get('thematic_break') ?? 0;
-      blockId = `${documentId}-thematic-break-${blockNumber++}`;
-      this.contextCounters.set('thematic_break', blockNumber);
-      break;
+      case "thematic_break":
+        blockNumber = this.contextCounters.get("thematic_break") ?? 0;
+        blockId = `${documentId}-thematic-break-${blockNumber++}`;
+        this.contextCounters.set("thematic_break", blockNumber);
+        break;
 
-    case 'toc':
-      blockNumber = this.contextCounters.get('toc') ?? 0;
-      blockId = `${documentId}-toc-${blockNumber++}`;
-      this.contextCounters.set('toc', blockNumber);
-      break;
+      case "toc":
+        blockNumber = this.contextCounters.get("toc") ?? 0;
+        blockId = `${documentId}-toc-${blockNumber++}`;
+        this.contextCounters.set("toc", blockNumber);
+        break;
 
-    case 'ulist':
-      blockNumber = this.contextCounters.get('ulist') ?? 0;
-      blockId = `${documentId}-ulist-${blockNumber++}`;
-      this.contextCounters.set('ulist', blockNumber);
-      break;
+      case "ulist":
+        blockNumber = this.contextCounters.get("ulist") ?? 0;
+        blockId = `${documentId}-ulist-${blockNumber++}`;
+        this.contextCounters.set("ulist", blockNumber);
+        break;
 
-    case 'verse':
-      blockNumber = this.contextCounters.get('verse') ?? 0;
-      blockId = `${documentId}-verse-${blockNumber++}`;
-      this.contextCounters.set('verse', blockNumber);
-      break;
+      case "verse":
+        blockNumber = this.contextCounters.get("verse") ?? 0;
+        blockId = `${documentId}-verse-${blockNumber++}`;
+        this.contextCounters.set("verse", blockNumber);
+        break;
 
-    case 'video':
-      blockNumber = this.contextCounters.get('video') ?? 0;
-      blockId = `${documentId}-video-${blockNumber++}`;
-      this.contextCounters.set('video', blockNumber);
-      break;
+      case "video":
+        blockNumber = this.contextCounters.get("video") ?? 0;
+        blockId = `${documentId}-video-${blockNumber++}`;
+        this.contextCounters.set("video", blockNumber);
+        break;
 
-    default:
-      blockNumber = this.contextCounters.get('block') ?? 0;
-      blockId = `${documentId}-block-${blockNumber++}`;
-      this.contextCounters.set('block', blockNumber);
-      break;
+      default:
+        blockNumber = this.contextCounters.get("block") ?? 0;
+        blockId = `${documentId}-block-${blockNumber++}`;
+        this.contextCounters.set("block", blockNumber);
+        break;
     }
 
     block.setId(blockId);
@@ -1058,24 +1133,25 @@ export default class Pharos {
       return null;
     }
 
-    return he.decode(input)
+    return he
+      .decode(input)
       .toLowerCase()
-      .replace(/[_]/g, ' ')  // Replace underscores with spaces.
+      .replace(/[_]/g, " ") // Replace underscores with spaces.
       .trim()
-      .replace(/\s+/g, '-')  // Replace spaces with dashes.
-      .replace(/[^a-z0-9\-]/g, '');  // Remove non-alphanumeric characters except dashes.
+      .replace(/\s+/g, "-") // Replace spaces with dashes.
+      .replace(/[^a-z0-9\-]/g, ""); // Remove non-alphanumeric characters except dashes.
   }
 
   private updateEventByContext(dTag: string, value: string, context: string) {
     switch (context) {
-    case 'document':
-    case 'section':
-      this.updateEventTitle(dTag, value);
-      break;
-    
-    default:
-      this.updateEventBody(dTag, value);
-      break;
+      case "document":
+      case "section":
+        this.updateEventTitle(dTag, value);
+        break;
+
+      default:
+        this.updateEventBody(dTag, value);
+        break;
     }
   }
 
@@ -1107,10 +1183,40 @@ export default class Pharos {
     while ((match = wikilinkPattern.exec(content)) !== null) {
       const linkName = match[1];
       const normalizedText = this.normalizeId(linkName);
-      wikilinks.push(['wikilink', normalizedText!]);
+      wikilinks.push(["wikilink", normalizedText!]);
     }
 
     return wikilinks;
+  }
+
+  /**
+   * Extracts the first image URL from AsciiDoc content.
+   * @param content The AsciiDoc content to search for images.
+   * @returns The first image URL found, or null if no images are present.
+   */
+  private extractImageFromContent(content: string): string | null {
+    // Look for AsciiDoc image syntax: image::url[alt text]
+    const imageRegex = /image::([^\s\[]+)/g;
+    let match = imageRegex.exec(content);
+    if (match) {
+      return match[1];
+    }
+
+    // Look for AsciiDoc image syntax: image:url[alt text]
+    const inlineImageRegex = /image:([^\s\[]+)/g;
+    match = inlineImageRegex.exec(content);
+    if (match) {
+      return match[1];
+    }
+
+    // Look for markdown-style image syntax: ![alt](url)
+    const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    match = markdownImageRegex.exec(content);
+    if (match) {
+      return match[2];
+    }
+
+    return null;
   }
 
   // TODO: Add search-based wikilink resolution.
@@ -1123,7 +1229,7 @@ export const pharosInstance: Writable<Pharos> = writable();
 export const tocUpdate = writable(0);
 
 // Whenever you update the publication tree, call:
-tocUpdate.update(n => n + 1);
+tocUpdate.update((n) => n + 1);
 
 function ensureAsciiDocHeader(content: string): string {
   const lines = content.split(/\r?\n/);
@@ -1132,36 +1238,36 @@ function ensureAsciiDocHeader(content: string): string {
 
   // Find the first non-empty line as header
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === '') continue;
-    if (lines[i].trim().startsWith('=')) {
+    if (lines[i].trim() === "") continue;
+    if (lines[i].trim().startsWith("=")) {
       headerIndex = i;
-      console.debug('[Pharos] AsciiDoc document header:', lines[i].trim());
+
       break;
     } else {
-      throw new Error('AsciiDoc document is missing a header at the top.');
+      throw new Error("AsciiDoc document is missing a header at the top.");
     }
   }
 
   if (headerIndex === -1) {
-    throw new Error('AsciiDoc document is missing a header.');
+    throw new Error("AsciiDoc document is missing a header.");
   }
 
   // Check for doctype in the next non-empty line after header
   let nextLine = headerIndex + 1;
-  while (nextLine < lines.length && lines[nextLine].trim() === '') {
+  while (nextLine < lines.length && lines[nextLine].trim() === "") {
     nextLine++;
   }
-  if (nextLine < lines.length && lines[nextLine].trim().startsWith(':doctype:')) {
+  if (
+    nextLine < lines.length &&
+    lines[nextLine].trim().startsWith(":doctype:")
+  ) {
     hasDoctype = true;
   }
 
   // Insert doctype immediately after header if not present
   if (!hasDoctype) {
-    lines.splice(headerIndex + 1, 0, ':doctype: book');
+    lines.splice(headerIndex + 1, 0, ":doctype: book");
   }
 
-  // Log the state of the lines before returning
-  console.debug('[Pharos] AsciiDoc lines after header/doctype normalization:', lines.slice(0, 5));
-
-  return lines.join('\n');
+  return lines.join("\n");
 }

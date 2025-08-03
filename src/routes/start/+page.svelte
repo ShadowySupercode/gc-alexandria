@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Heading, Img, P, A } from "flowbite-svelte";
+  import { goto } from "$app/navigation";
 
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
@@ -15,10 +16,13 @@
     <Heading tag="h2" class="h-leather mt-4 mb-2">Overview</Heading>
 
     <P class="mb-4">
-      Alexandria opens up to the <A href="./">landing page</A>, where the user
-      can: login (top-right), select whether to only view the publications
-      hosted on the <A href="https://thecitadel.nostr1.com/" target="_blank"
-        >thecitadel document relay</A
+      Alexandria opens up to the <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("./")}>landing page</button
+      >, where the user can: login (top-right), select whether to only view the
+      publications hosted on the <A
+        href="https://thecitadel.nostr1.com/"
+        target="_blank">thecitadel document relay</A
       > or add in their own relays, and scroll/search the publications.
     </P>
 
@@ -54,10 +58,9 @@
       Each content section (30041 or 30818) is also a level in the table of
       contents, which can be accessed from the floating icon top-left in the
       reading view. This allows for navigation within the publication.
-      Publications of type "blog" have a ToC which emphasizes that each entry
-      is a blog post.
-      
-      (This functionality has been temporarily disabled, but the TOC is visible.)
+      Publications of type "blog" have a ToC which emphasizes that each entry is
+      a blog post. (This functionality has been temporarily disabled, but the
+      TOC is visible.)
     </P>
 
     <div class="flex flex-col items-center space-y-4 my-4">
@@ -87,9 +90,9 @@
     </P>
 
     <P class="mb-3">
-      An example of a book is <A
-        href="/publication?d=jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition"
-        >Jane Eyre</A
+      An example of a book is <a
+        href="/publication/d/jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition"
+        >Jane Eyre</a
       >
     </P>
 
@@ -123,9 +126,9 @@
     </P>
 
     <P class="mb-3">
-      An example of a research paper is <A
-        href="/publication?d=less-partnering-less-children-or-both-by-julia-hellstrand-v-1"
-        >Less Partnering, Less Children, or Both?</A
+      An example of a research paper is <a
+        href="/publication/d/less-partnering-less-children-or-both-by-julia-hellstrand-v-1"
+        >Less Partnering, Less Children, or Both?</a
       >
     </P>
 
@@ -141,11 +144,11 @@
     <Heading tag="h3" class="h-leather mb-3">For documentation</Heading>
 
     <P class="mb-3">
-      Our own team uses Alexandria to document the app, to display our <A
-        href="/publication?d=the-gitcitadel-blog-by-stella-v-1">blog entries</A
-      >, as well as to store copies of our most interesting <A
-        href="/publication?d=gitcitadel-project-documentation-by-stella-v-1"
-        >technical specifications</A
+      Our own team uses Alexandria to document the app, to display our <a
+        href="/publication/d/the-gitcitadel-blog-by-stella-v-1">blog entries</a
+      >, as well as to store copies of our most interesting
+      <a href="/publication/d/gitcitadel-project-documentation-by-stella-v-1"
+        >technical specifications</a
       >.
     </P>
 
@@ -163,9 +166,11 @@
     <P class="mb-3">
       Alexandria now supports wiki pages (kind 30818), allowing for
       collaborative knowledge bases and documentation. Wiki pages, such as this
-      one about the <A href="/publication?d=sybil">Sybil utility</A> use the same
-      Asciidoc format as other publications but are specifically designed for interconnected,
-      evolving content.
+      one about the <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("/publication/d/sybil")}>Sybil utility</button
+      > use the same Asciidoc format as other publications but are specifically designed
+      for interconnected, evolving content.
     </P>
 
     <P class="mb-3">

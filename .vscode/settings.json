@@ -10,5 +10,6 @@
   },
   "files.associations": {
     "*.svelte": "svelte"
-  }
-} 
+  },
+  "editor.tabSize": 2
+}

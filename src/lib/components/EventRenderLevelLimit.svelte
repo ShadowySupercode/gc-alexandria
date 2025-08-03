@@ -29,10 +29,14 @@
 </script>
 
 <div class="flex items-center gap-2 mb-4">
-  <label for="levels-to-render" class="leather bg-transparent text-sm font-medium"
+  <label
+    for="levels-to-render"
+    class="leather bg-transparent text-sm font-medium"
     >Levels to render:
   </label>
-  <label for="event-limit" class="leather bg-transparent text-sm font-medium">Limit: </label>
+  <label for="event-limit" class="leather bg-transparent text-sm font-medium">
+    Limit:
+  </label>
   <input
     type="number"
     id="levels-to-render"
@@ -45,7 +49,7 @@
   />
   <button
     onclick={handleUpdate}
-    class="px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+    class="px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-400 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
   >
     Update
   </button>

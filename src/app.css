@@ -1,13 +1,14 @@
-@import './styles/base.css';
-@import './styles/scrollbar.css';
-@import './styles/publications.css';
-@import './styles/visualize.css';
+@import "./styles/base.css";
+@import "./styles/scrollbar.css";
+@import "./styles/publications.css";
+@import "./styles/visualize.css";
 @import "./styles/events.css";
+@import "./styles/asciidoc.css";
 
 /* Custom styles */
 @layer base {
   .leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-200;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
   .btn-leather.text-xs {
@@ -26,8 +27,8 @@
     @apply h-4 w-4;
   }
 
-  div[role='tooltip'] button.btn-leather {
-    @apply hover:text-primary-400 dark:hover:text-primary-500 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-200 dark:hover:bg-gray-700;
+  div[role="tooltip"] button.btn-leather {
+    @apply hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-600 dark:hover:border-primary-400 hover:bg-gray-200 dark:hover:bg-gray-700;
   }
 
   .image-border {
@@ -45,11 +46,11 @@
   div.card-leather h4,
   div.card-leather h5,
   div.card-leather h6 {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   div.card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-200;
+    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100 dark:hover:text-primary-300;
   }
 
   main {
@@ -61,19 +62,19 @@
   }
 
   /* To scroll columns independently */
-    main.publication.blog {
-      @apply w-full sm:w-auto min-h-full;
-    }
+  main.publication.blog {
+    @apply w-full sm:w-auto min-h-full;
+  }
 
   main.main-leather,
   article.article-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
   div.note-leather,
   p.note-leather,
   section.note-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 p-2 rounded;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
   }
 
   .edit div.note-leather:hover:not(:has(.note-leather:hover)),
@@ -88,7 +89,7 @@
   h4.h-leather,
   h5.h-leather,
   h6.h-leather {
-    @apply text-gray-800 dark:text-gray-300;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   h1.h-leather {
@@ -115,21 +116,21 @@
     @apply text-base font-semibold;
   }
 
-  div.modal-leather>div {
+  div.modal-leather > div {
     @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
-  div.modal-leather>div>h1,
-  div.modal-leather>div>h2,
-  div.modal-leather>div>h3,
-  div.modal-leather>div>h4,
-  div.modal-leather>div>h5,
-  div.modal-leather>div>h6 {
-    @apply text-gray-800 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-300;
+  div.modal-leather > div > h1,
+  div.modal-leather > div > h2,
+  div.modal-leather > div > h3,
+  div.modal-leather > div > h4,
+  div.modal-leather > div > h5,
+  div.modal-leather > div > h6 {
+    @apply text-gray-900 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100;
   }
 
   div.modal-leather button {
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   /* Navbar */
@@ -142,7 +143,7 @@
   }
 
   nav.navbar-leather svg {
-    @apply fill-gray-800 hover:fill-primary-400 dark:fill-gray-300 dark:hover:fill-primary-500;
+    @apply fill-gray-900 hover:fill-primary-600 dark:fill-gray-100 dark:hover:fill-primary-400;
   }
 
   nav.navbar-leather h1,
@@ -151,50 +152,40 @@
   nav.navbar-leather h4,
   nav.navbar-leather h5,
   nav.navbar-leather h6 {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
-  }
-
-  /* Sidebar */
-  aside.sidebar-leather {
-    @apply fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10;
-    @apply bg-primary-0 dark:bg-primary-1000 px-5 w-full sm:w-auto sm:max-w-xl;
-  }
-
-  aside.sidebar-leather > div {
-    @apply bg-primary-50 dark:bg-gray-800 h-full px-5 py-0;
-  }
-
-  a.sidebar-item-leather {
-    @apply hover:bg-primary-100 dark:hover:bg-gray-800;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   div.skeleton-leather div {
     @apply bg-primary-100 dark:bg-primary-800;
   }
 
+  div.skeleton-leather {
+    @apply h-48;
+  }
+
   div.textarea-leather {
     @apply bg-primary-0 dark:bg-primary-1000;
   }
 
-  div.textarea-leather>div:nth-child(1),
+  div.textarea-leather > div:nth-child(1),
   div.toolbar-leather {
     @apply border-none;
   }
 
-  div.textarea-leather>div:nth-child(2) {
+  div.textarea-leather > div:nth-child(2) {
     @apply bg-primary-0 dark:bg-primary-1000;
   }
 
   div.textarea-leather,
   div.textarea-leather textarea {
-    @apply text-gray-800 dark:text-gray-300;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   div.tooltip-leather {
-    @apply text-gray-800 dark:text-gray-300;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
-  div[role='tooltip'] button.btn-leather .tooltip-leather {
+  div[role="tooltip"] button.btn-leather .tooltip-leather {
     @apply bg-primary-100 dark:bg-primary-800;
   }
 
@@ -210,12 +201,26 @@
   .network-node-content {
     @apply fill-primary-100;
   }
+  
+  /* Person link colors */
+  .person-link-signed {
+    @apply stroke-green-500;
+  }
+  
+  .person-link-referenced {
+    @apply stroke-blue-400;
+  }
+  
+  /* Person anchor node */
+  .person-anchor-node {
+    @apply fill-green-400 stroke-green-600;
+  }
 }
 
 /* Utilities can be applied via the @apply directive. */
 @layer utilities {
   .h-leather {
-    @apply text-gray-800 dark:text-gray-300 pt-4;
+    @apply text-gray-900 dark:text-gray-100 pt-4;
   }
 
   .h1-leather {
@@ -245,11 +250,11 @@
   /* Lists */
   .ol-leather li a,
   .ul-leather li a {
-    @apply text-gray-800 hover:text-primary-400 dark:text-gray-300 dark:hover:text-primary-500;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   .link {
-    @apply underline cursor-pointer hover:text-primary-400 dark:hover:text-primary-500;
+    @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
   }
 
   /* Card with transition */
@@ -259,7 +264,7 @@
   }
 
   .ArticleBox.grid.active .ArticleBoxImage {
-    @apply max-h-72;
+    @apply max-h-40;
   }
 
   .tags span {
@@ -276,7 +281,6 @@
 }
 
 @layer components {
-
   /* Legend */
   .leather-legend {
     @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
@@ -286,7 +290,7 @@
 
   /* Tooltip */
   .tooltip-leather {
-    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
+    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
     max-width: 400px;
     z-index: 1000;
   }
@@ -298,6 +302,8 @@
   /* Rendered publication content */
   .publication-leather {
     @apply flex flex-col space-y-4;
+    scroll-margin-top: 150px;
+    scroll-behavior: smooth;
 
     h1,
     h2,
@@ -377,7 +383,7 @@
     }
 
     .stemblock {
-      @apply bg-gray-100 dark:bg-gray-900 p-4 rounded-lg;
+      @apply bg-gray-200 dark:bg-gray-800 p-4 rounded-lg;
     }
 
     .literalblock {
@@ -395,7 +401,6 @@
 
       thead,
       tbody {
-
         th,
         td {
           @apply border border-gray-200 dark:border-gray-700;
@@ -425,10 +430,10 @@
     padding-left: 1rem;
   }
 
-.line-ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .line-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .footnotes li {
     margin-bottom: 0.5rem;
   }
@@ -450,6 +455,21 @@
     overflow-y: scroll !important;
     scrollbar-width: thin !important;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+  }
+
+  /* Section scroll behavior */
+  section[id] {
+    scroll-margin-top: 150px;
+  }
+
+  /* Ensure section headers maintain their padding */
+  section[id] h1,
+  section[id] h2,
+  section[id] h3,
+  section[id] h4,
+  section[id] h5,
+  section[id] h6 {
+    @apply pt-4;
   }
 
   .description-textarea {
@@ -494,7 +514,17 @@
   input[type="tel"],
   input[type="url"],
   textarea {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-800 dark:text-gray-300 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
-    @apply focus:border-primary-400 dark:focus:border-primary-500;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply focus:border-primary-600 dark:focus:border-primary-400;
+  }
+
+  /* Table of Contents highlighting */
+  .toc-highlight {
+    @apply bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600 dark:border-primary-400 font-medium;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .toc-highlight:hover {
+    @apply bg-primary-300 dark:bg-primary-600;
   }
 }

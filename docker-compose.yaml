@@ -1,9 +1,9 @@
-version: '3'
+version: "3"
 
 services:
-  wikinostr:
+  alexandria:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 3023:4173
+      - 3000:3000
