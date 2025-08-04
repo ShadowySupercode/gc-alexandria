@@ -24,9 +24,10 @@ function replaceWikilinks(html: string): string {
     (_match, target, label) => {
       const normalized = normalizeDTag(target.trim());
       const display = (label || target).trim();
-      const url = `./events?d=${normalized}`;
+      const url = `/events?d=${normalized}`;
       // Output as a clickable <a> with the [[display]] format and matching link colors
-      return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">${display}</a>`;
+      // Use onclick to bypass SvelteKit routing and navigate directly
+      return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}" onclick="window.location.href='${url}'; return false;">${display}</a>`;
     },
   );
 }
@@ -37,8 +38,9 @@ function replaceWikilinks(html: string): string {
 function replaceAsciiDocAnchors(html: string): string {
   return html.replace(/<a id="([^"]+)"><\/a>/g, (_match, id) => {
     const normalized = normalizeDTag(id.trim());
-    const url = `./events?d=${normalized}`;
-    return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}">${id}</a>`;
+    const url = `/events?d=${normalized}`;
+    // Use onclick to bypass SvelteKit routing and navigate directly
+    return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}" onclick="window.location.href='${url}'; return false;">${id}</a>`;
   });
 }
 

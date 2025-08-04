@@ -1,0 +1,124 @@
+* Settings Panel Documentation
+
+** Overview
+The settings panel controls how events are fetched and displayed in the visualization. It has several sections that work together to create an efficient and user-friendly experience.
+
+** Event Types Configuration
+
+*** Purpose
+Controls which types of Nostr events are fetched and how many of each type.
+
+*** Key Event Types
+- *Kind 30040* (Index Events): Publication indices
+- *Kind 30041* (Content Events): Publication content
+- *Kind 30818* (Content Events): Alternative content format
+- *Kind 30023* (Content Events): Alternative content format
+
+*** How Limits Work
+Each event kind has a limit number that controls different things:
+
+**** For Kind 0 (Profiles)
+- Limit controls how many profiles to fetch from discovered pubkeys
+- These profiles are used for:
+  - Displaying names instead of pubkeys
+  - Showing profile pictures in tooltips
+  - When "People" tag anchors are selected, this limit controls how many people anchors to display
+
+**** For Kind 3 (Follow Lists)  
+- =limit = 1=: Only fetch the current user's follow list
+- =limit > 1=: Fetch the user's follow list PLUS (limit-1) follow lists from people they follow
+- The depth selector controls traversal:
+  - =Direct= (0): Just the immediate follows
+  - =2 degrees= (1): Follows of follows
+  - =3 degrees= (2): Three levels deep
+
+**** For Kind 30040/30041/30818
+- Limit controls maximum number of these events to fetch
+
+** Tag Anchors
+
+*** What Are Tag Anchors?
+Tag anchors are special nodes in the graph that act as gravity points for events sharing common attributes. They help organize the visualization by grouping related content.
+
+*** Tag Types Available
+- *Hashtags* (t): Groups events by hashtag
+- *Authors*: Groups events by author
+- *People* (p): Shows people from follow lists as anchor points
+- *Event References* (e): Groups events that reference each other
+- *Titles*: Groups events by title
+- *Summaries*: Groups events by summary
+
+*** How People Tag Anchors Work
+When "People" is selected as the tag type:
+
+1. The system looks at all loaded follow lists (kind 3 events)
+2. Extracts all pubkeys (people) from those follow lists
+3. Creates tag anchors for those people (up to the kind 0 limit)
+4. Connects each person anchor to:
+   - Events they authored (where pubkey matches)
+   - Events where they're mentioned in "p" tags
+
+*** Display Limiting and Auto-Disable
+- Tag anchors are created for ALL discovered tags
+- But only displayed up to the configured limit
+- When > 20 tag anchors exist, they're all auto-disabled
+- Users can selectively enable specific anchors
+- The legend becomes scrollable for many anchors
+
+*** "Only show people with publications" Checkbox
+When checked (default):
+- Only shows people who have events in the current visualization
+  
+When unchecked:
+- Shows ALL people from follow lists, even if they have no events displayed
+- Useful for seeing your complete social graph
+
+** Display Limits Section
+
+*** Max Publication Indices (30040)
+Controls display filtering for publication indices after they're fetched.
+
+*** Max Events per Index  
+Limits how many content events to show per publication index.
+
+*** Fetch if not found
+When enabled, automatically fetches missing referenced events.
+
+** Graph Traversal Section
+
+*** Search through already fetched
+When enabled, tag expansion only searches through events already loaded (more efficient).
+
+*** Append mode
+When enabled, new fetches add to the existing graph instead of replacing it.
+
+** Current Implementation Questions
+
+1. *Profile Fetching*: Should we fetch profiles for:
+   - Only event authors?
+   - All pubkeys in follow lists?
+   - All pubkeys mentioned anywhere?
+
+2. *People Tag Anchors*: Should they connect to:
+   - Only events where the person is tagged with "p"?
+   - Events they authored?
+   - Both?
+
+3. *Display Limits*: Should limits control:
+   - How many to fetch from relays?
+   - How many to display (fetch all, display subset)?
+   - Both with separate controls?
+
+4. *Auto-disable Threshold*: Is 20 the right number for auto-disabling tag anchors?
+
+** Ideal User Flow
+
+1. User loads the visualization
+2. Their follow list is fetched (kind 3, limit 1)
+3. Profiles are fetched for people they follow (kind 0, respecting limit)
+4. Publications are fetched (kind 30040/30041/30818)
+5. User enables "People" tag anchors
+6. Sees their follows as anchor points
+7. Can see which follows have authored content
+8. Can selectively enable/disable specific people
+9. Can increase limits to see more content/people

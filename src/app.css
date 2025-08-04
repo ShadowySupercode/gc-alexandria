@@ -201,6 +201,20 @@
   .network-node-content {
     @apply fill-primary-100;
   }
+  
+  /* Person link colors */
+  .person-link-signed {
+    @apply stroke-green-500;
+  }
+  
+  .person-link-referenced {
+    @apply stroke-blue-400;
+  }
+  
+  /* Person anchor node */
+  .person-anchor-node {
+    @apply fill-green-400 stroke-green-600;
+  }
 }
 
 /* Utilities can be applied via the @apply directive. */
@@ -231,6 +245,28 @@
 
   .h6-leather {
     @apply text-base font-semibold;
+  }
+
+  /* Line clamp utilities for text truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 
   /* Lists */

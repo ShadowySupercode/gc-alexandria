@@ -4,12 +4,14 @@
     CaretLeftOutline,
     CloseOutline,
     GlobeOutline,
+    ChartOutline,
   } from "flowbite-svelte-icons";
   import { Button } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
+  import { goto } from "$app/navigation";
 
   let { publicationType, indexEvent } = $props<{
     rootId: any;
@@ -25,6 +27,7 @@
     indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
   );
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
+  let isIndexEvent: boolean = $derived(indexEvent.kind === 30040);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
@@ -102,6 +105,11 @@
     }
   }
 
+  function visualizePublication() {
+    const eventId = indexEvent.id;
+    goto(`/visualize?event=${eventId}`);
+  }
+
   let unsubscribe: () => void;
   onMount(() => {
     window.addEventListener("scroll", handleScroll);
@@ -133,7 +141,7 @@
           <span class="hidden sm:inline">Back</span>
         </Button>
       {/if}
-      {#if !isLeaf}
+      {#if isIndexEvent}
         {#if publicationType === "blog"}
           <Button
             class={`btn-leather hidden sm:flex !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}
@@ -186,6 +194,16 @@
           <span class="hidden sm:inline">Discussion</span>
         </Button>
       {/if}
+      <Button
+        class="btn-leather !w-auto"
+        outline={true}
+        onclick={visualizePublication}
+        title="Visualize publication network"
+      >
+        <ChartOutline class="!fill-none inline mr-1" /><span
+          class="hidden sm:inline">Visualize Publication</span
+        >
+      </Button>
     </div>
   </div>
 </nav>

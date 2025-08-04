@@ -1,6 +1,7 @@
-import type NDK from "@nostr-dev-kit/ndk";
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Lazy } from "./lazy.ts";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type NDK from "@nostr-dev-kit/ndk";
+import { fetchEventById } from "../utils/websocket_utils.ts";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -583,6 +584,52 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         .filter((tag) => tag[0] === "a")
         .map((tag) => tag[1]);
 
+      console.debug(`[PublicationTree] Current event ${currentEvent.id} has ${currentEvent.tags.length} tags:`, currentEvent.tags);
+      console.debug(`[PublicationTree] Found ${currentChildAddresses.length} a-tags in current event:`, currentChildAddresses);
+
+      // If no a-tags found, try e-tags as fallback
+      if (currentChildAddresses.length === 0) {
+        const eTags = currentEvent.tags
+          .filter((tag) => tag[0] === "e" && tag[1] && /^[0-9a-fA-F]{64}$/.test(tag[1]));
+        
+        console.debug(`[PublicationTree] Found ${eTags.length} e-tags for current event ${currentEvent.id}:`, eTags.map(tag => tag[1]));
+        
+        // For e-tags with hex IDs, fetch the referenced events to get their addresses
+        const eTagPromises = eTags.map(async (tag) => {
+          try {
+            console.debug(`[PublicationTree] Fetching event for e-tag ${tag[1]} in depthFirstRetrieve`);
+            const referencedEvent = await fetchEventById(tag[1]);
+            
+            if (referencedEvent) {
+              // Construct the proper address format from the referenced event
+              const dTag = referencedEvent.tags.find(tag => tag[0] === "d")?.[1];
+              if (dTag) {
+                const address = `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
+                console.debug(`[PublicationTree] Constructed address from e-tag in depthFirstRetrieve: ${address}`);
+                return address;
+              } else {
+                console.debug(`[PublicationTree] Referenced event ${tag[1]} has no d-tag in depthFirstRetrieve`);
+              }
+            } else {
+              console.debug(`[PublicationTree] Failed to fetch event for e-tag ${tag[1]} in depthFirstRetrieve - event not found`);
+            }
+            return null;
+          } catch (error) {
+            console.warn(`[PublicationTree] Failed to fetch event for e-tag ${tag[1]} in depthFirstRetrieve:`, error);
+            return null;
+          }
+        });
+        
+        const resolvedAddresses = await Promise.all(eTagPromises);
+        const validAddresses = resolvedAddresses.filter(addr => addr !== null) as string[];
+        
+        console.debug(`[PublicationTree] Resolved ${validAddresses.length} valid addresses from e-tags in depthFirstRetrieve:`, validAddresses);
+        
+        if (validAddresses.length > 0) {
+          currentChildAddresses.push(...validAddresses);
+        }
+      }
+
       // If the current event has no children, it is a leaf.
       if (currentChildAddresses.length === 0) {
         // Return the first leaf if no address was provided.
@@ -671,6 +718,52 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       .filter((tag) => tag[0] === "a")
       .map((tag) => tag[1]);
 
+    console.debug(`[PublicationTree] Event ${event.id} has ${event.tags.length} tags:`, event.tags);
+    console.debug(`[PublicationTree] Found ${childAddresses.length} a-tags:`, childAddresses);
+
+    // If no a-tags found, try e-tags as fallback
+    if (childAddresses.length === 0) {
+      const eTags = event.tags
+        .filter((tag) => tag[0] === "e" && tag[1] && /^[0-9a-fA-F]{64}$/.test(tag[1]));
+      
+      console.debug(`[PublicationTree] Found ${eTags.length} e-tags for event ${event.id}:`, eTags.map(tag => tag[1]));
+      
+      // For e-tags with hex IDs, fetch the referenced events to get their addresses
+      const eTagPromises = eTags.map(async (tag) => {
+        try {
+          console.debug(`[PublicationTree] Fetching event for e-tag ${tag[1]}`);
+          const referencedEvent = await fetchEventById(tag[1]);
+          
+          if (referencedEvent) {
+            // Construct the proper address format from the referenced event
+            const dTag = referencedEvent.tags.find(tag => tag[0] === "d")?.[1];
+            if (dTag) {
+              const address = `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
+              console.debug(`[PublicationTree] Constructed address from e-tag: ${address}`);
+              return address;
+            } else {
+              console.debug(`[PublicationTree] Referenced event ${tag[1]} has no d-tag`);
+            }
+          } else {
+            console.debug(`[PublicationTree] Failed to fetch event for e-tag ${tag[1]}`);
+          }
+          return null;
+        } catch (error) {
+          console.warn(`[PublicationTree] Failed to fetch event for e-tag ${tag[1]}:`, error);
+          return null;
+        }
+      });
+      
+      const resolvedAddresses = await Promise.all(eTagPromises);
+      const validAddresses = resolvedAddresses.filter(addr => addr !== null) as string[];
+      
+      console.debug(`[PublicationTree] Resolved ${validAddresses.length} valid addresses from e-tags:`, validAddresses);
+      
+      if (validAddresses.length > 0) {
+        childAddresses.push(...validAddresses);
+      }
+    }
+
     const node: PublicationTreeNode = {
       type: this.#getNodeType(event),
       status: PublicationTreeNodeStatus.Resolved,
@@ -690,7 +783,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    if (event.kind === 30040 && event.tags.some((tag) => tag[0] === "a")) {
+    if (event.kind === 30040 && (
+      event.tags.some((tag) => tag[0] === "a") ||
+      event.tags.some((tag) => tag[0] === "e" && tag[1] && /^[0-9a-fA-F]{64}$/.test(tag[1]))
+    )) {
       return PublicationTreeNodeType.Branch;
     }
 

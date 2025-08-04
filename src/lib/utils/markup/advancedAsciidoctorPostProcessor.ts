@@ -32,9 +32,11 @@ export async function postProcessAdvancedAsciidoctorHtml(
     }
     if (
       typeof globalThis !== "undefined" &&
-      typeof (globalThis.MathJax as any)?.typesetPromise === "function"
+      // deno-lint-ignore no-explicit-any
+      typeof (globalThis as any).MathJax?.typesetPromise === "function"
     ) {
-      setTimeout(() => (globalThis.MathJax as any).typesetPromise(), 0);
+      // deno-lint-ignore no-explicit-any
+      setTimeout(() => (globalThis as any).MathJax.typesetPromise(), 0);
     }
     return processedHtml;
   } catch (error) {

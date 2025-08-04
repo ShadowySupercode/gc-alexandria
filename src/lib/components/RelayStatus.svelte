@@ -136,7 +136,7 @@ import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   <div class="space-y-2">
     {#each relayStatuses as status}
-      <div class="flex items-center justify-between p-3 border rounded-lg">
+      <div class="flex items-center justify-between p-3">
         <div class="flex-1">
           <div class="font-medium">{status.url}</div>
           <div class="text-sm {getStatusColor(status)}">

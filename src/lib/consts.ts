@@ -2,7 +2,7 @@
 
 export const wikiKind = 30818;
 export const indexKind = 30040;
-export const zettelKinds = [30041, 30818];
+export const zettelKinds = [30041, 30818, 30023];
 
 export const communityRelays = [
   "wss://theforest.nostr1.com",
@@ -29,18 +29,18 @@ export const secondaryRelays = [
 
 export const anonymousRelays = [
   "wss://freelay.sovbit.host",
-  "wss://thecitadel.nostr1.com"
+  "wss://thecitadel.nostr1.com",
 ];
 
 export const lowbandwidthRelays = [
   "wss://theforest.nostr1.com",
   "wss://thecitadel.nostr1.com",
-  "wss://aggr.nostr.land"
+  "wss://aggr.nostr.land",
 ];
 
 export const localRelays: string[] = [
   "wss://localhost:8080",
-  "wss://localhost:4869"
+  "wss://localhost:4869",
 ];
 
 export enum FeedType {

@@ -45,7 +45,7 @@
   <meta name="twitter:image" content={image} />
 </svelte:head>
 
-<div class={"leather mt-[76px] h-full w-full flex flex-col items-center"}>
+<div class={"leather mt-[76px] w-full mx-auto flex flex-col items-center"}>
   <Navigation class="fixed top-0" />
   <slot />
 </div>

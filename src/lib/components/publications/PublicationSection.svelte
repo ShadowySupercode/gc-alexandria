@@ -11,6 +11,7 @@
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
+  import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
 
   let {
     address,
@@ -48,10 +49,19 @@
   );
 
   let leafContent: Promise<string | Document> = $derived.by(async () => {
-    const content = (await leafEvent)?.content ?? "";
-    const converted = asciidoctor.convert(content);
-    const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
-    return processed;
+    const event = await leafEvent;
+    const content = event?.content ?? "";
+    
+    // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
+    // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
+    if (event?.kind === 30023) {
+      return await parseAdvancedmarkup(content);
+    } else {
+      // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
+      const converted = asciidoctor.convert(content);
+      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
+      return processed;
+    }
   });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
