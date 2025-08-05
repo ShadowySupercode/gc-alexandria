@@ -27,6 +27,7 @@
   let loading: boolean = $state(true);
   let hasInitialized = $state(false);
   let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+  let gridContainer: HTMLElement;
 
   // Relay management
   let allRelays: string[] = $state([]);
@@ -34,6 +35,35 @@
 
   // Event management
   let allIndexEvents: NDKEvent[] = $state([]);
+
+  // Calculate the number of columns based on window width
+  let columnCount = $state(1);
+  let publicationsToDisplay = $state(10);
+
+  // Update column count and publications when window resizes
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      const width = window.innerWidth;
+      let newColumnCount = 1;
+      if (width >= 1280) newColumnCount = 4; // xl:grid-cols-4
+      else if (width >= 1024) newColumnCount = 3; // lg:grid-cols-3
+      else if (width >= 768) newColumnCount = 2; // md:grid-cols-2
+      
+      if (columnCount !== newColumnCount) {
+        columnCount = newColumnCount;
+        publicationsToDisplay = newColumnCount * 10;
+        
+        // Update the view immediately when column count changes
+        if (allIndexEvents.length > 0) {
+          const source = props.searchQuery?.trim()
+            ? filterEventsBySearch(allIndexEvents)
+            : allIndexEvents;
+          eventsInView = source.slice(0, publicationsToDisplay);
+          endOfFeed = eventsInView.length >= source.length;
+        }
+      }
+    }
+  });
 
   // Initialize relays and fetch events
   async function initializeAndFetch() {
@@ -121,8 +151,8 @@
         `[PublicationFeed] Using cached index events (${cachedEvents.length} events)`,
       );
       allIndexEvents = cachedEvents;
-      eventsInView = allIndexEvents.slice(0, 30);
-      endOfFeed = allIndexEvents.length <= 30;
+      eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
+      endOfFeed = allIndexEvents.length <= publicationsToDisplay;
       loading = false;
       return;
     }
@@ -210,8 +240,8 @@
           allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
           
           // Update the view immediately with new events
-          eventsInView = allIndexEvents.slice(0, 30);
-          endOfFeed = allIndexEvents.length <= 30;
+          eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
+          endOfFeed = allIndexEvents.length <= publicationsToDisplay;
           
           console.debug(`[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`);
         }
@@ -236,8 +266,8 @@
     indexEventCache.set(allRelays, allIndexEvents);
 
     // Final update to ensure we have the latest view
-    eventsInView = allIndexEvents.slice(0, 30);
-    endOfFeed = allIndexEvents.length <= 30;
+    eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
+    endOfFeed = allIndexEvents.length <= publicationsToDisplay;
     loading = false;
   }
 
@@ -326,11 +356,11 @@
     console.debug("[PublicationFeed] Search query changed:", query);
     if (query && query.trim()) {
       const filtered = filterEventsBySearch(allIndexEvents);
-      eventsInView = filtered.slice(0, 30);
-      endOfFeed = filtered.length <= 30;
+      eventsInView = filtered.slice(0, publicationsToDisplay);
+      endOfFeed = filtered.length <= publicationsToDisplay;
     } else {
-      eventsInView = allIndexEvents.slice(0, 30);
-      endOfFeed = allIndexEvents.length <= 30;
+      eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
+      endOfFeed = allIndexEvents.length <= publicationsToDisplay;
     }
   }, 300);
 
@@ -354,7 +384,7 @@
     let source = props.searchQuery.trim()
       ? filterEventsBySearch(allIndexEvents)
       : allIndexEvents;
-    eventsInView = source.slice(0, current + 30);
+    eventsInView = source.slice(0, current + publicationsToDisplay);
     endOfFeed = eventsInView.length >= source.length;
     loadingMore = false;
   }
@@ -388,14 +418,50 @@
     cleanup();
   });
 
-  onMount(async () => {
+  onMount(() => {
     console.debug('[PublicationFeed] onMount called');
     // The effect will handle fetching when relays become available
+    
+    // Add window resize listener for responsive updates
+    const handleResize = () => {
+      if (typeof window !== 'undefined') {
+        const width = window.innerWidth;
+        let newColumnCount = 1;
+        if (width >= 1280) newColumnCount = 4; // xl:grid-cols-4
+        else if (width >= 1024) newColumnCount = 3; // lg:grid-cols-3
+        else if (width >= 768) newColumnCount = 2; // md:grid-cols-2
+        
+        if (columnCount !== newColumnCount) {
+          columnCount = newColumnCount;
+          publicationsToDisplay = newColumnCount * 10;
+          
+          // Update the view immediately when column count changes
+          if (allIndexEvents.length > 0) {
+            const source = props.searchQuery?.trim()
+              ? filterEventsBySearch(allIndexEvents)
+              : allIndexEvents;
+            eventsInView = source.slice(0, publicationsToDisplay);
+            endOfFeed = eventsInView.length >= source.length;
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Initial calculation
+    handleResize();
+    
+    // Cleanup function
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   });
 </script>
 
 <div class="flex flex-col space-y-4">
   <div
+    bind:this={gridContainer}
     class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full"
   >
     {#if loading && eventsInView.length === 0}
