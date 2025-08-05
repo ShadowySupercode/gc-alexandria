@@ -4,8 +4,7 @@
   import ZettelEditor from "$lib/components/ZettelEditor.svelte";
   import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
-  import { publishMultipleZettels } from "$lib/services/publisher";
-  import { parseAsciiDocWithMetadata } from "$lib/utils/asciidoc_metadata";
+  import { publishSingleEvent } from "$lib/services/publisher";
 
   let content = $state("");
   let showPreview = $state(false);
@@ -28,47 +27,211 @@
     showPreview = show;
   }
 
-  async function handlePublish() {
+  // Handle unified publishing from ZettelEditor
+  async function handlePublishArticle(events: any) {
     isPublishing = true;
     publishResults = null;
 
-    const results = await publishMultipleZettels({
-      content,
-      onError: (error) => {
-        // Only used for catastrophic errors
-        publishResults = { successCount: 0, total: 0, errors: [error], successfulEvents: [], failedEvents: [] };
-      },
-    });
+    // Debug: Log the structure of events being published (without content)
+    console.log('=== PUBLISHING ARTICLE ===');
+    if (events.indexEvent) {
+      console.log('Creating root index event...');
+    }
+    console.log(`Number of content events: ${events.contentEvents.length}`);
 
-    const successCount = results.filter(r => r.success).length;
-    const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
+    // Debug: Log the first content event to see its structure
+    if (events.contentEvents.length > 0) {
+      console.log('First content event structure:', {
+        kind: events.contentEvents[0].kind,
+        tags: events.contentEvents[0].tags,
+        contentLength: events.contentEvents[0].content.length,
+        contentPreview: events.contentEvents[0].content.substring(0, 100)
+      });
+    }
+
+    try {
+      const results: any[] = [];
+      
+      // Publish index event first
+      if (events.indexEvent) {
+        const indexResult = await publishSingleEvent({
+          content: events.indexEvent.content,
+          kind: events.indexEvent.kind,
+          tags: events.indexEvent.tags,
+          onError: (error) => {
+            console.error('Index event publish failed:', error);
+          },
+        });
+        results.push(indexResult);
+      }
+
+      // Publish content events
+      for (let i = 0; i < events.contentEvents.length; i++) {
+        const event = events.contentEvents[i];
+        console.log(`Publishing content event ${i + 1}: ${event.tags.find((t: any) => t[0] === 'title')?.[1] || 'Untitled'}`);
+        const result = await publishSingleEvent({
+          content: event.content,
+          kind: event.kind,
+          tags: event.tags,
+          onError: (error) => {
+            console.error(`Content event ${i + 1} publish failed:`, error);
+          },
+        });
+        results.push(result);
+      }
+
+      // Process results
+      const successCount = results.filter(r => r.success).length;
+      const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
+      
+      // Extract successful events with their titles
+      const successfulEvents = results
+        .filter(r => r.success && r.eventId)
+        .map((r, index) => ({
+          eventId: r.eventId!,
+          title: index === 0 && events.indexEvent ? 'Article Index' : events.contentEvents[index - (events.indexEvent ? 1 : 0)]?.title || `Note ${index}`
+        }));
+      
+      // Extract failed events with their titles and errors
+      const failedEvents = results
+        .map((r, index) => ({ result: r, index }))
+        .filter(({ result }) => !result.success)
+        .map(({ result, index }) => ({
+          title: index === 0 && events.indexEvent ? 'Article Index' : events.contentEvents[index - (events.indexEvent ? 1 : 0)]?.title || `Note ${index}`,
+          error: result.error || 'Unknown error',
+          sectionIndex: index
+        }));
+      
+      publishResults = {
+        successCount,
+        total: results.length,
+        errors,
+        successfulEvents,
+        failedEvents,
+      };
+
+      // Show summary
+      console.log('\n=== Events Summary ===');
+      if (events.indexEvent) {
+        console.log('\nRoot Index:');
+        console.log(`Event Summary:`);
+        console.log(`  ID: ${successfulEvents[0]?.eventId || 'Failed'}`);
+        console.log(`  Kind: 30040`);
+        console.log(`  Tags:`);
+        events.indexEvent.tags.forEach((tag: string[]) => {
+          console.log(`    - ${JSON.stringify(tag)}`);
+        });
+        console.log('  ---');
+      }
+      
+      console.log('\nContent:');
+      events.contentEvents.forEach((event: any, index: number) => {
+        const eventId = successfulEvents.find(e => e.title === event.title)?.eventId || 'Failed';
+        console.log(`\nEvent Summary:`);
+        console.log(`  ID: ${eventId}`);
+        console.log(`  Kind: 30041`);
+        console.log(`  Tags:`);
+        event.tags.forEach((tag: any) => {
+          console.log(`    - ${JSON.stringify(tag)}`);
+        });
+        console.log(`  Content preview: ${event.content.substring(0, 100)}...`);
+        console.log('  ---');
+      });
+    } catch (error) {
+      console.error('Publishing failed:', error);
+      publishResults = { 
+        successCount: 0, 
+        total: 0, 
+        errors: [error instanceof Error ? error.message : 'Unknown error'], 
+        successfulEvents: [], 
+        failedEvents: [] 
+      };
+    }
     
-    // Extract successful events with their titles
-    const parsed = parseAsciiDocWithMetadata(content);
-    const successfulEvents = results
-      .filter(r => r.success && r.eventId)
-      .map((r, index) => ({
-        eventId: r.eventId!,
-        title: parsed.sections[index]?.title || `Note ${index + 1}`
-      }));
+    isPublishing = false;
+  }
+
+  async function handlePublishScatteredNotes(events: any) {
+    isPublishing = true;
+    publishResults = null;
+
+    // Debug: Log the structure of events being published (without content)
+    console.log('=== PUBLISHING SCATTERED NOTES ===');
+    console.log(`Number of content events: ${events.contentEvents.length}`);
+
+    try {
+      const results: any[] = [];
+      
+      // Publish only content events for scattered notes
+      for (let i = 0; i < events.contentEvents.length; i++) {
+        const event = events.contentEvents[i];
+        const result = await publishSingleEvent({
+          content: event.content,
+          kind: event.kind,
+          tags: event.tags,
+          onError: (error) => {
+            console.error(`Content event ${i + 1} publish failed:`, error);
+          },
+        });
+        results.push(result);
+      }
+
+      // Process results
+      const successCount = results.filter(r => r.success).length;
+      const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
+      
+      // Extract successful events with their titles
+      const successfulEvents = results
+        .filter(r => r.success && r.eventId)
+        .map((r, index) => ({
+          eventId: r.eventId!,
+          title: events.contentEvents[index]?.title || `Note ${index + 1}`
+        }));
+      
+      // Extract failed events with their titles and errors
+      const failedEvents = results
+        .map((r, index) => ({ result: r, index }))
+        .filter(({ result }) => !result.success)
+        .map(({ result, index }) => ({
+          title: events.contentEvents[index]?.title || `Note ${index + 1}`,
+          error: result.error || 'Unknown error',
+          sectionIndex: index
+        }));
+      
+      publishResults = {
+        successCount,
+        total: results.length,
+        errors,
+        successfulEvents,
+        failedEvents,
+      };
+
+      // Show summary
+      console.log('\n=== Events Summary ===');
+      console.log('\nContent:');
+      events.contentEvents.forEach((event: any, index: number) => {
+        const eventId = successfulEvents.find(e => e.title === event.title)?.eventId || 'Failed';
+        console.log(`\nEvent Summary:`);
+        console.log(`  ID: ${eventId}`);
+        console.log(`  Kind: 30041`);
+        console.log(`  Tags:`);
+        event.tags.forEach((tag: any) => {
+          console.log(`    - ${JSON.stringify(tag)}`);
+        });
+        console.log(`  Content preview: ${event.content.substring(0, 100)}...`);
+        console.log('  ---');
+      });
+    } catch (error) {
+      console.error('Publishing failed:', error);
+      publishResults = { 
+        successCount: 0, 
+        total: 0, 
+        errors: [error instanceof Error ? error.message : 'Unknown error'], 
+        successfulEvents: [], 
+        failedEvents: [] 
+      };
+    }
     
-    // Extract failed events with their titles and errors
-    const failedEvents = results
-      .map((r, index) => ({ result: r, index }))
-      .filter(({ result }) => !result.success)
-      .map(({ result, index }) => ({
-        title: parsed.sections[index]?.title || `Note ${index + 1}`,
-        error: result.error || 'Unknown error',
-        sectionIndex: index
-      }));
-    
-    publishResults = {
-      successCount,
-      total: results.length,
-      errors,
-      successfulEvents,
-      failedEvents,
-    };
     isPublishing = false;
   }
 
@@ -77,44 +240,10 @@
     
     isPublishing = true;
     
-    // Get the specific section content
-    const parsed = parseAsciiDocWithMetadata(content);
-    const section = parsed.sections[sectionIndex];
-    if (!section) return;
-    
-    // Reconstruct the section content for publishing
-    const sectionContent = `== ${section.title}\n\n${section.content}`;
-    
     try {
-      const result = await publishMultipleZettels({
-        content: sectionContent,
-        onError: (error) => {
-          console.error('Retry failed:', error);
-        },
-      });
-      
-      if (result[0]?.success && result[0]?.eventId) {
-        // Update the successful events list
-        const newSuccessfulEvent = {
-          eventId: result[0].eventId,
-          title: section.title
-        };
-        
-        // Remove from failed events
-        const updatedFailedEvents = publishResults.failedEvents.filter(
-          (_, index) => index !== sectionIndex
-        );
-        
-        // Add to successful events
-        const updatedSuccessfulEvents = [...publishResults.successfulEvents, newSuccessfulEvent];
-        
-        publishResults = {
-          ...publishResults,
-          successCount: publishResults.successCount + 1,
-          successfulEvents: updatedSuccessfulEvents,
-          failedEvents: updatedFailedEvents,
-        };
-      }
+      // For now, we'll just retry the specific event
+      // This could be enhanced to retry specific events based on their type
+      console.log('Retry functionality needs to be implemented for the new unified system');
     } catch (error) {
       console.error('Retry failed:', error);
     }
@@ -142,21 +271,9 @@
       {showPreview}
       onContentChange={handleContentChange}
       onPreviewToggle={handlePreviewToggle}
+      onPublishArticle={handlePublishArticle}
+      onPublishScatteredNotes={handlePublishScatteredNotes}
     />
-
-    <!-- Publish Button -->
-    <Button
-      on:click={handlePublish}
-      disabled={isPublishing || !content.trim()}
-      class="w-full"
-    >
-      {#if isPublishing}
-        Publishing...
-      {:else}
-        <PaperPlaneOutline class="w-4 h-4 mr-2" />
-        Publish
-      {/if}
-    </Button>
 
     <!-- Status Messages -->
     {#if publishResults}

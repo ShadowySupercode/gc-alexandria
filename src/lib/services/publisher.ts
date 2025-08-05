@@ -105,6 +105,82 @@ export async function publishZettel(
 }
 
 /**
+ * Publishes a single Nostr event directly
+ * @param options - Publishing options for a single event
+ * @returns Promise resolving to publish result
+ */
+export async function publishSingleEvent(
+  options: {
+    content: string;
+    kind: number;
+    tags: string[][];
+    onError?: (error: string) => void;
+  },
+): Promise<PublishResult> {
+  const { content, kind, tags, onError } = options;
+
+  const ndk = get(ndkInstance);
+  if (!ndk?.activeUser) {
+    const error = 'Please log in first';
+    onError?.(error);
+    return { success: false, error };
+  }
+
+  try {
+    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map((r) => r.url);
+    if (allRelayUrls.length === 0) {
+      throw new Error('No relays available in NDK pool');
+    }
+    const relaySet = NDKRelaySet.fromRelayUrls(allRelayUrls, ndk);
+
+    // Fix a-tags that have placeholder "pubkey" with actual pubkey
+    const fixedTags = tags.map(tag => {
+      if (tag[0] === 'a' && tag[1] && tag[1].includes(':pubkey:') && ndk.activeUser) {
+        // Replace "pubkey" placeholder with actual pubkey
+        const fixedATag = tag[1].replace(':pubkey:', `:${ndk.activeUser.pubkey}:`);
+        return [tag[0], fixedATag, tag[2] || '', tag[3] || ''];
+      }
+      return tag;
+    });
+
+    // Create and sign NDK event
+    const ndkEvent = new NDKEvent(ndk);
+    ndkEvent.kind = kind;
+    ndkEvent.created_at = Math.floor(Date.now() / 1000);
+    ndkEvent.tags = fixedTags;
+    ndkEvent.content = content;
+    ndkEvent.pubkey = ndk.activeUser.pubkey;
+
+    await ndkEvent.sign();
+
+    // Publish to relays
+    const publishedToRelays = await ndkEvent.publish(relaySet);
+
+    if (publishedToRelays.size > 0) {
+      // Debug: Log the event structure in a clean, concise format
+      const dTagEntry = tags.find(t => t[0] === 'd');
+      const dTag = dTagEntry ? dTagEntry[1] : '';
+      const titleTag = tags.find(t => t[0] === 'title');
+      const title = titleTag ? titleTag[1] : 'Untitled';
+      
+      console.log(`Event verified: ${ndkEvent.id}`);
+      
+      return { success: true, eventId: ndkEvent.id };
+    } else {
+      const titleTag = tags.find(t => t[0] === 'title');
+      const title = titleTag ? titleTag[1] : 'Untitled';
+      console.error(`Failed to publish event: ${title} (${kind}) - no relays responded`);
+      throw new Error('Failed to publish to any relays');
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`Error publishing event: ${errorMessage}`);
+    onError?.(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
  * Publishes all AsciiDoc sections as separate Nostr events
  * @param options - Publishing options
  * @returns Promise resolving to array of publish results

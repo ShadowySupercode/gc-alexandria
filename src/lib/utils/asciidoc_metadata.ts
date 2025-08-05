@@ -24,6 +24,7 @@ export interface AsciiDocMetadata {
   publishedBy?: string;
   type?: string;
   autoUpdate?: 'yes' | 'ask' | 'no';
+  customAttributes?: Record<string, string>;
 }
 
 export type SectionMetadata = AsciiDocMetadata;
@@ -31,6 +32,7 @@ export type SectionMetadata = AsciiDocMetadata;
 export interface ParsedAsciiDoc {
   metadata: AsciiDocMetadata;
   content: string;
+  title: string;
   sections: Array<{
     metadata: SectionMetadata;
     content: string;
@@ -96,6 +98,20 @@ function extractTagsFromAttributes(attributes: Record<string, any>): string[] {
  * Maps attributes to metadata with special handling for authors and tags
  */
 function mapAttributesToMetadata(attributes: Record<string, any>, metadata: AsciiDocMetadata, isDocument: boolean = false): void {
+  // List of AsciiDoc system attributes to ignore
+  const systemAttributes = [
+    'attribute-undefined', 'attribute-missing', 'appendix-caption', 'appendix-refsig',
+    'caution-caption', 'chapter-refsig', 'example-caption', 'figure-caption',
+    'important-caption', 'last-update-label', 'note-caption', 'part-refsig',
+    'section-refsig', 'table-caption', 'tip-caption', 'toc-placement',
+    'toc-title', 'untitled-label', 'warning-caption', 'asciidoctor-version',
+    'safe-mode-name', 'backend', 'user-home', 'doctype', 'htmlsyntax',
+    'outfilesuffix', 'filetype', 'basebackend', 'stylesdir', 'iconsdir',
+    'localdate', 'localyear', 'localtime', 'localdatetime', 'docdate',
+    'docyear', 'doctime', 'docdatetime', 'doctitle', 'language',
+    'firstname', 'authorinitials', 'authors'
+  ];
+
   for (const [key, value] of Object.entries(attributes)) {
     const metadataKey = ATTRIBUTE_MAP[key.toLowerCase()];
     if (metadataKey && value && typeof value === 'string') {
@@ -114,6 +130,12 @@ function mapAttributesToMetadata(attributes: Record<string, any>, metadata: Asci
       } else {
         (metadata as any)[metadataKey] = value;
       }
+    } else if (value && typeof value === 'string' && !systemAttributes.includes(key)) {
+      // Handle unknown/custom attributes - but only if they're not system attributes
+      if (!metadata.customAttributes) {
+        metadata.customAttributes = {};
+      }
+      metadata.customAttributes[key] = value;
     }
   }
 }
@@ -139,13 +161,20 @@ function extractAuthorsFromHeader(sourceContent: string, isSection: boolean = fa
           break;
         }
         
+        // Skip section headers at any level (they start with ==, ===, etc.)
+        if (authorLine.match(/^==+\s+/)) {
+          // This is a section header, stop looking for authors
+          break;
+        }
+        
         if (authorLine.includes('<') && !authorLine.startsWith(':')) {
           // This is an author line like "John Doe <john@example.com>"
           const authorName = authorLine.split('<')[0].trim();
           if (authorName) {
             authors.push(authorName);
           }
-        } else if (isSection && authorLine.match(/^[A-Za-z\s]+$/) && authorLine.trim() !== '' && authorLine.trim().split(/\s+/).length <= 2) {
+        } else if (isSection && authorLine.match(/^[A-Za-z\s]+$/) && authorLine.trim() !== '' && 
+                   authorLine.trim().split(/\s+/).length <= 2) {
           // This is a simple author name without email (for sections)
           authors.push(authorLine.trim());
         } else if (authorLine.startsWith(':')) {
@@ -173,6 +202,7 @@ function stripHeaderAndAttributes(content: string, isSection: boolean = false): 
   let contentStart = 0;
   const headerPattern = isSection ? /^==\s+/ : /^=\s+/;
   
+  // Find the first line that is actual content (not header, author, or attribute)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Skip title line, author line, revision line, and attribute lines
@@ -197,26 +227,63 @@ function stripHeaderAndAttributes(content: string, isSection: boolean = false): 
     return true;
   });
   
+  // Ensure deeper headers (====) have proper newlines around them
+  const processedLines = [];
+  for (let i = 0; i < filteredLines.length; i++) {
+    const line = filteredLines[i];
+    const prevLine = i > 0 ? filteredLines[i - 1] : '';
+    const nextLine = i < filteredLines.length - 1 ? filteredLines[i + 1] : '';
+    
+    // If this is a deeper header (====+), ensure it has newlines around it
+    if (line.match(/^====+\s+/)) {
+      // Add newline before if previous line isn't blank
+      if (prevLine && prevLine.trim() !== '') {
+        processedLines.push('');
+      }
+      processedLines.push(line);
+      // Add newline after if next line isn't blank and exists
+      if (nextLine && nextLine.trim() !== '') {
+        processedLines.push('');
+      }
+    } else {
+      processedLines.push(line);
+    }
+  }
+  
   // Remove extra blank lines and normalize newlines
-  return filteredLines.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/\n\s*\n/g, '\n').trim();
+  return processedLines.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').trim();
 }
 
 /**
- * Parses attributes from section content
+ * Parses attributes from section content using simple regex
+ * Converts :tagname: tagvalue -> [tagname, tagvalue] 
+ * Converts :tags: comma,separated -> [t, tag1], [t, tag2], etc.
  */
-function parseSectionAttributes(sectionContent: string): Record<string, any> {
-  const attributes: Record<string, any> = {};
-  const lines = sectionContent.split(/\r?\n/);
+function parseSimpleAttributes(content: string): [string, string][] {
+  const tags: [string, string][] = [];
+  const lines = content.split(/\r?\n/);
   
   for (const line of lines) {
     const match = line.match(/^:([^:]+):\s*(.+)$/);
     if (match) {
       const [, key, value] = match;
-      attributes[key.trim()] = value.trim();
+      const tagName = key.trim();
+      const tagValue = value.trim();
+      
+      if (tagName === 'tags') {
+        // Special handling for :tags: - split into individual t-tags
+        const tags_list = tagValue.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        tags_list.forEach(tag => {
+          tags.push(['t', tag]);
+        });
+      } else {
+        // Regular attribute -> [tagname, tagvalue]
+        tags.push([tagName, tagValue]);
+      }
     }
   }
   
-  return attributes;
+  return tags;
 }
 
 
@@ -253,15 +320,21 @@ export function extractDocumentMetadata(inputContent: string): {
     metadata.authors = [...new Set(authors)]; // Remove duplicates
   }
 
-  // Extract revision info
+  // Extract revision info (only if it looks like valid revision data)
   const revisionNumber = document.getRevisionNumber();
-  if (revisionNumber) metadata.version = revisionNumber;
+  if (revisionNumber && revisionNumber !== 'Version' && !revisionNumber.includes('==')) {
+    metadata.version = revisionNumber;
+  }
 
   const revisionRemark = document.getRevisionRemark();
-  if (revisionRemark) metadata.publishedBy = revisionRemark;
+  if (revisionRemark && !revisionRemark.includes('[NOTE]') && !revisionRemark.includes('==')) {
+    metadata.publishedBy = revisionRemark;
+  }
 
   const revisionDate = document.getRevisionDate();
-  if (revisionDate) metadata.publicationDate = revisionDate;
+  if (revisionDate && !revisionDate.includes('[NOTE]') && !revisionDate.includes('==')) {
+    metadata.publicationDate = revisionDate;
+  }
 
   // Map attributes to metadata (but skip version and publishedBy if we already have them from revision)
   mapAttributesToMetadata(attributes, metadata, true);
@@ -306,8 +379,8 @@ export function extractSectionMetadata(inputSectionContent: string): {
   const title = section.getTitle() || '';
   const metadata: SectionMetadata = { title };
   
-  // Parse attributes from the section content
-  const attributes = parseSectionAttributes(inputSectionContent);
+  // Parse attributes from the section content (no longer used - we use simple parsing in generateNostrEvents)
+  const attributes = {};
 
   // Extract authors from section content
   const authors = extractAuthorsFromHeader(inputSectionContent, true);
@@ -371,6 +444,7 @@ export function parseAsciiDocWithMetadata(content: string): ParsedAsciiDoc {
   return {
     metadata: docMetadata,
     content: document.getSource(),
+    title: docMetadata.title || '',
     sections: sectionsWithMetadata
   };
 }
@@ -397,6 +471,28 @@ export function metadataToTags(metadata: AsciiDocMetadata | SectionMetadata): [s
   if (metadata.autoUpdate) tags.push(['auto-update', metadata.autoUpdate]);
   if (metadata.tags?.length) {
     metadata.tags.forEach(tag => tags.push(['t', tag]));
+  }
+
+  // Add custom attributes as tags, but filter out system attributes
+  if (metadata.customAttributes) {
+    const systemAttributes = [
+      'attribute-undefined', 'attribute-missing', 'appendix-caption', 'appendix-refsig',
+      'caution-caption', 'chapter-refsig', 'example-caption', 'figure-caption',
+      'important-caption', 'last-update-label', 'note-caption', 'part-refsig',
+      'section-refsig', 'table-caption', 'tip-caption', 'toc-placement',
+      'toc-title', 'untitled-label', 'warning-caption', 'asciidoctor-version',
+      'safe-mode-name', 'backend', 'user-home', 'doctype', 'htmlsyntax',
+      'outfilesuffix', 'filetype', 'basebackend', 'stylesdir', 'iconsdir',
+      'localdate', 'localyear', 'localtime', 'localdatetime', 'docdate',
+      'docyear', 'doctime', 'docdatetime', 'doctitle', 'language',
+      'firstname', 'authorinitials', 'authors'
+    ];
+    
+    Object.entries(metadata.customAttributes).forEach(([key, value]) => {
+      if (!systemAttributes.includes(key)) {
+        tags.push([key, value]);
+      }
+    });
   }
 
   return tags;
@@ -459,6 +555,172 @@ export function extractMetadataFromSectionsOnly(content: string): {
   }
   
   return { metadata, content };
+}
+
+/**
+ * Iterative AsciiDoc parsing based on specified level
+ * Level 2: Only == sections become events (containing all subsections)
+ * Level 3: == sections become indices, === sections become events
+ * Level 4: === sections become indices, ==== sections become events, etc.
+ */
+export function parseAsciiDocIterative(content: string, parseLevel: number = 2): ParsedAsciiDoc {
+  const asciidoctor = createProcessor();
+  const document = asciidoctor.load(content, { standalone: false }) as Document;
+  const { metadata: docMetadata } = extractDocumentMetadata(content);
+  
+  const lines = content.split(/\r?\n/);
+  const targetHeaderPattern = new RegExp(`^${'='.repeat(parseLevel)}\\s+`);
+  const sections: Array<{
+    metadata: SectionMetadata;
+    content: string;
+    title: string;
+  }> = [];
+  
+  let currentSection: string | null = null;
+  let currentSectionContent: string[] = [];
+  let documentContent: string[] = [];
+  let inDocumentHeader = true;
+  
+  for (const line of lines) {
+    // Check if we've hit the first section at our target level
+    if (line.match(targetHeaderPattern)) {
+      inDocumentHeader = false;
+      
+      // Save previous section if exists
+      if (currentSection) {
+        const sectionContent = currentSectionContent.join('\n');
+        sections.push(extractSectionMetadata(sectionContent));
+      }
+      
+      // Start new section
+      currentSection = line;
+      currentSectionContent = [line];
+    } else if (currentSection) {
+      // We're in a section - add content
+      currentSectionContent.push(line);
+    } else if (inDocumentHeader) {
+      // We're still in document content (before first section)
+      documentContent.push(line);
+    }
+  }
+  
+  // Save the last section
+  if (currentSection) {
+    const sectionContent = currentSectionContent.join('\n');
+    sections.push(extractSectionMetadata(sectionContent));
+  }
+  
+  // Extract document content (everything before first section at target level)
+  // Keep the original content with attributes for simple parsing
+  const docContent = documentContent.join('\n');
+  
+  return {
+    metadata: docMetadata,
+    content: docContent,
+    title: docMetadata.title || '',
+    sections: sections
+  };
+}
+
+/**
+ * Generates Nostr events from parsed AsciiDoc
+ * Based on docreference.md specifications
+ */
+export function generateNostrEvents(parsed: ParsedAsciiDoc, parseLevel: number = 2, pubkey?: string): {
+  indexEvent?: any;
+  contentEvents: any[];
+} {
+  const events: any[] = [];
+  
+  // Create content events for each section (30041)
+  const contentEvents = parsed.sections.map(section => {
+    const sectionId = section.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .trim();
+    
+    // Extract tags directly from section content using simple regex
+    const sectionTags = parseSimpleAttributes(section.content);
+    
+    return {
+      id: '', // Will be generated by Nostr client
+      pubkey: '', // Will be set by client  
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 30041,
+      tags: [
+        ['d', sectionId],
+        ['title', section.title],
+        ...sectionTags
+      ],
+      content: section.content,
+      sig: '' // Will be generated by client
+    };
+  });
+  
+  // Only create index event if we have a document title (article format)
+  if (parsed.title && parsed.title.trim() !== '') {
+    // Generate document identifier from title
+    const documentId = parsed.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .trim();
+    
+    // Extract tags directly from document content using simple regex  
+    const documentTags = parseSimpleAttributes(parsed.content);
+    
+    // Create main index event (30040)
+    const indexEvent = {
+      id: '', // Will be generated by Nostr client
+      pubkey: '', // Will be set by client
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 30040,
+      tags: [
+        ['d', documentId],
+        ['title', parsed.title],
+        ...documentTags,
+        // Add a-tags for each section
+        ...parsed.sections.map(section => {
+          const sectionId = section.title
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, '-')
+            .trim();
+          const actualPubkey = pubkey || 'pubkey'; // Use actual pubkey if provided, fallback for compatibility
+          return ['a', `30041:${actualPubkey}:${sectionId}`, '', '']; // relay will be filled by client
+        })
+      ],
+      content: '', // Index events have empty content
+      sig: '' // Will be generated by client
+    };
+    
+    return {
+      indexEvent,
+      contentEvents
+    };
+  }
+  
+  // For scattered notes, return only content events
+  return {
+    contentEvents
+  };
+}
+
+/**
+ * Detects content type for smart publishing
+ */
+export function detectContentType(content: string): 'article' | 'scattered-notes' | 'none' {
+  const hasDocTitle = content.trim().startsWith('=') && !content.trim().startsWith('==');
+  const hasSections = content.includes('==');
+  
+  if (hasDocTitle) {
+    return 'article';
+  } else if (hasSections) {
+    return 'scattered-notes'; 
+  } else {
+    return 'none';
+  }
 }
 
 /**

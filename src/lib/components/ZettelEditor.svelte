@@ -4,6 +4,9 @@
   import {
   extractSmartMetadata,
   parseAsciiDocWithMetadata,
+  parseAsciiDocIterative,
+  generateNostrEvents,
+  detectContentType,
   type AsciiDocMetadata,
   metadataToTags,
 } from "$lib/utils/asciidoc_metadata";
@@ -12,65 +15,97 @@ import asciidoctor from "asciidoctor";
   // Component props
   let {
     content = "",
-    placeholder = `// PUBLISHING MODES:
-// Use "= Article Title" to publish an article/collection of notes
-// Use only "== Note Title" headings for scattered notes (30041 events only)
+    placeholder = `// ITERATIVE PARSING - Choose your publishing level:
+// Level 2: Only == sections become events (containing === and deeper)
+// Level 3: == sections become indices, === sections become events
+// Level 4: === sections become indices, ==== sections become events
 
-= Article Title (Full Collection)
-:author: Your Name
-:version: 1.0
-:published_on: 2024-01-01
-:published_by: Alexandria
-:summary: A brief description of this article
-:tags: article, example, metadata
-:image: https://example.com/image.jpg
-:type: book
+= Understanding Knowledge
+:image: https://i.nostr.build/IUs0xNyUEf5hXTFL.jpg
+:published: 2025-04-21
+:tags: knowledge, philosophy, education
+:type: text
 
-== Chapter 1: Introduction
-:author: Your Name
-:keywords: introduction, chapter, example
-:description: This is the first chapter of the article
+== Preface
+:tags: introduction, preface
 
-Chapter content here...
+This essay outlines the purpose of Alexandria...
 
+== Introduction: Knowledge as a Living Ecosystem
+:tags: introduction, ecosystem
 
-== Note Title 2
-Some Other Author (this works even if there is no :author: attribute)
-:keywords: second, note, example (keywords are converted to tags)
-:description: This is a description of the note (description is converted to a summary tag)
-Note content here...
+Knowledge exists as dynamic representations...
+
+=== Why Investigate the Nature of Knowledge?
+:difficulty: intermediate
+
+Understanding the nature of knowledge itself...
+
+==== The Four Perspectives
+:complexity: high
+
+1. Material Cause: The building blocks...
     `,
     showPreview = false,
+    parseLevel = 2,
     onContentChange = (content: string) => {},
     onPreviewToggle = (show: boolean) => {},
+    onPublishArticle = (events: any) => {},
+    onPublishScatteredNotes = (events: any) => {},
   } = $props<{
     content?: string;
     placeholder?: string;
     showPreview?: boolean;
+    parseLevel?: number;
     onContentChange?: (content: string) => void;
     onPreviewToggle?: (show: boolean) => void;
+    onPublishArticle?: (events: any) => void;
+    onPublishScatteredNotes?: (events: any) => void;
   }>();
 
-  // Parse sections for preview using the smart metadata service
-  let parsedSections = $derived.by(() => {
-    if (!content.trim()) return [];
+  // Parse content using iterative parsing
+  let parsedContent = $derived.by(() => {
+    if (!content.trim()) return null;
     
-    // Use smart metadata extraction that handles both document headers and section-only content
-    const { metadata: docMetadata } = extractSmartMetadata(content);
-    
-    // Parse the content using the standardized parser
-    const parsed = parseAsciiDocWithMetadata(content);
-    
-    // Debug logging
-    console.log("Parsed sections:", parsed.sections);
-    
-    return parsed.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
-      // Use only section metadata for each section
-      // Don't combine with document metadata to avoid overriding section-specific metadata
-      const tags = metadataToTags(section.metadata);
+    try {
+      // Use iterative parsing with selected level
+      const parsed = parseAsciiDocIterative(content, parseLevel);
       
       // Debug logging
-      console.log(`Section "${section.title}":`, { metadata: section.metadata, tags });
+      console.log("Iterative parsed content:", parsed);
+      
+      return parsed;
+    } catch (error) {
+      console.error("Parsing error:", error);
+      return null;
+    }
+  });
+
+  // Generate events from parsed content
+  let generatedEvents = $derived.by(() => {
+    if (!parsedContent) return null;
+    
+    try {
+      const events = generateNostrEvents(parsedContent, parseLevel);
+      console.log("Generated events:", events);
+      return events;
+    } catch (error) {
+      console.error("Event generation error:", error);
+      return null;
+    }
+  });
+
+  // Detect content type for smart publishing
+  let contentType = $derived.by(() => {
+    return detectContentType(content);
+  });
+
+  // Parse sections for preview display
+  let parsedSections = $derived.by(() => {
+    if (!parsedContent) return [];
+    
+    return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
+      const tags = metadataToTags(section.metadata);
       
       return {
         title: section.title || "Untitled",
@@ -80,23 +115,21 @@ Note content here...
     });
   });
 
-  // Check for 30040-style document headers (publication format)
-  let hasPublicationHeader = $derived.by(() => {
-    if (!content.trim()) return false;
+  // Publishing handlers
+  function handlePublish() {
+    if (!generatedEvents) return;
     
-    const lines = content.split(/\r?\n/);
-    for (const line of lines) {
-      // Check for document title (level 0 header)
-      if (line.match(/^=\s+(.+)$/)) {
-        return true;
-      }
-      // Check for "index card" format (case insensitive)
-      if (line.trim().toLowerCase() === 'index card') {
-        return true;
-      }
+    if (contentType === 'article' && generatedEvents.indexEvent) {
+      // Full article: publish both index event (30040) and content events (30041)
+      onPublishArticle(generatedEvents);
+    } else if (contentType === 'scattered-notes') {
+      // Only notes: publish just the content events (30041)
+      const notesOnly = {
+        contentEvents: generatedEvents.contentEvents
+      };
+      onPublishScatteredNotes(notesOnly);
     }
-    return false;
-  });
+  }
 
   // Toggle preview panel
   function togglePreview() {
@@ -112,87 +145,72 @@ Note content here...
 </script>
 
 <div class="flex flex-col space-y-4">
-  <!-- Error message for publication format -->
-  {#if hasPublicationHeader}
-    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-      <div class="flex items-start space-x-3">
-        <div class="flex-shrink-0">
-          <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h3 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-            Publication Format Detected
-          </h3>
-          <p class="text-sm text-red-700 dark:text-red-300 mb-3">
-            You're using a publication format (document title with <code>=</code> or "index card"). 
-            This editor is for individual notes only. Use the 
-            <a href="/events?kind=30040" class="font-medium underline hover:text-red-600 dark:hover:text-red-400">Events form</a> 
-            to create structured publications.
-          </p>
-          <div class="flex space-x-2">
-            <a 
-              href="/events?kind=30040" 
-              onclick={() => {
-                // Store the content in sessionStorage so it can be loaded in the Events form
-                sessionStorage.setItem('zettelEditorContent', content);
-                sessionStorage.setItem('zettelEditorSource', 'publication-format');
-              }}
-              class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-800 border border-red-200 dark:border-red-700 rounded-md hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+  <!-- Smart Publishing Interface -->
+  <div class="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+    <div class="flex items-start justify-between">
+      <div class="flex-1">
+        <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+          Unified AsciiDoc Publisher
+        </h3>
+        <div class="flex items-center space-x-4 mb-3">
+          <div class="flex items-center space-x-2">
+            <label for="parse-level" class="text-xs text-gray-600 dark:text-gray-400 font-medium">Parse Level:</label>
+            <select 
+              id="parse-level"
+              bind:value={parseLevel}
+              class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              Switch to Publication Editor
-            </a>
-            <button 
-              onclick={() => {
-                // Remove publication format by converting document title to section title
-                let convertedContent = content.replace(/^=\s+(.+)$/gm, '== $1');
-                // Remove "index card" line (case insensitive)
-                convertedContent = convertedContent.replace(/^index card$/gim, '');
-                // Clean up any double newlines that might result
-                const finalContent = convertedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
-                // Update content through the prop callback
-                onContentChange(finalContent);
-              }}
-              class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-800 border border-red-200 dark:border-red-700 rounded-md hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
-            >
-              Convert to Notes Format
-            </button>
+              <option value={2}>Level 2 (== sections → events)</option>
+              <option value={3}>Level 3 (== → indices, === → events)</option>
+              <option value={4}>Level 4 (=== → indices, ==== → events)</option>
+            </select>
           </div>
+          
+          <div class="text-xs text-gray-600 dark:text-gray-400">
+            <span class="font-medium">Content Type:</span>
+            <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium {
+              contentType === 'article' ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200' :
+              contentType === 'scattered-notes' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200' :
+              'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+            }">
+              {contentType === 'article' ? 'Article' : contentType === 'scattered-notes' ? 'Notes' : 'None'}
+            </span>
+          </div>
+          
+          {#if generatedEvents}
+            <div class="text-xs text-gray-600 dark:text-gray-400">
+              <span class="font-medium">Events:</span>
+              <span class="ml-1">{generatedEvents.contentEvents.length + (generatedEvents.indexEvent ? 1 : 0)}</span>
+            </div>
+          {/if}
+        </div>
+        
+        <!-- Unified Publishing Button -->
+        <div class="flex space-x-2">
+          {#if generatedEvents && contentType !== 'none'}
+            <Button
+              color={contentType === 'article' ? 'blue' : 'green'}
+              size="sm"
+              on:click={handlePublish}
+              class="flex items-center space-x-1"
+            >
+              {#if contentType === 'article'}
+                <span>📚 Publish Article</span>
+                <span class="text-xs opacity-75">({generatedEvents.contentEvents.length + 1} events)</span>
+              {:else}
+                <span>📝 Publish Notes</span>
+                <span class="text-xs opacity-75">({generatedEvents.contentEvents.length} events)</span>
+              {/if}
+            </Button>
+          {:else}
+            <div class="text-xs text-gray-500 dark:text-gray-400 italic">
+              Add content to enable publishing
+            </div>
+          {/if}
         </div>
       </div>
     </div>
-  {:else}
-    <!-- Informative text about ZettelEditor purpose -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-      <div class="flex items-start space-x-3">
-        <div class="flex-shrink-0">
-          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-            Note-Taking Tool
-          </h3>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">
-            This editor is for creating individual notes (30041 events) only. Each section becomes a separate note event.
-            You can add metadata like author, version, publication date, summary, and tags using AsciiDoc attributes.
-            To create structured publications with a 30040 index event that ties multiple notes together, 
-            use the <a href="/events?kind=30040" class="font-medium underline hover:text-blue-600 dark:hover:text-blue-400">Events form</a>.
-          </p>
-          <div class="flex space-x-2">
-            <a 
-              href="/events?kind=30040" 
-              class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
-            >
-              Create Publication
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
+  </div>
 
   <div class="flex items-center justify-between">
     <Button
@@ -200,7 +218,6 @@ Note content here...
       size="sm"
       on:click={togglePreview}
       class="flex items-center space-x-1"
-      disabled={hasPublicationHeader}
     >
       {#if showPreview}
         <EyeOutline class="w-4 h-4" />
@@ -220,15 +237,14 @@ Note content here...
           bind:value={content}
           on:input={handleContentChange}
           {placeholder}
-          class="h-full min-h-64 resize-none {hasPublicationHeader ? 'opacity-50 cursor-not-allowed' : ''}"
+          class="h-full min-h-64 resize-none"
           rows={12}
-          disabled={hasPublicationHeader}
         />
       </div>
     </div>
 
     <!-- Preview Panel -->
-    {#if showPreview && !hasPublicationHeader}
+    {#if showPreview}
       <div class="w-1/2 border-l border-gray-200 dark:border-gray-700 pl-4">
         <div class="sticky top-4">
           <h3
