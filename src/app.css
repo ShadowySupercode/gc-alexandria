@@ -549,4 +549,38 @@
   .toc-highlight:hover {
     @apply bg-primary-300 dark:bg-primary-600;
   }
+
+  /* Timeline Table of Contents */
+  .timeline-container {
+    pointer-events: none;
+  }
+
+  .timeline-container .timeline-dot,
+  .timeline-container .timeline-label {
+    pointer-events: auto;
+  }
+
+  .timeline-container:hover .timeline-label {
+    transition-delay: 0.1s;
+  }
+
+  .timeline-dot {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .timeline-dot:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .timeline-label {
+    z-index: 40;
+    min-width: 120px;
+  }
+
+  /* Ensure timeline doesn't interfere with content */
+  @media (min-width: 1024px) {
+    main.publication {
+      margin-left: 2rem;
+    }
+  }
 }

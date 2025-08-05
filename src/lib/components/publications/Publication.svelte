@@ -22,6 +22,7 @@
   import Interactions from "$components/util/Interactions.svelte";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
+  import TimelineTableOfContents from "./TimelineTableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
 
   let { rootAddress, publicationType, indexEvent } = $props<{
@@ -192,7 +193,20 @@
   // #endregion
 </script>
 
-<!-- Table of contents -->
+<!-- Timeline Table of Contents (new LessWrong-style) -->
+{#if publicationType !== "blog" || !isLeaf}
+  <TimelineTableOfContents
+    onSectionFocused={(address: string) =>
+      publicationTree.setBookmark(address)}
+    onLoadMore={() => {
+      if (!isLoading && !isDone) {
+        loadMore(4);
+      }
+    }}
+  />
+{/if}
+
+<!-- Traditional Table of Contents (fallback/alternative) - Only show when explicitly toggled -->
 {#if publicationType !== "blog" || !isLeaf}
   {#if $publicationColumnVisibility.toc}
     <Sidebar
