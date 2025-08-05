@@ -143,11 +143,28 @@ export async function publishSingleEvent(
       return tag;
     });
 
+    // Auto-add author identity if not publishing on behalf of others
+    const hasAuthorTag = fixedTags.some(tag => tag[0] === 'author');
+    const hasPTag = fixedTags.some(tag => tag[0] === 'p');
+    
+    const finalTags = [...fixedTags];
+    
+    if (!hasAuthorTag && ndk.activeUser) {
+      // Add display name as author
+      const displayName = ndk.activeUser.profile?.displayName || ndk.activeUser.profile?.name || 'Anonymous';
+      finalTags.push(['author', displayName]);
+    }
+    
+    if (!hasPTag && ndk.activeUser) {
+      // Add pubkey as p-tag
+      finalTags.push(['p', ndk.activeUser.pubkey]);
+    }
+
     // Create and sign NDK event
     const ndkEvent = new NDKEvent(ndk);
     ndkEvent.kind = kind;
     ndkEvent.created_at = Math.floor(Date.now() / 1000);
-    ndkEvent.tags = fixedTags;
+    ndkEvent.tags = finalTags;
     ndkEvent.content = content;
     ndkEvent.pubkey = ndk.activeUser.pubkey;
 

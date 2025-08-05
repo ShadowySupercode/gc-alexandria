@@ -185,29 +185,6 @@ Understanding the nature of knowledge itself...
           {/if}
         </div>
         
-        <!-- Unified Publishing Button -->
-        <div class="flex space-x-2">
-          {#if generatedEvents && contentType !== 'none'}
-            <Button
-              color={contentType === 'article' ? 'blue' : 'green'}
-              size="sm"
-              on:click={handlePublish}
-              class="flex items-center space-x-1"
-            >
-              {#if contentType === 'article'}
-                <span>📚 Publish Article</span>
-                <span class="text-xs opacity-75">({generatedEvents.contentEvents.length + 1} events)</span>
-              {:else}
-                <span>📝 Publish Notes</span>
-                <span class="text-xs opacity-75">({generatedEvents.contentEvents.length} events)</span>
-              {/if}
-            </Button>
-          {:else}
-            <div class="text-xs text-gray-500 dark:text-gray-400 italic">
-              Add content to enable publishing
-            </div>
-          {/if}
-        </div>
       </div>
     </div>
   </div>
@@ -227,6 +204,28 @@ Understanding the nature of knowledge itself...
         <span>Show Preview</span>
       {/if}
     </Button>
+
+    <!-- Smart Publishing Button -->
+    {#if generatedEvents && contentType !== 'none'}
+      <Button
+        color={contentType === 'article' ? 'blue' : 'green'}
+        size="sm"
+        on:click={handlePublish}
+        class="flex items-center space-x-1"
+      >
+        {#if contentType === 'article'}
+          <span>📚 Publish Article</span>
+          <span class="text-xs opacity-75">({generatedEvents.contentEvents.length + 1} events)</span>
+        {:else}
+          <span>📝 Publish Notes</span>
+          <span class="text-xs opacity-75">({generatedEvents.contentEvents.length} events)</span>
+        {/if}
+      </Button>
+    {:else}
+      <div class="text-xs text-gray-500 dark:text-gray-400 italic">
+        Add content to enable publishing
+      </div>
+    {/if}
   </div>
 
   <div class="flex space-x-4 {showPreview ? 'h-96' : ''}">
