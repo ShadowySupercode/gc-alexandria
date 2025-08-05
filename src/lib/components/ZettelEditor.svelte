@@ -9,6 +9,7 @@
   detectContentType,
   type AsciiDocMetadata,
   metadataToTags,
+  parseSimpleAttributes,
 } from "$lib/utils/asciidoc_metadata";
 import asciidoctor from "asciidoctor";
 
@@ -105,7 +106,8 @@ Understanding the nature of knowledge itself...
     if (!parsedContent) return [];
     
     return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
-      const tags = metadataToTags(section.metadata);
+      // Use simple parsing directly on section content for accurate tag extraction
+      const tags = parseSimpleAttributes(section.content);
       
       return {
         title: section.title || "Untitled",
@@ -261,6 +263,33 @@ Understanding the nature of knowledge itself...
               </div>
             {:else}
               <div class="prose prose-sm dark:prose-invert max-w-none">
+                <!-- Show document title and tags for articles -->
+                {#if contentType === 'article' && parsedContent?.title}
+                  <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+                    <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                      {parsedContent.title}
+                    </h1>
+                    <!-- Document-level tags -->
+                    {#if parsedContent.content}
+                      {@const documentTags = parseSimpleAttributes(parsedContent.content)}
+                      {#if documentTags.filter(tag => tag[0] === 't').length > 0}
+                        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                          <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Document tags:</span>
+                            <!-- Show only hashtags (t-tags) -->
+                            {#each documentTags.filter(tag => tag[0] === 't') as tag}
+                              <div class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline">
+                                <span class="mr-1">#</span>
+                                <span>{tag[1]}</span>
+                              </div>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                    {/if}
+                  </div>
+                {/if}
+                
                 {#each parsedSections as section, index}
                   <div class="mb-6">
                     <div
@@ -286,19 +315,20 @@ Understanding the nature of knowledge itself...
                         class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
                       >
                         <div class="flex flex-wrap gap-2 items-center">
-                          {#if section.tags && section.tags.length > 0}
-                            {#each section.tags as tag}
+                          {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
+                            <!-- Show only hashtags (t-tags) -->
+                            {#each section.tags.filter(tag => tag[0] === 't') as tag}
                               <div
-                                class="bg-amber-900 text-amber-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
+                                class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
                               >
-                                <span class="font-mono">{tag[0]}:</span>
+                                <span class="mr-1">#</span>
                                 <span>{tag[1]}</span>
                               </div>
                             {/each}
                           {:else}
                             <span
                               class="text-gray-500 dark:text-gray-400 text-xs italic"
-                              >No tags</span
+                              >No hashtags</span
                             >
                           {/if}
                         </div>

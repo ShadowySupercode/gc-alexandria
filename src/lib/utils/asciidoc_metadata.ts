@@ -259,7 +259,7 @@ function stripHeaderAndAttributes(content: string, isSection: boolean = false): 
  * Converts :tagname: tagvalue -> [tagname, tagvalue] 
  * Converts :tags: comma,separated -> [t, tag1], [t, tag2], etc.
  */
-function parseSimpleAttributes(content: string): [string, string][] {
+export function parseSimpleAttributes(content: string): [string, string][] {
   const tags: [string, string][] = [];
   const lines = content.split(/\r?\n/);
   
@@ -559,9 +559,9 @@ export function extractMetadataFromSectionsOnly(content: string): {
 
 /**
  * Iterative AsciiDoc parsing based on specified level
- * Level 2: Only == sections become events (containing all subsections)
- * Level 3: == sections become indices, === sections become events
- * Level 4: === sections become indices, ==== sections become events, etc.
+ * Level 2: Only == sections become content events (containing all subsections) 
+ * Level 3: == sections become indices + content events, === sections become content events
+ * Level 4: === sections become indices + content events, ==== sections become content events, etc.
  */
 export function parseAsciiDocIterative(content: string, parseLevel: number = 2): ParsedAsciiDoc {
   const asciidoctor = createProcessor();
@@ -569,12 +569,58 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
   const { metadata: docMetadata } = extractDocumentMetadata(content);
   
   const lines = content.split(/\r?\n/);
-  const targetHeaderPattern = new RegExp(`^${'='.repeat(parseLevel)}\\s+`);
   const sections: Array<{
     metadata: SectionMetadata;
     content: string;
     title: string;
   }> = [];
+  
+  if (parseLevel === 2) {
+    // Level 2: Only == sections become events
+    const level2Pattern = /^==\s+/;
+    let currentSection: string | null = null;
+    let currentSectionContent: string[] = [];
+    let documentContent: string[] = [];
+    let inDocumentHeader = true;
+    
+    for (const line of lines) {
+      if (line.match(level2Pattern)) {
+        inDocumentHeader = false;
+        
+        // Save previous section if exists
+        if (currentSection) {
+          const sectionContent = currentSectionContent.join('\n');
+          sections.push(extractSectionMetadata(sectionContent));
+        }
+        
+        // Start new section
+        currentSection = line;
+        currentSectionContent = [line];
+      } else if (currentSection) {
+        currentSectionContent.push(line);
+      } else if (inDocumentHeader) {
+        documentContent.push(line);
+      }
+    }
+    
+    // Save the last section
+    if (currentSection) {
+      const sectionContent = currentSectionContent.join('\n');
+      sections.push(extractSectionMetadata(sectionContent));
+    }
+    
+    const docContent = documentContent.join('\n');
+    return {
+      metadata: docMetadata,
+      content: docContent,
+      title: docMetadata.title || '',
+      sections: sections
+    };
+  }
+  
+  // Level 3+: Parse both index level (parseLevel-1) and content level (parseLevel)
+  const indexLevelPattern = new RegExp(`^${'='.repeat(parseLevel - 1)}\\s+`);
+  const contentLevelPattern = new RegExp(`^${'='.repeat(parseLevel)}\\s+`);
   
   let currentSection: string | null = null;
   let currentSectionContent: string[] = [];
@@ -582,8 +628,8 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
   let inDocumentHeader = true;
   
   for (const line of lines) {
-    // Check if we've hit the first section at our target level
-    if (line.match(targetHeaderPattern)) {
+    // Check for both index level and content level headers
+    if (line.match(indexLevelPattern) || line.match(contentLevelPattern)) {
       inDocumentHeader = false;
       
       // Save previous section if exists
@@ -596,10 +642,8 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
       currentSection = line;
       currentSectionContent = [line];
     } else if (currentSection) {
-      // We're in a section - add content
       currentSectionContent.push(line);
     } else if (inDocumentHeader) {
-      // We're still in document content (before first section)
       documentContent.push(line);
     }
   }
@@ -610,10 +654,7 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
     sections.push(extractSectionMetadata(sectionContent));
   }
   
-  // Extract document content (everything before first section at target level)
-  // Keep the original content with attributes for simple parsing
   const docContent = documentContent.join('\n');
-  
   return {
     metadata: docMetadata,
     content: docContent,
@@ -623,87 +664,251 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
 }
 
 /**
- * Generates Nostr events from parsed AsciiDoc
+ * Helper function to determine the header level of a section
+ */
+function getSectionLevel(sectionContent: string): number {
+  const lines = sectionContent.split(/\r?\n/);
+  for (const line of lines) {
+    const match = line.match(/^(=+)\s+/);
+    if (match) {
+      return match[1].length;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Helper function to extract just the intro content (before first subsection)
+ */
+function extractIntroContent(sectionContent: string, currentLevel: number): string {
+  const lines = sectionContent.split(/\r?\n/);
+  const introLines: string[] = [];
+  let foundHeader = false;
+  
+  for (const line of lines) {
+    const headerMatch = line.match(/^(=+)\s+/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      if (level === currentLevel && !foundHeader) {
+        // This is the section header itself
+        foundHeader = true;
+        continue; // Skip the header line itself for intro content
+      } else if (level > currentLevel) {
+        // This is a subsection, stop collecting intro content
+        break;
+      }
+    } else if (foundHeader) {
+      // This is intro content after the header
+      introLines.push(line);
+    }
+  }
+  
+  return introLines.join('\n').trim();
+}
+
+/**
+ * Generates Nostr events from parsed AsciiDoc with proper hierarchical structure
  * Based on docreference.md specifications
  */
-export function generateNostrEvents(parsed: ParsedAsciiDoc, parseLevel: number = 2, pubkey?: string): {
+export function generateNostrEvents(parsed: ParsedAsciiDoc, parseLevel: number = 2, pubkey?: string, maxDepth: number = 6): {
   indexEvent?: any;
   contentEvents: any[];
 } {
-  const events: any[] = [];
+  const allEvents: any[] = [];
+  const actualPubkey = pubkey || 'pubkey';
   
-  // Create content events for each section (30041)
-  const contentEvents = parsed.sections.map(section => {
-    const sectionId = section.title
+  // Helper function to generate section ID
+  const generateSectionId = (title: string): string => {
+    return title
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, '-')
       .trim();
-    
-    // Extract tags directly from section content using simple regex
-    const sectionTags = parseSimpleAttributes(section.content);
-    
-    return {
-      id: '', // Will be generated by Nostr client
-      pubkey: '', // Will be set by client  
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 30041,
-      tags: [
-        ['d', sectionId],
-        ['title', section.title],
-        ...sectionTags
-      ],
-      content: section.content,
-      sig: '' // Will be generated by client
+  };
+  
+  // Build hierarchical tree structure
+  interface TreeNode {
+    section: {
+      metadata: any;
+      content: string;
+      title: string;
     };
-  });
+    level: number;
+    sectionId: string;
+    tags: [string, string][];
+    children: TreeNode[];
+    parent?: TreeNode;
+  }
   
-  // Only create index event if we have a document title (article format)
-  if (parsed.title && parsed.title.trim() !== '') {
-    // Generate document identifier from title
-    const documentId = parsed.title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
+  // Convert flat sections to tree structure
+  const buildTree = (): TreeNode[] => {
+    const roots: TreeNode[] = [];
+    const stack: TreeNode[] = [];
     
-    // Extract tags directly from document content using simple regex  
+    for (const section of parsed.sections) {
+      const level = getSectionLevel(section.content);
+      const sectionId = generateSectionId(section.title);
+      const tags = parseSimpleAttributes(section.content);
+      
+      const node: TreeNode = {
+        section,
+        level,
+        sectionId,
+        tags,
+        children: [],
+      };
+      
+      // Find the correct parent based on header hierarchy
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+      
+      if (stack.length === 0) {
+        // This is a root level section
+        roots.push(node);
+      } else {
+        // This is a child of the last item in stack
+        const parent = stack[stack.length - 1];
+        parent.children.push(node);
+        node.parent = parent;
+      }
+      
+      stack.push(node);
+    }
+    
+    return roots;
+  };
+  
+  const tree = buildTree();
+  
+  // Recursively create events from tree
+  const createEventsFromNode = (node: TreeNode): void => {
+    const { section, level, sectionId, tags, children } = node;
+    
+    // Determine if this node should become an index
+    const hasChildrenAtTargetLevel = children.some(child => child.level === parseLevel);
+    const shouldBeIndex = level < parseLevel && (hasChildrenAtTargetLevel || children.some(child => child.level <= parseLevel));
+    
+    if (shouldBeIndex) {
+      // Create content event for intro text (30041)
+      const introContent = extractIntroContent(section.content, level);
+      if (introContent.trim()) {
+        const contentEvent = {
+          id: '',
+          pubkey: '',
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 30041,
+          tags: [
+            ['d', `${sectionId}-content`],
+            ['title', section.title],
+            ...tags
+          ],
+          content: introContent,
+          sig: ''
+        };
+        allEvents.push(contentEvent);
+      }
+      
+      // Create index event (30040)
+      const childATags: string[][] = [];
+      
+      // Add a-tag for intro content if it exists
+      if (introContent.trim()) {
+        childATags.push(['a', `30041:${actualPubkey}:${sectionId}-content`, '', '']);
+      }
+      
+      // Add a-tags for direct children
+      for (const child of children) {
+        const childHasSubChildren = child.children.some(grandchild => grandchild.level <= parseLevel);
+        const childShouldBeIndex = child.level < parseLevel && childHasSubChildren;
+        const childKind = childShouldBeIndex ? 30040 : 30041;
+        childATags.push(['a', `${childKind}:${actualPubkey}:${child.sectionId}`, '', '']);
+      }
+      
+      const indexEvent = {
+        id: '',
+        pubkey: '',
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 30040,
+        tags: [
+          ['d', sectionId],
+          ['title', section.title],
+          ...tags,
+          ...childATags
+        ],
+        content: '',
+        sig: ''
+      };
+      allEvents.push(indexEvent);
+    } else {
+      // Create regular content event (30041)
+      const contentEvent = {
+        id: '',
+        pubkey: '',
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 30041,
+        tags: [
+          ['d', sectionId],
+          ['title', section.title],
+          ...tags
+        ],
+        content: section.content,
+        sig: ''
+      };
+      allEvents.push(contentEvent);
+    }
+    
+    // Recursively process children
+    for (const child of children) {
+      createEventsFromNode(child);
+    }
+  };
+  
+  // Process all root level sections
+  for (const rootNode of tree) {
+    createEventsFromNode(rootNode);
+  }
+  
+  // Create main document index if we have a document title (article format)
+  if (parsed.title && parsed.title.trim() !== '') {
+    const documentId = generateSectionId(parsed.title);
     const documentTags = parseSimpleAttributes(parsed.content);
     
-    // Create main index event (30040)
-    const indexEvent = {
-      id: '', // Will be generated by Nostr client
-      pubkey: '', // Will be set by client
+    // Create a-tags for all root level sections (level 2)
+    const mainIndexATags = tree.map(rootNode => {
+      const hasSubChildren = rootNode.children.some(child => child.level <= parseLevel);
+      const shouldBeIndex = rootNode.level < parseLevel && hasSubChildren;
+      const kind = shouldBeIndex ? 30040 : 30041;
+      return ['a', `${kind}:${actualPubkey}:${rootNode.sectionId}`, '', ''];
+    });
+    
+    console.log('Debug: Root sections found:', tree.length);
+    console.log('Debug: Main index a-tags:', mainIndexATags);
+    
+    const mainIndexEvent = {
+      id: '',
+      pubkey: '',
       created_at: Math.floor(Date.now() / 1000),
       kind: 30040,
       tags: [
         ['d', documentId],
         ['title', parsed.title],
         ...documentTags,
-        // Add a-tags for each section
-        ...parsed.sections.map(section => {
-          const sectionId = section.title
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '')
-            .replace(/\s+/g, '-')
-            .trim();
-          const actualPubkey = pubkey || 'pubkey'; // Use actual pubkey if provided, fallback for compatibility
-          return ['a', `30041:${actualPubkey}:${sectionId}`, '', '']; // relay will be filled by client
-        })
+        ...mainIndexATags
       ],
-      content: '', // Index events have empty content
-      sig: '' // Will be generated by client
+      content: '',
+      sig: ''
     };
     
     return {
-      indexEvent,
-      contentEvents
+      indexEvent: mainIndexEvent,
+      contentEvents: allEvents
     };
   }
   
   // For scattered notes, return only content events
   return {
-    contentEvents
+    contentEvents: allEvents
   };
 }
 
