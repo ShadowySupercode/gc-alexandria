@@ -10,6 +10,14 @@
   function handleEventCountUpdate(counts: { displayed: number; total: number }) {
     eventCount = counts;
   }
+
+  // AI-NOTE: Clear search when checkbox is toggled to start fresh
+  $effect(() => {
+    if (showOnlyMyPublications && searchQuery.trim()) {
+      // If checkbox is being checked and there's a search query, clear the search
+      searchQuery = "";
+    }
+  });
 </script>
 
 <main class="leather flex flex-col flex-grow-0 space-y-4 p-4">

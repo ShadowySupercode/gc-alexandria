@@ -14,6 +14,7 @@
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
   import { userStore } from "$lib/stores/userStore.ts";
+  import { nip19 } from "nostr-tools";
 
   const props = $props<{
     searchQuery?: string;
@@ -291,6 +292,78 @@
     loading = false;
   }
 
+  // Function to convert various Nostr identifiers to npub
+  const convertToNpub = (input: string): string | null => {
+    try {
+      // If it's already an npub, return it
+      if (input.startsWith('npub')) {
+        return input;
+      }
+      
+      // If it's a hex pubkey, convert to npub
+      if (input.length === 64 && /^[0-9a-fA-F]+$/.test(input)) {
+        return nip19.npubEncode(input);
+      }
+      
+      // If it's an nprofile, decode and extract npub
+      if (input.startsWith('nprofile')) {
+        const decoded = nip19.decode(input);
+        if (decoded.type === 'nprofile') {
+          return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.debug("[PublicationFeed] Failed to convert to npub:", input, error);
+      return null;
+    }
+  };
+
+  // Function to filter events by npub (author or p tags)
+  const filterEventsByNpub = (events: NDKEvent[], npub: string): NDKEvent[] => {
+    try {
+      const decoded = nip19.decode(npub);
+      if (decoded.type !== 'npub') {
+        console.debug("[PublicationFeed] Invalid npub format:", npub);
+        return events;
+      }
+      
+      const pubkey = decoded.data.toLowerCase();
+      console.debug("[PublicationFeed] Filtering events for npub:", npub, "pubkey:", pubkey);
+      
+      const filtered = events.filter((event) => {
+        // Check if user is the author of the event
+        const eventPubkey = event.pubkey.toLowerCase();
+        const isAuthor = eventPubkey === pubkey;
+        
+        // Check if user is listed in "p" tags (participants/contributors)
+        const pTags = getMatchingTags(event, "p");
+        const isInPTags = pTags.some(tag => tag[1]?.toLowerCase() === pubkey);
+        
+        const matches = isAuthor || isInPTags;
+        
+        if (matches) {
+          console.debug("[PublicationFeed] Event matches npub filter:", {
+            id: event.id,
+            eventPubkey,
+            searchPubkey: pubkey,
+            isAuthor,
+            isInPTags,
+            pTags: pTags.map(tag => tag[1])
+          });
+        }
+        return matches;
+      });
+      
+      console.debug("[PublicationFeed] Events after npub filtering:", filtered.length);
+      return filtered;
+    } catch (error) {
+      console.debug("[PublicationFeed] Error filtering by npub:", npub, error);
+      return events;
+    }
+  };
+
   // Function to filter events by current user's pubkey
   const filterEventsByUser = (events: NDKEvent[]) => {
     if (!props.showOnlyMyPublications) return events;
@@ -335,7 +408,7 @@
   // Function to filter events based on search query
   const filterEventsBySearch = (events: NDKEvent[]) => {
     if (!props.searchQuery) return events;
-    const query = props.searchQuery.toLowerCase();
+    const query = props.searchQuery.trim();
     console.debug(
       "[PublicationFeed] Filtering events with query:",
       query,
@@ -350,6 +423,27 @@
         `[PublicationFeed] Using cached results for publication search: ${query}`,
       );
       return cachedResult.events;
+    }
+
+    // AI-NOTE: Check if the query is a Nostr identifier (npub, hex, nprofile)
+    const npub = convertToNpub(query);
+    if (npub) {
+      console.debug("[PublicationFeed] Query is a Nostr identifier, filtering by npub:", npub);
+      const filtered = filterEventsByNpub(events, npub);
+      
+      // Cache the filtered results
+      const result = {
+        events: filtered,
+        secondOrder: [],
+        tTagEvents: [],
+        eventIds: new Set<string>(),
+        addresses: new Set<string>(),
+        searchType: "publication",
+        searchTerm: query,
+      };
+      searchCache.set("publication", query, result);
+      
+      return filtered;
     }
 
     // Check if the query is a NIP-05 address
@@ -367,7 +461,7 @@
 
       // For NIP-05 queries, only match against NIP-05 tags
       if (isNip05Query) {
-        const matches = nip05 === query;
+        const matches = nip05 === query.toLowerCase();
         if (matches) {
           console.debug("[PublicationFeed] Event matches NIP-05 search:", {
             id: event.id,
@@ -379,11 +473,12 @@
       }
 
       // For regular queries, match against all fields
+      const queryLower = query.toLowerCase();
       const matches =
-        title.includes(query) ||
-        authorName.includes(query) ||
-        authorPubkey.includes(query) ||
-        nip05.includes(query);
+        title.includes(queryLower) ||
+        authorName.includes(queryLower) ||
+        authorPubkey.includes(queryLower) ||
+        nip05.includes(queryLower);
       if (matches) {
         console.debug("[PublicationFeed] Event matches search:", {
           id: event.id,
