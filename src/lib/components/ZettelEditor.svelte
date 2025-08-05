@@ -101,6 +101,18 @@ Understanding the nature of knowledge itself...
     return detectContentType(content);
   });
 
+  // Helper function to get section level from content
+  function getSectionLevel(sectionContent: string): number {
+    const lines = sectionContent.split(/\r?\n/);
+    for (const line of lines) {
+      const match = line.match(/^(=+)\s+/);
+      if (match) {
+        return match[1].length;
+      }
+    }
+    return 2; // Default to level 2
+  }
+
   // Parse sections for preview display
   let parsedSections = $derived.by(() => {
     if (!parsedContent) return [];
@@ -108,11 +120,13 @@ Understanding the nature of knowledge itself...
     return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
       // Use simple parsing directly on section content for accurate tag extraction
       const tags = parseSimpleAttributes(section.content);
+      const level = getSectionLevel(section.content);
       
       return {
         title: section.title || "Untitled",
         content: section.content.trim(),
         tags,
+        level,
       };
     });
   });
@@ -230,136 +244,139 @@ Understanding the nature of knowledge itself...
     {/if}
   </div>
 
-  <div class="flex space-x-4 {showPreview ? 'h-96' : ''}">
+  <div class="flex space-x-6 h-96">
     <!-- Editor Panel -->
-    <div class="{showPreview ? 'w-1/2' : 'w-full'} flex flex-col space-y-4">
-      <div class="flex-1">
+    <div class="{showPreview ? 'w-1/2' : 'w-full'} flex flex-col">
+      <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         <Textarea
           bind:value={content}
           on:input={handleContentChange}
           {placeholder}
-          class="h-full min-h-64 resize-none"
-          rows={12}
+          class="w-full h-full resize-none font-mono text-sm leading-relaxed p-4 bg-white dark:bg-gray-900 border-none outline-none"
         />
       </div>
     </div>
 
     <!-- Preview Panel -->
     {#if showPreview}
-      <div class="w-1/2 border-l border-gray-200 dark:border-gray-700 pl-4">
-        <div class="sticky top-4">
-          <h3
-            class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100"
-          >
-            AsciiDoc Preview
-          </h3>
+      <div class="w-1/2 flex flex-col">
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              AsciiDoc Preview
+            </h3>
+          </div>
 
-          <div
-            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-h-80 overflow-y-auto"
-          >
+          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900">
             {#if !content.trim()}
-              <div class="text-gray-500 dark:text-gray-400 text-sm">
+              <div class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">
                 Start typing to see the preview...
               </div>
             {:else}
-              <div class="prose prose-sm dark:prose-invert max-w-none">
-                <!-- Show document title and tags for articles -->
-                {#if contentType === 'article' && parsedContent?.title}
-                  <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
-                    <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                      {parsedContent.title}
-                    </h1>
-                    <!-- Document-level tags -->
-                    {#if parsedContent.content}
-                      {@const documentTags = parseSimpleAttributes(parsedContent.content)}
-                      {#if documentTags.filter(tag => tag[0] === 't').length > 0}
-                        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                          <div class="flex flex-wrap gap-2 items-center">
-                            <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Document tags:</span>
-                            <!-- Show only hashtags (t-tags) -->
-                            {#each documentTags.filter(tag => tag[0] === 't') as tag}
-                              <div class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline">
-                                <span class="mr-1">#</span>
-                                <span>{tag[1]}</span>
-                              </div>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
+              <!-- Show document title and tags for articles -->
+              {#if contentType === 'article' && parsedContent?.title}
+                <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
+                  <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                    {parsedContent.title}
+                  </h1>
+                  <!-- Document-level tags -->
+                  {#if parsedContent.content}
+                    {@const documentTags = parseSimpleAttributes(parsedContent.content)}
+                    {#if documentTags.filter(tag => tag[0] === 't').length > 0}
+                      <div class="flex flex-wrap gap-2">
+                        {#each documentTags.filter(tag => tag[0] === 't') as tag}
+                          <span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
+                            #{tag[1]}
+                          </span>
+                        {/each}
+                      </div>
                     {/if}
-                  </div>
-                {/if}
+                  {/if}
+                </div>
+              {/if}
+              
+              {#snippet previewContent()}
+                {@const levelColors = {
+                  2: 'bg-red-400', 
+                  3: 'bg-blue-400',
+                  4: 'bg-green-400',
+                  5: 'bg-yellow-400',
+                  6: 'bg-purple-400'
+                } as Record<number, string>}
                 
-                {#each parsedSections as section, index}
-                  <div class="mb-6">
-                    <div
-                      class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content"
-                    >
-                      {@html asciidoctor().convert(
-                        `== ${section.title}\n\n${section.content}`,
-                        {
-                          standalone: false,
-                          doctype: "article",
-                          attributes: {
-                            showtitle: true,
-                            sectids: true,
-                          },
-                        },
-                      )}
-                    </div>
+                <!-- Calculate continuous indent guides that span multiple sections -->
+                {@const maxLevel = Math.max(...parsedSections.map(s => s.level))}
+                {@const guideLevels = Array.from({length: maxLevel - 1}, (_, i) => i + 2)}
+                
+                {@const minLevel = Math.min(...parsedSections.map(s => s.level))}
+                {@const maxIndentLevel = Math.max(...parsedSections.map(s => Math.max(0, s.level - minLevel)))}
+                {@const containerPadding = 24}
+                
+                <div class="prose prose-sm dark:prose-invert max-w-none relative" style="padding-left: {containerPadding}px;">
 
-                    <!-- Gray area with tag bubbles for all sections -->
-                    <div class="my-4 relative">
-                      <!-- Gray background area -->
-                      <div
-                        class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
-                      >
-                        <div class="flex flex-wrap gap-2 items-center">
-                          {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
-                            <!-- Show only hashtags (t-tags) -->
-                            {#each section.tags.filter(tag => tag[0] === 't') as tag}
-                              <div
-                                class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
-                              >
-                                <span class="mr-1">#</span>
-                                <span>{tag[1]}</span>
-                              </div>
-                            {/each}
-                          {:else}
-                            <span
-                              class="text-gray-500 dark:text-gray-400 text-xs italic"
-                              >No hashtags</span
-                            >
-                          {/if}
-                        </div>
+                {#each parsedSections as section, index}
+                  {#snippet sectionContent()}
+                    {@const indentLevel = Math.max(0, section.level - 2)}
+                    {@const currentColor = levelColors[section.level] || 'bg-gray-500'}
+                    
+                    <div class="mb-12 relative" style="margin-left: {indentLevel * 24 - containerPadding}px; padding-left: 12px;">
+                      <!-- Current level highlight guide -->
+                      <div 
+                        class="absolute top-0 w-1.5 {currentColor} opacity-60"
+                        style="left: {-4}px; height: 100%;"
+                      ></div>
+                    
+                      <!-- Section content -->
+                      <div class="prose-content">
+                        {@html asciidoctor().convert(
+                          `${'='.repeat(section.level)} ${section.title}\n\n${section.content}`,
+                          {
+                            standalone: false,
+                            doctype: "article",
+                            attributes: {
+                              showtitle: true,
+                              sectids: true,
+                            },
+                          },
+                        )}
                       </div>
 
+                      <!-- Tags -->
+                      {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
+                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                          <div class="flex flex-wrap gap-2">
+                            {#each section.tags.filter(tag => tag[0] === 't') as tag}
+                              <span class="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2 py-1 rounded text-xs">
+                                #{tag[1]}
+                              </span>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+
+                      <!-- Event boundary indicator -->
                       {#if index < parsedSections.length - 1}
-                        <!-- Event boundary line only between sections -->
-                        <div
-                          class="border-t-2 border-dashed border-blue-400 relative"
-                        >
-                          <div
-                            class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium"
-                          >
-                            Event Boundary
+                        <div class="mt-8 pt-4 border-t border-dashed border-gray-300 dark:border-gray-600 relative">
+                          <div class="absolute -top-2.5 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 px-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Event Boundary</span>
                           </div>
                         </div>
                       {/if}
                     </div>
-                  </div>
-                {/each}
-              </div>
+                  {/snippet}
+                  {@render sectionContent()}
+                  {/each}
+                </div>
 
-              <div
-                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
-              >
-                <strong>Event Count:</strong>
-                {parsedSections.length} event{parsedSections.length !== 1
-                  ? "s"
-                  : ""}
-                <br />
-              </div>
+                <!-- Event count summary -->
+                <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div class="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded">
+                    <strong>Total Events:</strong> {parsedSections.length + (contentType === 'article' ? 1 : 0)}
+                    ({contentType === 'article' ? '1 index + ' : ''}{parsedSections.length} content)
+                  </div>
+                </div>
+              {/snippet}
+              {@render previewContent()}
             {/if}
           </div>
         </div>
