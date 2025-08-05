@@ -405,7 +405,7 @@
       <span class="text-gray-600 dark:text-gray-400"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
-          profile?.display_name || event.pubkey,
+          profile?.display_name || undefined,
         )}</span
       >
     {:else}
