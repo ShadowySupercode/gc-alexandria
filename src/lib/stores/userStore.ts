@@ -288,14 +288,20 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
  */
 export async function loginWithNpub(pubkeyOrNpub: string) {
   const ndk = get(ndkInstance);
-  if (!ndk) throw new Error("NDK not initialized");
-  // Only clear previous login state after successful login
+  if (!ndk) {
+    throw new Error("NDK not initialized");
+  }
+
   let hexPubkey: string;
-  if (pubkeyOrNpub.startsWith("npub")) {
+  if (pubkeyOrNpub.startsWith("npub1")) {
     try {
-      hexPubkey = nip19.decode(pubkeyOrNpub).data as string;
+      const decoded = nip19.decode(pubkeyOrNpub);
+      if (decoded.type !== "npub") {
+        throw new Error("Invalid npub format");
+      }
+      hexPubkey = decoded.data;
     } catch (e) {
-      console.error("Failed to decode hex pubkey from npub:", pubkeyOrNpub, e);
+      console.error("Failed to decode npub:", pubkeyOrNpub, e);
       throw e;
     }
   } else {
@@ -313,6 +319,18 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   
   const user = ndk.getUser({ npub });
   let profile: NostrProfile | null = null;
+  
+  // First, update relay stores to ensure we have relays available
+  try {
+    console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
+    await updateActiveRelayStores(ndk);
+  } catch (error) {
+    console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
+  }
+  
+  // Wait a moment for relay stores to be properly initialized
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
   try {
     profile = await getUserMetadata(npub, true); // Force fresh fetch
     console.log("Login with npub - fetched profile:", profile);
@@ -343,14 +361,6 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
-  
-  // Update relay stores with the new user's relays
-  try {
-    console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
-  } catch (error) {
-    console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
-  }
   
   clearLogin();
   localStorage.removeItem("alexandria/logout/flag");

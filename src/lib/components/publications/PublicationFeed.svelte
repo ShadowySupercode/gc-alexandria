@@ -86,6 +86,17 @@
 
     if (newRelays.length === 0) {
       console.debug('[PublicationFeed] No relays available, waiting...');
+      // Set up a retry mechanism when relays become available
+      const unsubscribe = activeInboxRelays.subscribe((relays) => {
+        if (relays.length > 0 && !hasInitialized) {
+          console.debug('[PublicationFeed] Relays now available, retrying initialization');
+          unsubscribe();
+          setTimeout(() => {
+            hasInitialized = true;
+            initializeAndFetch();
+          }, 1000);
+        }
+      });
       return;
     }
 

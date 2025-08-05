@@ -21,7 +21,7 @@
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
-  import { activeInboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   let { pubkey, isNav = false } = $props<{ pubkey?: string, isNav?: boolean }>();
 
@@ -186,6 +186,23 @@
     isRefreshingProfile = true;
     try {
       console.log("Refreshing profile for npub:", userState.npub);
+      
+      // Check if we have relays available
+      const inboxRelays = get(activeInboxRelays);
+      const outboxRelays = get(activeOutboxRelays);
+      
+      if (inboxRelays.length === 0 && outboxRelays.length === 0) {
+        console.log("Profile: No relays available, will retry when relays become available");
+        // Set up a retry mechanism when relays become available
+        const unsubscribe = activeInboxRelays.subscribe((relays) => {
+          if (relays.length > 0 && !isRefreshingProfile) {
+            console.log("Profile: Relays now available, retrying profile fetch");
+            unsubscribe();
+            setTimeout(() => refreshProfile(), 1000);
+          }
+        });
+        return;
+      }
       
       // Try using NDK's built-in profile fetching first
       const ndk = get(ndkInstance);
