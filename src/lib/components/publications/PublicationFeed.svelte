@@ -13,9 +13,11 @@
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
+  import { userStore } from "$lib/stores/userStore.ts";
 
   const props = $props<{
     searchQuery?: string;
+    showOnlyMyPublications?: boolean;
     onEventCountUpdate?: (counts: { displayed: number; total: number }) => void;
   }>();
 
@@ -55,9 +57,16 @@
         
         // Update the view immediately when column count changes
         if (allIndexEvents.length > 0) {
-          const source = props.searchQuery?.trim()
-            ? filterEventsBySearch(allIndexEvents)
-            : allIndexEvents;
+          let source = allIndexEvents;
+          
+          // Apply user filter first
+          source = filterEventsByUser(source);
+          
+          // Then apply search filter if query exists
+          if (props.searchQuery?.trim()) {
+            source = filterEventsBySearch(source);
+          }
+          
           eventsInView = source.slice(0, publicationsToDisplay);
           endOfFeed = eventsInView.length >= source.length;
         }
@@ -282,6 +291,47 @@
     loading = false;
   }
 
+  // Function to filter events by current user's pubkey
+  const filterEventsByUser = (events: NDKEvent[]) => {
+    if (!props.showOnlyMyPublications) return events;
+    
+    const currentUser = $userStore;
+    if (!currentUser.signedIn || !currentUser.pubkey) {
+      console.debug("[PublicationFeed] User not signed in or no pubkey, showing all events");
+      return events;
+    }
+    
+    const userPubkey = currentUser.pubkey.toLowerCase();
+    console.debug("[PublicationFeed] Filtering events for user:", userPubkey);
+    
+    const filtered = events.filter((event) => {
+      // Check if user is the author of the event
+      const eventPubkey = event.pubkey.toLowerCase();
+      const isAuthor = eventPubkey === userPubkey;
+      
+      // Check if user is listed in "p" tags (participants/contributors)
+      const pTags = getMatchingTags(event, "p");
+      const isInPTags = pTags.some(tag => tag[1]?.toLowerCase() === userPubkey);
+      
+      const matches = isAuthor || isInPTags;
+      
+      if (matches) {
+        console.debug("[PublicationFeed] Event matches user filter:", {
+          id: event.id,
+          eventPubkey,
+          userPubkey,
+          isAuthor,
+          isInPTags,
+          pTags: pTags.map(tag => tag[1])
+        });
+      }
+      return matches;
+    });
+    
+    console.debug("[PublicationFeed] Events after user filtering:", filtered.length);
+    return filtered;
+  };
+
   // Function to filter events based on search query
   const filterEventsBySearch = (events: NDKEvent[]) => {
     if (!props.searchQuery) return events;
@@ -364,19 +414,35 @@
 
   // Debounced search function
   const debouncedSearch = debounceAsync(async (query: string) => {
-    console.debug("[PublicationFeed] Search query changed:", query);
+    console.debug("[PublicationFeed] Search query or user filter changed:", query);
+    let filtered = allIndexEvents;
+    
+    // Apply user filter first
+    filtered = filterEventsByUser(filtered);
+    
+    // Then apply search filter if query exists
     if (query && query.trim()) {
-      const filtered = filterEventsBySearch(allIndexEvents);
-      eventsInView = filtered.slice(0, publicationsToDisplay);
-      endOfFeed = filtered.length <= publicationsToDisplay;
-    } else {
-      eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
-      endOfFeed = allIndexEvents.length <= publicationsToDisplay;
+      filtered = filterEventsBySearch(filtered);
     }
+    
+    eventsInView = filtered.slice(0, publicationsToDisplay);
+    endOfFeed = filtered.length <= publicationsToDisplay;
   }, 300);
 
+  // AI-NOTE: Watch for changes in search query and user filter
   $effect(() => {
+    // Trigger search when either search query or user filter changes
+    // Also watch for changes in user store to update filter when user logs in/out
     debouncedSearch(props.searchQuery);
+  });
+
+  // AI-NOTE: Watch for changes in the user filter checkbox
+  $effect(() => {
+    // Trigger filtering when the user filter checkbox changes
+    // Access both props to ensure the effect runs when either changes
+    const searchQuery = props.searchQuery;
+    const showOnlyMyPublications = props.showOnlyMyPublications;
+    debouncedSearch(searchQuery);
   });
 
   // Emit event count updates
@@ -392,9 +458,16 @@
   async function loadMorePublications() {
     loadingMore = true;
     const current = eventsInView.length;
-    let source = props.searchQuery.trim()
-      ? filterEventsBySearch(allIndexEvents)
-      : allIndexEvents;
+    let source = allIndexEvents;
+    
+    // Apply user filter first
+    source = filterEventsByUser(source);
+    
+    // Then apply search filter if query exists
+    if (props.searchQuery.trim()) {
+      source = filterEventsBySearch(source);
+    }
+    
     eventsInView = source.slice(0, current + publicationsToDisplay);
     endOfFeed = eventsInView.length >= source.length;
     loadingMore = false;
@@ -448,9 +521,16 @@
           
           // Update the view immediately when column count changes
           if (allIndexEvents.length > 0) {
-            const source = props.searchQuery?.trim()
-              ? filterEventsBySearch(allIndexEvents)
-              : allIndexEvents;
+            let source = allIndexEvents;
+            
+            // Apply user filter first
+            source = filterEventsByUser(source);
+            
+            // Then apply search filter if query exists
+            if (props.searchQuery?.trim()) {
+              source = filterEventsBySearch(source);
+            }
+            
             eventsInView = source.slice(0, publicationsToDisplay);
             endOfFeed = eventsInView.length >= source.length;
           }
