@@ -1,22 +1,26 @@
 <script lang="ts">
   import { Button, P, Heading } from "flowbite-svelte";
-  import { getUserMetadata } from "$lib/utils/nostrUtils";
+  import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode } from "$lib/utils";
   import { activeInboxRelays, ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
 
   const { event } = $props<{ event: NDKEvent }>();
 
-  // State for comments and threading
+  // AI-NOTE: 2025-01-08 - Clean, efficient comment viewer implementation
+  // This component fetches and displays threaded comments with proper hierarchy
+  // Uses simple, reliable profile fetching and efficient state management
+
+  // State management
   let comments: NDKEvent[] = $state([]);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  let profiles = $state(new Map<string, any>());
   let activeSub: any = null;
-
-  // Profile cache for comment authors
-  let profileCache = $state(new Map<string, any>());
 
   interface CommentNode {
     event: NDKEvent;
@@ -24,73 +28,102 @@
     level: number;
   }
 
-  // AI-NOTE: 2025-01-08 - Clean threaded comment implementation
-  // This component fetches and displays threaded comments with proper hierarchy
-  function fetchComments() {
-    if (!event?.id) return;
-
-    loading = true;
-    error = null;
-
-    // Clear previous comments
-    comments = [];
-
-    console.log(`[CommentViewer] Fetching comments for event: ${event.id}`);
-
-    // Subscribe to comments that reference this event
-    activeSub = $ndkInstance.subscribe({
-      kinds: [1, 1111], // Text notes and comments
-      "#e": [event.id], // Events that reference this event
-    });
-
-    const timeout = setTimeout(() => {
-      if (activeSub) {
-        activeSub.stop();
-        activeSub = null;
-      }
-      loading = false;
-    }, 10000); // 10 second timeout
-
-    activeSub.on("event", (commentEvent: NDKEvent) => {
-      // Only add if we haven't seen this event ID yet
-      if (!comments.find(c => c.id === commentEvent.id)) {
-        comments = [...comments, commentEvent];
-        console.log(`[CommentViewer] Found comment: ${commentEvent.id}`);
-        
-        // Fetch profile for the comment author
-        if (commentEvent.pubkey) {
-          getUserMetadata(commentEvent.pubkey).then((profile) => {
-            profileCache.set(commentEvent.pubkey, profile);
-          });
-        }
-      }
-    });
-
-    activeSub.on("eose", () => {
-      clearTimeout(timeout);
-      if (activeSub) {
-        activeSub.stop();
-        activeSub = null;
-      }
-      loading = false;
-      console.log(`[CommentViewer] Finished fetching ${comments.length} comments`);
-    });
-
-    activeSub.on("error", (err: any) => {
-      console.error("[CommentViewer] Subscription error:", err);
-      error = "Failed to fetch comments";
-      loading = false;
-    });
+  // Simple profile fetching
+  async function fetchProfile(pubkey: string) {
+    if (profiles.has(pubkey)) return;
+    
+    try {
+      const npub = toNpub(pubkey);
+      if (!npub) return;
+      
+      const profile = await getUserMetadata(npub);
+      const newProfiles = new Map(profiles);
+      newProfiles.set(pubkey, profile);
+      profiles = newProfiles;
+    } catch (err) {
+      console.warn(`Failed to fetch profile for ${pubkey}:`, err);
+    }
   }
 
-  // Build the threaded comment structure
+  // Fetch comments once when component mounts
+  async function fetchComments() {
+    if (!event?.id) return;
+    
+    loading = true;
+    error = null;
+    comments = [];
+    
+    console.log(`[CommentViewer] Fetching comments for event: ${event.id}`);
+    
+    // Wait for relays to be available
+    let attempts = 0;
+    while ($activeInboxRelays.length === 0 && attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+    }
+    
+    if ($activeInboxRelays.length === 0) {
+      error = "No relays available";
+      loading = false;
+      return;
+    }
+    
+    try {
+      activeSub = $ndkInstance.subscribe({
+        kinds: [1, 1111],
+        "#e": [event.id],
+      });
+      
+      const timeout = setTimeout(() => {
+        if (activeSub) {
+          activeSub.stop();
+          activeSub = null;
+        }
+        loading = false;
+      }, 10000);
+      
+      activeSub.on("event", (commentEvent: NDKEvent) => {
+        console.log(`[CommentViewer] Received comment: ${commentEvent.id}`);
+        comments = [...comments, commentEvent];
+        fetchProfile(commentEvent.pubkey);
+      });
+      
+      activeSub.on("eose", () => {
+        console.log(`[CommentViewer] EOSE received, found ${comments.length} comments`);
+        clearTimeout(timeout);
+        if (activeSub) {
+          activeSub.stop();
+          activeSub = null;
+        }
+        loading = false;
+      });
+      
+      activeSub.on("error", (err: any) => {
+        console.error(`[CommentViewer] Subscription error:`, err);
+        clearTimeout(timeout);
+        if (activeSub) {
+          activeSub.stop();
+          activeSub = null;
+        }
+        error = "Error fetching comments";
+        loading = false;
+      });
+      
+    } catch (err) {
+      console.error(`[CommentViewer] Error setting up subscription:`, err);
+      error = "Error setting up subscription";
+      loading = false;
+    }
+  }
+
+  // Build threaded comment structure
   function buildCommentThread(events: NDKEvent[]): CommentNode[] {
     if (events.length === 0) return [];
-
+    
     const eventMap = new Map<string, NDKEvent>();
     const commentMap = new Map<string, CommentNode>();
     const rootComments: CommentNode[] = [];
-
+    
     // Create nodes for all events
     events.forEach(event => {
       eventMap.set(event.id, event);
@@ -100,15 +133,13 @@
         level: 0
       });
     });
-
+    
     // Build parent-child relationships
     events.forEach(event => {
       const node = commentMap.get(event.id);
       if (!node) return;
-
+      
       let parentId: string | null = null;
-
-      // Find the immediate parent by looking at e-tags
       const eTags = event.getMatchingTags("e");
       
       if (event.kind === 1) {
@@ -125,34 +156,30 @@
         // Kind 1111: Look for lowercase e-tags (immediate parent)
         for (const tag of eTags) {
           const referencedId = tag[1];
-          // Check if this is a lowercase e-tag (immediate parent)
           if (eventMap.has(referencedId) && referencedId !== event.id) {
             parentId = referencedId;
             break;
           }
         }
       }
-
+      
       // Add to parent or root
       if (parentId && commentMap.has(parentId)) {
         const parent = commentMap.get(parentId);
         if (parent) {
           parent.children.push(node);
           node.level = parent.level + 1;
-          console.log(`[CommentViewer] Added ${event.id} as child of ${parentId} at level ${node.level}`);
         }
       } else {
-        // This is a root comment (direct reply to the main event)
         rootComments.push(node);
-        console.log(`[CommentViewer] Added ${event.id} as root comment`);
       }
     });
-
+    
     // Sort by creation time (newest first)
     function sortComments(nodes: CommentNode[]): CommentNode[] {
       return nodes.sort((a, b) => (b.event.created_at || 0) - (a.event.created_at || 0));
     }
-
+    
     function sortRecursive(nodes: CommentNode[]): CommentNode[] {
       const sorted = sortComments(nodes);
       sorted.forEach(node => {
@@ -160,10 +187,8 @@
       });
       return sorted;
     }
-
-    const result = sortRecursive(rootComments);
-    console.log(`[CommentViewer] Built thread with ${result.length} root comments`);
-    return result;
+    
+    return sortRecursive(rootComments);
   }
 
   // Derived value for threaded comments
@@ -172,8 +197,6 @@
   // Fetch comments when event changes
   $effect(() => {
     if (event?.id) {
-      comments = [];
-      profileCache.clear();
       if (activeSub) {
         activeSub.stop();
         activeSub = null;
@@ -207,17 +230,147 @@
     return new Date(timestamp * 1000).toLocaleDateString();
   }
 
+  function formatRelativeDate(timestamp: number): string {
+    const now = Date.now();
+    const date = timestamp * 1000;
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} seconds ago`;
+    }
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    }
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    }
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) {
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+    }
+    
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    if (diffInWeeks < 4) {
+      return `${diffInWeeks} week${diffInWeeks !== 1 ? 's' : ''} ago`;
+    }
+    
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) {
+      return `${diffInMonths} month${diffInMonths !== 1 ? 's' : ''} ago`;
+    }
+    
+    const diffInYears = Math.floor(diffInDays / 365);
+    return `${diffInYears} year${diffInYears !== 1 ? 's' : ''} ago`;
+  }
+
   function shortenNevent(nevent: string): string {
     if (nevent.length <= 20) return nevent;
     return nevent.slice(0, 10) + "…" + nevent.slice(-10);
   }
 
   function getAuthorName(pubkey: string): string {
-    const profile = profileCache.get(pubkey);
-    return profile?.displayName || profile?.name || "Anonymous";
+    const profile = profiles.get(pubkey);
+    return profile?.displayName || profile?.name || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
   }
 
+  function getAuthorPicture(pubkey: string): string | null {
+    const profile = profiles.get(pubkey);
+    return profile?.picture || null;
+  }
+
+  function getIndentation(level: number): string {
+    const maxLevel = 5;
+    const actualLevel = Math.min(level, maxLevel);
+    return `${actualLevel * 16}px`;
+  }
+
+  async function parseContent(content: string): Promise<string> {
+    if (!content) return "";
+    
+    let parsedContent = await parseBasicmarkup(content);
+    
+    // Make images blurry until clicked
+    parsedContent = parsedContent.replace(
+      /<img([^>]+)>/g,
+      '<img$1 class="blur-sm hover:blur-none transition-all duration-300 cursor-pointer" onclick="this.classList.toggle(\'blur-sm\')" style="filter: blur(4px);" onload="this.style.filter=\'blur(4px)\'" onerror="(e) => (e.target as HTMLImageElement).style.display = \'none\'">'
+    );
+    
+    return parsedContent;
+  }
 </script>
+
+<!-- Recursive Comment Item Component -->
+{#snippet CommentItem(node: CommentNode)}
+  <div class="mb-4">
+    <div 
+      class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 break-words"
+      style="margin-left: {getIndentation(node.level)};"
+    >
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex items-center space-x-2">
+          {#if getAuthorPicture(node.event.pubkey)}
+            <img 
+              src={getAuthorPicture(node.event.pubkey)} 
+              alt={getAuthorName(node.event.pubkey)} 
+              class="w-8 h-8 rounded-full object-cover"
+              onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+            />
+          {:else}
+            <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+              <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                {getAuthorName(node.event.pubkey).charAt(0).toUpperCase()}
+              </span>
+            </div>
+          {/if}
+          <div class="flex flex-col min-w-0">
+            <span class="font-medium text-gray-900 dark:text-white truncate">
+              {getAuthorName(node.event.pubkey)}
+            </span>
+            <span 
+              class="text-sm text-gray-500 cursor-help" 
+              title={formatDate(node.event.created_at || 0)}
+            >
+              {formatRelativeDate(node.event.created_at || 0)} • Kind: {node.event.kind}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0">
+          <span class="text-sm text-gray-600 dark:text-gray-300 truncate max-w-32">
+            {shortenNevent(getNeventUrl(node.event))}
+          </span>
+          <Button
+            size="xs"
+            color="light"
+            onclick={() => navigateToComment(node.event)}
+          >
+            View
+          </Button>
+        </div>
+      </div>
+      
+      <div class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words overflow-hidden">
+        {#await parseContent(node.event.content || "") then parsedContent}
+          {@html parsedContent}
+        {:catch}
+          {@html node.event.content || ""}
+        {/await}
+      </div>
+    </div>
+    
+    {#if node.children.length > 0}
+      <div class="space-y-4">
+        {#each node.children as childNode (childNode.event.id)}
+          {@render CommentItem(childNode)}
+        {/each}
+      </div>
+    {/if}
+  </div>
+{/snippet}
 
 <div class="mt-6">
   <Heading tag="h3" class="h-leather mb-4">
@@ -239,77 +392,7 @@
   {:else}
     <div class="space-y-4">
       {#each threadedComments as node (node.event.id)}
-        <div class="mb-4">
-          <div 
-            class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-            style="margin-left: {node.level * 20}px;"
-          >
-            <div class="flex justify-between items-start mb-2">
-              <div class="flex items-center space-x-2">
-                <span class="font-medium text-gray-900 dark:text-white">
-                  {getAuthorName(node.event.pubkey)}
-                </span>
-                <span class="text-sm text-gray-500">
-                  {formatDate(node.event.created_at || 0)} Kind: {node.event.kind}
-                </span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-sm text-gray-600 dark:text-gray-300">
-                  {shortenNevent(getNeventUrl(node.event))}
-                </span>
-                <Button
-                  size="xs"
-                  color="light"
-                  onclick={() => navigateToComment(node.event)}
-                >
-                  View
-                </Button>
-              </div>
-            </div>
-            
-            <div class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-              {@html node.event.content || ""}
-            </div>
-          </div>
-          
-          {#if node.children.length > 0}
-            {#each node.children as childNode (childNode.event.id)}
-              <div class="mb-4">
-                <div 
-                  class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-                  style="margin-left: {childNode.level * 20}px;"
-                >
-                  <div class="flex justify-between items-start mb-2">
-                    <div class="flex items-center space-x-2">
-                      <span class="font-medium text-gray-900 dark:text-white">
-                        {getAuthorName(childNode.event.pubkey)}
-                      </span>
-                      <span class="text-sm text-gray-500">
-                        {formatDate(childNode.event.created_at || 0)} Kind: {childNode.event.kind}
-                      </span>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                      <span class="text-sm text-gray-600 dark:text-gray-300">
-                        {shortenNevent(getNeventUrl(childNode.event))}
-                      </span>
-                      <Button
-                        size="xs"
-                        color="light"
-                        onclick={() => navigateToComment(childNode.event)}
-                      >
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                    {@html childNode.event.content || ""}
-                  </div>
-                </div>
-              </div>
-            {/each}
-          {/if}
-        </div>
+        {@render CommentItem(node)}
       {/each}
     </div>
   {/if}
