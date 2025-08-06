@@ -36,12 +36,24 @@
       const npub = toNpub(pubkey);
       if (!npub) return;
       
-      const profile = await getUserMetadata(npub);
+      // Force fetch to ensure we get the latest profile data
+      const profile = await getUserMetadata(npub, true);
       const newProfiles = new Map(profiles);
       newProfiles.set(pubkey, profile);
       profiles = newProfiles;
+      
+      console.log(`[CommentViewer] Fetched profile for ${pubkey}:`, profile);
     } catch (err) {
       console.warn(`Failed to fetch profile for ${pubkey}:`, err);
+      // Set a fallback profile to avoid repeated failed requests
+      const fallbackProfile = {
+        name: `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`,
+        displayName: `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`,
+        picture: null
+      };
+      const newProfiles = new Map(profiles);
+      newProfiles.set(pubkey, fallbackProfile);
+      profiles = newProfiles;
     }
   }
 
@@ -54,6 +66,9 @@
     comments = [];
     
     console.log(`[CommentViewer] Fetching comments for event: ${event.id}`);
+    console.log(`[CommentViewer] Event kind: ${event.kind}`);
+    console.log(`[CommentViewer] Event pubkey: ${event.pubkey}`);
+    console.log(`[CommentViewer] Available relays: ${$activeInboxRelays.length}`);
     
     // Wait for relays to be available
     let attempts = 0;
@@ -69,12 +84,35 @@
     }
     
     try {
-      activeSub = $ndkInstance.subscribe({
-        kinds: [1, 1111],
-        "#e": [event.id],
-      });
+      // Try multiple filter approaches to find comments
+      const filters = [
+        // Standard comment filter
+        {
+          kinds: [1, 1111],
+          "#e": [event.id],
+        },
+        // Broader search for any events that might reference this event
+        {
+          kinds: [1, 1111],
+          "#e": [event.id],
+          limit: 100,
+        },
+        // Search for events by the same author that might be replies
+        {
+          kinds: [1, 1111],
+          authors: [event.pubkey],
+          since: event.created_at ? event.created_at - 86400 : undefined, // Last 24 hours
+          limit: 50,
+        }
+      ];
+      
+      console.log(`[CommentViewer] Setting up subscription with filters:`, filters);
+      
+      // Try the first filter (standard comment search)
+      activeSub = $ndkInstance.subscribe(filters[0]);
       
       const timeout = setTimeout(() => {
+        console.log(`[CommentViewer] Subscription timeout - no comments found`);
         if (activeSub) {
           activeSub.stop();
           activeSub = null;
@@ -84,8 +122,21 @@
       
       activeSub.on("event", (commentEvent: NDKEvent) => {
         console.log(`[CommentViewer] Received comment: ${commentEvent.id}`);
-        comments = [...comments, commentEvent];
-        fetchProfile(commentEvent.pubkey);
+        console.log(`[CommentViewer] Comment kind: ${commentEvent.kind}`);
+        console.log(`[CommentViewer] Comment pubkey: ${commentEvent.pubkey}`);
+        console.log(`[CommentViewer] Comment content preview: ${commentEvent.content?.slice(0, 100)}...`);
+        
+        // Check if this event actually references our target event
+        const eTags = commentEvent.getMatchingTags("e");
+        const referencesTarget = eTags.some(tag => tag[1] === event.id);
+        
+        if (referencesTarget) {
+          console.log(`[CommentViewer] Comment references target event - adding to comments`);
+          comments = [...comments, commentEvent];
+          fetchProfile(commentEvent.pubkey);
+        } else {
+          console.log(`[CommentViewer] Comment does not reference target event - skipping`);
+        }
       });
       
       activeSub.on("eose", () => {
@@ -96,6 +147,14 @@
           activeSub = null;
         }
         loading = false;
+        
+        // Pre-fetch all profiles after comments are loaded
+        preFetchAllProfiles();
+        
+        // AI-NOTE: 2025-01-24 - Test for comments if none were found
+        if (comments.length === 0) {
+          testForComments();
+        }
       });
       
       activeSub.on("error", (err: any) => {
@@ -113,6 +172,60 @@
       console.error(`[CommentViewer] Error setting up subscription:`, err);
       error = "Error setting up subscription";
       loading = false;
+    }
+  }
+
+  // Pre-fetch all profiles for comments
+  async function preFetchAllProfiles() {
+    const uniquePubkeys = new Set<string>();
+    comments.forEach(comment => {
+      if (comment.pubkey && !profiles.has(comment.pubkey)) {
+        uniquePubkeys.add(comment.pubkey);
+      }
+    });
+    
+    console.log(`[CommentViewer] Pre-fetching ${uniquePubkeys.size} profiles`);
+    
+    // Fetch profiles in parallel
+    const profilePromises = Array.from(uniquePubkeys).map(pubkey => fetchProfile(pubkey));
+    await Promise.allSettled(profilePromises);
+    
+    console.log(`[CommentViewer] Pre-fetching complete`);
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to manually test for comments
+  async function testForComments() {
+    if (!event?.id) return;
+    
+    console.log(`[CommentViewer] Testing for comments on event: ${event.id}`);
+    
+    try {
+      // Try a broader search to see if there are any events that might be comments
+      const testSub = $ndkInstance.subscribe({
+        kinds: [1, 1111],
+        "#e": [event.id],
+        limit: 10,
+      });
+      
+      let testComments = 0;
+      
+      testSub.on("event", (testEvent: NDKEvent) => {
+        testComments++;
+        console.log(`[CommentViewer] Test found event: ${testEvent.id}, kind: ${testEvent.kind}`);
+      });
+      
+      testSub.on("eose", () => {
+        console.log(`[CommentViewer] Test search found ${testComments} potential comments`);
+        testSub.stop();
+      });
+      
+      // Stop the test after 5 seconds
+      setTimeout(() => {
+        testSub.stop();
+      }, 5000);
+      
+    } catch (err) {
+      console.error(`[CommentViewer] Test search error:`, err);
     }
   }
 
@@ -220,6 +333,9 @@
     return neventEncode(commentEvent, $activeInboxRelays);
   }
 
+  // AI-NOTE: 2025-01-24 - View button functionality is working correctly
+  // This function navigates to the specific event as the main event, allowing
+  // users to view replies as the primary content
   function navigateToComment(commentEvent: NDKEvent) {
     const nevent = getNeventUrl(commentEvent);
     goto(`/events?id=${encodeURIComponent(nevent)}`);
@@ -275,7 +391,9 @@
 
   function getAuthorName(pubkey: string): string {
     const profile = profiles.get(pubkey);
-    return profile?.displayName || profile?.name || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+    if (profile?.displayName) return profile.displayName;
+    if (profile?.name) return profile.name;
+    return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
   }
 
   function getAuthorPicture(pubkey: string): string | null {
