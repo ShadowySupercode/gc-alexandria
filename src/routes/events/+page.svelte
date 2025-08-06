@@ -151,20 +151,26 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     searchInProgress =
       loading || (results.length > 0 && secondOrder.length === 0);
 
-    // Show second-order search message when we have first-order results but no second-order yet
+    // AI-NOTE: 2025-01-08 - Only show second-order search message if we're actually searching
+    // Don't show it for cached results that have no second-order events
     if (
       results.length > 0 &&
       secondOrder.length === 0 &&
-      searchTypeParam === "n"
+      searchTypeParam === "n" &&
+      !loading // Only show message if we're actively searching, not for cached results
     ) {
       secondOrderSearchMessage = `Found ${results.length} profile(s). Starting second-order search for events mentioning these profiles...`;
     } else if (
       results.length > 0 &&
       secondOrder.length === 0 &&
-      searchTypeParam === "d"
+      searchTypeParam === "d" &&
+      !loading // Only show message if we're actively searching, not for cached results
     ) {
       secondOrderSearchMessage = `Found ${results.length} event(s). Starting second-order search for events referencing these events...`;
     } else if (secondOrder.length > 0) {
+      secondOrderSearchMessage = null;
+    } else {
+      // Clear message if we have results but no second-order search is happening
       secondOrderSearchMessage = null;
     }
 
@@ -347,9 +353,18 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
 
 
-  // Log relay configuration when page mounts
-  onMount(() => {
-    logCurrentRelayConfiguration();
+  // Reactive effect to log relay configuration when stores change
+  $effect(() => {
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    
+    // Only log if we have relays (not empty arrays)
+    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
+      console.log('🔌 Events Page - Relay Configuration Updated:');
+      console.log('📥 Inbox Relays:', inboxRelays);
+      console.log('📤 Outbox Relays:', outboxRelays);
+      console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+    }
   });
 
 </script>

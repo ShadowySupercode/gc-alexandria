@@ -33,6 +33,63 @@ export const outboxRelays = writable<string[]>([]);
 export const activeInboxRelays = writable<string[]>([]);
 export const activeOutboxRelays = writable<string[]>([]);
 
+// AI-NOTE: 2025-01-08 - Persistent relay storage to avoid recalculation
+let persistentRelaySet: { inboxRelays: string[]; outboxRelays: string[] } | null = null;
+let relaySetLastUpdated: number = 0;
+const RELAY_SET_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const RELAY_SET_STORAGE_KEY = 'alexandria/relay_set_cache';
+
+/**
+ * Load persistent relay set from localStorage
+ */
+function loadPersistentRelaySet(): { relaySet: { inboxRelays: string[]; outboxRelays: string[] } | null; lastUpdated: number } {
+  try {
+    const stored = localStorage.getItem(RELAY_SET_STORAGE_KEY);
+    if (!stored) return { relaySet: null, lastUpdated: 0 };
+    
+    const data = JSON.parse(stored);
+    const now = Date.now();
+    
+    // Check if cache is expired
+    if (now - data.timestamp > RELAY_SET_CACHE_DURATION) {
+      localStorage.removeItem(RELAY_SET_STORAGE_KEY);
+      return { relaySet: null, lastUpdated: 0 };
+    }
+    
+    return { relaySet: data.relaySet, lastUpdated: data.timestamp };
+  } catch (error) {
+    console.warn('[NDK.ts] Failed to load persistent relay set:', error);
+    localStorage.removeItem(RELAY_SET_STORAGE_KEY);
+    return { relaySet: null, lastUpdated: 0 };
+  }
+}
+
+/**
+ * Save persistent relay set to localStorage
+ */
+function savePersistentRelaySet(relaySet: { inboxRelays: string[]; outboxRelays: string[] }): void {
+  try {
+    const data = {
+      relaySet,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(RELAY_SET_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('[NDK.ts] Failed to save persistent relay set:', error);
+  }
+}
+
+/**
+ * Clear persistent relay set from localStorage
+ */
+function clearPersistentRelaySet(): void {
+  try {
+    localStorage.removeItem(RELAY_SET_STORAGE_KEY);
+  } catch (error) {
+    console.warn('[NDK.ts] Failed to clear persistent relay set:', error);
+  }
+}
+
 // Subscribe to userStore changes and update ndkSignedIn accordingly
 userStore.subscribe((userState) => {
   ndkSignedIn.set(userState.signedIn);
@@ -351,14 +408,38 @@ export async function getActiveRelaySet(ndk: NDK): Promise<{ inboxRelays: string
 /**
  * Updates the active relay stores and NDK pool with new relay URLs
  * @param ndk NDK instance
+ * @param forceUpdate Force update even if cached (default: false)
  */
-export async function updateActiveRelayStores(ndk: NDK): Promise<void> {
+export async function updateActiveRelayStores(ndk: NDK, forceUpdate: boolean = false): Promise<void> {
   try {
+    // AI-NOTE: 2025-01-08 - Use persistent relay set to avoid recalculation
+    const now = Date.now();
+    const cacheExpired = now - relaySetLastUpdated > RELAY_SET_CACHE_DURATION;
+    
+    // Load from persistent storage if not already loaded
+    if (!persistentRelaySet) {
+      const loaded = loadPersistentRelaySet();
+      persistentRelaySet = loaded.relaySet;
+      relaySetLastUpdated = loaded.lastUpdated;
+    }
+    
+    if (!forceUpdate && persistentRelaySet && !cacheExpired) {
+      console.debug('[NDK.ts] updateActiveRelayStores: Using cached relay set');
+      activeInboxRelays.set(persistentRelaySet.inboxRelays);
+      activeOutboxRelays.set(persistentRelaySet.outboxRelays);
+      return;
+    }
+    
     console.debug('[NDK.ts] updateActiveRelayStores: Starting relay store update');
     
     // Get the active relay set from the relay management system
     const relaySet = await getActiveRelaySet(ndk);
     console.debug('[NDK.ts] updateActiveRelayStores: Got relay set:', relaySet);
+    
+    // Cache the relay set
+    persistentRelaySet = relaySet;
+    relaySetLastUpdated = now;
+    savePersistentRelaySet(relaySet); // Save to persistent storage
     
     // Update the stores with the new relay configuration
     activeInboxRelays.set(relaySet.inboxRelays);
@@ -559,6 +640,11 @@ export function logout(user: NDKUser): void {
   // Clear relay stores
   activeInboxRelays.set([]);
   activeOutboxRelays.set([]);
+  
+  // AI-NOTE: 2025-01-08 - Clear persistent relay set on logout
+  persistentRelaySet = null;
+  relaySetLastUpdated = 0;
+  clearPersistentRelaySet(); // Clear persistent storage
   
   // Stop network monitoring
   stopNetworkStatusMonitoring();

@@ -294,12 +294,6 @@
     
     let parsedContent = await parseBasicmarkup(content);
     
-    // Make images blurry until clicked
-    parsedContent = parsedContent.replace(
-      /<img([^>]+)>/g,
-      '<img$1 class="blur-sm hover:blur-none transition-all duration-300 cursor-pointer" onclick="this.classList.toggle(\'blur-sm\')" style="filter: blur(4px);" onload="this.style.filter=\'blur(4px)\'" onerror="(e) => (e.target as HTMLImageElement).style.display = \'none\'">'
-    );
-    
     return parsedContent;
   }
 </script>
@@ -313,24 +307,32 @@
     >
       <div class="flex justify-between items-start mb-2">
         <div class="flex items-center space-x-2">
-          {#if getAuthorPicture(node.event.pubkey)}
-            <img 
-              src={getAuthorPicture(node.event.pubkey)} 
-              alt={getAuthorName(node.event.pubkey)} 
-              class="w-8 h-8 rounded-full object-cover"
-              onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-            />
-          {:else}
-            <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-              <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-                {getAuthorName(node.event.pubkey).charAt(0).toUpperCase()}
-              </span>
-            </div>
-          {/if}
+          <button 
+            class="cursor-pointer"
+            onclick={() => goto(`/events?n=${toNpub(node.event.pubkey)}`)}
+          >
+            {#if getAuthorPicture(node.event.pubkey)}
+              <img 
+                src={getAuthorPicture(node.event.pubkey)} 
+                alt={getAuthorName(node.event.pubkey)} 
+                class="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+                onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+              />
+            {:else}
+              <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center hover:opacity-80 transition-opacity">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {getAuthorName(node.event.pubkey).charAt(0).toUpperCase()}
+                </span>
+              </div>
+            {/if}
+          </button>
           <div class="flex flex-col min-w-0">
-            <span class="font-medium text-gray-900 dark:text-white truncate">
+            <button 
+              class="font-medium text-gray-900 dark:text-white truncate hover:underline cursor-pointer text-left"
+              onclick={() => goto(`/events?n=${toNpub(node.event.pubkey)}`)}
+            >
               {getAuthorName(node.event.pubkey)}
-            </span>
+            </button>
             <span 
               class="text-sm text-gray-500 cursor-help" 
               title={formatDate(node.event.created_at || 0)}

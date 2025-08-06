@@ -5,7 +5,10 @@
   import { page } from "$app/stores";
   import { Alert } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
-  import { logCurrentRelayConfiguration } from "$lib/ndk";
+  import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+
+  // Define children prop for Svelte 5
+  let { children } = $props();
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
@@ -16,12 +19,23 @@
   let summary =
     "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
 
+  // Reactive effect to log relay configuration when stores change
+  $effect(() => {
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    
+    // Only log if we have relays (not empty arrays)
+    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
+      console.log('🔌 Relay Configuration Updated:');
+      console.log('📥 Inbox Relays:', inboxRelays);
+      console.log('📤 Outbox Relays:', outboxRelays);
+      console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+    }
+  });
+
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
-    
-    // Log relay configuration when layout mounts
-    logCurrentRelayConfiguration();
   });
 </script>
 
@@ -47,5 +61,5 @@
 
 <div class={"leather mt-[76px] w-full mx-auto flex flex-col items-center"}>
   <Navigation class="fixed top-0" />
-  <slot />
+  {@render children()}
 </div>
