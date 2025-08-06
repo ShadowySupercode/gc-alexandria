@@ -8,6 +8,7 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
+import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userStore } from "$lib/stores/userStore";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
@@ -810,6 +811,8 @@
         <EventDetails {event} {profile} {searchValue} />
         <RelayActions {event} />
 
+        <CommentViewer {event} />
+        
         {#if isLoggedIn && userPubkey}
           <div class="mt-8">
             <Heading tag="h3" class="h-leather mb-4">Add Comment</Heading>
