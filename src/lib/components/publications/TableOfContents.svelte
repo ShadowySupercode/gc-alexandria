@@ -165,14 +165,31 @@
         label={entry.title}
         href={`#${address}`}
         spanClass="px-2 text-ellipsis"
-        class={`${isVisible ? "toc-highlight" : ""} ${isLastEntry ? "pb-4" : ""}`}
+        class={`
+          transition-all duration-200 ease-in-out
+          ${isLastEntry ? "pb-4" : ""}
+          ${isVisible
+            ? "bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600 dark:border-primary-400 font-medium hover:bg-primary-300 dark:hover:bg-primary-600"
+            : ""
+          }
+        `}
         onclick={() => handleSectionClick(address)}
       />
     {:else}
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} {isLastEntry ? 'pb-4' : ''}"
+        btnClass={`
+          flex items-center p-2 w-full font-normal text-gray-900 rounded-lg 
+          transition-all duration-200 ease-in-out group 
+          hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800
+          ${isLastEntry ? 'pb-4' : ''}
+          ${
+            isVisible
+              ? 'bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600 dark:border-primary-400 font-medium hover:bg-primary-300 dark:hover:bg-primary-600'
+              : ''
+          }
+        `}
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
         <Self rootAddress={address} depth={childDepth} {onSectionFocused} {onLoadMore} />

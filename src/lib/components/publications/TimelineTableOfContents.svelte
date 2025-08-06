@@ -4,7 +4,6 @@
     type TocEntry,
   } from "$lib/components/publications/table_of_contents.svelte";
   import { getContext, onMount, onDestroy } from "svelte";
-  import { publicationColumnVisibility } from "$lib/stores";
 
   let { onSectionFocused, onLoadMore } = $props<{
     onSectionFocused?: (address: string) => void;
@@ -305,7 +304,7 @@
 {#if !isMobileView && topLevelEntries.length > 0}
   <div
     bind:this={timelineRef}
-    class="fixed left-4 top-1/2 transform -translate-y-1/2 z-30 timeline-container"
+    class="fixed left-4 top-1/2 transform -translate-y-1/2 z-30 transition-all duration-300 ease-in-out lg:block hidden"
     role="navigation"
     aria-label="Article timeline"
     onmouseenter={() => isTimelineExpanded = true}
@@ -313,7 +312,7 @@
   >
     <!-- Timeline line -->
     <div class="relative">
-      <div class="timeline-line absolute left-2 top-0 w-0.5 bg-gray-300 dark:bg-gray-600" 
+      <div class="absolute left-2 top-0 w-0.5 bg-gray-300 dark:bg-gray-600 transition-all duration-300 ease-in-out" 
            style="height: {topLevelEntries.length * TIMELINE_ENTRY_HEIGHT}px;">
         <!-- Progress indicator -->
         <div 
@@ -335,9 +334,13 @@
             <!-- Timeline dot -->
             <button
               onclick={() => handleSectionClick(entry.address)}
-              class="timeline-dot relative z-10 w-4 h-4 rounded-full border-2 transition-all duration-200 {isVisible
-                ? 'bg-primary-600 dark:bg-primary-400 border-primary-600 dark:border-primary-400 scale-125'
-                : 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 hover:border-primary-500 dark:hover:border-primary-400'}"
+              class="
+                relative z-10 w-4 h-4 rounded-full border-2 transition-all duration-200 cursor-pointer hover:scale-110
+                {isVisible
+                  ? 'bg-primary-600 dark:bg-primary-400 border-primary-600 dark:border-primary-400 scale-125'
+                  : 'bg-white dark:bg-gray-800 border-gray-400 dark:border-gray-500 hover:border-primary-500 dark:hover:border-primary-400'
+                }
+              "
               aria-label="Go to {entry.title}"
             >
               <span class="sr-only">{entry.title}</span>
@@ -345,9 +348,16 @@
             
             <!-- Timeline label (shown on hover) -->
             <div 
-              class="timeline-label ml-4 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 whitespace-nowrap transition-all duration-200 {isTimelineExpanded 
-                ? 'opacity-100 translate-x-0' 
-                : 'opacity-0 -translate-x-2 pointer-events-none'}"
+              class="
+                ml-4 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-md shadow-lg 
+                border border-gray-200 dark:border-gray-600 
+                whitespace-nowrap transition-all duration-200 
+                max-w-[200px] overflow-hidden text-ellipsis
+                {isTimelineExpanded 
+                  ? 'opacity-100 translate-x-0' 
+                  : 'opacity-0 -translate-x-2 pointer-events-none'
+                }
+              "
             >
               <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {entry.title}
@@ -360,33 +370,3 @@
   </div>
 {/if}
 
-<style>
-  .timeline-container {
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .timeline-line {
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .timeline-dot {
-    cursor: pointer;
-  }
-  
-  .timeline-dot:hover {
-    transform: scale(1.1);
-  }
-  
-  .timeline-label {
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  /* Ensure mobile sidebar slides in smoothly */
-  @media (max-width: 1023px) {
-    .timeline-container {
-      display: none;
-    }
-  }
-</style>
