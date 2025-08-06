@@ -14,6 +14,7 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
+  import Notifications from "$lib/components/Notifications.svelte";
 
   const {
     event,
@@ -473,6 +474,9 @@
       {profile}
       identifiers={getIdentifiers(event, profile)}
     />
+    
+    <!-- Notifications for own profile -->
+    <Notifications {event} />
   {/if}
 
   <!-- Tags Array -->
