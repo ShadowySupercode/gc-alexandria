@@ -3,6 +3,9 @@ import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
 import type { NDKEvent } from "../../utils/nostrUtils.ts";
 import { indexKind } from "../../consts.ts";
 
+type Subscriber<T> = (value: T) => void;
+type Unsubscriber = () => void;
+
 export interface TocEntry {
   address: string;
   title: string;
@@ -18,8 +21,12 @@ export interface TocEntry {
  * Maintains a table of contents (ToC) for a `SveltePublicationTree`.  Since publication trees are
  * conceptually infinite and lazy-loading, the ToC represents only the portion of the tree that has
  * been "discovered".  The ToC is updated as new nodes are resolved within the publication tree.
+ * 
+ * Implements the Svelte store contract, allowing components to subscribe to changes in the ToC 
+ * state.
  *
  * @see SveltePublicationTree
+ * @see https://svelte.dev/docs/svelte/stores#Store-contract
  */
 export class TableOfContents {
   public addressMap: SvelteMap<string, TocEntry> = new SvelteMap();
@@ -29,6 +36,7 @@ export class TableOfContents {
   #root: TocEntry | null = null;
   #publicationTree: SveltePublicationTree;
   #pagePathname: string;
+  #subscribers: Set<Subscriber<TableOfContents>> = new Set();
 
   /**
    * Constructs a `TableOfContents` from a `SveltePublicationTree`.
@@ -60,6 +68,27 @@ export class TableOfContents {
 
   getEntry(address: string): TocEntry | undefined {
     return this.addressMap.get(address);
+  }
+
+  /**
+   * Sets the expanded state for a ToC entry.
+   *
+   * @param address The address of the entry to modify.
+   * @param expanded Whether the entry should be expanded.
+   */
+  setExpanded(address: string, expanded: boolean): void {
+    this.expandedMap.set(address, expanded);
+    this.#notifySubscribers();
+  }
+
+  /**
+   * Toggles the expanded state for a ToC entry.
+   *
+   * @param address The address of the entry to toggle.
+   */
+  toggleExpanded(address: string): void {
+    const currentState = this.expandedMap.get(address) ?? false;
+    this.setExpanded(address, !currentState);
   }
 
   /**
@@ -99,10 +128,55 @@ export class TableOfContents {
           };
           parentEntry.children.push(tocEntry);
           this.expandedMap.set(tocEntry.address, false);
+          this.#notifySubscribers();
 
           this.buildTocFromDocument(header, tocEntry);
         }
       });
+  }
+
+  // #endregion
+
+  // #region Store Contract Methods
+
+  /**
+   * Subscribes to changes in the table of contents state.
+   * Implements the Svelte store contract.
+   *
+   * @param subscriber Function to be called with the current state on subscription and state changes.
+   * @returns Unsubscriber function to stop the subscription.
+   */
+  subscribe(subscriber: Subscriber<TableOfContents>): Unsubscriber {
+    this.#subscribers.add(subscriber);
+    
+    // Immediately call subscriber with current state (store contract requirement)
+    subscriber(this.#getCurrentState());
+    
+    // Return unsubscriber function
+    return () => {
+      this.#subscribers.delete(subscriber);
+    };
+  }
+
+  /**
+   * Gets the current state of the table of contents.
+   * Used by the store contract implementation.
+   *
+   * @returns The current TocState.
+   */
+  #getCurrentState(): TableOfContents {
+    return this;
+  }
+
+  /**
+   * Notifies all subscribers of state changes.
+   * Called whenever the table of contents state is modified.
+   */
+  #notifySubscribers(): void {
+    const currentState = this.#getCurrentState();
+    this.#subscribers.forEach((subscriber) => {
+      subscriber(currentState);
+    });
   }
 
   // #endregion
@@ -155,6 +229,7 @@ export class TableOfContents {
     this.#root = await this.#buildTocEntry(rootAddress);
 
     this.addressMap.set(rootAddress, this.#root);
+    this.#notifySubscribers();
 
     // Handle any other nodes that have already been resolved in parallel.
     await Promise.all(
@@ -206,6 +281,7 @@ export class TableOfContents {
         // resolved.
         if (childAddress.split(":")[0] !== indexKind.toString()) {
           this.leaves.add(childAddress);
+          this.#notifySubscribers();
         }
 
         // Michael J - 05 June 2025 - The `getChildAddresses` method forces node resolution on the
@@ -217,6 +293,7 @@ export class TableOfContents {
         childEntry.depth = entry.depth + 1;
         entry.children.push(childEntry);
         this.addressMap.set(childAddress, childEntry);
+        this.#notifySubscribers();
       }
 
       await this.#matchChildrenToTagOrder(entry);
@@ -241,6 +318,7 @@ export class TableOfContents {
       resolveChildren: resolver,
     };
     this.expandedMap.set(address, false);
+    this.#notifySubscribers();
 
     // Michael J - 16 June 2025 - We determine whether to add a leaf both here and in the inner
     // resolver function.  The resolver function is called when entries are resolved by expanding
@@ -248,6 +326,7 @@ export class TableOfContents {
     // tree.
     if (event.kind !== indexKind) {
       this.leaves.add(address);
+      this.#notifySubscribers();
     }
 
     return entry;
@@ -290,6 +369,7 @@ export class TableOfContents {
 
     this.#buildTocEntry(address).then((entry) => {
       this.addressMap.set(address, entry);
+      this.#notifySubscribers();
     });
   }
 
