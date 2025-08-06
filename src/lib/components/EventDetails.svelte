@@ -454,7 +454,7 @@
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
       <div class="flex flex-col space-y-1">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none">
+        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100">
           {@html showFullContent ? parsedContent : contentPreview}
           {#if !showFullContent && parsedContent.length > 250}
             <button
