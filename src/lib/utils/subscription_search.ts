@@ -59,19 +59,11 @@ export async function searchBySubscription(
   const cachedResult = searchCache.get(searchType, normalizedSearchTerm);
   if (cachedResult) {
     console.log("subscription_search: Found cached result:", cachedResult);
-    // AI-NOTE: 2025-01-08 - For profile searches, clear cache if it's empty to force fresh search
-    if (searchType === "n" && cachedResult.events.length === 0) {
-      console.log("subscription_search: Clearing empty cached profile result to force fresh search");
-      searchCache.clear(); // Clear all cache to force fresh search
-    } else if (searchType === "n" && cachedResult.events.length > 0 && cachedResult.secondOrder.length === 0) {
-      // AI-NOTE: 2025-01-08 - Clear cache if we have profile results but no second-order events
-      // This forces a fresh search that includes second-order searching
-      console.log("subscription_search: Clearing cached profile result with no second-order events to force fresh search");
-      searchCache.clear();
-    } else if (searchType === "n") {
-      // AI-NOTE: 2025-01-08 - For profile searches, always clear cache to ensure fresh second-order search
-      console.log("subscription_search: Clearing cache for profile search to ensure fresh second-order search");
-      searchCache.clear();
+    // AI-NOTE: 2025-01-24 - For profile searches, return cached results immediately
+    // The EventSearch component now handles cache checking before calling this function
+    if (searchType === "n") {
+      console.log("subscription_search: Returning cached profile result immediately");
+      return cachedResult;
     } else {
       return cachedResult;
     }
@@ -91,7 +83,7 @@ export async function searchBySubscription(
   searchState.timeoutId = setTimeout(() => {
     console.log("subscription_search: Search timeout reached");
     cleanup();
-  }, searchType === "n" ? 5000 : TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE: 2025-01-08 - Shorter timeout for profile searches
+  }, TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE: 2025-01-24 - Use standard timeout since cache is checked first
 
   // Check for abort signal
   if (abortSignal?.aborted) {
@@ -332,7 +324,7 @@ async function createSearchFilter(
   switch (searchType) {
     case "d": {
       const dFilter = {
-        filter: { "#d": [normalizedSearchTerm] },
+        filter: { "#d": [normalizedSearchTerm], limit: SEARCH_LIMITS.GENERAL_CONTENT },
         subscriptionType: "d-tag",
       };
       console.log("subscription_search: Created d-tag filter:", dFilter);
@@ -340,7 +332,7 @@ async function createSearchFilter(
     }
     case "t": {
       const tFilter = {
-        filter: { "#t": [normalizedSearchTerm] },
+        filter: { "#t": [normalizedSearchTerm], limit: SEARCH_LIMITS.GENERAL_CONTENT },
         subscriptionType: "t-tag",
       };
       console.log("subscription_search: Created t-tag filter:", tFilter);
@@ -929,21 +921,33 @@ async function performSecondOrderSearchInBackground(
       if (searchType === "n" && targetPubkey) {
         console.log("subscription_search: Searching for events mentioning pubkey:", targetPubkey);
         
+        // AI-NOTE: 2025-01-24 - Use only active relays for second-order profile search to prevent hanging
+        const activeRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
+        const availableRelays = activeRelays
+          .map(url => ndk.pool.relays.get(url))
+          .filter((relay): relay is any => relay !== undefined);
+        const relaySet = new NDKRelaySet(
+          new Set(availableRelays),
+          ndk
+        );
+        
+        console.log("subscription_search: Using", activeRelays.length, "active relays for second-order search");
+        
         // Search for events that mention this pubkey via p-tags
-        const pTagFilter = { "#p": [targetPubkey] };
+        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
         const pTagEvents = await ndk.fetchEvents(
           pTagFilter,
           { closeOnEose: true },
-          new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
+          relaySet,
         );
         console.log("subscription_search: Found", pTagEvents.size, "events with p-tag for", targetPubkey);
         
-        // AI-NOTE: 2025-01-08 - Also search for events written by this pubkey
-        const authorFilter = { authors: [targetPubkey] };
+        // AI-NOTE: 2025-01-24 - Also search for events written by this pubkey with limit
+        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
         const authorEvents = await ndk.fetchEvents(
           authorFilter,
           { closeOnEose: true },
-          new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())), ndk),
+          relaySet,
         );
         console.log("subscription_search: Found", authorEvents.size, "events written by", targetPubkey);
         
@@ -964,14 +968,14 @@ async function performSecondOrderSearchInBackground(
         const [eTagEvents, aTagEvents] = await Promise.all([
           eventIds.size > 0
             ? ndk.fetchEvents(
-                { "#e": Array.from(eventIds) },
+                { "#e": Array.from(eventIds), limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS },
                 { closeOnEose: true },
                 relaySet,
               )
             : Promise.resolve([]),
           addresses.size > 0
             ? ndk.fetchEvents(
-                { "#a": Array.from(addresses) },
+                { "#a": Array.from(addresses), limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS },
                 { closeOnEose: true },
                 relaySet,
               )

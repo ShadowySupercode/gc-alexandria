@@ -453,15 +453,17 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
         {#if searchResults.length > 0}
           <div class="mt-8">
-            <Heading tag="h2" class="h-leather mb-4">
+            <Heading tag="h2" class="h-leather mb-4 break-words">
               {#if searchType === "n"}
-                Search Results for name: "{searchTerm}" ({searchResults.length} profiles)
+                Search Results for name: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length} profiles)
               {:else if searchType === "t"}
-                Search Results for t-tag: "{searchTerm}" ({searchResults.length}
+                Search Results for t-tag: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length}
                 events)
               {:else}
-                Search Results for d-tag: "{searchTerm ||
-                  dTagValue?.toLowerCase()}" ({searchResults.length} events)
+                Search Results for d-tag: "{(() => {
+                  const term = searchTerm || dTagValue?.toLowerCase() || '';
+                  return term.length > 50 ? term.slice(0, 50) + '...' : term;
+                })()}" ({searchResults.length} events)
               {/if}
             </Heading>
             <div class="space-y-4">
