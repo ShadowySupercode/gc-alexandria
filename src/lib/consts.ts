@@ -14,6 +14,9 @@ export const searchRelays = [
   "wss://aggr.nostr.land",
   "wss://relay.noswhere.com",
   "wss://nostr.wine",
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band",
+  "wss://freelay.sovbit.host"
 ];
 
 export const secondaryRelays = [
