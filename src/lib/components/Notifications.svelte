@@ -11,6 +11,9 @@
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
   import { communityRelays, localRelays } from "$lib/consts";
+  import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
+  import RelayDisplay from "$lib/components/RelayDisplay.svelte";
+  import RelayInfoList from "$lib/components/RelayInfoList.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -23,6 +26,14 @@
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
   let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
   let filteredByUser = $state<string | null>(null);
+  let replyContent = $state<string>("");
+  let replyingTo = $state<string | null>(null);
+  let isReplying = $state(false);
+  let originalMessage = $state<NDKEvent | null | undefined>(null);
+  let replyingToMessageId = $state<string | null>(null);
+  let replyRelays = $state<string[]>([]);
+  let senderOutboxRelays = $state<string[]>([]);
+  let recipientInboxRelays = $state<string[]>([]);
 
   // Derived state for filtered messages
   let filteredMessages = $derived.by(() => {
@@ -85,6 +96,19 @@
     return content.slice(0, maxLength) + "...";
   }
 
+  function renderContentWithLinks(content: string): string {
+    console.log("[Notifications] Rendering content:", content);
+    
+    // Parse markdown links [text](url) and convert to HTML
+    let rendered = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline">$1</a>');
+    
+    // Also handle the new quote format: "> LINK: nevent://..." and convert to button
+    rendered = rendered.replace(/> LINK: (nevent:\/\/[^\s\n]+)/g, '> <button onclick="window.location.href=\'$1\'" class="inline-block px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded font-medium transition-colors">View Original Message</button>');
+    
+    console.log("[Notifications] Rendered content:", rendered);
+    return rendered;
+  }
+
   function getNotificationType(event: NDKEvent): string {
     switch (event.kind) {
       case 1: return "Reply";
@@ -107,6 +131,141 @@
 
   function clearFilter() {
     filteredByUser = null;
+  }
+
+  // AI-NOTE: Reply functionality for kind 24 messages
+  async function startReply(pubkey: string, messageEvent?: NDKEvent) {
+    replyingTo = pubkey;
+    isReplying = true;
+    replyContent = "";
+    replyingToMessageId = messageEvent?.id || null;
+    // Store the original message for q tag
+    originalMessage = messageEvent || null;
+    // Clear previous relay information
+    replyRelays = [];
+    senderOutboxRelays = [];
+    recipientInboxRelays = [];
+    
+    // Immediately fetch relay information for this recipient
+    await getReplyRelays();
+  }
+
+  function cancelReply() {
+    replyingTo = null;
+    isReplying = false;
+    replyContent = "";
+    replyingToMessageId = null;
+    replyRelays = [];
+    senderOutboxRelays = [];
+    recipientInboxRelays = [];
+  }
+
+  async function sendReply() {
+    if (!replyingTo || !replyContent.trim()) return;
+
+    try {
+      // Find the original message being replied to
+      const originalMessage = publicMessages.find(msg => msg.id === replyingToMessageId);
+      const result = await createKind24Reply(replyContent, replyingTo, originalMessage);
+      
+      if (result.success) {
+        // Store relay information for display
+        replyRelays = result.relays || [];
+        
+        // Update the inbox/outbox arrays to match the actual relays being used
+        // Keep only the top 3 that are actually in the reply relay set
+        const replyRelaySet = new Set(replyRelays);
+        senderOutboxRelays = senderOutboxRelays
+          .filter(relay => replyRelaySet.has(relay))
+          .slice(0, 3);
+        recipientInboxRelays = recipientInboxRelays
+          .filter(relay => replyRelaySet.has(relay))
+          .slice(0, 3);
+        
+        // Clear reply state
+        replyingTo = null;
+        isReplying = false;
+        replyContent = "";
+        replyingToMessageId = null;
+        // Optionally refresh messages
+        await fetchPublicMessages();
+      } else {
+        console.error("Failed to send reply:", result.error);
+        // You could show an error message to the user here
+      }
+    } catch (error) {
+      console.error("Error sending reply:", error);
+    }
+  }
+
+  // Function to get relay information before sending
+  async function getReplyRelays() {
+    if (!replyingTo) return;
+
+    try {
+      const originalMessage = publicMessages.find(msg => msg.id === replyingToMessageId);
+      
+      // Get sender's outbox relays and recipient's inbox relays
+      const ndk = get(ndkInstance);
+      if (ndk?.activeUser) {
+        // Get sender's outbox relays
+        const senderUser = ndk.activeUser;
+        const senderRelayList = await ndk.fetchEvent({
+          kinds: [10002],
+          authors: [senderUser.pubkey],
+        });
+        
+        if (senderRelayList) {
+          senderOutboxRelays = senderRelayList.tags
+            .filter(tag => tag[0] === 'r' && tag[1])
+            .map(tag => tag[1])
+            .slice(0, 3); // Limit to top 3 outbox relays
+        }
+        
+        // Get recipient's inbox relays
+        const recipientUser = ndk.getUser({ pubkey: replyingTo });
+        const recipientRelayList = await ndk.fetchEvent({
+          kinds: [10002],
+          authors: [replyingTo],
+        });
+        
+        if (recipientRelayList) {
+          recipientInboxRelays = recipientRelayList.tags
+            .filter(tag => tag[0] === 'r' && tag[1])
+            .map(tag => tag[1])
+            .slice(0, 3); // Limit to top 3 inbox relays
+        }
+      }
+      
+      // If we have content, use the actual reply function
+      if (replyContent.trim()) {
+        const result = await createKind24Reply(replyContent, replyingTo, originalMessage);
+        replyRelays = result.relays || [];
+      } else {
+        // If no content yet, just get the relay set for this recipient
+        const result = await getKind24RelaySet($userStore.pubkey || '', replyingTo);
+        replyRelays = result || [];
+        
+        // Update the inbox/outbox arrays to match the actual relays being used
+        // Keep only the top 3 that are actually in the reply relay set
+        const replyRelaySet = new Set(replyRelays);
+        senderOutboxRelays = senderOutboxRelays
+          .filter(relay => replyRelaySet.has(relay))
+          .slice(0, 3);
+        recipientInboxRelays = recipientInboxRelays
+          .filter(relay => replyRelaySet.has(relay))
+          .slice(0, 3);
+        
+        console.log('[Notifications] Got relay set:', result);
+        console.log('[Notifications] Filtered sender outbox relays:', senderOutboxRelays);
+        console.log('[Notifications] Filtered recipient inbox relays:', recipientInboxRelays);
+      }
+    } catch (error) {
+      console.error("Error getting relay information:", error);
+      replyRelays = [];
+      senderOutboxRelays = [];
+      recipientInboxRelays = [];
+    }
   }
 
   // AI-NOTE: Simplified profile fetching with better error handling
@@ -321,6 +480,13 @@
       authorProfiles.clear();
     }
   });
+
+  // Fetch relay information when reply content changes (for updates)
+  $effect(() => {
+    if (isReplying && replyingTo && replyContent.trim() && replyRelays.length === 0) {
+      getReplyRelays();
+    }
+  });
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
@@ -400,7 +566,19 @@
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
-                      <div class="mt-2 flex justify-center">
+                      <div class="mt-2 flex flex-col gap-1">
+                        <!-- Reply button -->
+                        <button
+                          class="w-6 h-6 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
+                          onclick={() => startReply(message.pubkey, message)}
+                          title="Reply to this message"
+                          aria-label="Reply to this message"
+                        >
+                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </button>
+                        <!-- Filter button -->
                         <button
                           class="w-6 h-6 bg-gray-400 hover:bg-gray-500 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center text-xs shadow-sm transition-colors {filteredByUser === message.pubkey ? 'ring-2 ring-gray-300 dark:ring-gray-400 bg-gray-500 dark:bg-gray-500' : ''}"
                           onclick={() => filterByUser(message.pubkey)}
@@ -440,7 +618,7 @@
                     
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {truncateContent(message.content)}
+                        {@html renderContentWithLinks(truncateContent(message.content))}
                       </div>
                     {/if}
                     
@@ -457,6 +635,64 @@
                     </div>
                   </div>
                 </div>
+                
+                <!-- Inline Reply Interface -->
+                {#if isReplying && replyingToMessageId === message.id}
+                  {@const recipientProfile = authorProfiles.get(message.pubkey)}
+                  <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        Replying to: {recipientProfile?.displayName || recipientProfile?.name || `${message.pubkey.slice(0, 8)}...${message.pubkey.slice(-4)}`}
+                      </span>
+                      <button
+                        class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+                        onclick={cancelReply}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div class="flex gap-2">
+                      <textarea
+                        bind:value={replyContent}
+                        placeholder="Type your reply..."
+                        class="flex-1 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
+                        rows="6"
+                        onkeydown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendReply();
+                          }
+                        }}
+                      ></textarea>
+                      <button
+                        onclick={sendReply}
+                        disabled={!replyContent.trim()}
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:bg-blue-600 dark:hover:bg-blue-700 dark:disabled:bg-gray-600 text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
+                      >
+                        Send
+                      </button>
+                    </div>
+                    
+                    <!-- Relay Information -->
+                    <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      {#if replyRelays.length > 0}
+                        {@const debugInfo = console.log('[Notifications] Rendering RelayInfoList with:', { replyRelays, recipientInboxRelays, senderOutboxRelays })}
+                        <RelayInfoList 
+                          relays={replyRelays}
+                          inboxRelays={recipientInboxRelays}
+                          outboxRelays={senderOutboxRelays}
+                          showLabels={true}
+                          compact={false}
+                        />
+                      {:else}
+                        <div class="flex items-center justify-center py-2">
+                          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                          <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading relay information...</span>
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
               </div>
             {/each}
           </div>
