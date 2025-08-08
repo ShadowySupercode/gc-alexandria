@@ -92,9 +92,7 @@
 
   function getNeventUrl(event: NDKEvent): string {
     const relays = getAvailableRelays();
-    const nevent = neventEncode(event, relays);
-    console.log('Generated nevent for event:', event.id, '→', nevent);
-    return nevent;
+    return neventEncode(event, relays);
   }
 
   function formatDate(timestamp: number): string {
@@ -605,7 +603,7 @@
             </div>
           {/if}
           <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#each filteredMessages.slice(0, 20) as message}
+            {#each filteredMessages.slice(0, 100) as message}
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
               <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" data-event-id="{message.id}">
@@ -772,7 +770,7 @@
       {:else}
         <div class="max-h-[72rem] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
           <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#each notifications.slice(0, 10) as notification}
+            {#each notifications.slice(0, 100) as notification}
               {@const authorProfile = authorProfiles.get(notification.pubkey)}
               <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <div class="flex items-start gap-3">
@@ -837,9 +835,9 @@
             {/each}
           </div>
           
-          {#if notifications.length > 10}
+          {#if notifications.length > 100}
             <div class="p-4 text-center text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
-              Showing 10 of {notifications.length} notifications {notificationMode === "to-me" ? "received" : "sent"}. Scroll to see more.
+              Showing 100 of {notifications.length} notifications {notificationMode === "to-me" ? "received" : "sent"}. Scroll to see more.
             </div>
           {/if}
         </div>

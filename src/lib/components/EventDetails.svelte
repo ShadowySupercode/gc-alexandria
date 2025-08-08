@@ -401,6 +401,11 @@
     </h2>
   {/if}
 
+  <!-- Notifications (for profile events) -->
+  {#if event.kind === 0}
+    <Notifications {event} />
+  {/if}
+
   <div class="flex items-center space-x-2">
     {#if toNpub(event.pubkey)}
       <span class="text-gray-600 dark:text-gray-400"
@@ -474,9 +479,6 @@
       {profile}
       identifiers={getIdentifiers(event, profile)}
     />
-    
-    <!-- Notifications for own profile -->
-    <Notifications {event} />
   {/if}
 
   <!-- Tags Array -->
