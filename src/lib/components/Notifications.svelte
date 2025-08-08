@@ -14,6 +14,9 @@
   import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
   import RelayDisplay from "$lib/components/RelayDisplay.svelte";
   import RelayInfoList from "$lib/components/RelayInfoList.svelte";
+  import { Modal, Button } from "flowbite-svelte";
+  import { searchProfiles } from "$lib/utils/search_utility";
+  import type { NostrProfile } from "$lib/utils/search_types";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -570,7 +573,7 @@
     </div>
     
     {#if loading}
-      <div class="flex items-center justify-center py-8">
+      <div class="flex items-center justify-center py-8 min-h-96">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         <span class="ml-2 text-gray-600 dark:text-gray-400">
           Loading {notificationMode === "public-messages" ? "public messages" : "notifications"}...
@@ -586,9 +589,9 @@
           <P>No public messages found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div class="max-h-[72rem] overflow-y-auto">
           {#if filteredByUser}
-            <div class="p-3 bg-blue-50 dark:bg-blue-900 border-b border-gray-200 dark:border-gray-700">
+            <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
                   Filtered by user: {authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || `${filteredByUser.slice(0, 8)}...${filteredByUser.slice(-4)}`}
@@ -602,11 +605,11 @@
               </div>
             </div>
           {/if}
-          <div class="divide-y divide-gray-200 dark:divide-gray-700">
+          <div class="space-y-4">
             {#each filteredMessages.slice(0, 100) as message}
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
-              <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" data-event-id="{message.id}">
+              <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all" data-event-id="{message.id}">
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
                   <!-- Author Profile Picture -->
                   <div class="flex-shrink-0 relative">
@@ -752,11 +755,11 @@
                   </div>
                 {/if}
               </div>
-            {/each}
+          {/each}
           </div>
           
           {#if filteredMessages.length > 20}
-            <div class="p-4 text-center text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+            <div class="mt-4 p-3 text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
               Showing 20 of {filteredMessages.length} messages {filteredByUser ? `(filtered)` : ''}. Scroll to see more.
             </div>
           {/if}
@@ -768,11 +771,10 @@
           <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-          <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#each notifications.slice(0, 100) as notification}
-              {@const authorProfile = authorProfiles.get(notification.pubkey)}
-              <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+        <div class="max-h-[72rem] overflow-y-auto space-y-4">
+          {#each notifications.slice(0, 100) as notification}
+            {@const authorProfile = authorProfiles.get(notification.pubkey)}
+            <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all">
                 <div class="flex items-start gap-3">
                   <!-- Author Profile Picture -->
                   <div class="flex-shrink-0">
@@ -831,12 +833,11 @@
 
                   </div>
                 </div>
-              </div>
-            {/each}
-          </div>
+            </div>
+          {/each}
           
           {#if notifications.length > 100}
-            <div class="p-4 text-center text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+            <div class="mt-4 p-3 text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
               Showing 100 of {notifications.length} notifications {notificationMode === "to-me" ? "received" : "sent"}. Scroll to see more.
             </div>
           {/if}
