@@ -25,18 +25,10 @@
     label: string;
   };
 
-  // AI-NOTE: Updated to show only top-3 inboxes and top-3 outboxes as intended
+  // Categorize relays by their function (inbox/outbox/both)
   const categorizedRelays = $derived(() => {
     const inbox = new Set(inboxRelays);
     const outbox = new Set(outboxRelays);
-    
-    console.log('[RelayInfoList] Categorizing relays:', { 
-      relays: relays.length, 
-      inboxRelays: inboxRelays.length, 
-      outboxRelays: outboxRelays.length
-    });
-    
-    // Create a map of all relays with their categories
     const relayCategories = new Map<string, CategorizedRelay>();
     
     // Process inbox relays (up to top 3)
@@ -58,29 +50,19 @@
       }
     });
     
-    // Only include relays that are actually in the top-3 lists
-    // This ensures we only show the intended top-3 inboxes and top-3 outboxes
-    const categorized = Array.from(relayCategories.values());
-    console.log('[RelayInfoList] Categorized relays count:', categorized.length);
-    return categorized;
+    return Array.from(relayCategories.values());
   });
 
-  // Group by category
+  // Group by category for display
   const groupedRelays = $derived(() => {
     const categorized = categorizedRelays();
-    console.log('[RelayInfoList] Grouping categorized relays');
     
-    const groups = {
+    return {
       both: categorized.filter((r: CategorizedRelay) => r.category === 'both'),
       inbox: categorized.filter((r: CategorizedRelay) => r.category === 'inbox'),
       outbox: categorized.filter((r: CategorizedRelay) => r.category === 'outbox'),
       other: categorized.filter((r: CategorizedRelay) => r.category === 'other')
     };
-    
-    console.log('[RelayInfoList] Grouped relays:', Object.fromEntries(
-      Object.entries(groups).map(([key, relays]) => [key, relays.length])
-    ));
-    return groups;
   });
 
   async function loadRelayInfos() {
@@ -99,12 +81,6 @@
   // Load relay info when categorized relays change
   $effect(() => {
     const categorized = categorizedRelays();
-    console.log('[RelayInfoList] Categorized relays changed:', { 
-      total: categorized.length,
-      byCategory: Object.fromEntries(
-        Object.entries(groupedRelays()).map(([key, relays]) => [key, relays.length])
-      )
-    });
     if (categorized.length > 0) {
       loadRelayInfos();
     }
@@ -134,7 +110,6 @@
 <div class="space-y-2">
   {#if showLabels && !compact}
     {@const categorizedCount = categorizedRelays().length}
-    {@const debugCategorized = console.log('[RelayInfoList] Debug - categorized relays:', categorizedRelays())}
     <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
       Publishing to {categorizedCount} relay(s):
     </div>
@@ -147,7 +122,6 @@
     </div>
   {:else}
     {@const categorized = categorizedRelays()}
-    {@const debugCategorized = console.log('[RelayInfoList] Debug - categorized relays:', categorized)}
     
     <div class="space-y-1">
       {#each categorized as { relay, category, label }}

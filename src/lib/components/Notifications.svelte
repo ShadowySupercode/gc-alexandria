@@ -17,6 +17,22 @@
 
   const { event } = $props<{ event: NDKEvent }>();
 
+  // Handle navigation events from quoted messages
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      const handleJumpToMessage = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        jumpToMessageInFeed(customEvent.detail);
+      };
+      
+      window.addEventListener('jump-to-message', handleJumpToMessage);
+      
+      return () => {
+        window.removeEventListener('jump-to-message', handleJumpToMessage);
+      };
+    }
+  });
+
   // Component state
   let notifications = $state<NDKEvent[]>([]);
   let publicMessages = $state<NDKEvent[]>([]);
@@ -76,7 +92,9 @@
 
   function getNeventUrl(event: NDKEvent): string {
     const relays = getAvailableRelays();
-    return neventEncode(event, relays);
+    const nevent = neventEncode(event, relays);
+    console.log('Generated nevent for event:', event.id, '→', nevent);
+    return nevent;
   }
 
   function formatDate(timestamp: number): string {
@@ -97,15 +115,28 @@
   }
 
   function renderContentWithLinks(content: string): string {
-    console.log("[Notifications] Rendering content:", content);
-    
     // Parse markdown links [text](url) and convert to HTML
     let rendered = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline">$1</a>');
     
-    // Also handle the new quote format: "> LINK: nevent://..." and convert to button
-    rendered = rendered.replace(/> LINK: (nevent:\/\/[^\s\n]+)/g, '> <button onclick="window.location.href=\'$1\'" class="inline-block px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded font-medium transition-colors">View Original Message</button>');
+    // Handle quote format and convert to small gray bars like Jumble
+    const patterns = [
+      /> QUOTED: ([^•]*?) • LINK:\s*\n(nevent[^\s]*)/g,
+      /> QUOTED: ([^\n]*?)\n> LINK: (nevent[^\s]*)/g,
+      /> QUOTED: ([^•]*?) • LINK:\s*(nevent[^\s]*)/g,
+    ];
     
-    console.log("[Notifications] Rendered content:", rendered);
+    for (const pattern of patterns) {
+      const beforeReplace = rendered;
+      rendered = rendered.replace(pattern, (match, quotedText, neventUrl) => {
+        const encodedUrl = neventUrl.replace(/'/g, '&#39;');
+        const cleanQuotedText = quotedText.trim();
+        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${encodedUrl}' }))">${cleanQuotedText}</div>`;
+      });
+      if (beforeReplace !== rendered) {
+        break;
+      }
+    }
+    
     return rendered;
   }
 
@@ -122,7 +153,41 @@
   }
 
   function navigateToEvent(nevent: string) {
+    // Navigate to the events search page with this specific event
     goto(`/events?id=${nevent}`);
+  }
+
+  function jumpToMessageInFeed(nevent: string) {
+    // Switch to public messages tab and scroll to the specific message
+    notificationMode = "public-messages";
+    
+    // Try to find and scroll to the specific message
+    setTimeout(() => {
+      try {
+        // Decode the nevent to get the event ID
+        const decoded = nip19.decode(nevent);
+        if (decoded.type === 'nevent' && decoded.data.id) {
+          const eventId = decoded.data.id;
+          
+          // Find the message in our public messages
+          const targetMessage = publicMessages.find(msg => msg.id === eventId);
+          if (targetMessage) {
+            // Try to scroll to the element if it exists in the DOM
+            const element = document.querySelector(`[data-event-id="${eventId}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Briefly highlight the message
+              element.classList.add('ring-2', 'ring-blue-500');
+              setTimeout(() => {
+                element.classList.remove('ring-2', 'ring-blue-500');
+              }, 2000);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to jump to message:', error);
+      }
+    }, 100);
   }
 
   function filterByUser(pubkey: string) {
@@ -256,9 +321,7 @@
           .filter(relay => replyRelaySet.has(relay))
           .slice(0, 3);
         
-        console.log('[Notifications] Got relay set:', result);
-        console.log('[Notifications] Filtered sender outbox relays:', senderOutboxRelays);
-        console.log('[Notifications] Filtered recipient inbox relays:', recipientInboxRelays);
+
       }
     } catch (error) {
       console.error("Error getting relay information:", error);
@@ -545,7 +608,7 @@
             {#each filteredMessages.slice(0, 20) as message}
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
-              <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" data-event-id="{message.id}">
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
                   <!-- Author Profile Picture -->
                   <div class="flex-shrink-0 relative">
@@ -602,6 +665,13 @@
                       <span class="text-xs text-gray-500 dark:text-gray-400">
                         {message.created_at ? formatDate(message.created_at) : "Unknown date"}
                       </span>
+                      <button
+                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
+                        onclick={() => navigateToEvent(getNeventUrl(message))}
+                        title="Click to view event"
+                      >
+                        {getNeventUrl(message).slice(0, 16)}...
+                      </button>
                     </div>
                     
                     <!-- Author Name -->
@@ -622,17 +692,7 @@
                       </div>
                     {/if}
                     
-                    <div class="flex items-center gap-2 {isFromUser ? 'justify-end' : ''}">
-                      <button
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-medium"
-                        onclick={() => navigateToEvent(getNeventUrl(message))}
-                      >
-                        View Event
-                      </button>
-                      <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                        {getNeventUrl(message).slice(0, 16)}...
-                      </span>
-                    </div>
+
                   </div>
                 </div>
                 
@@ -676,7 +736,7 @@
                     <!-- Relay Information -->
                     <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
                       {#if replyRelays.length > 0}
-                        {@const debugInfo = console.log('[Notifications] Rendering RelayInfoList with:', { replyRelays, recipientInboxRelays, senderOutboxRelays })}
+
                         <RelayInfoList 
                           relays={replyRelays}
                           inboxRelays={recipientInboxRelays}
@@ -743,6 +803,13 @@
                       <span class="text-xs text-gray-500 dark:text-gray-400">
                         {notification.created_at ? formatDate(notification.created_at) : "Unknown date"}
                       </span>
+                      <button
+                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
+                        onclick={() => navigateToEvent(getNeventUrl(notification))}
+                        title="Click to view event"
+                      >
+                        {getNeventUrl(notification).slice(0, 16)}...
+                      </button>
                     </div>
                     
                     <!-- Author Name -->
@@ -763,17 +830,7 @@
                       </div>
                     {/if}
                     
-                    <div class="flex items-center gap-2">
-                      <button
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-medium"
-                        onclick={() => navigateToEvent(getNeventUrl(notification))}
-                      >
-                        View Event
-                      </button>
-                      <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                        {getNeventUrl(notification).slice(0, 16)}...
-                      </span>
-                    </div>
+
                   </div>
                 </div>
               </div>

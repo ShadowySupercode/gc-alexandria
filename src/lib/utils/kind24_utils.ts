@@ -13,7 +13,7 @@ import { nip19 } from "nostr-tools";
  */
 async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
-    console.debug('[kind24_utils] Fetching outbox relays for user:', user.pubkey);
+
     const relayList = await ndk.fetchEvent(
       {
         kinds: [10002],
@@ -22,16 +22,11 @@ async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
     );
 
     if (!relayList) {
-      console.debug('[kind24_utils] No relay list found for user');
       return [];
     }
 
-    console.debug('[kind24_utils] Found relay list event:', relayList.id);
-    console.debug('[kind24_utils] Relay list tags:', relayList.tags);
-
     const outboxRelays: string[] = [];
     relayList.tags.forEach((tag) => {
-      console.debug('[kind24_utils] Processing tag:', tag);
       if (tag[0] === 'r' && tag[1]) {
         // NIP-65: r tags with optional inbox/outbox markers
         const marker = tag[2];
@@ -39,15 +34,15 @@ async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
           // If no marker or marker is 'outbox', it's a outbox relay
           // If marker is 'inbox', it's also a outbox relay (NIP-65 allows both)
           outboxRelays.push(tag[1]);
-          console.debug('[kind24_utils] Added outbox relay:', tag[1]);
+
         }
       }
     });
 
-    console.debug('[kind24_utils] Final outbox relays:', outboxRelays);
+
     return outboxRelays;
   } catch (error) {
-    console.info('[kind24_utils] Error fetching user outbox relays:', error);
+
     return [];
   }
 }
@@ -60,7 +55,7 @@ async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
  */
 async function getUserinboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
-    console.debug('[kind24_utils] Fetching inbox relays for user:', user.pubkey);
+
     const relayList = await ndk.fetchEvent(
       {
         kinds: [10002],
@@ -69,16 +64,11 @@ async function getUserinboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
     );
 
     if (!relayList) {
-      console.debug('[kind24_utils] No relay list found for user');
       return [];
     }
 
-    console.debug('[kind24_utils] Found relay list event:', relayList.id);
-    console.debug('[kind24_utils] Relay list tags:', relayList.tags);
-
     const inboxRelays: string[] = [];
     relayList.tags.forEach((tag) => {
-      console.debug('[kind24_utils] Processing tag:', tag);
       if (tag[0] === 'r' && tag[1]) {
         // NIP-65: r tags with optional inbox/outbox markers
         const marker = tag[2];
@@ -86,15 +76,15 @@ async function getUserinboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
           // If no marker or marker is 'inbox', it's a inbox relay
           // If marker is 'outbox', it's also a inbox relay (NIP-65 allows both)
           inboxRelays.push(tag[1]);
-          console.debug('[kind24_utils] Added inbox relay:', tag[1]);
+
         }
       }
     });
 
-    console.debug('[kind24_utils] Final inbox relays:', inboxRelays);
+
     return inboxRelays;
   } catch (error) {
-    console.info('[kind24_utils] Error fetching user inbox relays:', error);
+
     return [];
   }
 }
@@ -165,7 +155,7 @@ export async function createKind24Reply(
       const quotedContent = originalEvent.content ? originalEvent.content.slice(0, 200) : "No content";
       // Use a more visible quote format with a clickable link
       finalContent = `> QUOTED: ${quotedContent}\n> LINK: ${nevent}\n\n${content}`;
-      console.log("[kind24_utils] Reply content:", finalContent);
+
     }
     
     event.content = finalContent;
