@@ -3,6 +3,7 @@ import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils.ts";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
+import { EXPIRATION_DURATION } from "../consts.ts";
 import { ndkInstance } from "../ndk.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 
@@ -320,12 +321,19 @@ export async function createSignedEvent(
 ): Promise<{ id: string; sig: string; event: any }> {
   const prefixedContent = prefixNostrAddresses(content);
 
+  // Add expiration tag for kind 24 events (NIP-40)
+  const finalTags = [...tags];
+  if (kind === 24) {
+    const expirationTimestamp = Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR) + EXPIRATION_DURATION;
+    finalTags.push(["expiration", String(expirationTimestamp)]);
+  }
+
   const eventToSign = {
     kind: Number(kind),
     created_at: Number(
       Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR),
     ),
-    tags: tags.map((tag) => [
+    tags: finalTags.map((tag) => [
       String(tag[0]),
       String(tag[1]),
       String(tag[2] || ""),
