@@ -9,4 +9,4 @@ viewer or CI task. See PlantUML docs: [PlantUML](https://plantuml.com/)
 
 ## Overview
 
-This target architecture can be described loosely as a pragmatic modular monolith. Key components are to be kept modular and relatively isolated so that they can be refactored or swapped with minimal disruption. However, Alexandria is a rapidly-evolving application, as is the whole Nostr ecosystem, so smart pragmatism is to be preferred over dogmatic adherence to a strict architectural vision.
+This target architecture can be described loosely as a _pragmatic modular monolith_. Key components are to be kept modular and relatively isolated so that they can be refactored or swapped with minimal disruption. However, Alexandria is a rapidly-evolving application, as is the whole Nostr ecosystem, so smart pragmatism is to be preferred over dogmatic adherence to a strict architectural vision.
