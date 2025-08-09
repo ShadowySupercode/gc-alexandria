@@ -1,0 +1,67 @@
+@startuml architecture-overview
+title Alexandria - Layered Architecture Overview
+
+component "Presentation" {
+  [Publications]
+  [Events UI]
+  [Search UI]
+  [Svelte Stores]
+}
+
+component "Domain" {
+  [Publication Tree]
+  [Table of Contents]
+}
+
+component "Nostr" {
+  [Relay Selector]
+  component "Nostr Utils" {
+    [Fetch]
+    [Search]
+    [Auth]
+    [Publish]
+  }
+  [NSL Parser]
+  [Signer]
+} 
+
+component "Network" {
+  [WebSocketPool]
+  [WebSocket Utils]
+}
+
+component "Infrastructure" {
+  [Web Worker Pool]
+  [IndexedDB Manager]
+}
+
+component "Parsers" {
+  [AsciiDoc]
+  [Markdown]
+}
+
+[Publications] --> [Publication Tree]
+[Publications] --> [Table of Contents]
+[Publications] ..> [AsciiDoc]
+[Events UI] ..> [Nostr Utils]
+[Events UI] ..> [Markdown]
+[Search UI] ..> [NSL Parser]
+[Svelte Stores] ..> [IndexedDB Manager] : persist
+
+[Publication Tree]
+[Table of Contents] --> [Publication Tree]
+[Publication Tree] ..> [IndexedDB Manager] : bookmarks
+[Publication Tree] ..> [Nostr Utils] : fetch
+
+[AsciiDoc] ..> [Nostr Utils] : publishing
+[Markdown] ..> [Nostr Utils] : publishing
+
+[WebSocket Utils] --> [WebSocketPool]
+[Nostr Utils] ..> [Relay Selector]
+[Nostr Utils] ..> [WebSocket Utils]
+[Nostr Utils] ..> [Web Worker Pool]
+[Nostr Utils] ..> [IndexedDB Manager] : auth state
+[Nostr Utils] ..> [Signer]
+[NSL Parser] ..> [Nostr Utils]
+
+@enduml
