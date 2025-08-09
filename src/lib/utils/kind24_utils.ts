@@ -31,12 +31,11 @@ async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
       if (tag[0] === 'r' && tag[1]) {
         // NIP-65: r tags with optional inbox/outbox markers
         const marker = tag[2];
-        if (!marker || marker === 'outbox' || marker === 'inbox') {
-          // If no marker or marker is 'outbox', it's a outbox relay
-          // If marker is 'inbox', it's also a outbox relay (NIP-65 allows both)
+        if (!marker || marker === 'outbox' || marker === 'both') {
+          // If no marker, marker is 'outbox', or marker is 'both', it's an outbox relay
           outboxRelays.push(tag[1]);
-
         }
+        // Note: inbox-only relays are NOT included in outbox relays
       }
     });
 
@@ -56,6 +55,7 @@ async function getUseroutboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
  */
 async function getUserinboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
   try {
+    console.log(`[getUserinboxRelays] Fetching kind 10002 for user: ${user.pubkey.slice(0, 8)}`);
 
     const relayList = await ndk.fetchEvent(
       {
@@ -65,27 +65,31 @@ async function getUserinboxRelays(ndk: NDK, user: NDKUser): Promise<string[]> {
     );
 
     if (!relayList) {
+      console.log(`[getUserinboxRelays] No kind 10002 relay list found for user: ${user.pubkey.slice(0, 8)}`);
       return [];
     }
+
+    console.log(`[getUserinboxRelays] Found relay list for user: ${user.pubkey.slice(0, 8)}, tags:`, relayList.tags);
 
     const inboxRelays: string[] = [];
     relayList.tags.forEach((tag) => {
       if (tag[0] === 'r' && tag[1]) {
         // NIP-65: r tags with optional inbox/outbox markers
         const marker = tag[2];
-        if (!marker || marker === 'inbox' || marker === 'outbox') {
-          // If no marker or marker is 'inbox', it's a inbox relay
-          // If marker is 'outbox', it's also a inbox relay (NIP-65 allows both)
+        console.log(`[getUserinboxRelays] Processing relay tag:`, tag, `marker: ${marker}`);
+        if (!marker || marker === 'inbox' || marker === 'both') {
+          // If no marker, marker is 'inbox', or marker is 'both', it's an inbox relay
           inboxRelays.push(tag[1]);
-
+          console.log(`[getUserinboxRelays] Added inbox relay: ${tag[1]} (marker: ${marker || 'none'})`);
         }
+        // Note: outbox-only relays are NOT included in inbox relays
       }
     });
 
-
+    console.log(`[getUserinboxRelays] Final inbox relays for user ${user.pubkey.slice(0, 8)}:`, inboxRelays);
     return inboxRelays;
   } catch (error) {
-
+    console.error(`[getUserinboxRelays] Error fetching inbox relays for user ${user.pubkey.slice(0, 8)}:`, error);
     return [];
   }
 }
@@ -117,7 +121,13 @@ export async function createKind24Reply(
     
     // Get recipient's inbox relays (NIP-65)
     const recipientUser = ndk.getUser({ pubkey: recipientPubkey });
-    const recipientinboxRelays = await getUserinboxRelays(ndk, recipientUser);
+    let recipientinboxRelays = await getUserinboxRelays(ndk, recipientUser);
+    
+    // Fallback: if no inbox relays found, use recipient's outbox relays
+    if (recipientinboxRelays.length === 0) {
+      console.log(`[createKind24Reply] No inbox relays found for recipient, falling back to outbox relays`);
+      recipientinboxRelays = await getUseroutboxRelays(ndk, recipientUser);
+    }
     
     // According to NIP-A4: Messages MUST be sent to the NIP-65 inbox relays of each receiver 
     // and the outbox relay of the sender
@@ -212,17 +222,29 @@ export async function getKind24RelaySet(
     throw new Error("NDK not available");
   }
 
+  console.log(`[getKind24RelaySet] Getting relays for sender: ${senderPubkey.slice(0, 8)} -> recipient: ${recipientPubkey.slice(0, 8)}`);
+
   // Get sender's outbox relays (NIP-65)
   const senderUser = ndk.getUser({ pubkey: senderPubkey });
   const senderoutboxRelays = await getUseroutboxRelays(ndk, senderUser);
+  console.log(`[getKind24RelaySet] Sender outbox relays:`, senderoutboxRelays);
   
   // Get recipient's inbox relays (NIP-65)
   const recipientUser = ndk.getUser({ pubkey: recipientPubkey });
-  const recipientinboxRelays = await getUserinboxRelays(ndk, recipientUser);
+  let recipientinboxRelays = await getUserinboxRelays(ndk, recipientUser);
+  console.log(`[getKind24RelaySet] Recipient inbox relays:`, recipientinboxRelays);
+  
+  // Fallback: if no inbox relays found, use recipient's outbox relays
+  if (recipientinboxRelays.length === 0) {
+    console.log(`[getKind24RelaySet] No inbox relays found for recipient, falling back to outbox relays`);
+    recipientinboxRelays = await getUseroutboxRelays(ndk, recipientUser);
+    console.log(`[getKind24RelaySet] Recipient outbox relays (used as fallback):`, recipientinboxRelays);
+  }
   
   // According to NIP-A4: Messages MUST be sent to the NIP-65 inbox relays of each receiver 
   // and the outbox relay of the sender
   const targetRelays = [...new Set([...senderoutboxRelays, ...recipientinboxRelays])];
+  console.log(`[getKind24RelaySet] Combined target relays:`, targetRelays);
   
   // Prioritize common relays between sender and recipient for better privacy
   const commonRelays = senderoutboxRelays.filter((relay: string) => 
@@ -235,6 +257,12 @@ export async function getKind24RelaySet(
     !senderoutboxRelays.includes(relay)
   );
   
+  console.log(`[getKind24RelaySet] Common relays:`, commonRelays);
+  console.log(`[getKind24RelaySet] Sender-only relays:`, senderOnlyRelays);
+  console.log(`[getKind24RelaySet] Recipient-only relays:`, recipientOnlyRelays);
+  
   // Prioritize: common relays first, then sender outbox, then recipient inbox
-  return [...commonRelays, ...senderOnlyRelays, ...recipientOnlyRelays];
+  const finalRelays = [...commonRelays, ...senderOnlyRelays, ...recipientOnlyRelays];
+  console.log(`[getKind24RelaySet] Final relay list:`, finalRelays);
+  return finalRelays;
 }

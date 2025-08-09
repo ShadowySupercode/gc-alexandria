@@ -460,8 +460,22 @@
     try {
       isComposingMessage = true;
       
-      // Create p-tags for all recipients
-      const pTags = selectedRecipients.map(recipient => ["p", recipient.pubkey!]);
+      // Create p-tags for all recipients (ensure hex format)
+      const pTags = selectedRecipients.map(recipient => {
+        let pubkey = recipient.pubkey!;
+        // Convert npub to hex if needed
+        if (pubkey.startsWith('npub')) {
+          try {
+            const decoded = nip19.decode(pubkey);
+            if (decoded.type === 'npub') {
+              pubkey = decoded.data;
+            }
+          } catch (e) {
+            console.warn("[Send Message] Failed to decode npub:", pubkey, e);
+          }
+        }
+        return ["p", pubkey];
+      });
       
       // Add q tag if replying to a message (for jump-to functionality)
       if (replyToMessage) {
@@ -470,8 +484,22 @@
         pTags.push(["q", replyToMessage.id, relayUrl, replyToMessage.pubkey]);
       }
       
-      // Get all recipient pubkeys for relay calculation
-      const recipientPubkeys = selectedRecipients.map(r => r.pubkey!);
+      // Get all recipient pubkeys for relay calculation (ensure hex format)
+      const recipientPubkeys = selectedRecipients.map(r => {
+        let pubkey = r.pubkey!;
+        // Convert npub to hex if needed
+        if (pubkey.startsWith('npub')) {
+          try {
+            const decoded = nip19.decode(pubkey);
+            if (decoded.type === 'npub') {
+              pubkey = decoded.data;
+            }
+          } catch (e) {
+            console.warn("[Send Message Relay Calc] Failed to decode npub:", pubkey, e);
+          }
+        }
+        return pubkey;
+      });
       
       // Calculate relay set using the same logic as kind24_utils
       const senderPubkey = $userStore.pubkey;
@@ -786,8 +814,25 @@
   // Calculate relay set when recipients change
   $effect(() => {
     const senderPubkey = $userStore.pubkey;
+    console.log("[Relay Effect] Recipients changed:", selectedRecipients.length, "Sender:", senderPubkey?.slice(0, 8));
+    
     if (selectedRecipients.length > 0 && senderPubkey) {
-      const recipientPubkeys = selectedRecipients.map(r => r.pubkey!);
+      const recipientPubkeys = selectedRecipients.map(r => {
+        const pubkey = r.pubkey!;
+        // Convert npub to hex if needed
+        if (pubkey.startsWith('npub')) {
+          try {
+            const decoded = nip19.decode(pubkey);
+            if (decoded.type === 'npub') {
+              return decoded.data;
+            }
+          } catch (e) {
+            console.warn("[Relay Effect] Failed to decode npub:", pubkey, e);
+          }
+        }
+        return pubkey;
+      });
+      console.log("[Relay Effect] Getting relay sets for recipients (hex):", recipientPubkeys.map(p => p.slice(0, 8)));
       
       // Get relay sets for all recipients and combine them
       const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
@@ -795,15 +840,28 @@
       );
       
       Promise.all(relaySetPromises).then(relaySets => {
+        console.log("[Relay Effect] Received relay sets:", relaySets);
         // Combine and deduplicate all relay sets
         const allRelays = relaySets.flat();
         const uniqueRelays = [...new Set(allRelays)];
-        newMessageRelays = uniqueRelays;
+        console.log("[Relay Effect] Final relay list:", uniqueRelays);
+        
+        // If no relays found from NIP-65, use fallback relays
+        if (uniqueRelays.length === 0) {
+          console.log("[Relay Effect] No NIP-65 relays found, using fallback");
+          const fallbackRelays = getAvailableRelays();
+          newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
+        } else {
+          newMessageRelays = uniqueRelays;
+        }
       }).catch(error => {
-        console.error("Error getting relay set:", error);
-        newMessageRelays = [];
+        console.error("[Relay Effect] Error getting relay set:", error);
+        console.log("[Relay Effect] Using fallback relays due to error");
+        const fallbackRelays = getAvailableRelays();
+        newMessageRelays = fallbackRelays.slice(0, 5);
       });
     } else {
+      console.log("[Relay Effect] Clearing relays - no recipients or sender");
       newMessageRelays = [];
     }
   });
