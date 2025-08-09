@@ -128,6 +128,59 @@
     return content.slice(0, maxLength) + "...";
   }
 
+  function truncateRenderedContent(renderedHtml: string, maxLength: number = 300): string {
+    // If the rendered HTML is short enough, return as-is
+    if (renderedHtml.length <= maxLength) return renderedHtml;
+    
+    // Check if there are any gray quote boxes (jump-to-message divs)
+    const hasQuoteBoxes = renderedHtml.includes('jump-to-message');
+    
+    if (hasQuoteBoxes) {
+      // Split content into quote boxes and regular text
+      const quoteBoxPattern = /<div class="block w-fit my-2 px-3 py-2 bg-gray-200[^>]*onclick="window\.dispatchEvent\(new CustomEvent\('jump-to-message'[^>]*>[^<]*<\/div>/g;
+      const quoteBoxes = renderedHtml.match(quoteBoxPattern) || [];
+      
+      // Remove quote boxes temporarily to measure text length
+      let textOnly = renderedHtml.replace(quoteBoxPattern, '|||QUOTEBOX|||');
+      
+      // If text without quote boxes is still too long, truncate it
+      if (textOnly.length > maxLength) {
+        const availableLength = maxLength - (quoteBoxes.join('').length);
+        if (availableLength > 50) { // Leave some reasonable space for text
+          textOnly = textOnly.slice(0, availableLength) + "...";
+        } else {
+          // If quote boxes take up too much space, just show them with minimal text
+          textOnly = textOnly.slice(0, 50) + "...";
+        }
+      }
+      
+      // Restore quote boxes
+      let result = textOnly;
+      quoteBoxes.forEach(box => {
+        result = result.replace('|||QUOTEBOX|||', box);
+      });
+      
+      return result;
+    } else {
+      // No quote boxes, simple truncation with HTML awareness
+      if (renderedHtml.includes('<')) {
+        // Has HTML tags, do a simple truncation but try to avoid breaking tags
+        const truncated = renderedHtml.slice(0, maxLength);
+        const lastTagStart = truncated.lastIndexOf('<');
+        const lastTagEnd = truncated.lastIndexOf('>');
+        
+        if (lastTagStart > lastTagEnd) {
+          // We're in the middle of a tag, truncate before it
+          return renderedHtml.slice(0, lastTagStart) + "...";
+        }
+        return truncated + "...";
+      } else {
+        // Plain text, simple truncation
+        return renderedHtml.slice(0, maxLength) + "...";
+      }
+    }
+  }
+
   function renderContentWithLinks(content: string): string {
     // Parse markdown links [text](url) and convert to HTML
     let rendered = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline">$1</a>');
@@ -907,7 +960,7 @@
                     
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {@html renderContentWithLinks(truncateContent(message.content))}
+                        {@html truncateRenderedContent(renderContentWithLinks(message.content), 300)}
                       </div>
                     {/if}
                     
