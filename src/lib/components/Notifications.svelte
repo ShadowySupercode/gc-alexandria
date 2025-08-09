@@ -17,6 +17,7 @@
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
+  import { PlusOutline } from "flowbite-svelte-icons";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -45,14 +46,26 @@
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
   let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
   let filteredByUser = $state<string | null>(null);
-  let replyContent = $state<string>("");
-  let replyingTo = $state<string | null>(null);
-  let isReplying = $state(false);
-  let originalMessage = $state<NDKEvent | null | undefined>(null);
-  let replyingToMessageId = $state<string | null>(null);
-  let replyRelays = $state<string[]>([]);
-  let senderOutboxRelays = $state<string[]>([]);
-  let recipientInboxRelays = $state<string[]>([]);
+
+  
+  // New Message Modal state
+  let showNewMessageModal = $state(false);
+  let newMessageContent = $state<string>("");
+  let selectedRecipients = $state<NostrProfile[]>([]);
+  let newMessageRelays = $state<string[]>([]);
+  let isComposingMessage = $state(false);
+  let replyToMessage = $state<NDKEvent | null>(null);
+  let quotedContent = $state<string>("");
+  
+  // Recipient Selection Modal state
+  let showRecipientModal = $state(false);
+  let recipientSearch = $state("");
+  let recipientResults = $state<NostrProfile[]>([]);
+  let recipientLoading = $state(false);
+  let recipientSearchInput = $state<HTMLInputElement | undefined>();
+  let recipientSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let recipientCommunityStatus: Record<string, boolean> = $state({});
+  let isRecipientSearching = $state(false);
 
   // Derived state for filtered messages
   let filteredMessages = $derived.by(() => {
@@ -121,9 +134,10 @@
     
     // Handle quote format and convert to small gray bars like Jumble
     const patterns = [
-      /> QUOTED: ([^•]*?) • LINK:\s*\n(nevent[^\s]*)/g,
-      /> QUOTED: ([^\n]*?)\n> LINK: (nevent[^\s]*)/g,
-      /> QUOTED: ([^•]*?) • LINK:\s*(nevent[^\s]*)/g,
+      /> QUOTED: ([^•]*?) • LINK:\s*\n((?:nostr:)?nevent[^\s]*)/g,
+      /> QUOTED: ([^\n]*?)\n> LINK: ((?:nostr:)?nevent[^\s]*)/g,
+      /> QUOTED: ([^•]*?) • LINK:\s*((?:nostr:)?nevent[^\s]*)/g,
+      /> QUOTED: ([^•]*?) • LINK: ((?:nostr:)?nevent[^\s]*)/g,  // Without optional whitespace
     ];
     
     for (const pattern of patterns) {
@@ -199,138 +213,300 @@
     filteredByUser = null;
   }
 
-  // AI-NOTE: Reply functionality for kind 24 messages
-  async function startReply(pubkey: string, messageEvent?: NDKEvent) {
-    replyingTo = pubkey;
-    isReplying = true;
-    replyContent = "";
-    replyingToMessageId = messageEvent?.id || null;
-    // Store the original message for q tag
-    originalMessage = messageEvent || null;
-    // Clear previous relay information
-    replyRelays = [];
-    senderOutboxRelays = [];
-    recipientInboxRelays = [];
+
+
+  // AI-NOTE: New Message Modal Functions
+  function openNewMessageModal(messageToReplyTo?: NDKEvent) {
+    showNewMessageModal = true;
+    newMessageContent = "";
+    selectedRecipients = [];
+    newMessageRelays = [];
+    isComposingMessage = false;
+    replyToMessage = messageToReplyTo || null;
     
-    // Immediately fetch relay information for this recipient
-    await getReplyRelays();
+    // If replying, set up the quote and pre-select all original recipients plus sender
+    if (messageToReplyTo) {
+      // Store clean content for UI display (no markdown formatting)
+      quotedContent = messageToReplyTo.content.length > 200 
+        ? messageToReplyTo.content.slice(0, 200) + "..." 
+        : messageToReplyTo.content;
+      
+      // Collect all recipients: original sender + all p-tag recipients
+      const recipientPubkeys = new Set<string>();
+      
+      // Add the original sender
+      recipientPubkeys.add(messageToReplyTo.pubkey);
+      
+      // Add all p-tag recipients from the original message
+      const pTags = messageToReplyTo.getMatchingTags("p");
+      pTags.forEach(tag => {
+        if (tag[1]) {
+          recipientPubkeys.add(tag[1]);
+        }
+      });
+      
+      // Remove the current user from recipients (don't reply to yourself)
+      const currentUserPubkey = $userStore.pubkey;
+      if (currentUserPubkey) {
+        recipientPubkeys.delete(currentUserPubkey);
+      }
+      
+      // Build the recipient list with profile information
+      selectedRecipients = Array.from(recipientPubkeys).map(pubkey => {
+        const profile = authorProfiles.get(pubkey);
+        return {
+          pubkey: pubkey,
+          name: profile?.name || "",
+          displayName: profile?.displayName || "",
+          picture: profile?.picture || "",
+          about: "", // We don't store about in authorProfiles
+          nip05: "", // We don't store nip05 in authorProfiles
+        };
+      }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
+      
+      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
+    } else {
+      quotedContent = "";
+    }
   }
 
-  function cancelReply() {
-    replyingTo = null;
-    isReplying = false;
-    replyContent = "";
-    replyingToMessageId = null;
-    replyRelays = [];
-    senderOutboxRelays = [];
-    recipientInboxRelays = [];
+  function closeNewMessageModal() {
+    showNewMessageModal = false;
+    newMessageContent = "";
+    selectedRecipients = [];
+    newMessageRelays = [];
+    isComposingMessage = false;
+    replyToMessage = null;
+    quotedContent = "";
   }
 
-  async function sendReply() {
-    if (!replyingTo || !replyContent.trim()) return;
+  // AI-NOTE: Recipient Selection Modal Functions
+  function openRecipientModal() {
+    showRecipientModal = true;
+    recipientSearch = "";
+    recipientResults = [];
+    recipientLoading = false;
+    recipientCommunityStatus = {};
+    isRecipientSearching = false;
+    // Focus the search input after a brief delay to ensure modal is rendered
+    setTimeout(() => {
+      recipientSearchInput?.focus();
+    }, 100);
+  }
+
+  function closeRecipientModal() {
+    showRecipientModal = false;
+    recipientSearch = "";
+    recipientResults = [];
+    recipientLoading = false;
+    recipientCommunityStatus = {};
+    isRecipientSearching = false;
+    
+    // Clear any pending search timeout
+    if (recipientSearchTimeout) {
+      clearTimeout(recipientSearchTimeout);
+      recipientSearchTimeout = null;
+    }
+  }
+
+  async function searchRecipients() {
+    if (!recipientSearch.trim()) {
+      recipientResults = [];
+      recipientCommunityStatus = {};
+      return;
+    }
+
+    // Prevent multiple concurrent searches
+    if (isRecipientSearching) {
+      return;
+    }
+
+    console.log("Starting recipient search for:", recipientSearch.trim());
+
+    // Set loading state
+    recipientLoading = true;
+    isRecipientSearching = true;
 
     try {
-      // Find the original message being replied to
-      const originalMessage = publicMessages.find(msg => msg.id === replyingToMessageId);
-      const result = await createKind24Reply(replyContent, replyingTo, originalMessage);
+      console.log("Recipient search promise created, waiting for result...");
+      const result = await searchProfiles(recipientSearch.trim());
+      console.log("Recipient search completed, found profiles:", result.profiles.length);
+      console.log("Profile details:", result.profiles);
+      console.log("Community status:", result.Status);
+
+      // Update state
+      recipientResults = result.profiles;
+      recipientCommunityStatus = result.Status;
+
+      console.log(
+        "State updated - recipientResults length:",
+        recipientResults.length,
+      );
+      console.log(
+        "State updated - recipientCommunityStatus keys:",
+        Object.keys(recipientCommunityStatus),
+      );
+    } catch (error) {
+      console.error("Error searching recipients:", error);
+      recipientResults = [];
+      recipientCommunityStatus = {};
+    } finally {
+      recipientLoading = false;
+      isRecipientSearching = false;
+      console.log(
+        "Recipient search finished - loading:",
+        recipientLoading,
+        "searching:",
+        isRecipientSearching,
+      );
+    }
+  }
+
+  // Reactive search with debouncing
+  $effect(() => {
+    // Clear existing timeout
+    if (recipientSearchTimeout) {
+      clearTimeout(recipientSearchTimeout);
+    }
+
+    // If search is empty, clear results immediately
+    if (!recipientSearch.trim()) {
+      recipientResults = [];
+      recipientCommunityStatus = {};
+      recipientLoading = false;
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    recipientLoading = true;
+
+    // Debounce the search with 300ms delay
+    recipientSearchTimeout = setTimeout(() => {
+      searchRecipients();
+    }, 300);
+  });
+
+  function selectRecipient(profile: NostrProfile) {
+    // Check if recipient is already selected
+    if (selectedRecipients.some(r => r.pubkey === profile.pubkey)) {
+      console.log("Recipient already selected:", profile.displayName || profile.name);
+      return;
+    }
+
+    // Add recipient to selection
+    selectedRecipients = [...selectedRecipients, profile];
+    console.log("Selected recipient:", profile.displayName || profile.name);
+    
+    // Close the recipient modal (New Message modal stays open)
+    closeRecipientModal();
+  }
+
+  async function sendNewMessage() {
+    if (!newMessageContent.trim() || selectedRecipients.length === 0) return;
+
+    try {
+      isComposingMessage = true;
       
-      if (result.success) {
-        // Store relay information for display
-        replyRelays = result.relays || [];
-        
-        // Update the inbox/outbox arrays to match the actual relays being used
-        // Keep only the top 3 that are actually in the reply relay set
-        const replyRelaySet = new Set(replyRelays);
-        senderOutboxRelays = senderOutboxRelays
-          .filter(relay => replyRelaySet.has(relay))
-          .slice(0, 3);
-        recipientInboxRelays = recipientInboxRelays
-          .filter(relay => replyRelaySet.has(relay))
-          .slice(0, 3);
-        
-        // Clear reply state
-        replyingTo = null;
-        isReplying = false;
-        replyContent = "";
-        replyingToMessageId = null;
-        // Optionally refresh messages
+      // Create p-tags for all recipients
+      const pTags = selectedRecipients.map(recipient => ["p", recipient.pubkey!]);
+      
+      // Get all recipient pubkeys for relay calculation
+      const recipientPubkeys = selectedRecipients.map(r => r.pubkey!);
+      
+      // Calculate relay set using the same logic as kind24_utils
+      const senderPubkey = $userStore.pubkey;
+      if (!senderPubkey) {
+        throw new Error("No sender pubkey available");
+      }
+      
+      // Get relay sets for all recipients and combine them
+      const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
+        getKind24RelaySet(senderPubkey, recipientPubkey)
+      );
+      const relaySets = await Promise.all(relaySetPromises);
+      
+      // Combine and deduplicate all relay sets
+      const allRelays = relaySets.flat();
+      const uniqueRelays = [...new Set(allRelays)];
+      newMessageRelays = uniqueRelays;
+      
+      // Create the kind 24 event with quoted content if replying
+      let finalContent = newMessageContent;
+      if (replyToMessage && quotedContent) {
+        // Generate the markdown quote format for the actual message
+        const neventUrl = getNeventUrl(replyToMessage);
+        const markdownQuote = `> QUOTED: ${quotedContent} • LINK: ${neventUrl}`;
+        finalContent = markdownQuote + "\n\n" + newMessageContent;
+      }
+      
+      const eventData = {
+        kind: 24,
+        content: finalContent,
+        tags: pTags,
+        pubkey: $userStore.pubkey || '',
+        created_at: Math.floor(Date.now() / 1000)
+      };
+
+      // Sign the event
+      let signedEvent;
+      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
+        signedEvent = await window.nostr.signEvent(eventData);
+      } else {
+        throw new Error("No signing method available");
+      }
+
+      // Publish to relays using WebSocket pool like other components
+      const { WebSocketPool } = await import("$lib/data_structures/websocket_pool");
+      let publishedToAny = false;
+
+      for (const relayUrl of newMessageRelays) {
+        try {
+          const ws = await WebSocketPool.instance.acquire(relayUrl);
+          
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              WebSocketPool.instance.release(ws);
+              reject(new Error("Timeout"));
+            }, 5000);
+
+            ws.onmessage = (e) => {
+              const [type, id, ok, message] = JSON.parse(e.data);
+              if (type === "OK" && id === signedEvent.id) {
+                clearTimeout(timeout);
+                if (ok) {
+                  publishedToAny = true;
+                  WebSocketPool.instance.release(ws);
+                  resolve();
+                } else {
+                  WebSocketPool.instance.release(ws);
+                  reject(new Error(message));
+                }
+              }
+            };
+
+            ws.send(JSON.stringify(["EVENT", signedEvent]));
+          });
+        } catch (e) {
+          console.warn(`Failed to publish to ${relayUrl}:`, e);
+        }
+      }
+
+      if (publishedToAny) {
+        // Close modal and refresh messages
+        closeNewMessageModal();
         await fetchPublicMessages();
       } else {
-        console.error("Failed to send reply:", result.error);
-        // You could show an error message to the user here
+        throw new Error("Failed to publish to any relay");
       }
     } catch (error) {
-      console.error("Error sending reply:", error);
+      console.error("Error sending new message:", error);
+      // You could show an error message to the user here
+    } finally {
+      isComposingMessage = false;
     }
   }
 
-  // Function to get relay information before sending
-  async function getReplyRelays() {
-    if (!replyingTo) return;
 
-    try {
-      const originalMessage = publicMessages.find(msg => msg.id === replyingToMessageId);
-      
-      // Get sender's outbox relays and recipient's inbox relays
-      const ndk = get(ndkInstance);
-      if (ndk?.activeUser) {
-        // Get sender's outbox relays
-        const senderUser = ndk.activeUser;
-        const senderRelayList = await ndk.fetchEvent({
-          kinds: [10002],
-          authors: [senderUser.pubkey],
-        });
-        
-        if (senderRelayList) {
-          senderOutboxRelays = senderRelayList.tags
-            .filter(tag => tag[0] === 'r' && tag[1])
-            .map(tag => tag[1])
-            .slice(0, 3); // Limit to top 3 outbox relays
-        }
-        
-        // Get recipient's inbox relays
-        const recipientUser = ndk.getUser({ pubkey: replyingTo });
-        const recipientRelayList = await ndk.fetchEvent({
-          kinds: [10002],
-          authors: [replyingTo],
-        });
-        
-        if (recipientRelayList) {
-          recipientInboxRelays = recipientRelayList.tags
-            .filter(tag => tag[0] === 'r' && tag[1])
-            .map(tag => tag[1])
-            .slice(0, 3); // Limit to top 3 inbox relays
-        }
-      }
-      
-      // If we have content, use the actual reply function
-      if (replyContent.trim()) {
-        const result = await createKind24Reply(replyContent, replyingTo, originalMessage);
-        replyRelays = result.relays || [];
-      } else {
-        // If no content yet, just get the relay set for this recipient
-        const result = await getKind24RelaySet($userStore.pubkey || '', replyingTo);
-        replyRelays = result || [];
-        
-        // Update the inbox/outbox arrays to match the actual relays being used
-        // Keep only the top 3 that are actually in the reply relay set
-        const replyRelaySet = new Set(replyRelays);
-        senderOutboxRelays = senderOutboxRelays
-          .filter(relay => replyRelaySet.has(relay))
-          .slice(0, 3);
-        recipientInboxRelays = recipientInboxRelays
-          .filter(relay => replyRelaySet.has(relay))
-          .slice(0, 3);
-        
-
-      }
-    } catch (error) {
-      console.error("Error getting relay information:", error);
-      replyRelays = [];
-      senderOutboxRelays = [];
-      recipientInboxRelays = [];
-    }
-  }
 
   // AI-NOTE: Simplified profile fetching with better error handling
   async function fetchAuthorProfiles(events: NDKEvent[]) {
@@ -545,10 +721,30 @@
     }
   });
 
-  // Fetch relay information when reply content changes (for updates)
+
+
+  // Calculate relay set when recipients change
   $effect(() => {
-    if (isReplying && replyingTo && replyContent.trim() && replyRelays.length === 0) {
-      getReplyRelays();
+    const senderPubkey = $userStore.pubkey;
+    if (selectedRecipients.length > 0 && senderPubkey) {
+      const recipientPubkeys = selectedRecipients.map(r => r.pubkey!);
+      
+      // Get relay sets for all recipients and combine them
+      const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
+        getKind24RelaySet(senderPubkey, recipientPubkey)
+      );
+      
+      Promise.all(relaySetPromises).then(relaySets => {
+        // Combine and deduplicate all relay sets
+        const allRelays = relaySets.flat();
+        const uniqueRelays = [...new Set(allRelays)];
+        newMessageRelays = uniqueRelays;
+      }).catch(error => {
+        console.error("Error getting relay set:", error);
+        newMessageRelays = [];
+      });
+    } else {
+      newMessageRelays = [];
     }
   });
 </script>
@@ -557,6 +753,18 @@
   <div class="mb-6">
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
+      
+      <div class="flex items-center gap-3">
+        <!-- New Message Button -->
+        <Button
+          color="primary"
+          size="sm"
+          onclick={() => openNewMessageModal()}
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+        >
+          <PlusOutline class="w-4 h-4" />
+          New Message
+        </Button>
       
       <!-- Mode toggle -->
       <div class="flex bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
@@ -569,6 +777,7 @@
             {modeLabel}
           </button>
         {/each}
+        </div>
       </div>
     </div>
     
@@ -634,12 +843,16 @@
                         <!-- Reply button -->
                         <button
                           class="w-6 h-6 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
-                          onclick={() => startReply(message.pubkey, message)}
+                          onclick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openNewMessageModal(message);
+                          }}
                           title="Reply to this message"
                           aria-label="Reply to this message"
                         >
                           <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 717 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                           </svg>
                         </button>
                         <!-- Filter button -->
@@ -697,63 +910,6 @@
                   </div>
                 </div>
                 
-                <!-- Inline Reply Interface -->
-                {#if isReplying && replyingToMessageId === message.id}
-                  {@const recipientProfile = authorProfiles.get(message.pubkey)}
-                  <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
-                    <div class="flex items-center gap-2 mb-2">
-                      <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
-                        Replying to: {recipientProfile?.displayName || recipientProfile?.name || `${message.pubkey.slice(0, 8)}...${message.pubkey.slice(-4)}`}
-                      </span>
-                      <button
-                        class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
-                        onclick={cancelReply}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <div class="flex gap-2">
-                      <textarea
-                        bind:value={replyContent}
-                        placeholder="Type your reply..."
-                        class="flex-1 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
-                        rows="6"
-                        onkeydown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendReply();
-                          }
-                        }}
-                      ></textarea>
-                      <button
-                        onclick={sendReply}
-                        disabled={!replyContent.trim()}
-                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:bg-blue-600 dark:hover:bg-blue-700 dark:disabled:bg-gray-600 text-white text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed"
-                      >
-                        Send
-                      </button>
-                    </div>
-                    
-                    <!-- Relay Information -->
-                    <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      {#if replyRelays.length > 0}
-
-                        <RelayInfoList 
-                          relays={replyRelays}
-                          inboxRelays={recipientInboxRelays}
-                          outboxRelays={senderOutboxRelays}
-                          showLabels={true}
-                          compact={false}
-                        />
-                      {:else}
-                        <div class="flex items-center justify-center py-2">
-                          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                          <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading relay information...</span>
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-                {/if}
               </div>
           {/each}
           </div>
@@ -845,4 +1001,236 @@
       {/if}
     {/if}
   </div>
+  
+  <!-- New Message Modal -->
+  <Modal bind:open={showNewMessageModal} size="lg" class="w-full">
+    <div class="p-6">
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {replyToMessage ? 'Reply to Message' : 'New Public Message'}
+        </h3>
+      </div>
+      
+      <!-- Quoted Content Display -->
+      {#if quotedContent}
+        <div class="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border-l-4 border-gray-400 dark:border-gray-500 rounded-r-lg">
+          <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
+          <div class="text-sm text-gray-800 dark:text-gray-200">
+            {@html renderContentWithLinks(quotedContent)}
+          </div>
+  </div>
+      {/if}
+      
+      <!-- Recipients Section -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Sending to {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''}:
+          </span>
+          <button
+            class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+            onclick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openRecipientModal();
+            }}
+          >
+            Edit Recipients
+          </button>
+        </div>
+        
+        {#if selectedRecipients.length === 0}
+          <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+            <p class="text-sm text-yellow-700 dark:text-yellow-300">
+              No recipients selected. Click "Edit Recipients" to add recipients.
+            </p>
+          </div>
+        {:else}
+          <div class="flex flex-wrap gap-2">
+            {#each selectedRecipients as recipient}
+              <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
+                {recipient.displayName || recipient.name || `${recipient.pubkey?.slice(0, 8)}...`}
+                <button
+                  onclick={() => {
+                    selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
+                  }}
+                  class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  ×
+                </button>
+              </span>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      
+      <!-- Relay Information -->
+      {#if selectedRecipients.length > 0 && newMessageRelays.length > 0}
+        <div class="mb-4">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+            Publishing to {newMessageRelays.length} relay{newMessageRelays.length !== 1 ? 's' : ''}:
+          </span>
+          <div class="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div class="space-y-1">
+              {#each newMessageRelays as relay}
+                <div class="text-xs font-mono text-gray-600 dark:text-gray-400">
+                  {relay}
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
+      
+      <!-- Message Content -->
+      <div class="mb-4">
+        <label for="new-message-content" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+          Message:
+        </label>
+        <textarea
+          id="new-message-content"
+          bind:value={newMessageContent}
+          placeholder="Type your message here..."
+          class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          rows="6"
+          onkeydown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
+              e.preventDefault();
+              sendNewMessage();
+            }
+          }}
+        ></textarea>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="flex justify-end gap-3">
+        <Button
+          color="light"
+          onclick={closeNewMessageModal}
+          disabled={isComposingMessage}
+        >
+          Cancel
+        </Button>
+        <Button
+          color="primary"
+          onclick={sendNewMessage}
+          disabled={isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim()}
+          class="flex items-center gap-2"
+        >
+          {#if isComposingMessage}
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          {/if}
+          Send to {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''}
+        </Button>
+      </div>
+    </div>
+  </Modal>
+  
+  <!-- Recipient Selection Modal -->
+  <Modal bind:open={showRecipientModal} size="lg" class="w-full">
+    <div class="p-6">
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Select Recipients</h3>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="relative">
+          <input
+            type="text"
+            placeholder="Search display name, name, NIP-05, or npub..."
+            bind:value={recipientSearch}
+            bind:this={recipientSearchInput}
+            class="w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5 {recipientLoading ? 'pr-10' : ''}"
+          />
+          {#if recipientLoading}
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+            </div>
+          {/if}
+        </div>
+
+        {#if recipientResults.length > 0}
+          <div class="max-h-64 overflow-y-auto">
+            <ul class="space-y-2">
+              {#each recipientResults as profile}
+                {@const isAlreadySelected = selectedRecipients.some(r => r.pubkey === profile.pubkey)}
+                <button
+                  onclick={() => selectRecipient(profile)}
+                  disabled={isAlreadySelected}
+                  class="w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
+                >
+                  {#if profile.picture}
+                    <img
+                      src={profile.picture}
+                      alt="Profile"
+                      class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                      onerror={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  {:else}
+                    <div
+                      class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
+                    ></div>
+                  {/if}
+                  <div class="flex flex-col text-left min-w-0 flex-1">
+                    <span class="font-semibold truncate">
+                      {profile.displayName || profile.name || recipientSearch}
+                    </span>
+                    {#if profile.nip05}
+                      <span class="text-xs text-gray-500 flex items-center gap-1">
+                        <svg
+                          class="inline w-4 h-4 text-primary-500"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          ><path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path></svg
+                        >
+                        {profile.nip05}
+                      </span>
+                    {/if}
+                    {#if profile.about}
+                      <span class="text-xs text-gray-500 truncate">{profile.about}</span>
+                    {/if}
+                  </div>
+                  {#if recipientCommunityStatus[profile.pubkey || ""]}
+                    <div
+                      class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                      title="Has posted to the community"
+                    >
+                      <svg
+                        class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                        />
+                      </svg>
+                    </div>
+                  {:else}
+                    <div class="flex-shrink-0 w-4 h-4"></div>
+                  {/if}
+                  {#if isAlreadySelected}
+                    <span class="text-xs text-green-600 dark:text-green-400 font-medium">Selected</span>
+                  {/if}
+                </button>
+              {/each}
+            </ul>
+          </div>
+        {:else if recipientSearch.trim()}
+          <div class="text-center py-4 text-gray-500">No results found</div>
+        {:else}
+          <div class="text-center py-4 text-gray-500">
+            Enter a search term to find users
+          </div>
+        {/if}
+      </div>
+    </div>
+  </Modal>
 {/if} 
