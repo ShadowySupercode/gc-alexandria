@@ -4,6 +4,7 @@ import { userStore } from "../stores/userStore";
 import { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
+import { createSignedEvent } from "./nostrEventService.ts";
 
 /**
  * Fetches user's outbox relays from NIP-65 relay list
@@ -140,10 +141,6 @@ export async function createKind24Reply(
       return { success: false, error: "No relays available for publishing" };
     }
 
-    // Create the kind 24 event
-    const event = new NDKEvent(ndk);
-    event.kind = 24;
-    
     // Build content with quoted message if replying
     let finalContent = content;
     if (originalEvent) {
@@ -155,13 +152,9 @@ export async function createKind24Reply(
       const quotedContent = originalEvent.content ? originalEvent.content.slice(0, 200) : "No content";
       // Use a more visible quote format with a clickable link
       finalContent = `> QUOTED: ${quotedContent}\n> LINK: ${nevent}\n\n${content}`;
-
     }
     
-    event.content = finalContent;
-    event.created_at = Math.floor(Date.now() / 1000);
-    
-    // Add p tag for recipient with relay URL
+    // Build tags for the kind 24 event
     const tags: string[][] = [
       ["p", recipientPubkey, prioritizedRelays[0]] // Use first relay as primary
     ];
@@ -175,11 +168,16 @@ export async function createKind24Reply(
       tags.push(["q", nevent, prioritizedRelays[0]]);
     }
     
-    event.tags = tags;
-    event.pubkey = ndk.activeUser.pubkey;
-
-    // Sign the event
-    await event.sign();
+    // Create and sign the event using the unified function (includes expiration tag)
+    const { event: signedEventData } = await createSignedEvent(
+      finalContent,
+      ndk.activeUser.pubkey,
+      24,
+      tags
+    );
+    
+    // Create NDKEvent from the signed event data
+    const event = new NDKEvent(ndk, signedEventData);
 
     // Publish to relays
     const relaySet = NDKRelaySet.fromRelayUrls(prioritizedRelays, ndk);
