@@ -17,7 +17,7 @@
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { PlusOutline } from "flowbite-svelte-icons";
+  import { PlusOutline, ReplyOutline } from "flowbite-svelte-icons";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -409,6 +409,13 @@
       
       // Create p-tags for all recipients
       const pTags = selectedRecipients.map(recipient => ["p", recipient.pubkey!]);
+      
+      // Add q tag if replying to a message (for jump-to functionality)
+      if (replyToMessage) {
+        // Get the first relay from newMessageRelays or use a fallback
+        const relayUrl = newMessageRelays[0] || "wss://freelay.sovbit.host/";
+        pTags.push(["q", replyToMessage.id, relayUrl, replyToMessage.pubkey]);
+      }
       
       // Get all recipient pubkeys for relay calculation
       const recipientPubkeys = selectedRecipients.map(r => r.pubkey!);
@@ -851,9 +858,7 @@
                           title="Reply to this message"
                           aria-label="Reply to this message"
                         >
-                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 717 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                          </svg>
+                          <ReplyOutline class="w-3 h-3" />
                         </button>
                         <!-- Filter button -->
                         <button
@@ -914,9 +919,9 @@
           {/each}
           </div>
           
-          {#if filteredMessages.length > 20}
+          {#if filteredMessages.length > 100}
             <div class="mt-4 p-3 text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              Showing 20 of {filteredMessages.length} messages {filteredByUser ? `(filtered)` : ''}. Scroll to see more.
+              Showing 100 of {filteredMessages.length} messages {filteredByUser ? `(filtered)` : ''}. Scroll to see more.
             </div>
           {/if}
         </div>
