@@ -12,6 +12,7 @@
   import { nip19 } from "nostr-tools";
   import { communityRelays, localRelays } from "$lib/consts";
   import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
+  import { createSignedEvent } from "$lib/utils/nostrEventService";
   import RelayDisplay from "$lib/components/RelayDisplay.svelte";
   import RelayInfoList from "$lib/components/RelayInfoList.svelte";
   import { Modal, Button } from "flowbite-svelte";
@@ -527,21 +528,13 @@
         finalContent = markdownQuote + "\n\n" + newMessageContent;
       }
       
-      const eventData = {
-        kind: 24,
-        content: finalContent,
-        tags: pTags,
-        pubkey: $userStore.pubkey || '',
-        created_at: Math.floor(Date.now() / 1000)
-      };
-
-      // Sign the event
-      let signedEvent;
-      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
-        signedEvent = await window.nostr.signEvent(eventData);
-      } else {
-        throw new Error("No signing method available");
-      }
+      // Create and sign the event using the unified function (includes expiration tag)
+      const { event: signedEvent } = await createSignedEvent(
+        finalContent,
+        $userStore.pubkey || '',
+        24,
+        pTags
+      );
 
       // Publish to relays using WebSocket pool like other components
       const { WebSocketPool } = await import("$lib/data_structures/websocket_pool");
