@@ -745,7 +745,7 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: {@render userBadge(filteredByUser, authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name)}
+                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || filteredByUser?.slice(0, 8) + "..." + filteredByUser?.slice(-4) || "Unknown"}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -780,7 +780,7 @@
                         </div>
                       {/if}
                       <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {@render userBadge(message.pubkey, authorProfile?.displayName || authorProfile?.name)}
+                        @{authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 8) + "..." + message.pubkey.slice(-4)}
                       </span>
                     </div>
                     
@@ -898,7 +898,7 @@
                         </div>
                       {/if}
                       <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {@render userBadge(notification.pubkey, authorProfile?.displayName || authorProfile?.name)}
+                        @{authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 8) + "..." + notification.pubkey.slice(-4)}
                       </span>
                     </div>
                   </div>
@@ -1000,7 +1000,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                {@render userBadge(recipient.pubkey!, recipient.displayName || recipient.name)}
+                @{recipient.displayName || recipient.name || recipient.pubkey?.slice(0, 8) + "..." + recipient.pubkey?.slice(-4) || "Unknown"}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1045,7 +1045,8 @@
           class="message-textarea w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
           rows="6"
           onkeydown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
+            // Allow Enter for new lines, Ctrl+Enter to send
+            if (e.key === 'Enter' && e.ctrlKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
               e.preventDefault();
               sendNewMessage();
             }
@@ -1106,7 +1107,11 @@
               {#each recipientResults as profile}
                 {@const isAlreadySelected = selectedRecipients.some(r => r.pubkey === profile.pubkey)}
                 <button
-                  onclick={() => selectRecipient(profile)}
+                  onclick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectRecipient(profile);
+                  }}
                   disabled={isAlreadySelected}
                   class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
                 >
@@ -1126,7 +1131,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      {@render userBadge(profile.pubkey!, profile.displayName || profile.name)}
+                      @{profile.displayName || profile.name || profile.pubkey?.slice(0, 8) + "..." + profile.pubkey?.slice(-4) || "Unknown"}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">
