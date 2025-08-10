@@ -22,6 +22,7 @@
     truncateContent, 
     truncateRenderedContent, 
     parseContent, 
+    parseRepostContent,
     renderQuotedContent, 
     getNotificationType, 
     fetchAuthorProfiles 
@@ -692,7 +693,7 @@
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
-  <div class="mb-6">
+  <div class="mb-6 w-full overflow-x-hidden">
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
       
@@ -740,7 +741,7 @@
           <P>No public messages found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto">
+        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden">
           {#if filteredByUser}
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
@@ -818,7 +819,7 @@
                   </div>
                   
                   <!-- Message Content -->
-                  <div class="message-content flex-1 {isFromUser ? 'text-right' : ''}">
+                  <div class="message-content flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
                     <div class="flex items-center gap-2 mb-2 {isFromUser ? 'justify-end' : ''}">
                       <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
                         {isFromUser ? 'Your Message' : 'Public Message'}
@@ -848,11 +849,13 @@
                     {/if}
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await parseContent(message.content) then parsedContent}
-                          {@html parsedContent}
-                        {:catch}
-                          {@html message.content}
-                        {/await}
+                        <div class="px-2">
+                          {#await ((message.kind === 6 || message.kind === 16) ? parseRepostContent(message.content) : parseContent(message.content)) then parsedContent}
+                            {@html parsedContent}
+                          {:catch}
+                            {@html message.content}
+                          {/await}
+                        </div>
                       </div>
                     {/if}
                     
@@ -877,7 +880,7 @@
           <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto space-y-4">
+        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
           {#each notifications.slice(0, 100) as notification}
             {@const authorProfile = authorProfiles.get(notification.pubkey)}
             <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -929,11 +932,13 @@
                     
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await parseContent(notification.content) then parsedContent}
-                          {@html parsedContent}
-                        {:catch}
-                          {@html truncateContent(notification.content)}
-                        {/await}
+                        <div class="px-2">
+                          {#await ((notification.kind === 6 || notification.kind === 16) ? parseRepostContent(notification.content) : parseContent(notification.content)) then parsedContent}
+                            {@html parsedContent}
+                          {:catch}
+                            {@html truncateContent(notification.content)}
+                          {/await}
+                        </div>
                       </div>
                     {/if}
                     

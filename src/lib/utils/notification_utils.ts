@@ -74,6 +74,48 @@ export async function parseContent(content: string): Promise<string> {
 }
 
 /**
+ * Parses repost content and renders it as an embedded event
+ */
+export async function parseRepostContent(content: string): Promise<string> {
+  if (!content) return "";
+  
+  try {
+    // Try to parse the content as JSON (repost events contain the original event as JSON)
+    const originalEvent = JSON.parse(content);
+    
+    // Extract the original event's content
+    const originalContent = originalEvent.content || "";
+    const originalAuthor = originalEvent.pubkey || "";
+    const originalCreatedAt = originalEvent.created_at || 0;
+    
+    // Parse the original content with basic markup
+    const parsedOriginalContent = await parseBasicmarkup(originalContent);
+    
+    // Create an embedded event display
+    const formattedDate = originalCreatedAt ? new Date(originalCreatedAt * 1000).toLocaleDateString() : "Unknown date";
+    const shortAuthor = originalAuthor ? `${originalAuthor.slice(0, 8)}...${originalAuthor.slice(-4)}` : "Unknown";
+    
+    return `
+      <div class="embedded-repost bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2">
+        <div class="flex items-center gap-2 mb-2 text-xs text-gray-600 dark:text-gray-400">
+          <span class="font-medium">Reposted by:</span>
+          <span class="font-mono">${shortAuthor}</span>
+          <span>•</span>
+          <span>${formattedDate}</span>
+        </div>
+        <div class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+          ${parsedOriginalContent}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    // If JSON parsing fails, fall back to basic markup
+    console.warn("Failed to parse repost content as JSON, falling back to basic markup:", error);
+    return await parseBasicmarkup(content);
+  }
+}
+
+/**
  * Renders quoted content for a message
  */
 export async function renderQuotedContent(message: NDKEvent, publicMessages: NDKEvent[]): Promise<string> {
