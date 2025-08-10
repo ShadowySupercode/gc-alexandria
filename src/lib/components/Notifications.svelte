@@ -10,7 +10,7 @@
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
-  import { communityRelays, localRelays } from "$lib/consts";
+  import { communityRelays, localRelays, anonymousRelays, searchRelays } from "$lib/consts";
   import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
   import RelayDisplay from "$lib/components/RelayDisplay.svelte";
@@ -191,38 +191,24 @@
     return parsedContent;
   }
 
-  function renderQuotedContent(message: NDKEvent): string {
+  async function renderQuotedContent(message: NDKEvent): Promise<string> {
     const qTags = message.getMatchingTags("q");
     if (qTags.length === 0) return "";
     
     const qTag = qTags[0];
-    const nevent = qTag[1];
-    
-    // Extract event ID from nevent
-    let eventId = '';
-    try {
-      const decoded = nip19.decode(nevent);
-      if (decoded.type === 'nevent' && decoded.data.id) {
-        eventId = decoded.data.id;
-      }
-    } catch (error) {
-      // If decode fails, try to extract hex ID directly
-      const hexMatch = nevent.match(/[a-f0-9]{64}/i);
-      if (hexMatch) {
-        eventId = hexMatch[0];
-      }
-    }
+    const eventId = qTag[1];
     
     if (eventId) {
       // Find the quoted message in our public messages
       const quotedMessage = publicMessages.find(msg => msg.id === eventId);
       if (quotedMessage) {
         const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content";
-        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${quotedContent}</div>`;
+        const parsedContent = await parseBasicmarkup(quotedContent);
+        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${parsedContent}</div>`;
       }
     }
     
-    return "";
+    return ""; 
   }
 
   function getNotificationType(event: NDKEvent): string {
@@ -520,9 +506,7 @@
       
       // Add q tag if replying to a message (for jump-to functionality)
       if (replyToMessage) {
-        // Get the first relay from newMessageRelays or use a fallback
-        const relayUrl = newMessageRelays[0] || "wss://freelay.sovbit.host/";
-        pTags.push(["q", replyToMessage.id, relayUrl, replyToMessage.pubkey]);
+        pTags.push(["q", replyToMessage.id, newMessageRelays[0] || anonymousRelays[0]]);
       }
       
       // Get all recipient pubkeys for relay calculation (ensure hex format)
@@ -559,14 +543,8 @@
       const uniqueRelays = [...new Set(allRelays)];
       newMessageRelays = uniqueRelays;
       
-      // Create the kind 24 event with quoted content if replying
-      let finalContent = newMessageContent;
-      if (replyToMessage && quotedContent) {
-        // Generate the markdown quote format for the actual message
-        const neventUrl = getNeventUrl(replyToMessage);
-        const markdownQuote = `> QUOTED: ${quotedContent} • LINK: ${neventUrl}`;
-        finalContent = markdownQuote + "\n\n" + newMessageContent;
-      }
+      // Use the content as-is, quoted content is handled via q tag
+      const finalContent = newMessageContent;
       
       // Create and sign the event using the unified function (includes expiration tag)
       const { event: signedEvent } = await createSignedEvent(
@@ -649,16 +627,6 @@
         }
 
         // Try search relays
-        const searchRelays = [
-          "wss://profiles.nostr1.com",
-          "wss://aggr.nostr.land",
-          "wss://relay.noswhere.com",
-          "wss://nostr.wine",
-          "wss://relay.damus.io",
-          "wss://relay.nostr.band",
-          "wss://freelay.sovbit.host"
-        ];
-
         for (const relay of searchRelays) {
           try {
             const ndk = get(ndkInstance);
@@ -1062,7 +1030,11 @@
                     
                     {#if message.getMatchingTags("q").length > 0}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {@html renderQuotedContent(message)}
+                        {#await renderQuotedContent(message) then quotedHtml}
+                          {@html quotedHtml}
+                        {:catch}
+                          <!-- Fallback if quoted content fails to render -->
+                        {/await}
                       </div>
                     {/if}
                     {#if message.content}

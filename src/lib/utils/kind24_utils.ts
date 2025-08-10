@@ -5,6 +5,7 @@ import { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { createSignedEvent } from "./nostrEventService.ts";
+import { anonymousRelays } from "../consts";
 
 /**
  * Fetches user's outbox relays from NIP-65 relay list
@@ -161,11 +162,7 @@ export async function createKind24Reply(
     
     // Add q tag if replying to an original event
     if (originalEvent) {
-      const nevent = nip19.neventEncode({ 
-        id: originalEvent.id,
-        relays: prioritizedRelays.slice(0, 3) // Use first 3 relays
-      });
-      tags.push(["q", nevent, prioritizedRelays[0]]);
+      tags.push(["q", originalEvent.id, prioritizedRelays[0] || anonymousRelays[0]]);
     }
     
     // Create and sign the event using the unified function (includes expiration tag)

@@ -33,6 +33,8 @@ export const secondaryRelays = [
 export const anonymousRelays = [
   "wss://freelay.sovbit.host",
   "wss://thecitadel.nostr1.com",
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band"
 ];
 
 export const lowbandwidthRelays = [
