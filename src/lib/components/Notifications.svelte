@@ -764,7 +764,7 @@
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    <div class="flex items-center gap-2 {isFromUser ? 'flex-row-reverse' : ''}">
+                    <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
                       {#if authorProfile?.picture}
                         <img
                           src={authorProfile.picture}
@@ -779,17 +779,19 @@
                           </span>
                         </div>
                       {/if}
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        @{authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 8) + "..." + message.pubkey.slice(-4)}
-                      </span>
+                      <div class="w-24 text-center">
+                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
+                          @{authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 8) + "..." + message.pubkey.slice(-4)}
+                        </span>
+                      </div>
                     </div>
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
-                      <div class="mt-2 flex flex-col gap-1">
+                      <div class="mt-2 flex justify-center gap-1">
                         <!-- Reply button -->
                         <button
-                          class="reply-button w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
+                          class="reply-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors"
                           onclick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -802,7 +804,7 @@
                         </button>
                         <!-- Filter button -->
                         <button
-                          class="filter-button w-6 h-6 bg-gray-400 hover:bg-gray-500 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center text-xs shadow-sm {filteredByUser === message.pubkey ? 'filter-button-active ring-2 ring-gray-300 dark:ring-gray-400' : ''}"
+                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}"
                           onclick={() => filterByUser(message.pubkey)}
                           title="Filter by this user"
                           aria-label="Filter by this user"
@@ -882,7 +884,7 @@
                 <div class="flex items-start gap-3">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0">
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-col items-center gap-2">
                       {#if authorProfile?.picture}
                         <img
                           src={authorProfile.picture}
@@ -897,9 +899,11 @@
                           </span>
                         </div>
                       {/if}
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        @{authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 8) + "..." + notification.pubkey.slice(-4)}
-                      </span>
+                      <div class="w-24 text-center">
+                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
+                          @{authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 8) + "..." + notification.pubkey.slice(-4)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   
