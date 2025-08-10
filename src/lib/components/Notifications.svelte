@@ -804,18 +804,32 @@
 
 
 
-  // Calculate relay set when recipients change
+  // AI-NOTE: Refactored to avoid blocking $effect with async operations
+  // Calculate relay set when recipients change - non-blocking approach
   $effect(() => {
     const senderPubkey = $userStore.pubkey;
     console.log("[Relay Effect] Recipients changed:", selectedRecipients.length, "Sender:", senderPubkey?.slice(0, 8));
     
     if (selectedRecipients.length > 0 && senderPubkey) {
-      const recipientPubkeys = selectedRecipients.map(r => {
+      // Start async relay set calculation without blocking the effect
+      updateRelaySet(selectedRecipients, senderPubkey);
+    } else {
+      console.log("[Relay Effect] Clearing relays - no recipients or sender");
+      newMessageRelays = [];
+    }
+  });
+
+  /**
+   * Updates relay set asynchronously to avoid blocking the reactive system
+   */
+  async function updateRelaySet(recipients: any[], senderPubkey: string) {
+    try {
+      const recipientPubkeys = recipients.map(r => {
         const pubkey = r.pubkey!;
         // Convert npub to hex if needed
         if (pubkey.startsWith('npub')) {
           try {
-            const decoded = nip19.decode(pubkey);
+            const decoded = nip19.decode(pubkey) as unknown as { type: string; data: string };
             if (decoded.type === 'npub') {
               return decoded.data;
             }
@@ -832,32 +846,29 @@
         getKind24RelaySet(senderPubkey, recipientPubkey)
       );
       
-      Promise.all(relaySetPromises).then(relaySets => {
-        console.log("[Relay Effect] Received relay sets:", relaySets);
-        // Combine and deduplicate all relay sets
-        const allRelays = relaySets.flat();
-        const uniqueRelays = [...new Set(allRelays)];
-        console.log("[Relay Effect] Final relay list:", uniqueRelays);
-        
-        // If no relays found from NIP-65, use fallback relays
-        if (uniqueRelays.length === 0) {
-          console.log("[Relay Effect] No NIP-65 relays found, using fallback");
-          const fallbackRelays = getAvailableRelays();
-          newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
-        } else {
-          newMessageRelays = uniqueRelays;
-        }
-      }).catch(error => {
-        console.error("[Relay Effect] Error getting relay set:", error);
-        console.log("[Relay Effect] Using fallback relays due to error");
+      const relaySets = await Promise.all(relaySetPromises);
+      console.log("[Relay Effect] Received relay sets:", relaySets);
+      
+      // Combine and deduplicate all relay sets
+      const allRelays = relaySets.flat();
+      const uniqueRelays = [...new Set(allRelays)];
+      console.log("[Relay Effect] Final relay list:", uniqueRelays);
+      
+      // If no relays found from NIP-65, use fallback relays
+      if (uniqueRelays.length === 0) {
+        console.log("[Relay Effect] No NIP-65 relays found, using fallback");
         const fallbackRelays = getAvailableRelays();
-        newMessageRelays = fallbackRelays.slice(0, 5);
-      });
-    } else {
-      console.log("[Relay Effect] Clearing relays - no recipients or sender");
-      newMessageRelays = [];
+        newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
+      } else {
+        newMessageRelays = uniqueRelays;
+      }
+    } catch (error) {
+      console.error("[Relay Effect] Error getting relay set:", error);
+      console.log("[Relay Effect] Using fallback relays due to error");
+      const fallbackRelays = getAvailableRelays();
+      newMessageRelays = fallbackRelays.slice(0, 5);
     }
-  });
+  }
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}

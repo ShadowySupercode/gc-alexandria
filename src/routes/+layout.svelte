@@ -19,17 +19,21 @@
   let summary =
     "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
 
-  // Reactive effect to log relay configuration when stores change
-  $effect(() => {
+  // AI-NOTE: Refactored to avoid blocking $effect with logging operations
+  // Reactive effect to log relay configuration when stores change - non-blocking approach
+  $effect.pre(() => {
     const inboxRelays = $activeInboxRelays;
     const outboxRelays = $activeOutboxRelays;
     
     // Only log if we have relays (not empty arrays)
     if (inboxRelays.length > 0 || outboxRelays.length > 0) {
-      console.log('🔌 Relay Configuration Updated:');
-      console.log('📥 Inbox Relays:', inboxRelays);
-      console.log('📤 Outbox Relays:', outboxRelays);
-      console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+      // Defer logging to avoid blocking the reactive system
+      requestAnimationFrame(() => {
+        console.log('🔌 Relay Configuration Updated:');
+        console.log('📥 Inbox Relays:', inboxRelays);
+        console.log('📤 Outbox Relays:', outboxRelays);
+        console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+      });
     }
   });
 
