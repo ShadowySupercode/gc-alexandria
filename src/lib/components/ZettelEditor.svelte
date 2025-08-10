@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Textarea, Button } from "flowbite-svelte";
-  import { EyeOutline } from "flowbite-svelte-icons";
+  import { EyeOutline, QuestionCircleOutline } from "flowbite-svelte-icons";
   import {
   extractSmartMetadata,
   parseAsciiDocWithMetadata,
@@ -11,42 +11,15 @@
   metadataToTags,
   parseSimpleAttributes,
 } from "$lib/utils/asciidoc_metadata";
-import asciidoctor from "asciidoctor";
+import Asciidoctor from "asciidoctor";
+
+  // Initialize Asciidoctor processor
+  const asciidoctor = Asciidoctor();
 
   // Component props
   let {
     content = "",
-    placeholder = `// ITERATIVE PARSING - Choose your publishing level:
-// Level 2: Only == sections become events (containing === and deeper)
-// Level 3: == sections become indices, === sections become events
-// Level 4: === sections become indices, ==== sections become events
-
-= Understanding Knowledge
-:image: https://i.nostr.build/IUs0xNyUEf5hXTFL.jpg
-:published: 2025-04-21
-:tags: knowledge, philosophy, education
-:type: text
-
-== Preface
-:tags: introduction, preface
-
-This essay outlines the purpose of Alexandria...
-
-== Introduction: Knowledge as a Living Ecosystem
-:tags: introduction, ecosystem
-
-Knowledge exists as dynamic representations...
-
-=== Why Investigate the Nature of Knowledge?
-:difficulty: intermediate
-
-Understanding the nature of knowledge itself...
-
-==== The Four Perspectives
-:complexity: high
-
-1. Material Cause: The building blocks...
-    `,
+    placeholder = "Start writing your AsciiDoc content here...",
     showPreview = false,
     parseLevel = 2,
     onContentChange = (content: string) => {},
@@ -117,16 +90,20 @@ Understanding the nature of knowledge itself...
   let parsedSections = $derived.by(() => {
     if (!parsedContent) return [];
     
-    return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
+    return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string; level?: number }) => {
       // Use simple parsing directly on section content for accurate tag extraction
       const tags = parseSimpleAttributes(section.content);
-      const level = getSectionLevel(section.content);
+      const level = section.level || getSectionLevel(section.content);
+      
+      // Determine if this is an index section (just title) or content section (full content)
+      const isIndex = parseLevel > 2 && level < parseLevel;
       
       return {
         title: section.title || "Untitled",
         content: section.content.trim(),
         tags,
         level,
+        isIndex,
       };
     });
   });
@@ -147,10 +124,18 @@ Understanding the nature of knowledge itself...
     }
   }
 
+  // Tutorial sidebar state
+  let showTutorial = $state(false);
+
   // Toggle preview panel
   function togglePreview() {
     const newShowPreview = !showPreview;
     onPreviewToggle(newShowPreview);
+  }
+
+  // Toggle tutorial sidebar
+  function toggleTutorial() {
+    showTutorial = !showTutorial;
   }
 
   // Handle content changes
@@ -162,7 +147,7 @@ Understanding the nature of knowledge itself...
 
 <div class="flex flex-col space-y-4">
   <!-- Smart Publishing Interface -->
-  <div class="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+  <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
     <div class="flex items-start justify-between">
       <div class="flex-1">
         <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
@@ -206,39 +191,44 @@ Understanding the nature of knowledge itself...
   </div>
 
   <div class="flex items-center justify-between">
-    <Button
-      color="light"
-      size="sm"
-      on:click={togglePreview}
-      class="flex items-center space-x-1"
-    >
-      {#if showPreview}
-        <EyeOutline class="w-4 h-4" />
-        <span>Hide Preview</span>
-      {:else}
-        <EyeOutline class="w-4 h-4" />
-        <span>Show Preview</span>
-      {/if}
-    </Button>
-
-    <!-- Smart Publishing Button -->
-    {#if generatedEvents && contentType !== 'none'}
+    <div class="flex items-center space-x-2">
       <Button
-        color={contentType === 'article' ? 'blue' : 'green'}
+        color="light"
         size="sm"
-        on:click={handlePublish}
+        on:click={togglePreview}
         class="flex items-center space-x-1"
       >
-        {#if contentType === 'article'}
-          <span>📚 Publish Article</span>
-          <span class="text-xs opacity-75">({generatedEvents.contentEvents.length + 1} events)</span>
+        {#if showPreview}
+          <EyeOutline class="w-4 h-4" />
+          <span>Hide Preview</span>
         {:else}
-          <span>📝 Publish Notes</span>
-          <span class="text-xs opacity-75">({generatedEvents.contentEvents.length} events)</span>
+          <EyeOutline class="w-4 h-4" />
+          <span>Show Preview</span>
         {/if}
       </Button>
+
+      <Button
+        color="light"
+        size="sm"
+        on:click={toggleTutorial}
+        class="flex items-center space-x-1"
+      >
+        <QuestionCircleOutline class="w-4 h-4" />
+        <span>{showTutorial ? 'Hide' : 'Show'} Help</span>
+      </Button>
+    </div>
+
+    <!-- Publishing Button -->
+    {#if generatedEvents && contentType !== 'none'}
+      <Button
+        color="primary"
+        size="sm"
+        on:click={handlePublish}
+      >
+        Publish
+      </Button>
     {:else}
-      <div class="text-xs text-gray-500 dark:text-gray-400 italic">
+      <div class="text-xs text-gray-500 dark:text-gray-400">
         Add content to enable publishing
       </div>
     {/if}
@@ -246,7 +236,7 @@ Understanding the nature of knowledge itself...
 
   <div class="flex space-x-6 h-96">
     <!-- Editor Panel -->
-    <div class="{showPreview ? 'w-1/2' : 'w-full'} flex flex-col">
+    <div class="{showPreview && showTutorial ? 'w-1/3' : showPreview || showTutorial ? 'w-1/2' : 'w-full'} flex flex-col">
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         <Textarea
           bind:value={content}
@@ -295,89 +285,203 @@ Understanding the nature of knowledge itself...
                 </div>
               {/if}
               
-              {#snippet previewContent()}
-                {@const levelColors = {
-                  2: 'bg-red-400', 
-                  3: 'bg-blue-400',
-                  4: 'bg-green-400',
-                  5: 'bg-yellow-400',
-                  6: 'bg-purple-400'
-                } as Record<number, string>}
-                
-                <!-- Calculate continuous indent guides that span multiple sections -->
-                {@const maxLevel = Math.max(...parsedSections.map(s => s.level))}
-                {@const guideLevels = Array.from({length: maxLevel - 1}, (_, i) => i + 2)}
-                
-                {@const minLevel = Math.min(...parsedSections.map(s => s.level))}
-                {@const maxIndentLevel = Math.max(...parsedSections.map(s => Math.max(0, s.level - minLevel)))}
-                {@const containerPadding = 24}
-                
-                <div class="prose prose-sm dark:prose-invert max-w-none relative" style="padding-left: {containerPadding}px;">
-
-                {#each parsedSections as section, index}
-                  {#snippet sectionContent()}
-                    {@const indentLevel = Math.max(0, section.level - 2)}
-                    {@const currentColor = levelColors[section.level] || 'bg-gray-500'}
-                    
-                    <div class="mb-12 relative" style="margin-left: {indentLevel * 24 - containerPadding}px; padding-left: 12px;">
-                      <!-- Current level highlight guide -->
-                      <div 
-                        class="absolute top-0 w-1.5 {currentColor} opacity-60"
-                        style="left: {-4}px; height: 100%;"
-                      ></div>
-                    
-                      <!-- Section content -->
-                      <div class="prose-content">
-                        {@html asciidoctor().convert(
-                          `${'='.repeat(section.level)} ${section.title}\n\n${section.content}`,
-                          {
-                            standalone: false,
-                            doctype: "article",
-                            attributes: {
-                              showtitle: true,
-                              sectids: true,
-                            },
-                          },
-                        )}
-                      </div>
-
-                      <!-- Tags -->
-                      {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
-                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags.filter(tag => tag[0] === 't') as tag}
-                              <span class="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2 py-1 rounded text-xs">
-                                #{tag[1]}
-                              </span>
+              <div class="prose prose-sm dark:prose-invert max-w-none">
+                <!-- Render full document with title if it's an article -->
+                {#if contentType === 'article' && parsedContent?.title}
+                  {@const documentHeader = content.split(/\n==\s+/)[0]}
+                  <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+                    <div class="asciidoc-content">
+                      {@html asciidoctor.convert(documentHeader, {
+                        standalone: false,
+                        attributes: {
+                          showtitle: true,
+                          sectids: false,
+                        }
+                      })}
+                    </div>
+                    <!-- Document-level tags -->
+                    {#if parsedContent.content}
+                      {@const documentTags = parseSimpleAttributes(parsedContent.content)}
+                      {#if documentTags.filter(tag => tag[0] === 't').length > 0}
+                        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mt-3">
+                          <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Document tags:</span>
+                            <!-- Show only hashtags (t-tags) -->
+                            {#each documentTags.filter(tag => tag[0] === 't') as tag}
+                              <div class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline">
+                                <span class="mr-1">#</span>
+                                <span>{tag[1]}</span>
+                              </div>
                             {/each}
                           </div>
                         </div>
                       {/if}
-
-                      <!-- Event boundary indicator -->
-                      {#if index < parsedSections.length - 1}
-                        <div class="mt-8 pt-4 border-t border-dashed border-gray-300 dark:border-gray-600 relative">
-                          <div class="absolute -top-2.5 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 px-2">
-                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Event Boundary</span>
-                          </div>
+                    {/if}
+                  </div>
+                {/if}
+                
+                {#each parsedSections as section, index}
+                  {@const indentLevel = Math.max(0, section.level - 2)}
+                  {@const levelColors = {
+                    2: 'bg-yellow-400', 
+                    3: 'bg-yellow-500',
+                    4: 'bg-yellow-600',
+                    5: 'bg-gray-400',
+                    6: 'bg-gray-500'
+                  } as Record<number, string>}
+                  {@const currentColor = levelColors[section.level] || 'bg-gray-600'}
+                  
+                  <div class="mb-6 relative" style="margin-left: {indentLevel * 24}px; padding-left: 12px;">
+                    <!-- Vertical indent guide -->
+                    <div 
+                      class="absolute top-0 w-1 {currentColor} opacity-60"
+                      style="left: 0; height: 100%;"
+                    ></div>
+                    
+                    <div
+                      class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content"
+                    >
+                      {#if section.isIndex}
+                        <!-- Index section: just show the title as a header -->
+                        <div class="font-semibold text-gray-900 dark:text-gray-100 py-2">
+                          {section.title}
+                        </div>
+                      {:else}
+                        <!-- Content section: render full content -->
+                        <div class="prose prose-sm dark:prose-invert">
+                          {@html asciidoctor.convert(section.content, {
+                            standalone: false,
+                            attributes: {
+                              showtitle: true,
+                              sectanchors: true,
+                              sectids: true
+                            }
+                          })}
                         </div>
                       {/if}
                     </div>
-                  {/snippet}
-                  {@render sectionContent()}
-                  {/each}
-                </div>
 
-                <!-- Event count summary -->
-                <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div class="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded">
-                    <strong>Total Events:</strong> {parsedSections.length + (contentType === 'article' ? 1 : 0)}
-                    ({contentType === 'article' ? '1 index + ' : ''}{parsedSections.length} content)
+                    <!-- Gray area with tag bubbles only for content sections -->
+                    {#if !section.isIndex}
+                      <div class="my-4 relative">
+                        <!-- Gray background area -->
+                        <div
+                          class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
+                        >
+                          <div class="flex flex-wrap gap-2 items-center">
+                            {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
+                              <!-- Show only hashtags (t-tags) -->
+                              {#each section.tags.filter(tag => tag[0] === 't') as tag}
+                                <div
+                                  class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
+                                >
+                                  <span class="mr-1">#</span>
+                                  <span>{tag[1]}</span>
+                                </div>
+                              {/each}
+                            {:else}
+                              <span
+                                class="text-gray-500 dark:text-gray-400 text-xs italic"
+                                >No hashtags</span
+                              >
+                            {/if}
+                          </div>
+                        </div>
+
+                        {#if index < parsedSections.length - 1 && !parsedSections[index + 1].isIndex}
+                          <!-- Event boundary line only between content sections -->
+                          <div
+                            class="border-t-2 border-dashed border-blue-400 relative"
+                          >
+                            <div
+                              class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium"
+                            >
+                              Event Boundary
+                            </div>
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
                   </div>
-                </div>
-              {/snippet}
-              {@render previewContent()}
+                {/each}
+              </div>
+
+              <div
+                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
+              >
+                <strong>Event Count:</strong>
+                {parsedSections.length + (contentType === 'article' ? 1 : 0)} event{(parsedSections.length + (contentType === 'article' ? 1 : 0)) !== 1
+                  ? "s"
+                  : ""}
+                ({contentType === 'article' ? '1 index + ' : ''}{parsedSections.length} content)
+              </div>
             {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Tutorial Sidebar -->
+    {#if showTutorial}
+      <div class="{showPreview ? 'w-1/3' : 'w-1/2'} flex flex-col">
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              AsciiDoc Guide
+            </h3>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-4 text-sm text-gray-700 dark:text-gray-300 space-y-4">
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Publishing Levels</h4>
+              <ul class="space-y-1 text-xs">
+                <li><strong>Level 2:</strong> Only == sections become events (containing === and deeper)</li>
+                <li><strong>Level 3:</strong> == sections become indices, === sections become events</li>
+                <li><strong>Level 4:</strong> === sections become indices, ==== sections become events</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Example Structure</h4>
+              <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs font-mono overflow-x-auto">{`= Understanding Knowledge
+:image: https://i.nostr.build/example.jpg
+:published: 2025-04-21
+:tags: knowledge, philosophy, education
+:type: text
+
+== Preface
+:tags: introduction, preface
+
+This essay outlines the purpose...
+
+== Introduction: Knowledge Ecosystem
+:tags: introduction, ecosystem
+
+Knowledge exists as dynamic representations...
+
+=== Why Investigate Knowledge?
+:difficulty: intermediate
+
+Understanding the nature of knowledge...
+
+==== The Four Perspectives
+:complexity: high
+
+1. Material Cause: The building blocks...`}</pre>
+            </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Attributes</h4>
+              <p class="text-xs">Use <code>:key: value</code> format to add metadata that becomes event tags.</p>
+            </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Content Types</h4>
+              <ul class="space-y-1 text-xs">
+                <li><strong>Article:</strong> Starts with = title, creates index + content events</li>
+                <li><strong>Notes:</strong> Just == sections, creates individual content events</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

@@ -76,6 +76,30 @@ function createProcessor() {
 }
 
 /**
+ * Decodes HTML entities in a string
+ */
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    '&#8217;': "'",
+    '&#8216;': "'",
+    '&#8220;': '"',
+    '&#8221;': '"',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+  };
+  
+  let result = text;
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, 'g'), char);
+  }
+  return result;
+}
+
+/**
  * Extracts tags from attributes, combining tags and keywords
  */
 function extractTagsFromAttributes(attributes: Record<string, any>): string[] {
@@ -305,7 +329,7 @@ export function extractDocumentMetadata(inputContent: string): {
 
   // Extract basic metadata
   const title = document.getTitle();
-  if (title) metadata.title = title;
+  if (title) metadata.title = decodeHtmlEntities(title);
 
   // Handle multiple authors - combine header line and attributes
   const authors = extractAuthorsFromHeader(document.getSource());
@@ -367,32 +391,24 @@ export function extractSectionMetadata(inputSectionContent: string): {
   content: string;
   title: string;
 } {
-  const asciidoctor = createProcessor();
-  const document = asciidoctor.load(`= Temp\n\n${inputSectionContent}`, { standalone: false }) as Document;
-  const sections = document.getSections();
-  
-  if (sections.length === 0) {
-    return { metadata: {}, content: inputSectionContent, title: '' };
+  // Extract title directly from the content using regex for more control
+  const titleMatch = inputSectionContent.match(/^(=+)\s+(.+)$/m);
+  let title = '';
+  if (titleMatch) {
+    title = titleMatch[2].trim();
   }
-
-  const section = sections[0];
-  const title = section.getTitle() || '';
+  
   const metadata: SectionMetadata = { title };
   
-  // Parse attributes from the section content (no longer used - we use simple parsing in generateNostrEvents)
-  const attributes = {};
-
   // Extract authors from section content
   const authors = extractAuthorsFromHeader(inputSectionContent, true);
   if (authors.length > 0) {
     metadata.authors = authors;
   }
 
-  // Map attributes to metadata (sections can have authors)
-  mapAttributesToMetadata(attributes, metadata, false);
-
-  // Handle tags and keywords
-  const tags = extractTagsFromAttributes(attributes);
+  // Extract tags using parseSimpleAttributes (which is what's used in generateNostrEvents)
+  const simpleAttrs = parseSimpleAttributes(inputSectionContent);
+  const tags = simpleAttrs.filter(attr => attr[0] === 't').map(attr => attr[1]);
   if (tags.length > 0) {
     metadata.tags = tags;
   }
@@ -590,7 +606,12 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
         // Save previous section if exists
         if (currentSection) {
           const sectionContent = currentSectionContent.join('\n');
-          sections.push(extractSectionMetadata(sectionContent));
+          const sectionMeta = extractSectionMetadata(sectionContent);
+          // For level 2, preserve the full content including the header
+          sections.push({
+            ...sectionMeta,
+            content: sectionContent  // Use full content, not stripped
+          });
         }
         
         // Start new section
@@ -606,7 +627,12 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
     // Save the last section
     if (currentSection) {
       const sectionContent = currentSectionContent.join('\n');
-      sections.push(extractSectionMetadata(sectionContent));
+      const sectionMeta = extractSectionMetadata(sectionContent);
+      // For level 2, preserve the full content including the header
+      sections.push({
+        ...sectionMeta,
+        content: sectionContent  // Use full content, not stripped
+      });
     }
     
     const docContent = documentContent.join('\n');
@@ -618,30 +644,36 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
     };
   }
   
-  // Level 3+: Parse both index level (parseLevel-1) and content level (parseLevel)
-  const indexLevelPattern = new RegExp(`^${'='.repeat(parseLevel - 1)}\\s+`);
-  const contentLevelPattern = new RegExp(`^${'='.repeat(parseLevel)}\\s+`);
+  // Level 3+: Parse hierarchically
+  // All levels from 2 to parseLevel-1 are indices (title only)
+  // Level parseLevel are content sections (full content)
   
+  // First, collect all sections at the content level (parseLevel)
+  const contentLevelPattern = new RegExp(`^${'='.repeat(parseLevel)}\\s+`);
   let currentSection: string | null = null;
   let currentSectionContent: string[] = [];
   let documentContent: string[] = [];
   let inDocumentHeader = true;
   
   for (const line of lines) {
-    // Check for both index level and content level headers
-    if (line.match(indexLevelPattern) || line.match(contentLevelPattern)) {
+    if (line.match(contentLevelPattern)) {
       inDocumentHeader = false;
       
       // Save previous section if exists
       if (currentSection) {
         const sectionContent = currentSectionContent.join('\n');
-        sections.push(extractSectionMetadata(sectionContent));
+        const sectionMeta = extractSectionMetadata(sectionContent);
+        sections.push({
+          ...sectionMeta,
+          content: sectionContent  // Full content including headers
+        });
       }
       
-      // Start new section
+      // Start new content section
       currentSection = line;
       currentSectionContent = [line];
     } else if (currentSection) {
+      // Continue collecting content for current section
       currentSectionContent.push(line);
     } else if (inDocumentHeader) {
       documentContent.push(line);
@@ -651,15 +683,60 @@ export function parseAsciiDocIterative(content: string, parseLevel: number = 2):
   // Save the last section
   if (currentSection) {
     const sectionContent = currentSectionContent.join('\n');
-    sections.push(extractSectionMetadata(sectionContent));
+    const sectionMeta = extractSectionMetadata(sectionContent);
+    sections.push({
+      ...sectionMeta,
+      content: sectionContent  // Full content including headers
+    });
   }
+  
+  // Now collect index sections (all levels from 2 to parseLevel-1)
+  // These should be shown as navigation/structure but not full content
+  const indexSections: Array<{
+    metadata: SectionMetadata;
+    content: string;
+    title: string;
+    level: number;
+  }> = [];
+  
+  for (let level = 2; level < parseLevel; level++) {
+    const levelPattern = new RegExp(`^${'='.repeat(level)}\\s+(.+)$`, 'gm');
+    const matches = content.matchAll(levelPattern);
+    
+    for (const match of matches) {
+      const title = match[1].trim();
+      indexSections.push({
+        metadata: { title },
+        content: `${'='.repeat(level)} ${title}`, // Just the header line for index sections
+        title,
+        level
+      });
+    }
+  }
+  
+  // Add actual level to content sections based on their content
+  const contentSectionsWithLevel = sections.map(s => ({
+    ...s, 
+    level: getSectionLevel(s.content)
+  }));
+  
+  // Combine index sections and content sections
+  // Sort by position in original content to maintain order
+  const allSections = [...indexSections, ...contentSectionsWithLevel];
+  
+  // Sort sections by their appearance in the original content
+  allSections.sort((a, b) => {
+    const posA = content.indexOf(a.content.split('\n')[0]);
+    const posB = content.indexOf(b.content.split('\n')[0]);
+    return posA - posB;
+  });
   
   const docContent = documentContent.join('\n');
   return {
     metadata: docMetadata,
     content: docContent,
     title: docMetadata.title || '',
-    sections: sections
+    sections: allSections
   };
 }
 
@@ -721,9 +798,9 @@ export function generateNostrEvents(parsed: ParsedAsciiDoc, parseLevel: number =
   const generateSectionId = (title: string): string => {
     return title
       .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
+      .replace(/[^\p{L}\p{N}]/gu, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
   };
   
   // Build hierarchical tree structure
