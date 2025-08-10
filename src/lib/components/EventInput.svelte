@@ -29,6 +29,7 @@
   import { Button } from "flowbite-svelte";
   import { goto } from "$app/navigation";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
+  import { anonymousRelays } from "$lib/consts";
 
   let kind = $state<number>(30040);
   let tags = $state<[string, string][]>([]);
@@ -384,9 +385,7 @@
 
           // Try to publish to relays directly
           const relays = [
-            "wss://relay.damus.io",
-            "wss://relay.nostr.band",
-            "wss://nos.lol",
+            ...anonymousRelays,
             ...$activeOutboxRelays,
             ...$activeInboxRelays,
           ];

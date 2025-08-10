@@ -78,20 +78,7 @@ function replaceAlexandriaNostrLinks(text: string): string {
         return `nostr:${bech32Match[0]}`;
       }
     }
-    // For non-Alexandria/localhost URLs, append (View here: nostr:<id>) if a Nostr identifier is present
-    const hexMatch = url.match(hexPattern);
-    if (hexMatch) {
-      try {
-        const nevent = nip19.neventEncode({ id: hexMatch[0] });
-        return `${url} (View here: nostr:${nevent})`;
-      } catch {
-        return url;
-      }
-    }
-    const bech32Match = url.match(bech32Pattern);
-    if (bech32Match) {
-      return `${url} (View here: nostr:${bech32Match[0]})`;
-    }
+    // For non-Alexandria/localhost URLs, just return the URL as-is
     return url;
   });
 
@@ -253,7 +240,18 @@ function processBasicFormatting(content: string): string {
       }
       // Only render <img> if the url ends with a direct image extension
       if (IMAGE_EXTENSIONS.test(url.split("?")[0])) {
-        return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
+        return `<div class="relative inline-block w-[300px] my-4">
+          <div class="w-full h-48 bg-gradient-to-br from-pink-200 to-purple-200 rounded-lg shadow-lg flex items-center justify-center">
+            <div class="text-center">
+              <div class="text-4xl mb-2">🖼️</div>
+              <div class="text-gray-600 font-medium">Image</div>
+            </div>
+          </div>
+          <img src="${url}" alt="${alt}" class="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg opacity-0 transition-opacity duration-300" loading="lazy" decoding="async" onload="this.style.opacity='0';">
+          <button class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white font-semibold rounded-lg hover:bg-opacity-40 transition-all duration-300" onclick="this.parentElement.querySelector('img').style.opacity='1'; this.style.display='none';">
+            Reveal Image
+          </button>
+        </div>`;
       }
       // Otherwise, render as a clickable link
       return `<a href="${url}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${alt || url}</a>`;
@@ -290,7 +288,18 @@ function processBasicFormatting(content: string): string {
       }
       // Only render <img> if the url ends with a direct image extension
       if (IMAGE_EXTENSIONS.test(clean.split("?")[0])) {
-        return `<img src="${clean}" alt="Embedded media" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
+        return `<div class="relative inline-block w-[300px] my-4">
+          <div class="w-full h-48 bg-gradient-to-br from-pink-200 to-purple-200 rounded-lg shadow-lg flex items-center justify-center">
+            <div class="text-center">
+              <div class="text-4xl mb-2">🖼️</div>
+              <div class="text-gray-600 font-medium">Image</div>
+            </div>
+          </div>
+          <img src="${clean}" alt="Embedded media" class="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg opacity-0 transition-opacity duration-300" loading="lazy" decoding="async" onload="this.style.opacity='0';">
+          <button class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white font-semibold rounded-lg hover:bg-opacity-40 transition-all duration-300" onclick="this.parentElement.querySelector('img').style.opacity='1'; this.style.display='none';">
+            Reveal Image
+          </button>
+        </div>`;
       }
       // Otherwise, render as a clickable link
       return `<a href="${clean}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">${clean}</a>`;
@@ -310,10 +319,10 @@ function processBasicFormatting(content: string): string {
       },
     );
 
-    // Process hashtags
+    // Process hashtags as clickable buttons
     processedText = processedText.replace(
       HASHTAG_REGEX,
-      '<span class="text-primary-600 dark:text-primary-500">#$1</span>',
+      '<button class="text-primary-600 dark:text-primary-500 hover:underline cursor-pointer" onclick="window.location.href=\'/events?t=$1\'">#$1</button>',
     );
 
     // --- Improved List Grouping and Parsing ---
