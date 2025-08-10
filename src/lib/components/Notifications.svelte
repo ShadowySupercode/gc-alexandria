@@ -5,8 +5,6 @@
   import { userStore } from "$lib/stores/userStore";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import { ndkInstance, activeInboxRelays } from "$lib/ndk";
-  import { neventEncode } from "$lib/utils";
-  import { getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
@@ -19,7 +17,19 @@
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { PlusOutline, ReplyOutline } from "flowbite-svelte-icons";
+  import { 
+    truncateContent, 
+    truncateRenderedContent, 
+    parseContent, 
+    renderQuotedContent, 
+    getNotificationType, 
+    fetchAuthorProfiles 
+  } from "$lib/utils/notification_utils";
+  import { buildCompleteRelaySet } from "$lib/utils/relay_management";
+  import { formatDate, neventEncode } from "$lib/utils";
+  import { toNpub, getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -79,148 +89,9 @@
   });
 
   // AI-NOTE: Utility functions extracted to reduce code duplication
-  function getAvailableRelays(): string[] {
-    const userInboxRelays = $userStore.relays.inbox || [];
-    const userOutboxRelays = $userStore.relays.outbox || [];
-    const activeInboxRelayList = get(activeInboxRelays);
-    
-    const allRelays = [
-      ...userInboxRelays,
-      ...userOutboxRelays,
-      ...localRelays,
-      ...communityRelays,
-      ...activeInboxRelayList
-    ];
-    
-    return [...new Set(allRelays)];
-  }
-
-  function toNpub(pubkey: string): string | null {
-    if (!pubkey) return null;
-    try {
-      if (/^[a-f0-9]{64}$/i.test(pubkey)) {
-        return nip19.npubEncode(pubkey);
-      }
-      if (pubkey.startsWith("npub1")) return pubkey;
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
   function getNeventUrl(event: NDKEvent): string {
-    const relays = getAvailableRelays();
-    return neventEncode(event, relays);
-  }
-
-  function formatDate(timestamp: number): string {
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
-  }
-
-  function truncateContent(content: string, maxLength: number = 300): string {
-    if (content.length <= maxLength) return content;
-    return content.slice(0, maxLength) + "...";
-  }
-
-  function truncateRenderedContent(renderedHtml: string, maxLength: number = 300): string {
-    // If the rendered HTML is short enough, return as-is
-    if (renderedHtml.length <= maxLength) return renderedHtml;
-    
-    // Check if there are any gray quote boxes (jump-to-message divs)
-    const hasQuoteBoxes = renderedHtml.includes('jump-to-message');
-    
-    if (hasQuoteBoxes) {
-      // Split content into quote boxes and regular text
-      const quoteBoxPattern = /<div class="block w-fit my-2 px-3 py-2 bg-gray-200[^>]*onclick="window\.dispatchEvent\(new CustomEvent\('jump-to-message'[^>]*>[^<]*<\/div>/g;
-      const quoteBoxes = renderedHtml.match(quoteBoxPattern) || [];
-      
-      // Remove quote boxes temporarily to measure text length
-      let textOnly = renderedHtml.replace(quoteBoxPattern, '|||QUOTEBOX|||');
-      
-      // If text without quote boxes is still too long, truncate it
-      if (textOnly.length > maxLength) {
-        const availableLength = maxLength - (quoteBoxes.join('').length);
-        if (availableLength > 50) { // Leave some reasonable space for text
-          textOnly = textOnly.slice(0, availableLength) + "...";
-        } else {
-          // If quote boxes take up too much space, just show them with minimal text
-          textOnly = textOnly.slice(0, 50) + "...";
-        }
-      }
-      
-      // Restore quote boxes
-      let result = textOnly;
-      quoteBoxes.forEach(box => {
-        result = result.replace('|||QUOTEBOX|||', box);
-      });
-      
-      return result;
-    } else {
-      // No quote boxes, simple truncation with HTML awareness
-      if (renderedHtml.includes('<')) {
-        // Has HTML tags, do a simple truncation but try to avoid breaking tags
-        const truncated = renderedHtml.slice(0, maxLength);
-        const lastTagStart = truncated.lastIndexOf('<');
-        const lastTagEnd = truncated.lastIndexOf('>');
-        
-        if (lastTagStart > lastTagEnd) {
-          // We're in the middle of a tag, truncate before it
-          return renderedHtml.slice(0, lastTagStart) + "...";
-        }
-        return truncated + "...";
-      } else {
-        // Plain text, simple truncation
-        return renderedHtml.slice(0, maxLength) + "...";
-      }
-    }
-  }
-
-  async function parseContent(content: string): Promise<string> {
-    if (!content) return "";
-    
-    let parsedContent = await parseBasicmarkup(content);
-    
-    return parsedContent;
-  }
-
-  async function renderQuotedContent(message: NDKEvent): Promise<string> {
-    const qTags = message.getMatchingTags("q");
-    if (qTags.length === 0) return "";
-    
-    const qTag = qTags[0];
-    const eventId = qTag[1];
-    
-    if (eventId) {
-      // Find the quoted message in our public messages
-      const quotedMessage = publicMessages.find(msg => msg.id === eventId);
-      if (quotedMessage) {
-        const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content";
-        const parsedContent = await parseBasicmarkup(quotedContent);
-        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${parsedContent}</div>`;
-      }
-    }
-    
-    return ""; 
-  }
-
-  function getNotificationType(event: NDKEvent): string {
-    switch (event.kind) {
-      case 1: return "Reply";
-      case 1111: return "Custom Reply";
-      case 9802: return "Highlight";
-      case 6: return "Repost";
-      case 16: return "Generic Repost";
-      case 24: return "Public Message";
-      default: return `Kind ${event.kind}`;
-    }
+    // Use empty relay list for nevent encoding - relays will be discovered by the events page
+    return neventEncode(event, []);
   }
 
   function navigateToEvent(nevent: string) {
@@ -605,88 +476,6 @@
     }
   }
 
-
-
-  // AI-NOTE: Simplified profile fetching with better error handling
-  async function fetchAuthorProfiles(events: NDKEvent[]) {
-    const uniquePubkeys = new Set<string>();
-    events.forEach(event => {
-      if (event.pubkey) uniquePubkeys.add(event.pubkey);
-    });
-
-    const profilePromises = Array.from(uniquePubkeys).map(async (pubkey) => {
-      try {
-        const npub = toNpub(pubkey);
-        if (!npub) return;
-
-        // Try cache first
-        let profile = await getUserMetadata(npub, false);
-        if (profile && (profile.name || profile.displayName || profile.picture)) {
-          authorProfiles.set(pubkey, profile);
-          return;
-        }
-
-        // Try search relays
-        for (const relay of searchRelays) {
-          try {
-            const ndk = get(ndkInstance);
-            if (!ndk) break;
-
-            const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
-            const profileEvent = await ndk.fetchEvent(
-              { kinds: [0], authors: [pubkey] },
-              undefined,
-              relaySet
-            );
-
-            if (profileEvent) {
-              const profileData = JSON.parse(profileEvent.content);
-              authorProfiles.set(pubkey, {
-                name: profileData.name,
-                displayName: profileData.display_name || profileData.displayName,
-                picture: profileData.picture || profileData.image
-              });
-              return;
-            }
-          } catch (error) {
-            console.warn(`[Notifications] Failed to fetch profile from ${relay}:`, error);
-          }
-        }
-
-        // Try all available relays as fallback
-        const relays = getAvailableRelays();
-        if (relays.length > 0) {
-          try {
-            const ndk = get(ndkInstance);
-            if (!ndk) return;
-
-            const relaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
-            const profileEvent = await ndk.fetchEvent(
-              { kinds: [0], authors: [pubkey] },
-              undefined,
-              relaySet
-            );
-
-            if (profileEvent) {
-              const profileData = JSON.parse(profileEvent.content);
-              authorProfiles.set(pubkey, {
-                name: profileData.name,
-                displayName: profileData.display_name || profileData.displayName,
-                picture: profileData.picture || profileData.image
-              });
-            }
-          } catch (error) {
-            console.warn(`[Notifications] Failed to fetch profile from all relays:`, error);
-          }
-        }
-      } catch (error) {
-        console.warn(`[Notifications] Failed to fetch profile for ${pubkey}:`, error);
-      }
-    });
-
-    await Promise.allSettled(profilePromises);
-  }
-
   // AI-NOTE: Simplified notification fetching
   async function fetchNotifications() {
     if (!$userStore.pubkey || !isOwnProfile) return;
@@ -697,8 +486,11 @@
     try {
       const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
-
-      const relays = getAvailableRelays();
+      
+      const userStoreValue = get(userStore);
+      const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+      const relaySet = await buildCompleteRelaySet(ndk, user);
+      const relays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
       if (relays.length === 0) throw new Error("No relays available");
 
       const filter = {
@@ -710,8 +502,8 @@
         limit: 100,
       };
 
-      const relaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
-      const events = await ndk.fetchEvents(filter, undefined, relaySet);
+      const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
+      const events = await ndk.fetchEvents(filter, undefined, ndkRelaySet);
       const eventArray = Array.from(events);
       
       // Filter out self-referential events
@@ -729,7 +521,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 100);
 
-      await fetchAuthorProfiles(notifications);
+      authorProfiles = await fetchAuthorProfiles(notifications);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -749,15 +541,18 @@
       const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
 
-      const relays = getAvailableRelays();
+      const userStoreValue = get(userStore);
+      const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+      const relaySet = await buildCompleteRelaySet(ndk, user);
+      const relays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
       if (relays.length === 0) throw new Error("No relays available");
 
-      const relaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
+      const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
 
       // Fetch only kind 24 messages
       const [messagesEvents, userMessagesEvents] = await Promise.all([
-        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 200 }, undefined, relaySet),
-        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 200 }, undefined, relaySet)
+        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet),
+        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet)
       ]);
 
       const allMessages = [
@@ -774,7 +569,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 200);
 
-      await fetchAuthorProfiles(publicMessages);
+      authorProfiles = await fetchAuthorProfiles(publicMessages);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -865,16 +660,32 @@
       // If no relays found from NIP-65, use fallback relays
       if (uniqueRelays.length === 0) {
         console.log("[Relay Effect] No NIP-65 relays found, using fallback");
-        const fallbackRelays = getAvailableRelays();
-        newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
+        const ndk = get(ndkInstance);
+        if (ndk) {
+          const userStoreValue = get(userStore);
+          const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+          const relaySet = await buildCompleteRelaySet(ndk, user);
+          const fallbackRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
+          newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
+        } else {
+          newMessageRelays = [];
+        }
       } else {
         newMessageRelays = uniqueRelays;
       }
     } catch (error) {
       console.error("[Relay Effect] Error getting relay set:", error);
       console.log("[Relay Effect] Using fallback relays due to error");
-      const fallbackRelays = getAvailableRelays();
-      newMessageRelays = fallbackRelays.slice(0, 5);
+      const ndk = get(ndkInstance);
+      if (ndk) {
+        const userStoreValue = get(userStore);
+        const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+        const relaySet = await buildCompleteRelaySet(ndk, user);
+        const fallbackRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
+        newMessageRelays = fallbackRelays.slice(0, 5);
+      } else {
+        newMessageRelays = [];
+      }
     }
   }
 </script>
@@ -933,7 +744,7 @@
             <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: {authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || `${filteredByUser.slice(0, 8)}...${filteredByUser.slice(-4)}`}
+                  Filtered by user: {@render userBadge(filteredByUser, authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name)}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -950,22 +761,27 @@
               {@const isFromUser = message.pubkey === $userStore.pubkey}
               <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all" data-event-id="{message.id}">
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
-                  <!-- Author Profile Picture -->
+                  <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    {#if authorProfile?.picture}
-                      <img
-                        src={authorProfile.picture}
-                        alt="Author avatar"
-                        class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                        onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                      />
-                    {:else}
-                      <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                        <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-                          {(authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 1)).toUpperCase()}
-                        </span>
-                      </div>
-                    {/if}
+                    <div class="flex items-center gap-2 {isFromUser ? 'flex-row-reverse' : ''}">
+                      {#if authorProfile?.picture}
+                        <img
+                          src={authorProfile.picture}
+                          alt="Author avatar"
+                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                        />
+                      {:else}
+                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                            {(authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 1)).toUpperCase()}
+                          </span>
+                        </div>
+                      {/if}
+                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {@render userBadge(message.pubkey, authorProfile?.displayName || authorProfile?.name)}
+                      </span>
+                    </div>
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
@@ -1016,21 +832,11 @@
                       </button>
                     </div>
                     
-                    <!-- Author Name -->
-                    <div class="mb-2 {isFromUser ? 'text-right' : ''}">
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {authorProfile?.displayName || authorProfile?.name || `${message.pubkey.slice(0, 8)}...${message.pubkey.slice(-4)}`}
-                      </span>
-                      {#if authorProfile?.name && authorProfile?.displayName && authorProfile.name !== authorProfile.displayName}
-                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          (@{authorProfile.name})
-                        </span>
-                      {/if}
-                    </div>
+
                     
                     {#if message.getMatchingTags("q").length > 0}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await renderQuotedContent(message) then quotedHtml}
+                        {#await renderQuotedContent(message, publicMessages) then quotedHtml}
                           {@html quotedHtml}
                         {:catch}
                           <!-- Fallback if quoted content fails to render -->
@@ -1073,22 +879,27 @@
             {@const authorProfile = authorProfiles.get(notification.pubkey)}
             <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all">
                 <div class="flex items-start gap-3">
-                  <!-- Author Profile Picture -->
+                  <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0">
-                    {#if authorProfile?.picture}
-                      <img
-                        src={authorProfile.picture}
-                        alt="Author avatar"
-                        class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                        onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                      />
-                    {:else}
-                      <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                        <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-                          {(authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 1)).toUpperCase()}
-                        </span>
-                      </div>
-                    {/if}
+                    <div class="flex items-center gap-2">
+                      {#if authorProfile?.picture}
+                        <img
+                          src={authorProfile.picture}
+                          alt="Author avatar"
+                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                        />
+                      {:else}
+                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                            {(authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 1)).toUpperCase()}
+                          </span>
+                        </div>
+                      {/if}
+                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {@render userBadge(notification.pubkey, authorProfile?.displayName || authorProfile?.name)}
+                      </span>
+                    </div>
                   </div>
                   
                   <!-- Notification Content -->
@@ -1109,21 +920,15 @@
                       </button>
                     </div>
                     
-                    <!-- Author Name -->
-                    <div class="mb-2">
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {authorProfile?.displayName || authorProfile?.name || `${notification.pubkey.slice(0, 8)}...${notification.pubkey.slice(-4)}`}
-                      </span>
-                      {#if authorProfile?.name && authorProfile?.displayName && authorProfile.name !== authorProfile.displayName}
-                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          (@{authorProfile.name})
-                        </span>
-                      {/if}
-                    </div>
+
                     
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {truncateContent(notification.content)}
+                        {#await parseContent(notification.content) then parsedContent}
+                          {@html parsedContent}
+                        {:catch}
+                          {@html truncateContent(notification.content)}
+                        {/await}
                       </div>
                     {/if}
                     
@@ -1194,7 +999,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                {recipient.displayName || recipient.name || `${recipient.pubkey?.slice(0, 8)}...`}
+                {@render userBadge(recipient.pubkey!, recipient.displayName || recipient.name)}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1320,7 +1125,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      {profile.displayName || profile.name || recipientSearch}
+                      {@render userBadge(profile.pubkey!, profile.displayName || profile.name)}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">
