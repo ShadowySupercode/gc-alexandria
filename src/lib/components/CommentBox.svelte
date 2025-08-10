@@ -10,6 +10,7 @@
   } from "$lib/utils/search_utility";
 
   import { userPubkey } from "$lib/stores/authStore.Svelte";
+  import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,
@@ -67,17 +68,12 @@
     }
   });
 
+  // Get user profile from userStore
   $effect(() => {
-    const trimmedPubkey = $userPubkey?.trim();
-    const npub = toNpub(trimmedPubkey);
-    if (npub) {
-      // Call an async function, but don't make the effect itself async
-      getUserMetadata(npub).then((metadata) => {
-        userProfile = metadata;
-      });
-    } else if (trimmedPubkey) {
-      userProfile = null;
-      error = "Invalid public key: must be a 64-character hex string.";
+    const currentUser = $userStore;
+    if (currentUser?.signedIn && currentUser.profile) {
+      userProfile = currentUser.profile;
+      error = null;
     } else {
       userProfile = null;
       error = null;
@@ -590,17 +586,20 @@
           <img
             src={userProfile.picture}
             alt={userProfile.name || "Profile"}
-            class="w-8 h-8 rounded-full"
-            onerror={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(img.alt)}`;
-            }}
+            class="w-8 h-8 rounded-full object-cover"
+            onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />
+        {:else}
+          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+              {(userProfile.displayName || userProfile.name || "U").charAt(0).toUpperCase()}
+            </span>
+          </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode($userPubkey || "").slice(0, 8) + "..."}
+            `${$userPubkey?.slice(0, 8)}...${$userPubkey?.slice(-4)}`}
         </span>
       </div>
     {/if}

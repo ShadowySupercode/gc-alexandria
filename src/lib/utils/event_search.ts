@@ -1,5 +1,5 @@
 import { ndkInstance } from "../ndk.ts";
-import { fetchEventWithFallback } from "./nostrUtils.ts";
+import { fetchEventWithFallback, NDKRelaySetFromNDK } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
@@ -11,6 +11,26 @@ import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
  * Search for a single event by ID or filter
  */
 export async function searchEvent(query: string): Promise<NDKEvent | null> {
+  const ndk = get(ndkInstance);
+  if (!ndk) {
+    console.warn("[Search] No NDK instance available");
+    return null;
+  }
+
+  // Wait for relays to be available
+  let attempts = 0;
+  const maxAttempts = 10;
+  while (ndk.pool.relays.size === 0 && attempts < maxAttempts) {
+    console.log(`[Search] Waiting for relays to be available (attempt ${attempts + 1}/${maxAttempts})`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    attempts++;
+  }
+
+  if (ndk.pool.relays.size === 0) {
+    console.warn("[Search] No relays available after waiting");
+    return null;
+  }
+
   // Clean the query and normalize to lowercase
   const cleanedQuery = query.replace(/^nostr:/, "").toLowerCase();
   let filterOrId: Filter | string = cleanedQuery;
@@ -51,8 +71,50 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     try {
       const decoded = nip19.decode(cleanedQuery);
       if (!decoded) throw new Error("Invalid identifier");
+      
+      console.log(`[Search] Decoded identifier:`, {
+        type: decoded.type,
+        data: decoded.data,
+        query: cleanedQuery
+      });
+      
       switch (decoded.type) {
         case "nevent":
+          console.log(`[Search] Processing nevent:`, {
+            id: decoded.data.id,
+            kind: decoded.data.kind,
+            relays: decoded.data.relays
+          });
+          
+          // Use the relays from the nevent if available
+          if (decoded.data.relays && decoded.data.relays.length > 0) {
+            console.log(`[Search] Using relays from nevent:`, decoded.data.relays);
+            
+            // Try to fetch the event using the nevent's relays
+            try {
+              // Create a temporary relay set for this search
+              const neventRelaySet = NDKRelaySetFromNDK.fromRelayUrls(decoded.data.relays, ndk);
+              
+              if (neventRelaySet.relays.size > 0) {
+                console.log(`[Search] Created relay set with ${neventRelaySet.relays.size} relays from nevent`);
+                
+                // Try to fetch the event using the nevent's relays
+                const event = await ndk
+                  .fetchEvent({ ids: [decoded.data.id] }, undefined, neventRelaySet)
+                  .withTimeout(TIMEOUTS.EVENT_FETCH);
+                
+                if (event) {
+                  console.log(`[Search] Found event using nevent relays:`, event.id);
+                  return event;
+                } else {
+                  console.log(`[Search] Event not found on nevent relays, trying default relays`);
+                }
+              }
+            } catch (error) {
+              console.warn(`[Search] Error fetching from nevent relays:`, error);
+            }
+          }
+          
           filterOrId = decoded.data.id;
           break;
         case "note":

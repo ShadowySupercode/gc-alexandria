@@ -488,6 +488,61 @@
       searchType,
       searchTerm,
     });
+
+    // AI-NOTE: 2025-01-24 - Check cache first for profile searches to provide immediate response
+    if (searchType === "n") {
+      try {
+        const { getUserMetadata } = await import("$lib/utils/nostrUtils");
+        const cachedProfile = await getUserMetadata(searchTerm, false);
+        if (cachedProfile && cachedProfile.name) {
+          console.log("EventSearch: Found cached profile, displaying immediately:", cachedProfile);
+          
+          // Create a mock NDKEvent for the cached profile
+          const { NDKEvent } = await import("@nostr-dev-kit/ndk");
+          const { nip19 } = await import("$lib/utils/nostrUtils");
+          
+          // Decode the npub to get the actual pubkey
+          let pubkey = searchTerm;
+          try {
+            const decoded = nip19.decode(searchTerm);
+            if (decoded && decoded.type === "npub") {
+              pubkey = decoded.data;
+            }
+          } catch (error) {
+            console.warn("EventSearch: Failed to decode npub for mock event:", error);
+          }
+          
+          const mockEvent = new NDKEvent(undefined, {
+            kind: 0,
+            pubkey: pubkey,
+            content: JSON.stringify(cachedProfile),
+            tags: [],
+            created_at: Math.floor(Date.now() / 1000),
+            id: "", // Will be computed by NDK
+            sig: "", // Will be computed by NDK
+          });
+          
+          // Display the cached profile immediately
+          handleFoundEvent(mockEvent);
+          updateSearchState(false, true, 1, "profile-cached");
+          
+          // AI-NOTE: 2025-01-24 - Still perform background search for second-order events
+          // but with better timeout handling to prevent hanging
+          setTimeout(async () => {
+            try {
+              await performBackgroundProfileSearch(searchType, searchTerm);
+            } catch (error) {
+              console.warn("EventSearch: Background profile search failed:", error);
+            }
+          }, 100);
+          
+          return;
+        }
+      } catch (error) {
+        console.warn("EventSearch: Cache check failed, proceeding with subscription search:", error);
+      }
+    }
+
     isResetting = false; // Allow effects to run for new searches
     localError = null;
     updateSearchState(true);
@@ -663,6 +718,83 @@
     }
   }
 
+  // AI-NOTE: 2025-01-24 - Function to perform background profile search without blocking UI
+  async function performBackgroundProfileSearch(
+    searchType: "d" | "t" | "n",
+    searchTerm: string,
+  ) {
+    console.log("EventSearch: Performing background profile search:", {
+      searchType,
+      searchTerm,
+    });
+    
+    try {
+      // Cancel existing search
+      if (currentAbortController) {
+        currentAbortController.abort();
+      }
+      currentAbortController = new AbortController();
+      
+      // AI-NOTE: 2025-01-24 - Add timeout to prevent hanging background searches
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Background search timeout"));
+        }, 10000); // 10 second timeout for background searches
+      });
+      
+      const searchPromise = searchBySubscription(
+        searchType,
+        searchTerm,
+        {
+          onSecondOrderUpdate: (updatedResult) => {
+            console.log("EventSearch: Background second order update:", updatedResult);
+            // Only update if we have new results
+            if (updatedResult.events.length > 0) {
+              onSearchResults(
+                updatedResult.events,
+                updatedResult.secondOrder,
+                updatedResult.tTagEvents,
+                updatedResult.eventIds,
+                updatedResult.addresses,
+                updatedResult.searchType,
+                updatedResult.searchTerm,
+              );
+            }
+          },
+          onSubscriptionCreated: (sub) => {
+            console.log("EventSearch: Background subscription created:", sub);
+            if (activeSub) {
+              activeSub.stop();
+            }
+            activeSub = sub;
+          },
+        },
+        currentAbortController.signal,
+      );
+      
+      // Race between search and timeout
+      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
+      
+      console.log("EventSearch: Background search completed:", result);
+      
+      // Only update results if we have new data
+      if (result.events.length > 0) {
+        onSearchResults(
+          result.events,
+          result.secondOrder,
+          result.tTagEvents,
+          result.eventIds,
+          result.addresses,
+          result.searchType,
+          result.searchTerm,
+        );
+      }
+    } catch (error) {
+      console.warn("EventSearch: Background profile search failed:", error);
+    }
+  }
+
+  // Search utility functions
   function handleClear() {
     isResetting = true;
     searchQuery = "";

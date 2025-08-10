@@ -19,12 +19,19 @@ export class InvalidKindError extends DecodeError {
 }
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
-  return nip19.neventEncode({
-    id: event.id,
-    kind: event.kind,
-    relays,
-    author: event.pubkey,
-  });
+  try {
+    const nevent = nip19.neventEncode({
+      id: event.id,
+      kind: event.kind,
+      relays,
+      author: event.pubkey,
+    });
+    
+    return nevent;
+  } catch (error) {
+    console.error(`[neventEncode] Error encoding nevent:`, error);
+    throw error;
+  }
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {

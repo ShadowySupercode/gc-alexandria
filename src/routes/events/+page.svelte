@@ -8,9 +8,10 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
+import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userStore } from "$lib/stores/userStore";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
+  import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
@@ -73,6 +74,25 @@
       }
     } else {
       profile = null;
+    }
+    
+    // AI-NOTE: 2025-01-24 - Ensure profile is cached for the event author
+    if (newEvent.pubkey) {
+      cacheProfileForPubkey(newEvent.pubkey);
+    }
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to ensure profile is cached for a pubkey
+  async function cacheProfileForPubkey(pubkey: string) {
+    try {
+      const npub = toNpub(pubkey);
+      if (npub) {
+        // Force fetch to ensure profile is cached
+        await getUserMetadata(npub, true);
+        console.log(`[Events Page] Cached profile for pubkey: ${pubkey}`);
+      }
+    } catch (error) {
+      console.warn(`[Events Page] Failed to cache profile for ${pubkey}:`, error);
     }
   }
 
@@ -150,20 +170,26 @@
     searchInProgress =
       loading || (results.length > 0 && secondOrder.length === 0);
 
-    // Show second-order search message when we have first-order results but no second-order yet
+    // AI-NOTE: 2025-01-08 - Only show second-order search message if we're actually searching
+    // Don't show it for cached results that have no second-order events
     if (
       results.length > 0 &&
       secondOrder.length === 0 &&
-      searchTypeParam === "n"
+      searchTypeParam === "n" &&
+      !loading // Only show message if we're actively searching, not for cached results
     ) {
       secondOrderSearchMessage = `Found ${results.length} profile(s). Starting second-order search for events mentioning these profiles...`;
     } else if (
       results.length > 0 &&
       secondOrder.length === 0 &&
-      searchTypeParam === "d"
+      searchTypeParam === "d" &&
+      !loading // Only show message if we're actively searching, not for cached results
     ) {
       secondOrderSearchMessage = `Found ${results.length} event(s). Starting second-order search for events referencing these events...`;
     } else if (secondOrder.length > 0) {
+      secondOrderSearchMessage = null;
+    } else {
+      // Clear message if we have results but no second-order search is happening
       secondOrderSearchMessage = null;
     }
 
@@ -178,9 +204,30 @@
       checkCommunityStatusForResults(tTagEvents);
     }
 
+    // AI-NOTE: 2025-01-24 - Cache profiles for all search results
+    cacheProfilesForEvents([...results, ...secondOrder, ...tTagEvents]);
+
     // Don't clear the current event - let the user continue viewing it
     // event = null;
     // profile = null;
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to cache profiles for multiple events
+  async function cacheProfilesForEvents(events: NDKEvent[]) {
+    const uniquePubkeys = new Set<string>();
+    events.forEach(event => {
+      if (event.pubkey) {
+        uniquePubkeys.add(event.pubkey);
+      }
+    });
+    
+    console.log(`[Events Page] Caching profiles for ${uniquePubkeys.size} unique pubkeys`);
+    
+    // Cache profiles in parallel
+    const cachePromises = Array.from(uniquePubkeys).map(pubkey => cacheProfileForPubkey(pubkey));
+    await Promise.allSettled(cachePromises);
+    
+    console.log(`[Events Page] Profile caching complete`);
   }
 
   function handleClear() {
@@ -226,48 +273,47 @@
     originalEventIds: Set<string>,
     originalAddresses: Set<string>,
   ): string {
-    // Check if this event has e-tags referencing original events
-    const eTags = getMatchingTags(event, "e");
-    for (const tag of eTags) {
-      if (originalEventIds.has(tag[1])) {
-        return "Reply/Reference (e-tag)";
+    const eTags = event.getMatchingTags("e");
+    const aTags = event.getMatchingTags("a");
+
+    if (eTags.length > 0) {
+      const referencedEventId = eTags[eTags.length - 1][1];
+      if (originalEventIds.has(referencedEventId)) {
+        return "Reply";
       }
     }
 
-    // Check if this event has a-tags or e-tags referencing original events
-    let tags = getMatchingTags(event, "a");
-    if (tags.length === 0) {
-      tags = getMatchingTags(event, "e");
-    }
-
-    for (const tag of tags) {
-      if (originalAddresses.has(tag[1])) {
-        return "Reply/Reference (a-tag)";
-      }
-    }
-
-    // Check if this event has content references
-    if (event.content) {
-      for (const id of originalEventIds) {
-        const neventPattern = new RegExp(`nevent1[a-z0-9]{50,}`, "i");
-        const notePattern = new RegExp(`note1[a-z0-9]{50,}`, "i");
-        if (
-          neventPattern.test(event.content) ||
-          notePattern.test(event.content)
-        ) {
-          return "Content Reference";
-        }
-      }
-
-      for (const address of originalAddresses) {
-        const naddrPattern = new RegExp(`naddr1[a-z0-9]{50,}`, "i");
-        if (naddrPattern.test(event.content)) {
-          return "Content Reference";
-        }
+    if (aTags.length > 0) {
+      const referencedAddress = aTags[aTags.length - 1][1];
+      if (originalAddresses.has(referencedAddress)) {
+        return "Quote";
       }
     }
 
     return "Reference";
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to parse profile content from kind 0 events
+  function parseProfileContent(event: NDKEvent): {
+    name?: string;
+    display_name?: string;
+    about?: string;
+    picture?: string;
+    banner?: string;
+    website?: string;
+    lud16?: string;
+    nip05?: string;
+  } | null {
+    if (event.kind !== 0 || !event.content) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(event.content);
+    } catch (error) {
+      console.warn("Failed to parse profile content:", error);
+      return null;
+    }
   }
 
   function getNeventUrl(event: NDKEvent): string {
@@ -346,9 +392,22 @@
 
 
 
-  // Log relay configuration when page mounts
-  onMount(() => {
-    logCurrentRelayConfiguration();
+  // AI-NOTE: Refactored to avoid blocking $effect with logging operations
+  // Reactive effect to log relay configuration when stores change - non-blocking approach
+  $effect.pre(() => {
+    const inboxRelays = $activeInboxRelays;
+    const outboxRelays = $activeOutboxRelays;
+    
+    // Only log if we have relays (not empty arrays)
+    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
+      // Defer logging to avoid blocking the reactive system
+      requestAnimationFrame(() => {
+        console.log('🔌 Events Page - Relay Configuration Updated:');
+        console.log('📥 Inbox Relays:', inboxRelays);
+        console.log('📤 Outbox Relays:', outboxRelays);
+        console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
+      });
+    }
   });
 
 </script>
@@ -398,19 +457,22 @@
 
         {#if searchResults.length > 0}
           <div class="mt-8">
-            <Heading tag="h2" class="h-leather mb-4">
+            <Heading tag="h2" class="h-leather mb-4 break-words">
               {#if searchType === "n"}
-                Search Results for name: "{searchTerm}" ({searchResults.length} profiles)
+                Search Results for name: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length} profiles)
               {:else if searchType === "t"}
-                Search Results for t-tag: "{searchTerm}" ({searchResults.length}
+                Search Results for t-tag: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length}
                 events)
               {:else}
-                Search Results for d-tag: "{searchTerm ||
-                  dTagValue?.toLowerCase()}" ({searchResults.length} events)
+                Search Results for d-tag: "{(() => {
+                  const term = searchTerm || dTagValue?.toLowerCase() || '';
+                  return term.length > 50 ? term.slice(0, 50) + '...' : term;
+                })()}" ({searchResults.length} events)
               {/if}
             </Heading>
             <div class="space-y-4">
               {#each searchResults as result, index}
+                {@const profileData = parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -445,7 +507,7 @@
                       <span class="text-xs text-gray-600 dark:text-gray-400">
                         {@render userBadge(
                           toNpub(result.pubkey) as string,
-                          undefined,
+                          profileData?.display_name || profileData?.name,
                         )}
                       </span>
                       <span
@@ -458,58 +520,91 @@
                           : "Unknown date"}
                       </span>
                     </div>
-                    {#if getSummary(result)}
-                      <div
-                        class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
-                      >
-                        {getSummary(result)}
+                    {#if result.kind === 0 && profileData}
+                      <div class="flex items-center gap-3 mb-2">
+                        {#if profileData.picture}
+                          <img
+                            src={profileData.picture}
+                            alt="Profile"
+                            class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                            onerror={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        {:else}
+                          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
+                              {(profileData.display_name || profileData.name || result.pubkey.slice(0, 1)).toUpperCase()}
+                            </span>
+                          </div>
+                        {/if}
+                        <div class="flex flex-col min-w-0 flex-1">
+                          {#if profileData.display_name || profileData.name}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {profileData.display_name || profileData.name}
+                            </span>
+                          {/if}
+                          {#if profileData.about}
+                            <span class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                              {profileData.about}
+                            </span>
+                          {/if}
+                        </div>
                       </div>
-                    {/if}
-                    {#if getDeferralNaddr(result)}
-                      <div
-                        class="text-xs text-primary-800 dark:text-primary-300 mb-1"
-                      >
-                        Read
-                        <span
-                          class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            navigateToPublication(
-                              getDeferralNaddr(result) || "",
-                            );
-                          }}
-                          onkeydown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
+                    {:else}
+                      {#if getSummary(result)}
+                        <div
+                          class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
+                        >
+                          {getSummary(result)}
+                        </div>
+                      {/if}
+                      {#if getDeferralNaddr(result)}
+                        <div
+                          class="text-xs text-primary-800 dark:text-primary-300 mb-1"
+                        >
+                          Read
+                          <span
+                            class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
+                            onclick={(e) => {
                               e.stopPropagation();
                               navigateToPublication(
                                 getDeferralNaddr(result) || "",
                               );
-                            }
-                          }}
-                          tabindex="0"
-                          role="button"
+                            }}
+                            onkeydown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigateToPublication(
+                                  getDeferralNaddr(result) || "",
+                                );
+                              }
+                            }}
+                            tabindex="0"
+                            role="button"
+                          >
+                            {getDeferralNaddr(result)}
+                          </span>
+                        </div>
+                      {/if}
+                      {#if isAddressableEvent(result)}
+                        <div
+                          class="text-xs text-blue-600 dark:text-blue-400 mb-1"
                         >
-                          {getDeferralNaddr(result)}
-                        </span>
-                      </div>
-                    {/if}
-                    {#if isAddressableEvent(result)}
-                      <div
-                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
-                      >
-                        <ViewPublicationLink event={result} />
-                      </div>
-                    {/if}
-                    {#if result.content}
-                      <div
-                        class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
-                      >
-                        {result.content.slice(0, 200)}{result.content.length >
-                        200
-                          ? "..."
-                          : ""}
-                      </div>
+                          <ViewPublicationLink event={result} />
+                        </div>
+                      {/if}
+                      {#if result.content}
+                        <div
+                          class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
+                        >
+                          {result.content.slice(0, 200)}{result.content.length >
+                          200
+                            ? "..."
+                            : ""}
+                        </div>
+                      {/if}
                     {/if}
                   </div>
                 </button>
@@ -535,6 +630,7 @@
             </P>
             <div class="space-y-4">
               {#each secondOrderResults as result, index}
+                {@const profileData = parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -568,7 +664,7 @@
                       <span class="text-xs text-gray-600 dark:text-gray-400">
                         {@render userBadge(
                           toNpub(result.pubkey) as string,
-                          undefined,
+                          profileData?.display_name || profileData?.name,
                         )}
                       </span>
                       <span
@@ -588,58 +684,91 @@
                         originalAddresses,
                       )}
                     </div>
-                    {#if getSummary(result)}
-                      <div
-                        class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
-                      >
-                        {getSummary(result)}
+                    {#if result.kind === 0 && profileData}
+                      <div class="flex items-center gap-3 mb-2">
+                        {#if profileData.picture}
+                          <img
+                            src={profileData.picture}
+                            alt="Profile"
+                            class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                            onerror={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        {:else}
+                          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
+                              {(profileData.display_name || profileData.name || result.pubkey.slice(0, 1)).toUpperCase()}
+                            </span>
+                          </div>
+                        {/if}
+                        <div class="flex flex-col min-w-0 flex-1">
+                          {#if profileData.display_name || profileData.name}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {profileData.display_name || profileData.name}
+                            </span>
+                          {/if}
+                          {#if profileData.about}
+                            <span class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                              {profileData.about}
+                            </span>
+                          {/if}
+                        </div>
                       </div>
-                    {/if}
-                    {#if getDeferralNaddr(result)}
-                      <div
-                        class="text-xs text-primary-800 dark:text-primary-300 mb-1"
-                      >
-                        Read
-                        <span
-                          class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            navigateToPublication(
-                              getDeferralNaddr(result) || "",
-                            );
-                          }}
-                          onkeydown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
+                    {:else}
+                      {#if getSummary(result)}
+                        <div
+                          class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
+                        >
+                          {getSummary(result)}
+                        </div>
+                      {/if}
+                      {#if getDeferralNaddr(result)}
+                        <div
+                          class="text-xs text-primary-800 dark:text-primary-300 mb-1"
+                        >
+                          Read
+                          <span
+                            class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
+                            onclick={(e) => {
                               e.stopPropagation();
                               navigateToPublication(
                                 getDeferralNaddr(result) || "",
                               );
-                            }
-                          }}
-                          tabindex="0"
-                          role="button"
+                            }}
+                            onkeydown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigateToPublication(
+                                  getDeferralNaddr(result) || "",
+                                );
+                              }
+                            }}
+                            tabindex="0"
+                            role="button"
+                          >
+                            {getDeferralNaddr(result)}
+                          </span>
+                        </div>
+                      {/if}
+                      {#if isAddressableEvent(result)}
+                        <div
+                          class="text-xs text-blue-600 dark:text-blue-400 mb-1"
                         >
-                          {getDeferralNaddr(result)}
-                        </span>
-                      </div>
-                    {/if}
-                    {#if isAddressableEvent(result)}
-                      <div
-                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
-                      >
-                        <ViewPublicationLink event={result} />
-                      </div>
-                    {/if}
-                    {#if result.content}
-                      <div
-                        class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
-                      >
-                        {result.content.slice(0, 200)}{result.content.length >
-                        200
-                          ? "..."
-                          : ""}
-                      </div>
+                          <ViewPublicationLink event={result} />
+                        </div>
+                      {/if}
+                      {#if result.content}
+                        <div
+                          class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
+                        >
+                          {result.content.slice(0, 200)}{result.content.length >
+                          200
+                            ? "..."
+                            : ""}
+                        </div>
+                      {/if}
                     {/if}
                   </div>
                 </button>
@@ -659,6 +788,7 @@
             </P>
             <div class="space-y-4">
               {#each tTagResults as result, index}
+                {@const profileData = parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -692,7 +822,7 @@
                       <span class="text-xs text-gray-600 dark:text-gray-400">
                         {@render userBadge(
                           toNpub(result.pubkey) as string,
-                          undefined,
+                          profileData?.display_name || profileData?.name,
                         )}
                       </span>
                       <span
@@ -705,58 +835,91 @@
                           : "Unknown date"}
                       </span>
                     </div>
-                    {#if getSummary(result)}
-                      <div
-                        class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
-                      >
-                        {getSummary(result)}
+                    {#if result.kind === 0 && profileData}
+                      <div class="flex items-center gap-3 mb-2">
+                        {#if profileData.picture}
+                          <img
+                            src={profileData.picture}
+                            alt="Profile"
+                            class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                            onerror={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        {:else}
+                          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
+                              {(profileData.display_name || profileData.name || result.pubkey.slice(0, 1)).toUpperCase()}
+                            </span>
+                          </div>
+                        {/if}
+                        <div class="flex flex-col min-w-0 flex-1">
+                          {#if profileData.display_name || profileData.name}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {profileData.display_name || profileData.name}
+                            </span>
+                          {/if}
+                          {#if profileData.about}
+                            <span class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                              {profileData.about}
+                            </span>
+                          {/if}
+                        </div>
                       </div>
-                    {/if}
-                    {#if getDeferralNaddr(result)}
-                      <div
-                        class="text-xs text-primary-800 dark:text-primary-300 mb-1"
-                      >
-                        Read
-                        <span
-                          class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            navigateToPublication(
-                              getDeferralNaddr(result) || "",
-                            );
-                          }}
-                          onkeydown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
+                    {:else}
+                      {#if getSummary(result)}
+                        <div
+                          class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
+                        >
+                          {getSummary(result)}
+                        </div>
+                      {/if}
+                      {#if getDeferralNaddr(result)}
+                        <div
+                          class="text-xs text-primary-800 dark:text-primary-300 mb-1"
+                        >
+                          Read
+                          <span
+                            class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
+                            onclick={(e) => {
                               e.stopPropagation();
                               navigateToPublication(
                                 getDeferralNaddr(result) || "",
                               );
-                            }
-                          }}
-                          tabindex="0"
-                          role="button"
+                            }}
+                            onkeydown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigateToPublication(
+                                  getDeferralNaddr(result) || "",
+                                );
+                              }
+                            }}
+                            tabindex="0"
+                            role="button"
+                          >
+                            {getDeferralNaddr(result)}
+                          </span>
+                        </div>
+                      {/if}
+                      {#if isAddressableEvent(result)}
+                        <div
+                          class="text-xs text-blue-600 dark:text-blue-400 mb-1"
                         >
-                          {getDeferralNaddr(result)}
-                        </span>
-                      </div>
-                    {/if}
-                    {#if isAddressableEvent(result)}
-                      <div
-                        class="text-xs text-blue-600 dark:text-blue-400 mb-1"
-                      >
-                        <ViewPublicationLink event={result} />
-                      </div>
-                    {/if}
-                    {#if result.content}
-                      <div
-                        class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
-                      >
-                        {result.content.slice(0, 200)}{result.content.length >
-                        200
-                          ? "..."
-                          : ""}
-                      </div>
+                          <ViewPublicationLink event={result} />
+                        </div>
+                      {/if}
+                      {#if result.content}
+                        <div
+                          class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
+                        >
+                          {result.content.slice(0, 200)}{result.content.length >
+                          200
+                            ? "..."
+                            : ""}
+                        </div>
+                      {/if}
                     {/if}
                   </div>
                 </button>
@@ -810,6 +973,8 @@
         <EventDetails {event} {profile} {searchValue} />
         <RelayActions {event} />
 
+        <CommentViewer {event} />
+        
         {#if isLoggedIn && userPubkey}
           <div class="mt-8">
             <Heading tag="h3" class="h-leather mb-4">Add Comment</Heading>

@@ -14,6 +14,9 @@ export const searchRelays = [
   "wss://aggr.nostr.land",
   "wss://relay.noswhere.com",
   "wss://nostr.wine",
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band",
+  "wss://freelay.sovbit.host"
 ];
 
 export const secondaryRelays = [
@@ -30,6 +33,8 @@ export const secondaryRelays = [
 export const anonymousRelays = [
   "wss://freelay.sovbit.host",
   "wss://thecitadel.nostr1.com",
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band"
 ];
 
 export const lowbandwidthRelays = [
@@ -47,6 +52,8 @@ export enum FeedType {
   CommunityRelays = "standard",
   UserRelays = "user",
 }
+
+export const EXPIRATION_DURATION = 28 * 24 * 60 * 60; // 4 weeks in seconds
 
 export const loginStorageKey = "alexandria/login/pubkey";
 export const feedTypeStorageKey = "alexandria/feed/type";
