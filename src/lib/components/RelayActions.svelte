@@ -73,7 +73,7 @@
 </script>
 
 <div class="mt-4 flex flex-wrap gap-2">
-  <Button on:click={openRelayModal} class="flex items-center">
+  <Button onclick={openRelayModal} class="flex items-center">
     {@html searchIcon}
     Where can I find this event?
   </Button>

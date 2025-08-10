@@ -183,7 +183,7 @@
             {selectedTagTypes.has(type)
             ? 'border-2 border-amber-800'
             : 'border border-amber-200'}"
-          on:click={() => toggleTagType(type)}
+          onclick={() => toggleTagType(type)}
         >
           {#if type.length === 1}
             <span class="text-amber-400 font-mono">{type}</span>
@@ -200,7 +200,7 @@
       {#if tagsToShow.length > 0}
         <button
           class="ml-2 px-3 py-1 rounded-full text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
-          on:click={clearTagFilter}
+          onclick={clearTagFilter}
           disabled={tagFilter.size === 0}
         >
           Clear Tag Filter
@@ -215,7 +215,7 @@
             {tagFilter.has(tag)
             ? 'border-2 border-amber-800'
             : 'border border-amber-200'}"
-          on:click={() => toggleTag(tag)}
+          onclick={() => toggleTag(tag)}
         >
           <span>{tag}</span>
         </button>
@@ -240,7 +240,7 @@
               <div class="font-semibold text-lg truncate flex-1 mr-2">{getTitle(event)}</div>
               <button
                 class="flex-shrink-0 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                on:click={() => toggleTags(event.id)}
+                onclick={() => toggleTags(event.id)}
                 aria-label="Show tags"
               >
                 {showTags[event.id] ? "Hide Tags" : "Show Tags"}
