@@ -151,18 +151,8 @@ export async function createKind24Reply(
       return { success: false, error: "No relays available for publishing" };
     }
 
-    // Build content with quoted message if replying
-    let finalContent = content;
-    if (originalEvent) {
-      // Use multiple relays for better discoverability
-      const nevent = nip19.neventEncode({ 
-        id: originalEvent.id,
-        relays: prioritizedRelays.slice(0, 3) // Use first 3 relays
-      });
-      const quotedContent = originalEvent.content ? originalEvent.content.slice(0, 200) : "No content";
-      // Use a more visible quote format with a clickable link
-      finalContent = `> QUOTED: ${quotedContent}\n> LINK: ${nevent}\n\n${content}`;
-    }
+    // Use the content as-is, quoted content is handled via q tag
+    const finalContent = content;
     
     // Build tags for the kind 24 event
     const tags: string[][] = [

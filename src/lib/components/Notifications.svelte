@@ -19,6 +19,7 @@
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { PlusOutline, ReplyOutline } from "flowbite-svelte-icons";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -182,31 +183,46 @@
     }
   }
 
-  function renderContentWithLinks(content: string): string {
-    // Parse markdown links [text](url) and convert to HTML
-    let rendered = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline">$1</a>');
+  async function parseContent(content: string): Promise<string> {
+    if (!content) return "";
     
-    // Handle quote format and convert to small gray bars like Jumble
-    const patterns = [
-      /> QUOTED: ([^•]*?) • LINK:\s*\n((?:nostr:)?nevent[^\s]*)/g,
-      /> QUOTED: ([^\n]*?)\n> LINK: ((?:nostr:)?nevent[^\s]*)/g,
-      /> QUOTED: ([^•]*?) • LINK:\s*((?:nostr:)?nevent[^\s]*)/g,
-      /> QUOTED: ([^•]*?) • LINK: ((?:nostr:)?nevent[^\s]*)/g,  // Without optional whitespace
-    ];
+    let parsedContent = await parseBasicmarkup(content);
     
-    for (const pattern of patterns) {
-      const beforeReplace = rendered;
-      rendered = rendered.replace(pattern, (match, quotedText, neventUrl) => {
-        const encodedUrl = neventUrl.replace(/'/g, '&#39;');
-        const cleanQuotedText = quotedText.trim();
-        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${encodedUrl}' }))">${cleanQuotedText}</div>`;
-      });
-      if (beforeReplace !== rendered) {
-        break;
+    return parsedContent;
+  }
+
+  function renderQuotedContent(message: NDKEvent): string {
+    const qTags = message.getMatchingTags("q");
+    if (qTags.length === 0) return "";
+    
+    const qTag = qTags[0];
+    const nevent = qTag[1];
+    
+    // Extract event ID from nevent
+    let eventId = '';
+    try {
+      const decoded = nip19.decode(nevent);
+      if (decoded.type === 'nevent' && decoded.data.id) {
+        eventId = decoded.data.id;
+      }
+    } catch (error) {
+      // If decode fails, try to extract hex ID directly
+      const hexMatch = nevent.match(/[a-f0-9]{64}/i);
+      if (hexMatch) {
+        eventId = hexMatch[0];
       }
     }
     
-    return rendered;
+    if (eventId) {
+      // Find the quoted message in our public messages
+      const quotedMessage = publicMessages.find(msg => msg.id === eventId);
+      if (quotedMessage) {
+        const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content";
+        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${quotedContent}</div>`;
+      }
+    }
+    
+    return "";
   }
 
   function getNotificationType(event: NDKEvent): string {
@@ -226,35 +242,59 @@
     goto(`/events?id=${nevent}`);
   }
 
-  function jumpToMessageInFeed(nevent: string) {
+  function jumpToMessageInFeed(eventIdOrNevent: string) {
     // Switch to public messages tab and scroll to the specific message
     notificationMode = "public-messages";
     
     // Try to find and scroll to the specific message
     setTimeout(() => {
-      try {
-        // Decode the nevent to get the event ID
-        const decoded = nip19.decode(nevent);
-        if (decoded.type === 'nevent' && decoded.data.id) {
-          const eventId = decoded.data.id;
-          
-          // Find the message in our public messages
-          const targetMessage = publicMessages.find(msg => msg.id === eventId);
-          if (targetMessage) {
-            // Try to scroll to the element if it exists in the DOM
-            const element = document.querySelector(`[data-event-id="${eventId}"]`);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              // Briefly highlight the message
-              element.classList.add('ring-2', 'ring-blue-500');
-              setTimeout(() => {
-                element.classList.remove('ring-2', 'ring-blue-500');
-              }, 2000);
-            }
+      let eventId = eventIdOrNevent;
+      
+      // If it's a nevent URL, try to extract the event ID
+      if (eventIdOrNevent.startsWith('nostr:nevent') || eventIdOrNevent.startsWith('nevent')) {
+        try {
+          const decoded = nip19.decode(eventIdOrNevent);
+          if (decoded.type === 'nevent' && decoded.data.id) {
+            eventId = decoded.data.id;
+          }
+        } catch (error) {
+          // If decode fails, try to extract hex ID directly
+          const hexMatch = eventIdOrNevent.match(/[a-f0-9]{64}/i);
+          if (hexMatch) {
+            eventId = hexMatch[0];
+          } else {
+            console.warn('Failed to extract event ID from nevent:', eventIdOrNevent);
+            return;
           }
         }
-      } catch (error) {
-        console.warn('Failed to jump to message:', error);
+      }
+      
+      // Find the message in our public messages
+      const targetMessage = publicMessages.find(msg => msg.id === eventId);
+      if (targetMessage) {
+        // Try to find the element in the DOM
+        const element = document.querySelector(`[data-event-id="${eventId}"]`);
+        if (element) {
+          // Check if element is in viewport
+          const rect = element.getBoundingClientRect();
+          const isInView = (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+          );
+          
+          // Only scroll if not in view
+          if (!isInView) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          
+          // ALWAYS highlight the message in blue
+          element.classList.add('ring-2', 'ring-blue-500');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-blue-500');
+          }, 2000);
+        }
       }
     }, 100);
   }
@@ -1020,9 +1060,18 @@
                       {/if}
                     </div>
                     
+                    {#if message.getMatchingTags("q").length > 0}
+                      <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
+                        {@html renderQuotedContent(message)}
+                      </div>
+                    {/if}
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {@html truncateRenderedContent(renderContentWithLinks(message.content), 300)}
+                        {#await parseContent(message.content) then parsedContent}
+                          {@html parsedContent}
+                        {:catch}
+                          {@html message.content}
+                        {/await}
                       </div>
                     {/if}
                     
@@ -1136,7 +1185,11 @@
         <div class="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border-l-4 border-gray-400 dark:border-gray-500 rounded-r-lg">
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
-            {@html renderContentWithLinks(quotedContent)}
+            {#await parseContent(quotedContent) then parsedContent}
+              {@html parsedContent}
+            {:catch}
+              {@html quotedContent}
+            {/await}
           </div>
   </div>
       {/if}
