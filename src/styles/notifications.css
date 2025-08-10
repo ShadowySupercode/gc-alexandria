@@ -1,0 +1,214 @@
+/* Notifications Component Styles */
+
+/* Loading spinner animation */
+.notifications-loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Message highlighting for jump-to functionality */
+.message-highlight {
+  transition: all 0.2s ease-in-out;
+}
+
+.message-highlight.ring-2 {
+  box-shadow: 0 0 0 2px rgb(59 130 246);
+}
+
+/* Modal content styling */
+.modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Recipient search results */
+.recipient-results {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+/* Message content area */
+.message-content {
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+/* Profile picture fallback */
+.profile-picture-fallback {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+}
+
+.dark .profile-picture-fallback {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+
+/* Filter button states */
+.filter-button-active {
+  background-color: rgb(107 114 128);
+  color: rgb(243 244 246);
+}
+
+.dark .filter-button-active {
+  background-color: rgb(107 114 128);
+  color: rgb(243 244 246);
+}
+
+/* Reply button hover states */
+.reply-button:hover {
+  background-color: rgb(37 99 235);
+}
+
+.dark .reply-button:hover {
+  background-color: rgb(29 78 216);
+}
+
+/* Community status indicator */
+.community-status-indicator {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.dark .community-status-indicator {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+}
+
+/* Quoted content styling */
+.quoted-content {
+  border-left: 4px solid rgb(156 163 175);
+  background-color: rgb(249 250 251);
+}
+
+.dark .quoted-content {
+  border-left-color: rgb(107 114 128);
+  background-color: rgb(31 41 55);
+}
+
+/* Recipient selection styling */
+.recipient-selection {
+  background-color: rgb(243 244 246);
+  border: 1px solid rgb(229 231 235);
+}
+
+.dark .recipient-selection {
+  background-color: rgb(55 65 81);
+  border-color: rgb(75 85 99);
+}
+
+/* Message container hover effects */
+.message-container {
+  transition: all 0.2s ease-in-out;
+}
+
+.message-container:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.dark .message-container:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+}
+
+/* Filter indicator styling */
+.filter-indicator {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid rgb(147 197 253);
+}
+
+.dark .filter-indicator {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  border-color: rgb(59 130 246);
+}
+
+/* Textarea focus states */
+.message-textarea:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px rgb(59 130 246);
+}
+
+/* Button disabled states */
+.button-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Search input focus states */
+.search-input:focus {
+  border-color: rgb(59 130 246);
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
+}
+
+.dark .search-input:focus {
+  border-color: rgb(59 130 246);
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.3);
+}
+
+/* Transition utilities */
+.transition-colors {
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, text-decoration-color 0.15s ease-in-out, fill 0.15s ease-in-out, stroke 0.15s ease-in-out;
+}
+
+.transition-all {
+  transition: all 0.15s ease-in-out;
+}
+
+/* Mode toggle button states */
+.mode-toggle-button {
+  transition: all 0.15s ease-in-out;
+}
+
+.mode-toggle-button.active {
+  background-color: rgb(255 255 255);
+  color: rgb(17 24 39);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.dark .mode-toggle-button.active {
+  background-color: rgb(31 41 55);
+  color: rgb(243 244 246);
+}
+
+.mode-toggle-button.inactive {
+  color: rgb(55 65 81);
+}
+
+.dark .mode-toggle-button.inactive {
+  color: rgb(156 163 175);
+}
+
+.mode-toggle-button.inactive:hover {
+  color: rgb(17 24 39);
+}
+
+.dark .mode-toggle-button.inactive:hover {
+  color: rgb(243 244 246);
+}
+
+/* Filter button transitions */
+.filter-button {
+  transition: all 0.15s ease-in-out;
+}
+
+/* Recipient selection button transitions */
+.recipient-selection-button {
+  transition: all 0.15s ease-in-out;
+}
+
+.recipient-selection-button:hover {
+  background-color: rgb(249 250 251);
+}
+
+.dark .recipient-selection-button:hover {
+  background-color: rgb(55 65 81);
+}
+
+.recipient-selection-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(59 130 246);
+}
