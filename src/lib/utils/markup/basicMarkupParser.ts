@@ -295,9 +295,18 @@ function processBasicFormatting(content: string): string {
               <div class="text-gray-600 font-medium">Image</div>
             </div>
           </div>
-          <img src="${clean}" alt="Embedded media" class="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg opacity-0 transition-opacity duration-300" loading="lazy" decoding="async" onload="this.style.opacity='0';">
-          <button class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white font-semibold rounded-lg hover:bg-opacity-40 transition-all duration-300" onclick="this.parentElement.querySelector('img').style.opacity='1'; this.style.display='none';">
+          <img src="${clean}" alt="Embedded media" class="absolute inset-0 w-full h-full object-contain rounded-lg shadow-lg opacity-0 transition-opacity duration-300" loading="lazy" decoding="async" onload="this.style.opacity='0';">
+          <button class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white font-semibold rounded-lg hover:bg-opacity-40 transition-all duration-300" onclick="const img = this.parentElement.querySelector('img'); const expandBtn = this.parentElement.querySelector('button[title]'); img.style.opacity='1'; this.style.display='none'; expandBtn.style.display='flex'; expandBtn.style.opacity='1'; expandBtn.style.pointerEvents='auto';">
             Reveal Image
+          </button>
+          <!-- Expand button - initially hidden, shown after image is revealed -->
+          <button class="absolute top-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none" 
+                  onclick="window.open('${clean}', '_blank')" 
+                  title="Open image in full size"
+                  style="display: none;">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
           </button>
         </div>`;
       }
