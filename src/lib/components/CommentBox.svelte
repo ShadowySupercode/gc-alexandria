@@ -4,11 +4,7 @@
   import { nip19 } from "nostr-tools";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
-  import type {
-    NostrProfile,
-    ProfileSearchResult,
-  } from "$lib/utils/search_utility";
-
+  import type { NostrProfile } from "$lib/utils/search_utility";
   import { userPubkey } from "$lib/stores/authStore.svelte";
   import { userStore } from "$lib/nostr/utils/auth/auth";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
