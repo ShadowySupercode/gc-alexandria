@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
-  import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -8,15 +7,15 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
-import CommentViewer from "$lib/components/CommentViewer.svelte";
-  import { userStore } from "$lib/nostr/utils/auth";
+  import CommentViewer from "$lib/components/CommentViewer.svelte";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";

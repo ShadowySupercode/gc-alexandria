@@ -4,7 +4,7 @@ import { getUserMetadata, NDKRelaySetFromNDK, toNpub } from "$lib/utils/nostrUti
 import { get } from "svelte/store";
 import { ndkInstance } from "$lib/ndk";
 import { searchRelays } from "$lib/consts";
-import { userStore } from "$lib/nostr/utils/auth";
+import { userStore } from "$lib/nostr/utils/auth/auth";
 import { buildCompleteRelaySet } from "$lib/utils/relay_management";
 import { neventEncode } from "$lib/utils";
 

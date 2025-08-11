@@ -1,25 +1,20 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { userStore } from "$lib/nostr/utils/auth";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.svelte";
-  import { ndkInstance, activeInboxRelays } from "$lib/ndk";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
+  import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
-  import { communityRelays, localRelays, anonymousRelays, searchRelays } from "$lib/consts";
-  import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
+  import { anonymousRelays } from "$lib/consts";
+  import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
-  import RelayDisplay from "$lib/components/RelayDisplay.svelte";
-  import RelayInfoList from "$lib/components/RelayInfoList.svelte";
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { PlusOutline, ReplyOutline } from "flowbite-svelte-icons";
   import { 
     truncateContent, 
-    truncateRenderedContent, 
     parseContent, 
     renderQuotedContent, 
     getNotificationType, 
@@ -27,8 +22,7 @@
   } from "$lib/utils/notification_utils";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
-  import { toNpub, getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();

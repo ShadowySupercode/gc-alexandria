@@ -9,9 +9,9 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkInstance, ndkSignedIn, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-  import { userStore } from "$lib/nostr/utils/auth";
-  import { communityRelays, anonymousRelays } from "$lib/consts";
+  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
+  import { anonymousRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue

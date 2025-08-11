@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
@@ -12,8 +11,7 @@
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
-  import type { SearchResult } from '$lib/utils/search_types';
-  import { userStore } from "$lib/nostr/utils/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
   import { get } from "svelte/store";
 
   // Props definition

@@ -7,15 +7,13 @@
     loginWithExtension,
     loginWithAmber,
     loginWithNpub
-  } from "$lib/nostr/utils/auth";
+  } from "$lib/nostr/utils/auth/auth";
   import { ndkInstance } from "$lib/ndk";
   import {
     ArrowRightToBracketOutline,
     UserOutline,
-    FileSearchOutline,
   } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
-  import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
@@ -23,7 +21,7 @@
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import { activeInboxRelays } from "$lib/ndk";
 
-  let { pubkey, isNav = false } = $props<{ pubkey?: string, isNav?: boolean }>();
+  let { isNav = false } = $props<{ isNav?: boolean }>();
 
   // UI state for login functionality
   let isLoadingExtension: boolean = $state(false);

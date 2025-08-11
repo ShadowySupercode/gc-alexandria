@@ -8,7 +8,7 @@
     NavBrand,
   } from "flowbite-svelte";
   import Profile from "./util/Profile.svelte";
-  import { userStore } from "$lib/nostr/utils/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth.ts";
 
   let { class: className = "" } = $props();
   
@@ -22,7 +22,7 @@
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Profile isNav={true} pubkey={userState.npub || undefined} />
+    <Profile isNav={true} />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">

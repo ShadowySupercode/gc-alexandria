@@ -18,7 +18,7 @@ import {
 
 // Re-export testRelayConnection for components that need it
 export { testRelayConnection };
-import { userStore } from "./nostr/utils/auth.ts";
+import { userStore } from "./nostr/utils/auth/auth.ts";
 import { userPubkey } from "./stores/authStore.svelte.ts";
 import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
 import { WebSocketPool } from "./data_structures/websocket_pool.ts";

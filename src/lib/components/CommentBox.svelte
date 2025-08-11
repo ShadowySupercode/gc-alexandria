@@ -2,7 +2,7 @@
   import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
-  import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
+  import { toNpub } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type {
     NostrProfile,
@@ -10,7 +10,7 @@
   } from "$lib/utils/search_utility";
 
   import { userPubkey } from "$lib/stores/authStore.svelte";
-  import { userStore } from "$lib/nostr/utils/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,
@@ -18,7 +18,6 @@
     buildReplyTags,
     createSignedEvent,
     publishEvent,
-    navigateToEvent,
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";

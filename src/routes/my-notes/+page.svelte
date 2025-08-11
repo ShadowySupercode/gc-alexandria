@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { userStore } from "$lib/nostr/utils/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
