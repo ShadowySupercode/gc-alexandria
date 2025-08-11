@@ -62,7 +62,7 @@
     <div class="flex flex-row justify-between items-center">
       <!-- Index author badge -->
       <P class="text-base font-normal"
-        >{@render userBadge(event.pubkey, author)}</P
+        >{@render userBadge(event.pubkey, undefined)}</P
       >
       <CardActions {event}></CardActions>
     </div>

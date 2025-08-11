@@ -146,7 +146,7 @@
 
     <!-- Publish Button -->
     <Button
-      on:click={handlePublish}
+      onclick={handlePublish}
       disabled={isPublishing || !content.trim()}
       class="w-full"
     >

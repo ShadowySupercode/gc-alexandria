@@ -2,6 +2,10 @@ import { Lazy } from "./lazy.ts";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import { fetchEventById } from "../utils/websocket_utils.ts";
+import { fetchEventWithFallback, NDKRelaySetFromNDK } from "../utils/nostrUtils.ts";
+import { get } from "svelte/store";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import { searchRelays, secondaryRelays } from "../consts.ts";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -685,24 +689,108 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     
     if (!event) {
       const [kind, pubkey, dTag] = address.split(":");
-      const fetchedEvent = await this.#ndk.fetchEvent({
+      
+      // AI-NOTE: 2025-01-24 - Enhanced event fetching with comprehensive fallback
+      // First try to fetch using the enhanced fetchEventWithFallback function
+      // which includes search relay fallback logic
+      return fetchEventWithFallback(this.#ndk, {
         kinds: [parseInt(kind)],
         authors: [pubkey],
         "#d": [dTag],
-      });
-      
-      // Cache the event if found
-      if (fetchedEvent) {
-        this.#eventCache.set(address, fetchedEvent);
-        event = fetchedEvent;
-      }
+      }, 5000) // 5 second timeout for publication events
+        .then(fetchedEvent => {
+          if (fetchedEvent) {
+            // Cache the event if found
+            this.#eventCache.set(address, fetchedEvent);
+            event = fetchedEvent;
+          }
+          
+          if (!event) {
+            console.warn(
+              `[PublicationTree] Event with address ${address} not found on primary relays, trying search relays.`,
+            );
+            
+                         // If still not found, try a more aggressive search using search relays
+             return this.#trySearchRelayFallback(address, kind, pubkey, dTag, parentNode);
+          }
+          
+          return this.#buildNodeFromEvent(event, address, parentNode);
+        })
+        .catch(error => {
+          console.warn(`[PublicationTree] Error fetching event for address ${address}:`, error);
+          
+                     // Try search relay fallback even on error
+           return this.#trySearchRelayFallback(address, kind, pubkey, dTag, parentNode);
+        });
     }
 
-    if (!event) {
-      console.debug(
-        `[PublicationTree] Event with address ${address} not found.`,
-      );
+    return Promise.resolve(this.#buildNodeFromEvent(event, address, parentNode));
+  }
 
+  /**
+   * AI-NOTE: 2025-01-24 - Aggressive search relay fallback for publication events
+   * This method tries to find events on search relays when they're not found on primary relays
+   */
+  async #trySearchRelayFallback(
+    address: string, 
+    kind: string, 
+    pubkey: string, 
+    dTag: string,
+    parentNode: PublicationTreeNode
+  ): Promise<PublicationTreeNode> {
+    try {
+      console.log(`[PublicationTree] Trying search relay fallback for address: ${address}`);
+      
+      // Get current relay configuration
+      const inboxRelays = get(activeInboxRelays);
+      const outboxRelays = get(activeOutboxRelays);
+      
+      // Create a comprehensive relay set including search relays
+      const allRelays = [...inboxRelays, ...outboxRelays, ...searchRelays, ...secondaryRelays];
+      const uniqueRelays = [...new Set(allRelays)]; // Remove duplicates
+      
+      console.log(`[PublicationTree] Trying ${uniqueRelays.length} relays for fallback search:`, uniqueRelays);
+      
+      // Try each relay individually with a shorter timeout
+      for (const relay of uniqueRelays) {
+        try {
+                     const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], this.#ndk);
+          
+          const fetchedEvent = await this.#ndk.fetchEvent({
+            kinds: [parseInt(kind)],
+            authors: [pubkey],
+            "#d": [dTag],
+          }, undefined, relaySet).withTimeout(3000); // 3 second timeout per relay
+          
+          if (fetchedEvent) {
+            console.log(`[PublicationTree] Found event ${fetchedEvent.id} on search relay: ${relay}`);
+            
+            // Cache the event
+            this.#eventCache.set(address, fetchedEvent);
+            this.#events.set(address, fetchedEvent);
+            
+            return this.#buildNodeFromEvent(fetchedEvent, address, parentNode);
+          }
+        } catch (error) {
+          console.debug(`[PublicationTree] Failed to fetch from relay ${relay}:`, error);
+          continue; // Try next relay
+        }
+      }
+      
+      // If we get here, the event was not found on any relay
+      console.warn(`[PublicationTree] Event with address ${address} not found on any relay after fallback search.`);
+      
+      return {
+        type: PublicationTreeNodeType.Leaf,
+        status: PublicationTreeNodeStatus.Error,
+        address,
+        parent: parentNode,
+        children: [],
+      };
+      
+    } catch (error) {
+      console.error(`[PublicationTree] Error in search relay fallback for ${address}:`, error);
+      
       return {
         type: PublicationTreeNodeType.Leaf,
         status: PublicationTreeNodeStatus.Error,
@@ -711,7 +799,17 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         children: [],
       };
     }
+  }
 
+  /**
+   * AI-NOTE: 2025-01-24 - Helper method to build a node from an event
+   * This extracts the common logic for building nodes from events
+   */
+  #buildNodeFromEvent(
+    event: NDKEvent, 
+    address: string, 
+    parentNode: PublicationTreeNode
+  ): PublicationTreeNode {
     this.#events.set(address, event);
 
     const childAddresses = event.tags
@@ -754,14 +852,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         }
       });
       
-      const resolvedAddresses = await Promise.all(eTagPromises);
-      const validAddresses = resolvedAddresses.filter(addr => addr !== null) as string[];
-      
-      console.debug(`[PublicationTree] Resolved ${validAddresses.length} valid addresses from e-tags:`, validAddresses);
-      
-      if (validAddresses.length > 0) {
-        childAddresses.push(...validAddresses);
-      }
+      // Note: We can't await here since this is a synchronous method
+      // The e-tag resolution will happen when the children are processed
+      // For now, we'll add the e-tags as potential child addresses
+      const eTagAddresses = eTags.map(tag => tag[1]);
+      childAddresses.push(...eTagAddresses);
     }
 
     const node: PublicationTreeNode = {
@@ -772,10 +867,13 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
+    // Add children asynchronously
     const childPromises = childAddresses.map(address => 
       this.addEventByAddress(address, event)
     );
-    await Promise.all(childPromises);
+    Promise.all(childPromises).catch(error => {
+      console.warn(`[PublicationTree] Error adding children for ${address}:`, error);
+    });
 
     this.#nodeResolvedObservers.forEach((observer) => observer(address));
 

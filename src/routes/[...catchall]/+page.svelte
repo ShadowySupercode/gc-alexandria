@@ -11,13 +11,13 @@
     >The page you are looking for does not exist or has been moved.</P
   >
   <div class="flex space-x-4">
-    <Button class="btn-leather !w-fit" on:click={() => goto("/")}
+    <Button class="btn-leather !w-fit" onclick={() => goto("/")}
       >Return to Home</Button
     >
     <Button
       class="btn-leather !w-fit"
       outline
-      on:click={() => window.history.back()}>Go Back</Button
+      onclick={() => window.history.back()}>Go Back</Button
     >
   </div>
 </div>

@@ -364,12 +364,12 @@
 <div class="w-full space-y-4">
   <div class="flex flex-wrap gap-2">
     {#each markupButtons as button}
-      <Button size="xs" on:click={button.action}>{button.label}</Button>
+      <Button size="xs" onclick={button.action}>{button.label}</Button>
     {/each}
-    <Button size="xs" color="alternative" on:click={removeFormatting}
+    <Button size="xs" color="alternative" onclick={removeFormatting}
       >Remove Formatting</Button
     >
-    <Button size="xs" color="alternative" on:click={clearForm}>Clear</Button>
+    <Button size="xs" color="alternative" onclick={clearForm}>Clear</Button>
   </div>
 
   <!-- Mention Modal -->
@@ -519,12 +519,12 @@
       class="mb-4"
     />
     <div class="flex justify-end gap-2">
-      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button
+      <Button size="xs" color="primary" onclick={insertWikilink}>Insert</Button
       >
       <Button
         size="xs"
         color="alternative"
-        on:click={() => {
+        onclick={() => {
           showWikilinkModal = false;
         }}>Cancel</Button
       >
@@ -552,7 +552,7 @@
     <Alert color="red" dismissable>
       {error}
       {#if showOtherRelays}
-        <Button size="xs" class="mt-2" on:click={() => handleSubmit(true)}
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}
           >Try Other Relays</Button
         >
       {/if}
@@ -560,7 +560,7 @@
         <Button
           size="xs"
           class="mt-2"
-          on:click={() => handleSubmit(false, true)}>Try Fallback Relays</Button
+          onclick={() => handleSubmit(false, true)}>Try Fallback Relays</Button
         >
       {/if}
     </Alert>
@@ -604,7 +604,7 @@
       </div>
     {/if}
     <Button
-      on:click={() => handleSubmit()}
+      onclick={() => handleSubmit()}
       disabled={isSubmitting || !content.trim() || !$userPubkey}
       class="w-full md:w-auto"
     >

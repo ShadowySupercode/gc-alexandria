@@ -187,7 +187,7 @@ Note content here...
     <Button
       color="light"
       size="sm"
-      on:click={togglePreview}
+      onclick={togglePreview}
       class="flex items-center space-x-1"
       disabled={hasPublicationHeader}
     >

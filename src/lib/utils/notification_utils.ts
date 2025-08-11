@@ -4,9 +4,11 @@ import { getUserMetadata, NDKRelaySetFromNDK, toNpub } from "$lib/utils/nostrUti
 import { get } from "svelte/store";
 import { ndkInstance } from "$lib/ndk";
 import { searchRelays } from "$lib/consts";
-import { userStore } from "$lib/stores/userStore";
+import { userStore, type UserState } from "$lib/stores/userStore";
 import { buildCompleteRelaySet } from "$lib/utils/relay_management";
 import { neventEncode } from "$lib/utils";
+import { nip19 } from "nostr-tools";
+import type NDK from "@nostr-dev-kit/ndk";
 
 // AI-NOTE: Notification-specific utility functions that don't exist elsewhere
 
@@ -72,6 +74,48 @@ export async function parseContent(content: string): Promise<string> {
 }
 
 /**
+ * Parses repost content and renders it as an embedded event
+ */
+export async function parseRepostContent(content: string): Promise<string> {
+  if (!content) return "";
+  
+  try {
+    // Try to parse the content as JSON (repost events contain the original event as JSON)
+    const originalEvent = JSON.parse(content);
+    
+    // Extract the original event's content
+    const originalContent = originalEvent.content || "";
+    const originalAuthor = originalEvent.pubkey || "";
+    const originalCreatedAt = originalEvent.created_at || 0;
+    
+    // Parse the original content with basic markup
+    const parsedOriginalContent = await parseBasicmarkup(originalContent);
+    
+    // Create an embedded event display
+    const formattedDate = originalCreatedAt ? new Date(originalCreatedAt * 1000).toLocaleDateString() : "Unknown date";
+    const shortAuthor = originalAuthor ? `${originalAuthor.slice(0, 8)}...${originalAuthor.slice(-4)}` : "Unknown";
+    
+    return `
+      <div class="embedded-repost bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2">
+        <div class="flex items-center gap-2 mb-2 text-xs text-gray-600 dark:text-gray-400">
+          <span class="font-medium">Reposted by:</span>
+          <span class="font-mono">${shortAuthor}</span>
+          <span>•</span>
+          <span>${formattedDate}</span>
+        </div>
+        <div class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+          ${parsedOriginalContent}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    // If JSON parsing fails, fall back to basic markup
+    console.warn("Failed to parse repost content as JSON, falling back to basic markup:", error);
+    return await parseBasicmarkup(content);
+  }
+}
+
+/**
  * Renders quoted content for a message
  */
 export async function renderQuotedContent(message: NDKEvent, publicMessages: NDKEvent[]): Promise<string> {
@@ -82,19 +126,22 @@ export async function renderQuotedContent(message: NDKEvent, publicMessages: NDK
   const eventId = qTag[1];
   
   if (eventId) {
+    // Validate eventId format (should be 64 character hex string)
+    const isValidEventId = /^[a-fA-F0-9]{64}$/.test(eventId);
+    
     // First try to find in local messages
     let quotedMessage = publicMessages.find(msg => msg.id === eventId);
     
     // If not found locally, fetch from relays
     if (!quotedMessage) {
       try {
-        const ndk = get(ndkInstance);
+        const ndk: NDK | undefined = get(ndkInstance);
         if (ndk) {
-          const userStoreValue = get(userStore);
-                      const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
-            const relaySet = await buildCompleteRelaySet(ndk, user);
-            const allRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays, ...searchRelays];
-          
+          const userStoreValue: UserState = get(userStore);
+          const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+          const relaySet = await buildCompleteRelaySet(ndk, user);
+          const allRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays, ...searchRelays];
+        
           if (allRelays.length > 0) {
             const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
             const fetchedEvent = await ndk.fetchEvent({ ids: [eventId], limit: 1 }, undefined, ndkRelaySet);
@@ -111,9 +158,20 @@ export async function renderQuotedContent(message: NDKEvent, publicMessages: NDK
       const parsedContent = await parseBasicmarkup(quotedContent);
       return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${parsedContent}</div>`;
     } else {
-      // Fallback to nevent link
-      const nevent = neventEncode({ id: eventId } as any, []);
-      return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.location.href='/events?id=${nevent}'">Quoted message not found. Click to view event ${eventId.slice(0, 8)}...</div>`;
+      // Fallback to nevent link - only if eventId is valid
+      if (isValidEventId) {
+        try {
+          const nevent = nip19.neventEncode({ id: eventId });
+          return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.location.href='/events?id=${nevent}'">Quoted message not found. Click to view event ${eventId.slice(0, 8)}...</div>`;
+        } catch (error) {
+          console.warn(`[renderQuotedContent] Failed to encode nevent for ${eventId}:`, error);
+          // Fall back to just showing the event ID without a link
+          return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded text-sm text-gray-600 dark:text-gray-300">Quoted message not found. Event ID: ${eventId.slice(0, 8)}...</div>`;
+        }
+      } else {
+        // Invalid event ID format
+        return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded text-sm text-gray-600 dark:text-gray-300">Invalid quoted message reference</div>`;
+      }
     }
   }
   
@@ -161,7 +219,7 @@ export async function fetchAuthorProfiles(events: NDKEvent[]): Promise<Map<strin
       // Try search relays
       for (const relay of searchRelays) {
         try {
-          const ndk = get(ndkInstance);
+          const ndk: NDK | undefined = get(ndkInstance);
           if (!ndk) break;
 
           const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
@@ -187,10 +245,10 @@ export async function fetchAuthorProfiles(events: NDKEvent[]): Promise<Map<strin
 
       // Try all available relays as fallback
       try {
-        const ndk = get(ndkInstance);
+        const ndk: NDK | undefined = get(ndkInstance);
         if (!ndk) return;
 
-        const userStoreValue = get(userStore);
+        const userStoreValue: UserState = get(userStore);
         const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
         const relaySet = await buildCompleteRelaySet(ndk, user);
         const allRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
@@ -216,10 +274,10 @@ export async function fetchAuthorProfiles(events: NDKEvent[]): Promise<Map<strin
         console.warn(`[fetchAuthorProfiles] Failed to fetch profile from all relays:`, error);
       }
     } catch (error) {
-      console.warn(`[fetchAuthorProfiles] Failed to fetch profile for ${pubkey}:`, error);
+      console.warn(`[fetchAuthorProfiles] Error processing profile for ${pubkey}:`, error);
     }
   });
 
-  await Promise.allSettled(profilePromises);
+  await Promise.all(profilePromises);
   return authorProfiles;
 }

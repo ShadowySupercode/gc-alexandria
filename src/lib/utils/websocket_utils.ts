@@ -93,8 +93,16 @@ export async function fetchNostrEvent(filter: NostrFilter): Promise<NostrEvent |
     }
   }
   
+  // AI-NOTE: 2025-01-24 - Enhanced relay strategy for better event discovery
+  // Always include search relays in the relay set for comprehensive event discovery
+  const { searchRelays, secondaryRelays } = await import("../consts.ts");
+  const allRelays = [...availableRelays, ...searchRelays, ...secondaryRelays];
+  const uniqueRelays = [...new Set(allRelays)]; // Remove duplicates
+  
+  console.debug(`[fetchNostrEvent] Trying ${uniqueRelays.length} relays for event discovery:`, uniqueRelays);
+  
   // Try all available relays in parallel and return the first result
-  const relayPromises = availableRelays.map(async (relay) => {
+  const relayPromises = uniqueRelays.map(async (relay) => {
     try {
       const ws = await WebSocketPool.instance.acquire(relay);
       const subId = crypto.randomUUID();

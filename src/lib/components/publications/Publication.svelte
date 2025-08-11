@@ -249,7 +249,7 @@
       {#if isLoading}
         <Button disabled color="primary">Loading...</Button>
       {:else if !isDone}
-        <Button color="primary" on:click={() => loadMore(1)}>Show More</Button>
+        <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
       {:else}
         <p class="text-gray-500 dark:text-gray-400">
           You've reached the end of the publication.

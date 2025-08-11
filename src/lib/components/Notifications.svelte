@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../../styles/notifications.css";
   import { onMount } from "svelte";
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -21,6 +22,7 @@
     truncateContent, 
     truncateRenderedContent, 
     parseContent, 
+    parseRepostContent,
     renderQuotedContent, 
     getNotificationType, 
     fetchAuthorProfiles 
@@ -147,9 +149,9 @@
           }
           
           // ALWAYS highlight the message in blue
-          element.classList.add('ring-2', 'ring-blue-500');
+          element.classList.add('message-highlight', 'ring-2', 'ring-blue-500');
           setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-blue-500');
+            element.classList.remove('message-highlight', 'ring-2', 'ring-blue-500');
           }, 2000);
         }
       }
@@ -691,7 +693,7 @@
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
-  <div class="mb-6">
+  <div class="mb-6 w-full overflow-x-hidden">
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
       
@@ -712,7 +714,7 @@
         {#each ["to-me", "from-me", "public-messages"] as mode}
           {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
           <button
-            class="px-3 py-1 text-sm font-medium rounded-md transition-colors {notificationMode === mode ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}"
+            class="mode-toggle-button px-3 py-1 text-sm font-medium rounded-md {notificationMode === mode ? 'active' : 'inactive'}"
             onclick={() => notificationMode = mode as "to-me" | "from-me" | "public-messages"}
           >
             {modeLabel}
@@ -724,7 +726,7 @@
     
     {#if loading}
       <div class="flex items-center justify-center py-8 min-h-96">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div class="notifications-loading-spinner rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         <span class="ml-2 text-gray-600 dark:text-gray-400">
           Loading {notificationMode === "public-messages" ? "public messages" : "notifications"}...
         </span>
@@ -739,12 +741,12 @@
           <P>No public messages found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto">
+        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden">
           {#if filteredByUser}
-            <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: {@render userBadge(filteredByUser, authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name)}
+                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || filteredByUser?.slice(0, 8) + "..." + filteredByUser?.slice(-4) || "Unknown"}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -759,11 +761,11 @@
             {#each filteredMessages.slice(0, 100) as message}
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
-              <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all" data-event-id="{message.id}">
+              <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-event-id="{message.id}">
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    <div class="flex items-center gap-2 {isFromUser ? 'flex-row-reverse' : ''}">
+                    <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
                       {#if authorProfile?.picture}
                         <img
                           src={authorProfile.picture}
@@ -772,23 +774,25 @@
                           onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
                         />
                       {:else}
-                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
                           <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
                             {(authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 1)).toUpperCase()}
                           </span>
                         </div>
                       {/if}
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {@render userBadge(message.pubkey, authorProfile?.displayName || authorProfile?.name)}
-                      </span>
+                      <div class="w-24 text-center">
+                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
+                          @{authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 8) + "..." + message.pubkey.slice(-4)}
+                        </span>
+                      </div>
                     </div>
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
-                      <div class="mt-2 flex flex-col gap-1">
+                      <div class="mt-2 flex justify-center gap-1">
                         <!-- Reply button -->
                         <button
-                          class="w-6 h-6 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
+                          class="reply-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors"
                           onclick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -801,7 +805,7 @@
                         </button>
                         <!-- Filter button -->
                         <button
-                          class="w-6 h-6 bg-gray-400 hover:bg-gray-500 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center text-xs shadow-sm transition-colors {filteredByUser === message.pubkey ? 'ring-2 ring-gray-300 dark:ring-gray-400 bg-gray-500 dark:bg-gray-500' : ''}"
+                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}"
                           onclick={() => filterByUser(message.pubkey)}
                           title="Filter by this user"
                           aria-label="Filter by this user"
@@ -815,7 +819,7 @@
                   </div>
                   
                   <!-- Message Content -->
-                  <div class="flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
+                  <div class="message-content flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
                     <div class="flex items-center gap-2 mb-2 {isFromUser ? 'justify-end' : ''}">
                       <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
                         {isFromUser ? 'Your Message' : 'Public Message'}
@@ -845,11 +849,13 @@
                     {/if}
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await parseContent(message.content) then parsedContent}
-                          {@html parsedContent}
-                        {:catch}
-                          {@html message.content}
-                        {/await}
+                        <div class="px-2">
+                          {#await ((message.kind === 6 || message.kind === 16) ? parseRepostContent(message.content) : parseContent(message.content)) then parsedContent}
+                            {@html parsedContent}
+                          {:catch}
+                            {@html message.content}
+                          {/await}
+                        </div>
                       </div>
                     {/if}
                     
@@ -874,14 +880,14 @@
           <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
         </div>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto space-y-4">
+        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
           {#each notifications.slice(0, 100) as notification}
             {@const authorProfile = authorProfiles.get(notification.pubkey)}
-            <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all">
+            <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
                 <div class="flex items-start gap-3">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0">
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-col items-center gap-2">
                       {#if authorProfile?.picture}
                         <img
                           src={authorProfile.picture}
@@ -890,15 +896,17 @@
                           onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
                         />
                       {:else}
-                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
                           <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
                             {(authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 1)).toUpperCase()}
                           </span>
                         </div>
                       {/if}
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {@render userBadge(notification.pubkey, authorProfile?.displayName || authorProfile?.name)}
-                      </span>
+                      <div class="w-24 text-center">
+                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
+                          @{authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 8) + "..." + notification.pubkey.slice(-4)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   
@@ -924,11 +932,13 @@
                     
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await parseContent(notification.content) then parsedContent}
-                          {@html parsedContent}
-                        {:catch}
-                          {@html truncateContent(notification.content)}
-                        {/await}
+                        <div class="px-2">
+                          {#await ((notification.kind === 6 || notification.kind === 16) ? parseRepostContent(notification.content) : parseContent(notification.content)) then parsedContent}
+                            {@html parsedContent}
+                          {:catch}
+                            {@html truncateContent(notification.content)}
+                          {/await}
+                        </div>
                       </div>
                     {/if}
                     
@@ -950,7 +960,7 @@
   
   <!-- New Message Modal -->
   <Modal bind:open={showNewMessageModal} size="lg" class="w-full">
-    <div class="p-6">
+    <div class="modal-content p-6">
       <div class="mb-4">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
           {replyToMessage ? 'Reply to Message' : 'New Public Message'}
@@ -959,7 +969,7 @@
       
       <!-- Quoted Content Display -->
       {#if quotedContent}
-        <div class="mb-4 p-3 bg-gray-100 dark:bg-gray-800 border-l-4 border-gray-400 dark:border-gray-500 rounded-r-lg">
+        <div class="quoted-content mb-4 p-3 rounded-r-lg">
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             {#await parseContent(quotedContent) then parsedContent}
@@ -990,7 +1000,7 @@
         </div>
         
         {#if selectedRecipients.length === 0}
-          <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+          <div class="recipient-selection p-3 rounded-lg">
             <p class="text-sm text-yellow-700 dark:text-yellow-300">
               No recipients selected. Click "Edit Recipients" to add recipients.
             </p>
@@ -999,7 +1009,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                {@render userBadge(recipient.pubkey!, recipient.displayName || recipient.name)}
+                @{recipient.displayName || recipient.name || recipient.pubkey?.slice(0, 8) + "..." + recipient.pubkey?.slice(-4) || "Unknown"}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1041,10 +1051,11 @@
           id="new-message-content"
           bind:value={newMessageContent}
           placeholder="Type your message here..."
-          class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          class="message-textarea w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
           rows="6"
           onkeydown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
+            // Allow Enter for new lines, Ctrl+Enter to send
+            if (e.key === 'Enter' && e.ctrlKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
               e.preventDefault();
               sendNewMessage();
             }
@@ -1065,7 +1076,7 @@
           color="primary"
           onclick={sendNewMessage}
           disabled={isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim()}
-          class="flex items-center gap-2"
+          class="flex items-center gap-2 {isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}"
         >
           {#if isComposingMessage}
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -1078,7 +1089,7 @@
   
   <!-- Recipient Selection Modal -->
   <Modal bind:open={showRecipientModal} size="lg" class="w-full">
-    <div class="p-6">
+    <div class="modal-content p-6">
       <div class="mb-4">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Select Recipients</h3>
       </div>
@@ -1090,7 +1101,7 @@
             placeholder="Search display name, name, NIP-05, or npub..."
             bind:value={recipientSearch}
             bind:this={recipientSearchInput}
-            class="w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5 {recipientLoading ? 'pr-10' : ''}"
+            class="search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 p-2.5 {recipientLoading ? 'pr-10' : ''}"
           />
           {#if recipientLoading}
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1100,14 +1111,18 @@
         </div>
 
         {#if recipientResults.length > 0}
-          <div class="max-h-64 overflow-y-auto">
+          <div class="recipient-results">
             <ul class="space-y-2">
               {#each recipientResults as profile}
                 {@const isAlreadySelected = selectedRecipients.some(r => r.pubkey === profile.pubkey)}
                 <button
-                  onclick={() => selectRecipient(profile)}
+                  onclick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectRecipient(profile);
+                  }}
                   disabled={isAlreadySelected}
-                  class="w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
+                  class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
                 >
                   {#if profile.picture}
                     <img
@@ -1125,7 +1140,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      {@render userBadge(profile.pubkey!, profile.displayName || profile.name)}
+                      @{profile.displayName || profile.name || profile.pubkey?.slice(0, 8) + "..." + profile.pubkey?.slice(-4) || "Unknown"}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -1150,7 +1165,7 @@
                   </div>
                   {#if recipientCommunityStatus[profile.pubkey || ""]}
                     <div
-                      class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                      class="community-status-indicator flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
                       title="Has posted to the community"
                     >
                       <svg

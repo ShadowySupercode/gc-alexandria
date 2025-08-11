@@ -5,7 +5,7 @@ import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
-import { communityRelays, secondaryRelays } from "../consts.ts";
+import { communityRelays, secondaryRelays, searchRelays } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -446,15 +446,17 @@ export async function fetchEventWithFallback(
   // Use both inbox and outbox relays for better event discovery
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
-  const allRelays = [...inboxRelays, ...outboxRelays];
+  let allRelays = [...inboxRelays, ...outboxRelays];
   
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
   console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
   
   // Check if we have any relays available
   if (allRelays.length === 0) {
-    console.warn("fetchEventWithFallback: No relays available for event fetch");
-    return null;
+    console.warn("fetchEventWithFallback: No relays available for event fetch, using fallback relays");
+    // Use fallback relays when no relays are available
+    allRelays = [...secondaryRelays, ...searchRelays];
+    console.log("fetchEventWithFallback: Using fallback relays:", allRelays);
   }
   
   // Create relay set from all available relays
@@ -517,15 +519,28 @@ export async function fetchEventWithFallback(
 }
 
 /**
- * Converts a hex pubkey to npub, or returns npub if already encoded.
+ * Converts various Nostr identifiers to npub format.
+ * Handles hex pubkeys, npub strings, and nprofile strings.
  */
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
+    // If it's already an npub, return it
+    if (pubkey.startsWith("npub")) return pubkey;
+    
+    // If it's a hex pubkey, convert to npub
     if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
-    if (pubkey.startsWith("npub1")) return pubkey;
+    
+    // If it's an nprofile, decode and extract npub
+    if (pubkey.startsWith("nprofile")) {
+      const decoded = nip19.decode(pubkey);
+      if (decoded.type === 'nprofile') {
+        return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
+      }
+    }
+    
     return null;
   } catch {
     return null;
