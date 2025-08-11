@@ -3,8 +3,8 @@ import {
   loginWithExtension,
   loginWithAmber,
   loginWithNpub,
-} from "../lib/stores/userStore.ts";
-import { loginMethodStorageKey } from "../lib/stores/userStore.ts";
+} from "../lib/nostr/utils/auth.ts";
+import { loginMethodStorageKey } from "../lib/nostr/utils/auth.ts";
 import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";

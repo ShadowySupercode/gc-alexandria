@@ -1,12 +1,9 @@
 import { get } from "svelte/store";
-import { ndkInstance } from "../ndk";
-import { userStore } from "../stores/userStore";
-import { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type NDK from "@nostr-dev-kit/ndk";
-import { nip19 } from "nostr-tools";
+import { ndkInstance } from "../ndk.ts";
+import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { createSignedEvent } from "./nostrEventService.ts";
-import { anonymousRelays } from "../consts";
-import { buildCompleteRelaySet } from "./relay_management";
+import { anonymousRelays } from "../consts.ts";
+import { buildCompleteRelaySet } from "./relay_management.ts";
 
 // AI-NOTE: Using existing relay utilities from relay_management.ts instead of duplicating functionality
 

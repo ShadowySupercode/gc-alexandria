@@ -7,7 +7,7 @@
     loginWithExtension,
     loginWithAmber,
     loginWithNpub
-  } from "$lib/stores/userStore";
+  } from "$lib/nostr/utils/auth";
   import { ndkInstance } from "$lib/ndk";
   import {
     ArrowRightToBracketOutline,

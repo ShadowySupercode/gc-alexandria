@@ -9,8 +9,8 @@
     ProfileSearchResult,
   } from "$lib/utils/search_utility";
 
-  import { userPubkey } from "$lib/stores/authStore.Svelte";
-  import { userStore } from "$lib/stores/userStore";
+  import { userPubkey } from "$lib/stores/authStore.svelte";
+  import { userStore } from "$lib/nostr/utils/auth";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,

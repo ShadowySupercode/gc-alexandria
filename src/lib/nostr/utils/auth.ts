@@ -1,5 +1,5 @@
 import { writable, get } from "svelte/store";
-import type { NostrProfile } from "../utils/nostrUtils.ts";
+import type { NostrProfile } from "../../utils/nostrUtils.ts";
 import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
 import NDK, {
   NDKNip07Signer,
@@ -7,11 +7,11 @@ import NDK, {
   NDKRelaySet,
   NDKRelay,
 } from "@nostr-dev-kit/ndk";
-import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../ndk.ts";
-import { loginStorageKey } from "../consts.ts";
+import { getUserMetadata } from "../../utils/nostrUtils.ts";
+import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../../ndk.ts";
+import { loginStorageKey } from "../../consts.ts";
 import { nip19 } from "nostr-tools";
-import { userPubkey } from "../stores/authStore.Svelte.ts";
+import { userPubkey } from "../../stores/authStore.svelte.ts";
 
 export interface UserState {
   pubkey: string | null;

@@ -9,11 +9,11 @@
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
 import CommentViewer from "$lib/components/CommentViewer.svelte";
-  import { userStore } from "$lib/stores/userStore";
+  import { userStore } from "$lib/nostr/utils/auth";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
+  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";

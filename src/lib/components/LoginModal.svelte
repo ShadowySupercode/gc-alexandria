@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button, Modal } from "flowbite-svelte";
-  import { loginWithExtension } from "$lib/stores/userStore";
-  import { userStore } from "$lib/stores/userStore";
+  import { loginWithExtension } from "$lib/nostr/utils/auth";
+  import { userStore } from "$lib/nostr/utils/auth";
 
   const {
     show = false,
