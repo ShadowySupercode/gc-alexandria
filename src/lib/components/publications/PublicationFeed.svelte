@@ -7,6 +7,7 @@
   import { onMount, onDestroy } from "svelte";
   import {
     getMatchingTags,
+    toNpub,
   } from "$lib/utils/nostrUtils";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
   import { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -292,32 +293,13 @@
     loading = false;
   }
 
-  // Function to convert various Nostr identifiers to npub
+  // Function to convert various Nostr identifiers to npub using the utility function
   const convertToNpub = (input: string): string | null => {
-    try {
-      // If it's already an npub, return it
-      if (input.startsWith('npub')) {
-        return input;
-      }
-      
-      // If it's a hex pubkey, convert to npub
-      if (input.length === 64 && /^[0-9a-fA-F]+$/.test(input)) {
-        return nip19.npubEncode(input);
-      }
-      
-      // If it's an nprofile, decode and extract npub
-      if (input.startsWith('nprofile')) {
-        const decoded = nip19.decode(input);
-        if (decoded.type === 'nprofile') {
-          return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.debug("[PublicationFeed] Failed to convert to npub:", input, error);
-      return null;
+    const result = toNpub(input);
+    if (!result) {
+      console.debug("[PublicationFeed] Failed to convert to npub:", input);
     }
+    return result;
   };
 
   // Function to filter events by npub (author or p tags)

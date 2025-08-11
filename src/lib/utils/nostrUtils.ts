@@ -519,15 +519,28 @@ export async function fetchEventWithFallback(
 }
 
 /**
- * Converts a hex pubkey to npub, or returns npub if already encoded.
+ * Converts various Nostr identifiers to npub format.
+ * Handles hex pubkeys, npub strings, and nprofile strings.
  */
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
+    // If it's already an npub, return it
+    if (pubkey.startsWith("npub")) return pubkey;
+    
+    // If it's a hex pubkey, convert to npub
     if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
-    if (pubkey.startsWith("npub1")) return pubkey;
+    
+    // If it's an nprofile, decode and extract npub
+    if (pubkey.startsWith("nprofile")) {
+      const decoded = nip19.decode(pubkey);
+      if (decoded.type === 'nprofile') {
+        return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
+      }
+    }
+    
     return null;
   } catch {
     return null;
