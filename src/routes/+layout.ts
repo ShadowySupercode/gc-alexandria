@@ -2,9 +2,9 @@ import { getPersistedLogin, initNdk, ndkInstance } from "../lib/ndk.ts";
 import {
   loginWithExtension,
   loginWithAmber,
-  loginWithNpub,
 } from "../lib/nostr/utils/auth/auth.ts";
-import { loginMethodStorageKey } from "../lib/nostr/utils/auth/auth.ts";
+import { loginWithNpub } from "../lib/nostr/utils/auth/server_auth.ts";
+import { loginMethodStorageKey } from "../lib/nostr/utils/auth/auth_commons.ts";
 import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";

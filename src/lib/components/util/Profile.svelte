@@ -3,11 +3,11 @@
   import NetworkStatus from "$components/NetworkStatus.svelte";
   import { 
     logoutUser, 
-    userStore, 
     loginWithExtension,
     loginWithAmber,
-    loginWithNpub
   } from "$lib/nostr/utils/auth/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth_store";
+  import { loginWithNpub } from "$lib/nostr/utils/auth/server_auth";
   import { ndkInstance } from "$lib/ndk";
   import {
     ArrowRightToBracketOutline,

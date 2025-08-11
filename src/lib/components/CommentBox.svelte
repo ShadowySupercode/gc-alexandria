@@ -6,7 +6,7 @@
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_utility";
   import { userPubkey } from "$lib/stores/authStore.svelte";
-  import { userStore } from "$lib/nostr/utils/auth/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth_store.ts";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,

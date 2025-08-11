@@ -18,10 +18,11 @@ import {
 
 // Re-export testRelayConnection for components that need it
 export { testRelayConnection };
-import { userStore } from "./nostr/utils/auth/auth.ts";
+import { userStore } from "./nostr/utils/auth/auth_store.ts";
 import { userPubkey } from "./stores/authStore.svelte.ts";
 import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
 import { WebSocketPool } from "./data_structures/websocket_pool.ts";
+import { clearLogin } from "./nostr/utils/auth/auth_commons.ts";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
@@ -284,24 +285,6 @@ export function checkWebSocketSupport(): void {
 export function getPersistedLogin(): string | null {
   const pubkey = localStorage.getItem(loginStorageKey);
   return pubkey;
-}
-
-/**
- * Writes the user's pubkey to local storage.
- * @param user The user to persist.
- * @remarks Use this function when the user logs in.  Currently, only one pubkey is stored at a
- * time.
- */
-export function persistLogin(user: NDKUser): void {
-  localStorage.setItem(loginStorageKey, user.pubkey);
-}
-
-/**
- * Clears the user's pubkey from local storage.
- * @remarks Use this function when the user logs out.
- */
-export function clearLogin(): void {
-  localStorage.removeItem(loginStorageKey);
 }
 
 /**

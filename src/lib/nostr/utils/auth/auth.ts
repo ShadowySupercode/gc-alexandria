@@ -1,39 +1,16 @@
-import { writable, get } from "svelte/store";
+import { get } from "svelte/store";
 import type { NostrProfile } from "../../../utils/nostrUtils.ts";
 import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
-import NDK, {
-  NDKNip07Signer,
-  NDKRelayAuthPolicies,
-  NDKRelaySet,
-  NDKRelay,
-} from "@nostr-dev-kit/ndk";
+import { NDKNip07Signer, NDKRelay } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../../../utils/nostrUtils.ts";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../../../ndk.ts";
+import { 
+  ndkInstance, 
+  updateActiveRelayStores 
+} from "../../../ndk.ts";
 import { loginStorageKey } from "../../../consts.ts";
-import { nip19 } from "nostr-tools";
 import { userPubkey } from "../../../stores/authStore.svelte.ts";
-
-export interface UserState {
-  pubkey: string | null;
-  npub: string | null;
-  profile: NostrProfile | null;
-  relays: { inbox: string[]; outbox: string[] };
-  loginMethod: "extension" | "amber" | "npub" | null;
-  ndkUser: NDKUser | null;
-  signer: NDKSigner | null;
-  signedIn: boolean;
-}
-
-export const userStore = writable<UserState>({
-  pubkey: null,
-  npub: null,
-  profile: null,
-  relays: { inbox: [], outbox: [] },
-  loginMethod: null,
-  ndkUser: null,
-  signer: null,
-  signedIn: false,
-});
+import { clearLogin, getUserPreferredRelays, persistLogin } from "./auth_commons.ts";
+import { userStore } from "./auth_store.ts";
 
 // Helper functions for relay management
 function getRelayStorageKey(user: NDKUser, type: "inbox" | "outbox"): string {
@@ -68,81 +45,7 @@ function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
   return [inboxes, outboxes];
 }
 
-async function getUserPreferredRelays(
-  ndk: NDK,
-  user: NDKUser,
-      fallbacks: readonly string[] = [...get(activeInboxRelays), ...get(activeOutboxRelays)],
-): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
-  const relayList = await ndk.fetchEvent(
-    {
-      kinds: [10002],
-      authors: [user.pubkey],
-    },
-    {
-      groupable: false,
-      skipVerification: false,
-      skipValidation: false,
-    },
-    NDKRelaySet.fromRelayUrls(fallbacks, ndk),
-  );
-
-  const inboxRelays = new Set<NDKRelay>();
-  const outboxRelays = new Set<NDKRelay>();
-
-  if (relayList == null) {
-    const relayMap = await globalThis.nostr?.getRelays?.();
-    Object.entries(relayMap ?? {}).forEach(
-      ([url, relayType]: [string, Record<string, boolean | undefined>]) => {
-        const relay = new NDKRelay(
-          url,
-          NDKRelayAuthPolicies.signIn({ ndk }),
-          ndk,
-        );
-        if (relayType.read) inboxRelays.add(relay);
-        if (relayType.write) outboxRelays.add(relay);
-      },
-    );
-  } else {
-    relayList.tags.forEach((tag: string[]) => {
-      switch (tag[0]) {
-        case "r":
-          inboxRelays.add(
-            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
-          );
-          break;
-        case "w":
-          outboxRelays.add(
-            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
-          );
-          break;
-        default:
-          inboxRelays.add(
-            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
-          );
-          outboxRelays.add(
-            new NDKRelay(tag[1], NDKRelayAuthPolicies.signIn({ ndk }), ndk),
-          );
-          break;
-      }
-    });
-  }
-
-  return [inboxRelays, outboxRelays];
-}
-
 // --- Unified login/logout helpers ---
-
-export const loginMethodStorageKey = "alexandria/login/method";
-
-function persistLogin(user: NDKUser, method: "extension" | "amber" | "npub") {
-  localStorage.setItem(loginStorageKey, user.pubkey);
-  localStorage.setItem(loginMethodStorageKey, method);
-}
-
-function clearLogin() {
-  localStorage.removeItem(loginStorageKey);
-  localStorage.removeItem(loginMethodStorageKey);
-}
 
 /**
  * Login with NIP-07 browser extension
@@ -155,14 +58,11 @@ export async function loginWithExtension() {
   const user = await signer.user();
   const npub = user.npub;
   
-  console.log("Login with extension - fetching profile for npub:", npub);
   
   // Try to fetch user metadata, but don't fail if it times out
   let profile: NostrProfile | null = null;
   try {
-    console.log("Login with extension - attempting to fetch profile...");
     profile = await getUserMetadata(npub, true); // Force fresh fetch
-    console.log("Login with extension - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during login:", error);
     // Continue with login even if metadata fetch fails
@@ -170,7 +70,6 @@ export async function loginWithExtension() {
       name: npub.slice(0, 8) + "..." + npub.slice(-4),
       displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
     };
-    console.log("Login with extension - using fallback profile:", profile);
   }
   
   // Fetch user's preferred relays
@@ -199,16 +98,14 @@ export async function loginWithExtension() {
     signedIn: true,
   };
   
-  console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
   
   // Update relay stores with the new user's relays
   try {
-    console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
     await updateActiveRelayStores(ndk);
   } catch (error) {
-    console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
+    console.warn('Failed to update relay stores:', error);
   }
   
   clearLogin();
@@ -225,12 +122,9 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   // Only clear previous login state after successful login
   const npub = user.npub;
   
-  console.log("Login with Amber - fetching profile for npub:", npub);
-  
   let profile: NostrProfile | null = null;
   try {
     profile = await getUserMetadata(npub, true); // Force fresh fetch
-    console.log("Login with Amber - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during Amber login:", error);
     // Continue with login even if metadata fetch fails
@@ -238,7 +132,6 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
       name: npub.slice(0, 8) + "..." + npub.slice(-4),
       displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
     };
-    console.log("Login with Amber - using fallback profile:", profile);
   }
   
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
@@ -266,13 +159,11 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
     signedIn: true,
   };
   
-  console.log("Login with Amber - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
   
   // Update relay stores with the new user's relays
   try {
-    console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
     await updateActiveRelayStores(ndk);
   } catch (error) {
     console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
@@ -284,84 +175,9 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
 }
 
 /**
- * Login with npub (read-only)
- */
-export async function loginWithNpub(pubkeyOrNpub: string) {
-  const ndk = get(ndkInstance);
-  if (!ndk) throw new Error("NDK not initialized");
-  // Only clear previous login state after successful login
-  let hexPubkey: string;
-  if (pubkeyOrNpub.startsWith("npub")) {
-    try {
-      hexPubkey = nip19.decode(pubkeyOrNpub).data as string;
-    } catch (e) {
-      console.error("Failed to decode hex pubkey from npub:", pubkeyOrNpub, e);
-      throw e;
-    }
-  } else {
-    hexPubkey = pubkeyOrNpub;
-  }
-  let npub: string;
-  try {
-    npub = nip19.npubEncode(hexPubkey);
-  } catch (e) {
-    console.error("Failed to encode npub from hex pubkey:", hexPubkey, e);
-    throw e;
-  }
-  
-  console.log("Login with npub - fetching profile for npub:", npub);
-  
-  const user = ndk.getUser({ npub });
-  let profile: NostrProfile | null = null;
-  try {
-    profile = await getUserMetadata(npub, true); // Force fresh fetch
-    console.log("Login with npub - fetched profile:", profile);
-  } catch (error) {
-    console.warn("Failed to fetch user metadata during npub login:", error);
-    // Continue with login even if metadata fetch fails
-    profile = {
-      name: npub.slice(0, 8) + "..." + npub.slice(-4),
-      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
-    };
-    console.log("Login with npub - using fallback profile:", profile);
-  }
-  
-  ndk.signer = undefined;
-  ndk.activeUser = user;
-  
-  const userState = {
-    pubkey: user.pubkey,
-    npub,
-    profile,
-    relays: { inbox: [], outbox: [] },
-    loginMethod: "npub" as const,
-    ndkUser: user,
-    signer: null,
-    signedIn: true,
-  };
-  
-  console.log("Login with npub - setting userStore with:", userState);
-  userStore.set(userState);
-  userPubkey.set(user.pubkey);
-  
-  // Update relay stores with the new user's relays
-  try {
-    console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
-  } catch (error) {
-    console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
-  }
-  
-  clearLogin();
-  localStorage.removeItem("alexandria/logout/flag");
-  persistLogin(user, "npub");
-}
-
-/**
  * Logout and clear all user state
  */
 export function logoutUser() {
-  console.log("Logging out user...");
   const currentUser = get(userStore);
   if (currentUser.ndkUser) {
     // Clear persisted relays for the user
@@ -393,7 +209,6 @@ export function logoutUser() {
   keysToRemove.push("alexandria/login/method");
 
   keysToRemove.forEach((key) => {
-    console.log("Removing localStorage key:", key);
     localStorage.removeItem(key);
   });
 
@@ -403,7 +218,6 @@ export function logoutUser() {
   // Set a flag to prevent auto-login on next page load
   localStorage.setItem("alexandria/logout/flag", "true");
 
-  console.log("Cleared all login data from localStorage");
 
   userStore.set({
     pubkey: null,
@@ -422,6 +236,4 @@ export function logoutUser() {
     ndk.activeUser = undefined;
     ndk.signer = undefined;
   }
-
-  console.log("Logout complete");
 }

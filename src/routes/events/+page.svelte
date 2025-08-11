@@ -8,7 +8,7 @@
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
-  import { userStore } from "$lib/nostr/utils/auth/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth_store";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";

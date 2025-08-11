@@ -20,7 +20,7 @@
   import { get } from "svelte/store";
   import { ndkInstance } from "$lib/ndk";
   import { userPubkey } from "$lib/stores/authStore.svelte";
-  import { userStore } from "$lib/nostr/utils/auth/auth";
+  import { userStore } from "$lib/nostr/utils/auth/auth_store.ts";
   import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";

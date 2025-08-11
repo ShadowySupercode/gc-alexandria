@@ -8,7 +8,7 @@
     NavBrand,
   } from "flowbite-svelte";
   import Profile from "./util/Profile.svelte";
-  import { userStore } from "$lib/nostr/utils/auth/auth.ts";
+  import { userStore } from "$lib/nostr/utils/auth/auth_store.ts";
 
   let { class: className = "" } = $props();
   
