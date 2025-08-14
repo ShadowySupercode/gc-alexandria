@@ -77,6 +77,8 @@
   });
 
   // Initialize relays and fetch events
+  // AI-NOTE: This function is called when the component mounts and when relay configuration changes
+  // It ensures that events are fetched from the current set of active relays
   async function initializeAndFetch() {
     if (!ndk) {
       console.debug('[PublicationFeed] No NDK instance available');
@@ -122,11 +124,12 @@
     }
   }
 
-  // Watch for relay store changes
+  // Watch for relay store changes and user authentication state
   $effect(() => {
     const inboxRelays = $activeInboxRelays;
     const outboxRelays = $activeOutboxRelays;
     const newRelays = [...inboxRelays, ...outboxRelays];
+    const userState = $userStore;
 
     if (newRelays.length > 0 && !hasInitialized) {
       console.debug('[PublicationFeed] Relays available, initializing');
@@ -144,6 +147,18 @@
           hasInitialized = true;
           initializeAndFetch();
         }, 3000);
+      }
+    } else if (hasInitialized && newRelays.length > 0) {
+      // AI-NOTE: Re-fetch events when user authentication state changes or relays are updated
+      // This ensures that when a user logs in and their relays are loaded, we fetch events from those relays
+      const currentRelaysString = allRelays.sort().join(',');
+      const newRelaysString = newRelays.sort().join(',');
+      
+      if (currentRelaysString !== newRelaysString) {
+        console.debug('[PublicationFeed] Relay configuration changed, re-fetching events');
+        // Clear cache to force fresh fetch from new relays
+        indexEventCache.clear();
+        setTimeout(() => initializeAndFetch(), 0);
       }
     }
   });
@@ -511,6 +526,31 @@
     // Trigger search when either search query or user filter changes
     // Also watch for changes in user store to update filter when user logs in/out
     debouncedSearch(props.searchQuery);
+  });
+
+  // AI-NOTE: Watch for user authentication state changes to re-fetch events when user logs in/out
+  $effect(() => {
+    const userState = $userStore;
+    
+    if (hasInitialized && userState.signedIn) {
+      console.debug('[PublicationFeed] User signed in, checking if we need to re-fetch events');
+      // Check if we have user-specific relays that we haven't fetched from yet
+      const inboxRelays = $activeInboxRelays;
+      const outboxRelays = $activeOutboxRelays;
+      const newRelays = [...inboxRelays, ...outboxRelays];
+      
+      if (newRelays.length > 0) {
+        const currentRelaysString = allRelays.sort().join(',');
+        const newRelaysString = newRelays.sort().join(',');
+        
+        if (currentRelaysString !== newRelaysString) {
+          console.debug('[PublicationFeed] User logged in with new relays, re-fetching events');
+          // Clear cache to force fresh fetch from user's relays
+          indexEventCache.clear();
+          setTimeout(() => initializeAndFetch(), 0);
+        }
+      }
+    }
   });
 
   // AI-NOTE: Watch for changes in the user filter checkbox

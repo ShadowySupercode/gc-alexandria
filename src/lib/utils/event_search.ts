@@ -6,6 +6,7 @@ import type { Filter } from "./search_types.ts";
 import { get } from "svelte/store";
 import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 
 /**
  * Search for a single event by ID or filter
@@ -17,18 +18,35 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     return null;
   }
 
-  // Wait for relays to be available
+  // AI-NOTE: 2025-01-24 - Wait for any relays to be available, not just pool relays
+  // This ensures searches can proceed even if some relay types are not available
   let attempts = 0;
-  const maxAttempts = 10;
-  while (ndk.pool.relays.size === 0 && attempts < maxAttempts) {
+  const maxAttempts = 5; // Reduced since we'll use fallback relays
+  
+  while (attempts < maxAttempts) {
+    // Check if we have any relays in the pool
+    if (ndk.pool.relays.size > 0) {
+      console.log(`[Search] Found ${ndk.pool.relays.size} relays in NDK pool`);
+      break;
+    }
+    
+    // Also check if we have any active relays
+    const inboxRelays = get(activeInboxRelays);
+    const outboxRelays = get(activeOutboxRelays);
+    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
+      console.log(`[Search] Found active relays - inbox: ${inboxRelays.length}, outbox: ${outboxRelays.length}`);
+      break;
+    }
+    
     console.log(`[Search] Waiting for relays to be available (attempt ${attempts + 1}/${maxAttempts})`);
     await new Promise(resolve => setTimeout(resolve, 500));
     attempts++;
   }
 
+  // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let fetchEventWithFallback handle fallbacks
+  // The fetchEventWithFallback function will use all available relays including fallback relays
   if (ndk.pool.relays.size === 0) {
-    console.warn("[Search] No relays available after waiting");
-    return null;
+    console.warn("[Search] No relays in pool, but proceeding with search - fallback relays will be used");
   }
 
   // Clean the query and normalize to lowercase

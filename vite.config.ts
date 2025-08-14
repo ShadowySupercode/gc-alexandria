@@ -42,6 +42,8 @@ export default defineConfig({
   define: {
     // Expose the app version as a global variable
     "import.meta.env.APP_VERSION": JSON.stringify(getAppVersionString()),
+    // Enable debug logging for relays when needed
+    "process.env.DEBUG_RELAYS": JSON.stringify(process.env.DEBUG_RELAYS || "false"),
   },
   optimizeDeps: {
     esbuildOptions: {
@@ -53,6 +55,9 @@ export default defineConfig({
   server: {
     fs: {
       allow: ['..'],
+    },
+    hmr: {
+      overlay: false, // Disable HMR overlay to prevent ESM URL scheme errors
     },
   },
 });

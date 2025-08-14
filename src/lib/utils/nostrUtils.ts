@@ -5,7 +5,7 @@ import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
-import { communityRelays, secondaryRelays, searchRelays } from "../consts.ts";
+import { communityRelays, secondaryRelays, searchRelays, anonymousRelays } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -443,19 +443,27 @@ export async function fetchEventWithFallback(
   filterOrId: string | Filter,
   timeoutMs: number = 3000,
 ): Promise<NDKEvent | null> {
-  // Use both inbox and outbox relays for better event discovery
+  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
+  // This ensures we don't miss events that might be on any available relay
+  
+  // Get all relays from NDK pool first (most comprehensive)
+  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) => r.url);
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
-  let allRelays = [...inboxRelays, ...outboxRelays];
   
+  // Combine all available relays, prioritizing pool relays
+  let allRelays = [...new Set([...poolRelays, ...inboxRelays, ...outboxRelays])];
+  
+  console.log("fetchEventWithFallback: Using pool relays:", poolRelays);
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
   console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
+  console.log("fetchEventWithFallback: Total unique relays:", allRelays.length);
   
   // Check if we have any relays available
   if (allRelays.length === 0) {
     console.warn("fetchEventWithFallback: No relays available for event fetch, using fallback relays");
     // Use fallback relays when no relays are available
-    allRelays = [...secondaryRelays, ...searchRelays];
+    allRelays = [...secondaryRelays, ...searchRelays, ...anonymousRelays];
     console.log("fetchEventWithFallback: Using fallback relays:", allRelays);
   }
   

@@ -368,7 +368,10 @@ function ensureSecureWebSocket(url: string): string {
  */
 function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
   try {
-    console.debug(`[NDK.ts] Creating relay with URL: ${url}`);
+    // Reduce verbosity in development - only log relay creation if debug mode is enabled
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_RELAYS) {
+      console.debug(`[NDK.ts] Creating relay with URL: ${url}`);
+    }
 
     // Ensure the URL is using appropriate protocol
     const secureUrl = ensureSecureWebSocket(url);
@@ -383,7 +386,10 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
     // Set up connection timeout
     const connectionTimeout = setTimeout(() => {
       try {
-        console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
+        // Only log connection timeouts if debug mode is enabled
+        if (process.env.NODE_ENV === 'development' && process.env.DEBUG_RELAYS) {
+          console.debug(`[NDK.ts] Connection timeout for ${secureUrl}`);
+        }
         relay.disconnect();
       } catch {
         // Silently ignore disconnect errors
@@ -395,7 +401,10 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
       const authPolicy = new CustomRelayAuthPolicy(ndk);
       relay.on("connect", () => {
         try {
-          console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          // Only log successful connections if debug mode is enabled
+          if (process.env.NODE_ENV === 'development' && process.env.DEBUG_RELAYS) {
+            console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          }
           clearTimeout(connectionTimeout);
           authPolicy.authenticate(relay);
         } catch {
@@ -405,7 +414,10 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
     } else {
       relay.on("connect", () => {
         try {
-          console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          // Only log successful connections if debug mode is enabled
+          if (process.env.NODE_ENV === 'development' && process.env.DEBUG_RELAYS) {
+            console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          }
           clearTimeout(connectionTimeout);
         } catch {
           // Silently handle connect handler errors
@@ -513,7 +525,10 @@ export async function updateActiveRelayStores(ndk: NDK, forceUpdate: boolean = f
     
     // Add relays to NDK pool (deduplicated)
     const allRelayUrls = deduplicateRelayUrls([...relaySet.inboxRelays, ...relaySet.outboxRelays]);
-    console.debug('[NDK.ts] updateActiveRelayStores: Adding', allRelayUrls.length, 'relays to NDK pool');
+    // Reduce verbosity in development - only log relay addition if debug mode is enabled
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_RELAYS) {
+      console.debug('[NDK.ts] updateActiveRelayStores: Adding', allRelayUrls.length, 'relays to NDK pool');
+    }
     
     for (const url of allRelayUrls) {
       try {

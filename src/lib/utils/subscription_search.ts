@@ -403,7 +403,8 @@ async function createProfileSearchFilter(
 }
 
 /**
- * Create primary relay set based on search type
+ * Create primary relay set for search operations
+ * AI-NOTE: 2025-01-24 - Updated to use all available relays to prevent search failures
  */
 function createPrimaryRelaySet(
   searchType: SearchSubscriptionType,
@@ -413,9 +414,11 @@ function createPrimaryRelaySet(
   const poolRelays = Array.from(ndk.pool.relays.values());
   console.debug('subscription_search: NDK pool relays:', poolRelays.map((r: any) => r.url));
   
+  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // This ensures searches don't fail due to missing relays and provides maximum event discovery
+  
   if (searchType === "n") {
-    // AI-NOTE: 2025-01-08 - For profile searches, prioritize search relays for speed
-    // Use search relays first, then fall back to all relays if needed
+    // For profile searches, prioritize search relays for speed but include all relays
     const searchRelaySet = poolRelays.filter(
       (relay: any) =>
         searchRelays.some(
@@ -426,30 +429,27 @@ function createPrimaryRelaySet(
     
     if (searchRelaySet.length > 0) {
       console.debug('subscription_search: Profile search - using search relays for speed:', searchRelaySet.map((r: any) => r.url));
-      return new NDKRelaySet(new Set(searchRelaySet) as any, ndk);
+      // Still include all relays for comprehensive coverage
+      console.debug('subscription_search: Profile search - also including all relays for comprehensive coverage');
+      return new NDKRelaySet(new Set(poolRelays) as any, ndk);
     } else {
-      // Fallback to all relays if search relays not available
-      console.debug('subscription_search: Profile search - fallback to all relays:', poolRelays.map((r: any) => r.url));
+      // Use all relays if search relays not available
+      console.debug('subscription_search: Profile search - using all relays:', poolRelays.map((r: any) => r.url));
       return new NDKRelaySet(new Set(poolRelays) as any, ndk);
     }
   } else {
-    // For other searches, use active relays first
-    const searchRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
+    // For all other searches, use ALL available relays for maximum coverage
+    const activeRelays = [...get(activeInboxRelays), ...get(activeOutboxRelays)];
     console.debug('subscription_search: Active relay stores:', {
       inboxRelays: get(activeInboxRelays),
       outboxRelays: get(activeOutboxRelays),
-      searchRelays
+      activeRelays
     });
     
-    const activeRelaySet = poolRelays.filter(
-      (relay: any) =>
-        searchRelays.some(
-          (searchRelay: string) =>
-            normalizeUrl(relay.url) === normalizeUrl(searchRelay),
-        ),
-    );
-    console.debug('subscription_search: Active relay set:', activeRelaySet.map((r: any) => r.url));
-    return new NDKRelaySet(new Set(activeRelaySet) as any, ndk);
+    // AI-NOTE: 2025-01-24 - Use all pool relays instead of filtering to active relays only
+    // This ensures we don't miss events that might be on other relays
+    console.debug('subscription_search: Using ALL pool relays for comprehensive search coverage:', poolRelays.map((r: any) => r.url));
+    return new NDKRelaySet(new Set(poolRelays) as any, ndk);
   }
 }
 
@@ -647,24 +647,15 @@ function searchOtherRelaysInBackground(
 ): Promise<SearchResult> {
   const ndk = get(ndkInstance);
 
+  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // This ensures we don't miss events that might be on any available relay
   const otherRelays = new NDKRelaySet(
-    new Set(
-      Array.from(ndk.pool.relays.values()).filter((relay: any) => {
-        if (searchType === "n") {
-          // AI-NOTE: 2025-01-08 - For profile searches, use ALL available relays
-          // Don't exclude any relays since we want maximum coverage
-          return true;
-        } else {
-          // For other searches, exclude community relays from fallback search
-          return !communityRelays.some(
-            (communityRelay: string) =>
-              normalizeUrl(relay.url) === normalizeUrl(communityRelay),
-          );
-        }
-      }),
-    ),
+    new Set(Array.from(ndk.pool.relays.values())),
     ndk,
   );
+  
+  console.debug('subscription_search: Background search using ALL relays:', 
+    Array.from(ndk.pool.relays.values()).map((r: any) => r.url));
 
   // Subscribe to events from other relays
   const sub = ndk.subscribe(
