@@ -549,4 +549,17 @@
   .toc-highlight:hover {
     @apply bg-primary-300 dark:bg-primary-600;
   }
+
+  /* Override prose first-line bold styling */
+  .prose p:first-line {
+    font-weight: normal !important;
+  }
+
+  .prose-sm p:first-line {
+    font-weight: normal !important;
+  }
+
+  .prose-invert p:first-line {
+    font-weight: normal !important;
+  }
 }

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
+  import EmbeddedEventRenderer from "./EmbeddedEventRenderer.svelte";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
@@ -40,8 +42,15 @@
 
   let showFullContent = $state(false);
   let parsedContent = $state("");
-  let contentPreview = $state("");
+  let contentProcessing = $state(false);
   let authorDisplayName = $state<string | undefined>(undefined);
+
+  // Determine if content should be truncated
+  let shouldTruncate = $state(false);
+  
+  $effect(() => {
+    shouldTruncate = event.content.length > 250 && !showFullContent;
+  });
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -308,18 +317,30 @@
 
   $effect(() => {
     if (event && event.kind !== 0 && event.content) {
+      contentProcessing = true;
+      
       // Use parseRepostContent for kind 6 and 16 events (reposts)
       if (event.kind === 6 || event.kind === 16) {
         parseRepostContent(event.content).then((html) => {
           parsedContent = html;
-          contentPreview = html.slice(0, 250);
+          contentProcessing = false;
+        }).catch((error) => {
+          console.error('Error parsing repost content:', error);
+          contentProcessing = false;
         });
       } else {
-        parseBasicmarkup(event.content).then((html) => {
+        // Use embedded markup parser for better Nostr event support
+        parseEmbeddedMarkup(event.content, 0).then((html) => {
           parsedContent = html;
-          contentPreview = html.slice(0, 250);
+          contentProcessing = false;
+        }).catch((error) => {
+          console.error('Error parsing embedded markup:', error);
+          contentProcessing = false;
         });
       }
+    } else {
+      contentProcessing = false;
+      parsedContent = "";
     }
   });
 
@@ -405,9 +426,9 @@
   });
 </script>
 
-<div class="flex flex-col space-y-4">
+<div class="flex flex-col space-y-4 min-w-0">
   {#if event.kind !== 0 && getEventTitle(event)}
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
       {getEventTitle(event)}
     </h2>
   {/if}
@@ -417,33 +438,33 @@
     <Notifications {event} />
   {/if}
 
-  <div class="flex items-center space-x-2">
+  <div class="flex items-center space-x-2 min-w-0">
     {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400"
+      <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
           profile?.display_name || undefined,
         )}</span
       >
     {:else}
-      <span class="text-gray-600 dark:text-gray-400"
+      <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
         >Author: {profile?.display_name || event.pubkey}</span
       >
     {/if}
   </div>
 
-  <div class="flex items-center space-x-2">
-    <span class="text-gray-700 dark:text-gray-300">Kind:</span>
-    <span class="font-mono">{event.kind}</span>
-    <span class="text-gray-700 dark:text-gray-300"
+  <div class="flex items-center space-x-2 min-w-0">
+    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
+    <span class="font-mono flex-shrink-0">{event.kind}</span>
+    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
       >({getEventTypeDisplay(event)})</span
     >
   </div>
 
   {#if getEventSummary(event)}
-    <div class="flex flex-col space-y-1">
+    <div class="flex flex-col space-y-1 min-w-0">
       <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <p class="text-gray-900 dark:text-gray-100">{getEventSummary(event)}</p>
+      <p class="text-gray-900 dark:text-gray-100 break-words">{getEventSummary(event)}</p>
     </div>
   {/if}
 
@@ -455,15 +476,21 @@
   <!-- Content -->
   {#if event.kind !== 0}
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
-      <div class="flex flex-col space-y-1">
+      <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere">
-          {@html showFullContent ? parsedContent : contentPreview}
-          {#if !showFullContent && parsedContent.length > 250}
-            <button
-              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-              onclick={() => (showFullContent = true)}>Show more</button
-            >
+        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+          {#if contentProcessing}
+            <div class="text-gray-500 dark:text-gray-400 italic">Processing content...</div>
+          {:else}
+            <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+              <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
+            </div>
+            {#if shouldTruncate}
+              <button
+                class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+                onclick={() => (showFullContent = true)}>Show more</button
+              >
+            {/if}
           {/if}
         </div>
       </div>
@@ -491,12 +518,12 @@
     <!-- Identifiers Section -->
     <div class="mb-4 max-w-full overflow-hidden">
       <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 min-w-0">
         {#each getIdentifiers(event, profile) as identifier}
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
-            <span class="font-mono text-sm text-gray-900 dark:text-gray-100" title={identifier.value}>
+            <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
               {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
             </span>
             <CopyToClipboard
@@ -513,7 +540,7 @@
     {#if event.tags && event.tags.length}
       <div class="mb-4 max-w-full overflow-hidden">
         <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
-        <div class="flex flex-wrap gap-2 break-words">
+        <div class="flex flex-wrap gap-2 break-words min-w-0">
           {#each event.tags as tag}
             {@const tagInfo = getTagButtonInfo(tag)}
             {#if tagInfo.text && tagInfo.gotoValue}
@@ -548,7 +575,7 @@
                     goto(`/events?id=${tagInfo.gotoValue!}`);
                   }
                 }}
-                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all"
+                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
               >
                 {tagInfo.text}
               </button>
@@ -561,7 +588,7 @@
     <!-- Raw Event JSON Section -->
     <div class="mb-4 max-w-full overflow-hidden">
       <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
-      <div class="relative">
+      <div class="relative min-w-0">
         <div class="absolute top-0 right-0 z-10">
           <CopyToClipboard
             displayText=""
@@ -569,7 +596,7 @@
           />
         </div>
         <pre
-          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap"
+          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap min-w-0"
           style="line-height: 1.7; font-size: 1rem;">
 {JSON.stringify(event.rawEvent(), null, 2)}
         </pre>

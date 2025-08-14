@@ -840,7 +840,7 @@
     
     {#if node.children.length > 0}
       <div class="space-y-4">
-        {#each node.children as childNode (childNode.event.id)}
+        {#each node.children as childNode, index (childNode.event.id + '-' + index)}
           {@render CommentItem(childNode)}
         {/each}
       </div>
@@ -867,7 +867,7 @@
     </div>
   {:else}
     <div class="space-y-4">
-      {#each threadedComments as node (node.event.id)}
+      {#each threadedComments as node, index (node.event.id + '-root-' + index)}
         {@render CommentItem(node)}
       {/each}
     </div>

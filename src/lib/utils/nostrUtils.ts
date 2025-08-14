@@ -52,6 +52,13 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Escape regex special characters
+ */
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
 export async function getUserMetadata(
@@ -279,7 +286,8 @@ export async function processNostrIdentifiers(
     const metadata = await getUserMetadata(identifier);
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
-    processedContent = processedContent.replace(fullMatch, link);
+    // Replace all occurrences of this exact match
+    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
   }
 
   // Process notes (nevent, note, naddr)
@@ -295,7 +303,8 @@ export async function processNostrIdentifiers(
       identifier = "nostr:" + identifier;
     }
     const link = createNoteLink(identifier);
-    processedContent = processedContent.replace(fullMatch, link);
+    // Replace all occurrences of this exact match
+    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
   }
 
   return processedContent;

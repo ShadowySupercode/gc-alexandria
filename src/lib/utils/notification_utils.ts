@@ -1,4 +1,3 @@
-import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
 import type { NDKEvent } from "$lib/utils/nostrUtils";
 import { getUserMetadata, NDKRelaySetFromNDK, toNpub } from "$lib/utils/nostrUtils";
 import { get } from "svelte/store";
@@ -9,6 +8,7 @@ import { buildCompleteRelaySet } from "$lib/utils/relay_management";
 import { neventEncode } from "$lib/utils";
 import { nip19 } from "nostr-tools";
 import type NDK from "@nostr-dev-kit/ndk";
+import { parseEmbeddedMarkup } from "./markup/embeddedMarkupParser";
 
 // AI-NOTE: Notification-specific utility functions that don't exist elsewhere
 
@@ -66,11 +66,11 @@ export function truncateRenderedContent(renderedHtml: string, maxLength: number 
 }
 
 /**
- * Parses content using basic markup parser
+ * Parses content with support for embedded events
  */
 export async function parseContent(content: string): Promise<string> {
   if (!content) return "";
-  return await parseBasicmarkup(content);
+  return await parseEmbeddedMarkup(content, 0);
 }
 
 /**
@@ -87,31 +87,54 @@ export async function parseRepostContent(content: string): Promise<string> {
     const originalContent = originalEvent.content || "";
     const originalAuthor = originalEvent.pubkey || "";
     const originalCreatedAt = originalEvent.created_at || 0;
+    const originalKind = originalEvent.kind || 1;
     
-    // Parse the original content with basic markup
-    const parsedOriginalContent = await parseBasicmarkup(originalContent);
+    // Parse the original content with embedded markup support
+    const parsedOriginalContent = await parseEmbeddedMarkup(originalContent, 0);
     
-    // Create an embedded event display
+    // Create an embedded event display with proper structure
     const formattedDate = originalCreatedAt ? new Date(originalCreatedAt * 1000).toLocaleDateString() : "Unknown date";
     const shortAuthor = originalAuthor ? `${originalAuthor.slice(0, 8)}...${originalAuthor.slice(-4)}` : "Unknown";
     
     return `
-      <div class="embedded-repost bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 my-2">
-        <div class="flex items-center gap-2 mb-2 text-xs text-gray-600 dark:text-gray-400">
-          <span class="font-medium">Reposted by:</span>
-          <span class="font-mono">${shortAuthor}</span>
-          <span>•</span>
-          <span>${formattedDate}</span>
+      <div class="embedded-repost bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-2">
+        <!-- Event header -->
+        <div class="flex items-center justify-between mb-3 min-w-0">
+          <div class="flex items-center space-x-2 min-w-0">
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0">
+              Kind ${originalKind}
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              (repost)
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">•</span>
+            <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">Author:</span>
+            <span class="text-xs text-gray-700 dark:text-gray-300 font-mono">
+              ${shortAuthor}
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">•</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              ${formattedDate}
+            </span>
+          </div>
+          <button
+            class="text-xs text-primary-600 dark:text-primary-500 hover:underline flex-shrink-0"
+            onclick="window.location.href='/events?id=${originalEvent.id || 'unknown'}'"
+          >
+            View full event →
+          </button>
         </div>
+        
+        <!-- Reposted content -->
         <div class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
           ${parsedOriginalContent}
         </div>
       </div>
     `;
   } catch (error) {
-    // If JSON parsing fails, fall back to basic markup
-    console.warn("Failed to parse repost content as JSON, falling back to basic markup:", error);
-    return await parseBasicmarkup(content);
+    // If JSON parsing fails, fall back to embedded markup
+    console.warn("Failed to parse repost content as JSON, falling back to embedded markup:", error);
+    return await parseEmbeddedMarkup(content, 0);
   }
 }
 
@@ -155,7 +178,7 @@ export async function renderQuotedContent(message: NDKEvent, publicMessages: NDK
     
     if (quotedMessage) {
       const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content";
-      const parsedContent = await parseBasicmarkup(quotedContent);
+      const parsedContent = await parseEmbeddedMarkup(quotedContent, 0);
       return `<div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: '${eventId}' }))">${parsedContent}</div>`;
     } else {
       // Fallback to nevent link - only if eventId is valid

@@ -61,7 +61,7 @@
 </script>
 
 {#if profile}
-  <Card class="ArticleBox card-leather w-full max-w-2xl">
+  <Card class="ArticleBox card-leather w-full max-w-2xl overflow-hidden">
     <div class="space-y-4">
       <div class="ArticleBoxImage flex col justify-center">
         {#if profile.banner}
@@ -79,25 +79,27 @@
           </div>
         {/if}
       </div>
-      <div class="flex flex-row space-x-4 items-center">
+      <div class="flex flex-row space-x-4 items-center min-w-0">
         {#if profile.picture}
           <img
             src={profile.picture}
             alt="Profile avatar"
-            class="w-16 h-16 rounded-full border"
+            class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {
               (e.target as HTMLImageElement).src = "/favicon.png";
             }}
           />
         {/if}
-        <div class="flex items-center gap-2">
-          {@render userBadge(
-            toNpub(event.pubkey) as string,
-            profile.displayName ||
-              profile.display_name ||
-              profile.name ||
-              event.pubkey,
-          )}
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <div class="min-w-0 flex-1">
+            {@render userBadge(
+              toNpub(event.pubkey) as string,
+              profile.displayName ||
+                profile.display_name ||
+                profile.name ||
+                event.pubkey,
+            )}
+          </div>
           {#if communityStatus === true}
             <div
               class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
@@ -118,31 +120,31 @@
           {/if}
         </div>
       </div>
-      <div>
+      <div class="min-w-0">
         <div class="mt-2 flex flex-col gap-4">
           <dl class="grid grid-cols-1 gap-y-2">
             {#if profile.name}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">Name:</dt>
-                <dd>{profile.name}</dd>
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">Name:</dt>
+                <dd class="min-w-0 break-words">{profile.name}</dd>
               </div>
             {/if}
             {#if profile.displayName}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">Display Name:</dt>
-                <dd>{profile.displayName}</dd>
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">Display Name:</dt>
+                <dd class="min-w-0 break-words">{profile.displayName}</dd>
               </div>
             {/if}
             {#if profile.about}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">About:</dt>
-                <dd class="whitespace-pre-line">{profile.about}</dd>
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
+                <dd class="min-w-0 break-words whitespace-pre-line">{profile.about}</dd>
               </div>
             {/if}
             {#if profile.website}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">Website:</dt>
-                <dd>
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">Website:</dt>
+                <dd class="min-w-0 break-all">
                   <a
                     href={profile.website}
                     class="underline text-primary-700 dark:text-primary-200"
@@ -152,9 +154,9 @@
               </div>
             {/if}
             {#if profile.lud16}
-              <div class="flex items-center gap-2 mt-4">
-                <dt class="font-semibold min-w-[120px]">Lightning:</dt>
-                <dd>
+              <div class="flex items-center gap-2 mt-4 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">Lightning:</dt>
+                <dd class="min-w-0 break-all">
                   <Button
                     class="btn-leather"
                     color="primary"
@@ -165,15 +167,15 @@
               </div>
             {/if}
             {#if profile.nip05}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">NIP-05:</dt>
-                <dd>{profile.nip05}</dd>
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">NIP-05:</dt>
+                <dd class="min-w-0 break-all">{profile.nip05}</dd>
               </div>
             {/if}
             {#each identifiers as id}
-              <div class="flex gap-2">
-                <dt class="font-semibold min-w-[120px]">{id.label}:</dt>
-                <dd class="break-all">
+              <div class="flex gap-2 min-w-0">
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">{id.label}:</dt>
+                <dd class="min-w-0 break-all">
                   {#if id.link}
                     <button
                       class="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline hover:no-underline transition-colors"
@@ -207,12 +209,12 @@
             toNpub(event.pubkey) as string,
             profile?.displayName || profile.name || event.pubkey,
           )}
-          <P>{profile.lud16}</P>
+          <P class="break-all">{profile.lud16}</P>
         </div>
         <div class="flex flex-col items-center mt-3 space-y-4">
           <P>Scan the QR code or copy the address</P>
           {#if lnurl}
-            <P style="overflow-wrap: anywhere">
+            <P class="break-all overflow-wrap-anywhere">
               <CopyToClipboard icon={false} displayText={lnurl}
               ></CopyToClipboard>
             </P>

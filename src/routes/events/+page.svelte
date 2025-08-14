@@ -964,11 +964,11 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
     <!-- Right Panel: Event Details -->
     {#if showSidePanel && event}
-      <div class="w-full lg:flex-1 lg:min-w-0 main-leather flex flex-col space-y-6">
-        <div class="flex justify-between items-center">
-          <Heading tag="h2" class="h-leather mb-2">Event Details</Heading>
+      <div class="w-full lg:flex-1 lg:min-w-0 main-leather flex flex-col space-y-6 overflow-hidden">
+        <div class="flex justify-between items-center min-w-0">
+          <Heading tag="h2" class="h-leather mb-2 break-words">Event Details</Heading>
           <button
-            class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex-shrink-0"
             onclick={closeSidePanel}
           >
             ✕
@@ -976,7 +976,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
         </div>
 
         {#if event.kind !== 0}
-          <div class="flex flex-col gap-2 mb-4 break-all">
+          <div class="flex flex-col gap-2 mb-4 break-all min-w-0">
             <CopyToClipboard
               displayText={shortenAddress(getNeventUrl(event))}
               copyText={getNeventUrl(event)}
@@ -996,18 +996,24 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
           </div>
         {/if}
 
-        <EventDetails {event} {profile} {searchValue} />
-        <RelayActions {event} />
+        <div class="min-w-0 overflow-hidden">
+          <EventDetails {event} {profile} {searchValue} />
+        </div>
+        <div class="min-w-0 overflow-hidden">
+          <RelayActions {event} />
+        </div>
 
-        <CommentViewer {event} />
+        <div class="min-w-0 overflow-hidden">
+          <CommentViewer {event} />
+        </div>
         
         {#if isLoggedIn && userPubkey}
-          <div class="mt-8">
-            <Heading tag="h3" class="h-leather mb-4">Add Comment</Heading>
+          <div class="mt-8 min-w-0 overflow-hidden">
+            <Heading tag="h3" class="h-leather mb-4 break-words">Add Comment</Heading>
             <CommentBox {event} {userRelayPreference} />
           </div>
         {:else}
-          <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">
+          <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg min-w-0">
             <P>Please sign in to add comments.</P>
           </div>
         {/if}

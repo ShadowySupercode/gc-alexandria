@@ -30,8 +30,8 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { toNpub, getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import EmbeddedEventRenderer from "./EmbeddedEventRenderer.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -849,7 +849,7 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           {#await ((message.kind === 6 || message.kind === 16) ? parseRepostContent(message.content) : parseContent(message.content)) then parsedContent}
-                            {@html parsedContent}
+                            <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
                           {:catch}
                             {@html message.content}
                           {/await}
@@ -930,7 +930,7 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           {#await ((notification.kind === 6 || notification.kind === 16) ? parseRepostContent(notification.content) : parseContent(notification.content)) then parsedContent}
-                            {@html parsedContent}
+                            <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
                           {:catch}
                             {@html truncateContent(notification.content)}
                           {/await}
@@ -969,7 +969,7 @@
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             {#await parseContent(quotedContent) then parsedContent}
-              {@html parsedContent}
+              <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
             {:catch}
               {@html quotedContent}
             {/await}

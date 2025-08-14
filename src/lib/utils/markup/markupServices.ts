@@ -1,4 +1,4 @@
-import { processNostrIdentifiers } from "../nostrUtils.ts";
+import { processNostrIdentifiers, NOSTR_PROFILE_REGEX } from "../nostrUtils.ts";
 import * as emoji from "node-emoji";
 
 // Media URL patterns
@@ -7,40 +7,30 @@ const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
 const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/;
 
+
+
 /**
- * Shared service for processing images with reveal/enlarge functionality
+ * Shared service for processing images with expand functionality
  */
 export function processImageWithReveal(src: string, alt: string = "Image"): string {
   if (!src || !IMAGE_EXTENSIONS.test(src.split("?")[0])) {
     return `<img src="${src}" alt="${alt}">`;
   }
 
-  return `<div class="relative inline-block w-[300px] my-4 group">
-    <!-- Pastel placeholder background -->
-    <div class="image-bg-placeholder w-full h-48 bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-pink-900 dark:via-purple-900 dark:to-blue-900 rounded-lg shadow-lg flex items-center justify-center border border-pink-200 dark:border-pink-700">
-      <!-- Decorative pattern -->
-      <div class="absolute inset-0 opacity-20">
-        <div class="w-full h-full bg-gradient-to-br from-pink-200/30 via-purple-200/30 to-blue-200/30 dark:from-pink-800/30 dark:via-purple-800/30 dark:to-blue-800/30 rounded-lg"></div>
-      </div>
-      <!-- Reveal button -->
-      <button class="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-200 font-medium px-4 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600 hover:scale-105" 
-              onclick="const container = this.closest('.group'); const img = container.querySelector('img'); const placeholder = container.querySelector('.image-bg-placeholder'); const expandBtn = container.querySelector('button[title]'); img.style.opacity='1'; img.style.position='relative'; img.style.zIndex='1'; placeholder.style.display='none'; this.style.display='none'; expandBtn.style.display='flex'; expandBtn.style.opacity='1'; expandBtn.style.pointerEvents='auto'; expandBtn.style.zIndex='20';">
-        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-        </svg>
-        Reveal Image
-      </button>
-    </div>
+  return `<div class="relative inline-block w-[300px] h-48 my-2 group">
+    <img 
+      src="${src}" 
+      alt="${alt}" 
+      class="w-full h-full object-contain rounded-lg shadow-lg" 
+      loading="lazy" 
+      decoding="async"
+    />
     
-    <!-- Hidden image that will be revealed -->
-    <img src="${src}" alt="${alt}" class="absolute inset-0 w-full h-48 object-contain rounded-lg shadow-lg opacity-0 transition-opacity duration-500" loading="lazy" decoding="async">
-    
-    <!-- Expand button (initially hidden) -->
-    <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none shadow-lg hover:scale-110 z-20" 
+    <!-- Expand button -->
+    <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 z-20" 
             onclick="window.open('${src}', '_blank')" 
             title="Open image in full size"
-            style="display: none;">
+            aria-label="Open image in full size">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
       </svg>
@@ -57,16 +47,16 @@ export function processMediaUrl(url: string, alt?: string): string {
   if (YOUTUBE_URL_REGEX.test(clean)) {
     const videoId = extractYouTubeVideoId(clean);
     if (videoId) {
-      return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-4" src="https://www.youtube-nocookie.com/embed/${videoId}" title="${alt || "YouTube video"}" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
+      return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-2" src="https://www.youtube-nocookie.com/embed/${videoId}" title="${alt || "YouTube video"}" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
     }
   }
   
   if (VIDEO_URL_REGEX.test(clean)) {
-    return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${clean}">${alt || "Video"}</video>`;
+    return `<video controls class="max-w-full rounded-lg shadow-lg my-2" preload="none" playsinline><source src="${clean}">${alt || "Video"}</video>`;
   }
   
   if (AUDIO_URL_REGEX.test(clean)) {
-    return `<audio controls class="w-full my-4" preload="none"><source src="${clean}">${alt || "Audio"}</audio>`;
+    return `<audio controls class="w-full my-2" preload="none"><source src="${clean}">${alt || "Audio"}</audio>`;
   }
   
   if (IMAGE_EXTENSIONS.test(clean.split("?")[0])) {
@@ -81,11 +71,10 @@ export function processMediaUrl(url: string, alt?: string): string {
  * Shared service for processing nostr identifiers
  */
 export async function processNostrIdentifiersInText(text: string): Promise<string> {
-  const nostrPattern = /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{20,}/g;
   let processedText = text;
   
-  // Find all nostr addresses
-  const matches = Array.from(processedText.matchAll(nostrPattern));
+  // Find all profile-related nostr addresses (only npub and nprofile)
+  const matches = Array.from(processedText.matchAll(NOSTR_PROFILE_REGEX));
   
   // Process them in reverse order to avoid index shifting issues
   for (let i = matches.length - 1; i >= 0; i--) {
@@ -93,11 +82,65 @@ export async function processNostrIdentifiersInText(text: string): Promise<strin
     const [fullMatch] = match;
     const matchIndex = match.index ?? 0;
     
-    // Process the nostr identifier
-    const processedMatch = await processNostrIdentifiers(fullMatch);
+    // Skip if part of a URL
+    const before = processedText.slice(Math.max(0, matchIndex - 12), matchIndex);
+    if (/https?:\/\/$|www\.$/i.test(before)) {
+      continue;
+    }
+    
+    // Process the nostr identifier directly
+    let identifier = fullMatch;
+    if (!identifier.startsWith("nostr:")) {
+      identifier = "nostr:" + identifier;
+    }
+    
+    // Get user metadata and create link
+    const { getUserMetadata, createProfileLink } = await import("../nostrUtils.ts");
+    const metadata = await getUserMetadata(identifier);
+    const displayText = metadata.displayName || metadata.name;
+    const link = createProfileLink(identifier, displayText);
     
     // Replace the match in the text
-    processedText = processedText.slice(0, matchIndex) + processedMatch + processedText.slice(matchIndex + fullMatch.length);
+    processedText = processedText.slice(0, matchIndex) + link + processedText.slice(matchIndex + fullMatch.length);
+  }
+  
+  return processedText;
+}
+
+/**
+ * Shared service for processing nostr identifiers with embedded events
+ * Replaces nostr: links with embedded event placeholders
+ * Only processes event-related identifiers (nevent, naddr, note), not profile identifiers (npub, nprofile)
+ */
+export function processNostrIdentifiersWithEmbeddedEvents(text: string, nestingLevel: number = 0): string {
+  const eventPattern = /nostr:(note|nevent|naddr)[a-zA-Z0-9]{20,}/g;
+  let processedText = text;
+  
+  // Maximum nesting level allowed
+  const MAX_NESTING_LEVEL = 3;
+  
+  // Find all event-related nostr addresses
+  const matches = Array.from(processedText.matchAll(eventPattern));
+  
+  // Process them in reverse order to avoid index shifting issues
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i];
+    const [fullMatch] = match;
+    const matchIndex = match.index ?? 0;
+    
+    let replacement: string;
+    
+    if (nestingLevel >= MAX_NESTING_LEVEL) {
+      // At max nesting level, just show the link
+      replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all">${fullMatch}</a>`;
+    } else {
+      // Create a placeholder for embedded event
+      const componentId = `embedded-event-${Math.random().toString(36).substr(2, 9)}`;
+      replacement = `<div class="embedded-event-placeholder" data-nostr-id="${fullMatch}" data-nesting-level="${nestingLevel}" id="${componentId}"></div>`;
+    }
+    
+    // Replace the match in the text
+    processedText = processedText.slice(0, matchIndex) + replacement + processedText.slice(matchIndex + fullMatch.length);
   }
   
   return processedText;
