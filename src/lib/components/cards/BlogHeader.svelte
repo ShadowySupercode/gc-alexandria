@@ -91,7 +91,7 @@
         {#if hashtags}
           <div class="tags">
             {#each hashtags as tag}
-              <span>{tag}</span>
+              <span class="mr-2">#{tag}</span>
             {/each}
           </div>
         {/if}
