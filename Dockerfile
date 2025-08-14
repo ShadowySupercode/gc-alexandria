@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine AS build
+FROM denoland/deno:alpine-2.4.2 AS build
 WORKDIR /app/src
 COPY . .
 
