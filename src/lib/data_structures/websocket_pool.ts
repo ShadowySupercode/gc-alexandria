@@ -211,6 +211,7 @@ export class WebSocketPool {
       }
     }
     this.#pool.clear();
+    
     console.debug('[WebSocketPool] Pool drained successfully');
   }
 
@@ -252,6 +253,8 @@ export class WebSocketPool {
     this.#clearIdleTimer(handle);
     
     // Clean up event listeners to prevent memory leaks
+    // AI-NOTE: Code that checks out connections should clean up its own listener callbacks before
+    // releasing the connection to the pool.
     if (handle.ws) {
       handle.ws.onopen = null;
       handle.ws.onerror = null;
@@ -261,7 +264,9 @@ export class WebSocketPool {
     
     const url = this.#normalizeUrl(handle.ws.url);
     this.#pool.delete(url);
+
     console.debug(`[WebSocketPool] Removed socket for ${url}, pool size: ${this.#pool.size}`);
+
     this.#processWaitingQueue();
   }
 
