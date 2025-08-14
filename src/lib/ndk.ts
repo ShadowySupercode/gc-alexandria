@@ -91,20 +91,8 @@ function clearPersistentRelaySet(): void {
   }
 }
 
-// Subscribe to userStore changes and update ndkSignedIn accordingly
-userStore.subscribe(async (userState) => {
-  ndkSignedIn.set(userState.signedIn);
-  
-  // Refresh relay stores when user state changes
-  const ndk = get(ndkInstance);
-  if (ndk) {
-    try {
-      await refreshRelayStores(ndk);
-    } catch (error) {
-      console.warn('[NDK.ts] Failed to refresh relay stores on user state change:', error);
-    }
-  }
-});
+// AI-NOTE: userStore subscription moved to initNdk function to prevent initialization errors
+// The subscription will be set up after userStore is properly initialized
 
 /**
  * Custom authentication policy that handles NIP-42 authentication manually
@@ -654,6 +642,21 @@ export function initNdk(): NDK {
   };
 
   attemptConnection();
+
+  // AI-NOTE: Set up userStore subscription after NDK initialization to prevent initialization errors
+  userStore.subscribe(async (userState) => {
+    ndkSignedIn.set(userState.signedIn);
+    
+    // Refresh relay stores when user state changes
+    const ndk = get(ndkInstance);
+    if (ndk) {
+      try {
+        await refreshRelayStores(ndk);
+      } catch (error) {
+        console.warn('[NDK.ts] Failed to refresh relay stores on user state change:', error);
+      }
+    }
+  });
 
   return ndk;
 }

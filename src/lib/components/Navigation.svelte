@@ -31,7 +31,9 @@
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
     <NavLi href="/events">Events</NavLi>
-    <NavLi href="/my-notes">My Notes</NavLi>
+    {#if userState.signedIn}
+      <NavLi href="/my-notes">My Notes</NavLi>
+    {/if}
     <NavLi href="/about">About</NavLi>
     <NavLi href="/contact">Contact</NavLi>
     <NavLi>

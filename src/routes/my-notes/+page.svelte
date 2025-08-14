@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { userStore } from "$lib/stores/userStore";
   import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -9,26 +10,26 @@
   import asciidoctor from "asciidoctor";
   import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor";
 
-  let events: NDKEvent[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let showTags: Record<string, boolean> = {};
-  let renderedContent: Record<string, string> = {};
+  let events: NDKEvent[] = $state([]);
+  let loading = $state(true);
+  let error: string | null = $state(null);
+  let showTags: Record<string, boolean> = $state({});
+  let renderedContent: Record<string, string> = $state({});
 
   // Tag type and tag filter state
   const tagTypes = ["t", "title", "m", "w"]; // 'm' is MIME type
-  let selectedTagTypes: Set<string> = new Set();
+  let selectedTagTypes: Set<string> = $state(new Set());
   let tagTypeLabels: Record<string, string> = {
     t: "hashtag",
     title: "",
     m: "mime",
     w: "wiki",
   };
-  let tagFilter: Set<string> = new Set();
+  let tagFilter: Set<string> = $state(new Set());
 
   // Unique tags by type
-  let uniqueTagsByType: Record<string, Set<string>> = {};
-  let allUniqueTags: Set<string> = new Set();
+  let uniqueTagsByType: Record<string, Set<string>> = $state({});
+  let allUniqueTags: Set<string> = $state(new Set());
 
   async function fetchMyNotes() {
     loading = true;
@@ -132,7 +133,7 @@
   }
 
   // Compute which tags to show in the filter
-  $: tagsToShow = (() => {
+  let tagsToShow = $derived.by(() => {
     if (selectedTagTypes.size === 0) {
       return [];
     }
@@ -143,10 +144,10 @@
       }
     }
     return Array.from(tags).sort();
-  })();
+  });
 
   // Compute filtered events
-  $: filteredEvents = (() => {
+  let filteredEvents = $derived.by(() => {
     if (selectedTagTypes.size === 0 && tagFilter.size === 0) {
       return events;
     }
@@ -164,7 +165,17 @@
       // Otherwise, event must have at least one of the selected tags
       return relevantTags.some((tag) => tagFilter.has(tag[1]));
     });
-  })();
+  });
+
+  // AI-NOTE: Check authentication status immediately and redirect if not logged in
+  $effect(() => {
+    const user = get(userStore);
+    if (!user.signedIn) {
+      // Redirect to home page if not logged in
+      goto('/');
+      return;
+    }
+  });
 
   onMount(fetchMyNotes);
 </script>
