@@ -57,6 +57,16 @@ export function testLocalRelayConnection(
   error?: string;
   actualUrl?: string;
 }> {
+  // Only test connections on client-side
+  if (typeof window === 'undefined') {
+    return Promise.resolve({
+      connected: false,
+      requiresAuth: false,
+      error: "Server-side rendering - connection test skipped",
+      actualUrl: relayUrl,
+    });
+  }
+  
   return new Promise((resolve) => {
     try {
       // Ensure the URL is using ws:// protocol for local relays
@@ -182,6 +192,16 @@ export function testRemoteRelayConnection(
   error?: string;
   actualUrl?: string;
 }> {
+  // Only test connections on client-side
+  if (typeof window === 'undefined') {
+    return Promise.resolve({
+      connected: false,
+      requiresAuth: false,
+      error: "Server-side rendering - connection test skipped",
+      actualUrl: relayUrl,
+    });
+  }
+  
   return new Promise((resolve) => {
     // Ensure the URL is using wss:// protocol for remote relays
     const secureUrl = relayUrl.replace(/^ws:\/\//, "wss://");

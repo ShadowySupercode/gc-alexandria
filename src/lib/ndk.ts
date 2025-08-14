@@ -44,6 +44,9 @@ const RELAY_SET_STORAGE_KEY = 'alexandria/relay_set_cache';
  * Load persistent relay set from localStorage
  */
 function loadPersistentRelaySet(): { relaySet: { inboxRelays: string[]; outboxRelays: string[] } | null; lastUpdated: number } {
+  // Only load from localStorage on client-side
+  if (typeof window === 'undefined') return { relaySet: null, lastUpdated: 0 };
+  
   try {
     const stored = localStorage.getItem(RELAY_SET_STORAGE_KEY);
     if (!stored) return { relaySet: null, lastUpdated: 0 };
@@ -69,6 +72,9 @@ function loadPersistentRelaySet(): { relaySet: { inboxRelays: string[]; outboxRe
  * Save persistent relay set to localStorage
  */
 function savePersistentRelaySet(relaySet: { inboxRelays: string[]; outboxRelays: string[] }): void {
+  // Only save to localStorage on client-side
+  if (typeof window === 'undefined') return;
+  
   try {
     const data = {
       relaySet,
@@ -84,6 +90,9 @@ function savePersistentRelaySet(relaySet: { inboxRelays: string[]; outboxRelays:
  * Clear persistent relay set from localStorage
  */
 function clearPersistentRelaySet(): void {
+  // Only clear from localStorage on client-side
+  if (typeof window === 'undefined') return;
+  
   try {
     localStorage.removeItem(RELAY_SET_STORAGE_KEY);
   } catch (error) {
@@ -281,6 +290,9 @@ export function checkWebSocketSupport(): void {
  * sessions.
  */
 export function getPersistedLogin(): string | null {
+  // Only access localStorage on client-side
+  if (typeof window === 'undefined') return null;
+  
   const pubkey = localStorage.getItem(loginStorageKey);
   return pubkey;
 }
@@ -292,6 +304,9 @@ export function getPersistedLogin(): string | null {
  * time.
  */
 export function persistLogin(user: NDKUser): void {
+  // Only access localStorage on client-side
+  if (typeof window === 'undefined') return;
+  
   localStorage.setItem(loginStorageKey, user.pubkey);
 }
 
@@ -300,6 +315,9 @@ export function persistLogin(user: NDKUser): void {
  * @remarks Use this function when the user logs out.
  */
 export function clearLogin(): void {
+  // Only access localStorage on client-side
+  if (typeof window === 'undefined') return;
+  
   localStorage.removeItem(loginStorageKey);
 }
 
@@ -314,6 +332,9 @@ function getRelayStorageKey(user: NDKUser, type: "inbox" | "outbox"): string {
 }
 
 export function clearPersistedRelays(user: NDKUser): void {
+  // Only access localStorage on client-side
+  if (typeof window === 'undefined') return;
+  
   localStorage.removeItem(getRelayStorageKey(user, "inbox"));
   localStorage.removeItem(getRelayStorageKey(user, "outbox"));
 }
@@ -529,8 +550,8 @@ export function clearRelaySetCache(): void {
   console.debug('[NDK.ts] Clearing relay set cache');
   persistentRelaySet = null;
   relaySetLastUpdated = 0;
-  // Clear from localStorage as well
-  if (typeof localStorage !== 'undefined') {
+  // Clear from localStorage as well (client-side only)
+  if (typeof window !== 'undefined') {
     localStorage.removeItem('alexandria/relay_set_cache');
   }
 }
@@ -613,6 +634,12 @@ export function initNdk(): NDK {
   const maxRetries = 1; // Reduce to 1 retry
 
   const attemptConnection = async () => {
+    // Only attempt connection on client-side
+    if (typeof window === 'undefined') {
+      console.debug("[NDK.ts] Skipping NDK connection during SSR");
+      return;
+    }
+    
     try {
       await ndk.connect();
       console.debug("[NDK.ts] NDK connected successfully");
@@ -641,7 +668,10 @@ export function initNdk(): NDK {
     }
   };
 
-  attemptConnection();
+  // Only attempt connection on client-side
+  if (typeof window !== 'undefined') {
+    attemptConnection();
+  }
 
   // AI-NOTE: Set up userStore subscription after NDK initialization to prevent initialization errors
   userStore.subscribe(async (userState) => {

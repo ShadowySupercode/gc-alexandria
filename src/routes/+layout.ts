@@ -10,14 +10,18 @@ import type { LayoutLoad } from "./$types";
 import { get } from "svelte/store";
 import { browser } from "$app/environment";
 
-// AI-NOTE: Leave SSR off until event fetches are implemented server-side.
-export const ssr = false;
+// AI-NOTE: SSR enabled for better SEO and OpenGraph support
+export const ssr = true;
 
 /**
    * Attempts to restore the user's authentication session from localStorage.
    * Handles extension, Amber (NIP-46), and npub login methods.
+   * Only runs on client-side.
    */
 function restoreAuthSession() {
+  // Only run on client-side
+  if (!browser) return;
+  
   try {
     const pubkey = getPersistedLogin();
     const loginMethod = localStorage.getItem(loginMethodStorageKey);
@@ -122,6 +126,7 @@ export const load: LayoutLoad = () => {
   const ndk = initNdk();
   ndkInstance.set(ndk);
 
+  // Only restore auth session on client-side
   if (browser) {
     restoreAuthSession();
   }

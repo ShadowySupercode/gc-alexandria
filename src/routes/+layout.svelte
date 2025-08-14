@@ -1,8 +1,9 @@
-<script>
+<script lang="ts">
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import { Alert } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
   import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
@@ -40,6 +41,49 @@
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
+
+    // AI-NOTE: Global click handler for wikilinks and hashtags to avoid breaking amber session
+    function handleInternalLinkClick(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      
+      // Handle wikilinks
+      if (target.tagName === "A" && target.classList.contains("wikilink")) {
+        const href = (target as HTMLAnchorElement).getAttribute("href");
+        if (href && href.startsWith("/")) {
+          event.preventDefault();
+          goto(href);
+        }
+      }
+      
+      // Handle hashtag buttons
+      if (target.tagName === "BUTTON" && target.classList.contains("cursor-pointer")) {
+        const onclick = target.getAttribute("onclick");
+        if (onclick && onclick.includes("window.location.href")) {
+          event.preventDefault();
+          // Extract the URL from the onclick handler
+          const match = onclick.match(/window\.location\.href='([^']+)'/);
+          if (match && match[1]) {
+            goto(match[1]);
+          }
+        }
+      }
+      
+      // Handle notification links (divs with onclick handlers)
+      if (target.tagName === "DIV" && target.classList.contains("cursor-pointer")) {
+        const onclick = target.getAttribute("onclick");
+        if (onclick && onclick.includes("window.location.href")) {
+          event.preventDefault();
+          // Extract the URL from the onclick handler
+          const match = onclick.match(/window\.location\.href='([^']+)'/);
+          if (match && match[1]) {
+            goto(match[1]);
+          }
+        }
+      }
+    }
+    
+    document.addEventListener("click", handleInternalLinkClick);
+    return () => document.removeEventListener("click", handleInternalLinkClick);
   });
 </script>
 

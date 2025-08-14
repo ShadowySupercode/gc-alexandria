@@ -551,6 +551,11 @@
   }
 
   function getSkeletonIds(): string[] {
+    // Only access window on client-side
+    if (typeof window === 'undefined') {
+      return ['skeleton-0', 'skeleton-1', 'skeleton-2']; // Default fallback for SSR
+    }
+    
     const skeletonHeight = 192; // The height of the card component in pixels (h-48 = 12rem = 192px).
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
     const skeletonIds = [];
