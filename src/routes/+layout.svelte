@@ -6,7 +6,7 @@
   import { goto } from "$app/navigation";
   import { Alert } from "flowbite-svelte";
   import { HammerSolid } from "flowbite-svelte-icons";
-  import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays, cleanupNdk } from "$lib/ndk";
 
   // Define children prop for Svelte 5
   let { children } = $props();
@@ -83,7 +83,13 @@
     }
     
     document.addEventListener("click", handleInternalLinkClick);
-    return () => document.removeEventListener("click", handleInternalLinkClick);
+    
+    // Cleanup function to prevent memory leaks
+    return () => {
+      document.removeEventListener("click", handleInternalLinkClick);
+      // Clean up NDK resources when component unmounts
+      cleanupNdk();
+    };
   });
 </script>
 

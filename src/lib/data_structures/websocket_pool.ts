@@ -191,20 +191,27 @@ export class WebSocketPool {
    * Closes all WebSocket connections and "drains" the pool.
    */
   public drain(): void {
+    console.debug(`[WebSocketPool] Draining pool with ${this.#pool.size} connections and ${this.#waitingQueue.length} waiting requests`);
+    
     // Clear all idle timers first
     for (const handle of this.#pool.values()) {
       this.#clearIdleTimer(handle);
     }
 
+    // Reject all waiting requests
     for (const { reject } of this.#waitingQueue) {
       reject(new Error('[WebSocketPool] Draining pool.'));
     }
     this.#waitingQueue = [];
 
+    // Close all connections and clean up
     for (const handle of this.#pool.values()) {
-      handle.ws.close();
+      if (handle.ws && handle.ws.readyState === WebSocket.OPEN) {
+        handle.ws.close();
+      }
     }
     this.#pool.clear();
+    console.debug('[WebSocketPool] Pool drained successfully');
   }
 
   // #endregion
@@ -243,8 +250,18 @@ export class WebSocketPool {
 
   #removeSocket(handle: WebSocketHandle): void {
     this.#clearIdleTimer(handle);
-    handle.ws.onopen = handle.ws.onerror = handle.ws.onclose = null;
-    this.#pool.delete(this.#normalizeUrl(handle.ws.url));
+    
+    // Clean up event listeners to prevent memory leaks
+    if (handle.ws) {
+      handle.ws.onopen = null;
+      handle.ws.onerror = null;
+      handle.ws.onclose = null;
+      handle.ws.onmessage = null;
+    }
+    
+    const url = this.#normalizeUrl(handle.ws.url);
+    this.#pool.delete(url);
+    console.debug(`[WebSocketPool] Removed socket for ${url}, pool size: ${this.#pool.size}`);
     this.#processWaitingQueue();
   }
 
@@ -261,6 +278,7 @@ export class WebSocketPool {
     handle.idleTimer = setTimeout(() => {
       const refCount = handle.refCount;
       if (refCount === 0 && handle.ws.readyState === WebSocket.OPEN) {
+        console.debug(`[WebSocketPool] Closing idle connection to ${handle.ws.url}`);
         handle.ws.close();
         this.#removeSocket(handle);
       }

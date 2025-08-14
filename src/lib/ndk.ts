@@ -654,7 +654,10 @@ export function initNdk(): NDK {
       if (retryCount < maxRetries) {
         retryCount++;
         console.debug(`[NDK.ts] Attempting to reconnect (${retryCount}/${maxRetries})...`);
-        setTimeout(attemptConnection, 2000); // Reduce timeout to 2 seconds
+        // Use a more reasonable retry delay and prevent memory leaks
+        setTimeout(() => {
+          attemptConnection();
+        }, 2000 * retryCount); // Exponential backoff
       } else {
         console.warn("[NDK.ts] Max retries reached, continuing with limited functionality");
         // Still try to update relay stores even if connection failed
@@ -689,6 +692,36 @@ export function initNdk(): NDK {
   });
 
   return ndk;
+}
+
+/**
+ * Cleans up NDK resources to prevent memory leaks
+ * Should be called when the application is shutting down or when NDK needs to be reset
+ */
+export function cleanupNdk(): void {
+  console.debug("[NDK.ts] Cleaning up NDK resources");
+  
+  const ndk = get(ndkInstance);
+  if (ndk) {
+    try {
+      // Disconnect from all relays
+      if (ndk.pool) {
+        for (const relay of ndk.pool.relays.values()) {
+          relay.disconnect();
+        }
+      }
+      
+      // Drain the WebSocket pool
+      WebSocketPool.instance.drain();
+      
+      // Stop network monitoring
+      stopNetworkStatusMonitoring();
+      
+      console.debug("[NDK.ts] NDK cleanup completed");
+    } catch (error) {
+      console.warn("[NDK.ts] Error during NDK cleanup:", error);
+    }
+  }
 }
 
 /**
