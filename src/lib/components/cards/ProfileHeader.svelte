@@ -11,8 +11,7 @@
     lnurlpWellKnownUrl,
     checkCommunity,
   } from "$lib/utils/search_utility";
-  // @ts-ignore
-  import { bech32 } from "https://esm.sh/bech32";
+  import { bech32 } from "bech32";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { goto } from "$app/navigation";
 
@@ -154,7 +153,7 @@
             {/if}
             {#if profile.lud16}
               <div class="flex items-center gap-2 mt-4">
-                <dt class="font-semibold min-w-[120px]">Lightning Address:</dt>
+                <dt class="font-semibold min-w-[120px]">Lightning:</dt>
                 <dd>
                   <Button
                     class="btn-leather"

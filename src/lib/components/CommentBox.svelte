@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
+  import { UserOutline } from "flowbite-svelte-icons";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
@@ -454,13 +455,13 @@
                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
                 {:else}
-                  <div
-                    class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
-                  ></div>
+                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                    <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  </div>
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
-                    {profile.displayName || profile.name || mentionSearch}
+                    {profile.displayName || profile.name || "anon"}
                   </span>
                   {#if profile.nip05}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -591,15 +592,13 @@
           />
         {:else}
           <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-            <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-              {(userProfile.displayName || userProfile.name || "U").charAt(0).toUpperCase()}
-            </span>
+            <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            `${$userPubkey?.slice(0, 8)}...${$userPubkey?.slice(-4)}`}
+            "anon"}
         </span>
       </div>
     {/if}
