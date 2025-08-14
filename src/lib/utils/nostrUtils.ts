@@ -528,7 +528,7 @@ export async function fetchEventWithFallback(
  * Converts various Nostr identifiers to npub format.
  * Handles hex pubkeys, npub strings, and nprofile strings.
  */
-export function toNpub(pubkey: string | undefined): string | null {
+  export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
     // If it's already an npub, return it

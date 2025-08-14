@@ -1,12 +1,12 @@
 <script lang="ts">
   import "../app.css";
-  import Navigation from "$lib/components/Navigation.svelte";
   import { onMount, setContext } from "svelte";
-  import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { cleanupNdk, getPersistedLogin } from "$lib/ndk";
   import { userStore, loginMethodStorageKey } from "$lib/stores/userStore";
   import type { LayoutProps } from "./$types";
+  import { page } from "$app/state";
+  import { ANavbar, AFooter } from "$lib/a/index.js";
 
   // Define children prop for Svelte 5
   let { data, children }: LayoutProps = $props();
@@ -15,7 +15,8 @@
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
-  let currentUrl = $page.url.href;
+  let currentUrl = page.url.href;
+  let currentPath = page.url.pathname;
 
   // Get default image and summary for the Alexandria website
   let image = "/screenshots/old_books.jpg";
@@ -181,7 +182,12 @@
   <meta name="twitter:image" content={image} />
 </svelte:head>
 
-<div class={"leather mt-[120px] w-full mx-auto flex flex-col items-center"}>
-  <Navigation class="fixed top-0" />
-  {@render children()}
+<div class="min-h-screen flex flex-col">
+  <ANavbar {currentPath} />
+
+  <main class="flex-1 w-full">
+    {@render children()}
+  </main>
+
+  <AFooter />
 </div>

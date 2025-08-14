@@ -385,7 +385,7 @@
                 <div class="absolute inset-0 overflow-hidden">
                   <Textarea
                     id="content"
-                    class="w-full h-full resize-none bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-600 dark:focus:border-primary-400"
+                    class="w-full h-full resize-none bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-600 dark:focus:border-primary-400"
                     bind:value={content}
                     required
                     placeholder="Describe your issue in detail...

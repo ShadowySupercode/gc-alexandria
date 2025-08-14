@@ -1,0 +1,15 @@
+name: sepia
+colors:
+  bg: '#F5ECD9'
+  surface: '#F9F3E7'
+  text: '#3A2F1E'
+  muted: '#6D5C46'
+  primary: '#8A5A44'
+  primary-contrast: '#FFFFFF'
+radii: { sm: 4px, md: 8px, lg: 14px, full: 9999px }
+spacing: { 0: 0, 1: 0.25rem, 2: 0.5rem, 3: 0.75rem, 4: 1rem, 6: 1.5rem, 8: 2rem }
+typography:
+  font-reading: 'Literata, ui-serif, Georgia, serif'
+  font-ui: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  leading-reading: 1.7
+  measure-ch: 70

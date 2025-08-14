@@ -1,0 +1,40 @@
+/* Default theme (your current palette) */
+:root {
+    --brand-primary-0:     #efe6dc;
+    --brand-primary-50:    #decdb9;
+    --brand-primary-100:   #d6c1a8;
+    --brand-primary-200:   #c6a885;
+    --brand-primary-300:   #b58f62;
+    --brand-primary-400:   #ad8351;
+    --brand-primary-500:   #c6a885;
+    --brand-primary-600:   #795c39;
+    --brand-primary-700:   #564a3e;
+    --brand-primary-800:   #3c352c;
+    --brand-primary-900:   #2a241c;
+    --brand-primary-950:   #1d1812;
+    --brand-primary-1000:  #15110d;
+}
+
+/* Example alternative theme: ocean */
+:root[data-theme="ocean"] {
+    --brand-primary-0:     #ecf8ff;
+    --brand-primary-50:    #e6f3ff;
+    --brand-primary-100:   #d9ecff;
+    --brand-primary-200:   #b9ddff;
+    --brand-primary-300:   #90cbff;
+    --brand-primary-400:   #61b6fb;
+    --brand-primary-500:   #0ea5e9;  /* sky-500-ish */
+    --brand-primary-600:   #0284c7;
+    --brand-primary-700:   #0369a1;
+    --brand-primary-800:   #075985;
+    --brand-primary-900:   #0c4a6e;
+    --brand-primary-950:   #082f49;
+    --brand-primary-1000:  #062233;
+}
+
+/* (Optional) per-theme dark tweaks — applied when <html class="dark"> is set */
+:root.dark[data-theme="ocean"] {
+    /* nudge the mid tones brighter for contrast */
+    --brand-primary-400: #7ccdfc;
+    --brand-primary-500: #38bdf8;
+}
