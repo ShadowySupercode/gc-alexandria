@@ -1,6 +1,6 @@
 {
-  "importMap": "./import_map.json",
-  "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "dom.asynciterable", "deno.ns"]
+  "tasks": {
+    "tokens": "deno run --allow-read --allow-write src/lib/theme/build-tokens.ts",
+    "scaffold": "deno run --allow-read --allow-write scripts/scaffold.ts scripts/a-ui.v5.manifest.json"
   }
 }

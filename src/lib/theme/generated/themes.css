@@ -1,0 +1,93 @@
+[data-theme="dark"]{
+--color-bg: 11 16 32;
+--color-surface: 15 20 38;
+--color-text: 229 231 235;
+--color-muted: 148 163 184;
+--color-primary: 96 165 250;
+--color-primary-50: #fff5f2;
+--color-primary-100: #fff1ee;
+--color-primary-200: #ffe4de;
+--color-primary-300: #ffd5cc;
+--color-primary-400: #ffbcad;
+--color-primary-500: #fe795d;
+--color-primary-600: #ef562f;
+--color-primary-700: #eb4f27;
+--color-primary-800: #cc4522;
+--color-primary-900: #a5371b;
+
+--color-secondary-50: #f0f9ff;
+--color-secondary-100: #e0f2fe;
+--color-secondary-200: #bae6fd;
+--color-secondary-300: #7dd3fc;
+--color-secondary-400: #38bdf8;
+--color-secondary-500: #0ea5e9;
+--color-secondary-600: #0284c7;
+--color-secondary-700: #0369a1;
+--color-secondary-800: #075985;
+--color-secondary-900: #0c4a6e;
+--color-primary-contrast: 11 16 32;
+--radius-sm: 4px;
+--radius-md: 8px;
+--radius-lg: 14px;
+--radius-full: 9999px;
+--space-0: 0;
+--space-1: 0.25rem;
+--space-2: 0.5rem;
+--space-3: 0.75rem;
+--space-4: 1rem;
+--space-6: 1.5rem;
+--space-8: 2rem;
+--font-reading: Literata, ui-serif, Georgia, serif;
+--font-ui: Inter, ui-sans-serif, system-ui, sans-serif;
+--leading-reading: 1.8;
+--measure-ch: 68;
+}
+
+:root,[data-theme="light"]{
+--color-bg: 255 255 255;
+--color-surface: 250 250 250;
+--color-text: 17 24 39;
+--color-muted: 107 114 128;
+--color-primary: 29 78 216;
+--color-primary-contrast: 255 255 255;
+--radius-sm: 4px;
+--radius-md: 8px;
+--radius-lg: 14px;
+--radius-full: 9999px;
+--space-0: 0;
+--space-1: 0.25rem;
+--space-2: 0.5rem;
+--space-3: 0.75rem;
+--space-4: 1rem;
+--space-6: 1.5rem;
+--space-8: 2rem;
+--font-reading: Literata, ui-serif, Georgia, serif;
+--font-ui: Inter, ui-sans-serif, system-ui, sans-serif;
+--leading-reading: 1.7;
+--measure-ch: 70;
+}
+
+[data-theme="sepia"]{
+--color-bg: 245 236 217;
+--color-surface: 249 243 231;
+--color-text: 58 47 30;
+--color-muted: 109 92 70;
+--color-primary: 138 90 68;
+--color-primary-contrast: 255 255 255;
+--radius-sm: 4px;
+--radius-md: 8px;
+--radius-lg: 14px;
+--radius-full: 9999px;
+--space-0: 0;
+--space-1: 0.25rem;
+--space-2: 0.5rem;
+--space-3: 0.75rem;
+--space-4: 1rem;
+--space-6: 1.5rem;
+--space-8: 2rem;
+--font-reading: Literata, ui-serif, Georgia, serif;
+--font-ui: Inter, ui-sans-serif, system-ui, sans-serif;
+--leading-reading: 1.7;
+--measure-ch: 70;
+}
+

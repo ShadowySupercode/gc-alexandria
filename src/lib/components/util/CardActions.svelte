@@ -131,7 +131,7 @@
   <Button
     type="button"
     id="dots-{event.id}"
-    class=" hover:bg-primary-0 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
+    class=" hover:bg-primary-50 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
     color="none"
     data-popover-target="popover-actions"
   >

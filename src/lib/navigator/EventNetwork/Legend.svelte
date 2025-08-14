@@ -258,7 +258,7 @@
                   id="tag-type-select"
                   bind:value={selectedTagType}
                   onchange={onTagSettingsChange}
-                  class="w-full text-xs bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white mt-1"
+                  class="w-full text-xs bg-primary-50 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white mt-1"
                 >
                   <option value="t">Hashtags</option>
                   <option value="author">Authors</option>

@@ -7,7 +7,6 @@ import {
 import { loginMethodStorageKey } from "../lib/stores/userStore.ts";
 import Pharos, { pharosInstance } from "../lib/parser.ts";
 import type { LayoutLoad } from "./$types";
-import { get } from "svelte/store";
 import { browser } from "$app/environment";
 
 // AI-NOTE: Leave SSR off until event fetches are implemented server-side.
@@ -38,7 +37,13 @@ function restoreAuthSession() {
         if (localNsec) {
           import("@nostr-dev-kit/ndk").then(
             async ({ NDKNip46Signer }) => {
-              const ndk = get(ndkInstance);
+              // Get current NDK instance using store subscription instead of deprecated get()
+              let ndk: any;
+              const unsubscribe = ndkInstance.subscribe((value) => {
+                ndk = value;
+              });
+              unsubscribe();
+
               try {
                 // deno-lint-ignore no-explicit-any
                 const amberSigner = (NDKNip46Signer as any).nostrconnect(
@@ -127,7 +132,7 @@ export const load: LayoutLoad = () => {
   }
 
   const parser = new Pharos(ndk);
-  pharosInstance.set(parser);  
+  pharosInstance.set(parser);
 
   return {
     ndk,

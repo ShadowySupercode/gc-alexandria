@@ -1,6 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
 import process from "node:process";
 
 // Function to get the latest git tag

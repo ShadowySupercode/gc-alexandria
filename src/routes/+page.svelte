@@ -38,14 +38,12 @@
   function confirmClearSearch() {
     searchQuery = "";
     showClearSearchModal = false;
-    // Force the state update by reassigning
-    showOnlyMyPublications = false;
-    showOnlyMyPublications = true;
+    showOnlyMyPublications = pendingCheckboxState;
   }
 
   function cancelClearSearch() {
-    // Don't change showOnlyMyPublications - it should remain as it was
     showClearSearchModal = false;
+    pendingCheckboxState = false;
   }
 
   // AI-NOTE: Removed automatic search clearing - now handled with confirmation dialog
@@ -71,7 +69,7 @@
         <div class="flex items-center gap-2">
           <input
             type="checkbox"
-            checked={showOnlyMyPublications}
+            bind:checked={showOnlyMyPublications}
             onchange={handleCheckboxChange}
             id="show-my-publications"
             class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"

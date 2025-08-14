@@ -4,6 +4,6 @@
 
 @layer components {
   body {
-    @apply bg-primary-0 dark:bg-primary-1000;
+    @apply bg-primary-50 dark:bg-primary-1000;
   }
 }

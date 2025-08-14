@@ -1,14 +1,138 @@
+@import "tailwindcss";
+/* then your own imports and layers */
 @import "./styles/base.css";
 @import "./styles/scrollbar.css";
 @import "./styles/publications.css";
 @import "./styles/visualize.css";
 @import "./styles/events.css";
 @import "./styles/asciidoc.css";
+@import "./theme-tokens.css";
+
+@plugin "flowbite/plugin";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    /* single color */
+    --color-highlight: #f9f6f1;
+
+    --color-border: var(--color-highlight);
+    --color-text-muted: var(--color-text-muted);
+
+    /* success */
+    --color-success-50:  #e3f2e7;
+    --color-success-100: #c7e6cf;
+    --color-success-200: #a2d4ae;
+    --color-success-300: #7dbf8e;
+    --color-success-400: #5ea571;
+    --color-success-500: #4e8e5f;
+    --color-success-600: #3e744c;
+    --color-success-700: #305b3b;
+    --color-success-800: #22412a;
+    --color-success-900: #15281b;
+
+    /* info */
+    --color-info-50:  #e7eff6;
+    --color-info-100: #c5d9ea;
+    --color-info-200: #9fbfdb;
+    --color-info-300: #7aa5cc;
+    --color-info-400: #5e90be;
+    --color-info-500: #4779a5;
+    --color-info-600: #365d80;
+    --color-info-700: #27445d;
+    --color-info-800: #192b3a;
+    --color-info-900: #0d161f;
+
+    /* warning */
+    --color-warning-50:  #fef4e6;
+    --color-warning-100: #fde4bf;
+    --color-warning-200: #fcd18e;
+    --color-warning-300: #fbbc5c;
+    --color-warning-400: #f9aa33;
+    --color-warning-500: #f7971b;
+    --color-warning-600: #c97a14;
+    --color-warning-700: #9a5c0e;
+    --color-warning-800: #6c3e08;
+    --color-warning-900: #3e2404;
+
+    /* danger */
+    --color-danger-50:  #fbeaea;
+    --color-danger-100: #f5cccc;
+    --color-danger-200: #eba5a5;
+    --color-danger-300: #e17e7e;
+    --color-danger-400: #d96060;
+    --color-danger-500: #c94848;
+    --color-danger-600: #a53939;
+    --color-danger-700: #7c2b2b;
+    --color-danger-800: #521c1c;
+    --color-danger-900: #2b0e0e;
+}
+
+/* Map Tailwind utilities → theme tokens (PRIMARY ONLY) */
+@theme inline {
+    --color-primary-0:     var(--brand-primary-0);
+    --color-primary-50:    var(--brand-primary-50);
+    --color-primary-100:   var(--brand-primary-100);
+    --color-primary-200:   var(--brand-primary-200);
+    --color-primary-300:   var(--brand-primary-300);
+    --color-primary-400:   var(--brand-primary-400);
+    --color-primary-500:   var(--brand-primary-500);
+    --color-primary-600:   var(--brand-primary-600);
+    --color-primary-700:   var(--brand-primary-700);
+    --color-primary-800:   var(--brand-primary-800);
+    --color-primary-900:   var(--brand-primary-900);
+    --color-primary-950:   var(--brand-primary-950);
+    --color-primary-1000:  var(--brand-primary-1000);
+}
+
+@source "../node_modules/flowbite-svelte/dist";
+@source "../node_modules/flowbite-svelte-icons/dist";
+
+/* @utility and @layer rules… */
+
+/* .content-visibility-auto */
+@utility content-visibility-auto { content-visibility: auto; }
+
+/* .contain-size */
+@utility contain-size { contain: size; }
+
+/* numbers -> px  (e.g. contain-intrinsic-w-[320] => width: 320px) */
+@utility contain-intrinsic-w-* {
+    --tw-ciw: --value(number);
+    width: calc(var(--tw-ciw) * 1px);
+}
+
+@utility contain-intrinsic-h-* {
+    --tw-cih: --value(number);
+    height: calc(var(--tw-cih) * 1px);
+}
+
+/* percentages (e.g. contain-intrinsic-wp-[65%] => width: 65%) */
+@utility contain-intrinsic-wp-* { width: --value(percentage); }
+@utility contain-intrinsic-hp-* { height: --value(percentage); }
+
+/* list-upper-alpha, list-lower-alpha (keep your old class names)
+   Note: in v4 you can also write list-[upper-alpha] / list-[lower-alpha] inline. */
+@utility list-upper-alpha { list-style-type: upper-alpha; }
+@utility list-lower-alpha { list-style-type: lower-alpha; }
+
+/* flexGrow 1/2/3 — unlock grow-2, grow-3 (and any number via brackets) */
+@utility grow-* { flex-grow: --value(integer); }
+
+/* Hue rotate: use arbitrary values directly, e.g. hue-rotate-[20deg] (no config needed). */
+
+/* --- Let Tailwind scan Flowbite Svelte (node_modules are ignored by default) --- */
+@source "../node_modules/flowbite-svelte/dist";
+@source "../node_modules/flowbite-svelte-icons/dist";
 
 /* Custom styles */
 @layer base {
+    /* disable chrome cancel button */
+    input[type="search"]::-webkit-search-cancel-button {
+        display: none;
+    }
+
   .leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
   .btn-leather.text-xs {
@@ -68,13 +192,13 @@
 
   main.main-leather,
   article.article-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
   div.note-leather,
   p.note-leather,
   section.note-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
   }
 
   .edit div.note-leather:hover:not(:has(.note-leather:hover)),
@@ -117,7 +241,7 @@
   }
 
   div.modal-leather > div {
-    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
+    @apply bg-primary-50 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
   }
 
   div.modal-leather > div > h1,
@@ -130,7 +254,7 @@
   }
 
   div.modal-leather button {
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply bg-primary-50 hover:bg-primary-50 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   /* Navbar */
@@ -139,7 +263,7 @@
   }
 
   nav.navbar-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 z-10;
+    @apply bg-primary-50 dark:bg-primary-1000 z-10;
   }
 
   nav.navbar-leather svg {
@@ -164,7 +288,7 @@
   }
 
   div.textarea-leather {
-    @apply bg-primary-0 dark:bg-primary-1000;
+    @apply bg-primary-50 dark:bg-primary-1000;
   }
 
   div.textarea-leather > div:nth-child(1),
@@ -173,7 +297,7 @@
   }
 
   div.textarea-leather > div:nth-child(2) {
-    @apply bg-primary-0 dark:bg-primary-1000;
+    @apply bg-primary-50 dark:bg-primary-1000;
   }
 
   div.textarea-leather,
@@ -201,16 +325,16 @@
   .network-node-content {
     @apply fill-primary-100;
   }
-  
+
   /* Person link colors */
   .person-link-signed {
     @apply stroke-green-500;
   }
-  
+
   .person-link-referenced {
     @apply stroke-blue-400;
   }
-  
+
   /* Person anchor node */
   .person-anchor-node {
     @apply fill-green-400 stroke-green-600;
@@ -312,7 +436,7 @@
 
   /* Tooltip */
   .tooltip-leather {
-    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
+    @apply fixed p-4 rounded shadow-lg bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
     max-width: 400px;
     z-index: 1000;
   }
@@ -321,43 +445,21 @@
     @apply dark:text-white;
   }
 
-  /* Rendered publication content */
-  .publication-leather {
+.publication-leather {
     @apply flex flex-col space-y-4;
     scroll-margin-top: 150px;
     scroll-behavior: smooth;
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      @apply h-leather;
-    }
+    /* common heading base styles */
+    h1,h2,h3,h4,h5,h6 { @apply text-gray-900 dark:text-gray-100 pt-4; }
 
-    h1 {
-      @apply h1-leather;
-    }
-
-    h2 {
-      @apply h2-leather;
-    }
-
-    h3 {
-      @apply h3-leather;
-    }
-
-    h4 {
-      @apply h4-leather;
-    }
-
-    h5 {
-      @apply h5-leather;
-    }
-
-    h6 {
-      @apply h6-leather;
+    /* sizes/weights per level */
+    h1 { @apply text-4xl font-bold; }
+    h2 { @apply text-3xl font-bold; }
+    h3 { @apply text-2xl font-bold; }
+    h4 { @apply text-xl  font-bold; }
+    h5 { @apply text-lg  font-semibold; }
+    h6 { @apply text-base font-semibold; }
     }
 
     div {
@@ -368,7 +470,7 @@
       @apply flex flex-col space-y-4;
 
       ol {
-        @apply ol-leather list-decimal px-6 flex flex-col space-y-2;
+        @apply list-decimal px-6 flex flex-col space-y-2;
 
         li {
           .paragraph {
@@ -382,7 +484,7 @@
       @apply flex flex-col space-y-4;
 
       ul {
-        @apply ul-leather list-disc px-6 flex flex-col space-y-2;
+        @apply list-disc px-6 flex flex-col space-y-2;
 
         li {
           .paragraph {
@@ -393,7 +495,7 @@
     }
 
     a {
-      @apply link;
+      @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
     }
 
     .imageblock {
@@ -468,7 +570,7 @@
 
   .note-leather .footnote-ref,
   .note-leather .footnote-backref {
-    color: var(--color-leather-primary);
+    color: var(--color-primary);
   }
 
   /* Scrollable content */
@@ -536,7 +638,7 @@
   input[type="tel"],
   input[type="url"],
   textarea {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
     @apply focus:border-primary-600 dark:focus:border-primary-400;
   }
 
@@ -549,4 +651,4 @@
   .toc-highlight:hover {
     @apply bg-primary-300 dark:bg-primary-600;
   }
-}
+

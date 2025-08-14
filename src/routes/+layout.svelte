@@ -1,18 +1,17 @@
-<script>
+<script lang="ts">
   import "../app.css";
-  import Navigation from "$lib/components/Navigation.svelte";
   import { onMount } from "svelte";
-  import { page } from "$app/stores";
-  import { Alert } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
-  import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { page } from "$app/state";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { ANavbar, AFooter } from "$lib/a/index.js";
 
   // Define children prop for Svelte 5
   let { children } = $props();
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
-  let currentUrl = $page.url.href;
+  let currentUrl = page.url.href;
+  let currentPath = page.url.pathname;
 
   // Get default image and summary for the Alexandria website
   let image = "/screenshots/old_books.jpg";
@@ -63,7 +62,12 @@
   <meta name="twitter:image" content={image} />
 </svelte:head>
 
-<div class={"leather mt-[76px] w-full mx-auto flex flex-col items-center"}>
-  <Navigation class="fixed top-0" />
-  {@render children()}
+<div class="min-h-screen flex flex-col">
+  <ANavbar {currentPath} />
+
+  <main class="flex-1 w-full">
+    {@render children()}
+  </main>
+
+  <AFooter />
 </div>
