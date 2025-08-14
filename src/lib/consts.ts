@@ -46,7 +46,6 @@ export const lowbandwidthRelays = [
 export const localRelays: string[] = [
   "wss://localhost:8080",
   "wss://localhost:4869",
-  "wss://localhost:3334"
 ];
 
 export enum FeedType {
