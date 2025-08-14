@@ -33,7 +33,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["bech32"],
+      // Removed bech32 from externals since it's needed on client side
     },
   },
   test: {
