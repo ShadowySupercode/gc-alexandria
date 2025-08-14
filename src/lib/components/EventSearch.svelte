@@ -11,6 +11,7 @@
   } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays, ndkInstance } from "$lib/ndk";
+  import { searchRelays } from "$lib/consts";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import type { SearchResult } from '$lib/utils/search_types';
   import { userStore } from "$lib/stores/userStore";

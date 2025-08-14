@@ -5,6 +5,7 @@
   import { toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { searchRelays } from "$lib/consts";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";

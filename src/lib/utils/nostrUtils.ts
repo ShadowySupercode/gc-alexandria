@@ -192,6 +192,7 @@ export async function createProfileLinkWithVerification(
   };
 
   const allRelays = [
+    ...searchRelays,        // Include search relays for profile searches
     ...communityRelays,
     ...userRelays,
     ...secondaryRelays,
