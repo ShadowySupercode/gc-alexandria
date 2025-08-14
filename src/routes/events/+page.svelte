@@ -8,11 +8,10 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
-import CommentViewer from "$lib/components/CommentViewer.svelte";
+  import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userStore } from "$lib/stores/userStore";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
-  import EventInput from "$lib/components/EventInput.svelte";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
@@ -430,9 +429,9 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
         </div>
 
         <P class="mb-3">
-          Use this page to view any event (npub, nprofile, nevent, naddr, note,
-          pubkey, or eventID). You can also search for events by d-tag using the
-          format "d:tag-name".
+          Search and view any event on the Nostr network. Enter an npub, nprofile, nevent, naddr, note,
+          pubkey, or eventID. You can also search for events by d-tag using the
+          format "d:tag-name", t-tags with "t:tag-name", or profiles by name with "n:name".
         </P>
 
         <EventSearch
@@ -929,8 +928,9 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
         {/if}
 
         {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue && !searchInProgress}
-          <div class="mt-8">
-            <EventInput />
+          <div class="mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg text-center">
+            <Heading tag="h3" class="h-leather mb-4">No Search Active</Heading>
+            <P class="mb-4">Use the search field above to find events, or visit the <a href="/events/compose" class="text-primary-600 dark:text-primary-400 hover:underline">Compose page</a> to create new events.</P>
           </div>
         {/if}
       </div>

@@ -5,7 +5,7 @@ export const siteNav: NavItem[] = [
     title: 'Create',
     children: [
       { title: 'Compose notes', href: '/new/compose' },
-      { title: 'Publish events', href: '/events/publish' },
+      { title: 'Publish events', href: '/events/compose' },
     ]
   },
   {
