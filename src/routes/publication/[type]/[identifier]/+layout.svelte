@@ -29,6 +29,4 @@
   <meta name="twitter:image" content={metadata.image} />
 </svelte:head>
 
-{#if browser}
-  {@render children()}
-{/if}
+{@render children()}
