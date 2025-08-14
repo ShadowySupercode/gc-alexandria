@@ -20,6 +20,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
+  import { parseRepostContent, parseContent } from "$lib/utils/notification_utils";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -49,22 +50,24 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   let searchInProgress = $state(false);
   let secondOrderSearchMessage = $state<string | null>(null);
   let communityStatus = $state<Record<string, boolean>>({});
+  let searchResultsCollapsed = $state(false);
 
   userStore.subscribe((val) => (user = val));
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
     showSidePanel = true;
-    // Clear search results when showing a single event
-    searchResults = [];
-    secondOrderResults = [];
-    tTagResults = [];
-    originalEventIds = new Set();
-    originalAddresses = new Set();
-    searchType = null;
-    searchTerm = null;
-    searchInProgress = false;
-    secondOrderSearchMessage = null;
+    // AI-NOTE: 2025-01-24 - Preserve search results to allow navigation through them
+    // Don't clear search results when showing a single event - this allows users to browse through results
+    // searchResults = [];
+    // secondOrderResults = [];
+    // tTagResults = [];
+    // originalEventIds = new Set();
+    // originalAddresses = new Set();
+    // searchType = null;
+    // searchTerm = null;
+    // searchInProgress = false;
+    // secondOrderSearchMessage = null;
 
     if (newEvent.kind === 0) {
       try {
@@ -255,6 +258,10 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     secondOrderSearchMessage = null;
   }
 
+  function toggleSearchResults() {
+    searchResultsCollapsed = !searchResultsCollapsed;
+  }
+
   function navigateToPublication(dTag: string) {
     goto(`/publications?d=${encodeURIComponent(dTag.toLowerCase())}`);
   }
@@ -419,14 +426,24 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
       <div class="main-leather flex flex-col space-y-6">
         <div class="flex justify-between items-center">
           <Heading tag="h1" class="h-leather mb-2">Events</Heading>
-          {#if showSidePanel}
-            <button
-              class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-              onclick={closeSidePanel}
-            >
-              Close Details
-            </button>
-          {/if}
+          <div class="flex items-center gap-2">
+            {#if showSidePanel && (searchResults.length > 0 || secondOrderResults.length > 0 || tTagResults.length > 0)}
+              <button
+                class="lg:hidden text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
+                onclick={toggleSearchResults}
+              >
+                {searchResultsCollapsed ? "Show Results" : "Hide Results"}
+              </button>
+            {/if}
+            {#if showSidePanel}
+              <button
+                class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                onclick={closeSidePanel}
+              >
+                Close Details
+              </button>
+            {/if}
+          </div>
         </div>
 
         <P class="mb-3">
@@ -457,19 +474,20 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
         {#if searchResults.length > 0}
           <div class="mt-8">
-            <Heading tag="h2" class="h-leather mb-4 break-words">
-              {#if searchType === "n"}
-                Search Results for name: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length} profiles)
-              {:else if searchType === "t"}
-                Search Results for t-tag: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length}
-                events)
-              {:else}
-                Search Results for d-tag: "{(() => {
-                  const term = searchTerm || dTagValue?.toLowerCase() || '';
-                  return term.length > 50 ? term.slice(0, 50) + '...' : term;
-                })()}" ({searchResults.length} events)
-              {/if}
-            </Heading>
+            <div class={showSidePanel && searchResultsCollapsed ? "lg:block hidden" : "block"}>
+              <Heading tag="h2" class="h-leather mb-4 break-words">
+                {#if searchType === "n"}
+                  Search Results for name: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length} profiles)
+                {:else if searchType === "t"}
+                  Search Results for t-tag: "{searchTerm && searchTerm.length > 50 ? searchTerm.slice(0, 50) + '...' : searchTerm || ''}" ({searchResults.length}
+                  events)
+                {:else}
+                  Search Results for d-tag: "{(() => {
+                    const term = searchTerm || dTagValue?.toLowerCase() || '';
+                    return term.length > 50 ? term.slice(0, 50) + '...' : term;
+                  })()}" ({searchResults.length} events)
+                {/if}
+              </Heading>
             <div class="space-y-4">
               {#each searchResults as result, index}
                 {@const profileData = parseProfileContent(result)}
@@ -599,10 +617,11 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {result.content.slice(0, 200)}{result.content.length >
-                          200
-                            ? "..."
-                            : ""}
+                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
+                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
+                          {:catch}
+                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
+                          {/await}
                         </div>
                       {/if}
                     {/if}
@@ -610,15 +629,17 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                 </button>
               {/each}
             </div>
+            </div>
           </div>
         {/if}
 
         {#if secondOrderResults.length > 0}
           <div class="mt-8">
-            <Heading tag="h2" class="h-leather mb-4">
-              Second-Order Events (References, Replies, Quotes) ({secondOrderResults.length}
-              events)
-            </Heading>
+            <div class={showSidePanel && searchResultsCollapsed ? "lg:block hidden" : "block"}>
+              <Heading tag="h2" class="h-leather mb-4">
+                Second-Order Events (References, Replies, Quotes) ({secondOrderResults.length}
+                events)
+              </Heading>
             {#if (searchType === "n" || searchType === "d") && secondOrderResults.length === 100}
               <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
                 Showing the 100 newest events. More results may be available.
@@ -763,10 +784,11 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {result.content.slice(0, 200)}{result.content.length >
-                          200
-                            ? "..."
-                            : ""}
+                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
+                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
+                          {:catch}
+                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
+                          {/await}
                         </div>
                       {/if}
                     {/if}
@@ -774,15 +796,17 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                 </button>
               {/each}
             </div>
+            </div>
           </div>
         {/if}
 
         {#if tTagResults.length > 0}
           <div class="mt-8">
-            <Heading tag="h2" class="h-leather mb-4">
-              Search Results for t-tag: "{searchTerm ||
-                dTagValue?.toLowerCase()}" ({tTagResults.length} events)
-            </Heading>
+            <div class={showSidePanel && searchResultsCollapsed ? "lg:block hidden" : "block"}>
+              <Heading tag="h2" class="h-leather mb-4">
+                Search Results for t-tag: "{searchTerm ||
+                  dTagValue?.toLowerCase()}" ({tTagResults.length} events)
+              </Heading>
             <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
               Events that are tagged with the t-tag.
             </P>
@@ -914,16 +938,18 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {result.content.slice(0, 200)}{result.content.length >
-                          200
-                            ? "..."
-                            : ""}
+                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
+                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
+                          {:catch}
+                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
+                          {/await}
                         </div>
                       {/if}
                     {/if}
                   </div>
                 </button>
               {/each}
+            </div>
             </div>
           </div>
         {/if}

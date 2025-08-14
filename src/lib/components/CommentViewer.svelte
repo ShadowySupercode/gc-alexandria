@@ -8,6 +8,7 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { parseRepostContent, parseContent as parseNotificationContent } from "$lib/utils/notification_utils";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -653,12 +654,15 @@
     return `${actualLevel * 16}px`;
   }
 
-  async function parseContent(content: string): Promise<string> {
+  async function parseContent(content: string, eventKind?: number): Promise<string> {
     if (!content) return "";
     
-    let parsedContent = await parseBasicmarkup(content);
-    
-    return parsedContent;
+    // Use parseRepostContent for kind 6 and 16 events (reposts)
+    if (eventKind === 6 || eventKind === 16) {
+      return await parseRepostContent(content);
+    } else {
+      return await parseNotificationContent(content);
+    }
   }
 
 
@@ -825,7 +829,7 @@
           </div>
         {:else}
           <!-- Regular comment content -->
-          {#await parseContent(node.event.content || "") then parsedContent}
+          {#await parseContent(node.event.content || "", node.event.kind) then parsedContent}
             {@html parsedContent}
           {:catch}
             {@html node.event.content || ""}

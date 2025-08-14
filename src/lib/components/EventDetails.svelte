@@ -15,6 +15,8 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
+  import { parseRepostContent } from "$lib/utils/notification_utils";
+  import RelayActions from "$lib/components/RelayActions.svelte";
 
   const {
     event,
@@ -305,10 +307,18 @@
 
   $effect(() => {
     if (event && event.kind !== 0 && event.content) {
-      parseBasicmarkup(event.content).then((html) => {
-        parsedContent = html;
-        contentPreview = html.slice(0, 250);
-      });
+      // Use parseRepostContent for kind 6 and 16 events (reposts)
+      if (event.kind === 6 || event.kind === 16) {
+        parseRepostContent(event.content).then((html) => {
+          parsedContent = html;
+          contentPreview = html.slice(0, 250);
+        });
+      } else {
+        parseBasicmarkup(event.content).then((html) => {
+          parsedContent = html;
+          contentPreview = html.slice(0, 250);
+        });
+      }
     }
   });
 
@@ -436,30 +446,17 @@
     </div>
   {/if}
 
-  {#if getEventHashtags(event).length}
-    <div class="flex flex-col space-y-1">
-      <span class="text-gray-700 dark:text-gray-300">Tags:</span>
-      <div class="flex flex-wrap gap-2">
-        {#each getEventHashtags(event) as tag}
-          <button
-            onclick={() => goto(`/events?t=${encodeURIComponent(tag)}`)}
-            class="px-2 py-1 rounded bg-primary-100 text-primary-800 text-sm font-medium hover:bg-primary-200 cursor-pointer"
-            >#{tag}</button
-          >
-        {/each}
-      </div>
-    </div>
-  {/if}
+
 
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
 
   <!-- Content -->
   {#if event.kind !== 0}
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
       <div class="flex flex-col space-y-1">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100">
+        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere">
           {@html showFullContent ? parsedContent : contentPreview}
           {#if !showFullContent && parsedContent.length > 250}
             <button
@@ -477,78 +474,105 @@
     <ProfileHeader
       {event}
       {profile}
-      identifiers={getIdentifiers(event, profile)}
     />
-  {/if}
-
-  <!-- Tags Array -->
-  {#if event.tags && event.tags.length}
-    <div class="flex flex-col space-y-1">
-      <span class="text-gray-700 dark:text-gray-300">Event Tags:</span>
-      <div class="flex flex-wrap gap-2">
-        {#each event.tags as tag}
-          {@const tagInfo = getTagButtonInfo(tag)}
-          {#if tagInfo.text && tagInfo.gotoValue}
-            <button
-              onclick={() => {
-                // Handle different types of gotoValue
-                if (
-                  tagInfo.gotoValue!.startsWith("naddr") ||
-                  tagInfo.gotoValue!.startsWith("nevent") ||
-                  tagInfo.gotoValue!.startsWith("npub") ||
-                  tagInfo.gotoValue!.startsWith("nprofile") ||
-                  tagInfo.gotoValue!.startsWith("note")
-                ) {
-                  // For naddr, nevent, npub, nprofile, note - navigate directly
-                  goto(`/events?id=${tagInfo.gotoValue!}`);
-                } else if (tagInfo.gotoValue!.startsWith("/")) {
-                  // For relative URLs - navigate directly
-                  goto(tagInfo.gotoValue!);
-                } else if (tagInfo.gotoValue!.startsWith("d:")) {
-                  // For d-tag searches - navigate to d-tag search
-                  const dTag = tagInfo.gotoValue!.substring(2);
-                  goto(`/events?d=${encodeURIComponent(dTag)}`);
-                } else if (tagInfo.gotoValue!.startsWith("t:")) {
-                  // For t-tag searches - navigate to t-tag search
-                  const tTag = tagInfo.gotoValue!.substring(2);
-                  goto(`/events?t=${encodeURIComponent(tTag)}`);
-                } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                  // For hex event IDs - use navigateToEvent
-                  navigateToEvent(tagInfo.gotoValue!);
-                } else {
-                  // For other cases, try direct navigation
-                  goto(`/events?id=${tagInfo.gotoValue!}`);
-                }
-              }}
-              class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100"
-            >
-              {tagInfo.text}
-            </button>
-          {/if}
-        {/each}
-      </div>
-    </div>
   {/if}
 
   <!-- Raw Event JSON -->
   <details
-    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4"
+    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4 overflow-hidden"
   >
     <summary
       class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2"
     >
-      Show Raw Event JSON
+      Show details
     </summary>
-    <div class="absolute top-4 right-4">
-      <CopyToClipboard
-        displayText=""
-        copyText={JSON.stringify(event.rawEvent(), null, 2)}
-      />
+    
+    <!-- Identifiers Section -->
+    <div class="mb-4 max-w-full overflow-hidden">
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
+      <div class="flex flex-col gap-2">
+        {#each getIdentifiers(event, profile) as identifier}
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            <span class="font-mono text-sm text-gray-900 dark:text-gray-100" title={identifier.value}>
+              {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+            </span>
+            <CopyToClipboard
+              displayText=""
+              copyText={identifier.value}
+            />
+          </div>
+        </div>
+        {/each}
+      </div>
     </div>
-    <pre
-      class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono"
-      style="line-height: 1.7; font-size: 1rem;">
+
+    <!-- Event Tags Section -->
+    {#if event.tags && event.tags.length}
+      <div class="mb-4 max-w-full overflow-hidden">
+        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
+        <div class="flex flex-wrap gap-2 break-words">
+          {#each event.tags as tag}
+            {@const tagInfo = getTagButtonInfo(tag)}
+            {#if tagInfo.text && tagInfo.gotoValue}
+              <button
+                onclick={() => {
+                  // Handle different types of gotoValue
+                  if (
+                    tagInfo.gotoValue!.startsWith("naddr") ||
+                    tagInfo.gotoValue!.startsWith("nevent") ||
+                    tagInfo.gotoValue!.startsWith("npub") ||
+                    tagInfo.gotoValue!.startsWith("nprofile") ||
+                    tagInfo.gotoValue!.startsWith("note")
+                  ) {
+                    // For naddr, nevent, npub, nprofile, note - navigate directly
+                    goto(`/events?id=${tagInfo.gotoValue!}`);
+                  } else if (tagInfo.gotoValue!.startsWith("/")) {
+                    // For relative URLs - navigate directly
+                    goto(tagInfo.gotoValue!);
+                  } else if (tagInfo.gotoValue!.startsWith("d:")) {
+                    // For d-tag searches - navigate to d-tag search
+                    const dTag = tagInfo.gotoValue!.substring(2);
+                    goto(`/events?d=${encodeURIComponent(dTag)}`);
+                  } else if (tagInfo.gotoValue!.startsWith("t:")) {
+                    // For t-tag searches - navigate to t-tag search
+                    const tTag = tagInfo.gotoValue!.substring(2);
+                    goto(`/events?t=${encodeURIComponent(tTag)}`);
+                  } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
+                    // For hex event IDs - use navigateToEvent
+                    navigateToEvent(tagInfo.gotoValue!);
+                  } else {
+                    // For other cases, try direct navigation
+                    goto(`/events?id=${tagInfo.gotoValue!}`);
+                  }
+                }}
+                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all"
+              >
+                {tagInfo.text}
+              </button>
+            {/if}
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    <!-- Raw Event JSON Section -->
+    <div class="mb-4 max-w-full overflow-hidden">
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
+      <div class="relative">
+        <div class="absolute top-0 right-0 z-10">
+          <CopyToClipboard
+            displayText=""
+            copyText={JSON.stringify(event.rawEvent(), null, 2)}
+          />
+        </div>
+        <pre
+          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap"
+          style="line-height: 1.7; font-size: 1rem;">
 {JSON.stringify(event.rawEvent(), null, 2)}
-    </pre>
+        </pre>
+      </div>
+    </div>
   </details>
 </div>

@@ -72,24 +72,6 @@
   }
 </script>
 
-<div class="mt-4 flex flex-wrap gap-2">
-  <Button onclick={openRelayModal} class="flex items-center">
-    {@html searchIcon}
-    Where can I find this event?
-  </Button>
-</div>
-
-{#if foundRelays.length > 0}
-  <div class="mt-2">
-    <span class="font-semibold">Found on {foundRelays.length} relay(s):</span>
-    <div class="flex flex-wrap gap-2 mt-1">
-      {#each foundRelays as relay}
-        <RelayDisplay {relay} />
-      {/each}
-    </div>
-  </div>
-{/if}
-
 <div class="mt-2">
   <span class="font-semibold">Found on:</span>
   <div class="flex flex-wrap gap-2 mt-1">
