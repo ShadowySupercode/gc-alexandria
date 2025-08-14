@@ -13,6 +13,7 @@
   let events: NDKEvent[] = $state([]);
   let loading = $state(true);
   let error: string | null = $state(null);
+  let checkingAuth = $state(true); // Track authentication check state - prevents premature redirects during auth restoration
   let showTags: Record<string, boolean> = $state({});
   let renderedContent: Record<string, string> = $state({});
 
@@ -167,17 +168,52 @@
     });
   });
 
-  // AI-NOTE: Check authentication status immediately and redirect if not logged in
+  // AI-NOTE: Check authentication status and redirect if not logged in
+  // Wait for authentication state to be properly initialized before checking
+  let authCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+  
   $effect(() => {
-    const user = get(userStore);
-    if (!user.signedIn) {
-      // Redirect to home page if not logged in
-      goto('/');
+    const user = $userStore;
+    
+    // Clear any existing timeout
+    if (authCheckTimeout) {
+      clearTimeout(authCheckTimeout);
+      authCheckTimeout = null;
+    }
+    
+    // If user is signed in, we're good
+    if (user.signedIn) {
+      checkingAuth = false;
       return;
     }
+    
+    // If user is not signed in, wait a bit for auth restoration to complete
+    // This handles the case where the page loads before auth restoration finishes
+    authCheckTimeout = setTimeout(() => {
+      const currentUser = get(userStore);
+      if (!currentUser.signedIn) {
+        console.debug('[MyNotes] User not signed in after auth restoration, redirecting to home page');
+        goto('/');
+      } else {
+        checkingAuth = false;
+      }
+    }, 1500); // 1.5 second delay to allow auth restoration to complete
+    
+    // Cleanup function
+    return () => {
+      if (authCheckTimeout) {
+        clearTimeout(authCheckTimeout);
+        authCheckTimeout = null;
+      }
+    };
   });
 
-  onMount(fetchMyNotes);
+  // AI-NOTE: Only fetch notes after authentication is confirmed
+  $effect(() => {
+    if (!checkingAuth && $userStore.signedIn) {
+      fetchMyNotes();
+    }
+  });
 </script>
 
 <div
@@ -237,7 +273,9 @@
   <!-- Notes Feed -->
   <div class="flex-1 w-full lg:max-w-5xl lg:ml-auto px-0 lg:px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
-    {#if loading}
+    {#if checkingAuth}
+      <div class="text-gray-500">Checking authentication...</div>
+    {:else if loading}
       <div class="text-gray-500">Loading…</div>
     {:else if error}
       <div class="text-red-500">{error}</div>
