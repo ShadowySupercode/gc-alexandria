@@ -233,24 +233,7 @@ function processFootnotes(content: string): string {
   }
 }
 
-/**
- * Process blockquotes
- */
-function processBlockquotes(content: string): string {
-  // Match blockquotes that might span multiple lines
-  const blockquoteRegex = /^>[ \t]?(.+(?:\n>[ \t]?.+)*)/gm;
 
-  return content.replace(blockquoteRegex, (match) => {
-    // Remove the '>' prefix from each line and preserve line breaks
-    const text = match
-      .split("\n")
-      .map((line) => line.replace(/^>[ \t]?/, ""))
-      .join("\n")
-      .trim();
-
-    return `<blockquote class="pl-4 border-l-4 border-gray-300 dark:border-gray-600 my-4 whitespace-pre-wrap">${text}</blockquote>`;
-  });
-}
 
 /**
  * Process code blocks by finding consecutive code lines and preserving their content
@@ -689,6 +672,8 @@ function isLaTeXContent(content: string): boolean {
   return latexPatterns.some((pattern) => pattern.test(trimmed));
 }
 
+
+
 /**
  * Parse markup text with advanced formatting
  */
@@ -706,9 +691,10 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
     // Step 3: Process LaTeX math expressions ONLY within inline code blocks (legacy support)
     processedText = processMathExpressions(processedText);
 
-    // Step 4: Process block-level elements (tables, blockquotes, headings, horizontal rules)
+    // Step 4: Process block-level elements (tables, headings, horizontal rules)
+    // AI-NOTE: 2025-01-24 - Removed duplicate processBlockquotes call to fix image rendering issues
+    // Blockquotes are now processed only by parseBasicmarkup to avoid double-processing conflicts
     processedText = processTables(processedText);
-    processedText = processBlockquotes(processedText);
     processedText = processHeadings(processedText);
     processedText = processHorizontalRules(processedText);
 

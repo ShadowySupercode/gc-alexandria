@@ -19,7 +19,8 @@ import {
 // Links and media
 const MARKUP_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
 const MARKUP_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
-const DIRECT_LINK = /(?<!["'=])(https?:\/\/[^\s<>"]+)(?!["'])/g;
+// AI-NOTE: 2025-01-24 - Added negative lookbehind (?<!\]\() to prevent processing URLs in markdown syntax
+const DIRECT_LINK = /(?<!["'=])(?<!\]\()(https?:\/\/[^\s<>"]+)(?!["'])/g;
 
 // Add this helper function near the top:
 function replaceAlexandriaNostrLinks(text: string): string {
@@ -149,8 +150,11 @@ function processBasicFormatting(content: string): string {
     processedText = replaceAlexandriaNostrLinks(processedText);
 
     // Process markup images first
-    processedText = processedText.replace(MARKUP_IMAGE, (_match, alt, url) => {
-      return processImageWithReveal(url, alt);
+    processedText = processedText.replace(MARKUP_IMAGE, (match, alt, url) => {
+      // Clean the URL and alt text
+      const cleanUrl = url.trim();
+      const cleanAlt = alt ? alt.trim() : "";
+      return processImageWithReveal(cleanUrl, cleanAlt);
     });
 
     // Process markup links
@@ -234,9 +238,10 @@ export async function parseEmbeddedMarkup(text: string, nestingLevel: number = 0
       .map((para) => para.trim())
       .filter((para) => para.length > 0)
       .map((para) => {
-        // Skip wrapping if para already contains block-level elements or math blocks
+        // AI-NOTE: 2025-01-24 - Added img tag to skip wrapping to prevent image rendering issues
+        // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
-          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr)/i.test(
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i.test(
             para,
           )
         ) {
