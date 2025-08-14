@@ -24,7 +24,7 @@ export function processImageWithReveal(src: string, alt: string = "Image"): stri
       </div>
       <!-- Reveal button -->
       <button class="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-200 font-medium px-4 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600 hover:scale-105" 
-              onclick="const container = this.closest('.group'); const img = container.querySelector('img'); const placeholder = container.querySelector('.image-bg-placeholder'); const expandBtn = container.querySelector('button[title]'); img.style.opacity='1'; img.style.position='relative'; img.style.zIndex='1'; placeholder.style.display='none'; this.style.display='none'; expandBtn.style.display='flex'; expandBtn.style.opacity='1'; expandBtn.style.pointerEvents='auto';">
+              onclick="const container = this.closest('.group'); const img = container.querySelector('img'); const placeholder = container.querySelector('.image-bg-placeholder'); const expandBtn = container.querySelector('button[title]'); img.style.opacity='1'; img.style.position='relative'; img.style.zIndex='1'; placeholder.style.display='none'; this.style.display='none'; expandBtn.style.display='flex'; expandBtn.style.opacity='1'; expandBtn.style.pointerEvents='auto'; expandBtn.style.zIndex='20';">
         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -37,7 +37,7 @@ export function processImageWithReveal(src: string, alt: string = "Image"): stri
     <img src="${src}" alt="${alt}" class="absolute inset-0 w-full h-48 object-contain rounded-lg shadow-lg opacity-0 transition-opacity duration-500" loading="lazy" decoding="async">
     
     <!-- Expand button (initially hidden) -->
-    <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none shadow-lg hover:scale-110" 
+    <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none shadow-lg hover:scale-110 z-20" 
             onclick="window.open('${src}', '_blank')" 
             title="Open image in full size"
             style="display: none;">
