@@ -206,7 +206,7 @@ export async function loginWithExtension() {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
+    await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
   } catch (error) {
     console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
   }
@@ -273,7 +273,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   // Update relay stores with the new user's relays
   try {
     console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
-    await updateActiveRelayStores(ndk);
+    await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
   } catch (error) {
     console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
   }

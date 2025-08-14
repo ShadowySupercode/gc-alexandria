@@ -43,12 +43,12 @@ export function deduplicateRelayUrls(urls: string[]): string[] {
 }
 
 /**
- * Tests connection to a relay and returns connection status
- * @param relayUrl The relay URL to test
+ * Tests connection to a local relay (ws:// protocol)
+ * @param relayUrl The local relay URL to test (should be ws://)
  * @param ndk The NDK instance
  * @returns Promise that resolves to connection status
  */
-export function testRelayConnection(
+export function testLocalRelayConnection(
   relayUrl: string,
   ndk: NDK,
 ): Promise<{
@@ -58,8 +58,135 @@ export function testRelayConnection(
   actualUrl?: string;
 }> {
   return new Promise((resolve) => {
-    // Ensure the URL is using wss:// protocol
-    const secureUrl = ensureSecureWebSocket(relayUrl);
+    try {
+      // Ensure the URL is using ws:// protocol for local relays
+      const localUrl = relayUrl.replace(/^wss:\/\//, "ws://");
+
+      // Use the existing NDK instance instead of creating a new one
+      const relay = new NDKRelay(localUrl, undefined, ndk);
+      let authRequired = false;
+      let connected = false;
+      let error: string | undefined;
+      let actualUrl: string | undefined;
+
+      const timeout = setTimeout(() => {
+        try {
+          relay.disconnect();
+        } catch {
+          // Silently ignore disconnect errors
+        }
+        resolve({
+          connected: false,
+          requiresAuth: authRequired,
+          error: "Connection timeout",
+          actualUrl,
+        });
+      }, 3000);
+
+      // Wrap all event handlers in try-catch to prevent errors from bubbling up
+      relay.on("connect", () => {
+        try {
+          connected = true;
+          actualUrl = localUrl;
+          clearTimeout(timeout);
+          relay.disconnect();
+          resolve({
+            connected: true,
+            requiresAuth: authRequired,
+            error,
+            actualUrl,
+          });
+        } catch {
+          // Silently handle any errors in connect handler
+          clearTimeout(timeout);
+          resolve({
+            connected: false,
+            requiresAuth: false,
+            error: "Connection handler error",
+            actualUrl: localUrl,
+          });
+        }
+      });
+
+      relay.on("notice", (message: string) => {
+        try {
+          if (message.includes("auth-required")) {
+            authRequired = true;
+          }
+        } catch {
+          // Silently ignore notice handler errors
+        }
+      });
+
+      relay.on("disconnect", () => {
+        try {
+          if (!connected) {
+            error = "Connection failed";
+            clearTimeout(timeout);
+            resolve({
+              connected: false,
+              requiresAuth: authRequired,
+              error,
+              actualUrl,
+            });
+          }
+        } catch {
+          // Silently handle any errors in disconnect handler
+          clearTimeout(timeout);
+          resolve({
+            connected: false,
+            requiresAuth: false,
+            error: "Disconnect handler error",
+            actualUrl: localUrl,
+          });
+        }
+      });
+
+      // Wrap the connect call in try-catch
+      try {
+        relay.connect();
+      } catch (connectError) {
+        // Silently handle connection errors
+        clearTimeout(timeout);
+        resolve({
+          connected: false,
+          requiresAuth: false,
+          error: "Connection failed",
+          actualUrl: localUrl,
+        });
+      }
+    } catch (outerError) {
+      // Catch any other errors that might occur during setup
+      resolve({
+        connected: false,
+        requiresAuth: false,
+        error: "Setup failed",
+        actualUrl: relayUrl,
+      });
+    }
+  });
+}
+
+/**
+ * Tests connection to a remote relay (wss:// protocol)
+ * @param relayUrl The remote relay URL to test
+ * @param ndk The NDK instance
+ * @returns Promise that resolves to connection status
+ */
+export function testRemoteRelayConnection(
+  relayUrl: string,
+  ndk: NDK,
+): Promise<{
+  connected: boolean;
+  requiresAuth: boolean;
+  error?: string;
+  actualUrl?: string;
+}> {
+  return new Promise((resolve) => {
+    // Ensure the URL is using wss:// protocol for remote relays
+    const secureUrl = relayUrl.replace(/^ws:\/\//, "wss://");
+    
+    console.debug(`[relay_management.ts] Testing remote relay connection: ${secureUrl}`);
 
     // Use the existing NDK instance instead of creating a new one
     const relay = new NDKRelay(secureUrl, undefined, ndk);
@@ -69,6 +196,7 @@ export function testRelayConnection(
     let actualUrl: string | undefined;
 
     const timeout = setTimeout(() => {
+      console.debug(`[relay_management.ts] Relay ${secureUrl} connection timeout`);
       relay.disconnect();
       resolve({
         connected: false,
@@ -76,9 +204,10 @@ export function testRelayConnection(
         error: "Connection timeout",
         actualUrl,
       });
-    }, 3000); // Increased timeout to 3 seconds to give relays more time
+    }, 3000);
 
     relay.on("connect", () => {
+      console.debug(`[relay_management.ts] Relay ${secureUrl} connected successfully`);
       connected = true;
       actualUrl = secureUrl;
       clearTimeout(timeout);
@@ -99,6 +228,7 @@ export function testRelayConnection(
 
     relay.on("disconnect", () => {
       if (!connected) {
+        console.debug(`[relay_management.ts] Relay ${secureUrl} disconnected without connecting`);
         error = "Connection failed";
         clearTimeout(timeout);
         resolve({
@@ -113,30 +243,31 @@ export function testRelayConnection(
     relay.connect();
   });
 }
- 
+
 /**
- * Ensures a relay URL uses secure WebSocket protocol for remote relays
- * @param url The relay URL to secure
- * @returns The URL with wss:// protocol (except for localhost)
+ * Tests connection to a relay and returns connection status
+ * @param relayUrl The relay URL to test
+ * @param ndk The NDK instance
+ * @returns Promise that resolves to connection status
  */
-function ensureSecureWebSocket(url: string): string {
-  // For localhost, always use ws:// (never wss://)
-  if (url.includes('localhost') || url.includes('127.0.0.1')) {
-    // Convert any wss://localhost to ws://localhost
-    return url.replace(/^wss:\/\//, "ws://");
+export function testRelayConnection(
+  relayUrl: string,
+  ndk: NDK,
+): Promise<{
+  connected: boolean;
+  requiresAuth: boolean;
+  error?: string;
+  actualUrl?: string;
+}> {
+  // Determine if this is a local or remote relay
+  if (relayUrl.includes('localhost') || relayUrl.includes('127.0.0.1')) {
+    return testLocalRelayConnection(relayUrl, ndk);
+  } else {
+    return testRemoteRelayConnection(relayUrl, ndk);
   }
-  
-  // Replace ws:// with wss:// for remote relays
-  const secureUrl = url.replace(/^ws:\/\//, "wss://");
-
-  if (secureUrl !== url) {
-    console.warn(
-      `[relay_management.ts] Protocol upgrade for rem ote relay: ${url} -> ${secureUrl}`,
-    );
-  }
-
-  return secureUrl;
 }
+ 
+
 
 /**
  * Tests connection to local relays
@@ -145,33 +276,38 @@ function ensureSecureWebSocket(url: string): string {
  * @returns Promise that resolves to array of working local relay URLs
  */
 async function testLocalRelays(localRelayUrls: string[], ndk: NDK): Promise<string[]> {
-  const workingRelays: string[] = [];
-  
-  if (localRelayUrls.length === 0) {
-    return workingRelays;
-  }
-  
-  console.debug(`[relay_management.ts] Testing ${localRelayUrls.length} local relays...`);
-  
-  await Promise.all(
-    localRelayUrls.map(async (url) => {
-      try {
-        const result = await testRelayConnection(url, ndk);
-        if (result.connected) {
-          workingRelays.push(url);
-          console.debug(`[relay_management.ts] Local relay connected: ${url}`);
-        } else {
-          console.debug(`[relay_management.ts] Local relay failed: ${url} - ${result.error}`);
+  try {
+    const workingRelays: string[] = [];
+    
+    if (localRelayUrls.length === 0) {
+      return workingRelays;
+    }
+    
+    // Test local relays quietly, without logging failures
+    await Promise.all(
+      localRelayUrls.map(async (url) => {
+        try {
+          const result = await testLocalRelayConnection(url, ndk);
+          if (result.connected) {
+            workingRelays.push(url);
+            console.debug(`[relay_management.ts] Local relay connected: ${url}`);
+          }
+          // Don't log failures - local relays are optional
+        } catch {
+          // Silently ignore local relay failures - they're optional
         }
-      } catch {
-        // Silently ignore local relay failures - they're optional
-        console.debug(`[relay_management.ts] Local relay error (ignored): ${url}`);
-      }
-    })
-  );
-  
-  console.debug(`[relay_management.ts] Found ${workingRelays.length} working local relays`);
-  return workingRelays;
+      })
+    );
+    
+    if (workingRelays.length > 0) {
+      console.info(`[relay_management.ts] Found ${workingRelays.length} working local relays`);
+    }
+    return workingRelays;
+  } catch {
+    // If anything goes wrong with the entire local relay testing process,
+    // just return an empty array silently
+    return [];
+  }
 }
 
 /**
@@ -391,12 +527,18 @@ async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
   const workingRelays: string[] = [];
   const maxConcurrent = 2; // Reduce to 2 relays at a time to avoid overwhelming them
 
+  console.debug(`[relay_management.ts] Testing ${relayUrls.length} relays in batches of ${maxConcurrent}`);
+  console.debug(`[relay_management.ts] Relay URLs to test:`, relayUrls);
+
   for (let i = 0; i < relayUrls.length; i += maxConcurrent) {
     const batch = relayUrls.slice(i, i + maxConcurrent);
+    console.debug(`[relay_management.ts] Testing batch ${Math.floor(i/maxConcurrent) + 1}:`, batch);
     
     const batchPromises = batch.map(async (url) => {
       try {
+        console.debug(`[relay_management.ts] Testing relay: ${url}`);
         const result = await testRelayConnection(url, ndk);
+        console.debug(`[relay_management.ts] Relay ${url} test result:`, result);
         return result.connected ? url : null;
       } catch (error) {
         console.debug(`[relay_management.ts] Failed to test relay ${url}:`, error);
@@ -409,9 +551,12 @@ async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
       .filter((result): result is PromiseFulfilledResult<string | null> => result.status === 'fulfilled')
       .map(result => result.value)
       .filter((url): url is string => url !== null);
+    
+    console.debug(`[relay_management.ts] Batch ${Math.floor(i/maxConcurrent) + 1} working relays:`, batchWorkingRelays);
     workingRelays.push(...batchWorkingRelays);
   }
 
+  console.debug(`[relay_management.ts] Total working relays after testing:`, workingRelays);
   return workingRelays;
 }
 
@@ -496,9 +641,16 @@ export async function buildCompleteRelaySet(
     };
   }
 
-  // Use tested relays and deduplicate
-  const inboxRelays = testedInboxRelays.length > 0 ? deduplicateRelayUrls(testedInboxRelays) : deduplicateRelayUrls(secondaryRelays);
-  const outboxRelays = testedOutboxRelays.length > 0 ? deduplicateRelayUrls(testedOutboxRelays) : deduplicateRelayUrls(secondaryRelays);
+  // Always include some remote relays as fallback, even when local relays are working
+  const fallbackRelays = deduplicateRelayUrls([...anonymousRelays, ...secondaryRelays]);
+  
+  // Use tested relays and add fallback relays
+  const inboxRelays = testedInboxRelays.length > 0 
+    ? deduplicateRelayUrls([...testedInboxRelays, ...fallbackRelays])
+    : deduplicateRelayUrls(fallbackRelays);
+  const outboxRelays = testedOutboxRelays.length > 0 
+    ? deduplicateRelayUrls([...testedOutboxRelays, ...fallbackRelays])
+    : deduplicateRelayUrls(fallbackRelays);
 
   // Apply network condition optimization
   const currentNetworkCondition = get(networkCondition);
@@ -515,8 +667,9 @@ export async function buildCompleteRelaySet(
     outboxRelays: deduplicateRelayUrls(networkOptimizedRelaySet.outboxRelays.filter((r: string) => !blockedRelays.includes(r)))
   };
 
-  // If no relays are working, use anonymous relays as fallback
+  // Ensure we always have at least some relays
   if (finalRelaySet.inboxRelays.length === 0 && finalRelaySet.outboxRelays.length === 0) {
+    console.warn('[relay_management.ts] No relays available, using anonymous relays as final fallback');
     return {
       inboxRelays: deduplicateRelayUrls(anonymousRelays),
       outboxRelays: deduplicateRelayUrls(anonymousRelays)

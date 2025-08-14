@@ -32,9 +32,7 @@ export const secondaryRelays = [
 
 export const anonymousRelays = [
   "wss://freelay.sovbit.host",
-  "wss://thecitadel.nostr1.com",
-  "wss://relay.damus.io",
-  "wss://relay.nostr.band"
+  "wss://thecitadel.nostr1.com"
 ];
 
 export const lowbandwidthRelays = [
@@ -44,8 +42,9 @@ export const lowbandwidthRelays = [
 ];
 
 export const localRelays: string[] = [
-  "wss://localhost:8080",
-  "wss://localhost:4869",
+  "ws://localhost:8080",
+  "ws://localhost:4869",
+  "ws://localhost:3334"
 ];
 
 export enum FeedType {

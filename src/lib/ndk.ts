@@ -9,6 +9,7 @@ import NDK, {
 import { writable, get, type Writable } from "svelte/store";
 import {
   loginStorageKey,
+  anonymousRelays,
 } from "./consts.ts";
 import {
   buildCompleteRelaySet,
@@ -91,8 +92,18 @@ function clearPersistentRelaySet(): void {
 }
 
 // Subscribe to userStore changes and update ndkSignedIn accordingly
-userStore.subscribe((userState) => {
+userStore.subscribe(async (userState) => {
   ndkSignedIn.set(userState.signedIn);
+  
+  // Refresh relay stores when user state changes
+  const ndk = get(ndkInstance);
+  if (ndk) {
+    try {
+      await refreshRelayStores(ndk);
+    } catch (error) {
+      console.warn('[NDK.ts] Failed to refresh relay stores on user state change:', error);
+    }
+  }
 });
 
 /**
@@ -322,15 +333,21 @@ export function clearPersistedRelays(user: NDKUser): void {
 /**
  * Ensures a relay URL uses secure WebSocket protocol
  * @param url The relay URL to secure
- * @returns The URL with wss:// protocol
+ * @returns The URL with appropriate protocol (ws:// for localhost, wss:// for remote)
  */
 function ensureSecureWebSocket(url: string): string {
-  // Replace ws:// with wss:// if present
+  // For localhost, always use ws:// (never wss://)
+  if (url.includes('localhost') || url.includes('127.0.0.1')) {
+    // Convert any wss://localhost to ws://localhost
+    return url.replace(/^wss:\/\//, "ws://");
+  }
+  
+  // Replace ws:// with wss:// for remote relays
   const secureUrl = url.replace(/^ws:\/\//, "wss://");
 
   if (secureUrl !== url) {
     console.warn(
-      `[NDK.ts] Protocol downgrade detected: ${url} -> ${secureUrl}`,
+      `[NDK.ts] Protocol upgrade for remote relay: ${url} -> ${secureUrl}`,
     );
   }
 
@@ -341,46 +358,85 @@ function ensureSecureWebSocket(url: string): string {
  * Creates a relay with proper authentication handling
  */
 function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
-  console.debug(`[NDK.ts] Creating relay with URL: ${url}`);
+  try {
+    console.debug(`[NDK.ts] Creating relay with URL: ${url}`);
 
-  // Ensure the URL is using wss:// protocol
-  const secureUrl = ensureSecureWebSocket(url);
+    // Ensure the URL is using appropriate protocol
+    const secureUrl = ensureSecureWebSocket(url);
 
-  // Add connection timeout and error handling
-  const relay = new NDKRelay(
-    secureUrl,
-    NDKRelayAuthPolicies.signIn({ ndk }),
-    ndk,
-  );
+    // Add connection timeout and error handling
+    const relay = new NDKRelay(
+      secureUrl,
+      NDKRelayAuthPolicies.signIn({ ndk }),
+      ndk,
+    );
 
-  // Set up connection timeout
-  const connectionTimeout = setTimeout(() => {
-    console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
-    relay.disconnect();
-  }, 5000); // 5 second timeout
+    // Set up connection timeout
+    const connectionTimeout = setTimeout(() => {
+      try {
+        console.warn(`[NDK.ts] Connection timeout for ${secureUrl}`);
+        relay.disconnect();
+      } catch {
+        // Silently ignore disconnect errors
+      }
+    }, 5000); // 5 second timeout
 
-  // Set up custom authentication handling only if user is signed in
-  if (ndk.signer && ndk.activeUser) {
-    const authPolicy = new CustomRelayAuthPolicy(ndk);
-    relay.on("connect", () => {
-      console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
-      clearTimeout(connectionTimeout);
-      authPolicy.authenticate(relay);
+    // Set up custom authentication handling only if user is signed in
+    if (ndk.signer && ndk.activeUser) {
+      const authPolicy = new CustomRelayAuthPolicy(ndk);
+      relay.on("connect", () => {
+        try {
+          console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          clearTimeout(connectionTimeout);
+          authPolicy.authenticate(relay);
+        } catch {
+          // Silently handle connect handler errors
+        }
+      });
+    } else {
+      relay.on("connect", () => {
+        try {
+          console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
+          clearTimeout(connectionTimeout);
+        } catch {
+          // Silently handle connect handler errors
+        }
+      });
+    }
+
+    // Add error handling
+    relay.on("disconnect", () => {
+      try {
+        console.debug(`[NDK.ts] Relay disconnected: ${secureUrl}`);
+        clearTimeout(connectionTimeout);
+      } catch {
+        // Silently handle disconnect handler errors
+      }
     });
-  } else {
-    relay.on("connect", () => {
-      console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
-      clearTimeout(connectionTimeout);
-    });
+
+    return relay;
+  } catch (error) {
+    // If relay creation fails, try to use an anonymous relay as fallback
+    console.debug(`[NDK.ts] Failed to create relay for ${url}, trying anonymous relay fallback`);
+    
+    // Find an anonymous relay that's not the same as the failed URL
+    const fallbackUrl = anonymousRelays.find(relay => relay !== url) || anonymousRelays[0];
+    
+    if (fallbackUrl) {
+      console.debug(`[NDK.ts] Using anonymous relay as fallback: ${fallbackUrl}`);
+      try {
+        const fallbackRelay = new NDKRelay(fallbackUrl, NDKRelayAuthPolicies.signIn({ ndk }), ndk);
+        return fallbackRelay;
+      } catch (fallbackError) {
+        console.debug(`[NDK.ts] Fallback relay creation also failed: ${fallbackError}`);
+      }
+    }
+    
+    // If all else fails, create a minimal relay that will fail gracefully
+    console.debug(`[NDK.ts] All fallback attempts failed, creating minimal relay for ${url}`);
+    const minimalRelay = new NDKRelay(url, undefined, ndk);
+    return minimalRelay;
   }
-
-  // Add error handling
-  relay.on("disconnect", () => {
-    console.debug(`[NDK.ts] Relay disconnected: ${secureUrl}`);
-    clearTimeout(connectionTimeout);
-  });
-
-  return relay;
 }
 
 
@@ -479,12 +535,26 @@ export function logCurrentRelayConfiguration(): void {
 }
 
 /**
+ * Clears the relay set cache to force a rebuild
+ */
+export function clearRelaySetCache(): void {
+  console.debug('[NDK.ts] Clearing relay set cache');
+  persistentRelaySet = null;
+  relaySetLastUpdated = 0;
+  // Clear from localStorage as well
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('alexandria/relay_set_cache');
+  }
+}
+
+/**
  * Updates relay stores when user state changes
  * @param ndk NDK instance
  */
 export async function refreshRelayStores(ndk: NDK): Promise<void> {
   console.debug('[NDK.ts] Refreshing relay stores due to user state change');
-  await updateActiveRelayStores(ndk);
+  clearRelaySetCache(); // Clear cache when user state changes
+  await updateActiveRelayStores(ndk, true); // Force update
 }
 
 /**
