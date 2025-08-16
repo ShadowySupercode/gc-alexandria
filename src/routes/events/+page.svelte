@@ -18,7 +18,7 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
-  import EmbeddedEvent from "$lib/components/EmbeddedEvent.svelte";
+  import EmbeddedEvent from "$lib/components/embedded_events/EmbeddedEvent.svelte";
 
   let loading = $state(false);
   let error = $state<string | null>(null);

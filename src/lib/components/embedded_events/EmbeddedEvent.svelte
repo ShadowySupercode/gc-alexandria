@@ -4,7 +4,7 @@
   import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parsedContent } from "$lib/components/util/Notifications.svelte";
+  import { parsedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { naddrEncode } from "$lib/utils";
   import { activeInboxRelays, ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";

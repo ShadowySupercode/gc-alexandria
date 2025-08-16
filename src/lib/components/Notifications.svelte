@@ -18,11 +18,11 @@
     getNotificationType, 
     fetchAuthorProfiles,
     quotedContent,
-  } from "$lib/components/util/Notifications.svelte";
+  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import EmbeddedEvent from "./EmbeddedEvent.svelte";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 

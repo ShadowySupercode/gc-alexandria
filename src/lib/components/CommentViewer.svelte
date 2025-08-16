@@ -6,7 +6,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import EmbeddedEvent from "./EmbeddedEvent.svelte";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 

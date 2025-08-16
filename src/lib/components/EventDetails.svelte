@@ -14,7 +14,7 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import EmbeddedEvent from "./EmbeddedEvent.svelte";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
 
   const {
     event,
