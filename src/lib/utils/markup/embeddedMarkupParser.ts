@@ -1,4 +1,3 @@
-import * as emoji from "node-emoji";
 import { nip19 } from "nostr-tools";
 import {
   processBasicTextFormatting,

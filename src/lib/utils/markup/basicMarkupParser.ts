@@ -1,4 +1,3 @@
-import * as emoji from "node-emoji";
 import { nip19 } from "nostr-tools";
 import {
   processBasicTextFormatting,
@@ -11,7 +10,7 @@ import {
   processWebSocketUrls,
   processWikilinks,
   stripTrackingParams,
-} from "./markupServices";
+} from "./markupServices.ts";
 
 /* Regex constants for basic markup parsing */
 

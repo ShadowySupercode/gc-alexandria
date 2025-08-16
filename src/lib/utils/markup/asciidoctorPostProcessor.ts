@@ -3,7 +3,7 @@ import {
   processImageWithReveal,
   processNostrIdentifiersInText,
   processWikilinks,
-} from "./markupServices";
+} from "./markupServices.ts";
 
 /**
  * Processes nostr addresses in HTML content, but skips addresses that are
