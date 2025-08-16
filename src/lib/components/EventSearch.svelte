@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { Input, Button } from "flowbite-svelte";
-  import { Spinner } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     searchEvent,
@@ -12,9 +9,9 @@
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
-  import type { SearchResult } from '$lib/utils/search_types';
   import { userStore } from "$lib/stores/userStore";
   import { get } from "svelte/store";
+  import { AAlert, ASearchForm } from "$lib/a";
 
   // Props definition
   let {
@@ -853,65 +850,27 @@
       ? `Search completed. Found 1 ${typeLabel}.`
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
   }
-
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
-  }
-
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
-  function getNprofileUrl(pubkey: string): string {
-    return nprofileEncode(pubkey, $activeInboxRelays);
-  }
 </script>
 
-<div class="flex flex-col space-y-6">
-  <!-- Search Input Section -->
-  <div class="flex gap-2 items-center">
-    <Input
-      bind:value={searchQuery}
-      placeholder="Enter event ID, nevent, naddr, d:tag-name, t:topic, or n:username..."
-      class="flex-grow"
-      onkeydown={(e: KeyboardEvent) =>
-        e.key === "Enter" && handleSearchEvent(true)}
-      oninput={() => (isUserEditing = true)}
-      onblur={() => (isUserEditing = false)}
-    />
-    <Button onclick={() => handleSearchEvent(true)} disabled={loading}>
-      {#if searching}
-        <Spinner class="mr-2 text-gray-600 dark:text-gray-300" size="5" />
-      {/if}
-      {searching ? "Searching..." : "Search"}
-    </Button>
-    <Button
-      onclick={handleClear}
-      color="alternative"
-      type="button"
-      disabled={loading}
-    >
-      Clear
-    </Button>
-  </div>
 
+<!-- AI-NOTE: 2025-08-16 - Inline search form removed; using ASearchForm with callback props. -->
+<ASearchForm
+  bind:searchQuery
+  bind:isUserEditing
+  {searching}
+  {loading}
+  search={(d) => handleSearchEvent(d.clearInput, d.queryOverride)}
+  clear={handleClear}
+/>
+
+<div class="flex flex-col space-y-6">
   <!-- Error Display -->
   {#if showError}
-    <div
-      class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
-      role="alert"
-    >
-      {localError || error}
-    </div>
+    <AAlert color="red">{localError || error}</AAlert>
   {/if}
 
   <!-- Success Display -->
   {#if showSuccess}
-    <div
-      class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg"
-      role="alert"
-    >
-      {getResultMessage()}
-    </div>
+    <AAlert color="green">{getResultMessage()}</AAlert>
   {/if}
 </div>
