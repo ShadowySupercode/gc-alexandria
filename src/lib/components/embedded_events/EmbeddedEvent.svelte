@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
