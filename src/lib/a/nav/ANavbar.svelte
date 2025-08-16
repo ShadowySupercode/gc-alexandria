@@ -7,16 +7,15 @@
     NavHamburger,
     NavBrand,
     Dropdown,
-    DropdownItem,
-    DropdownDivider
+    DropdownItem
   } from "flowbite-svelte";
-  import { siteNav, userMenu } from "$lib/nav/site-nav.js";
+  import { siteNav } from "$lib/nav/site-nav.js";
   import { logoutUser, userStore } from "$lib/stores/userStore";
   import Profile from "$components/util/Profile.svelte";
-  import { shortenBech32 } from "$lib/nostr/format.ts";
   import type { NavItem } from "$lib/a/nav/nav-types.ts";
   import { goto } from "$app/navigation";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
+  import { AThemeToggleMini } from "$lib/a";
 
   let {
     currentPath = "",
@@ -47,7 +46,7 @@
   }
 </script>
 
-<Navbar class="flex flex-row" navContainerClass="w-full flex-row justify-between items-center">
+<Navbar class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800 !p-0" navContainerClass="w-full flex-row justify-between items-center !p-0">
     <NavBrand href="/">
       <h1>Alexandria</h1>
     </NavBrand>
@@ -78,5 +77,6 @@
       <NavLi>
         <DarkMode class="btn-leather p-0" />
       </NavLi>
+      <AThemeToggleMini />
     </NavUl>
 </Navbar>

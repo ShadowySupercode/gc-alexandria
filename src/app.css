@@ -693,6 +693,7 @@
   input[type="tel"],
   input[type="url"],
   textarea {
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none;
     @apply focus:border-primary-600 dark:focus:border-primary-400;
   }
 

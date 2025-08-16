@@ -38,3 +38,27 @@
     --brand-primary-400: #7ccdfc;
     --brand-primary-500: #38bdf8;
 }
+
+/* Example alternative theme: forrest */
+:root[data-theme="forrest"] {
+    --brand-primary-0:     #eaf7ea;
+    --brand-primary-50:    #d6eed6;
+    --brand-primary-100:   #bfe3bf;
+    --brand-primary-200:   #9fd49f;
+    --brand-primary-300:   #7fc57f;
+    --brand-primary-400:   #5fa65f;
+    --brand-primary-500:   #3f863f;  /* forest green */
+    --brand-primary-600:   #2e6b2e;
+    --brand-primary-700:   #205120;
+    --brand-primary-800:   #153a15;
+    --brand-primary-900:   #0c230c;
+    --brand-primary-950:   #071507;
+    --brand-primary-1000:  #041004;
+}
+
+/* (Optional) per-theme dark tweaks — applied when <html class="dark"> is set */
+:root.dark[data-theme="forrest"] {
+    /* nudge the mid tones brighter for contrast */
+    --brand-primary-400: #7fc97f;
+    --brand-primary-500: #4caf50;
+}
