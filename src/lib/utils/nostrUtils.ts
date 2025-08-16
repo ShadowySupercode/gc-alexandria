@@ -5,7 +5,12 @@ import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
-import { communityRelays, secondaryRelays, searchRelays, anonymousRelays } from "../consts.ts";
+import {
+  anonymousRelays,
+  communityRelays,
+  searchRelays,
+  secondaryRelays,
+} from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -55,7 +60,7 @@ function escapeHtml(text: string): string {
  * Escape regex special characters
  */
 function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -68,7 +73,12 @@ export async function getUserMetadata(
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, "");
 
-  console.log("getUserMetadata called with identifier:", identifier, "force:", force);
+  console.log(
+    "getUserMetadata called with identifier:",
+    identifier,
+    "force:",
+    force,
+  );
 
   if (!force && npubCache.has(cleanId)) {
     const cached = npubCache.get(cleanId)!;
@@ -100,7 +110,10 @@ export async function getUserMetadata(
     } else if (decoded.type === "nprofile") {
       pubkey = decoded.data.pubkey;
     } else {
-      console.warn("getUserMetadata: Unsupported identifier type:", decoded.type);
+      console.warn(
+        "getUserMetadata: Unsupported identifier type:",
+        decoded.type,
+      );
       npubCache.set(cleanId, fallback);
       return fallback;
     }
@@ -111,13 +124,12 @@ export async function getUserMetadata(
       kinds: [0],
       authors: [pubkey],
     });
-    
+
     console.log("getUserMetadata: Profile event found:", profileEvent);
-    
-    const profile =
-      profileEvent && profileEvent.content
-        ? JSON.parse(profileEvent.content)
-        : null;
+
+    const profile = profileEvent && profileEvent.content
+      ? JSON.parse(profileEvent.content)
+      : null;
 
     console.log("getUserMetadata: Parsed profile:", profile);
 
@@ -199,7 +211,7 @@ export async function createProfileLinkWithVerification(
   };
 
   const allRelays = [
-    ...searchRelays,        // Include search relays for profile searches
+    ...searchRelays, // Include search relays for profile searches
     ...communityRelays,
     ...userRelays,
     ...secondaryRelays,
@@ -223,8 +235,7 @@ export async function createProfileLinkWithVerification(
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier =
-    profile?.displayName ??
+  const displayIdentifier = profile?.displayName ??
     profile?.display_name ??
     profile?.name ??
     escapedText;
@@ -287,7 +298,10 @@ export async function processNostrIdentifiers(
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
     // Replace all occurrences of this exact match
-    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
+    processedContent = processedContent.replace(
+      new RegExp(escapeRegExp(fullMatch), "g"),
+      link,
+    );
   }
 
   // Process notes (nevent, note, naddr)
@@ -304,7 +318,10 @@ export async function processNostrIdentifiers(
     }
     const link = createNoteLink(identifier);
     // Replace all occurrences of this exact match
-    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
+    processedContent = processedContent.replace(
+      new RegExp(escapeRegExp(fullMatch), "g"),
+      link,
+    );
   }
 
   return processedContent;
@@ -409,7 +426,7 @@ export function withTimeout<T>(
     return Promise.race([
       promise,
       new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
       ),
     ]);
   }
@@ -420,7 +437,7 @@ export function withTimeout<T>(
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+      setTimeout(() => reject(new Error("Timeout")), timeoutMs)
     ),
   ]);
 }
@@ -455,40 +472,54 @@ export async function fetchEventWithFallback(
 ): Promise<NDKEvent | null> {
   // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
   // This ensures we don't miss events that might be on any available relay
-  
+
   // Get all relays from NDK pool first (most comprehensive)
-  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) => r.url);
+  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) =>
+    r.url
+  );
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
-  
+
   // Combine all available relays, prioritizing pool relays
-  let allRelays = [...new Set([...poolRelays, ...inboxRelays, ...outboxRelays])];
-  
+  let allRelays = [
+    ...new Set([...poolRelays, ...inboxRelays, ...outboxRelays]),
+  ];
+
   console.log("fetchEventWithFallback: Using pool relays:", poolRelays);
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
   console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
   console.log("fetchEventWithFallback: Total unique relays:", allRelays.length);
-  
+
   // Check if we have any relays available
   if (allRelays.length === 0) {
-    console.warn("fetchEventWithFallback: No relays available for event fetch, using fallback relays");
+    console.warn(
+      "fetchEventWithFallback: No relays available for event fetch, using fallback relays",
+    );
     // Use fallback relays when no relays are available
     allRelays = [...secondaryRelays, ...searchRelays, ...anonymousRelays];
     console.log("fetchEventWithFallback: Using fallback relays:", allRelays);
   }
-  
+
   // Create relay set from all available relays
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
 
   try {
     if (relaySet.relays.size === 0) {
-      console.warn("fetchEventWithFallback: No relays in relay set for event fetch");
+      console.warn(
+        "fetchEventWithFallback: No relays in relay set for event fetch",
+      );
       return null;
     }
 
-    console.log("fetchEventWithFallback: Relay set size:", relaySet.relays.size);
+    console.log(
+      "fetchEventWithFallback: Relay set size:",
+      relaySet.relays.size,
+    );
     console.log("fetchEventWithFallback: Filter:", filterOrId);
-    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r) => r.url));
+    console.log(
+      "fetchEventWithFallback: Relay URLs:",
+      Array.from(relaySet.relays).map((r) => r.url),
+    );
 
     let found: NDKEvent | null = null;
 
@@ -500,8 +531,9 @@ export async function fetchEventWithFallback(
         .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
         .withTimeout(timeoutMs);
     } else {
-      const filter =
-        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const filter = typeof filterOrId === "string"
+        ? { ids: [filterOrId] }
+        : filterOrId;
       const results = await ndk
         .fetchEvents(filter, undefined, relaySet)
         .withTimeout(timeoutMs);
@@ -512,7 +544,9 @@ export async function fetchEventWithFallback(
 
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(
+        ", ",
+      );
       console.warn(
         `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
@@ -523,14 +557,19 @@ export async function fetchEventWithFallback(
     // Always wrap as NDKEvent
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
-    if (err instanceof Error && err.message === 'Timeout') {
+    if (err instanceof Error && err.message === "Timeout") {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(
+        ", ",
+      );
       console.warn(
         `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
     } else {
-      console.error("fetchEventWithFallback: Error in fetchEventWithFallback:", err);
+      console.error(
+        "fetchEventWithFallback: Error in fetchEventWithFallback:",
+        err,
+      );
     }
     return null;
   }
@@ -545,20 +584,22 @@ export function toNpub(pubkey: string | undefined): string | null {
   try {
     // If it's already an npub, return it
     if (pubkey.startsWith("npub")) return pubkey;
-    
+
     // If it's a hex pubkey, convert to npub
     if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
-    
+
     // If it's an nprofile, decode and extract npub
     if (pubkey.startsWith("nprofile")) {
       const decoded = nip19.decode(pubkey);
-      if (decoded.type === 'nprofile') {
-        return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
+      if (decoded.type === "nprofile") {
+        return decoded.data.pubkey
+          ? nip19.npubEncode(decoded.data.pubkey)
+          : null;
       }
     }
-    
+
     return null;
   } catch {
     return null;
@@ -573,7 +614,10 @@ export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
   return NDKRelaySetFromNDK.fromRelayUrls(relayUrls, ndk);
 }
 
-export function createNDKEvent(ndk: NDK, rawEvent: NDKEvent | NostrEvent | undefined) {
+export function createNDKEvent(
+  ndk: NDK,
+  rawEvent: NDKEvent | NostrEvent | undefined,
+) {
   return new NDKEvent(ndk, rawEvent);
 }
 

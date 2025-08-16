@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
-  import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -8,19 +7,18 @@
   import EventDetails from "$lib/components/EventDetails.svelte";
   import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
-import CommentViewer from "$lib/components/CommentViewer.svelte";
-  import { userStore } from "$lib/stores/userStore";
+  import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
   import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
+  import { activeInboxRelays } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
-  import { parseRepostContent, parseContent } from "$lib/utils/notification_utils";
+  import EmbeddedEvent from "$lib/components/EmbeddedEvent.svelte";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -44,7 +42,6 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     lud16?: string;
     nip05?: string;
   } | null>(null);
-  let user = $state($userStore);
   let userRelayPreference = $state(false);
   let showSidePanel = $state(false);
   let searchInProgress = $state(false);
@@ -52,23 +49,11 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   let communityStatus = $state<Record<string, boolean>>({});
   let searchResultsCollapsed = $state(false);
 
-  userStore.subscribe((val) => (user = val));
-
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
     showSidePanel = true;
     // AI-NOTE: 2025-01-24 - Preserve search results to allow navigation through them
     // Don't clear search results when showing a single event - this allows users to browse through results
-    // searchResults = [];
-    // secondOrderResults = [];
-    // tTagResults = [];
-    // originalEventIds = new Set();
-    // originalAddresses = new Set();
-    // searchType = null;
-    // searchTerm = null;
-    // searchInProgress = false;
-    // secondOrderSearchMessage = null;
-
     if (newEvent.kind === 0) {
       try {
         profile = JSON.parse(newEvent.content);
@@ -209,10 +194,6 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
     // AI-NOTE: 2025-01-24 - Cache profiles for all search results
     cacheProfilesForEvents([...results, ...secondOrder, ...tTagEvents]);
-
-    // Don't clear the current event - let the user continue viewing it
-    // event = null;
-    // profile = null;
   }
 
   // AI-NOTE: 2025-01-24 - Function to cache profiles for multiple events
@@ -330,10 +311,6 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     return neventEncode(event, $activeInboxRelays);
   }
 
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
   function isAddressableEvent(event: NDKEvent): boolean {
     return getEventType(event.kind || 0) === "addressable";
   }
@@ -396,26 +373,6 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
 
     communityStatus = { ...communityStatus, ...newCommunityStatus };
   }
-
-
-
-  // AI-NOTE: Refactored to avoid blocking $effect with logging operations
-  // Reactive effect to log relay configuration when stores change - non-blocking approach
-  $effect.pre(() => {
-    const inboxRelays = $activeInboxRelays;
-    const outboxRelays = $activeOutboxRelays;
-    
-    // Only log if we have relays (not empty arrays)
-    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
-      // Defer logging to avoid blocking the reactive system
-      requestAnimationFrame(() => {
-        console.log('🔌 Events Page - Relay Configuration Updated:');
-        console.log('📥 Inbox Relays:', inboxRelays);
-        console.log('📤 Outbox Relays:', outboxRelays);
-        console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
-      });
-    }
-  });
 
 </script>
 
@@ -617,11 +574,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
-                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
-                          {:catch}
-                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={result.id} nestingLevel={0} />
                         </div>
                       {/if}
                     {/if}
@@ -784,11 +737,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
-                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
-                          {:catch}
-                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={result.id} nestingLevel={0} />
                         </div>
                       {/if}
                     {/if}
@@ -938,11 +887,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                         <div
                           class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                         >
-                          {#await ((result.kind === 6 || result.kind === 16) ? parseRepostContent(result.content) : parseContent(result.content)) then parsedContent}
-                            {@html parsedContent.slice(0, 200)}{parsedContent.length > 200 ? "..." : ""}
-                          {:catch}
-                            {result.content.slice(0, 200)}{result.content.length > 200 ? "..." : ""}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={result.id} nestingLevel={0} />
                         </div>
                       {/if}
                     {/if}
@@ -997,7 +942,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
         {/if}
 
         <div class="min-w-0 overflow-hidden">
-          <EventDetails {event} {profile} {searchValue} />
+          <EventDetails {event} {profile} />
         </div>
         <div class="min-w-0 overflow-hidden">
           <RelayActions {event} />

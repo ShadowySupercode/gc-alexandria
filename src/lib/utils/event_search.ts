@@ -4,7 +4,7 @@ import { nip19 } from "nostr-tools";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
 import { get } from "svelte/store";
-import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
+import { isValidNip05Address, wellKnownUrl } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 
@@ -22,31 +22,39 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
   // This ensures searches can proceed even if some relay types are not available
   let attempts = 0;
   const maxAttempts = 5; // Reduced since we'll use fallback relays
-  
+
   while (attempts < maxAttempts) {
     // Check if we have any relays in the pool
     if (ndk.pool.relays.size > 0) {
       console.log(`[Search] Found ${ndk.pool.relays.size} relays in NDK pool`);
       break;
     }
-    
+
     // Also check if we have any active relays
     const inboxRelays = get(activeInboxRelays);
     const outboxRelays = get(activeOutboxRelays);
     if (inboxRelays.length > 0 || outboxRelays.length > 0) {
-      console.log(`[Search] Found active relays - inbox: ${inboxRelays.length}, outbox: ${outboxRelays.length}`);
+      console.log(
+        `[Search] Found active relays - inbox: ${inboxRelays.length}, outbox: ${outboxRelays.length}`,
+      );
       break;
     }
-    
-    console.log(`[Search] Waiting for relays to be available (attempt ${attempts + 1}/${maxAttempts})`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+
+    console.log(
+      `[Search] Waiting for relays to be available (attempt ${
+        attempts + 1
+      }/${maxAttempts})`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
     attempts++;
   }
 
   // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let fetchEventWithFallback handle fallbacks
   // The fetchEventWithFallback function will use all available relays including fallback relays
   if (ndk.pool.relays.size === 0) {
-    console.warn("[Search] No relays in pool, but proceeding with search - fallback relays will be used");
+    console.warn(
+      "[Search] No relays in pool, but proceeding with search - fallback relays will be used",
+    );
   }
 
   // Clean the query and normalize to lowercase
@@ -89,50 +97,70 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     try {
       const decoded = nip19.decode(cleanedQuery);
       if (!decoded) throw new Error("Invalid identifier");
-      
+
       console.log(`[Search] Decoded identifier:`, {
         type: decoded.type,
         data: decoded.data,
-        query: cleanedQuery
+        query: cleanedQuery,
       });
-      
+
       switch (decoded.type) {
         case "nevent":
           console.log(`[Search] Processing nevent:`, {
             id: decoded.data.id,
             kind: decoded.data.kind,
-            relays: decoded.data.relays
+            relays: decoded.data.relays,
           });
-          
+
           // Use the relays from the nevent if available
           if (decoded.data.relays && decoded.data.relays.length > 0) {
-            console.log(`[Search] Using relays from nevent:`, decoded.data.relays);
-            
+            console.log(
+              `[Search] Using relays from nevent:`,
+              decoded.data.relays,
+            );
+
             // Try to fetch the event using the nevent's relays
             try {
               // Create a temporary relay set for this search
-              const neventRelaySet = NDKRelaySetFromNDK.fromRelayUrls(decoded.data.relays, ndk);
-              
+              const neventRelaySet = NDKRelaySetFromNDK.fromRelayUrls(
+                decoded.data.relays,
+                ndk,
+              );
+
               if (neventRelaySet.relays.size > 0) {
-                console.log(`[Search] Created relay set with ${neventRelaySet.relays.size} relays from nevent`);
-                
+                console.log(
+                  `[Search] Created relay set with ${neventRelaySet.relays.size} relays from nevent`,
+                );
+
                 // Try to fetch the event using the nevent's relays
                 const event = await ndk
-                  .fetchEvent({ ids: [decoded.data.id] }, undefined, neventRelaySet)
+                  .fetchEvent(
+                    { ids: [decoded.data.id] },
+                    undefined,
+                    neventRelaySet,
+                  )
                   .withTimeout(TIMEOUTS.EVENT_FETCH);
-                
+
                 if (event) {
-                  console.log(`[Search] Found event using nevent relays:`, event.id);
+                  console.log(
+                    `[Search] Found event using nevent relays:`,
+                    event.id,
+                  );
                   return event;
                 } else {
-                  console.log(`[Search] Event not found on nevent relays, trying default relays`);
+                  console.log(
+                    `[Search] Event not found on nevent relays, trying default relays`,
+                  );
                 }
               }
             } catch (error) {
-              console.warn(`[Search] Error fetching from nevent relays:`, error);
+              console.warn(
+                `[Search] Error fetching from nevent relays:`,
+                error,
+              );
             }
           }
-          
+
           filterOrId = decoded.data.id;
           break;
         case "note":

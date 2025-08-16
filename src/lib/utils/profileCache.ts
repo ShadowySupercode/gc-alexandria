@@ -24,7 +24,7 @@ async function fetchProfile(pubkey: string): Promise<ProfileData | null> {
     const profileEvents = await ndk.fetchEvents({
       kinds: [0],
       authors: [pubkey],
-      limit: 1
+      limit: 1,
     });
 
     if (profileEvents.size === 0) {
@@ -33,7 +33,7 @@ async function fetchProfile(pubkey: string): Promise<ProfileData | null> {
 
     // Get the most recent profile event
     const profileEvent = Array.from(profileEvents)[0];
-    
+
     try {
       const content = JSON.parse(profileEvent.content);
       return content as ProfileData;
@@ -77,14 +77,14 @@ export async function getDisplayName(pubkey: string): Promise<string> {
  * @returns Array of profile events
  */
 export async function batchFetchProfiles(
-  pubkeys: string[], 
-  onProgress?: (fetched: number, total: number) => void
+  pubkeys: string[],
+  onProgress?: (fetched: number, total: number) => void,
 ): Promise<NDKEvent[]> {
   const allProfileEvents: NDKEvent[] = [];
-  
+
   // Filter out already cached pubkeys
-  const uncachedPubkeys = pubkeys.filter(pk => !profileCache.has(pk));
-  
+  const uncachedPubkeys = pubkeys.filter((pk) => !profileCache.has(pk));
+
   if (uncachedPubkeys.length === 0) {
     if (onProgress) onProgress(pubkeys.length, pubkeys.length);
     return allProfileEvents;
@@ -92,21 +92,24 @@ export async function batchFetchProfiles(
 
   try {
     const ndk = get(ndkInstance);
-    
+
     // Report initial progress
     const cachedCount = pubkeys.length - uncachedPubkeys.length;
     if (onProgress) onProgress(cachedCount, pubkeys.length);
-    
+
     // Batch fetch in chunks to avoid overwhelming relays
     const CHUNK_SIZE = 50;
     let fetchedCount = cachedCount;
-    
+
     for (let i = 0; i < uncachedPubkeys.length; i += CHUNK_SIZE) {
-      const chunk = uncachedPubkeys.slice(i, Math.min(i + CHUNK_SIZE, uncachedPubkeys.length));
-      
+      const chunk = uncachedPubkeys.slice(
+        i,
+        Math.min(i + CHUNK_SIZE, uncachedPubkeys.length),
+      );
+
       const profileEvents = await ndk.fetchEvents({
         kinds: [0],
-        authors: chunk
+        authors: chunk,
       });
 
       // Process each profile event
@@ -120,19 +123,19 @@ export async function batchFetchProfiles(
           console.error("Failed to parse profile content:", e);
         }
       });
-      
+
       // Update progress
       if (onProgress) {
         onProgress(fetchedCount, pubkeys.length);
       }
     }
-    
+
     // Final progress update
     if (onProgress) onProgress(pubkeys.length, pubkeys.length);
   } catch (e) {
     console.error("Failed to batch fetch profiles:", e);
   }
-  
+
   return allProfileEvents;
 }
 
@@ -173,29 +176,29 @@ export function clearProfileCache(): void {
  */
 export function extractPubkeysFromEvents(events: NDKEvent[]): Set<string> {
   const pubkeys = new Set<string>();
-  
-  events.forEach(event => {
+
+  events.forEach((event) => {
     // Add author pubkey
     if (event.pubkey) {
       pubkeys.add(event.pubkey);
     }
-    
+
     // Add pubkeys from p tags
     const pTags = event.getMatchingTags("p");
-    pTags.forEach(tag => {
+    pTags.forEach((tag) => {
       if (tag[1]) {
         pubkeys.add(tag[1]);
       }
     });
-    
+
     // Extract pubkeys from content (nostr:npub1... format)
     const npubPattern = /nostr:npub1[a-z0-9]{58}/g;
     const matches = event.content?.match(npubPattern) || [];
-    matches.forEach(match => {
+    matches.forEach((match) => {
       try {
-        const npub = match.replace('nostr:', '');
+        const npub = match.replace("nostr:", "");
         const decoded = nip19.decode(npub);
-        if (decoded.type === 'npub') {
+        if (decoded.type === "npub") {
           pubkeys.add(decoded.data as string);
         }
       } catch (e) {
@@ -203,7 +206,7 @@ export function extractPubkeysFromEvents(events: NDKEvent[]): Set<string> {
       }
     });
   });
-  
+
   return pubkeys;
 }
 
@@ -214,17 +217,17 @@ export function extractPubkeysFromEvents(events: NDKEvent[]): Set<string> {
  */
 export function replaceContentPubkeys(content: string): string {
   if (!content) return content;
-  
+
   // Replace nostr:npub1... references
   const npubPattern = /nostr:npub[a-z0-9]{58}/g;
   let result = content;
-  
+
   const matches = content.match(npubPattern) || [];
-  matches.forEach(match => {
+  matches.forEach((match) => {
     try {
-      const npub = match.replace('nostr:', '');
+      const npub = match.replace("nostr:", "");
       const decoded = nip19.decode(npub);
-      if (decoded.type === 'npub') {
+      if (decoded.type === "npub") {
         const pubkey = decoded.data as string;
         const displayName = getDisplayNameSync(pubkey);
         result = result.replace(match, `@${displayName}`);
@@ -233,7 +236,7 @@ export function replaceContentPubkeys(content: string): string {
       // Invalid npub, leave as is
     }
   });
-  
+
   return result;
 }
 
@@ -245,7 +248,7 @@ export function replaceContentPubkeys(content: string): string {
 export function replacePubkeysWithDisplayNames(text: string): string {
   // Match hex pubkeys (64 characters)
   const pubkeyRegex = /\b[0-9a-fA-F]{64}\b/g;
-  
+
   return text.replace(pubkeyRegex, (match) => {
     return getDisplayNameSync(match);
   });

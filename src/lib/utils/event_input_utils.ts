@@ -3,12 +3,12 @@ import { get } from "svelte/store";
 import { ndkInstance } from "../ndk.ts";
 import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
 import { EVENT_KINDS } from "./search_constants";
-import { 
-  extractDocumentMetadata, 
-  extractSectionMetadata, 
-  parseAsciiDocWithMetadata,
+import {
+  extractDocumentMetadata,
+  extractSectionMetadata,
   metadataToTags,
-  removeMetadataFromContent
+  parseAsciiDocWithMetadata,
+  removeMetadataFromContent,
 } from "./asciidoc_metadata";
 
 // =========================
@@ -92,12 +92,14 @@ export function validate30040EventSet(content: string): {
   const lines = content.split(/\r?\n/);
   const { metadata } = extractDocumentMetadata(content);
   const documentTitle = metadata.title;
-  const nonEmptyLines = lines.filter(line => line.trim() !== "").map(line => line.trim());
-  const isIndexCardFormat = documentTitle && 
-    nonEmptyLines.length === 2 && 
-    nonEmptyLines[0].startsWith("=") && 
+  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
+    line.trim()
+  );
+  const isIndexCardFormat = documentTitle &&
+    nonEmptyLines.length === 2 &&
+    nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";
-  
+
   if (isIndexCardFormat) {
     return { valid: true };
   }
@@ -125,18 +127,20 @@ export function validate30040EventSet(content: string): {
   if (documentHeaderMatches && documentHeaderMatches.length > 1) {
     return {
       valid: false,
-      reason: '30040 events must have exactly one document title ("="). Found multiple document headers.',
+      reason:
+        '30040 events must have exactly one document title ("="). Found multiple document headers.',
     };
   }
 
   // Parse the content to check sections
   const parsed = parseAsciiDocWithMetadata(content);
   const hasSections = parsed.sections.length > 0;
-  
+
   if (!hasSections) {
     return {
       valid: true,
-      warning: "No section headers (==) found. This will create a 30040 index event and a single 30041 preamble section. Continue?",
+      warning:
+        "No section headers (==) found. This will create a 30040 index event and a single 30041 preamble section. Continue?",
     };
   }
 
@@ -147,7 +151,9 @@ export function validate30040EventSet(content: string): {
   }
 
   // Check for empty sections
-  const emptySections = parsed.sections.filter(section => section.content.trim() === "");
+  const emptySections = parsed.sections.filter((section) =>
+    section.content.trim() === ""
+  );
   if (emptySections.length > 0) {
     return {
       valid: true,
@@ -226,21 +232,23 @@ export function build30040EventSet(
   // Check if this is an "index card" format (no sections, just title + "index card")
   const lines = content.split(/\r?\n/);
   const documentTitle = parsed.metadata.title;
-  
+
   // For index card format, the content should be exactly: title + "index card"
-  const nonEmptyLines = lines.filter(line => line.trim() !== "").map(line => line.trim());
-  const isIndexCardFormat = documentTitle && 
-    nonEmptyLines.length === 2 && 
-    nonEmptyLines[0].startsWith("=") && 
+  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
+    line.trim()
+  );
+  const isIndexCardFormat = documentTitle &&
+    nonEmptyLines.length === 2 &&
+    nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";
-  
+
   if (isIndexCardFormat) {
     console.log("Creating index card format (no sections)");
     const indexDTag = normalizeDTagValue(documentTitle);
-    
+
     // Convert document metadata to tags
     const metadataTags = metadataToTags(parsed.metadata);
-    
+
     const indexEvent: NDKEvent = new NDKEventClass(ndk, {
       kind: 30040,
       content: "",
@@ -253,7 +261,7 @@ export function build30040EventSet(
       pubkey: baseEvent.pubkey,
       created_at: baseEvent.created_at,
     });
-    
+
     console.log("Final index event (index card):", indexEvent);
     console.log("=== build30040EventSet completed (index card) ===");
     return { indexEvent, sectionEvents: [] };
@@ -266,24 +274,24 @@ export function build30040EventSet(
   // Create section events with their metadata
   const sectionEvents: NDKEvent[] = parsed.sections.map((section, i) => {
     const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
-    console.log(`Creating section ${i}:`, { 
-      title: section.title, 
-      dTag: sectionDTag, 
+    console.log(`Creating section ${i}:`, {
+      title: section.title,
+      dTag: sectionDTag,
       content: section.content,
-      metadata: section.metadata 
+      metadata: section.metadata,
     });
-    
+
     // Convert section metadata to tags
     const sectionMetadataTags = metadataToTags(section.metadata);
-    
+
     return new NDKEventClass(ndk, {
       kind: 30041,
       content: section.content,
       tags: [
         ...tags,
         ...sectionMetadataTags,
-        ["d", sectionDTag], 
-        ["title", section.title]
+        ["d", sectionDTag],
+        ["title", section.title],
       ],
       pubkey: baseEvent.pubkey,
       created_at: baseEvent.created_at,
@@ -291,7 +299,7 @@ export function build30040EventSet(
   });
 
   // Create proper a tags with format: kind:pubkey:d-tag
-  const aTags = sectionEvents.map(event => {
+  const aTags = sectionEvents.map((event) => {
     const dTag = event.tags.find(([k]) => k === "d")?.[1];
     return ["a", `30041:${baseEvent.pubkey}:${dTag}`] as [string, string];
   });

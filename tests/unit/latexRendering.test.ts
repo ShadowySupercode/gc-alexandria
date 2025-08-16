@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parseAdvancedmarkup } from "../../src/lib/utils/markup/advancedMarkupParser";
 import { readFileSync } from "fs";
 import { join } from "path";

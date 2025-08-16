@@ -159,7 +159,7 @@ export class TableOfContents {
     // Handle any other nodes that have already been resolved in parallel.
     await Promise.all(
       Array.from(this.#publicationTree.resolvedAddresses).map((address) =>
-        this.#buildTocEntryFromResolvedNode(address),
+        this.#buildTocEntryFromResolvedNode(address)
       ),
     );
 
@@ -274,10 +274,10 @@ export class TableOfContents {
       });
 
       entry.children.sort((a, b) => {
-        const aOrdinal =
-          addressToOrdinal.get(a.address) ?? Number.MAX_SAFE_INTEGER;
-        const bOrdinal =
-          addressToOrdinal.get(b.address) ?? Number.MAX_SAFE_INTEGER;
+        const aOrdinal = addressToOrdinal.get(a.address) ??
+          Number.MAX_SAFE_INTEGER;
+        const bOrdinal = addressToOrdinal.get(b.address) ??
+          Number.MAX_SAFE_INTEGER;
         return aOrdinal - bOrdinal;
       });
     }

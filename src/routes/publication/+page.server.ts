@@ -5,7 +5,7 @@ import type { PageServerLoad } from "./$types";
 const ROUTES = {
   PUBLICATION_BASE: "/publication",
   NADDR: "/publication/naddr",
-  NEVENT: "/publication/nevent", 
+  NEVENT: "/publication/nevent",
   ID: "/publication/id",
   D_TAG: "/publication/d",
   START: "/start",
@@ -38,4 +38,4 @@ export const load: PageServerLoad = ({ url }) => {
 
   // If no query parameters, redirect to the start page
   redirect(301, ROUTES.START);
-}; 
+};

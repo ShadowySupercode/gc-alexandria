@@ -1,13 +1,9 @@
 <script lang="ts">
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
-  import EmbeddedEventRenderer from "./EmbeddedEventRenderer.svelte";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
-  import { searchRelays } from "$lib/consts";
+  import { activeInboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
@@ -18,13 +14,11 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import { parseRepostContent } from "$lib/utils/notification_utils";
-  import RelayActions from "$lib/components/RelayActions.svelte";
+  import EmbeddedEvent from "./EmbeddedEvent.svelte";
 
   const {
     event,
     profile = null,
-    searchValue = null,
   } = $props<{
     event: NDKEvent;
     profile?: {
@@ -37,20 +31,11 @@
       lud16?: string;
       nip05?: string;
     } | null;
-    searchValue?: string | null;
   }>();
 
-  let showFullContent = $state(false);
-  let parsedContent = $state("");
-  let contentProcessing = $state(false);
   let authorDisplayName = $state<string | undefined>(undefined);
-
-  // Determine if content should be truncated
-  let shouldTruncate = $state(false);
-  
-  $effect(() => {
-    shouldTruncate = event.content.length > 250 && !showFullContent;
-  });
+  let showFullContent = $state(false);
+  let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -92,107 +77,9 @@
     return getMatchingTags(event, "summary")[0]?.[1] || "";
   }
 
-  function getEventHashtags(event: NDKEvent): string[] {
-    return getMatchingTags(event, "t").map((tag: string[]) => tag[1]);
-  }
-
   function getEventTypeDisplay(event: NDKEvent): string {
     const [mTag, MTag] = getMimeTags(event.kind || 0);
     return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
-  }
-
-  function renderTag(tag: string[]): string {
-    if (tag[0] === "a" && tag.length > 1) {
-      const parts = tag[1].split(":");
-      if (parts.length >= 3) {
-        const [kind, pubkey, d] = parts;
-        // Validate that pubkey is a valid hex string
-        if (pubkey && /^[0-9a-fA-F]{64}$/.test(pubkey)) {
-          try {
-            const mockEvent = {
-              kind: +kind,
-              pubkey,
-              tags: [["d", d]],
-              content: "",
-              id: "",
-              sig: "",
-            } as any;
-            const naddr = naddrEncode(mockEvent, $activeInboxRelays);
-            return `<a href='/events?id=${naddr}' class='underline text-primary-700'>a:${tag[1]}</a>`;
-          } catch (error) {
-            console.warn(
-              "Failed to encode naddr for a tag in renderTag:",
-              tag[1],
-              error,
-            );
-            return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-          }
-        } else {
-          console.warn("Invalid pubkey in a tag in renderTag:", pubkey);
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid a tag format in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "e" && tag.length > 1) {
-      // Validate that event ID is a valid hex string
-      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
-        try {
-          const mockEvent = {
-            id: tag[1],
-            kind: 1,
-            content: "",
-            tags: [],
-            pubkey: "",
-            sig: "",
-          } as any;
-          const nevent = neventEncode(mockEvent, $activeInboxRelays);
-          return `<a href='/events?id=${nevent}' class='underline text-primary-700'>e:${tag[1]}</a>`;
-        } catch (error) {
-          console.warn(
-            "Failed to encode nevent for e tag in renderTag:",
-            tag[1],
-            error,
-          );
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid event ID in e tag in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "note" && tag.length > 1) {
-      // 'note' tags are the same as 'e' tags but with different prefix
-      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
-        try {
-          const mockEvent = {
-            id: tag[1],
-            kind: 1,
-            content: "",
-            tags: [],
-            pubkey: "",
-            sig: "",
-          } as any;
-          const nevent = neventEncode(mockEvent, $activeInboxRelays);
-          return `<a href='/events?id=${nevent}' class='underline text-primary-700'>note:${tag[1]}</a>`;
-        } catch (error) {
-          console.warn(
-            "Failed to encode nevent for note tag in renderTag:",
-            tag[1],
-            error,
-          );
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid event ID in note tag in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "d" && tag.length > 1) {
-      // 'd' tags are used for identifiers in addressable events
-      return `<a href='/events?d=${encodeURIComponent(tag[1])}' class='underline text-primary-700'>d:${tag[1]}</a>`;
-    } else {
-      return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
-    }
   }
 
   function getTagButtonInfo(tag: string[]): {
@@ -303,52 +190,12 @@
     return { text: `${tag[0]}:${tag[1]}` };
   }
 
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
-  }
-
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
-  function getNprofileUrl(pubkey: string): string {
-    return nprofileEncode(pubkey, $activeInboxRelays);
-  }
-
-  $effect(() => {
-    if (event && event.kind !== 0 && event.content) {
-      contentProcessing = true;
-      
-      // Use parseRepostContent for kind 6 and 16 events (reposts)
-      if (event.kind === 6 || event.kind === 16) {
-        parseRepostContent(event.content).then((html) => {
-          parsedContent = html;
-          contentProcessing = false;
-        }).catch((error) => {
-          console.error('Error parsing repost content:', error);
-          contentProcessing = false;
-        });
-      } else {
-        // Use embedded markup parser for better Nostr event support
-        parseEmbeddedMarkup(event.content, 0).then((html) => {
-          parsedContent = html;
-          contentProcessing = false;
-        }).catch((error) => {
-          console.error('Error parsing embedded markup:', error);
-          contentProcessing = false;
-        });
-      }
-    } else {
-      contentProcessing = false;
-      parsedContent = "";
-    }
-  });
-
   $effect(() => {
     if (!event?.pubkey) {
       authorDisplayName = undefined;
       return;
     }
+
     getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
       authorDisplayName =
         profile.displayName ||
@@ -401,13 +248,6 @@
       ids.push({ label: "id", value: event.id });
     }
     return ids;
-  }
-
-  function isCurrentSearch(value: string): boolean {
-    if (!searchValue) return false;
-    // Compare ignoring case and possible nostr: prefix
-    const norm = (s: string) => s.replace(/^nostr:/, "").toLowerCase();
-    return norm(value) === norm(searchValue);
   }
 
   onMount(() => {
@@ -468,8 +308,6 @@
     </div>
   {/if}
 
-
-
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
 
@@ -479,19 +317,15 @@
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
         <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-          {#if contentProcessing}
-            <div class="text-gray-500 dark:text-gray-400 italic">Processing content...</div>
-          {:else}
-            <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-              <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
-            </div>
-            {#if shouldTruncate}
-              <button
-                class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-                onclick={() => (showFullContent = true)}>Show more</button
-              >
-            {/if}
-          {/if}
+        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+          <EmbeddedEvent nostrIdentifier={event.id} nestingLevel={0} />
+        </div>
+        {#if shouldTruncate}
+          <button
+            class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+            onclick={() => (showFullContent = true)}>Show more</button
+          >
+        {/if}
         </div>
       </div>
     </div>

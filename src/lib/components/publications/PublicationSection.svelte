@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import {
     contentParagraph,
     sectionHeading,

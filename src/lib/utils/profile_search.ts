@@ -1,15 +1,15 @@
-import { ndkInstance, activeInboxRelays } from "../ndk.ts";
-import { getUserMetadata, getNpubFromNip05 } from "./nostrUtils.ts";
-import NDK, { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import { activeInboxRelays, ndkInstance } from "../ndk.ts";
+import { getNpubFromNip05, getUserMetadata } from "./nostrUtils.ts";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
-import { searchRelays, communityRelays, secondaryRelays } from "../consts.ts";
+import { communityRelays, searchRelays, secondaryRelays } from "../consts.ts";
 import { get } from "svelte/store";
 import type { NostrProfile, ProfileSearchResult } from "./search_types.ts";
 import {
+  createProfileFromEvent,
   fieldMatches,
   nip05Matches,
   normalizeSearchTerm,
-  createProfileFromEvent,
 } from "./search_utils.ts";
 
 /**
@@ -267,12 +267,12 @@ async function quickRelaySearch(
   // Use search relays (optimized for profiles) + user's inbox relays + community relays
   const userInboxRelays = get(activeInboxRelays);
   const quickRelayUrls = [
-    ...searchRelays,           // Dedicated profile search relays
-    ...userInboxRelays,        // User's personal inbox relays  
-    ...communityRelays,        // Community relays
-    ...secondaryRelays         // Secondary relays as fallback
+    ...searchRelays, // Dedicated profile search relays
+    ...userInboxRelays, // User's personal inbox relays
+    ...communityRelays, // Community relays
+    ...secondaryRelays, // Secondary relays as fallback
   ];
-  
+
   // Deduplicate relay URLs
   const uniqueRelayUrls = [...new Set(quickRelayUrls)];
   console.log("Using relays for profile search:", uniqueRelayUrls);
@@ -312,8 +312,8 @@ async function quickRelaySearch(
         try {
           if (!event.content) return;
           const profileData = JSON.parse(event.content);
-          const displayName =
-            profileData.displayName || profileData.display_name || "";
+          const displayName = profileData.displayName ||
+            profileData.display_name || "";
           const display_name = profileData.display_name || "";
           const name = profileData.name || "";
           const nip05 = profileData.nip05 || "";
@@ -363,7 +363,9 @@ async function quickRelaySearch(
 
       sub.on("eose", () => {
         console.log(
-          `Relay ${index + 1} (${uniqueRelayUrls[index]}) search completed, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+          `Relay ${index + 1} (${
+            uniqueRelayUrls[index]
+          }) search completed, processed ${eventCount} events, found ${foundInRelay.length} matches`,
         );
         resolve(foundInRelay);
       });
@@ -371,7 +373,9 @@ async function quickRelaySearch(
       // Short timeout for quick search
       setTimeout(() => {
         console.log(
-          `Relay ${index + 1} (${uniqueRelayUrls[index]}) search timed out after 1.5s, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+          `Relay ${index + 1} (${
+            uniqueRelayUrls[index]
+          }) search timed out after 1.5s, processed ${eventCount} events, found ${foundInRelay.length} matches`,
         );
         sub.stop();
         resolve(foundInRelay);

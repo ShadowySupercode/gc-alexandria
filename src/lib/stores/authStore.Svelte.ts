@@ -1,4 +1,4 @@
-import { writable, derived } from "svelte/store";
+import { derived, writable } from "svelte/store";
 
 /**
  * Stores the user's public key if logged in, or null otherwise.

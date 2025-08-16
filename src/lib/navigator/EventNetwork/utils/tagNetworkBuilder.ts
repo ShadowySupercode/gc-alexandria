@@ -6,9 +6,9 @@
  */
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type { NetworkNode, NetworkLink, GraphData } from "../types";
+import type { GraphData, NetworkLink, NetworkNode } from "../types";
 import { getDisplayNameSync } from "$lib/utils/profileCache";
-import { SeededRandom, createDebugFunction } from "./common";
+import { createDebugFunction, SeededRandom } from "./common";
 
 // Configuration
 const TAG_ANCHOR_RADIUS = 15;
@@ -17,7 +17,6 @@ const TAG_ANCHOR_PLACEMENT_RADIUS = 1250; // Radius from center within which to 
 
 // Debug function
 const debug = createDebugFunction("TagNetworkBuilder");
-
 
 /**
  * Creates a deterministic seed from a string
@@ -63,7 +62,10 @@ export function extractUniqueTagsForType(
 ): Map<string, Set<string>> {
   // Map of tagValue -> Set of event IDs
   const tagMap = new Map<string, Set<string>>();
-  debug("Extracting unique tags for type", { tagType, eventCount: events.length });
+  debug("Extracting unique tags for type", {
+    tagType,
+    eventCount: events.length,
+  });
 
   events.forEach((event) => {
     if (!event.tags || !event.id) return;
@@ -83,7 +85,7 @@ export function extractUniqueTagsForType(
       tagMap.get(tagValue)!.add(event.id);
     });
   });
-  
+
   debug("Extracted tags", { tagCount: tagMap.size });
 
   return tagMap;
@@ -110,7 +112,7 @@ export function createTagAnchorNodes(
   );
 
   if (validTags.length === 0) return [];
-  
+
   // Sort all tags by number of connections (events) descending
   validTags.sort((a, b) => b[1].size - a[1].size);
 
@@ -172,8 +174,11 @@ export function createTagLinks(
   tagAnchors: NetworkNode[],
   nodes: NetworkNode[],
 ): NetworkLink[] {
-  debug("Creating tag links", { anchorCount: tagAnchors.length, nodeCount: nodes.length });
-  
+  debug("Creating tag links", {
+    anchorCount: tagAnchors.length,
+    nodeCount: nodes.length,
+  });
+
   const links: NetworkLink[] = [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
@@ -208,13 +213,13 @@ export function enhanceGraphWithTags(
   displayLimit?: number,
 ): GraphData {
   debug("Enhancing graph with tags", { tagType, displayLimit });
-  
+
   // Extract unique tags for the specified type
   const tagMap = extractUniqueTagsForType(events, tagType);
 
   // Create tag anchor nodes
   let tagAnchors = createTagAnchorNodes(tagMap, tagType, width, height);
-  
+
   // Apply display limit if provided
   if (displayLimit && displayLimit > 0 && tagAnchors.length > displayLimit) {
     // Sort by connection count (already done in createTagAnchorNodes)
@@ -242,7 +247,7 @@ export function enhanceGraphWithTags(
 export function applyTagGravity(
   nodes: NetworkNode[],
   nodeToAnchors: Map<string, NetworkNode[]>,
-  alpha: number
+  alpha: number,
 ): void {
   nodes.forEach((node) => {
     if (node.isTagAnchor) return; // Tag anchors don't move
@@ -301,7 +306,7 @@ export function createTagGravityForce(
   });
 
   debug("Creating tag gravity force");
-  
+
   function force(alpha: number) {
     applyTagGravity(nodes, nodeToAnchors, alpha);
   }

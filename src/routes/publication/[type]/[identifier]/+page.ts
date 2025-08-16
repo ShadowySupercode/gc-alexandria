@@ -1,30 +1,40 @@
 import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
-import { fetchEventByDTag, fetchEventById, fetchEventByNaddr, fetchEventByNevent } from "../../../../lib/utils/websocket_utils.ts";
+import {
+  fetchEventByDTag,
+  fetchEventById,
+  fetchEventByNaddr,
+  fetchEventByNevent,
+} from "../../../../lib/utils/websocket_utils.ts";
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
-export const load: PageLoad = async ({ params, parent }: { params: { type: string; identifier: string }; parent: any }) => {
+export const load: PageLoad = async (
+  { params, parent }: {
+    params: { type: string; identifier: string };
+    parent: any;
+  },
+) => {
   const { type, identifier } = params;
-  
+
   // Get layout data (no server-side data since SSR is disabled)
   const layoutData = await parent();
 
   // AI-NOTE: Always fetch client-side since server-side fetch returns null for now
   let indexEvent: NostrEvent | null = null;
-    
+
   try {
     // Handle different identifier types
     switch (type) {
-      case 'id':
+      case "id":
         indexEvent = await fetchEventById(identifier);
         break;
-      case 'd':
+      case "d":
         indexEvent = await fetchEventByDTag(identifier);
         break;
-      case 'naddr':
+      case "naddr":
         indexEvent = await fetchEventByNaddr(identifier);
         break;
-      case 'nevent':
+      case "nevent":
         indexEvent = await fetchEventByNevent(identifier);
         break;
       default:
@@ -33,32 +43,36 @@ export const load: PageLoad = async ({ params, parent }: { params: { type: strin
   } catch (err) {
     throw err;
   }
-  
+
   if (!indexEvent) {
     // AI-NOTE: Handle case where no relays are available during preloading
     // This prevents 404 errors when relay stores haven't been populated yet
-    
+
     // Create appropriate search link based on type
-    let searchParam = '';
+    let searchParam = "";
     switch (type) {
-      case 'id':
+      case "id":
         searchParam = `id=${identifier}`;
         break;
-      case 'd':
+      case "d":
         searchParam = `d=${identifier}`;
         break;
-      case 'naddr':
-      case 'nevent':
+      case "naddr":
+      case "nevent":
         searchParam = `id=${identifier}`;
         break;
       default:
         searchParam = `q=${identifier}`;
     }
-    
-    error(404, `Event not found for ${type}: ${identifier}. href="/events?${searchParam}"`);
+
+    error(
+      404,
+      `Event not found for ${type}: ${identifier}. href="/events?${searchParam}"`,
+    );
   }
 
-  const publicationType = indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
+  const publicationType =
+    indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
   // AI-NOTE: Use proper NDK instance from layout or create one with relays
   let ndk = layoutData?.ndk;
@@ -75,6 +89,6 @@ export const load: PageLoad = async ({ params, parent }: { params: { type: strin
     indexEvent,
     ndk, // Use minimal NDK instance
   };
-  
+
   return result;
 };

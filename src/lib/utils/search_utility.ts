@@ -13,13 +13,13 @@ export { searchBySubscription } from "./subscription_search";
 export { searchEvent, searchNip05 } from "./event_search";
 export { checkCommunity } from "./community_checker";
 export {
-  wellKnownUrl,
-  lnurlpWellKnownUrl,
-  isValidNip05Address,
-  normalizeSearchTerm,
-  fieldMatches,
-  nip05Matches,
   COMMON_DOMAINS,
-  isEmojiReaction,
   createProfileFromEvent,
+  fieldMatches,
+  isEmojiReaction,
+  isValidNip05Address,
+  lnurlpWellKnownUrl,
+  nip05Matches,
+  normalizeSearchTerm,
+  wellKnownUrl,
 } from "./search_utils";

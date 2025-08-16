@@ -7,11 +7,11 @@ import type {
   Block,
   Document,
   Extensions,
-  Section,
   ProcessorOptions,
+  Section,
 } from "asciidoctor";
 import he from "he";
-import { writable, type Writable } from "svelte/store";
+import { type Writable, writable } from "svelte/store";
 import { zettelKinds } from "./consts.ts";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
 
@@ -906,13 +906,13 @@ export default class Pharos {
       ["#d", nodeId],
       ...this.extractAndNormalizeWikilinks(content!),
     ];
-    
+
     // Extract image from content if present
     const imageUrl = this.extractImageFromContent(content!);
     if (imageUrl) {
       event.tags.push(["image", imageUrl]);
     }
-    
+
     event.created_at = Date.now();
     event.pubkey = pubkey;
 

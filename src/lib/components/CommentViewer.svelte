@@ -6,9 +6,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { parseRepostContent, parseContent as parseNotificationContent } from "$lib/utils/notification_utils";
+  import EmbeddedEvent from "./EmbeddedEvent.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -654,19 +652,6 @@
     return `${actualLevel * 16}px`;
   }
 
-  async function parseContent(content: string, eventKind?: number): Promise<string> {
-    if (!content) return "";
-    
-    // Use parseRepostContent for kind 6 and 16 events (reposts)
-    if (eventKind === 6 || eventKind === 16) {
-      return await parseRepostContent(content);
-    } else {
-      return await parseNotificationContent(content);
-    }
-  }
-
-
-
   // AI-NOTE: 2025-01-24 - Get highlight source information
   function getHighlightSource(highlightEvent: NDKEvent): { type: string; value: string; url?: string } | null {
     // Check for e-tags (nostr events)
@@ -785,11 +770,7 @@
                 <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
                   <span class="font-medium">Comment:</span>
                 </div>
-                {#await parseContent(node.event.getMatchingTags("comment")[0]?.[1] || "") then parsedContent}
-                  {@html parsedContent}
-                {:catch}
-                  {@html node.event.getMatchingTags("comment")[0]?.[1] || ""}
-                {/await}
+                <EmbeddedEvent nostrIdentifier={node.event.getMatchingTags("comment")[0]?.[1]} nestingLevel={0} />
               </div>
             {:else}
               <!-- Simple highlight -->
@@ -829,11 +810,7 @@
           </div>
         {:else}
           <!-- Regular comment content -->
-          {#await parseContent(node.event.content || "", node.event.kind) then parsedContent}
-            {@html parsedContent}
-          {:catch}
-            {@html node.event.content || ""}
-          {/await}
+          <EmbeddedEvent nostrIdentifier={node.event.id} nestingLevel={0} />
         {/if}
       </div>
     </div>

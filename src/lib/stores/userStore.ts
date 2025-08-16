@@ -1,14 +1,19 @@
-import { writable, get } from "svelte/store";
+import { get, writable } from "svelte/store";
 import type { NostrProfile } from "../utils/nostrUtils.ts";
-import type { NDKUser, NDKSigner } from "@nostr-dev-kit/ndk";
+import type { NDKSigner, NDKUser } from "@nostr-dev-kit/ndk";
 import NDK, {
   NDKNip07Signer,
+  NDKRelay,
   NDKRelayAuthPolicies,
   NDKRelaySet,
-  NDKRelay,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { ndkInstance, activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../ndk.ts";
+import {
+  activeInboxRelays,
+  activeOutboxRelays,
+  ndkInstance,
+  updateActiveRelayStores,
+} from "../ndk.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 import { userPubkey } from "../stores/authStore.Svelte.ts";
@@ -46,8 +51,8 @@ function persistRelays(
   outboxes: Set<NDKRelay>,
 ): void {
   // Only access localStorage on client-side
-  if (typeof window === 'undefined') return;
-  
+  if (typeof window === "undefined") return;
+
   localStorage.setItem(
     getRelayStorageKey(user, "inbox"),
     JSON.stringify(Array.from(inboxes).map((relay) => relay.url)),
@@ -60,10 +65,10 @@ function persistRelays(
 
 function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
   // Only access localStorage on client-side
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return [new Set<string>(), new Set<string>()];
   }
-  
+
   const inboxes = new Set<string>(
     JSON.parse(localStorage.getItem(getRelayStorageKey(user, "inbox")) ?? "[]"),
   );
@@ -79,7 +84,10 @@ function getPersistedRelays(user: NDKUser): [Set<string>, Set<string>] {
 async function getUserPreferredRelays(
   ndk: NDK,
   user: NDKUser,
-      fallbacks: readonly string[] = [...get(activeInboxRelays), ...get(activeOutboxRelays)],
+  fallbacks: readonly string[] = [
+    ...get(activeInboxRelays),
+    ...get(activeOutboxRelays),
+  ],
 ): Promise<[Set<NDKRelay>, Set<NDKRelay>]> {
   const relayList = await ndk.fetchEvent(
     {
@@ -144,8 +152,8 @@ export const loginMethodStorageKey = "alexandria/login/method";
 
 function persistLogin(user: NDKUser, method: "extension" | "amber" | "npub") {
   // Only access localStorage on client-side
-  if (typeof window === 'undefined') return;
-  
+  if (typeof window === "undefined") return;
+
   localStorage.setItem(loginStorageKey, user.pubkey);
   localStorage.setItem(loginMethodStorageKey, method);
 }
@@ -165,9 +173,9 @@ export async function loginWithExtension() {
   const signer = new NDKNip07Signer();
   const user = await signer.user();
   const npub = user.npub;
-  
+
   console.log("Login with extension - fetching profile for npub:", npub);
-  
+
   // Try to fetch user metadata, but don't fail if it times out
   let profile: NostrProfile | null = null;
   try {
@@ -183,7 +191,7 @@ export async function loginWithExtension() {
     };
     console.log("Login with extension - using fallback profile:", profile);
   }
-  
+
   // Fetch user's preferred relays
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {
@@ -193,7 +201,7 @@ export async function loginWithExtension() {
   persistRelays(user, inboxes, outboxes);
   ndk.signer = signer;
   ndk.activeUser = user;
-  
+
   const userState = {
     pubkey: user.pubkey,
     npub,
@@ -209,22 +217,27 @@ export async function loginWithExtension() {
     signer,
     signedIn: true,
   };
-  
+
   console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
-  
+
   // Update relay stores with the new user's relays
   try {
-    console.debug('[userStore.ts] loginWithExtension: Updating relay stores for authenticated user');
+    console.debug(
+      "[userStore.ts] loginWithExtension: Updating relay stores for authenticated user",
+    );
     await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
   } catch (error) {
-    console.warn('[userStore.ts] loginWithExtension: Failed to update relay stores:', error);
+    console.warn(
+      "[userStore.ts] loginWithExtension: Failed to update relay stores:",
+      error,
+    );
   }
-  
+
   clearLogin();
   // Only access localStorage on client-side
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.removeItem("alexandria/logout/flag");
   }
   persistLogin(user, "extension");
@@ -238,9 +251,9 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
   const npub = user.npub;
-  
+
   console.log("Login with Amber - fetching profile for npub:", npub);
-  
+
   let profile: NostrProfile | null = null;
   try {
     profile = await getUserMetadata(npub, true); // Force fresh fetch
@@ -254,7 +267,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
     };
     console.log("Login with Amber - using fallback profile:", profile);
   }
-  
+
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {
     ndk.addExplicitRelay(relay);
@@ -263,7 +276,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
   persistRelays(user, inboxes, outboxes);
   ndk.signer = amberSigner;
   ndk.activeUser = user;
-  
+
   const userState = {
     pubkey: user.pubkey,
     npub,
@@ -279,22 +292,27 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
     signer: amberSigner,
     signedIn: true,
   };
-  
+
   console.log("Login with Amber - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
-  
+
   // Update relay stores with the new user's relays
   try {
-    console.debug('[userStore.ts] loginWithAmber: Updating relay stores for authenticated user');
+    console.debug(
+      "[userStore.ts] loginWithAmber: Updating relay stores for authenticated user",
+    );
     await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
   } catch (error) {
-    console.warn('[userStore.ts] loginWithAmber: Failed to update relay stores:', error);
+    console.warn(
+      "[userStore.ts] loginWithAmber: Failed to update relay stores:",
+      error,
+    );
   }
-  
+
   clearLogin();
   // Only access localStorage on client-side
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.removeItem("alexandria/logout/flag");
   }
   persistLogin(user, "amber");
@@ -331,23 +349,28 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
     console.error("Failed to encode npub from hex pubkey:", hexPubkey, e);
     throw e;
   }
-  
+
   console.log("Login with npub - fetching profile for npub:", npub);
-  
+
   const user = ndk.getUser({ npub });
   let profile: NostrProfile | null = null;
-  
+
   // First, update relay stores to ensure we have relays available
   try {
-    console.debug('[userStore.ts] loginWithNpub: Updating relay stores for authenticated user');
+    console.debug(
+      "[userStore.ts] loginWithNpub: Updating relay stores for authenticated user",
+    );
     await updateActiveRelayStores(ndk);
   } catch (error) {
-    console.warn('[userStore.ts] loginWithNpub: Failed to update relay stores:', error);
+    console.warn(
+      "[userStore.ts] loginWithNpub: Failed to update relay stores:",
+      error,
+    );
   }
-  
+
   // Wait a moment for relay stores to be properly initialized
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
   try {
     profile = await getUserMetadata(npub, true); // Force fresh fetch
     console.log("Login with npub - fetched profile:", profile);
@@ -360,10 +383,10 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
     };
     console.log("Login with npub - using fallback profile:", profile);
   }
-  
+
   ndk.signer = undefined;
   ndk.activeUser = user;
-  
+
   const userState = {
     pubkey: user.pubkey,
     npub,
@@ -374,14 +397,14 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
     signer: null,
     signedIn: true,
   };
-  
+
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
   userPubkey.set(user.pubkey);
-  
+
   clearLogin();
   // Only access localStorage on client-side
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.removeItem("alexandria/logout/flag");
   }
   persistLogin(user, "npub");
@@ -393,13 +416,15 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
 export function logoutUser() {
   console.log("Logging out user...");
   const currentUser = get(userStore);
-  
+
   // Only access localStorage on client-side
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     if (currentUser.ndkUser) {
       // Clear persisted relays for the user
       localStorage.removeItem(getRelayStorageKey(currentUser.ndkUser, "inbox"));
-      localStorage.removeItem(getRelayStorageKey(currentUser.ndkUser, "outbox"));
+      localStorage.removeItem(
+        getRelayStorageKey(currentUser.ndkUser, "outbox"),
+      );
     }
 
     // Clear all possible login states from localStorage

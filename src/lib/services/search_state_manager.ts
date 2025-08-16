@@ -13,7 +13,7 @@ export class SearchStateManager {
       searchResultCount: number | null;
       searchResultType: string | null;
     },
-    onLoadingChange?: (loading: boolean) => void
+    onLoadingChange?: (loading: boolean) => void,
   ): void {
     if (onLoadingChange) {
       onLoadingChange(state.searching);
@@ -25,10 +25,16 @@ export class SearchStateManager {
    */
   resetSearchState(
     callbacks: {
-      onSearchResults: (events: any[], secondOrder: any[], tTagEvents: any[], eventIds: Set<string>, addresses: Set<string>) => void;
+      onSearchResults: (
+        events: any[],
+        secondOrder: any[],
+        tTagEvents: any[],
+        eventIds: Set<string>,
+        addresses: Set<string>,
+      ) => void;
       cleanupSearch: () => void;
       clearTimeout: () => void;
-    }
+    },
   ): void {
     callbacks.cleanupSearch();
     callbacks.onSearchResults([], [], [], new Set(), new Set());
@@ -46,16 +52,18 @@ export class SearchStateManager {
       cleanupSearch: () => void;
       updateSearchState: (state: any) => void;
       resetProcessingFlags: () => void;
-    }
+    },
   ): void {
-    const errorMessage = error instanceof Error ? error.message : defaultMessage;
+    const errorMessage = error instanceof Error
+      ? error.message
+      : defaultMessage;
     callbacks.setLocalError(errorMessage);
     callbacks.cleanupSearch();
     callbacks.updateSearchState({
       searching: false,
       searchCompleted: false,
       searchResultCount: null,
-      searchResultType: null
+      searchResultType: null,
     });
     callbacks.resetProcessingFlags();
   }
