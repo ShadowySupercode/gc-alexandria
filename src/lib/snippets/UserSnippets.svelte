@@ -25,7 +25,7 @@
         {@const p = profile as NostrProfileWithLegacy}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{p.displayName ||
@@ -37,7 +37,7 @@
       {:catch}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{npub.slice(0, 8) + "..." + npub.slice(-4)}
@@ -48,7 +48,7 @@
       {#await createProfileLinkWithVerification(npub as string, displayText)}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}
@@ -57,7 +57,7 @@
       {:then html}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}
@@ -67,7 +67,7 @@
       {:catch}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}

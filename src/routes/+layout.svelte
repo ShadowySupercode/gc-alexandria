@@ -65,7 +65,7 @@
 <div class="min-h-screen flex flex-col">
   <ANavbar {currentPath} />
 
-  <main class="flex-1 w-full">
+  <main class="flex-1 flex-col w-full mt-[75px] self-center">
     {@render children()}
   </main>
 

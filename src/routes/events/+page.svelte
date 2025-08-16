@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
-  import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -19,6 +18,7 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
+  import { AEventPreview } from "$lib/a";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -434,6 +434,10 @@
           format "d:tag-name", t-tags with "t:tag-name", or profiles by name with "n:name".
         </P>
 
+        <P class="mb-3">Visit the
+          <a href="/events/compose" class="text-primary-600 dark:text-primary-400 hover:underline">Compose page</a> to create new events.
+        </P>
+
         <EventSearch
           {loading}
           {error}
@@ -471,142 +475,16 @@
             </Heading>
             <div class="space-y-4">
               {#each searchResults as result, index}
+                <AEventPreview
+                  event={result}
+                  index={index}
+                  showPublicationLink={isAddressableEvent(result)}
+                  label={(searchType === "n" ? "Profile " : "Event ") + (index + 1)}
+                  community={result.pubkey && communityStatus[result.pubkey]}
+                  onSelect={handleEventFound}
+                />
+
                 {@const profileData = parseProfileContent(result)}
-                <button
-                  class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
-                  onclick={() => handleEventFound(result)}
-                >
-                  <div class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="font-medium text-gray-800 dark:text-gray-100"
-                        >{searchType === "n" ? "Profile" : "Event"}
-                        {index + 1}</span
-                      >
-                      <span class="text-xs text-gray-600 dark:text-gray-400"
-                        >Kind: {result.kind}</span
-                      >
-                      {#if result.pubkey && communityStatus[result.pubkey]}
-                        <div
-                          class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                          title="Has posted to the community"
-                        >
-                          <svg
-                            class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                            />
-                          </svg>
-                        </div>
-                      {:else}
-                        <div class="flex-shrink-0 w-4 h-4"></div>
-                      {/if}
-                      <span class="text-xs text-gray-600 dark:text-gray-400">
-                        {@render userBadge(
-                          toNpub(result.pubkey) as string,
-                          profileData?.display_name || profileData?.name,
-                        )}
-                      </span>
-                      <span
-                        class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
-                      >
-                        {result.created_at
-                          ? new Date(
-                              result.created_at * 1000,
-                            ).toLocaleDateString()
-                          : "Unknown date"}
-                      </span>
-                    </div>
-                    {#if result.kind === 0 && profileData}
-                      <div class="flex items-center gap-3 mb-2">
-                        {#if profileData.picture}
-                          <img
-                            src={profileData.picture}
-                            alt="Profile"
-                            class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                            onerror={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        {:else}
-                          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
-                              {(profileData.display_name || profileData.name || result.pubkey.slice(0, 1)).toUpperCase()}
-                            </span>
-                          </div>
-                        {/if}
-                        <div class="flex flex-col min-w-0 flex-1">
-                          {#if profileData.display_name || profileData.name}
-                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {profileData.display_name || profileData.name}
-                            </span>
-                          {/if}
-                          {#if profileData.about}
-                            <span class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                              {profileData.about}
-                            </span>
-                          {/if}
-                        </div>
-                      </div>
-                    {:else}
-                      {#if getSummary(result)}
-                        <div
-                          class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2"
-                        >
-                          {getSummary(result)}
-                        </div>
-                      {/if}
-                      {#if getDeferralNaddr(result)}
-                        <div
-                          class="text-xs text-primary-800 dark:text-primary-300 mb-1"
-                        >
-                          Read
-                          <span
-                            class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
-                            onclick={(e) => {
-                              e.stopPropagation();
-                              navigateToPublication(
-                                getDeferralNaddr(result) || "",
-                              );
-                            }}
-                            onkeydown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                navigateToPublication(
-                                  getDeferralNaddr(result) || "",
-                                );
-                              }
-                            }}
-                            tabindex="0"
-                            role="button"
-                          >
-                            {getDeferralNaddr(result)}
-                          </span>
-                        </div>
-                      {/if}
-                      {#if isAddressableEvent(result)}
-                        <div
-                          class="text-xs text-blue-600 dark:text-blue-400 mb-1"
-                        >
-                          <ViewPublicationLink event={result} />
-                        </div>
-                      {/if}
-                      {#if result.content}
-                        <div
-                          class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
-                        >
-                          {result.content.slice(0, 200)}{result.content.length >
-                          200
-                            ? "..."
-                            : ""}
-                        </div>
-                      {/if}
-                    {/if}
-                  </div>
-                </button>
               {/each}
             </div>
           </div>
@@ -927,12 +805,6 @@
           </div>
         {/if}
 
-        {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue && !searchInProgress}
-          <div class="mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg text-center">
-            <Heading tag="h3" class="h-leather mb-4">No Search Active</Heading>
-            <P class="mb-4">Use the search field above to find events, or visit the <a href="/events/compose" class="text-primary-600 dark:text-primary-400 hover:underline">Compose page</a> to create new events.</P>
-          </div>
-        {/if}
       </div>
     </div>
 

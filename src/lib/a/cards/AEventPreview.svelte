@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { Card } from "flowbite-svelte";
+  import { Card, Button } from "flowbite-svelte";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub, getMatchingTags } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { preventDefault } from "svelte/legacy";
 
-  // AI-NOTE: 2025-08-16 - AEventPreview centralizes display logic for search result cards
-  // Used for primary search results (profiles or events). Extend cautiously for other contexts.
   let {
     event,
-    index,
     label = "",
     community = false,
     truncateContentAt = 200,
@@ -17,32 +15,42 @@
     showSummary = true,
     showDeferralNaddr = true,
     showPublicationLink = true,
-    onSelect
+    showContent = true,
+    actions,
+    onSelect,
+    onDeferralClick
   }: {
     event: NDKEvent;
-    index?: number;
     label?: string;
-    community?: boolean|string;
+    community?: boolean;
     truncateContentAt?: number;
     showKind?: boolean;
     showSummary?: boolean;
     showDeferralNaddr?: boolean;
     showPublicationLink?: boolean;
+    showContent?: boolean;
+    actions?: { label: string; onClick: (ev: NDKEvent) => void; variant?: "primary" | "light" | "alternative" }[];
     onSelect?: (ev: NDKEvent) => void;
+    onDeferralClick?: (naddr: string, ev: NDKEvent) => void;
   } = $props();
 
-  // Parse kind 0 profile JSON
-  function parseProfileContent(ev: NDKEvent): {
+  type ProfileData = {
     name?: string;
     display_name?: string;
     about?: string;
     picture?: string;
-  } | null {
+    banner?: string;
+    website?: string;
+    lud16?: string;
+    nip05?: string;
+  };
+
+  function parseProfileContent(ev: NDKEvent): ProfileData | null {
     if (ev.kind !== 0 || !ev.content) {
       return null;
     }
     try {
-      return JSON.parse(ev.content);
+      return JSON.parse(ev.content) as ProfileData;
     } catch {
       return null;
     }
@@ -60,6 +68,16 @@
   const summary = showSummary ? getSummary(event) : undefined;
   const deferralNaddr = showDeferralNaddr ? getDeferralNaddr(event) : undefined;
 
+  function clippedContent(content: string): string {
+    if (!showContent) {
+      return "";
+    }
+    if (!truncateContentAt || content.length <= truncateContentAt) {
+      return content;
+    }
+    return content.slice(0, truncateContentAt) + "...";
+  }
+
   function handleSelect(): void {
     onSelect?.(event);
   }
@@ -71,121 +89,124 @@
     }
   }
 
-  function clippedContent(content: string): string {
-    if (!truncateContentAt || content.length <= truncateContentAt) {
-      return content;
+  function handleDeferralClick(e: MouseEvent): void {
+    e.stopPropagation();
+    if (deferralNaddr) {
+      onDeferralClick?.(deferralNaddr, event);
     }
-    return content.slice(0, truncateContentAt) + "...";
   }
+
+  const displayName: string | undefined =
+    profileData?.display_name || profileData?.name;
+  const avatarFallback: string =
+    (displayName || event.pubkey || "?").slice(0, 1).toUpperCase();
+  const createdDate: string =
+    event.created_at
+      ? new Date(event.created_at * 1000).toLocaleDateString()
+      : "Unknown date";
+
+  const computedActions =
+    actions && actions.length > 0
+      ? actions
+      : [
+          {
+            label: "Open",
+            onClick: (ev: NDKEvent) => onSelect?.(ev),
+            variant: "light" as const
+          }
+        ];
 </script>
 
 <Card
-  class="card"
-  role="button"
+  class="hover:bg-highlight dark:bg-primary-900/70 bg-primary-50 dark:hover:bg-primary-800 border-primary-400 border-s-4 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-none"
+  role="group"
   tabindex="0"
+  aria-label="Event preview"
   onclick={handleSelect}
   onkeydown={handleKeydown}
+  size="xl"
 >
-  <div class="flex flex-col gap-1 p-4">
-    <div class="flex items-center gap-2 mb-1">
+  <!-- Header -->
+  <div class="flex items-start w-full p-4">
+    <!-- Meta -->
+    <div class="flex flex-row w-full gap-3 items-center min-w-0">
       {#if label}
-        <span class="font-medium text-gray-800 dark:text-gray-100">{label}</span>
+          <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {label}
+          </span>
       {/if}
       {#if showKind}
-        <span class="text-xs text-gray-600 dark:text-gray-400">Kind: {event.kind}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+            Kind {event.kind}
+          </span>
       {/if}
       {#if community}
-        <div
-          class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-          title="Has posted to the community"
-        >
-          <svg
-            class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
-            fill="currentColor"
-            viewBox="0 0 24 24"
+          <span
+            class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+            title="Has posted to the community"
           >
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-        </div>
-      {:else}
-        <div class="flex-shrink-0 w-4 h-4"></div>
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+              />
+            </svg>
+            Community
+          </span>
       {/if}
-      <span class="text-xs text-gray-600 dark:text-gray-400">
-        {@render userBadge(
-          toNpub(event.pubkey) as string,
-          profileData?.display_name || profileData?.name
-        )}
-      </span>
-      <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-        {event.created_at
-          ? new Date(event.created_at * 1000).toLocaleDateString()
-          : "Unknown date"}
-      </span>
+      <span class="text-xs ml-auto mb-4">
+          {createdDate}
+        </span>
     </div>
 
-    {#if event.kind === 0 && profileData}
-      <div class="flex items-center gap-3 mb-2">
-        {#if profileData.picture}
-          <img
-            src={profileData.picture}
-            alt="Profile"
-            class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-            onerror={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        {:else}
-          <div
-            class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600"
-          >
-            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
-              {(profileData.display_name || profileData.name || event.pubkey.slice(0, 1)).toUpperCase()}
-            </span>
-          </div>
-        {/if}
-        <div class="flex flex-col min-w-0 flex-1">
-          {#if profileData.display_name || profileData.name}
-            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
-              {profileData.display_name || profileData.name}
-            </span>
-          {/if}
-          {#if profileData.about}
-            <span class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-              {profileData.about}
-            </span>
-          {/if}
-        </div>
+    <div class="flex flex-row">
+      {@render userBadge(toNpub(event.pubkey) as string, displayName)}
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="px-4 pb-3 flex flex-col gap-2">
+    {#if event.kind === 0 && profileData?.about}
+      <div class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+        {clippedContent(profileData.about)}
       </div>
     {:else}
       {#if summary}
-        <div class="text-sm text-primary-900 dark:text-primary-200 mb-1 line-clamp-2">
+        <div class="text-sm text-primary-900 dark:text-primary-200 line-clamp-2">
           {summary}
         </div>
       {/if}
       {#if deferralNaddr}
-        <div class="text-xs text-primary-800 dark:text-primary-300 mb-1">
+        <div class="text-xs text-primary-800 dark:text-primary-300">
           Read
           <span
             class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
-            onclick={(e) => {
-              e.stopPropagation();
-              // Parent should intercept navigation by listening onSelect and inspecting event tags if needed
+            role="button"
+            tabindex="0"
+            onclick={handleDeferralClick}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleDeferralClick(e as unknown as MouseEvent);
+              }
             }}
           >
             {deferralNaddr}
           </span>
         </div>
       {/if}
-      {#if showPublicationLink}
-        <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
-          <ViewPublicationLink event={event} />
-        </div>
-      {/if}
-      {#if event.content}
-        <div class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words">
+
+      {#if showContent && event.content}
+        <div class="text-sm text-gray-800 dark:text-gray-200 line-clamp-3 break-words mb-4">
           {clippedContent(event.content)}
         </div>
       {/if}
     {/if}
   </div>
+
+  <!-- Footer / Actions -->
+  {#if showPublicationLink && event.kind !== 0}
+    <div class="px-4 pt-2 pb-3 border-t border-primary-200 dark:border-primary-700 flex items-center gap-2 flex-wrap">
+      <ViewPublicationLink {event} />
+    </div>
+  {/if}
 </Card>
