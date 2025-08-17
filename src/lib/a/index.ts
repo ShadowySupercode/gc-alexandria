@@ -20,5 +20,6 @@ export { default as ANavbar } from './nav/ANavbar.svelte';
 export { default as AFooter } from './nav/AFooter.svelte';
 
 export { default as ASearchForm } from './forms/ASearchForm.svelte';
+export { default as ACommentForm } from './forms/ACommentForm.svelte';
 
 export { default as AEventPreview } from './cards/AEventPreview.svelte';
