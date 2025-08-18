@@ -1,17 +1,19 @@
 <script lang="ts">
-  import { Textarea, Toolbar, ToolbarGroup, ToolbarButton, Button, Label } from "flowbite-svelte";
+  import { Textarea, Toolbar, ToolbarGroup, ToolbarButton, Button, Label, P } from "flowbite-svelte";
   import {
-    LetterBoldOutline,
-    LetterItalicOutline
-  } from "flowbite-svelte-icons";
+    Bold, Italic, Strikethrough,
+    Quote, Link2, Image, Hash,
+    List, ListOrdered
+  } from "@lucide/svelte";
   import { userPubkey } from "$lib/stores/authStore.Svelte";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser.ts";
 
   let {
     content = "",
     extensions,
     profile,
     isSubmitting = false,
-    onSubmit = () => {}
+    onSubmit = () => {},
   } = $props<{
     content?: string;
     extensions?: any;
@@ -20,16 +22,18 @@
     onSubmit?: (content: string) => Promise<void>;
   }>();
 
+  let preview = $state("");
+
   const markupButtons = [
-    { label: "Bold", icon: LetterBoldOutline, action: () => insertMarkup("**", "**") },
-    { label: "Italic", icon: LetterItalicOutline, action: () => insertMarkup("_", "_") },
-    { label: "Strike", action: () => insertMarkup("~~", "~~") },
-    { label: "Link", action: () => insertMarkup("[", "](url)") },
-    { label: "Image", action: () => insertMarkup("![", "](url)") },
-    { label: "Quote", action: () => insertMarkup("> ", "") },
-    { label: "List", action: () => insertMarkup("* ", "") },
-    { label: "Numbered List", action: () => insertMarkup("1. ", "") },
-    { label: "Hashtag", action: () => insertMarkup("#", "") },
+    { label: "Bold", icon: Bold, action: () => insertMarkup("**", "**") },
+    { label: "Italic", icon: Italic, action: () => insertMarkup("_", "_") },
+    { label: "Strike", icon: Strikethrough, action: () => insertMarkup("~~", "~~") },
+    { label: "Link", icon: Link2, action: () => insertMarkup("[", "](url)") },
+    { label: "Image", icon: Image,  action: () => insertMarkup("![", "](url)") },
+    { label: "Quote", icon: Quote, action: () => insertMarkup("> ", "") },
+    { label: "List", icon: List, action: () => insertMarkup("* ", "") },
+    { label: "Numbered List", icon: ListOrdered,  action: () => insertMarkup("1. ", "") },
+    { label: "Hashtag", icon: Hash, action: () => insertMarkup("#", "") },
     ];
 
   function insertMarkup(prefix: string, suffix: string) {
@@ -76,28 +80,41 @@
     e.preventDefault();
     await onSubmit(content.trim());
   }
+
+  $effect(() => {
+    console.log("Content changed, updating preview...");
+    if (content.trim() === "") {
+      preview = "";
+      return;
+    }
+
+    parseBasicmarkup(content).then((html) => {
+      preview = html;
+    });
+  });
 </script>
 
 
-<form novalidate onsubmit={handleSubmit}>
+<form novalidate
+      onsubmit={handleSubmit}>
   <Label for="editor" class="sr-only">Comment</Label>
-  <Textarea id="editor" rows={8}
+  <Textarea id="editor" rows={10}
             bind:value={content}
             class="!m-0 p-4"
             innerClass="!m-0 !bg-transparent"
             headerClass="!m-0 !bg-transparent"
             footerClass="!m-0 !bg-transparent"
-            addonClass="!m-0 top-3"
+            addonClass="!m-0 top-3 hidden md:flex"
             textareaClass="!m-0 !bg-transparent !border-0 !rounded-none !shadow-none !focus:ring-0"
             placeholder="Write a comment">
     {#snippet header()}
       <Toolbar embedded class="flex-row !m-0">
-        <ToolbarGroup class="flex-row !m-0">
+        <ToolbarGroup class="flex-row flex-wrap !m-0">
           {#each markupButtons as button}
             {#if button.icon}
               {@const TheIcon = button.icon}
-              <ToolbarButton size="xs" onclick={button.action} >
-                <TheIcon />
+              <ToolbarButton title={button.label} color="dark" size="md" onclick={button.action} >
+                <TheIcon size={24} />
               </ToolbarButton>
             {:else}
               <ToolbarButton onclick={button.action}>{button.label}</ToolbarButton>
@@ -112,7 +129,7 @@
     {/snippet}
     {#snippet footer()}
       <div class="flex flex-row justify-between">
-          <div class="flex flex-row gap-3 !m-0">
+          <div class="flex flex-row flex-wrap gap-3 !m-0">
             <Button size="xs" color="alternative" onclick={removeFormatting} class="!m-0">Remove Formatting</Button>
             <Button size="xs" color="alternative" class="!m-0" onclick={clearForm}>Clear</Button>
           </div>
@@ -131,3 +148,11 @@
     {/snippet}
   </Textarea>
 </form>
+
+<div class="prose dark:prose-invert max-w-none p-4 border border-primary-500 border-s-4 rounded-lg">
+  {#if preview}
+    {@html preview}
+  {:else}
+    <P class="text-xs text-gray-500">Preview will appear here...</P>
+  {/if}
+</div>
