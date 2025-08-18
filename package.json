@@ -17,6 +17,7 @@
     "tokens": "node src/lib/theme/build-tokens.mjs"
   },
   "dependencies": {
+    "@lucide/svelte": "^0.539.0",
     "@noble/curves": "^1.9.4",
     "@noble/hashes": "^1.8.0",
     "@nostr-dev-kit/ndk": "^2.14.32",
