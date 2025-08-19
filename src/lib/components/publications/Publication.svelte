@@ -24,43 +24,67 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
 
-  let { rootAddress, publicationType, indexEvent } = $props<{
+  let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
     rootAddress: string;
     publicationType: string;
     indexEvent: NDKEvent;
+    publicationTree: SveltePublicationTree;
+    toc: TocType;
   }>();
 
-  const publicationTree = getContext(
-    "publicationTree",
-  ) as SveltePublicationTree;
-  const toc = getContext("toc") as TocType;
-
   // #region Loading
-
   let leaves = $state<Array<NDKEvent | null>>([]);
-  let isLoading = $state<boolean>(false);
-  let isDone = $state<boolean>(false);
+  let isLoading = $state(false);
+  let isDone = $state(false);
   let lastElementRef = $state<HTMLElement | null>(null);
   let activeAddress = $state<string | null>(null);
+  let loadedAddresses = $state<Set<string>>(new Set());
+  let hasInitialized = $state(false);
 
   let observer: IntersectionObserver;
 
   async function loadMore(count: number) {
+    if (!publicationTree) {
+      console.warn("[Publication] publicationTree is not available");
+      return;
+    }
+    
+    console.log(`[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
+    
     isLoading = true;
 
-    for (let i = 0; i < count; i++) {
-      const iterResult = await publicationTree.next();
-      const { done, value } = iterResult;
+    try {
+      for (let i = 0; i < count; i++) {
+        const iterResult = await publicationTree.next();
+        const { done, value } = iterResult;
 
-      if (done) {
-        isDone = true;
-        break;
+        if (done) {
+          console.log("[Publication] Iterator done, no more events");
+          isDone = true;
+          break;
+        }
+
+        if (value) {
+          const address = value.tagAddress();
+          console.log(`[Publication] Got event: ${address} (${value.id})`);
+          if (!loadedAddresses.has(address)) {
+            loadedAddresses.add(address);
+            leaves.push(value);
+            console.log(`[Publication] Added event: ${address}`);
+          } else {
+            console.warn(`[Publication] Duplicate event detected: ${address}`);
+          }
+        } else {
+          console.log("[Publication] Got null event");
+          leaves.push(null);
+        }
       }
-
-      leaves.push(value);
+    } catch (error) {
+      console.error("[Publication] Error loading more content:", error);
+    } finally {
+      isLoading = false;
+      console.log(`[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
     }
-
-    isLoading = false;
   }
 
   function setLastElementRef(el: HTMLElement, i: number) {
@@ -84,6 +108,27 @@
   });
 
   // #endregion
+
+  // AI-NOTE: Load initial content when publicationTree becomes available
+  $effect(() => {
+    if (publicationTree && leaves.length === 0 && !isLoading && !isDone && !hasInitialized) {
+      console.log("[Publication] Loading initial content");
+      hasInitialized = true;
+      loadMore(12);
+    }
+  });
+
+  // AI-NOTE: Reset state when publicationTree changes
+  $effect(() => {
+    if (publicationTree) {
+      leaves = [];
+      isLoading = false;
+      isDone = false;
+      lastElementRef = null;
+      loadedAddresses = new Set();
+      hasInitialized = false;
+    }
+  });
 
   // #region Columns visibility
 
@@ -175,14 +220,18 @@
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isLoading && !isDone) {
+          if (entry.isIntersecting && !isLoading && !isDone && publicationTree) {
             loadMore(1);
           }
         });
       },
       { threshold: 0.5 },
     );
-    loadMore(12);
+    
+    // Only load initial content if publicationTree is available
+    if (publicationTree) {
+      loadMore(12);
+    }
 
     return () => {
       observer.disconnect();
@@ -207,11 +256,12 @@
       />
       <TableOfContents
         {rootAddress}
+        {toc}
         depth={2}
         onSectionFocused={(address: string) =>
           publicationTree.setBookmark(address)}
         onLoadMore={() => {
-          if (!isLoading && !isDone) {
+          if (!isLoading && !isDone && publicationTree) {
             loadMore(4);
           }
         }}
@@ -241,6 +291,8 @@
           {rootAddress}
           {leaves}
           {address}
+          {publicationTree}
+          {toc}
           ref={(el) => onPublicationSectionMounted(el, address)}
         />
       {/if}
@@ -300,6 +352,8 @@
             {rootAddress}
             {leaves}
             address={leaf.tagAddress()}
+            {publicationTree}
+            {toc}
             ref={(el) => setLastElementRef(el, i)}
           />
 

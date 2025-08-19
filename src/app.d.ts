@@ -13,6 +13,10 @@ declare global {
       publicationType?: string;
       indexEvent?: NDKEvent;
       url?: URL;
+      identifierInfo?: {
+        type: string;
+        identifier: string;
+      };
     }
     // interface Platform {}
   }
