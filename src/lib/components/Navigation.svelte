@@ -18,7 +18,10 @@
 <Navbar class={`Navbar navbar-leather navbar-main ${className}`}>
   <div class="flex flex-grow justify-between">
     <NavBrand href="/">
-      <h1>Alexandria</h1>
+      <div class="flex flex-col">
+        <h1 class="text-2xl font-bold">Alexandria</h1>
+        <p class="text-xs font-semibold tracking-wide">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+      </div>
     </NavBrand>
   </div>
   <div class="flex md:order-2">
