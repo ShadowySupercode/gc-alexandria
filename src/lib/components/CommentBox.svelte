@@ -264,6 +264,30 @@
   let communityStatus: Record<string, boolean> = $state({});
   let isSearching = $state(false);
 
+  // Reactive search with debouncing
+  $effect(() => {
+    // Clear existing timeout
+    if (mentionSearchTimeout) {
+      clearTimeout(mentionSearchTimeout);
+    }
+
+    // If search is empty, clear results immediately
+    if (!mentionSearch.trim()) {
+      mentionResults = [];
+      communityStatus = {};
+      mentionLoading = false;
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    mentionLoading = true;
+
+    // Debounce the search with 300ms delay
+    mentionSearchTimeout = setTimeout(() => {
+      searchMentions();
+    }, 300);
+  });
+
   async function searchMentions() {
     if (!mentionSearch.trim()) {
       mentionResults = [];
@@ -323,15 +347,15 @@
       try {
         const npub = toNpub(profile.pubkey);
         if (npub) {
-          mention = `nostr:${npub}`;
+          mention = `${npub}`;
         } else {
           // If toNpub fails, fallback to pubkey
-          mention = `nostr:${profile.pubkey}`;
+          mention = `${profile.pubkey}`;
         }
       } catch (e) {
         console.error("Error in toNpub:", e);
         // Fallback to pubkey if conversion fails
-        mention = `nostr:${profile.pubkey}`;
+        mention = `${profile.pubkey}`;
       }
     } else {
       console.warn("No pubkey in profile, falling back to display name");
@@ -392,8 +416,9 @@
           bind:value={mentionSearch}
           bind:this={mentionSearchInput}
           onkeydown={(e) => {
-            if (e.key === "Enter" && mentionSearch.trim() && !isSearching) {
-              searchMentions();
+            if (e.key === "Enter" && mentionSearch.trim()) {
+              // The reactive effect will handle the search automatically
+              e.preventDefault();
             }
           }}
           class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
@@ -404,9 +429,9 @@
           onclick={(e: Event) => {
             e.preventDefault();
             e.stopPropagation();
-            searchMentions();
+            // The reactive effect will handle the search automatically
           }}
-          disabled={isSearching || !mentionSearch.trim()}
+          disabled={!mentionSearch.trim()}
         >
           {#if isSearching}
             Searching...
