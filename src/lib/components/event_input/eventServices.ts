@@ -259,8 +259,8 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
   if (foundEvent) {
     // Convert NDK event format to our format
     const eventData: EventData = {
-      kind: foundEvent.kind || 30040,
-      content: foundEvent.content || "",
+      kind: foundEvent.kind, // Use the actual kind from the event
+      content: foundEvent.content || "", // Preserve content exactly as-is
       createdAt: Math.floor(Date.now() / 1000), // Use current time for replacement
     };
 

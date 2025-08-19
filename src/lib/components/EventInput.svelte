@@ -38,7 +38,9 @@
 
   // Event loading state
   let eventIdSearch = $state("");
+  let eventJsonInput = $state("");
   let loadingEvent = $state(false);
+  let loadMethod = $state<'hex' | 'json'>('hex');
 
   // Session storage loading
   let hasLoadedFromStorage = $state(false);
@@ -144,6 +146,55 @@
   }
 
   /**
+   * Loads an event from JSON string for editing
+   */
+  function loadEventFromJson(): void {
+    if (!eventJsonInput.trim()) {
+      error = "Please enter event JSON.";
+      return;
+    }
+
+    try {
+      const eventJson = JSON.parse(eventJsonInput.trim());
+      
+      // Validate required fields
+      if (typeof eventJson.kind !== 'number') {
+        error = "Invalid event JSON: missing or invalid 'kind' field.";
+        return;
+      }
+      
+      if (typeof eventJson.content !== 'string') {
+        error = "Invalid event JSON: missing or invalid 'content' field.";
+        return;
+      }
+      
+      if (!Array.isArray(eventJson.tags)) {
+        error = "Invalid event JSON: missing or invalid 'tags' field.";
+        return;
+      }
+
+      // Extract event data (drop fields that need to be regenerated)
+      eventData = {
+        kind: eventJson.kind,
+        content: eventJson.content,
+        createdAt: Math.floor(Date.now() / 1000), // Use current time
+      };
+
+      // Convert tags from NDK format to our format
+      tags = eventJson.tags.map((tag: string[]) => ({
+        key: tag[0] || "",
+        values: tag.slice(1)
+      }));
+
+      success = "Loaded event from JSON successfully.";
+      error = null;
+    } catch (err) {
+      console.error("Error parsing event JSON:", err);
+      error = `Failed to parse event JSON: ${err instanceof Error ? err.message : "Invalid JSON format"}`;
+    }
+  }
+
+  /**
    * Clears all form fields and resets to initial state
    */
   function clearForm(): void {
@@ -158,6 +209,7 @@
     publishedRelays = [];
     lastPublishedEventId = null;
     eventIdSearch = "";
+    eventJsonInput = "";
     showJsonPreview = false;
   }
 
@@ -201,32 +253,83 @@
   <!-- Event ID Search Section -->
   <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
     <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Load Existing Event</h3>
-    <div class="flex gap-2">
-      <input
-        type="text"
-        class="input input-bordered flex-1"
-        placeholder="Enter 64-character hex event ID"
-        bind:value={eventIdSearch}
-        maxlength="64"
-        onkeydown={(e) => {
-          if (e.key === 'Enter' && !loadingEvent && eventIdSearch.trim()) {
-            e.preventDefault();
-            loadEventById();
-          }
-        }}
-      />
+    
+    <!-- Load Method Tabs -->
+    <div class="flex gap-1 mb-3">
       <button
         type="button"
-        class="btn btn-secondary"
-        onclick={loadEventById}
-        disabled={loadingEvent || !eventIdSearch.trim()}
+        class="px-3 py-1 text-sm rounded-l-lg border border-gray-300 dark:border-gray-600 {loadMethod === 'hex' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}"
+        onclick={() => loadMethod = 'hex'}
       >
-        {loadingEvent ? 'Loading...' : 'Load Event'}
+        Hex ID
+      </button>
+      <button
+        type="button"
+        class="px-3 py-1 text-sm rounded-r-lg border border-gray-300 dark:border-gray-600 {loadMethod === 'json' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}"
+        onclick={() => loadMethod = 'json'}
+      >
+        JSON
       </button>
     </div>
-    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-      Load an existing event to edit and publish as a replacement with your signature.
-    </p>
+
+    {#if loadMethod === 'hex'}
+      <!-- Hex ID Input -->
+      <div class="flex gap-2">
+        <input
+          type="text"
+          class="input input-bordered flex-1"
+          placeholder="Enter 64-character hex event ID"
+          bind:value={eventIdSearch}
+          maxlength="64"
+          onkeydown={(e) => {
+            if (e.key === 'Enter' && !loadingEvent && eventIdSearch.trim()) {
+              e.preventDefault();
+              loadEventById();
+            }
+          }}
+        />
+        <button
+          type="button"
+          class="btn btn-secondary"
+          onclick={loadEventById}
+          disabled={loadingEvent || !eventIdSearch.trim()}
+        >
+          {loadingEvent ? 'Loading...' : 'Load Event'}
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        Load an existing event from relays by its hex ID.
+      </p>
+    {:else}
+      <!-- JSON Input -->
+      <div class="space-y-2">
+        <textarea
+          class="textarea textarea-bordered w-full h-32 font-mono text-sm"
+          placeholder="Paste event JSON here (content, kind, tags fields required)"
+          bind:value={eventJsonInput}
+        ></textarea>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={loadEventFromJson}
+            disabled={!eventJsonInput.trim()}
+          >
+            Load from JSON
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-secondary btn-sm"
+            onclick={() => eventJsonInput = ""}
+          >
+            Clear JSON
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        Paste a complete event JSON to load it into the form. Fields like id, pubkey, created_at, and sig will be regenerated.
+      </p>
+    {/if}
   </div>
   
   <!-- Main Form -->
