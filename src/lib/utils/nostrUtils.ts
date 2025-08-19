@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
-import { npubCache } from "./npubCache.ts";
+import { unifiedProfileCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NostrEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
@@ -70,87 +70,8 @@ export async function getUserMetadata(
   ndk?: NDK,
   force = false,
 ): Promise<NostrProfile> {
-  // Remove nostr: prefix if present
-  const cleanId = identifier.replace(/^nostr:/, "");
-
-  console.log(
-    "getUserMetadata called with identifier:",
-    identifier,
-    "force:",
-    force,
-  );
-
-  if (!force && npubCache.has(cleanId)) {
-    const cached = npubCache.get(cleanId)!;
-    console.log("getUserMetadata returning cached profile:", cached);
-    return cached;
-  }
-
-  const fallback = { name: `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}` };
-
-  try {
-    if (!ndk) {
-      console.warn("getUserMetadata: No NDK instance available");
-      npubCache.set(cleanId, fallback);
-      return fallback;
-    }
-
-    const decoded = nip19.decode(cleanId);
-    if (!decoded) {
-      console.warn("getUserMetadata: Failed to decode identifier:", cleanId);
-      npubCache.set(cleanId, fallback);
-      return fallback;
-    }
-
-    // Handle different identifier types
-    let pubkey: string;
-    if (decoded.type === "npub") {
-      pubkey = decoded.data;
-    } else if (decoded.type === "nprofile") {
-      pubkey = decoded.data.pubkey;
-    } else {
-      console.warn(
-        "getUserMetadata: Unsupported identifier type:",
-        decoded.type,
-      );
-      npubCache.set(cleanId, fallback);
-      return fallback;
-    }
-
-    console.log("getUserMetadata: Fetching profile for pubkey:", pubkey);
-
-    const profileEvent = await fetchEventWithFallback(ndk, {
-      kinds: [0],
-      authors: [pubkey],
-    });
-
-    console.log("getUserMetadata: Profile event found:", profileEvent);
-
-    const profile = profileEvent && profileEvent.content
-      ? JSON.parse(profileEvent.content)
-      : null;
-
-    console.log("getUserMetadata: Parsed profile:", profile);
-
-    const metadata: NostrProfile = {
-      name: profile?.name || fallback.name,
-      displayName: profile?.displayName || profile?.display_name,
-      nip05: profile?.nip05,
-      picture: profile?.picture || profile?.image,
-      about: profile?.about,
-      banner: profile?.banner,
-      website: profile?.website,
-      lud16: profile?.lud16,
-    };
-
-    console.log("getUserMetadata: Final metadata:", metadata);
-    npubCache.set(cleanId, metadata);
-    return metadata;
-  } catch (e) {
-    console.error("getUserMetadata: Error fetching profile:", e);
-    npubCache.set(cleanId, fallback);
-    return fallback;
-  }
+  // Use the unified profile cache which handles all relay searching and caching
+  return unifiedProfileCache.getProfile(identifier, ndk, force);
 }
 
 /**

@@ -16,6 +16,7 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { goto } from "$app/navigation";
   import { isPubkeyInUserLists, fetchCurrentUserLists } from "$lib/utils/user_lists";
+  import { UserOutline } from "flowbite-svelte-icons";
 
   const {
     event,
@@ -120,9 +121,17 @@
             alt="Profile avatar"
             class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {
-              (e.target as HTMLImageElement).src = "/favicon.png";
+              (e.target as HTMLImageElement).style.display = 'none';
+              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
             }}
           />
+          <div class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center hidden">
+            <UserOutline class="w-8 h-8 text-gray-600 dark:text-gray-300" />
+          </div>
+        {:else}
+          <div class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+            <UserOutline class="w-8 h-8 text-gray-600 dark:text-gray-300" />
+          </div>
         {/if}
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <div class="min-w-0 flex-1">

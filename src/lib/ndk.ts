@@ -14,7 +14,7 @@ import {
   testRelayConnection,
 } from "./utils/relay_management.ts";
 import { userStore } from "./stores/userStore.ts";
-import { userPubkey } from "./stores/authStore.Svelte.ts";
+
 import {
   startNetworkStatusMonitoring,
   stopNetworkStatusMonitoring,
@@ -837,7 +837,6 @@ export async function loginWithExtension(
     }
 
     activePubkey.set(signerUser.pubkey);
-    userPubkey.set(signerUser.pubkey);
 
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
 
@@ -864,7 +863,6 @@ export function logout(user: NDKUser): void {
   clearLogin();
   clearPersistedRelays(user);
   activePubkey.set(null);
-  userPubkey.set(null);
   ndkSignedIn.set(false);
 
   // Clear relay stores

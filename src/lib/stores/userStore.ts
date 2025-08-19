@@ -15,7 +15,7 @@ import {
 } from "../ndk.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
-import { userPubkey } from "../stores/authStore.Svelte.ts";
+
 
 export interface UserState {
   pubkey: string | null;
@@ -218,7 +218,6 @@ export async function loginWithExtension(ndk: NDK) {
 
   console.log("Login with extension - setting userStore with:", userState);
   userStore.set(userState);
-  userPubkey.set(user.pubkey);
 
   // Update relay stores with the new user's relays
   try {
@@ -292,7 +291,6 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
 
   console.log("Login with Amber - setting userStore with:", userState);
   userStore.set(userState);
-  userPubkey.set(user.pubkey);
 
   // Update relay stores with the new user's relays
   try {
@@ -396,7 +394,6 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
 
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
-  userPubkey.set(user.pubkey);
 
   clearLogin();
   // Only access localStorage on client-side
@@ -470,7 +467,6 @@ export function logoutUser(ndk: NDK) {
     signer: null,
     signedIn: false,
   });
-  userPubkey.set(null);
 
   if (ndk) {
     ndk.activeUser = undefined;

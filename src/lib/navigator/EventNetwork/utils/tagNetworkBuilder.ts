@@ -7,7 +7,7 @@
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { GraphData, NetworkLink, NetworkNode } from "../types";
-import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { getDisplayNameSync } from "$lib/utils/npubCache";
 import { createDebugFunction, SeededRandom } from "./common";
 
 // Configuration

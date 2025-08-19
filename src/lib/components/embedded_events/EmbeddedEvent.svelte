@@ -9,6 +9,7 @@
   import { getEventType } from "$lib/utils/mime";
   import { nip19 } from "nostr-tools";
   import { repostKinds } from "$lib/consts";
+  import { UserOutline } from "flowbite-svelte-icons";
 
   const {
     nostrIdentifier,
@@ -317,7 +318,18 @@
             src={profile.picture} 
             alt="Profile" 
             class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+            onerror={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+            }}
           />
+          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 hidden">
+            <UserOutline class="w-6 h-6 text-gray-600 dark:text-gray-300" />
+          </div>
+        {:else}
+          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+            <UserOutline class="w-6 h-6 text-gray-600 dark:text-gray-300" />
+          </div>
         {/if}
         {#if profile.about}
           <p class="text-sm text-gray-700 dark:text-gray-300 break-words">

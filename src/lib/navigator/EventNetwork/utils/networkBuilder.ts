@@ -10,7 +10,7 @@ import type { GraphData, GraphState, NetworkLink, NetworkNode } from "../types";
 import { nip19 } from "nostr-tools";
 import { communityRelays } from "$lib/consts";
 import { getMatchingTags } from "$lib/utils/nostrUtils";
-import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { getDisplayNameSync } from "$lib/utils/npubCache";
 import { createDebugFunction } from "./common";
 
 // Configuration

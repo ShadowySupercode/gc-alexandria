@@ -6,7 +6,7 @@
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkLink, NetworkNode } from "../types";
-import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { getDisplayNameSync } from "$lib/utils/npubCache";
 import { createDebugFunction, SeededRandom } from "./common";
 
 const PERSON_ANCHOR_RADIUS = 15;

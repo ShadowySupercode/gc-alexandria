@@ -1,5 +1,5 @@
 import NDK, { type NDKEvent } from "@nostr-dev-kit/ndk";
-import { batchFetchProfiles, extractPubkeysFromEvents } from "./profileCache.ts";
+import { batchFetchProfiles, extractPubkeysFromEvents } from "./npubCache.ts";
 
 // Constants for publication event kinds
 const INDEX_EVENT_KIND = 30040;

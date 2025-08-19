@@ -15,8 +15,9 @@
   import { filterByDisplayLimits, detectMissingEvents, buildCoordinateMap } from "$lib/utils/displayLimits";
   import type { PageData } from './$types';
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
-  import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
-  import { activePubkey, getNdkContext } from "$lib/ndk";
+  import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/npubCache";
+  import { userStore } from "$lib/stores/userStore";
+  import { getNdkContext } from "$lib/ndk";
   // Import utility functions for tag-based event fetching
   // These functions handle the complex logic of finding publications by tags
   // and extracting their associated content events
@@ -123,7 +124,7 @@
     }
     
     // Get the current user's pubkey
-    const currentUserPubkey = get(activePubkey);
+    const currentUserPubkey = get(userStore).pubkey;
     if (!currentUserPubkey) {
       console.warn("No logged-in user, cannot fetch user's follow list");
       return [];

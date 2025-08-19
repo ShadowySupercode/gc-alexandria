@@ -12,7 +12,7 @@
   import {
     getDisplayNameSync,
     replacePubkeysWithDisplayNames,
-  } from "$lib/utils/profileCache";
+  } from "$lib/utils/npubCache";
   import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
 
   // Component props

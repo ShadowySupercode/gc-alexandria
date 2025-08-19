@@ -59,15 +59,49 @@ export async function searchBySubscription(
   const cachedResult = searchCache.get(searchType, normalizedSearchTerm);
   if (cachedResult) {
     console.log("subscription_search: Found cached result:", cachedResult);
+    
+    // AI-NOTE: 2025-01-24 - Ensure cached events have created_at property preserved
+    // This fixes the "Unknown date" issue when events are retrieved from cache
+    const eventsWithCreatedAt = cachedResult.events.map(event => {
+      if (event && typeof event === 'object' && !event.created_at) {
+        console.warn("subscription_search: Event missing created_at, setting to 0:", event.id);
+        (event as any).created_at = 0;
+      }
+      return event;
+    });
+    
+    const secondOrderWithCreatedAt = cachedResult.secondOrder.map(event => {
+      if (event && typeof event === 'object' && !event.created_at) {
+        console.warn("subscription_search: Second order event missing created_at, setting to 0:", event.id);
+        (event as any).created_at = 0;
+      }
+      return event;
+    });
+    
+    const tTagEventsWithCreatedAt = cachedResult.tTagEvents.map(event => {
+      if (event && typeof event === 'object' && !event.created_at) {
+        console.warn("subscription_search: T-tag event missing created_at, setting to 0:", event.id);
+        (event as any).created_at = 0;
+      }
+      return event;
+    });
+    
+    const resultWithCreatedAt = {
+      ...cachedResult,
+      events: eventsWithCreatedAt,
+      secondOrder: secondOrderWithCreatedAt,
+      tTagEvents: tTagEventsWithCreatedAt
+    };
+    
     // AI-NOTE: 2025-01-24 - For profile searches, return cached results immediately
     // The EventSearch component now handles cache checking before calling this function
     if (searchType === "n") {
       console.log(
         "subscription_search: Returning cached profile result immediately",
       );
-      return cachedResult;
+      return resultWithCreatedAt;
     } else {
-      return cachedResult;
+      return resultWithCreatedAt;
     }
   }
 
@@ -96,6 +130,7 @@ export async function searchBySubscription(
   const searchFilter = await createSearchFilter(
     searchType,
     normalizedSearchTerm,
+    ndk,
   );
   console.log("subscription_search: Created search filter:", searchFilter);
   const primaryRelaySet = createPrimaryRelaySet(searchType, ndk);
@@ -104,6 +139,31 @@ export async function searchBySubscription(
     primaryRelaySet.relays.size,
     "relays",
   );
+
+  // AI-NOTE: 2025-01-24 - Check for preloaded events first (for profile searches)
+  if (searchFilter.preloadedEvents && searchFilter.preloadedEvents.length > 0) {
+    console.log("subscription_search: Using preloaded events:", searchFilter.preloadedEvents.length);
+    processPrimaryRelayResults(
+      new Set(searchFilter.preloadedEvents),
+      searchType,
+      searchFilter.subscriptionType,
+      normalizedSearchTerm,
+      searchState,
+      abortSignal,
+      cleanup,
+    );
+    
+    if (hasResults(searchState, searchType)) {
+      console.log("subscription_search: Found results from preloaded events, returning immediately");
+      const immediateResult = createSearchResult(
+        searchState,
+        searchType,
+        normalizedSearchTerm,
+      );
+      searchCache.set(searchType, normalizedSearchTerm, immediateResult);
+      return immediateResult;
+    }
+  }
 
   // Phase 1: Search primary relay
   if (primaryRelaySet.relays.size > 0) {
@@ -338,6 +398,7 @@ function createCleanupFunction(searchState: any) {
 async function createSearchFilter(
   searchType: SearchSubscriptionType,
   normalizedSearchTerm: string,
+  ndk: NDK,
 ): Promise<SearchFilter> {
   console.log("subscription_search: Creating search filter for:", {
     searchType,
@@ -368,8 +429,54 @@ async function createSearchFilter(
       return tFilter;
     }
     case "n": {
-      const nFilter = await createProfileSearchFilter(normalizedSearchTerm);
-      console.log("subscription_search: Created profile filter:", nFilter);
+      // AI-NOTE: 2025-01-24 - Use the existing profile search functionality
+      // This properly handles NIP-05 lookups and name searches
+      const { searchProfiles } = await import("./profile_search.ts");
+      const profileResult = await searchProfiles(normalizedSearchTerm, ndk);
+      
+      // Convert profile results to events for compatibility
+      const events = profileResult.profiles.map((profile) => {
+        const event = new NDKEvent(ndk);
+        event.content = JSON.stringify(profile);
+        
+        // AI-NOTE: 2025-01-24 - Convert npub to hex public key for compatibility with nprofileEncode
+        // The profile.pubkey is an npub (bech32-encoded), but nprofileEncode expects hex-encoded public key
+        let hexPubkey = profile.pubkey || "";
+        if (profile.pubkey && profile.pubkey.startsWith("npub")) {
+          try {
+            const decoded = nip19.decode(profile.pubkey);
+            if (decoded.type === "npub") {
+              hexPubkey = decoded.data as string;
+            }
+          } catch (e) {
+            console.warn("subscription_search: Failed to decode npub:", profile.pubkey, e);
+          }
+        }
+        event.pubkey = hexPubkey;
+        event.kind = 0;
+        
+        // AI-NOTE: 2025-01-24 - Use the preserved created_at timestamp from the profile
+        // This ensures the profile cards show the actual creation date instead of "Unknown date"
+        if ((profile as any).created_at) {
+          event.created_at = (profile as any).created_at;
+          console.log("subscription_search: Using preserved timestamp:", event.created_at);
+        } else {
+          // Fallback to current timestamp if no preserved timestamp
+          event.created_at = Math.floor(Date.now() / 1000);
+          console.log("subscription_search: Using fallback timestamp:", event.created_at);
+        }
+        
+        return event;
+      });
+      
+      // Return a mock filter since we're using the profile search directly
+      const nFilter = {
+        filter: { kinds: [0], limit: 1 }, // Dummy filter
+        subscriptionType: "profile-search",
+        searchTerm: normalizedSearchTerm,
+        preloadedEvents: events, // AI-NOTE: 2025-01-24 - Pass preloaded events
+      };
+      console.log("subscription_search: Created profile filter with preloaded events:", nFilter);
       return nFilter;
     }
     default: {
@@ -378,58 +485,7 @@ async function createSearchFilter(
   }
 }
 
-/**
- * Create profile search filter
- */
-async function createProfileSearchFilter(
-  normalizedSearchTerm: string,
-): Promise<SearchFilter> {
-  // For npub searches, try to decode the search term first
-  try {
-    const decoded = nip19.decode(normalizedSearchTerm);
-    if (decoded && decoded.type === "npub") {
-      return {
-        filter: {
-          kinds: [0],
-          authors: [decoded.data],
-          limit: 1, // AI-NOTE: 2025-01-08 - Only need 1 result for specific npub search
-        },
-        subscriptionType: "npub-specific",
-      };
-    }
-  } catch {
-    // Not a valid npub, continue with other strategies
-  }
 
-  // Try NIP-05 lookup first
-  try {
-    for (const domain of COMMON_DOMAINS) {
-      const nip05Address = `${normalizedSearchTerm}@${domain}`;
-      try {
-        const npub = await getNpubFromNip05(nip05Address);
-        if (npub) {
-          return {
-            filter: {
-              kinds: [0],
-              authors: [npub],
-              limit: 1, // AI-NOTE: 2025-01-08 - Only need 1 result for specific npub search
-            },
-            subscriptionType: "nip05-found",
-          };
-        }
-      } catch {
-        // Continue to next domain
-      }
-    }
-  } catch {
-    // Fallback to reasonable profile search
-  }
-
-  return {
-    filter: { kinds: [0], limit: SEARCH_LIMITS.GENERAL_PROFILE },
-    subscriptionType: "profile",
-  };
-}
 
 /**
  * Create primary relay set for search operations
@@ -562,10 +618,11 @@ function processProfileEvent(
 ) {
   if (!event.content) return;
 
-  // If this is a specific npub search or NIP-05 found search, include all matching events
+  // If this is a specific npub search, NIP-05 found search, or profile-search, include all matching events
   if (
     subscriptionType === "npub-specific" ||
-    subscriptionType === "nip05-found"
+    subscriptionType === "nip05-found" ||
+    subscriptionType === "profile-search"
   ) {
     searchState.foundProfiles.push(event);
     return;

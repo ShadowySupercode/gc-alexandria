@@ -11,14 +11,17 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
   import EmbeddedEvent from "$lib/components/embedded_events/EmbeddedEvent.svelte";
+  import { userStore } from "$lib/stores/userStore";
+  import { fetchCurrentUserLists, isPubkeyInUserLists } from "$lib/utils/user_lists";
+  import { UserOutline } from "flowbite-svelte-icons";
+  import { clearAllCaches, clearProfileCaches, getCacheStats } from "$lib/utils/cache_manager";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -41,6 +44,8 @@
     website?: string;
     lud16?: string;
     nip05?: string;
+    isInUserLists?: boolean;
+    listKinds?: number[];
   } | null>(null);
   let userRelayPreference = $state(false);
   let showSidePanel = $state(false);
@@ -48,16 +53,52 @@
   let secondOrderSearchMessage = $state<string | null>(null);
   let communityStatus = $state<Record<string, boolean>>({});
   let searchResultsCollapsed = $state(false);
+  let user = $state<any>(null);
+
+  userStore.subscribe((val) => (user = val));
+  
+  // Debug: Check if user is logged in
+  $effect(() => {
+    console.log("[Events Page] User state:", user);
+    console.log("[Events Page] User signed in:", user?.signedIn);
+    console.log("[Events Page] User pubkey:", user?.pubkey);
+  });
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
     showSidePanel = true;
-    // AI-NOTE: 2025-01-24 - Preserve search results to allow navigation through them
-    // Don't clear search results when showing a single event - this allows users to browse through results
+    // searchInProgress = false;
+    // secondOrderSearchMessage = null;
+
+    // AI-NOTE: 2025-01-24 - Properly parse profile data for kind 0 events
     if (newEvent.kind === 0) {
       try {
-        profile = JSON.parse(newEvent.content);
-      } catch {
+        const parsedProfile = parseProfileContent(newEvent);
+        if (parsedProfile) {
+          profile = parsedProfile;
+          console.log("[Events Page] Parsed profile data:", parsedProfile);
+          
+          // If the event doesn't have user list information, fetch it
+          if (typeof parsedProfile.isInUserLists !== 'boolean') {
+            fetchCurrentUserLists()
+              .then((userLists) => {
+                const isInLists = isPubkeyInUserLists(newEvent.pubkey, userLists);
+                // Update the profile with user list information
+                profile = { ...parsedProfile, isInUserLists: isInLists } as any;
+                // Also update the event's profileData
+                (newEvent as any).profileData = { ...parsedProfile, isInUserLists: isInLists };
+              })
+              .catch(() => {
+                profile = { ...parsedProfile, isInUserLists: false } as any;
+                (newEvent as any).profileData = { ...parsedProfile, isInUserLists: false };
+              });
+          }
+        } else {
+          console.warn("[Events Page] Failed to parse profile content for event:", newEvent.id);
+          profile = null;
+        }
+      } catch (error) {
+        console.error("[Events Page] Error parsing profile content:", error);
         profile = null;
       }
     } else {
@@ -67,6 +108,20 @@
     // AI-NOTE: 2025-01-24 - Ensure profile is cached for the event author
     if (newEvent.pubkey) {
       cacheProfileForPubkey(newEvent.pubkey);
+      
+      // Update profile data with user list information
+      updateProfileDataWithUserLists([newEvent]);
+      
+      // Also check community status for the individual event
+      if (!communityStatus[newEvent.pubkey]) {
+        checkCommunity(newEvent.pubkey)
+          .then((status) => {
+            communityStatus = { ...communityStatus, [newEvent.pubkey]: status };
+          })
+          .catch(() => {
+            communityStatus = { ...communityStatus, [newEvent.pubkey]: false };
+          });
+      }
     }
   }
 
@@ -81,6 +136,26 @@
       }
     } catch (error) {
       console.warn(`[Events Page] Failed to cache profile for ${pubkey}:`, error);
+    }
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to update profile data with user list information
+  async function updateProfileDataWithUserLists(events: NDKEvent[]) {
+    try {
+      const userLists = await fetchCurrentUserLists();
+      
+      for (const event of events) {
+        if (event.kind === 0 && event.pubkey) {
+          const existingProfileData = (event as any).profileData || parseProfileContent(event);
+          
+          if (existingProfileData) {
+            const isInLists = isPubkeyInUserLists(event.pubkey, userLists);
+            (event as any).profileData = { ...existingProfileData, isInUserLists: isInLists };
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("[Events Page] Failed to update profile data with user lists:", error);
     }
   }
 
@@ -137,6 +212,21 @@
     }
   });
 
+  // AI-NOTE: 2025-01-24 - Function to ensure events have created_at property
+  // This fixes the "Unknown date" issue when events are retrieved from cache
+  function ensureEventProperties(events: NDKEvent[]): NDKEvent[] {
+    return events.map(event => {
+      if (event && typeof event === 'object') {
+        // Ensure created_at is set
+        if (!event.created_at && event.created_at !== 0) {
+          console.warn("[Events Page] Event missing created_at, setting to 0:", event.id);
+          (event as any).created_at = 0;
+        }
+      }
+      return event;
+    });
+  }
+
   function handleSearchResults(
     results: NDKEvent[],
     secondOrder: NDKEvent[] = [],
@@ -146,9 +236,14 @@
     searchTypeParam?: string,
     searchTermParam?: string,
   ) {
-    searchResults = results;
-    secondOrderResults = secondOrder;
-    tTagResults = tTagEvents;
+    // AI-NOTE: 2025-01-24 - Ensure all events have proper properties
+    const processedResults = ensureEventProperties(results);
+    const processedSecondOrder = ensureEventProperties(secondOrder);
+    const processedTTagEvents = ensureEventProperties(tTagEvents);
+    
+    searchResults = processedResults;
+    secondOrderResults = processedSecondOrder;
+    tTagResults = processedTTagEvents;
     originalEventIds = eventIds;
     originalAddresses = addresses;
     searchType = searchTypeParam || null;
@@ -211,6 +306,9 @@
     const cachePromises = Array.from(uniquePubkeys).map(pubkey => cacheProfileForPubkey(pubkey));
     await Promise.allSettled(cachePromises);
     
+    // AI-NOTE: 2025-01-24 - Update profile data with user list information for cached events
+    await updateProfileDataWithUserLists(events);
+    
     console.log(`[Events Page] Profile caching complete`);
   }
 
@@ -229,6 +327,18 @@
     secondOrderSearchMessage = null;
     communityStatus = {};
     goto("/events", { replaceState: true });
+  }
+
+  function handleClearCache() {
+    clearAllCaches();
+    // Force a page refresh to ensure all caches are cleared
+    window.location.reload();
+  }
+
+  function handleClearProfileCache() {
+    clearProfileCaches();
+    // Force a page refresh to ensure profile caches are cleared
+    window.location.reload();
   }
 
   function closeSidePanel() {
@@ -291,6 +401,8 @@
     website?: string;
     lud16?: string;
     nip05?: string;
+    isInUserLists?: boolean;
+    listKinds?: number[];
   } | null {
     if (event.kind !== 0 || !event.content) {
       return null;
@@ -342,6 +454,16 @@
     return addr.slice(0, head) + "…" + addr.slice(-tail);
   }
 
+  function formatEventDate(event: NDKEvent): string {
+    if (event.created_at) {
+      return new Date(event.created_at * 1000).toLocaleDateString();
+    }
+    if ((event as any).timestamp) {
+      return new Date((event as any).timestamp * 1000).toLocaleDateString();
+    }
+    return "Unknown date";
+  }
+
   function onLoadingChange(val: boolean) {
     loading = val;
     searchInProgress =
@@ -384,6 +506,13 @@
         <div class="flex justify-between items-center">
           <Heading tag="h1" class="h-leather mb-2">Events</Heading>
           <div class="flex items-center gap-2">
+            <button
+              class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 border border-red-300 dark:border-red-600 rounded px-2 py-1"
+              onclick={handleClearCache}
+              title="Clear all caches to refresh stale data"
+            >
+              Clear Cache
+            </button>
             {#if showSidePanel && (searchResults.length > 0 || secondOrderResults.length > 0 || tTagResults.length > 0)}
               <button
                 class="lg:hidden text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
@@ -447,7 +576,7 @@
               </Heading>
             <div class="space-y-4">
               {#each searchResults as result, index}
-                {@const profileData = parseProfileContent(result)}
+                {@const profileData = (result as any).profileData || parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -461,7 +590,22 @@
                       <span class="text-xs text-gray-600 dark:text-gray-400"
                         >Kind: {result.kind}</span
                       >
-                      {#if result.pubkey && communityStatus[result.pubkey]}
+                      {#if profileData?.isInUserLists}
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                          title="In your lists (follows, etc.)"
+                        >
+                          <svg
+                            class="w-3 h-3 text-red-600 dark:text-red-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            />
+                          </svg>
+                        </div>
+                      {:else if result.pubkey && communityStatus[result.pubkey]}
                         <div
                           class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
                           title="Has posted to the community"
@@ -504,13 +648,15 @@
                             class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                             onerror={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                             }}
                           />
+                          <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 hidden">
+                            <UserOutline class="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                          </div>
                         {:else}
                           <div class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                            <span class="text-lg font-medium text-gray-600 dark:text-gray-300">
-                              {(profileData.display_name || profileData.name || result.pubkey.slice(0, 1)).toUpperCase()}
-                            </span>
+                            <UserOutline class="w-6 h-6 text-gray-600 dark:text-gray-300" />
                           </div>
                         {/if}
                         <div class="flex flex-col min-w-0 flex-1">
@@ -604,7 +750,7 @@
             </P>
             <div class="space-y-4">
               {#each secondOrderResults as result, index}
-                {@const profileData = parseProfileContent(result)}
+                {@const profileData = (result as any).profileData || parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -761,7 +907,7 @@
             </P>
             <div class="space-y-4">
               {#each tTagResults as result, index}
-                {@const profileData = parseProfileContent(result)}
+                {@const profileData = (result as any).profileData || parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -952,7 +1098,7 @@
           <CommentViewer {event} />
         </div>
         
-        {#if isLoggedIn && userPubkey}
+        {#if user?.signedIn}
           <div class="mt-8 min-w-0 overflow-hidden">
             <Heading tag="h3" class="h-leather mb-4 break-words">Add Comment</Heading>
             <CommentBox {event} {userRelayPreference} />
