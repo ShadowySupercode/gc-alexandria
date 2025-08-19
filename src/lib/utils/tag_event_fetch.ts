@@ -1,7 +1,5 @@
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { ndkInstance } from "../ndk";
-import { get } from "svelte/store";
-import { batchFetchProfiles, extractPubkeysFromEvents } from "./profileCache";
+import NDK, { type NDKEvent } from "@nostr-dev-kit/ndk";
+import { batchFetchProfiles, extractPubkeysFromEvents } from "./profileCache.ts";
 
 // Constants for publication event kinds
 const INDEX_EVENT_KIND = 30040;
@@ -33,6 +31,7 @@ export async function fetchTaggedEventsFromRelays(
   tags: string[],
   existingEventIds: Set<string>,
   baseEvents: NDKEvent[],
+  ndk: NDK,
   debug?: (...args: any[]) => void,
 ): Promise<TagExpansionResult> {
   const log = debug || console.debug;
@@ -40,7 +39,6 @@ export async function fetchTaggedEventsFromRelays(
   log("Fetching from relays for tags:", tags);
 
   // Fetch publications that have any of the specified tags
-  const ndk = get(ndkInstance);
   const taggedPublications = await ndk.fetchEvents({
     kinds: [INDEX_EVENT_KIND],
     "#t": tags, // Match any of these tags
@@ -188,6 +186,7 @@ export function findTaggedEventsInFetched(
 export async function fetchProfilesForNewEvents(
   newPublications: NDKEvent[],
   newContentEvents: NDKEvent[],
+  ndk: NDK,
   onProgressUpdate: (
     progress: { current: number; total: number } | null,
   ) => void,
@@ -210,7 +209,7 @@ export async function fetchProfilesForNewEvents(
 
     onProgressUpdate({ current: 0, total: newPubkeys.size });
 
-    await batchFetchProfiles(Array.from(newPubkeys), (fetched, total) => {
+    await batchFetchProfiles(Array.from(newPubkeys), ndk, (fetched, total) => {
       onProgressUpdate({ current: fetched, total });
     });
 

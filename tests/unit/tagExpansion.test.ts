@@ -4,7 +4,6 @@ import {
   fetchProfilesForNewEvents,
   fetchTaggedEventsFromRelays,
   findTaggedEventsInFetched,
-  type TagExpansionResult,
 } from "../../src/lib/utils/tag_event_fetch";
 
 // Mock NDKEvent for testing
@@ -48,6 +47,7 @@ const mockNDK = {
 };
 
 // Mock the ndkInstance store
+// TODO: Replace with getNdkContext mock.
 vi.mock("../../src/lib/ndk", () => ({
   ndkInstance: {
     subscribe: vi.fn((fn) => {
@@ -179,8 +179,8 @@ describe("Tag Expansion Tests", () => {
 
       // Should return the matching publications
       expect(result.publications).toHaveLength(2);
-      expect(result.publications.map((p) => p.id)).toContain("pub1");
-      expect(result.publications.map((p) => p.id)).toContain("pub2");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub1");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub2");
 
       // Should fetch content events for the publications
       expect(mockNDK.fetchEvents).toHaveBeenCalledWith({
@@ -210,9 +210,9 @@ describe("Tag Expansion Tests", () => {
 
       // Should exclude pub1 since it already exists
       expect(result.publications).toHaveLength(2);
-      expect(result.publications.map((p) => p.id)).not.toContain("pub1");
-      expect(result.publications.map((p) => p.id)).toContain("pub2");
-      expect(result.publications.map((p) => p.id)).toContain("pub3");
+      expect(result.publications.map((p: any) => p.id)).not.toContain("pub1");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub2");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub3");
     });
 
     it("should handle empty tag array gracefully", async () => {
@@ -251,15 +251,15 @@ describe("Tag Expansion Tests", () => {
 
       // Should find publications with bitcoin tag
       expect(result.publications).toHaveLength(2);
-      expect(result.publications.map((p) => p.id)).toContain("pub1");
-      expect(result.publications.map((p) => p.id)).toContain("pub2");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub1");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub2");
 
       // Should find content events for those publications
       expect(result.contentEvents).toHaveLength(4);
-      expect(result.contentEvents.map((c) => c.id)).toContain("content1");
-      expect(result.contentEvents.map((c) => c.id)).toContain("content2");
-      expect(result.contentEvents.map((c) => c.id)).toContain("content3");
-      expect(result.contentEvents.map((c) => c.id)).toContain("content4");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain("content1");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain("content2");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain("content3");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain("content4");
     });
 
     it("should exclude base events from search results", () => {
@@ -277,8 +277,8 @@ describe("Tag Expansion Tests", () => {
 
       // Should exclude pub1 since it's a base event
       expect(result.publications).toHaveLength(1);
-      expect(result.publications.map((p) => p.id)).not.toContain("pub1");
-      expect(result.publications.map((p) => p.id)).toContain("pub2");
+      expect(result.publications.map((p: any) => p.id)).not.toContain("pub1");
+      expect(result.publications.map((p: any) => p.id)).toContain("pub2");
     });
 
     it("should handle multiple tags (OR logic)", () => {
@@ -296,9 +296,9 @@ describe("Tag Expansion Tests", () => {
 
       // Should find publications with either bitcoin OR ethereum tags
       expect(result.publications).toHaveLength(3);
-      expect(result.publications.map((p) => p.id)).toContain("pub1"); // bitcoin
-      expect(result.publications.map((p) => p.id)).toContain("pub2"); // bitcoin
-      expect(result.publications.map((p) => p.id)).toContain("pub3"); // ethereum
+      expect(result.publications.map((p: any) => p.id)).toContain("pub1"); // bitcoin
+      expect(result.publications.map((p: any) => p.id)).toContain("pub2"); // bitcoin
+      expect(result.publications.map((p: any) => p.id)).toContain("pub3"); // ethereum
     });
 
     it("should handle events without tags gracefully", () => {
@@ -324,7 +324,7 @@ describe("Tag Expansion Tests", () => {
       );
 
       // Should not include events without tags
-      expect(result.publications.map((p) => p.id)).not.toContain("no-tags");
+      expect(result.publications.map((p: any) => p.id)).not.toContain("no-tags");
     });
   });
 
@@ -497,7 +497,7 @@ describe("Tag Expansion Tests", () => {
 
       // Should handle d-tags with colons correctly
       expect(result.publications).toHaveLength(3);
-      expect(result.contentEvents.map((c) => c.id)).toContain("colon-content");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain("colon-content");
     });
   });
 });

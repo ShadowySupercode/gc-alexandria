@@ -8,7 +8,6 @@
   import { onMount } from "svelte";
   import { get } from "svelte/store";
   import EventNetwork from "$lib/navigator/EventNetwork/index.svelte";
-  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { filterValidIndexEvents } from "$lib/utils";
   import { networkFetchLimit } from "$lib/state";
@@ -17,7 +16,7 @@
   import type { PageData } from './$types';
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
-  import { activePubkey } from "$lib/ndk";
+  import { activePubkey, getNdkContext } from "$lib/ndk";
   // Import utility functions for tag-based event fetching
   // These functions handle the complex logic of finding publications by tags
   // and extracting their associated content events
@@ -28,6 +27,8 @@
   } from "$lib/utils/tag_event_fetch";
   import { deduplicateAndCombineEvents } from "$lib/utils/eventDeduplication";
   import type { EventCounts } from "$lib/types";
+
+  const ndk = getNdkContext();
   
   // Configuration
   const DEBUG = true; // Set to true to enable debug logging
@@ -130,7 +131,7 @@
     
     // If limit is 1, only fetch the current user's follow list
     if (config.limit === 1) {
-      const userFollowList = await $ndkInstance.fetchEvents({
+      const userFollowList = await ndk.fetchEvents({
         kinds: [3],
         authors: [currentUserPubkey],
         limit: 1
@@ -148,7 +149,7 @@
       debug(`Fetched user's follow list`);
     } else {
       // If limit > 1, fetch the user's follow list plus additional ones from people they follow
-      const userFollowList = await $ndkInstance.fetchEvents({
+      const userFollowList = await ndk.fetchEvents({
         kinds: [3],
         authors: [currentUserPubkey],
         limit: 1
@@ -180,7 +181,7 @@
         
         debug(`Fetching ${pubkeysToFetch.length} additional follow lists (total limit: ${config.limit})`);
         
-        const additionalFollowLists = await $ndkInstance.fetchEvents({
+        const additionalFollowLists = await ndk.fetchEvents({
           kinds: [3],
           authors: pubkeysToFetch
         });
@@ -215,7 +216,7 @@
         debug(`Fetching level ${level} follow lists for ${currentLevelPubkeys.length} pubkeys`);
         
         // Fetch follow lists for this level
-        const levelFollowLists = await $ndkInstance.fetchEvents({
+        const levelFollowLists = await ndk.fetchEvents({
           kinds: [3],
           authors: currentLevelPubkeys
         });
@@ -362,7 +363,7 @@
             const followEvents = await fetchFollowLists(config);
             allFetchedEvents.push(...followEvents);
           } else {
-            const fetchedEvents = await $ndkInstance.fetchEvents(
+            const fetchedEvents = await ndk.fetchEvents(
               { 
                 kinds: [config.kind], 
                 limit: config.limit 
@@ -394,7 +395,7 @@
     if (data.eventId) {
       // Fetch specific publication
       debug(`Fetching specific publication: ${data.eventId}`);
-      const event = await $ndkInstance.fetchEvent(data.eventId);
+      const event = await ndk.fetchEvent(data.eventId);
       
       if (!event) {
         throw new Error(`Publication not found: ${data.eventId}`);
@@ -414,7 +415,7 @@
       const indexConfig = publicationConfigs.find(ec => ec.kind === INDEX_EVENT_KIND);
       const indexLimit = indexConfig?.limit || 20;
       
-      const indexEvents = await $ndkInstance.fetchEvents(
+      const indexEvents = await ndk.fetchEvents(
         { 
           kinds: [INDEX_EVENT_KIND], 
           limit: indexLimit
@@ -455,7 +456,7 @@
     const contentEventPromises = Array.from(referencesByAuthor.entries()).map(
       async ([author, refs]) => {
         const dTags = [...new Set(refs.map(r => r.dTag))]; // Dedupe d-tags
-        return $ndkInstance.fetchEvents({
+        return ndk.fetchEvents({
           kinds: enabledContentKinds, // Only fetch enabled kinds
           authors: [author],
           "#d": dTags,

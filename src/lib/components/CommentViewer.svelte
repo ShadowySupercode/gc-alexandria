@@ -2,13 +2,15 @@
   import { Button, P, Heading } from "flowbite-svelte";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode } from "$lib/utils";
-  import { activeInboxRelays, ndkInstance } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // AI-NOTE: 2025-01-08 - Clean, efficient comment viewer implementation
   // This component fetches and displays threaded comments with proper hierarchy
@@ -124,15 +126,15 @@
       
       // Get all available relays for a more comprehensive search
       // Use the full NDK pool relays instead of just active relays
-      const ndkPoolRelays = Array.from($ndkInstance.pool.relays.values()).map(relay => relay.url);
+      const ndkPoolRelays = Array.from(ndk.pool.relays.values()).map(relay => relay.url);
       console.log(`[CommentViewer] Using ${ndkPoolRelays.length} NDK pool relays for search:`, ndkPoolRelays);
       
       // Try all filters to find comments with full relay set
-      activeSub = $ndkInstance.subscribe(filters);
+      activeSub = ndk.subscribe(filters);
       
       // Also try a direct search for the specific comment we're looking for
       console.log(`[CommentViewer] Also searching for specific comment: 64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942`);
-      const specificCommentSub = $ndkInstance.subscribe({
+      const specificCommentSub = ndk.subscribe({
         ids: ["64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942"]
       });
       
@@ -291,7 +293,7 @@
         
         try {
           // Try a broader search to see if there are any events that might be comments
-          const testSub = $ndkInstance.subscribe({
+          const testSub = ndk.subscribe({
             kinds: [1, 1111, 9802],
             "#e": [event.id],
             limit: 10,
@@ -462,7 +464,7 @@
       console.log(`[CommentViewer] Fetching nested replies for event:`, eventId);
       
       // Search for replies to this specific event
-      const nestedSub = $ndkInstance.subscribe({
+      const nestedSub = ndk.subscribe({
         kinds: [1, 1111, 9802],
         "#e": [eventId],
         limit: 50,
@@ -506,7 +508,7 @@
         if (dTag) {
           const eventAddress = `${event.kind}:${event.pubkey}:${dTag}`;
           
-          const nip22Sub = $ndkInstance.subscribe({
+          const nip22Sub = ndk.subscribe({
             kinds: [1111, 9802],
             "#a": [eventAddress],
             limit: 50,

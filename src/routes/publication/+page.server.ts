@@ -17,7 +17,7 @@ const IDENTIFIER_PREFIXES = {
   NEVENT: "nevent",
 } as const;
 
-export const load: PageServerLoad = ({ url }) => {
+export const load: PageServerLoad = ({ url }: { url: URL }) => {
   const id = url.searchParams.get("id");
   const dTag = url.searchParams.get("d");
 

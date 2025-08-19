@@ -1,7 +1,6 @@
-import { ndkInstance } from "../ndk.ts";
 import { fetchEventWithFallback, NDKRelaySetFromNDK } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
 import { get } from "svelte/store";
 import { isValidNip05Address, wellKnownUrl } from "./search_utils.ts";
@@ -11,8 +10,7 @@ import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 /**
  * Search for a single event by ID or filter
  */
-export async function searchEvent(query: string): Promise<NDKEvent | null> {
-  const ndk = get(ndkInstance);
+export async function searchEvent(query: string, ndk: NDK): Promise<NDKEvent | null> {
   if (!ndk) {
     console.warn("[Search] No NDK instance available");
     return null;
@@ -68,14 +66,14 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     // Try as event id
     filterOrId = cleanedQuery;
     const eventResult = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       filterOrId,
       TIMEOUTS.EVENT_FETCH,
     );
     // Always try as pubkey (profile event) as well
     const profileFilter = { kinds: [0], authors: [cleanedQuery] };
     const profileEvent = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       profileFilter,
       TIMEOUTS.EVENT_FETCH,
     );
@@ -196,7 +194,7 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
 
   try {
     const event = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       filterOrId,
       TIMEOUTS.EVENT_FETCH,
     );
@@ -218,6 +216,7 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
  */
 export async function searchNip05(
   nip05Address: string,
+  ndk: NDK,
 ): Promise<NDKEvent | null> {
   // NIP-05 address pattern: user@domain
   if (!isValidNip05Address(nip05Address)) {
@@ -239,7 +238,7 @@ export async function searchNip05(
     if (pubkey) {
       const profileFilter = { kinds: [0], authors: [pubkey] };
       const profileEvent = await fetchEventWithFallback(
-        get(ndkInstance),
+        ndk,
         profileFilter,
         TIMEOUTS.EVENT_FETCH,
       );
@@ -270,6 +269,7 @@ export async function searchNip05(
  */
 export async function findContainingIndexEvents(
   contentEvent: NDKEvent,
+  ndk: NDK,
 ): Promise<NDKEvent[]> {
   // Support all content event kinds that can be contained in indexes
   const contentEventKinds = [30041, 30818, 30040, 30023];
@@ -278,8 +278,6 @@ export async function findContainingIndexEvents(
   }
 
   try {
-    const ndk = get(ndkInstance);
-
     // Search for 30040 events that reference this content event
     // We need to search for events that have an 'a' tag or 'e' tag referencing this event
     const contentEventId = contentEvent.id;

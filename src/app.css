@@ -2,7 +2,6 @@
 @import "./styles/scrollbar.css";
 @import "./styles/publications.css";
 @import "./styles/visualize.css";
-@import "./styles/events.css";
 @import "./styles/asciidoc.css";
 
 /* Custom styles */
@@ -321,6 +320,10 @@
 }
 
 @layer components {
+  canvas.qr-code {
+    @apply block mx-auto my-4;
+  }
+
   /* Legend */
   .leather-legend {
     @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2

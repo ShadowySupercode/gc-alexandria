@@ -1,7 +1,7 @@
 <script lang="ts" context="module">
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { get } from "svelte/store";
-  import { activeInboxRelays, ndkInstance } from "$lib/ndk";
+  import { activeInboxRelays } from "$lib/ndk";
 
   // Get relays from event (prefer event.relay or event.relays, fallback to active inbox relays)
   export function getEventRelays(event: NDKEvent): string[] {
@@ -16,13 +16,6 @@
     }
     // Use active inbox relays as fallback
     return get(activeInboxRelays);
-  }
-
-  export function getConnectedRelays(): string[] {
-    const ndk = get(ndkInstance);
-    return Array.from(ndk?.pool?.relays.values() || [])
-      .filter((r) => r.status === 1) // Only use connected relays
-      .map((r) => r.url);
   }
 </script>
 

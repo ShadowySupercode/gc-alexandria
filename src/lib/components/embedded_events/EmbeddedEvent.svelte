@@ -5,11 +5,10 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { parsedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, ndkInstance } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { getEventType } from "$lib/utils/mime";
   import { nip19 } from "nostr-tools";
-  import { get } from "svelte/store";
   import { repostKinds } from "$lib/consts";
 
   const {
@@ -19,6 +18,8 @@
     nostrIdentifier: string;
     nestingLevel?: number;
   }>();
+
+  const ndk = getNdkContext();
 
   let event = $state<NDKEvent | null>(null);
   let profile = $state<{
@@ -58,7 +59,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) {
         throw new Error("No NDK instance available");
       }

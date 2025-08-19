@@ -1,9 +1,8 @@
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
-import { ndkInstance } from "../ndk.ts";
 import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
+import type { NostrEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
 import {
   anonymousRelays,
@@ -68,6 +67,7 @@ function escapeRegExp(string: string): string {
  */
 export async function getUserMetadata(
   identifier: string,
+  ndk: NDK,
   force = false,
 ): Promise<NostrProfile> {
   // Remove nostr: prefix if present
@@ -89,7 +89,6 @@ export async function getUserMetadata(
   const fallback = { name: `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}` };
 
   try {
-    const ndk = get(ndkInstance);
     if (!ndk) {
       console.warn("getUserMetadata: No NDK instance available");
       npubCache.set(cleanId, fallback);
@@ -176,8 +175,8 @@ export function createProfileLink(
 export async function createProfileLinkWithVerification(
   identifier: string,
   displayText: string | undefined,
+  ndk: NDK,
 ): Promise<string> {
-  const ndk = get(ndkInstance) as NDK;
   if (!ndk) {
     return createProfileLink(identifier, displayText);
   }
@@ -272,6 +271,7 @@ function createNoteLink(identifier: string): string {
  */
 export async function processNostrIdentifiers(
   content: string,
+  ndk: NDK,
 ): Promise<string> {
   let processedContent = content;
 
@@ -294,7 +294,7 @@ export async function processNostrIdentifiers(
     if (!identifier.startsWith("nostr:")) {
       identifier = "nostr:" + identifier;
     }
-    const metadata = await getUserMetadata(identifier);
+    const metadata = await getUserMetadata(identifier, ndk);
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
     // Replace all occurrences of this exact match

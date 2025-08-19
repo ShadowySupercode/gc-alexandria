@@ -1,12 +1,7 @@
-import { get } from "svelte/store";
-import { ndkInstance } from "../ndk";
-import { userStore } from "../stores/userStore";
-import { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type NDK from "@nostr-dev-kit/ndk";
-import { nip19 } from "nostr-tools";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { createSignedEvent } from "./nostrEventService.ts";
-import { anonymousRelays } from "../consts";
-import { buildCompleteRelaySet } from "./relay_management";
+import { anonymousRelays } from "../consts.ts";
+import { buildCompleteRelaySet } from "./relay_management.ts";
 
 // AI-NOTE: Using existing relay utilities from relay_management.ts instead of duplicating functionality
 
@@ -19,12 +14,8 @@ import { buildCompleteRelaySet } from "./relay_management";
 export async function getKind24RelaySet(
   senderPubkey: string,
   recipientPubkey: string,
+  ndk: NDK,
 ): Promise<string[]> {
-  const ndk = get(ndkInstance);
-  if (!ndk) {
-    throw new Error("NDK not available");
-  }
-
   const senderPrefix = senderPubkey.slice(0, 8);
   const recipientPrefix = recipientPubkey.slice(0, 8);
 
@@ -44,13 +35,13 @@ export async function getKind24RelaySet(
     const recipientInboxRelays = recipientRelaySet.inboxRelays;
 
     // Prioritize common relays for better privacy
-    const commonRelays = senderOutboxRelays.filter((relay) =>
+    const commonRelays = senderOutboxRelays.filter((relay: any) =>
       recipientInboxRelays.includes(relay)
     );
-    const senderOnlyRelays = senderOutboxRelays.filter((relay) =>
+    const senderOnlyRelays = senderOutboxRelays.filter((relay: any) =>
       !recipientInboxRelays.includes(relay)
     );
-    const recipientOnlyRelays = recipientInboxRelays.filter((relay) =>
+    const recipientOnlyRelays = recipientInboxRelays.filter((relay: any) =>
       !senderOutboxRelays.includes(relay)
     );
 
@@ -85,11 +76,11 @@ export async function getKind24RelaySet(
 export async function createKind24Reply(
   content: string,
   recipientPubkey: string,
+  ndk: NDK,
   originalEvent?: NDKEvent,
 ): Promise<
   { success: boolean; eventId?: string; error?: string; relays?: string[] }
 > {
-  const ndk = get(ndkInstance);
   if (!ndk?.activeUser) {
     return { success: false, error: "Not logged in" };
   }
@@ -103,6 +94,7 @@ export async function createKind24Reply(
     const targetRelays = await getKind24RelaySet(
       ndk.activeUser.pubkey,
       recipientPubkey,
+      ndk,
     );
 
     if (targetRelays.length === 0) {

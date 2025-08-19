@@ -1,6 +1,4 @@
-import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { ndkInstance } from "$lib/ndk";
-import { get } from "svelte/store";
+import NDK, { type NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
 interface ProfileData {
@@ -18,9 +16,8 @@ const profileCache = new Map<string, ProfileData>();
  * @param pubkey - The public key to fetch profile for
  * @returns Profile data or null if not found
  */
-async function fetchProfile(pubkey: string): Promise<ProfileData | null> {
+async function fetchProfile(pubkey: string, ndk: NDK): Promise<ProfileData | null> {
   try {
-    const ndk = get(ndkInstance);
     const profileEvents = await ndk.fetchEvents({
       kinds: [0],
       authors: [pubkey],
@@ -52,7 +49,7 @@ async function fetchProfile(pubkey: string): Promise<ProfileData | null> {
  * @param pubkey - The public key to get display name for
  * @returns Display name, name, or shortened pubkey
  */
-export async function getDisplayName(pubkey: string): Promise<string> {
+export async function getDisplayName(pubkey: string, ndk: NDK): Promise<string> {
   // Check cache first
   if (profileCache.has(pubkey)) {
     const profile = profileCache.get(pubkey)!;
@@ -60,7 +57,7 @@ export async function getDisplayName(pubkey: string): Promise<string> {
   }
 
   // Fetch profile
-  const profile = await fetchProfile(pubkey);
+  const profile = await fetchProfile(pubkey, ndk);
   if (profile) {
     profileCache.set(pubkey, profile);
     return profile.display_name || profile.name || shortenPubkey(pubkey);
@@ -78,6 +75,7 @@ export async function getDisplayName(pubkey: string): Promise<string> {
  */
 export async function batchFetchProfiles(
   pubkeys: string[],
+  ndk: NDK,
   onProgress?: (fetched: number, total: number) => void,
 ): Promise<NDKEvent[]> {
   const allProfileEvents: NDKEvent[] = [];
@@ -91,8 +89,6 @@ export async function batchFetchProfiles(
   }
 
   try {
-    const ndk = get(ndkInstance);
-
     // Report initial progress
     const cachedCount = pubkeys.length - uncachedPubkeys.length;
     if (onProgress) onProgress(cachedCount, pubkeys.length);

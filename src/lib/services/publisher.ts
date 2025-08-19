@@ -1,11 +1,9 @@
-import { get } from "svelte/store";
-import { ndkInstance } from "../ndk.ts";
 import { getMimeTags } from "../utils/mime.ts";
 import {
   metadataToTags,
   parseAsciiDocWithMetadata,
 } from "../utils/asciidoc_metadata.ts";
-import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
 export interface PublishResult {
@@ -28,6 +26,7 @@ export interface PublishOptions {
  */
 export async function publishZettel(
   options: PublishOptions,
+  ndk: NDK,
 ): Promise<PublishResult> {
   const { content, kind = 30041, onSuccess, onError } = options;
 
@@ -36,9 +35,6 @@ export async function publishZettel(
     onError?.(error);
     return { success: false, error };
   }
-
-  // Get the current NDK instance from the store
-  const ndk = get(ndkInstance);
 
   if (!ndk?.activeUser) {
     const error = "Please log in first";
@@ -115,6 +111,7 @@ export async function publishZettel(
  */
 export async function publishMultipleZettels(
   options: PublishOptions,
+  ndk: NDK,
 ): Promise<PublishResult[]> {
   const { content, kind = 30041, onError } = options;
 
@@ -124,7 +121,6 @@ export async function publishMultipleZettels(
     return [{ success: false, error }];
   }
 
-  const ndk = get(ndkInstance);
   if (!ndk?.activeUser) {
     const error = "Please log in first";
     onError?.(error);

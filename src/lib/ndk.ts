@@ -13,9 +13,6 @@ import {
   deduplicateRelayUrls,
   testRelayConnection,
 } from "./utils/relay_management.ts";
-
-// Re-export testRelayConnection for components that need it
-export { testRelayConnection };
 import { userStore } from "./stores/userStore.ts";
 import { userPubkey } from "./stores/authStore.Svelte.ts";
 import {
@@ -23,8 +20,11 @@ import {
   stopNetworkStatusMonitoring,
 } from "./stores/networkStore.ts";
 import { WebSocketPool } from "./data_structures/websocket_pool.ts";
+import { getContext, setContext } from "svelte";
 
-export const ndkInstance: Writable<NDK> = writable();
+// Re-export testRelayConnection for components that need it
+export { testRelayConnection };
+
 export const ndkSignedIn = writable(false);
 export const activePubkey = writable<string | null>(null);
 export const inboxRelays = writable<string[]>([]);
@@ -33,6 +33,16 @@ export const outboxRelays = writable<string[]>([]);
 // New relay management stores
 export const activeInboxRelays = writable<string[]>([]);
 export const activeOutboxRelays = writable<string[]>([]);
+
+const NDK_CONTEXT_KEY = "ndk";
+
+export function getNdkContext(): NDK {
+  return getContext(NDK_CONTEXT_KEY) as NDK;
+}
+
+export function setNdkContext(ndk: NDK): void {
+  setContext(NDK_CONTEXT_KEY, ndk);
+}
 
 // AI-NOTE: 2025-01-08 - Persistent relay storage to avoid recalculation
 let persistentRelaySet:
@@ -763,7 +773,6 @@ export function initNdk(): NDK {
     ndkSignedIn.set(userState.signedIn);
 
     // Refresh relay stores when user state changes
-    const ndk = get(ndkInstance);
     if (ndk) {
       try {
         await refreshRelayStores(ndk);
@@ -786,7 +795,7 @@ export function initNdk(): NDK {
 export function cleanupNdk(): void {
   console.debug("[NDK.ts] Cleaning up NDK resources");
 
-  const ndk = get(ndkInstance);
+  const ndk = getNdkContext();
   if (ndk) {
     try {
       // Disconnect from all relays
@@ -818,7 +827,7 @@ export async function loginWithExtension(
   pubkey?: string,
 ): Promise<NDKUser | null> {
   try {
-    const ndk = get(ndkInstance);
+    const ndk = getNdkContext();
     const signer = new NDKNip07Signer();
     const signerUser = await signer.user();
 
@@ -838,7 +847,7 @@ export async function loginWithExtension(
     ndk.signer = signer;
     ndk.activeUser = user;
 
-    ndkInstance.set(ndk);
+    setNdkContext(ndk);
     ndkSignedIn.set(true);
 
     return user;
@@ -872,5 +881,5 @@ export function logout(user: NDKUser): void {
 
   // Re-initialize with anonymous instance
   const newNdk = initNdk();
-  ndkInstance.set(newNdk);
+  setNdkContext(newNdk);
 }

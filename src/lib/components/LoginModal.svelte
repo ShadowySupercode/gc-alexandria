@@ -2,6 +2,7 @@
   import { Button, Modal } from "flowbite-svelte";
   import { loginWithExtension } from "$lib/stores/userStore";
   import { userStore } from "$lib/stores/userStore";
+  import { getNdkContext } from "$lib/ndk";
 
   const {
     show = false,
@@ -12,6 +13,8 @@
     onClose?: () => void;
     onLoginSuccess?: () => void;
   }>();
+
+  const ndk = getNdkContext();
 
   let signInFailed = $state<boolean>(false);
   let errorMessage = $state<string>("");
@@ -42,7 +45,7 @@
       signInFailed = false;
       errorMessage = "";
 
-      await loginWithExtension();
+      await loginWithExtension(ndk);
     } catch (e: unknown) {
       console.error(e);
       signInFailed = true;

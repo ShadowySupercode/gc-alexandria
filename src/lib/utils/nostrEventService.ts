@@ -1,11 +1,9 @@
 import { nip19 } from "nostr-tools";
 import { getEventHash, prefixNostrAddresses, signEvent } from "./nostrUtils.ts";
-import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
 import { EXPIRATION_DURATION } from "../consts.ts";
-import { ndkInstance } from "../ndk.ts";
-import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 
 export interface RootEventInfo {
   rootId: string;
@@ -337,7 +335,7 @@ export async function createSignedEvent(
     created_at: Number(
       Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR),
     ),
-    tags: finalTags.map((tag) => [
+    tags: finalTags.map((tag: any) => [
       String(tag[0]),
       String(tag[1]),
       String(tag[2] || ""),
@@ -380,9 +378,9 @@ export async function createSignedEvent(
 export async function publishEvent(
   event: NDKEvent,
   relayUrls: string[],
+  ndk: NDK,
 ): Promise<string[]> {
   const successfulRelays: string[] = [];
-  const ndk = get(ndkInstance);
 
   if (!ndk) {
     throw new Error("NDK instance not available");

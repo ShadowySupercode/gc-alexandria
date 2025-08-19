@@ -3,7 +3,6 @@
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
-  import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
@@ -23,8 +22,11 @@
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import { getNdkContext } from "$lib/ndk";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // Handle navigation events from quoted messages
   $effect(() => {
@@ -465,7 +467,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
       
       const userStoreValue = get(userStore);
@@ -502,7 +503,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 100);
 
-      authorProfiles = await fetchAuthorProfiles(notifications);
+      authorProfiles = await fetchAuthorProfiles(notifications, ndk);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -519,7 +520,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
 
       const userStoreValue = get(userStore);
@@ -550,7 +550,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 200);
 
-      authorProfiles = await fetchAuthorProfiles(publicMessages);
+      authorProfiles = await fetchAuthorProfiles(publicMessages, ndk);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -637,7 +637,6 @@
       // If no relays found from NIP-65, use fallback relays
       if (uniqueRelays.length === 0) {
         console.log("[Relay Effect] No NIP-65 relays found, using fallback");
-        const ndk = get(ndkInstance);
         if (ndk) {
           const userStoreValue = get(userStore);
           const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -653,7 +652,6 @@
     } catch (error) {
       console.error("[Relay Effect] Error getting relay set:", error);
       console.log("[Relay Effect] Using fallback relays due to error");
-      const ndk = get(ndkInstance);
       if (ndk) {
         const userStoreValue = get(userStore);
         const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -813,7 +811,7 @@
                     
                     {#if message.getMatchingTags("q").length > 0}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {@render quotedContent(message, publicMessages)}
+                        {@render quotedContent(message, publicMessages, ndk)}
                       </div>
                     {/if}
                     {#if message.content}

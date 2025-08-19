@@ -1,15 +1,16 @@
 <script lang="ts">
   import "../app.css";
   import Navigation from "$lib/components/Navigation.svelte";
-  import { onMount } from "svelte";
+  import { onMount, setContext } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
-  import { Alert } from "flowbite-svelte";
-  import { HammerSolid } from "flowbite-svelte-icons";
-  import { logCurrentRelayConfiguration, activeInboxRelays, activeOutboxRelays, cleanupNdk } from "$lib/ndk";
+  import { cleanupNdk } from "$lib/ndk";
+  import type { LayoutProps } from "./$types";
 
   // Define children prop for Svelte 5
-  let { children } = $props();
+  let { data, children }: LayoutProps = $props();
+
+  setContext("ndk", data.ndk);
 
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
@@ -19,24 +20,6 @@
   let image = "/screenshots/old_books.jpg";
   let summary =
     "Alexandria is a digital library, utilizing Nostr events for curated publications and wiki pages.";
-
-  // AI-NOTE: Refactored to avoid blocking $effect with logging operations
-  // Reactive effect to log relay configuration when stores change - non-blocking approach
-  $effect.pre(() => {
-    const inboxRelays = $activeInboxRelays;
-    const outboxRelays = $activeOutboxRelays;
-    
-    // Only log if we have relays (not empty arrays)
-    if (inboxRelays.length > 0 || outboxRelays.length > 0) {
-      // Defer logging to avoid blocking the reactive system
-      requestAnimationFrame(() => {
-        console.log('🔌 Relay Configuration Updated:');
-        console.log('📥 Inbox Relays:', inboxRelays);
-        console.log('📤 Outbox Relays:', outboxRelays);
-        console.log(`📊 Total: ${inboxRelays.length} inbox, ${outboxRelays.length} outbox`);
-      });
-    }
-  });
 
   onMount(() => {
     const rect = document.body.getBoundingClientRect();

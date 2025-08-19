@@ -9,15 +9,11 @@ import {
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 
 export const load: PageLoad = async (
-  { params, parent }: {
+  { params }: {
     params: { type: string; identifier: string };
-    parent: any;
   },
 ) => {
   const { type, identifier } = params;
-
-  // Get layout data (no server-side data since SSR is disabled)
-  const layoutData = await parent();
 
   // AI-NOTE: Always fetch client-side since server-side fetch returns null for now
   let indexEvent: NostrEvent | null = null;
@@ -74,20 +70,9 @@ export const load: PageLoad = async (
   const publicationType =
     indexEvent.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
-  // AI-NOTE: Use proper NDK instance from layout or create one with relays
-  let ndk = layoutData?.ndk;
-  if (!ndk) {
-    // Import NDK dynamically to avoid SSR issues
-    const NDK = (await import("@nostr-dev-kit/ndk")).default;
-    // Import initNdk to get properly configured NDK with relays
-    const { initNdk } = await import("$lib/ndk");
-    ndk = initNdk();
-  }
-
   const result = {
     publicationType,
     indexEvent,
-    ndk, // Use minimal NDK instance
   };
 
   return result;

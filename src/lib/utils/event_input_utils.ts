@@ -1,15 +1,11 @@
 import type { NDKEvent } from "./nostrUtils.ts";
-import { get } from "svelte/store";
-import { ndkInstance } from "../ndk.ts";
-import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
 import { EVENT_KINDS } from "./search_constants";
 import {
   extractDocumentMetadata,
-  extractSectionMetadata,
   metadataToTags,
   parseAsciiDocWithMetadata,
-  removeMetadataFromContent,
-} from "./asciidoc_metadata";
+} from "./asciidoc_metadata.ts";
 
 // =========================
 // Validation
@@ -151,7 +147,7 @@ export function validate30040EventSet(content: string): {
   }
 
   // Check for empty sections
-  const emptySections = parsed.sections.filter((section) =>
+  const emptySections = parsed.sections.filter((section: any) =>
     section.content.trim() === ""
   );
   if (emptySections.length > 0) {
@@ -200,12 +196,6 @@ function extractMarkdownTopHeader(content: string): string | null {
 // Event Construction
 // =========================
 
-/**
- * Returns the current NDK instance from the store.
- */
-function getNdk() {
-  return get(ndkInstance);
-}
 
 /**
  * Builds a set of events for a 30040 publication: one 30040 index event and one 30041 event per section.
@@ -216,15 +206,8 @@ export function build30040EventSet(
   content: string,
   tags: [string, string][],
   baseEvent: Partial<NDKEvent> & { pubkey: string; created_at: number },
+  ndk: NDK,
 ): { indexEvent: NDKEvent; sectionEvents: NDKEvent[] } {
-  console.log("=== build30040EventSet called ===");
-  console.log("Input content:", content);
-  console.log("Input tags:", tags);
-  console.log("Input baseEvent:", baseEvent);
-
-  const ndk = getNdk();
-  console.log("NDK instance:", ndk);
-
   // Parse the AsciiDoc content with metadata extraction
   const parsed = parseAsciiDocWithMetadata(content);
   console.log("Parsed AsciiDoc:", parsed);
@@ -262,8 +245,6 @@ export function build30040EventSet(
       created_at: baseEvent.created_at,
     });
 
-    console.log("Final index event (index card):", indexEvent);
-    console.log("=== build30040EventSet completed (index card) ===");
     return { indexEvent, sectionEvents: [] };
   }
 
@@ -272,7 +253,7 @@ export function build30040EventSet(
   console.log("Index event:", { documentTitle, indexDTag });
 
   // Create section events with their metadata
-  const sectionEvents: NDKEvent[] = parsed.sections.map((section, i) => {
+  const sectionEvents: NDKEvent[] = parsed.sections.map((section: any, i: number) => {
     const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
     console.log(`Creating section ${i}:`, {
       title: section.title,

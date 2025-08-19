@@ -2,13 +2,12 @@
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { NDKRelaySetFromNDK, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import { get } from "svelte/store";
-  import { ndkInstance } from "$lib/ndk";
   import { searchRelays } from "$lib/consts";
   import { userStore, type UserState } from "$lib/stores/userStore";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { nip19 } from "nostr-tools";
-  import type NDK from "@nostr-dev-kit/ndk";
   import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
+    import type NDK from "@nostr-dev-kit/ndk";
 
   export {
     parsedContent,
@@ -91,7 +90,7 @@
   /**
   * Fetches author profiles for a list of events
   */
-  async function fetchAuthorProfiles(events: NDKEvent[]): Promise<Map<string, { name?: string; displayName?: string; picture?: string }>> {
+  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string; displayName?: string; picture?: string }>> {
     const authorProfiles = new Map<string, { name?: string; displayName?: string; picture?: string }>();
     const uniquePubkeys = new Set<string>();
     
@@ -114,7 +113,6 @@
         // Try search relays
         for (const relay of searchRelays) {
           try {
-            const ndk: NDK | undefined = get(ndkInstance);
             if (!ndk) break;
 
             const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
@@ -140,7 +138,6 @@
 
         // Try all available relays as fallback
         try {
-          const ndk: NDK | undefined = get(ndkInstance);
           if (!ndk) return;
 
           const userStoreValue: UserState = get(userStore);
@@ -177,7 +174,7 @@
     return authorProfiles;
   }
 
-  async function findQuotedMessage(eventId: string, publicMessages: NDKEvent[]): Promise<NDKEvent | undefined> {
+  async function findQuotedMessage(eventId: string, publicMessages: NDKEvent[], ndk: NDK): Promise<NDKEvent | undefined> {
     // Validate eventId format (should be 64 character hex string)
     const isValidEventId = /^[a-fA-F0-9]{64}$/.test(eventId);
     if (!isValidEventId) return undefined;
@@ -188,7 +185,6 @@
     // If not found locally, fetch from relays
     if (!quotedMessage) {
       try {
-        const ndk: NDK | undefined = get(ndkInstance);
         if (ndk) {
           const userStoreValue: UserState = get(userStore);
           const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -274,14 +270,14 @@
   {/if}
 {/snippet}
 
-{#snippet quotedContent(message: NDKEvent, publicMessages: NDKEvent[])}
+{#snippet quotedContent(message: NDKEvent, publicMessages: NDKEvent[], ndk: NDK)}
   {@const qTags = message.getMatchingTags("q")}
   {#if qTags.length > 0}
     {@const qTag = qTags[0]}
     {@const eventId = qTag[1]}
     
     {#if eventId}
-      {#await findQuotedMessage(eventId, publicMessages) then quotedMessage}
+      {#await findQuotedMessage(eventId, publicMessages, ndk) then quotedMessage}
         {#if quotedMessage}
           {@const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content"}
           {#await parseEmbeddedMarkup(quotedContent, 0) then parsedContent}

@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { userStore } from "$lib/stores/userStore";
-  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { getTitleTagForEvent } from "$lib/utils/event_input_utils";
   import asciidoctor from "asciidoctor";
   import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor";
+  import { getNdkContext } from "$lib/ndk";
+  
+  const ndk = getNdkContext();
 
   let events: NDKEvent[] = $state([]);
   let loading = $state(true);
@@ -42,7 +43,6 @@
         loading = false;
         return;
       }
-      const ndk = get(ndkInstance);
       if (!ndk) {
         error = "NDK not initialized.";
         loading = false;

@@ -1,4 +1,4 @@
-import { activeInboxRelays, ndkInstance } from "../ndk.ts";
+import { activeInboxRelays } from "../ndk.ts";
 import { getNpubFromNip05, getUserMetadata } from "./nostrUtils.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
@@ -17,6 +17,7 @@ import {
  */
 export async function searchProfiles(
   searchTerm: string,
+  ndk: NDK,
 ): Promise<ProfileSearchResult> {
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
 
@@ -46,7 +47,6 @@ export async function searchProfiles(
     return { profiles, Status: {} };
   }
 
-  const ndk = get(ndkInstance);
   if (!ndk) {
     console.error("NDK not initialized");
     throw new Error("NDK not initialized");
@@ -63,7 +63,7 @@ export async function searchProfiles(
       normalizedSearchTerm.startsWith("nprofile")
     ) {
       try {
-        const metadata = await getUserMetadata(normalizedSearchTerm);
+        const metadata = await getUserMetadata(normalizedSearchTerm, ndk);
         if (metadata) {
           foundProfiles = [metadata];
         }
@@ -76,7 +76,7 @@ export async function searchProfiles(
       try {
         const npub = await getNpubFromNip05(normalizedNip05);
         if (npub) {
-          const metadata = await getUserMetadata(npub);
+          const metadata = await getUserMetadata(npub, ndk);
           const profile: NostrProfile = {
             ...metadata,
             pubkey: npub,
@@ -89,7 +89,7 @@ export async function searchProfiles(
     } else {
       // Try NIP-05 search first (faster than relay search)
       console.log("Starting NIP-05 search for:", normalizedSearchTerm);
-      foundProfiles = await searchNip05Domains(normalizedSearchTerm);
+      foundProfiles = await searchNip05Domains(normalizedSearchTerm, ndk);
       console.log(
         "NIP-05 search completed, found:",
         foundProfiles.length,
@@ -142,6 +142,7 @@ export async function searchProfiles(
  */
 async function searchNip05Domains(
   searchTerm: string,
+  ndk: NDK,
 ): Promise<NostrProfile[]> {
   const foundProfiles: NostrProfile[] = [];
 
@@ -184,7 +185,7 @@ async function searchNip05Domains(
         "NIP-05 search: SUCCESS! found npub for gitcitadel.com:",
         npub,
       );
-      const metadata = await getUserMetadata(npub);
+      const metadata = await getUserMetadata(npub, ndk);
       const profile: NostrProfile = {
         ...metadata,
         pubkey: npub,
@@ -216,7 +217,7 @@ async function searchNip05Domains(
       const npub = await getNpubFromNip05(nip05Address);
       if (npub) {
         console.log("NIP-05 search: found npub for", nip05Address, ":", npub);
-        const metadata = await getUserMetadata(npub);
+        const metadata = await getUserMetadata(npub, ndk);
         const profile: NostrProfile = {
           ...metadata,
           pubkey: npub,

@@ -13,23 +13,23 @@
     get30040FixGuidance,
   } from "$lib/utils/event_input_utils";
   import { 
-    extractDocumentMetadata, 
     extractSmartMetadata,
     metadataToTags,
     removeMetadataFromContent 
   } from "$lib/utils/asciidoc_metadata";
   import { get } from "svelte/store";
-  import { ndkInstance } from "$lib/ndk";
   import { userPubkey } from "$lib/stores/authStore.Svelte";
   import { userStore } from "$lib/stores/userStore";
-  import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
+  import NDK, { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { Button } from "flowbite-svelte";
   import { goto } from "$app/navigation";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
   import { anonymousRelays } from "$lib/consts";
+
+  const ndk = getNdkContext();
 
   let kind = $state<number>(30040);
   let tags = $state<[string, string][]>([]);
@@ -221,7 +221,6 @@
     createdAt = Math.floor(Date.now() / 1000);
 
     try {
-      const ndk = get(ndkInstance);
       const currentUserPubkey = get(userPubkey as any);
       const userState = get(userStore);
       

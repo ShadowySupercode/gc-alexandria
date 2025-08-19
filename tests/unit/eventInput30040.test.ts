@@ -3,10 +3,6 @@ import {
   build30040EventSet,
   validate30040EventSet,
 } from "../../src/lib/utils/event_input_utils";
-import {
-  extractDocumentMetadata,
-  parseAsciiDocWithMetadata,
-} from "../../src/lib/utils/asciidoc_metadata";
 
 // Mock NDK and other dependencies
 vi.mock("@nostr-dev-kit/ndk", () => ({
@@ -22,6 +18,7 @@ vi.mock("@nostr-dev-kit/ndk", () => ({
   })),
 }));
 
+// TODO: Replace with getNdkContext mock.
 vi.mock("../../src/lib/ndk", () => ({
   ndkInstance: {
     subscribe: vi.fn(),
@@ -265,7 +262,7 @@ This is the preamble content.
       expect(sectionEvents).toHaveLength(3);
 
       // All sections should have empty content
-      sectionEvents.forEach((section, index) => {
+      sectionEvents.forEach((section: any, index: number) => {
         expect(section.kind).toBe(30041);
         expect(section.content).toBe("");
         expect(section.tags).toContainEqual([
@@ -320,7 +317,7 @@ This is the preamble content.
       expect(sectionEvents).toHaveLength(3);
 
       // All sections should have empty content
-      sectionEvents.forEach((section, index) => {
+      sectionEvents.forEach((section: any, index: number) => {
         expect(section.kind).toBe(30041);
         expect(section.content).toBe("");
         expect(section.tags).toContainEqual([

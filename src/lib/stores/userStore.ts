@@ -11,7 +11,6 @@ import { getUserMetadata } from "../utils/nostrUtils.ts";
 import {
   activeInboxRelays,
   activeOutboxRelays,
-  ndkInstance,
   updateActiveRelayStores,
 } from "../ndk.ts";
 import { loginStorageKey } from "../consts.ts";
@@ -166,8 +165,7 @@ function clearLogin() {
 /**
  * Login with NIP-07 browser extension
  */
-export async function loginWithExtension() {
-  const ndk = get(ndkInstance);
+export async function loginWithExtension(ndk: NDK) {
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
   const signer = new NDKNip07Signer();
@@ -246,8 +244,7 @@ export async function loginWithExtension() {
 /**
  * Login with Amber (NIP-46)
  */
-export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
-  const ndk = get(ndkInstance);
+export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk: NDK) {
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
   const npub = user.npub;
@@ -321,8 +318,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser) {
 /**
  * Login with npub (read-only)
  */
-export async function loginWithNpub(pubkeyOrNpub: string) {
-  const ndk = get(ndkInstance);
+export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   if (!ndk) {
     throw new Error("NDK not initialized");
   }
@@ -413,7 +409,7 @@ export async function loginWithNpub(pubkeyOrNpub: string) {
 /**
  * Logout and clear all user state
  */
-export function logoutUser() {
+export function logoutUser(ndk: NDK) {
   console.log("Logging out user...");
   const currentUser = get(userStore);
 
@@ -476,7 +472,6 @@ export function logoutUser() {
   });
   userPubkey.set(null);
 
-  const ndk = get(ndkInstance);
   if (ndk) {
     ndk.activeUser = undefined;
     ndk.signer = undefined;

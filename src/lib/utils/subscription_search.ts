@@ -1,10 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-import { ndkInstance } from "../ndk.ts";
 import { getMatchingTags, getNpubFromNip05 } from "./nostrUtils.ts";
 import { nip19 } from "./nostrUtils.ts";
-import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
-import { communityRelays, searchRelays } from "../consts.ts";
+import { searchRelays } from "../consts.ts";
 import { get } from "svelte/store";
 import type {
   SearchCallbacks,
@@ -43,6 +42,7 @@ function filterUnwantedEvents(events: NDKEvent[]): NDKEvent[] {
 export async function searchBySubscription(
   searchType: SearchSubscriptionType,
   searchTerm: string,
+  ndk: NDK,
   callbacks?: SearchCallbacks,
   abortSignal?: AbortSignal,
 ): Promise<SearchResult> {
@@ -71,7 +71,6 @@ export async function searchBySubscription(
     }
   }
 
-  const ndk = get(ndkInstance);
   if (!ndk) {
     console.error("subscription_search: NDK not initialized");
     throw new Error("NDK not initialized");
@@ -158,6 +157,7 @@ export async function searchBySubscription(
             searchType,
             searchFilter,
             searchState,
+            ndk,
             callbacks,
             cleanup,
           );
@@ -174,6 +174,7 @@ export async function searchBySubscription(
           searchType,
           searchFilter,
           searchState,
+          ndk,
           callbacks,
           cleanup,
         );
@@ -278,6 +279,7 @@ export async function searchBySubscription(
     searchType,
     searchFilter,
     searchState,
+    ndk,
     callbacks,
     cleanup,
   );
@@ -435,7 +437,7 @@ async function createProfileSearchFilter(
  */
 function createPrimaryRelaySet(
   searchType: SearchSubscriptionType,
-  ndk: any,
+  ndk: NDK,
 ): NDKRelaySet {
   // Debug: Log all relays in NDK pool
   const poolRelays = Array.from(ndk.pool.relays.values());
@@ -685,11 +687,10 @@ function searchOtherRelaysInBackground(
   searchType: SearchSubscriptionType,
   searchFilter: SearchFilter,
   searchState: any,
+  ndk: NDK,
   callbacks?: SearchCallbacks,
   cleanup?: () => void,
 ): Promise<SearchResult> {
-  const ndk = get(ndkInstance);
-
   // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
   // This ensures we don't miss events that might be on any available relay
   const otherRelays = new NDKRelaySet(
@@ -740,6 +741,7 @@ function searchOtherRelaysInBackground(
         searchType,
         searchState,
         searchFilter,
+        ndk,
         callbacks,
       );
       searchCache.set(searchType, searchState.normalizedSearchTerm, result);
@@ -756,12 +758,13 @@ function processEoseResults(
   searchType: SearchSubscriptionType,
   searchState: any,
   searchFilter: SearchFilter,
+  ndk: NDK,
   callbacks?: SearchCallbacks,
 ): SearchResult {
   if (searchType === "n") {
-    return processProfileEoseResults(searchState, searchFilter, callbacks);
+    return processProfileEoseResults(searchState, searchFilter, ndk, callbacks);
   } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType);
+    return processContentEoseResults(searchState, searchType, ndk);
   } else if (searchType === "t") {
     return processTTagEoseResults(searchState);
   }
@@ -775,6 +778,7 @@ function processEoseResults(
 function processProfileEoseResults(
   searchState: any,
   searchFilter: SearchFilter,
+  ndk: NDK,
   callbacks?: SearchCallbacks,
 ): SearchResult {
   if (searchState.foundProfiles.length === 0) {
@@ -812,6 +816,7 @@ function processProfileEoseResults(
         dedupedProfiles,
         new Set(),
         new Set(),
+        ndk,
         targetPubkey,
         callbacks,
       );
@@ -833,6 +838,7 @@ function processProfileEoseResults(
           dedupedProfiles,
           new Set(),
           new Set(),
+          ndk,
           profile.pubkey,
           callbacks,
         );
@@ -862,6 +868,7 @@ function processProfileEoseResults(
 function processContentEoseResults(
   searchState: any,
   searchType: SearchSubscriptionType,
+  ndk: NDK,
 ): SearchResult {
   if (searchState.firstOrderEvents.length === 0) {
     return createEmptySearchResult(
@@ -889,6 +896,7 @@ function processContentEoseResults(
       dedupedEvents,
       searchState.eventIds,
       searchState.eventAddresses,
+      ndk,
     );
   }
 
@@ -948,6 +956,7 @@ async function performSecondOrderSearchInBackground(
   firstOrderEvents: NDKEvent[],
   eventIds: Set<string> = new Set(),
   addresses: Set<string> = new Set(),
+  ndk: NDK,
   targetPubkey?: string,
   callbacks?: SearchCallbacks,
 ) {
@@ -958,7 +967,6 @@ async function performSecondOrderSearchInBackground(
       "with targetPubkey:",
       targetPubkey,
     );
-    const ndk = get(ndkInstance);
     let allSecondOrderEvents: NDKEvent[] = [];
 
     // Set a timeout for second-order search
