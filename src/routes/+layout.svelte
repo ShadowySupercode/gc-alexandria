@@ -4,7 +4,8 @@
   import { onMount, setContext } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
-  import { cleanupNdk } from "$lib/ndk";
+  import { cleanupNdk, getPersistedLogin } from "$lib/ndk";
+  import { userStore, loginMethodStorageKey } from "$lib/stores/userStore";
   import type { LayoutProps } from "./$types";
 
   // Define children prop for Svelte 5
@@ -24,6 +25,90 @@
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
+
+    // AI-NOTE: 2025-01-24 - Restore authentication state from localStorage on page load
+    // This function automatically restores the user's login state when the page is refreshed,
+    // preventing the user from being logged out unexpectedly. It handles extension, npub, and Amber logins.
+    async function restoreAuthentication() {
+      try {
+        // Check if user was previously logged in
+        const persistedPubkey = getPersistedLogin();
+        const loginMethod = localStorage.getItem(loginMethodStorageKey);
+        const logoutFlag = localStorage.getItem("alexandria/logout/flag");
+        
+        console.log("Layout: Checking for persisted authentication...");
+        console.log("Layout: Persisted pubkey:", persistedPubkey);
+        console.log("Layout: Login method:", loginMethod);
+        console.log("Layout: Logout flag:", logoutFlag);
+        
+        // If there's a logout flag, don't restore authentication
+        if (logoutFlag === "true") {
+          console.log("Layout: Logout flag found, skipping authentication restoration");
+          localStorage.removeItem("alexandria/logout/flag");
+          return;
+        }
+        
+        // If we have a persisted pubkey and login method, restore the session
+        if (persistedPubkey && loginMethod) {
+          console.log("Layout: Found persisted authentication, attempting to restore...");
+          
+          const currentUserState = $userStore;
+          
+          // Only restore if not already signed in
+          if (!currentUserState.signedIn) {
+            console.log("Layout: User not currently signed in, restoring authentication...");
+            
+            if (loginMethod === "extension") {
+              // For extension login, we need to check if the extension is available
+              if (typeof window !== "undefined" && window.nostr) {
+                try {
+                  console.log("Layout: Attempting to restore extension login...");
+                  // Import the login function dynamically to avoid circular dependencies
+                  const { loginWithExtension } = await import("$lib/stores/userStore");
+                  await loginWithExtension(data.ndk);
+                  console.log("Layout: Extension login restored successfully");
+                } catch (error) {
+                  console.warn("Layout: Failed to restore extension login:", error);
+                  // Clear the persisted login if restoration fails
+                  localStorage.removeItem("alexandria/login/pubkey");
+                  localStorage.removeItem(loginMethodStorageKey);
+                }
+              } else {
+                console.log("Layout: Extension not available, clearing persisted login");
+                localStorage.removeItem("alexandria/login/pubkey");
+                localStorage.removeItem(loginMethodStorageKey);
+              }
+            } else if (loginMethod === "npub") {
+              // For npub login, we can restore it directly
+              try {
+                console.log("Layout: Attempting to restore npub login...");
+                const { loginWithNpub } = await import("$lib/stores/userStore");
+                await loginWithNpub(persistedPubkey, data.ndk);
+                console.log("Layout: npub login restored successfully");
+              } catch (error) {
+                console.warn("Layout: Failed to restore npub login:", error);
+                localStorage.removeItem("alexandria/login/pubkey");
+                localStorage.removeItem(loginMethodStorageKey);
+              }
+            } else if (loginMethod === "amber") {
+              // For Amber login, we can't automatically restore due to the QR code requirement
+              // Set a flag to show the fallback modal
+              console.log("Layout: Amber login detected, setting fallback flag");
+              localStorage.setItem("alexandria/amber/fallback", "1");
+            }
+          } else {
+            console.log("Layout: User already signed in, skipping restoration");
+          }
+        } else {
+          console.log("Layout: No persisted authentication found");
+        }
+      } catch (error) {
+        console.error("Layout: Error during authentication restoration:", error);
+      }
+    }
+    
+    // Restore authentication on mount
+    restoreAuthentication();
 
     // AI-NOTE: Global click handler for wikilinks and hashtags to avoid breaking amber session
     function handleInternalLinkClick(event: MouseEvent) {
