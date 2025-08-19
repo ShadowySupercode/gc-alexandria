@@ -53,7 +53,7 @@ export interface NetworkNode extends SimulationNodeDatum {
   tagType?: string; // Type of tag (t, p, e, etc.)
   tagValue?: string; // The tag value
   connectedNodes?: string[]; // IDs of nodes that have this tag
-  
+
   // Person anchor specific fields
   isPersonAnchor?: boolean; // Whether this is a person anchor node
   pubkey?: string; // The person's public key

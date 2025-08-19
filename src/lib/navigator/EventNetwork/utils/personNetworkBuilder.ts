@@ -5,9 +5,9 @@
  */
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type { NetworkNode, NetworkLink } from "../types";
-import { getDisplayNameSync, batchFetchProfiles } from "$lib/utils/profileCache";
-import { SeededRandom, createDebugFunction } from "./common";
+import type { NetworkLink, NetworkNode } from "../types";
+import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { createDebugFunction, SeededRandom } from "./common";
 
 const PERSON_ANCHOR_RADIUS = 15;
 const PERSON_ANCHOR_PLACEMENT_RADIUS = 1000;
@@ -15,7 +15,6 @@ const MAX_PERSON_NODES = 20; // Default limit for person nodes
 
 // Debug function
 const debug = createDebugFunction("PersonNetworkBuilder");
-
 
 /**
  * Creates a deterministic seed from a string
@@ -42,13 +41,16 @@ export interface PersonConnection {
  */
 export function extractUniquePersons(
   events: NDKEvent[],
-  followListEvents?: NDKEvent[]
+  followListEvents?: NDKEvent[],
 ): Map<string, PersonConnection> {
   // Map of pubkey -> PersonConnection
   const personMap = new Map<string, PersonConnection>();
-  
-  debug("Extracting unique persons", { eventCount: events.length, followListCount: followListEvents?.length || 0 });
-  
+
+  debug("Extracting unique persons", {
+    eventCount: events.length,
+    followListCount: followListEvents?.length || 0,
+  });
+
   // First collect pubkeys from follow list events
   const followListPubkeys = new Set<string>();
   if (followListEvents && followListEvents.length > 0) {
@@ -60,10 +62,10 @@ export function extractUniquePersons(
       // People in follow lists (p tags)
       if (event.tags) {
         event.tags
-          .filter(tag => {
-            tag[0] === 'p'
+          .filter((tag) => {
+            tag[0] === "p";
           })
-          .forEach(tag => {
+          .forEach((tag) => {
             followListPubkeys.add(tag[1]);
           });
       }
@@ -79,7 +81,7 @@ export function extractUniquePersons(
         personMap.set(event.pubkey, {
           signedByEventIds: new Set(),
           referencedInEventIds: new Set(),
-          isFromFollowList: followListPubkeys.has(event.pubkey)
+          isFromFollowList: followListPubkeys.has(event.pubkey),
         });
       }
       personMap.get(event.pubkey)!.signedByEventIds.add(event.id);
@@ -87,14 +89,14 @@ export function extractUniquePersons(
 
     // Track referenced connections from "p" tags
     if (event.tags) {
-      event.tags.forEach(tag => {
+      event.tags.forEach((tag) => {
         if (tag[0] === "p" && tag[1]) {
           const referencedPubkey = tag[1];
           if (!personMap.has(referencedPubkey)) {
             personMap.set(referencedPubkey, {
               signedByEventIds: new Set(),
               referencedInEventIds: new Set(),
-              isFromFollowList: followListPubkeys.has(referencedPubkey)
+              isFromFollowList: followListPubkeys.has(referencedPubkey),
             });
           }
           personMap.get(referencedPubkey)!.referencedInEventIds.add(event.id);
@@ -102,7 +104,7 @@ export function extractUniquePersons(
       });
     }
   });
-  
+
   debug("Extracted persons", { personCount: personMap.size });
 
   return personMap;
@@ -115,7 +117,7 @@ function buildEligiblePerson(
   pubkey: string,
   connection: PersonConnection,
   showSignedBy: boolean,
-  showReferenced: boolean
+  showReferenced: boolean,
 ): {
   pubkey: string;
   connection: PersonConnection;
@@ -125,11 +127,11 @@ function buildEligiblePerson(
   const connectedEventIds = new Set<string>();
 
   if (showSignedBy) {
-    connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
+    connection.signedByEventIds.forEach((id) => connectedEventIds.add(id));
   }
 
   if (showReferenced) {
-    connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
+    connection.referencedInEventIds.forEach((id) => connectedEventIds.add(id));
   }
 
   if (connectedEventIds.size === 0) {
@@ -140,7 +142,7 @@ function buildEligiblePerson(
     pubkey,
     connection,
     connectedEventIds,
-    totalConnections: connectedEventIds.size
+    totalConnections: connectedEventIds.size,
   };
 }
 
@@ -155,7 +157,7 @@ function getEligiblePersons(
   personMap: Map<string, PersonConnection>,
   showSignedBy: boolean,
   showReferenced: boolean,
-  limit: number
+  limit: number,
 ): EligiblePerson[] {
   // Build eligible persons and keep only top N using a min-heap or partial sort
   const eligible: EligiblePerson[] = [];
@@ -163,16 +165,20 @@ function getEligiblePersons(
   for (const [pubkey, connection] of personMap) {
     let totalConnections = 0;
     if (showSignedBy) totalConnections += connection.signedByEventIds.size;
-    if (showReferenced) totalConnections += connection.referencedInEventIds.size;
+    if (showReferenced) {
+      totalConnections += connection.referencedInEventIds.size;
+    }
     if (totalConnections === 0) continue;
 
     // Only build the set if this person is eligible
     const connectedEventIds = new Set<string>();
     if (showSignedBy) {
-      connection.signedByEventIds.forEach(id => connectedEventIds.add(id));
+      connection.signedByEventIds.forEach((id) => connectedEventIds.add(id));
     }
     if (showReferenced) {
-      connection.referencedInEventIds.forEach(id => connectedEventIds.add(id));
+      connection.referencedInEventIds.forEach((id) =>
+        connectedEventIds.add(id)
+      );
     }
 
     eligible.push({ pubkey, connection, totalConnections, connectedEventIds });
@@ -186,39 +192,33 @@ function getEligiblePersons(
 /**
  * Creates person anchor nodes
  */
-export async function createPersonAnchorNodes(
+export function createPersonAnchorNodes(
   personMap: Map<string, PersonConnection>,
   width: number,
   height: number,
   showSignedBy: boolean,
   showReferenced: boolean,
-  limit: number = MAX_PERSON_NODES
-): Promise<{ nodes: NetworkNode[], totalCount: number }> {
+  limit: number = MAX_PERSON_NODES,
+): { nodes: NetworkNode[]; totalCount: number } {
   const anchorNodes: NetworkNode[] = [];
 
   const centerX = width / 2;
   const centerY = height / 2;
 
   // Calculate eligible persons and their connection counts
-  const eligiblePersons = getEligiblePersons(personMap, showSignedBy, showReferenced, limit);
-
-  // Cache profiles for person anchor nodes
-  const personPubkeys = eligiblePersons.map(p => p.pubkey);
-  if (personPubkeys.length > 0) {
-    debug("Caching profiles for person anchor nodes", { count: personPubkeys.length });
-    try {
-      await batchFetchProfiles(personPubkeys);
-    } catch (error) {
-      debug("Failed to cache profiles for person anchor nodes", error);
-    }
-  }
+  const eligiblePersons = getEligiblePersons(
+    personMap,
+    showSignedBy,
+    showReferenced,
+    limit,
+  );
 
   // Create nodes for the limited set
-  debug("Creating person anchor nodes", { 
-    eligibleCount: eligiblePersons.length, 
+  debug("Creating person anchor nodes", {
+    eligibleCount: eligiblePersons.length,
     limitedCount: eligiblePersons.length,
     showSignedBy,
-    showReferenced 
+    showReferenced,
   });
 
   eligiblePersons.forEach(({ pubkey, connection, connectedEventIds }) => {
@@ -237,7 +237,8 @@ export async function createPersonAnchorNodes(
     const anchorNode: NetworkNode = {
       id: `person-anchor-${pubkey}`,
       title: displayName,
-      content: `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
+      content:
+        `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
       author: "",
       kind: 0, // Special kind for anchors
       type: "PersonAnchor",
@@ -256,11 +257,14 @@ export async function createPersonAnchorNodes(
     anchorNodes.push(anchorNode);
   });
 
-  debug("Created person anchor nodes", { count: anchorNodes.length, totalEligible: eligiblePersons.length });
+  debug("Created person anchor nodes", {
+    count: anchorNodes.length,
+    totalEligible: eligiblePersons.length,
+  });
 
   return {
     nodes: anchorNodes,
-    totalCount: eligiblePersons.length
+    totalCount: eligiblePersons.length,
   };
 }
 
@@ -275,10 +279,13 @@ export interface PersonLink extends NetworkLink {
 export function createPersonLinks(
   personAnchors: NetworkNode[],
   nodes: NetworkNode[],
-  personMap: Map<string, PersonConnection>
+  personMap: Map<string, PersonConnection>,
 ): PersonLink[] {
-  debug("Creating person links", { anchorCount: personAnchors.length, nodeCount: nodes.length });
-  
+  debug("Creating person links", {
+    anchorCount: personAnchors.length,
+    nodeCount: nodes.length,
+  });
+
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   const links: PersonLink[] = personAnchors.flatMap((anchor) => {
@@ -297,11 +304,11 @@ export function createPersonLinks(
         return undefined;
       }
 
-      let connectionType: 'signed-by' | 'referenced' | undefined;
+      let connectionType: "signed-by" | "referenced" | undefined;
       if (connection.signedByEventIds.has(nodeId)) {
-        connectionType = 'signed-by';
+        connectionType = "signed-by";
       } else if (connection.referencedInEventIds.has(nodeId)) {
-        connectionType = 'referenced';
+        connectionType = "referenced";
       }
 
       const link: PersonLink = {
@@ -310,7 +317,7 @@ export function createPersonLinks(
         isSequential: false,
         connectionType,
       };
-      
+
       return link;
     }).filter((link): link is PersonLink => link !== undefined); // Remove undefineds and type guard
   });
@@ -335,9 +342,9 @@ export interface PersonAnchorInfo {
  */
 export function extractPersonAnchorInfo(
   personAnchors: NetworkNode[],
-  personMap: Map<string, PersonConnection>
+  personMap: Map<string, PersonConnection>,
 ): PersonAnchorInfo[] {
-  return personAnchors.map(anchor => {
+  return personAnchors.map((anchor) => {
     const connection = personMap.get(anchor.pubkey || "");
     return {
       pubkey: anchor.pubkey || "",

@@ -1,18 +1,16 @@
-import { ndkInstance } from "../ndk.ts";
 import { fetchEventWithFallback, NDKRelaySetFromNDK } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { Filter } from "./search_types.ts";
 import { get } from "svelte/store";
-import { wellKnownUrl, isValidNip05Address } from "./search_utils.ts";
+import { isValidNip05Address, wellKnownUrl } from "./search_utils.ts";
 import { TIMEOUTS, VALIDATION } from "./search_constants.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 
 /**
  * Search for a single event by ID or filter
  */
-export async function searchEvent(query: string): Promise<NDKEvent | null> {
-  const ndk = get(ndkInstance);
+export async function searchEvent(query: string, ndk: NDK): Promise<NDKEvent | null> {
   if (!ndk) {
     console.warn("[Search] No NDK instance available");
     return null;
@@ -22,31 +20,39 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
   // This ensures searches can proceed even if some relay types are not available
   let attempts = 0;
   const maxAttempts = 5; // Reduced since we'll use fallback relays
-  
+
   while (attempts < maxAttempts) {
     // Check if we have any relays in the pool
     if (ndk.pool.relays.size > 0) {
       console.log(`[Search] Found ${ndk.pool.relays.size} relays in NDK pool`);
       break;
     }
-    
+
     // Also check if we have any active relays
     const inboxRelays = get(activeInboxRelays);
     const outboxRelays = get(activeOutboxRelays);
     if (inboxRelays.length > 0 || outboxRelays.length > 0) {
-      console.log(`[Search] Found active relays - inbox: ${inboxRelays.length}, outbox: ${outboxRelays.length}`);
+      console.log(
+        `[Search] Found active relays - inbox: ${inboxRelays.length}, outbox: ${outboxRelays.length}`,
+      );
       break;
     }
-    
-    console.log(`[Search] Waiting for relays to be available (attempt ${attempts + 1}/${maxAttempts})`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+
+    console.log(
+      `[Search] Waiting for relays to be available (attempt ${
+        attempts + 1
+      }/${maxAttempts})`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
     attempts++;
   }
 
   // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let fetchEventWithFallback handle fallbacks
   // The fetchEventWithFallback function will use all available relays including fallback relays
   if (ndk.pool.relays.size === 0) {
-    console.warn("[Search] No relays in pool, but proceeding with search - fallback relays will be used");
+    console.warn(
+      "[Search] No relays in pool, but proceeding with search - fallback relays will be used",
+    );
   }
 
   // Clean the query and normalize to lowercase
@@ -60,14 +66,14 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     // Try as event id
     filterOrId = cleanedQuery;
     const eventResult = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       filterOrId,
       TIMEOUTS.EVENT_FETCH,
     );
     // Always try as pubkey (profile event) as well
     const profileFilter = { kinds: [0], authors: [cleanedQuery] };
     const profileEvent = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       profileFilter,
       TIMEOUTS.EVENT_FETCH,
     );
@@ -89,50 +95,70 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
     try {
       const decoded = nip19.decode(cleanedQuery);
       if (!decoded) throw new Error("Invalid identifier");
-      
+
       console.log(`[Search] Decoded identifier:`, {
         type: decoded.type,
         data: decoded.data,
-        query: cleanedQuery
+        query: cleanedQuery,
       });
-      
+
       switch (decoded.type) {
         case "nevent":
           console.log(`[Search] Processing nevent:`, {
             id: decoded.data.id,
             kind: decoded.data.kind,
-            relays: decoded.data.relays
+            relays: decoded.data.relays,
           });
-          
+
           // Use the relays from the nevent if available
           if (decoded.data.relays && decoded.data.relays.length > 0) {
-            console.log(`[Search] Using relays from nevent:`, decoded.data.relays);
-            
+            console.log(
+              `[Search] Using relays from nevent:`,
+              decoded.data.relays,
+            );
+
             // Try to fetch the event using the nevent's relays
             try {
               // Create a temporary relay set for this search
-              const neventRelaySet = NDKRelaySetFromNDK.fromRelayUrls(decoded.data.relays, ndk);
-              
+              const neventRelaySet = NDKRelaySetFromNDK.fromRelayUrls(
+                decoded.data.relays,
+                ndk,
+              );
+
               if (neventRelaySet.relays.size > 0) {
-                console.log(`[Search] Created relay set with ${neventRelaySet.relays.size} relays from nevent`);
-                
+                console.log(
+                  `[Search] Created relay set with ${neventRelaySet.relays.size} relays from nevent`,
+                );
+
                 // Try to fetch the event using the nevent's relays
                 const event = await ndk
-                  .fetchEvent({ ids: [decoded.data.id] }, undefined, neventRelaySet)
+                  .fetchEvent(
+                    { ids: [decoded.data.id] },
+                    undefined,
+                    neventRelaySet,
+                  )
                   .withTimeout(TIMEOUTS.EVENT_FETCH);
-                
+
                 if (event) {
-                  console.log(`[Search] Found event using nevent relays:`, event.id);
+                  console.log(
+                    `[Search] Found event using nevent relays:`,
+                    event.id,
+                  );
                   return event;
                 } else {
-                  console.log(`[Search] Event not found on nevent relays, trying default relays`);
+                  console.log(
+                    `[Search] Event not found on nevent relays, trying default relays`,
+                  );
                 }
               }
             } catch (error) {
-              console.warn(`[Search] Error fetching from nevent relays:`, error);
+              console.warn(
+                `[Search] Error fetching from nevent relays:`,
+                error,
+              );
             }
           }
-          
+
           filterOrId = decoded.data.id;
           break;
         case "note":
@@ -168,7 +194,7 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
 
   try {
     const event = await fetchEventWithFallback(
-      get(ndkInstance),
+      ndk,
       filterOrId,
       TIMEOUTS.EVENT_FETCH,
     );
@@ -190,6 +216,7 @@ export async function searchEvent(query: string): Promise<NDKEvent | null> {
  */
 export async function searchNip05(
   nip05Address: string,
+  ndk: NDK,
 ): Promise<NDKEvent | null> {
   // NIP-05 address pattern: user@domain
   if (!isValidNip05Address(nip05Address)) {
@@ -227,7 +254,7 @@ export async function searchNip05(
     if (pubkey) {
       const profileFilter = { kinds: [0], authors: [pubkey] };
       const profileEvent = await fetchEventWithFallback(
-        get(ndkInstance),
+        ndk,
         profileFilter,
         TIMEOUTS.EVENT_FETCH,
       );
@@ -258,6 +285,7 @@ export async function searchNip05(
  */
 export async function findContainingIndexEvents(
   contentEvent: NDKEvent,
+  ndk: NDK,
 ): Promise<NDKEvent[]> {
   // Support all content event kinds that can be contained in indexes
   const contentEventKinds = [30041, 30818, 30040, 30023];
@@ -266,8 +294,6 @@ export async function findContainingIndexEvents(
   }
 
   try {
-    const ndk = get(ndkInstance);
-
     // Search for 30040 events that reference this content event
     // We need to search for events that have an 'a' tag or 'e' tag referencing this event
     const contentEventId = contentEvent.id;

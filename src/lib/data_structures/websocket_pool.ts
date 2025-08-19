@@ -42,7 +42,10 @@ export class WebSocketPool {
    * @param maxConnections - The maximum number of simultaneous WebSocket connections. Defaults to
    * 16.
    */
-  private constructor(idleTimeoutMs: number = 60000, maxConnections: number = 16) {
+  private constructor(
+    idleTimeoutMs: number = 60000,
+    maxConnections: number = 16,
+  ) {
     this.#idleTimeoutMs = idleTimeoutMs;
     this.#maxConnections = maxConnections;
   }
@@ -71,15 +74,17 @@ export class WebSocketPool {
     }
 
     if (limit == null || isNaN(limit)) {
-      throw new Error('[WebSocketPool] Connection limit must be a number.');
+      throw new Error("[WebSocketPool] Connection limit must be a number.");
     }
 
     if (limit <= 0) {
-      throw new Error('[WebSocketPool] Connection limit must be greater than 0.');
+      throw new Error(
+        "[WebSocketPool] Connection limit must be greater than 0.",
+      );
     }
 
     if (!Number.isInteger(limit)) {
-      throw new Error('[WebSocketPool] Connection limit must be an integer.');
+      throw new Error("[WebSocketPool] Connection limit must be an integer.");
     }
 
     this.#maxConnections = limit;
@@ -106,15 +111,15 @@ export class WebSocketPool {
     }
 
     if (timeoutMs == null || isNaN(timeoutMs)) {
-      throw new Error('[WebSocketPool] Idle timeout must be a number.');
+      throw new Error("[WebSocketPool] Idle timeout must be a number.");
     }
 
     if (timeoutMs <= 0) {
-      throw new Error('[WebSocketPool] Idle timeout must be greater than 0.');
+      throw new Error("[WebSocketPool] Idle timeout must be greater than 0.");
     }
 
     if (!Number.isInteger(timeoutMs)) {
-      throw new Error('[WebSocketPool] Idle timeout must be an integer.');
+      throw new Error("[WebSocketPool] Idle timeout must be an integer.");
     }
 
     this.#idleTimeoutMs = timeoutMs;
@@ -151,9 +156,9 @@ export class WebSocketPool {
 
       if (this.#pool.size >= this.#maxConnections) {
         return new Promise((resolve, reject) => {
-          this.#waitingQueue.push({ 
-            url: normalizedUrl, 
-            resolve: (handle) => resolve(handle.ws), 
+          this.#waitingQueue.push({
+            url: normalizedUrl,
+            resolve: (handle) => resolve(handle.ws),
             reject,
           });
         });
@@ -163,7 +168,7 @@ export class WebSocketPool {
       return newHandle.ws;
     } catch (error) {
       throw new Error(
-        `[WebSocketPool] Failed to acquire connection for ${normalizedUrl}: ${error}`
+        `[WebSocketPool] Failed to acquire connection for ${normalizedUrl}: ${error}`,
       );
     }
   }
@@ -179,7 +184,9 @@ export class WebSocketPool {
     const normalizedUrl = this.#normalizeUrl(ws.url);
     const handle = this.#pool.get(normalizedUrl);
     if (!handle) {
-      throw new Error('[WebSocketPool] Attempted to release an unmanaged WebSocket connection.');
+      throw new Error(
+        "[WebSocketPool] Attempted to release an unmanaged WebSocket connection.",
+      );
     }
 
     if (--handle.refCount === 0) {
@@ -191,8 +198,10 @@ export class WebSocketPool {
    * Closes all WebSocket connections and "drains" the pool.
    */
   public drain(): void {
-    console.debug(`[WebSocketPool] Draining pool with ${this.#pool.size} connections and ${this.#waitingQueue.length} waiting requests`);
-    
+    console.debug(
+      `[WebSocketPool] Draining pool with ${this.#pool.size} connections and ${this.#waitingQueue.length} waiting requests`,
+    );
+
     // Clear all idle timers first
     for (const handle of this.#pool.values()) {
       this.#clearIdleTimer(handle);
@@ -200,7 +209,7 @@ export class WebSocketPool {
 
     // Reject all waiting requests
     for (const { reject } of this.#waitingQueue) {
-      reject(new Error('[WebSocketPool] Draining pool.'));
+      reject(new Error("[WebSocketPool] Draining pool."));
     }
     this.#waitingQueue = [];
 
@@ -211,8 +220,8 @@ export class WebSocketPool {
       }
     }
     this.#pool.clear();
-    
-    console.debug('[WebSocketPool] Pool drained successfully');
+
+    console.debug("[WebSocketPool] Pool drained successfully");
   }
 
   // #endregion
@@ -239,7 +248,9 @@ export class WebSocketPool {
           this.#removeSocket(handle);
           this.#processWaitingQueue();
           reject(
-            new Error(`[WebSocketPool] WebSocket connection failed for ${url}: ${event.type}`)
+            new Error(
+              `[WebSocketPool] WebSocket connection failed for ${url}: ${event.type}`,
+            ),
           );
         };
       } catch (error) {
@@ -251,7 +262,7 @@ export class WebSocketPool {
 
   #removeSocket(handle: WebSocketHandle): void {
     this.#clearIdleTimer(handle);
-    
+
     // Clean up event listeners to prevent memory leaks
     // AI-NOTE: Code that checks out connections should clean up its own listener callbacks before
     // releasing the connection to the pool.
@@ -261,11 +272,13 @@ export class WebSocketPool {
       handle.ws.onclose = null;
       handle.ws.onmessage = null;
     }
-    
+
     const url = this.#normalizeUrl(handle.ws.url);
     this.#pool.delete(url);
 
-    console.debug(`[WebSocketPool] Removed socket for ${url}, pool size: ${this.#pool.size}`);
+    console.debug(
+      `[WebSocketPool] Removed socket for ${url}, pool size: ${this.#pool.size}`,
+    );
 
     this.#processWaitingQueue();
   }
@@ -283,7 +296,9 @@ export class WebSocketPool {
     handle.idleTimer = setTimeout(() => {
       const refCount = handle.refCount;
       if (refCount === 0 && handle.ws.readyState === WebSocket.OPEN) {
-        console.debug(`[WebSocketPool] Closing idle connection to ${handle.ws.url}`);
+        console.debug(
+          `[WebSocketPool] Closing idle connection to ${handle.ws.url}`,
+        );
         handle.ws.close();
         this.#removeSocket(handle);
       }
@@ -331,7 +346,7 @@ export class WebSocketPool {
 
   #checkOut(handle: WebSocketHandle): void {
     if (handle.refCount == null) {
-      throw new Error('[WebSocketPool] Handle refCount unexpectedly null.');
+      throw new Error("[WebSocketPool] Handle refCount unexpectedly null.");
     }
 
     ++handle.refCount;
@@ -346,10 +361,10 @@ export class WebSocketPool {
 
       // The logic to remove a trailing slash for connection coalescing can be kept,
       // but should be done on the normalized string.
-      if (urlObj.pathname !== '/' && normalized.endsWith('/')) {
+      if (urlObj.pathname !== "/" && normalized.endsWith("/")) {
         normalized = normalized.slice(0, -1);
       }
-      
+
       return normalized;
     } catch {
       // If URL is invalid, return it as-is and let WebSocket constructor handle the error.

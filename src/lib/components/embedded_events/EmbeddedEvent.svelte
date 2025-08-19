@@ -1,19 +1,15 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
-  import { parseRepostContent } from "$lib/utils/notification_utils";
-  import EmbeddedEventRenderer from "./EmbeddedEventRenderer.svelte";
-  import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, ndkInstance } from "$lib/ndk";
+  import { parsedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { naddrEncode } from "$lib/utils";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { getEventType } from "$lib/utils/mime";
   import { nip19 } from "nostr-tools";
-  import { get } from "svelte/store";
+  import { repostKinds } from "$lib/consts";
 
   const {
     nostrIdentifier,
@@ -22,6 +18,8 @@
     nostrIdentifier: string;
     nestingLevel?: number;
   }>();
+
+  const ndk = getNdkContext();
 
   let event = $state<NDKEvent | null>(null);
   let profile = $state<{
@@ -36,7 +34,6 @@
   } | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
-  let parsedContent = $state("");
   let authorDisplayName = $state<string | undefined>(undefined);
 
   // Maximum nesting level allowed
@@ -62,7 +59,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) {
         throw new Error("No NDK instance available");
       }
@@ -117,16 +113,6 @@
             (userProfile as any).display_name ||
             userProfile.name ||
             event.pubkey;
-        }
-      }
-
-      // Parse content if available
-      if (event?.content) {
-        if (event.kind === 6 || event.kind === 16) {
-          parsedContent = await parseRepostContent(event.content);
-        } else {
-          // Use embedded markup parser for nested events
-          parsedContent = await parseEmbeddedMarkup(event.content, nestingLevel + 1);
         }
       }
 
@@ -194,10 +180,6 @@
     if (event) {
       goto(`/events?id=${nostrIdentifier}`);
     }
-  }
-
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
   }
 
   function getNaddrUrl(event: NDKEvent): string {
@@ -303,17 +285,15 @@
     {/if}
 
     <!-- Content for text events -->
-    {#if event.kind === 1 && parsedContent}
+    {#if event.kind === 1 || repostKinds.includes(event.kind)}
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
-        <EmbeddedEventRenderer content={parsedContent.slice(0, 300)} nestingLevel={nestingLevel + 1} />
-        {#if parsedContent.length > 300}
+        {@render parsedContent(event.content.slice(0, 300))}
+        {#if event.content.length > 300}
           <span class="text-gray-500 dark:text-gray-400">...</span>
         {/if}
       </div>
-    {/if}
-
     <!-- Profile content -->
-    {#if event.kind === 0 && profile}
+    {:else if event.kind === 0 && profile}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if profile.picture}
           <img 

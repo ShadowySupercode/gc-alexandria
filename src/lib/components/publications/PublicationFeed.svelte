@@ -1,6 +1,6 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
-  import { ndkInstance, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
@@ -10,7 +10,7 @@
     toNpub,
   } from "$lib/utils/nostrUtils";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
-  import { NDKEvent } from "@nostr-dev-kit/ndk";
+  import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
@@ -22,6 +22,8 @@
     showOnlyMyPublications?: boolean;
     onEventCountUpdate?: (counts: { displayed: number; total: number }) => void;
   }>();
+
+  const ndk = getNdkContext();
 
   // Component state
   let eventsInView: NDKEvent[] = $state([]);
@@ -35,7 +37,6 @@
 
   // Relay management
   let allRelays: string[] = $state([]);
-  let ndk = $derived($ndkInstance);
 
   // Event management
   let allIndexEvents: NDKEvent[] = $state([]);

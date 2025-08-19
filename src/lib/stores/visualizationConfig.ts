@@ -1,4 +1,4 @@
-import { writable, derived, get } from "svelte/store";
+import { derived, get, writable } from "svelte/store";
 
 export interface EventKindConfig {
   kind: number;
@@ -39,8 +39,10 @@ function createVisualizationConfig() {
     eventConfigs: DEFAULT_EVENT_CONFIGS,
     searchThroughFetched: true,
   };
-  
-  const { subscribe, set, update } = writable<VisualizationConfig>(initialConfig);
+
+  const { subscribe, set, update } = writable<VisualizationConfig>(
+    initialConfig,
+  );
 
   function reset() {
     set(initialConfig);
@@ -52,19 +54,19 @@ function createVisualizationConfig() {
       if (config.eventConfigs.some((ec) => ec.kind === kind)) {
         return config;
       }
-      
+
       const newConfig: EventKindConfig = { kind, limit, enabled: true };
-      
+
       // Add nestedLevels for 30040
       if (kind === 30040) {
         newConfig.nestedLevels = 1;
       }
-      
+
       // Add depth for kind 3
       if (kind === 3) {
         newConfig.depth = 0;
       }
-      
+
       return {
         ...config,
         eventConfigs: [...config.eventConfigs, newConfig],
@@ -83,7 +85,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, limit } : ec,
+        ec.kind === kind ? { ...ec, limit } : ec
       ),
     }));
   }
@@ -92,7 +94,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec,
+        ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec
       ),
     }));
   }
@@ -101,7 +103,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === 3 ? { ...ec, depth: depth } : ec,
+        ec.kind === 3 ? { ...ec, depth: depth } : ec
       ),
     }));
   }
@@ -110,7 +112,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec,
+        ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec
       ),
     }));
   }
@@ -134,7 +136,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec,
+        ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec
       ),
     }));
   }
@@ -158,10 +160,12 @@ function createVisualizationConfig() {
 export const visualizationConfig = createVisualizationConfig();
 
 // Helper to get all enabled event kinds
-export const enabledEventKinds = derived(visualizationConfig, ($config) =>
-  $config.eventConfigs
-    .filter((ec) => ec.enabled !== false)
-    .map((ec) => ec.kind),
+export const enabledEventKinds = derived(
+  visualizationConfig,
+  ($config) =>
+    $config.eventConfigs
+      .filter((ec) => ec.enabled !== false)
+      .map((ec) => ec.kind),
 );
 
 /**
@@ -169,7 +173,10 @@ export const enabledEventKinds = derived(visualizationConfig, ($config) =>
  * @param config - The VisualizationConfig object.
  * @param kind - The event kind number to check.
  */
-export function isKindEnabledFn(config: VisualizationConfig, kind: number): boolean {
+export function isKindEnabledFn(
+  config: VisualizationConfig,
+  kind: number,
+): boolean {
   const eventConfig = config.eventConfigs.find((ec) => ec.kind === kind);
   // If not found, return false. Otherwise, return true unless explicitly disabled.
   return !!eventConfig && eventConfig.enabled !== false;
@@ -178,5 +185,5 @@ export function isKindEnabledFn(config: VisualizationConfig, kind: number): bool
 // Derived store: returns a function that checks if a kind is enabled in the current config.
 export const isKindEnabledStore = derived(
   visualizationConfig,
-  ($config) => (kind: number) => isKindEnabledFn($config, kind)
+  ($config) => (kind: number) => isKindEnabledFn($config, kind),
 );

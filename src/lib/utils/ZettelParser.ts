@@ -41,7 +41,7 @@ export function parseZettelSection(section: string): ZettelSection {
     const trimmed = line.trim();
     if (trimmed.startsWith("==")) {
       title = trimmed.replace(/^==+/, "").trim();
-      
+
       // Process header metadata (everything after title until blank line)
       let j = i + 1;
       while (j < lines.length && lines[j].trim() !== "") {
@@ -54,12 +54,12 @@ export function parseZettelSection(section: string): ZettelSection {
           j++;
         }
       }
-      
+
       // Skip the blank line
       if (j < lines.length && lines[j].trim() === "") {
         j++;
       }
-      
+
       // Everything after the blank line is content
       for (let k = j; k < lines.length; k++) {
         contentLines.push(lines[k]);
@@ -100,13 +100,13 @@ export function extractTags(content: string): string[][] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    
+
     if (trimmed.startsWith("==")) {
       // Process header metadata (everything after title until blank line)
       let j = i + 1;
       while (j < lines.length && lines[j].trim() !== "") {
         const headerLine = lines[j].trim();
-        
+
         if (headerLine.startsWith(":")) {
           // Parse AsciiDoc attribute format: :tagname: value
           const match = headerLine.match(/^:([^:]+):\s*(.*)$/);

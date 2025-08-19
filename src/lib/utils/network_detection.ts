@@ -4,18 +4,18 @@ import { deduplicateRelayUrls } from "./relay_management.ts";
  * Network conditions for relay selection
  */
 export enum NetworkCondition {
-  ONLINE = 'online',
-  SLOW = 'slow',
-  OFFLINE = 'offline'
+  ONLINE = "online",
+  SLOW = "slow",
+  OFFLINE = "offline",
 }
 
 /**
  * Network connectivity test endpoints
  */
 const NETWORK_ENDPOINTS = [
-  'https://www.google.com/favicon.ico',
-  'https://httpbin.org/status/200',
-  'https://api.github.com/zen'
+  "https://www.google.com/favicon.ico",
+  "https://httpbin.org/status/200",
+  "https://api.github.com/zen",
 ];
 
 /**
@@ -27,20 +27,23 @@ export async function isNetworkOnline(): Promise<boolean> {
     try {
       // Use a simple fetch without HEAD method to avoid CORS issues
       await fetch(endpoint, {
-        method: 'GET',
-        cache: 'no-cache',
+        method: "GET",
+        cache: "no-cache",
         signal: AbortSignal.timeout(3000),
-        mode: 'no-cors' // Use no-cors mode to avoid CORS issues
+        mode: "no-cors", // Use no-cors mode to avoid CORS issues
       });
       // With no-cors mode, we can't check response.ok, so we assume success if no error
       return true;
     } catch (error) {
-      console.debug(`[network_detection.ts] Failed to reach ${endpoint}:`, error);
+      console.debug(
+        `[network_detection.ts] Failed to reach ${endpoint}:`,
+        error,
+      );
       continue;
     }
   }
-  
-  console.debug('[network_detection.ts] All network endpoints failed');
+
+  console.debug("[network_detection.ts] All network endpoints failed");
   return false;
 }
 
@@ -50,25 +53,30 @@ export async function isNetworkOnline(): Promise<boolean> {
  */
 export async function testNetworkSpeed(): Promise<number> {
   const startTime = performance.now();
-  
+
   for (const endpoint of NETWORK_ENDPOINTS) {
     try {
       await fetch(endpoint, {
-        method: 'GET',
-        cache: 'no-cache',
+        method: "GET",
+        cache: "no-cache",
         signal: AbortSignal.timeout(5000),
-        mode: 'no-cors' // Use no-cors mode to avoid CORS issues
+        mode: "no-cors", // Use no-cors mode to avoid CORS issues
       });
-      
+
       const endTime = performance.now();
       return endTime - startTime;
     } catch (error) {
-      console.debug(`[network_detection.ts] Speed test failed for ${endpoint}:`, error);
+      console.debug(
+        `[network_detection.ts] Speed test failed for ${endpoint}:`,
+        error,
+      );
       continue;
     }
   }
-  
-  console.debug('[network_detection.ts] Network speed test failed for all endpoints');
+
+  console.debug(
+    "[network_detection.ts] Network speed test failed for all endpoints",
+  );
   return Infinity; // Very slow if it fails
 }
 
@@ -78,21 +86,25 @@ export async function testNetworkSpeed(): Promise<number> {
  */
 export async function detectNetworkCondition(): Promise<NetworkCondition> {
   const isOnline = await isNetworkOnline();
-  
+
   if (!isOnline) {
-    console.debug('[network_detection.ts] Network condition: OFFLINE');
+    console.debug("[network_detection.ts] Network condition: OFFLINE");
     return NetworkCondition.OFFLINE;
   }
-  
+
   const speed = await testNetworkSpeed();
-  
+
   // Consider network slow if response time > 2000ms
   if (speed > 2000) {
-    console.debug(`[network_detection.ts] Network condition: SLOW (${speed.toFixed(0)}ms)`);
+    console.debug(
+      `[network_detection.ts] Network condition: SLOW (${speed.toFixed(0)}ms)`,
+    );
     return NetworkCondition.SLOW;
   }
-  
-  console.debug(`[network_detection.ts] Network condition: ONLINE (${speed.toFixed(0)}ms)`);
+
+  console.debug(
+    `[network_detection.ts] Network condition: ONLINE (${speed.toFixed(0)}ms)`,
+  );
   return NetworkCondition.ONLINE;
 }
 
@@ -108,39 +120,49 @@ export function getRelaySetForNetworkCondition(
   networkCondition: NetworkCondition,
   discoveredLocalRelays: string[],
   lowbandwidthRelays: string[],
-  fullRelaySet: { inboxRelays: string[]; outboxRelays: string[] }
+  fullRelaySet: { inboxRelays: string[]; outboxRelays: string[] },
 ): { inboxRelays: string[]; outboxRelays: string[] } {
   switch (networkCondition) {
     case NetworkCondition.OFFLINE:
       // When offline, use local relays if available, otherwise rely on cache
       // This will be improved when IndexedDB local relay is implemented
       if (discoveredLocalRelays.length > 0) {
-        console.debug('[network_detection.ts] Using local relays (offline)');
+        console.debug("[network_detection.ts] Using local relays (offline)");
         return {
           inboxRelays: discoveredLocalRelays,
-          outboxRelays: discoveredLocalRelays
+          outboxRelays: discoveredLocalRelays,
         };
       } else {
-        console.debug('[network_detection.ts] No local relays available, will rely on cache (offline)');
+        console.debug(
+          "[network_detection.ts] No local relays available, will rely on cache (offline)",
+        );
         return {
           inboxRelays: [],
-          outboxRelays: []
+          outboxRelays: [],
         };
       }
     case NetworkCondition.SLOW: {
       // Local relays + low bandwidth relays when slow (deduplicated)
-      console.debug('[network_detection.ts] Using local + low bandwidth relays (slow network)');
-      const slowInboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...lowbandwidthRelays]);
-      const slowOutboxRelays = deduplicateRelayUrls([...discoveredLocalRelays, ...lowbandwidthRelays]);
+      console.debug(
+        "[network_detection.ts] Using local + low bandwidth relays (slow network)",
+      );
+      const slowInboxRelays = deduplicateRelayUrls([
+        ...discoveredLocalRelays,
+        ...lowbandwidthRelays,
+      ]);
+      const slowOutboxRelays = deduplicateRelayUrls([
+        ...discoveredLocalRelays,
+        ...lowbandwidthRelays,
+      ]);
       return {
         inboxRelays: slowInboxRelays,
-        outboxRelays: slowOutboxRelays
+        outboxRelays: slowOutboxRelays,
       };
     }
     case NetworkCondition.ONLINE:
     default:
       // Full relay set when online
-      console.debug('[network_detection.ts] Using full relay set (online)');
+      console.debug("[network_detection.ts] Using full relay set (online)");
       return fullRelaySet;
   }
 }
@@ -161,14 +183,16 @@ export function startNetworkMonitoring(
   const checkNetwork = async () => {
     try {
       const currentCondition = await detectNetworkCondition();
-      
+
       if (currentCondition !== lastCondition) {
-        console.debug(`[network_detection.ts] Network condition changed: ${lastCondition} -> ${currentCondition}`);
+        console.debug(
+          `[network_detection.ts] Network condition changed: ${lastCondition} -> ${currentCondition}`,
+        );
         lastCondition = currentCondition;
         onNetworkChange(currentCondition);
       }
     } catch (error) {
-      console.warn('[network_detection.ts] Network monitoring error:', error);
+      console.warn("[network_detection.ts] Network monitoring error:", error);
     }
   };
 
@@ -185,4 +209,4 @@ export function startNetworkMonitoring(
       intervalId = null;
     }
   };
-} 
+}

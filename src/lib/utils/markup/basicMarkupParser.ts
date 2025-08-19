@@ -1,17 +1,16 @@
-import * as emoji from "node-emoji";
 import { nip19 } from "nostr-tools";
-import { 
-  processImageWithReveal, 
-  processMediaUrl, 
-  processNostrIdentifiersInText,
-  processEmojiShortcodes,
-  processWebSocketUrls,
-  processHashtags,
+import {
   processBasicTextFormatting,
   processBlockquotes,
+  processEmojiShortcodes,
+  processHashtags,
+  processImageWithReveal,
+  processMediaUrl,
+  processNostrIdentifiersInText,
+  processWebSocketUrls,
   processWikilinks,
-  stripTrackingParams
-} from "./markupServices";
+  stripTrackingParams,
+} from "./markupServices.ts";
 
 /* Regex constants for basic markup parsing */
 
@@ -20,8 +19,6 @@ const MARKUP_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
 const MARKUP_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 // AI-NOTE: 2025-01-24 - Added negative lookbehind (?<!\]\() to prevent processing URLs in markdown syntax
 const DIRECT_LINK = /(?<!["'=])(?<!\]\()(https?:\/\/[^\s<>"]+)(?!["'])/g;
-
-
 
 // Add this helper function near the top:
 function replaceAlexandriaNostrLinks(text: string): string {
@@ -82,12 +79,6 @@ function replaceAlexandriaNostrLinks(text: string): string {
   return text;
 }
 
-
-
-
-
-
-
 function renderListGroup(lines: string[], typeHint?: "ol" | "ul"): string {
   function parseList(
     start: number,
@@ -96,7 +87,9 @@ function renderListGroup(lines: string[], typeHint?: "ol" | "ul"): string {
   ): [string, number] {
     let html = "";
     let i = start;
-    html += `<${type} class="${type === "ol" ? "list-decimal" : "list-disc"} ml-6 mb-2">`;
+    html += `<${type} class="${
+      type === "ol" ? "list-decimal" : "list-disc"
+    } ml-6 mb-2">`;
     while (i < lines.length) {
       const line = lines[i];
       const match = line.match(/^([ \t]*)([*+-]|\d+\.)[ \t]+(.*)$/);
@@ -168,7 +161,9 @@ function processBasicFormatting(content: string): string {
     processedText = processedText.replace(
       MARKUP_LINK,
       (_match, text, url) =>
-        `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
+        `<a href="${
+          stripTrackingParams(url)
+        }" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
     );
 
     // Process WebSocket URLs using shared services
@@ -181,7 +176,7 @@ function processBasicFormatting(content: string): string {
 
     // Process text formatting using shared services
     processedText = processBasicTextFormatting(processedText);
-    
+
     // Process hashtags using shared services
     processedText = processHashtags(processedText);
 
@@ -220,12 +215,6 @@ function processBasicFormatting(content: string): string {
   return processedText;
 }
 
-
-
-
-
-
-
 export async function parseBasicmarkup(text: string): Promise<string> {
   if (!text) return "";
 
@@ -249,9 +238,10 @@ export async function parseBasicmarkup(text: string): Promise<string> {
         // AI-NOTE: 2025-01-24 - Added img tag to skip wrapping to prevent image rendering issues
         // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
-          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i.test(
-            para,
-          )
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i
+            .test(
+              para,
+            )
         ) {
           return para;
         }
@@ -268,6 +258,8 @@ export async function parseBasicmarkup(text: string): Promise<string> {
     return processedText;
   } catch (e: unknown) {
     console.error("Error in parseBasicmarkup:", e);
-    return `<div class="text-red-500">Error processing markup: ${(e as Error)?.message ?? "Unknown error"}</div>`;
+    return `<div class="text-red-500">Error processing markup: ${
+      (e as Error)?.message ?? "Unknown error"
+    }</div>`;
   }
 }

@@ -1,6 +1,9 @@
-import { processImageWithReveal, processNostrIdentifiersInText, processWikilinks, processAsciiDocAnchors } from "./markupServices";
-
-
+import {
+  processAsciiDocAnchors,
+  processImageWithReveal,
+  processNostrIdentifiersInText,
+  processWikilinks,
+} from "./markupServices.ts";
 
 /**
  * Processes nostr addresses in HTML content, but skips addresses that are
@@ -41,8 +44,7 @@ async function processNostrAddresses(html: string): Promise<string> {
     const processedMatch = await processNostrIdentifiersInText(fullMatch);
 
     // Replace the match in the HTML
-    processedHtml =
-      processedHtml.slice(0, matchIndex) +
+    processedHtml = processedHtml.slice(0, matchIndex) +
       processedMatch +
       processedHtml.slice(matchIndex + fullMatch.length);
   }
@@ -61,18 +63,18 @@ function processImageBlocks(html: string): string {
       // Extract src and alt from img attributes
       const srcMatch = imgAttributes.match(/src="([^"]+)"/);
       const altMatch = imgAttributes.match(/alt="([^"]*)"/);
-      const src = srcMatch ? srcMatch[1] : '';
-      const alt = altMatch ? altMatch[1] : '';
-      
-      const titleHtml = title ? `<div class="title">${title}</div>` : '';
-      
+      const src = srcMatch ? srcMatch[1] : "";
+      const alt = altMatch ? altMatch[1] : "";
+
+      const titleHtml = title ? `<div class="title">${title}</div>` : "";
+
       return `<div class="imageblock">
         <div class="content">
           ${processImageWithReveal(src, alt)}
         </div>
         ${titleHtml}
       </div>`;
-    }
+    },
   );
 }
 

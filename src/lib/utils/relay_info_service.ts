@@ -6,7 +6,7 @@
 function simplifyUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    return urlObj.hostname + (urlObj.port ? `:${urlObj.port}` : '');
+    return urlObj.hostname + (urlObj.port ? `:${urlObj.port}` : "");
   } catch {
     // If URL parsing fails, return the original string
     return url;
@@ -42,18 +42,23 @@ export interface RelayInfoWithMetadata extends RelayInfo {
  * @param url The relay URL to fetch info for
  * @returns Promise resolving to relay info or undefined if failed
  */
-export async function fetchRelayInfo(url: string): Promise<RelayInfoWithMetadata | undefined> {
+export async function fetchRelayInfo(
+  url: string,
+): Promise<RelayInfoWithMetadata | undefined> {
   try {
     // Convert WebSocket URL to HTTP URL for NIP-11
-    const httpUrl = url.replace('ws://', 'http://').replace('wss://', 'https://');
-    
+    const httpUrl = url.replace("ws://", "http://").replace(
+      "wss://",
+      "https://",
+    );
+
     const response = await fetch(httpUrl, {
-      headers: { 
-        'Accept': 'application/nostr+json',
-        'User-Agent': 'Alexandria/1.0'
+      headers: {
+        "Accept": "application/nostr+json",
+        "User-Agent": "Alexandria/1.0",
       },
       // Add timeout to prevent hanging
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -62,18 +67,18 @@ export async function fetchRelayInfo(url: string): Promise<RelayInfoWithMetadata
         url,
         shortUrl: simplifyUrl(url),
         hasNip11: false,
-        triedNip11: true
+        triedNip11: true,
       };
     }
 
     const relayInfo = await response.json() as RelayInfo;
-    
+
     return {
       ...relayInfo,
       url,
       shortUrl: simplifyUrl(url),
       hasNip11: Object.keys(relayInfo).length > 0,
-      triedNip11: true
+      triedNip11: true,
     };
   } catch (error) {
     console.warn(`[RelayInfo] Failed to fetch info for ${url}:`, error);
@@ -81,7 +86,7 @@ export async function fetchRelayInfo(url: string): Promise<RelayInfoWithMetadata
       url,
       shortUrl: simplifyUrl(url),
       hasNip11: false,
-      triedNip11: true
+      triedNip11: true,
     };
   }
 }
@@ -91,16 +96,18 @@ export async function fetchRelayInfo(url: string): Promise<RelayInfoWithMetadata
  * @param urls Array of relay URLs to fetch info for
  * @returns Promise resolving to array of relay info objects
  */
-export async function fetchRelayInfos(urls: string[]): Promise<RelayInfoWithMetadata[]> {
+export async function fetchRelayInfos(
+  urls: string[],
+): Promise<RelayInfoWithMetadata[]> {
   if (urls.length === 0) {
     return [];
   }
 
-  const promises = urls.map(url => fetchRelayInfo(url));
+  const promises = urls.map((url) => fetchRelayInfo(url));
   const results = await Promise.allSettled(promises);
-  
+
   return results
-    .map(result => result.status === 'fulfilled' ? result.value : undefined)
+    .map((result) => result.status === "fulfilled" ? result.value : undefined)
     .filter((info): info is RelayInfoWithMetadata => info !== undefined);
 }
 
@@ -110,34 +117,42 @@ export async function fetchRelayInfos(urls: string[]): Promise<RelayInfoWithMeta
  * @param relayInfo Optional relay info
  * @returns String describing the relay type
  */
-export function getRelayTypeLabel(relayUrl: string, relayInfo?: RelayInfoWithMetadata): string {
+export function getRelayTypeLabel(
+  relayUrl: string,
+  relayInfo?: RelayInfoWithMetadata,
+): string {
   // Check if it's a local relay
-  if (relayUrl.includes('localhost') || relayUrl.includes('127.0.0.1')) {
-    return 'Local';
+  if (relayUrl.includes("localhost") || relayUrl.includes("127.0.0.1")) {
+    return "Local";
   }
-  
+
   // Check if it's a community relay
-  if (relayUrl.includes('nostr.band') || relayUrl.includes('noswhere.com') || 
-      relayUrl.includes('damus.io') || relayUrl.includes('nostr.wine')) {
-    return 'Community';
+  if (
+    relayUrl.includes("nostr.band") || relayUrl.includes("noswhere.com") ||
+    relayUrl.includes("damus.io") || relayUrl.includes("nostr.wine")
+  ) {
+    return "Community";
   }
-  
+
   // Check if it's a user's relay (likely inbox/outbox)
-  if (relayUrl.includes('relay.nsec.app') || relayUrl.includes('relay.snort.social')) {
-    return 'User';
+  if (
+    relayUrl.includes("relay.nsec.app") ||
+    relayUrl.includes("relay.snort.social")
+  ) {
+    return "User";
   }
-  
+
   // Use relay name if available
   if (relayInfo?.name) {
     return relayInfo.name;
   }
-  
+
   // Fallback to domain
   try {
     const domain = new URL(relayUrl).hostname;
-    return domain.replace('www.', '');
+    return domain.replace("www.", "");
   } catch {
-    return 'Unknown';
+    return "Unknown";
   }
 }
 
@@ -147,11 +162,14 @@ export function getRelayTypeLabel(relayUrl: string, relayInfo?: RelayInfoWithMet
  * @param relayUrl Relay URL as fallback
  * @returns Icon URL or undefined
  */
-export function getRelayIcon(relayInfo?: RelayInfoWithMetadata, relayUrl?: string): string | undefined {
+export function getRelayIcon(
+  relayInfo?: RelayInfoWithMetadata,
+  relayUrl?: string,
+): string | undefined {
   if (relayInfo?.icon) {
     return relayInfo.icon;
   }
-  
+
   // Generate favicon URL from relay URL
   if (relayUrl) {
     try {
@@ -161,6 +179,6 @@ export function getRelayIcon(relayInfo?: RelayInfoWithMetadata, relayUrl?: strin
       // Invalid URL, return undefined
     }
   }
-  
+
   return undefined;
 }

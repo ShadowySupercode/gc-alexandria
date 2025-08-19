@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
@@ -10,12 +9,10 @@
     searchNip05,
   } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, ndkInstance } from "$lib/ndk";
-  import { searchRelays } from "$lib/consts";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
-  import type { SearchResult } from '$lib/utils/search_types';
-  import { userStore } from "$lib/stores/userStore";
-  import { get } from "svelte/store";
+  import type NDK from '@nostr-dev-kit/ndk';
+
   // Props definition
   let {
     loading,
@@ -47,6 +44,8 @@
     onClear?: () => void;
     onLoadingChange?: (loading: boolean) => void;
   } = $props();
+
+  const ndk = getNdkContext();
 
   // Component state
   let searchQuery = $state("");
@@ -462,7 +461,6 @@
     // This ensures searches can proceed even if some relay types are not available
     while (retryCount < maxRetries) {
       // Check if we have any relays in the NDK pool
-      const ndk = get(ndkInstance);
       if (ndk && ndk.pool && ndk.pool.relays && ndk.pool.relays.size > 0) {
         console.debug(`EventSearch: Found ${ndk.pool.relays.size} relays in NDK pool`);
         break;
@@ -481,7 +479,6 @@
     
     // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let the search functions handle fallbacks
     // The search functions will use all available relays including fallback relays
-    const ndk = get(ndkInstance);
     const poolRelayCount = ndk?.pool?.relays?.size || 0;
     
     console.log("EventSearch: Relay status for search:", {

@@ -1,38 +1,32 @@
 <script lang="ts">
   import "../../styles/notifications.css";
-  import { onMount } from "svelte";
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
-  import { ndkInstance, activeInboxRelays } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
-  import { communityRelays, localRelays, anonymousRelays, searchRelays } from "$lib/consts";
-  import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
+  import { anonymousRelays } from "$lib/consts";
+  import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
-  import RelayDisplay from "$lib/components/RelayDisplay.svelte";
-  import RelayInfoList from "$lib/components/RelayInfoList.svelte";
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
-    truncateContent, 
-    truncateRenderedContent, 
-    parseContent, 
-    parseRepostContent,
-    renderQuotedContent, 
     getNotificationType, 
-    fetchAuthorProfiles 
-  } from "$lib/utils/notification_utils";
+    fetchAuthorProfiles,
+    quotedContent,
+  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
-  import { toNpub, getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import EmbeddedEventRenderer from "./EmbeddedEventRenderer.svelte";
+  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import { getNdkContext } from "$lib/ndk";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // Handle navigation events from quoted messages
   $effect(() => {
@@ -59,7 +53,6 @@
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
   let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
   let filteredByUser = $state<string | null>(null);
-
   
   // New Message Modal state
   let showNewMessageModal = $state(false);
@@ -68,7 +61,6 @@
   let newMessageRelays = $state<string[]>([]);
   let isComposingMessage = $state(false);
   let replyToMessage = $state<NDKEvent | null>(null);
-  let quotedContent = $state<string>("");
   
   // Recipient Selection Modal state
   let showRecipientModal = $state(false);
@@ -165,8 +157,6 @@
     filteredByUser = null;
   }
 
-
-
   // AI-NOTE: New Message Modal Functions
   function openNewMessageModal(messageToReplyTo?: NDKEvent) {
     showNewMessageModal = true;
@@ -177,12 +167,7 @@
     replyToMessage = messageToReplyTo || null;
     
     // If replying, set up the quote and pre-select all original recipients plus sender
-    if (messageToReplyTo) {
-      // Store clean content for UI display (no markdown formatting)
-      quotedContent = messageToReplyTo.content.length > 200 
-        ? messageToReplyTo.content.slice(0, 200) + "..." 
-        : messageToReplyTo.content;
-      
+    if (messageToReplyTo) {    
       // Collect all recipients: original sender + all p-tag recipients
       const recipientPubkeys = new Set<string>();
       
@@ -217,8 +202,6 @@
       }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
       
       console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
-    } else {
-      quotedContent = "";
     }
   }
 
@@ -229,7 +212,6 @@
     newMessageRelays = [];
     isComposingMessage = false;
     replyToMessage = null;
-    quotedContent = "";
   }
 
   // AI-NOTE: Recipient Selection Modal Functions
@@ -485,7 +467,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
       
       const userStoreValue = get(userStore);
@@ -522,7 +503,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 100);
 
-      authorProfiles = await fetchAuthorProfiles(notifications);
+      authorProfiles = await fetchAuthorProfiles(notifications, ndk);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -539,7 +520,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
 
       const userStoreValue = get(userStore);
@@ -570,7 +550,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 200);
 
-      authorProfiles = await fetchAuthorProfiles(publicMessages);
+      authorProfiles = await fetchAuthorProfiles(publicMessages, ndk);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -578,8 +558,6 @@
       loading = false;
     }
   }
-
-
 
   // Check if user is viewing their own profile
   $effect(() => {
@@ -605,8 +583,6 @@
       authorProfiles.clear();
     }
   });
-
-
 
   // AI-NOTE: Refactored to avoid blocking $effect with async operations
   // Calculate relay set when recipients change - non-blocking approach
@@ -661,7 +637,6 @@
       // If no relays found from NIP-65, use fallback relays
       if (uniqueRelays.length === 0) {
         console.log("[Relay Effect] No NIP-65 relays found, using fallback");
-        const ndk = get(ndkInstance);
         if (ndk) {
           const userStoreValue = get(userStore);
           const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -677,7 +652,6 @@
     } catch (error) {
       console.error("[Relay Effect] Error getting relay set:", error);
       console.log("[Relay Effect] Using fallback relays due to error");
-      const ndk = get(ndkInstance);
       if (ndk) {
         const userStoreValue = get(userStore);
         const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -837,21 +811,13 @@
                     
                     {#if message.getMatchingTags("q").length > 0}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await renderQuotedContent(message, publicMessages) then quotedHtml}
-                          {@html quotedHtml}
-                        {:catch}
-                          <!-- Fallback if quoted content fails to render -->
-                        {/await}
+                        {@render quotedContent(message, publicMessages, ndk)}
                       </div>
                     {/if}
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          {#await ((message.kind === 6 || message.kind === 16) ? parseRepostContent(message.content) : parseContent(message.content)) then parsedContent}
-                            <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
-                          {:catch}
-                            {@html message.content}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={message.id} nestingLevel={0} />
                         </div>
                       </div>
                     {/if}
@@ -928,11 +894,7 @@
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          {#await ((notification.kind === 6 || notification.kind === 16) ? parseRepostContent(notification.content) : parseContent(notification.content)) then parsedContent}
-                            <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
-                          {:catch}
-                            {@html truncateContent(notification.content)}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={notification.id} nestingLevel={0} />
                         </div>
                       </div>
                     {/if}
@@ -963,15 +925,11 @@
       </div>
       
       <!-- Quoted Content Display -->
-      {#if quotedContent}
+      {#if replyToMessage}
         <div class="quoted-content mb-4 p-3 rounded-r-lg">
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
-            {#await parseContent(quotedContent) then parsedContent}
-              <EmbeddedEventRenderer content={parsedContent} nestingLevel={0} />
-            {:catch}
-              {@html quotedContent}
-            {/await}
+            <EmbeddedEvent nostrIdentifier={replyToMessage.id} nestingLevel={0} />
           </div>
   </div>
       {/if}

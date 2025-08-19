@@ -1,11 +1,15 @@
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
-import { ndkInstance } from "../ndk.ts";
 import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
-import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
-import type { Filter, NostrProfile } from "./search_types.ts";
-import { communityRelays, secondaryRelays, searchRelays, anonymousRelays } from "../consts.ts";
+import type { NostrEvent } from "@nostr-dev-kit/ndk";
+import type { Filter } from "./search_types.ts";
+import {
+  anonymousRelays,
+  communityRelays,
+  searchRelays,
+  secondaryRelays,
+} from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -26,7 +30,16 @@ export const NOSTR_PROFILE_REGEX =
 export const NOSTR_NOTE_REGEX =
   /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0-9]{20,})(?![\w/])/g;
 
-// AI-NOTE: 2025-01-24 - NostrProfile interface moved to search_types.ts for consistency
+export interface NostrProfile {
+  name?: string;
+  displayName?: string;
+  nip05?: string;
+  picture?: string;
+  about?: string;
+  banner?: string;
+  website?: string;
+  lud16?: string;
+}
 
 /**
  * HTML escape a string
@@ -46,7 +59,7 @@ function escapeHtml(text: string): string {
  * Escape regex special characters
  */
 function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -54,12 +67,18 @@ function escapeRegExp(string: string): string {
  */
 export async function getUserMetadata(
   identifier: string,
+  ndk: NDK,
   force = false,
 ): Promise<NostrProfile> {
   // Remove nostr: prefix if present
   const cleanId = identifier.replace(/^nostr:/, "");
 
-  console.log("getUserMetadata called with identifier:", identifier, "force:", force);
+  console.log(
+    "getUserMetadata called with identifier:",
+    identifier,
+    "force:",
+    force,
+  );
 
   if (!force && npubCache.has(cleanId)) {
     const cached = npubCache.get(cleanId)!;
@@ -70,7 +89,6 @@ export async function getUserMetadata(
   const fallback = { name: `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}` };
 
   try {
-    const ndk = get(ndkInstance);
     if (!ndk) {
       console.warn("getUserMetadata: No NDK instance available");
       npubCache.set(cleanId, fallback);
@@ -91,7 +109,10 @@ export async function getUserMetadata(
     } else if (decoded.type === "nprofile") {
       pubkey = decoded.data.pubkey;
     } else {
-      console.warn("getUserMetadata: Unsupported identifier type:", decoded.type);
+      console.warn(
+        "getUserMetadata: Unsupported identifier type:",
+        decoded.type,
+      );
       npubCache.set(cleanId, fallback);
       return fallback;
     }
@@ -102,13 +123,12 @@ export async function getUserMetadata(
       kinds: [0],
       authors: [pubkey],
     });
-    
+
     console.log("getUserMetadata: Profile event found:", profileEvent);
-    
-    const profile =
-      profileEvent && profileEvent.content
-        ? JSON.parse(profileEvent.content)
-        : null;
+
+    const profile = profileEvent && profileEvent.content
+      ? JSON.parse(profileEvent.content)
+      : null;
 
     console.log("getUserMetadata: Parsed profile:", profile);
 
@@ -121,7 +141,6 @@ export async function getUserMetadata(
       banner: profile?.banner,
       website: profile?.website,
       lud16: profile?.lud16,
-      created_at: profileEvent?.created_at, // AI-NOTE: 2025-01-24 - Preserve timestamp for proper date display
     };
 
     console.log("getUserMetadata: Final metadata:", metadata);
@@ -156,8 +175,8 @@ export function createProfileLink(
 export async function createProfileLinkWithVerification(
   identifier: string,
   displayText: string | undefined,
+  ndk: NDK,
 ): Promise<string> {
-  const ndk = get(ndkInstance) as NDK;
   if (!ndk) {
     return createProfileLink(identifier, displayText);
   }
@@ -191,7 +210,7 @@ export async function createProfileLinkWithVerification(
   };
 
   const allRelays = [
-    ...searchRelays,        // Include search relays for profile searches
+    ...searchRelays, // Include search relays for profile searches
     ...communityRelays,
     ...userRelays,
     ...secondaryRelays,
@@ -215,8 +234,7 @@ export async function createProfileLinkWithVerification(
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier =
-    profile?.displayName ??
+  const displayIdentifier = profile?.displayName ??
     profile?.display_name ??
     profile?.name ??
     escapedText;
@@ -253,6 +271,7 @@ function createNoteLink(identifier: string): string {
  */
 export async function processNostrIdentifiers(
   content: string,
+  ndk: NDK,
 ): Promise<string> {
   let processedContent = content;
 
@@ -275,11 +294,14 @@ export async function processNostrIdentifiers(
     if (!identifier.startsWith("nostr:")) {
       identifier = "nostr:" + identifier;
     }
-    const metadata = await getUserMetadata(identifier);
+    const metadata = await getUserMetadata(identifier, ndk);
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
     // Replace all occurrences of this exact match
-    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
+    processedContent = processedContent.replace(
+      new RegExp(escapeRegExp(fullMatch), "g"),
+      link,
+    );
   }
 
   // Process notes (nevent, note, naddr)
@@ -296,7 +318,10 @@ export async function processNostrIdentifiers(
     }
     const link = createNoteLink(identifier);
     // Replace all occurrences of this exact match
-    processedContent = processedContent.replace(new RegExp(escapeRegExp(fullMatch), 'g'), link);
+    processedContent = processedContent.replace(
+      new RegExp(escapeRegExp(fullMatch), "g"),
+      link,
+    );
   }
 
   return processedContent;
@@ -401,7 +426,7 @@ export function withTimeout<T>(
     return Promise.race([
       promise,
       new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
       ),
     ]);
   }
@@ -412,7 +437,7 @@ export function withTimeout<T>(
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+      setTimeout(() => reject(new Error("Timeout")), timeoutMs)
     ),
   ]);
 }
@@ -447,40 +472,54 @@ export async function fetchEventWithFallback(
 ): Promise<NDKEvent | null> {
   // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
   // This ensures we don't miss events that might be on any available relay
-  
+
   // Get all relays from NDK pool first (most comprehensive)
-  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) => r.url);
+  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) =>
+    r.url
+  );
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
-  
+
   // Combine all available relays, prioritizing pool relays
-  let allRelays = [...new Set([...poolRelays, ...inboxRelays, ...outboxRelays])];
-  
+  let allRelays = [
+    ...new Set([...poolRelays, ...inboxRelays, ...outboxRelays]),
+  ];
+
   console.log("fetchEventWithFallback: Using pool relays:", poolRelays);
   console.log("fetchEventWithFallback: Using inbox relays:", inboxRelays);
   console.log("fetchEventWithFallback: Using outbox relays:", outboxRelays);
   console.log("fetchEventWithFallback: Total unique relays:", allRelays.length);
-  
+
   // Check if we have any relays available
   if (allRelays.length === 0) {
-    console.warn("fetchEventWithFallback: No relays available for event fetch, using fallback relays");
+    console.warn(
+      "fetchEventWithFallback: No relays available for event fetch, using fallback relays",
+    );
     // Use fallback relays when no relays are available
     allRelays = [...secondaryRelays, ...searchRelays, ...anonymousRelays];
     console.log("fetchEventWithFallback: Using fallback relays:", allRelays);
   }
-  
+
   // Create relay set from all available relays
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
 
   try {
     if (relaySet.relays.size === 0) {
-      console.warn("fetchEventWithFallback: No relays in relay set for event fetch");
+      console.warn(
+        "fetchEventWithFallback: No relays in relay set for event fetch",
+      );
       return null;
     }
 
-    console.log("fetchEventWithFallback: Relay set size:", relaySet.relays.size);
+    console.log(
+      "fetchEventWithFallback: Relay set size:",
+      relaySet.relays.size,
+    );
     console.log("fetchEventWithFallback: Filter:", filterOrId);
-    console.log("fetchEventWithFallback: Relay URLs:", Array.from(relaySet.relays).map((r) => r.url));
+    console.log(
+      "fetchEventWithFallback: Relay URLs:",
+      Array.from(relaySet.relays).map((r) => r.url),
+    );
 
     let found: NDKEvent | null = null;
 
@@ -492,8 +531,9 @@ export async function fetchEventWithFallback(
         .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
         .withTimeout(timeoutMs);
     } else {
-      const filter =
-        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const filter = typeof filterOrId === "string"
+        ? { ids: [filterOrId] }
+        : filterOrId;
       const results = await ndk
         .fetchEvents(filter, undefined, relaySet)
         .withTimeout(timeoutMs);
@@ -504,7 +544,9 @@ export async function fetchEventWithFallback(
 
     if (!found) {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(
+        ", ",
+      );
       console.warn(
         `fetchEventWithFallback: Event not found after ${timeoutSeconds}s timeout. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
@@ -515,14 +557,19 @@ export async function fetchEventWithFallback(
     // Always wrap as NDKEvent
     return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
   } catch (err) {
-    if (err instanceof Error && err.message === 'Timeout') {
+    if (err instanceof Error && err.message === "Timeout") {
       const timeoutSeconds = timeoutMs / 1000;
-      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(", ");
+      const relayUrls = Array.from(relaySet.relays).map((r) => r.url).join(
+        ", ",
+      );
       console.warn(
         `fetchEventWithFallback: Event fetch timed out after ${timeoutSeconds}s. Tried inbox relays: ${relayUrls}. Some relays may be offline or slow.`,
       );
     } else {
-      console.error("fetchEventWithFallback: Error in fetchEventWithFallback:", err);
+      console.error(
+        "fetchEventWithFallback: Error in fetchEventWithFallback:",
+        err,
+      );
     }
     return null;
   }
@@ -537,20 +584,22 @@ export function toNpub(pubkey: string | undefined): string | null {
   try {
     // If it's already an npub, return it
     if (pubkey.startsWith("npub")) return pubkey;
-    
+
     // If it's a hex pubkey, convert to npub
     if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
       return nip19.npubEncode(pubkey);
     }
-    
+
     // If it's an nprofile, decode and extract npub
     if (pubkey.startsWith("nprofile")) {
       const decoded = nip19.decode(pubkey);
-      if (decoded.type === 'nprofile') {
-        return decoded.data.pubkey ? nip19.npubEncode(decoded.data.pubkey) : null;
+      if (decoded.type === "nprofile") {
+        return decoded.data.pubkey
+          ? nip19.npubEncode(decoded.data.pubkey)
+          : null;
       }
     }
-    
+
     return null;
   } catch {
     return null;
@@ -565,7 +614,10 @@ export function createRelaySetFromUrls(relayUrls: string[], ndk: NDK) {
   return NDKRelaySetFromNDK.fromRelayUrls(relayUrls, ndk);
 }
 
-export function createNDKEvent(ndk: NDK, rawEvent: NDKEvent | NostrEvent | undefined) {
+export function createNDKEvent(
+  ndk: NDK,
+  rawEvent: NDKEvent | NostrEvent | undefined,
+) {
   return new NDKEvent(ndk, rawEvent);
 }
 
