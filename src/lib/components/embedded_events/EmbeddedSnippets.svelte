@@ -248,12 +248,6 @@
             {formattedDate}
           </span>
         </div>
-        <button
-          class="text-xs text-primary-600 dark:text-primary-500 hover:underline flex-shrink-0"
-          onclick={() => window.location.href=`/events?id=${originalEvent.id || 'unknown'}`}
-        >
-          View full event →
-        </button>
       </div>
       
       <!-- Reposted content -->

@@ -278,12 +278,6 @@
           </div>
         {/if}
       </div>
-      <button
-        class="text-xs text-primary-600 dark:text-primary-500 hover:underline flex-shrink-0"
-        onclick={navigateToEvent}
-      >
-        View full event →
-      </button>
     </div>
 
     <!-- Event title -->
@@ -730,13 +724,20 @@
     <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden">
       <div class="flex flex-wrap gap-2 text-xs min-w-0">
         <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">ID:</span>
-        <span class="font-mono text-gray-700 dark:text-gray-300 break-all">
-          {event.id.slice(0, 8)}...{event.id.slice(-4)}
-        </span>
-        {#if isAddressableEvent(event)}
+        <a 
+          href="/events?id={event!.id}"
+          class="font-mono text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 break-all cursor-pointer"
+          onclick={(e) => {
+            e.preventDefault();
+            goto(`/events?id=${event!.id}`);
+          }}
+        >
+          {event!.id.slice(0, 8)}...{event!.id.slice(-4)}
+        </a>
+        {#if isAddressableEvent(event!)}
           <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">Address:</span>
           <span class="font-mono text-gray-700 dark:text-gray-300 break-all">
-            {getNaddrUrl(event).slice(0, 12)}...{getNaddrUrl(event).slice(-8)}
+            {getNaddrUrl(event!).slice(0, 12)}...{getNaddrUrl(event!).slice(-8)}
           </span>
         {/if}
       </div>

@@ -244,8 +244,8 @@
         const naddr = naddrEncode(event, $activeInboxRelays);
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
-      // hex id
-      ids.push({ label: "id", value: event.id });
+      // hex id - make it a clickable link to search for the event ID
+      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
     }
     return ids;
   }
@@ -357,9 +357,19 @@
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
-            <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
-              {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-            </span>
+            {#if identifier.link}
+              <a
+                href={identifier.link}
+                class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
+                title={identifier.value}
+              >
+                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+              </a>
+            {:else}
+              <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
+                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+              </span>
+            {/if}
             <CopyToClipboard
               displayText=""
               copyText={identifier.value}

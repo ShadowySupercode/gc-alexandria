@@ -12,6 +12,7 @@
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
+  import { isEventId } from "$lib/utils/nostr_identifiers";
   import type NDK from '@nostr-dev-kit/ndk';
 
   // Props definition
@@ -171,9 +172,15 @@
       return { type: "nip05", term: query };
     }
     
+    // AI-NOTE: 2025-01-24 - Detect hex IDs (64-character hex strings with no spaces)
+    // These are likely event IDs and should be searched as events
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && isEventId(trimmedQuery)) {
+      return { type: "event", term: trimmedQuery };
+    }
+    
     // AI-NOTE: 2025-01-24 - Treat plain text searches as profile searches by default
     // This allows searching for names like "thebeave" or "TheBeave" without needing n: prefix
-    const trimmedQuery = query.trim();
     if (trimmedQuery && !trimmedQuery.startsWith("nevent") && !trimmedQuery.startsWith("npub") && !trimmedQuery.startsWith("naddr")) {
       return { type: "n", term: trimmedQuery };
     }
@@ -197,6 +204,12 @@
     
     if (type === "nip05") {
       await handleNip05Search(term);
+      return;
+    }
+    
+    if (type === "event") {
+      console.log("EventSearch: Processing event ID search:", term);
+      await handleEventSearch(term);
       return;
     }
     

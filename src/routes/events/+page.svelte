@@ -509,13 +509,6 @@
         <div class="flex justify-between items-center">
           <Heading tag="h1" class="h-leather mb-2">Events</Heading>
           <div class="flex items-center gap-2">
-            <button
-              class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 border border-red-300 dark:border-red-600 rounded px-2 py-1"
-              onclick={handleClearCache}
-              title="Clear all caches to refresh stale data"
-            >
-              Clear Cache
-            </button>
             {#if showSidePanel && (searchResults.length > 0 || secondOrderResults.length > 0 || tTagResults.length > 0)}
               <button
                 class="lg:hidden text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
