@@ -105,12 +105,26 @@
     if (isPublicationEvent(node.kind)) {
       return `/publication/id/${node.id}?from=visualize`;
     }
+    // For tag anchor nodes, only create URLs for supported tag types
+    if (node.isTagAnchor && node.tagType && node.tagValue) {
+      // Only create URLs for supported parameters: t, n, d
+      if (node.tagType === 't' || node.tagType === 'n' || node.tagType === 'd') {
+        return `/events?${node.tagType}=${encodeURIComponent(node.tagValue)}`;
+      }
+      // For other tag types, don't create a URL
+      return '';
+    }
     // For person anchor nodes, use the pubkey to create an npub
     if (node.isPersonAnchor && node.pubkey) {
       const npub = toNpub(node.pubkey);
       return `/events?id=${npub}`;
     }
-    return `/events?id=${node.id}`;
+    // For regular events, use the event ID
+    if (node.id && !node.id.startsWith('tag-anchor-')) {
+      return `/events?id=${node.id}`;
+    }
+    // For other nodes, don't create a URL
+    return '';
   }
 
   /**
@@ -198,9 +212,15 @@
   <div class="tooltip-content">
     <!-- Title with link -->
     <div class="tooltip-title">
-      <a href={getEventUrl(node)} class="tooltip-title-link">
-        {getLinkText(node)}
-      </a>
+      {#if getEventUrl(node)}
+        <a href={getEventUrl(node)} class="tooltip-title-link">
+          {getLinkText(node)}
+        </a>
+      {:else}
+        <span class="tooltip-title-text">
+          {getLinkText(node)}
+        </span>
+      {/if}
     </div>
 
     <!-- Node type and kind -->
