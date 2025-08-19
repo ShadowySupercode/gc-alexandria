@@ -41,6 +41,7 @@
       addresses: Set<string>,
       searchType?: string,
       searchTerm?: string,
+      loading?: boolean, // AI-NOTE: 2025-01-24 - Add loading parameter for second-order search message logic
     ) => void;
     event: NDKEvent | null;
     onClear?: () => void;
@@ -140,6 +141,7 @@
       return;
     }
 
+    // AI-NOTE: 2025-01-24 - If no specific search type is detected, treat as event ID search
     if (clearInput) {
       navigateToSearch(query, "id");
     }
@@ -167,6 +169,13 @@
     
     if (query.includes("@")) {
       return { type: "nip05", term: query };
+    }
+    
+    // AI-NOTE: 2025-01-24 - Treat plain text searches as profile searches by default
+    // This allows searching for names like "thebeave" or "TheBeave" without needing n: prefix
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && !trimmedQuery.startsWith("nevent") && !trimmedQuery.startsWith("npub") && !trimmedQuery.startsWith("naddr")) {
+      return { type: "n", term: trimmedQuery };
     }
     
     return null;
@@ -425,12 +434,8 @@
       searchTerm,
     });
 
-    if (searchType === "n") {
-      const cachedResult = await handleCachedProfileSearch(searchTerm);
-      if (cachedResult) {
-        return;
-      }
-    }
+    // AI-NOTE: 2025-01-24 - Profile search caching is now handled by centralized searchProfiles function
+    // No need for separate caching logic here as it's handled in profile_search.ts
 
     isResetting = false;
     localError = null;
@@ -445,61 +450,9 @@
     }
   }
 
-  async function handleCachedProfileSearch(searchTerm: string): Promise<boolean> {
-    if (!searchTerm.startsWith("npub") && !searchTerm.startsWith("nprofile")) {
-      return false;
-    }
-
-    try {
-      const { getUserMetadata } = await import("$lib/utils/nostrUtils");
-      const cachedProfile = await getUserMetadata(searchTerm, false);
-      
-      if (cachedProfile && cachedProfile.name) {
-        const mockEvent = await createMockProfileEvent(searchTerm, cachedProfile);
-        handleFoundEvent(mockEvent);
-        updateSearchState(false, true, 1, "profile-cached");
-        
-        setTimeout(async () => {
-          try {
-            await performBackgroundProfileSearch("n", searchTerm);
-          } catch (error) {
-            console.warn("EventSearch: Background profile search failed:", error);
-          }
-        }, 100);
-        
-        return true;
-      }
-    } catch (error) {
-      console.warn("EventSearch: Cache check failed, proceeding with subscription search:", error);
-    }
-    
-    return false;
-  }
-
-  async function createMockProfileEvent(searchTerm: string, profile: any): Promise<NDKEvent> {
-    const { NDKEvent } = await import("@nostr-dev-kit/ndk");
-    const { nip19 } = await import("$lib/utils/nostrUtils");
-    
-    let pubkey = searchTerm;
-    try {
-      const decoded = nip19.decode(searchTerm);
-      if (decoded && decoded.type === "npub") {
-        pubkey = decoded.data;
-      }
-    } catch (error) {
-      console.warn("EventSearch: Failed to decode npub for mock event:", error);
-    }
-
-    return new NDKEvent(undefined, {
-      kind: 0,
-      pubkey: pubkey,
-      content: JSON.stringify(profile),
-      tags: [],
-      created_at: Math.floor(Date.now() / 1000),
-      id: "",
-      sig: "",
-    });
-  }
+  // AI-NOTE: 2025-01-24 - Profile search is now handled by centralized searchProfiles function
+  // These functions are no longer needed as profile searches go through subscription_search.ts
+  // which delegates to the centralized profile_search.ts
 
   async function waitForRelays(): Promise<void> {
     let retryCount = 0;
@@ -565,7 +518,8 @@
             updatedResult.eventIds,
             updatedResult.addresses,
             updatedResult.searchType,
-            updatedResult.searchTerm,
+            searchValue || updatedResult.searchTerm, // AI-NOTE: 2025-01-24 - Use original search value for display
+            false, // AI-NOTE: 2025-01-24 - Second-order update means search is complete
           );
         },
         onSubscriptionCreated: (sub) => {
@@ -595,7 +549,8 @@
       result.eventIds,
       result.addresses,
       result.searchType,
-      result.searchTerm,
+      searchValue || result.searchTerm, // AI-NOTE: 2025-01-24 - Use original search value for display
+      false, // AI-NOTE: 2025-01-24 - Search is complete
     );
     
     const totalCount = result.events.length + result.secondOrder.length + result.tTagEvents.length;
@@ -645,75 +600,9 @@
     }
   }
 
-  async function performBackgroundProfileSearch(
-    searchType: "d" | "t" | "n",
-    searchTerm: string,
-  ) {
-    console.log("EventSearch: Performing background profile search:", {
-      searchType,
-      searchTerm,
-    });
-    
-    try {
-      if (currentAbortController) {
-        currentAbortController.abort();
-      }
-      currentAbortController = new AbortController();
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("Background search timeout"));
-        }, 10000);
-      });
-      
-      const searchPromise = searchBySubscription(
-        searchType,
-        searchTerm,
-        {
-          onSecondOrderUpdate: (updatedResult) => {
-            console.log("EventSearch: Background second order update:", updatedResult);
-            if (updatedResult.events.length > 0) {
-              onSearchResults(
-                updatedResult.events,
-                updatedResult.secondOrder,
-                updatedResult.tTagEvents,
-                updatedResult.eventIds,
-                updatedResult.addresses,
-                updatedResult.searchType,
-                updatedResult.searchTerm,
-              );
-            }
-          },
-          onSubscriptionCreated: (sub) => {
-            console.log("EventSearch: Background subscription created:", sub);
-            if (activeSub) {
-              activeSub.stop();
-            }
-            activeSub = sub;
-          },
-        },
-        currentAbortController.signal,
-      );
-      
-      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
-      
-      console.log("EventSearch: Background search completed:", result);
-      
-      if (result.events.length > 0) {
-        onSearchResults(
-          result.events,
-          result.secondOrder,
-          result.tTagEvents,
-          result.eventIds,
-          result.addresses,
-          result.searchType,
-          result.searchTerm,
-        );
-      }
-    } catch (error) {
-      console.warn("EventSearch: Background profile search failed:", error);
-    }
-  }
+  // AI-NOTE: 2025-01-24 - Background profile search is now handled by centralized searchProfiles function
+  // This function is no longer needed as profile searches go through subscription_search.ts
+  // which delegates to the centralized profile_search.ts
 
   function handleClear() {
     isResetting = true;

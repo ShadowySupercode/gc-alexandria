@@ -4,7 +4,6 @@
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
   import { ndkInstance, activeInboxRelays } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";

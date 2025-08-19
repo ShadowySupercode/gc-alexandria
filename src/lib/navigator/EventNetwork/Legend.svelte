@@ -467,7 +467,7 @@
                       ></span>
                     </div>
                     <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
-                      {person.displayName || person.pubkey.substring(0, 8)}
+                      {person.displayName || person.pubkey}
                     </span>
                   </button>
                 {/each}

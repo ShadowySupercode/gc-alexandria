@@ -56,6 +56,8 @@ export function getEventKindName(kind: number): string {
     30001: 'Categorized Bookmark List',
     30008: 'Profile Badges',
     30009: 'Badge Definition',
+    39089: 'Starter packs',
+    39092: 'Media starter packs',
     30017: 'Create or update a stall',
     30018: 'Create or update a product',
     30023: 'Long-form Content',

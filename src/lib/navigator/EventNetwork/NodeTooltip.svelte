@@ -7,7 +7,7 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
   import {
     getDisplayNameSync,
@@ -47,6 +47,11 @@
    * Gets the author name from the event tags
    */
   function getAuthorTag(node: NetworkNode): string {
+    // For person anchor nodes, use the pubkey directly
+    if (node.isPersonAnchor && node.pubkey) {
+      return getDisplayNameSync(node.pubkey);
+    }
+    
     if (node.event) {
       const authorTags = getMatchingTags(node.event, "author");
       if (authorTags.length > 0) {
@@ -99,6 +104,11 @@
   function getEventUrl(node: NetworkNode): string {
     if (isPublicationEvent(node.kind)) {
       return `/publication/id/${node.id}?from=visualize`;
+    }
+    // For person anchor nodes, use the pubkey to create an npub
+    if (node.isPersonAnchor && node.pubkey) {
+      const npub = toNpub(node.pubkey);
+      return `/events?id=${npub}`;
     }
     return `/events?id=${node.id}`;
   }
@@ -206,12 +216,18 @@
     </div>
 
     <!-- Pub Author -->
-    <div class="tooltip-metadata">
-      Pub Author: {getAuthorTag(node)}
-    </div>
+    {#if !node.isPersonAnchor}
+      <div class="tooltip-metadata">
+        Pub Author: {getAuthorTag(node)}
+      </div>
+    {/if}
 
     <!-- Published by (from node.author) -->
-    {#if node.author}
+    {#if node.isPersonAnchor}
+      <div class="tooltip-metadata">
+        Person: {getAuthorTag(node)}
+      </div>
+    {:else if node.author}
       <div class="tooltip-metadata">
         published_by: {node.author}
       </div>

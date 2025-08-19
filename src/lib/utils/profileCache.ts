@@ -2,6 +2,7 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { ndkInstance } from "$lib/ndk";
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
+import { toNpub } from "./nostrUtils";
 
 interface ProfileData {
   display_name?: string;
@@ -50,24 +51,27 @@ async function fetchProfile(pubkey: string): Promise<ProfileData | null> {
 /**
  * Gets the display name for a pubkey, using cache
  * @param pubkey - The public key to get display name for
- * @returns Display name, name, or shortened pubkey
+ * @returns Display name, name, or shortened npub (never hex ID)
  */
 export async function getDisplayName(pubkey: string): Promise<string> {
   // Check cache first
   if (profileCache.has(pubkey)) {
     const profile = profileCache.get(pubkey)!;
-    return profile.display_name || profile.name || shortenPubkey(pubkey);
+    const npub = toNpub(pubkey);
+    return profile.display_name || profile.name || (npub ? shortenNpub(npub) : pubkey);
   }
 
   // Fetch profile
   const profile = await fetchProfile(pubkey);
   if (profile) {
     profileCache.set(pubkey, profile);
-    return profile.display_name || profile.name || shortenPubkey(pubkey);
+    const npub = toNpub(pubkey);
+    return profile.display_name || profile.name || (npub ? shortenNpub(npub) : pubkey);
   }
 
-  // Fallback to shortened pubkey
-  return shortenPubkey(pubkey);
+  // Fallback to shortened npub or pubkey
+  const npub = toNpub(pubkey);
+  return npub ? shortenNpub(npub) : pubkey;
 }
 
 /**
@@ -139,24 +143,26 @@ export async function batchFetchProfiles(
 /**
  * Gets display name synchronously from cache
  * @param pubkey - The public key to get display name for
- * @returns Display name, name, or shortened pubkey
+ * @returns Display name, name, or shortened npub (never hex ID)
  */
 export function getDisplayNameSync(pubkey: string): string {
   if (profileCache.has(pubkey)) {
     const profile = profileCache.get(pubkey)!;
-    return profile.display_name || profile.name || shortenPubkey(pubkey);
+    const npub = toNpub(pubkey);
+    return profile.display_name || profile.name || (npub ? shortenNpub(npub) : pubkey);
   }
-  return shortenPubkey(pubkey);
+  const npub = toNpub(pubkey);
+  return npub ? shortenNpub(npub) : pubkey;
 }
 
 /**
- * Shortens a pubkey for display
- * @param pubkey - The public key to shorten
- * @returns Shortened pubkey (first 8 chars...last 4 chars)
+ * Shortens an npub for display
+ * @param npub - The npub to shorten
+ * @returns Shortened npub (first 8 chars...last 4 chars)
  */
-function shortenPubkey(pubkey: string): string {
-  if (pubkey.length <= 12) return pubkey;
-  return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+function shortenNpub(npub: string): string {
+  if (npub.length <= 12) return npub;
+  return `${npub.slice(0, 8)}...${npub.slice(-4)}`;
 }
 
 /**

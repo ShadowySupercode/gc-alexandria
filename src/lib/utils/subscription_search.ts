@@ -1,10 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
 import { ndkInstance } from "../ndk.ts";
-import { getMatchingTags, getNpubFromNip05 } from "./nostrUtils.ts";
+import { getMatchingTags } from "./nostrUtils.ts";
 import { nip19 } from "./nostrUtils.ts";
 import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
-import { communityRelays, searchRelays } from "../consts.ts";
+import { communityRelays, searchRelays, secondaryRelays, localRelays } from "../consts.ts";
 import { get } from "svelte/store";
 import type {
   SearchResult,
@@ -15,11 +15,12 @@ import type {
 import {
   fieldMatches,
   nip05Matches,
-  COMMON_DOMAINS,
   isEmojiReaction,
 } from "./search_utils.ts";
 import { TIMEOUTS, SEARCH_LIMITS } from "./search_constants.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+// AI-NOTE: 2025-01-24 - User list functionality is now handled by centralized searchProfiles function
+import { searchProfiles } from "./profile_search.ts";
 
 // Helper function to normalize URLs for comparison
 const normalizeUrl = (url: string): string => {
@@ -55,18 +56,104 @@ export async function searchBySubscription(
     normalizedSearchTerm,
   });
 
-  // Check cache first
+  // For profile searches (n:), use the centralized searchProfiles function
+  if (searchType === "n") {
+    console.log("subscription_search: Using centralized searchProfiles for profile search");
+    try {
+      const profileResult = await searchProfiles(searchTerm);
+      
+      // Get NDK instance for creating events
+      const ndk = get(ndkInstance);
+      if (!ndk) {
+        console.error("subscription_search: NDK not initialized for profile search");
+        throw new Error("NDK not initialized");
+      }
+      
+      // Convert profile results to NDK events for compatibility
+      const events = await Promise.all(profileResult.profiles.map(async (profile) => {
+        const event = new NDKEvent(ndk);
+        
+        // AI-NOTE: 2025-01-24 - Clean profile data before JSON serialization to prevent corruption
+        const cleanProfile = {
+          name: profile.name,
+          displayName: profile.displayName,
+          display_name: profile.displayName, // AI-NOTE: 2025-01-24 - Use displayName for both fields for compatibility
+          nip05: profile.nip05,
+          picture: profile.picture,
+          about: profile.about,
+          banner: profile.banner,
+          website: profile.website,
+          lud16: profile.lud16,
+          pubkey: profile.pubkey,
+          created_at: profile.created_at,
+          isInUserLists: profile.isInUserLists,
+          listKinds: profile.listKinds,
+        };
+        
+        event.content = JSON.stringify(cleanProfile);
+        event.pubkey = profile.pubkey || "";
+        event.kind = 0;
+        // AI-NOTE: 2025-01-24 - Preserve timestamp for proper date display
+        if (profile.created_at) {
+          event.created_at = profile.created_at;
+        }
+        
+        // AI-NOTE: 2025-01-24 - Generate a proper ID for the event
+        // This is required for the event details panel to work correctly
+        if (profile.pubkey) {
+          // Create a deterministic ID based on pubkey and kind
+          const idData = new TextEncoder().encode(`${profile.pubkey}:0:${profile.created_at || Date.now()}`);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', idData);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const eventId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          event.id = eventId;
+        }
+        
+        // AI-NOTE: 2025-01-24 - Attach profile data directly to event for easy access
+        // This ensures user list information is preserved
+        (event as any).profileData = cleanProfile;
+        
+        return event;
+      }));
+      
+      const result = {
+        events,
+        secondOrder: [],
+        tTagEvents: [],
+        eventIds: new Set<string>(),
+        addresses: new Set<string>(),
+        searchType: "n",
+        searchTerm: normalizedSearchTerm,
+      };
+      
+      // AI-NOTE: 2025-01-24 - Perform second-order search for n: searches
+      // This finds events that mention the found profiles
+      if (events.length > 0) {
+        performSecondOrderSearchInBackground(
+          "n",
+          events,
+          new Set<string>(),
+          new Set<string>(),
+          events[0].pubkey, // Use first profile's pubkey for second-order search
+          callbacks,
+        );
+      }
+      
+      // Cache the result
+      searchCache.set(searchType, normalizedSearchTerm, result);
+      
+      return result;
+    } catch (error) {
+      console.error("subscription_search: Error in centralized profile search:", error);
+      throw error;
+    }
+  }
+  
+  // Check cache first for other search types
   const cachedResult = searchCache.get(searchType, normalizedSearchTerm);
   if (cachedResult) {
     console.log("subscription_search: Found cached result:", cachedResult);
-    // AI-NOTE: 2025-01-24 - For profile searches, return cached results immediately
-    // The EventSearch component now handles cache checking before calling this function
-    if (searchType === "n") {
-      console.log("subscription_search: Returning cached profile result immediately");
-      return cachedResult;
-    } else {
-      return cachedResult;
-    }
+    return cachedResult;
   }
 
   const ndk = get(ndkInstance);
@@ -78,6 +165,9 @@ export async function searchBySubscription(
   console.log("subscription_search: NDK initialized, creating search state");
   const searchState = createSearchState();
   const cleanup = createCleanupFunction(searchState);
+
+  // User lists are now handled by the centralized searchProfiles function
+  // No need to fetch them here for n: searches
 
   // Set a timeout to force completion after subscription search timeout
   searchState.timeoutId = setTimeout(() => {
@@ -144,26 +234,7 @@ export async function searchBySubscription(
         );
         searchCache.set(searchType, normalizedSearchTerm, immediateResult);
 
-        // AI-NOTE: 2025-01-08 - For profile searches, return immediately when found
-        // but still start background search for second-order results
-        if (searchType === "n") {
-          console.log("subscription_search: Profile found, returning immediately but starting background second-order search");
-          
-          // Start Phase 2 in background for second-order results
-          searchOtherRelaysInBackground(
-            searchType,
-            searchFilter,
-            searchState,
-            callbacks,
-            cleanup,
-          );
-          
-          const elapsed = Date.now() - startTime;
-          console.log(`subscription_search: Profile search completed in ${elapsed}ms`);
-          return immediateResult;
-        }
-
-        // Start Phase 2 in background for additional results (only for non-profile searches)
+        // Start Phase 2 in background for additional results
         searchOtherRelaysInBackground(
           searchType,
           searchFilter,
@@ -178,69 +249,9 @@ export async function searchBySubscription(
           "subscription_search: No results from primary relay",
         );
         
-        // AI-NOTE: 2025-01-08 - For profile searches, if no results found in search relays,
-        // try all relays as fallback
-        if (searchType === "n") {
-          console.log(
-            "subscription_search: No profile found in search relays, trying all relays",
-          );
-          // Try with all relays as fallback
-          const allRelaySet = new NDKRelaySet(new Set(Array.from(ndk.pool.relays.values())) as any, ndk);
-          try {
-            const fallbackEvents = await ndk.fetchEvents(
-              searchFilter.filter,
-              { closeOnEose: true },
-              allRelaySet,
-            );
-            
-            console.log(
-              "subscription_search: Fallback search returned",
-              fallbackEvents.size,
-              "events",
-            );
-            
-            processPrimaryRelayResults(
-              fallbackEvents,
-              searchType,
-              searchFilter.subscriptionType,
-              normalizedSearchTerm,
-              searchState,
-              abortSignal,
-              cleanup,
-            );
-            
-            if (hasResults(searchState, searchType)) {
-              console.log(
-                "subscription_search: Found profile in fallback search, returning immediately",
-              );
-              const fallbackResult = createSearchResult(
-                searchState,
-                searchType,
-                normalizedSearchTerm,
-              );
-              searchCache.set(searchType, normalizedSearchTerm, fallbackResult);
-              const elapsed = Date.now() - startTime;
-              console.log(`subscription_search: Profile search completed in ${elapsed}ms (fallback)`);
-              return fallbackResult;
-            }
-          } catch (fallbackError) {
-            console.error("subscription_search: Fallback search failed:", fallbackError);
-          }
-          
-          console.log(
-            "subscription_search: Profile not found in any relays, returning empty result",
-          );
-          const emptyResult = createEmptySearchResult(searchType, normalizedSearchTerm);
-          // AI-NOTE: 2025-01-08 - Don't cache empty profile results as they may be due to search issues
-          // rather than the profile not existing
-          const elapsed = Date.now() - startTime;
-          console.log(`subscription_search: Profile search completed in ${elapsed}ms (not found)`);
-          return emptyResult;
-        } else {
-          console.log(
-            "subscription_search: No results from primary relay, continuing to Phase 2",
-          );
-        }
+        console.log(
+          "subscription_search: No results from primary relay, continuing to Phase 2",
+        );
       }
     } catch (error) {
       console.error(
@@ -263,11 +274,9 @@ export async function searchBySubscription(
     cleanup,
   );
   
-  // AI-NOTE: 2025-01-08 - Log performance for non-profile searches
-  if (searchType !== "n") {
-    const elapsed = Date.now() - startTime;
-    console.log(`subscription_search: ${searchType} search completed in ${elapsed}ms`);
-  }
+  // Log performance for all searches
+  const elapsed = Date.now() - startTime;
+  console.log(`subscription_search: ${searchType} search completed in ${elapsed}ms`);
   
   return result;
 }
@@ -283,9 +292,10 @@ function createSearchState() {
     tTagEvents: [] as NDKEvent[],
     eventIds: new Set<string>(),
     eventAddresses: new Set<string>(),
-    foundProfiles: [] as NDKEvent[],
+    // AI-NOTE: 2025-01-24 - foundProfiles removed as profile searches are now handled by centralized searchProfiles function
     isCompleted: false,
     currentSubscription: null as any,
+    // AI-NOTE: 2025-01-24 - userLists and userPubkeys removed as they're now handled by centralized searchProfiles function
   };
 }
 
@@ -351,51 +361,14 @@ async function createSearchFilter(
 
 /**
  * Create profile search filter
+ * AI-NOTE: 2025-01-24 - This function is now redundant as profile searches are handled by centralized searchProfiles function
+ * Keeping minimal implementation for compatibility with existing code structure
  */
 async function createProfileSearchFilter(
   normalizedSearchTerm: string,
 ): Promise<SearchFilter> {
-  // For npub searches, try to decode the search term first
-  try {
-    const decoded = nip19.decode(normalizedSearchTerm);
-    if (decoded && decoded.type === "npub") {
-      return {
-        filter: {
-          kinds: [0],
-          authors: [decoded.data],
-          limit: 1, // AI-NOTE: 2025-01-08 - Only need 1 result for specific npub search
-        },
-        subscriptionType: "npub-specific",
-      };
-    }
-  } catch {
-    // Not a valid npub, continue with other strategies
-  }
-
-  // Try NIP-05 lookup first
-  try {
-    for (const domain of COMMON_DOMAINS) {
-      const nip05Address = `${normalizedSearchTerm}@${domain}`;
-      try {
-        const npub = await getNpubFromNip05(nip05Address);
-        if (npub) {
-          return {
-            filter: {
-              kinds: [0],
-              authors: [npub],
-              limit: 1, // AI-NOTE: 2025-01-08 - Only need 1 result for specific npub search
-            },
-            subscriptionType: "nip05-found",
-          };
-        }
-      } catch {
-        // Continue to next domain
-      }
-    }
-  } catch {
-    // Fallback to reasonable profile search
-  }
-
+  // AI-NOTE: 2025-01-24 - Profile search logic is now centralized in profile_search.ts
+  // This function is kept for compatibility but profile searches should go through searchProfiles function
   return {
     filter: { kinds: [0], limit: SEARCH_LIMITS.GENERAL_PROFILE },
     subscriptionType: "profile",
@@ -480,12 +453,8 @@ function processPrimaryRelayResults(
 
     try {
       if (searchType === "n") {
-        processProfileEvent(
-          event,
-          subscriptionType,
-          normalizedSearchTerm,
-          searchState,
-        );
+        // AI-NOTE: 2025-01-24 - Profile processing is now handled by centralized searchProfiles function
+        // No need to process profile events here as they're handled in profile_search.ts
       } else {
         processContentEvent(event, searchType, searchState);
       }
@@ -498,62 +467,9 @@ function processPrimaryRelayResults(
   console.log(
     "subscription_search: Processed events - firstOrder:",
     searchState.firstOrderEvents.length,
-    "profiles:",
-    searchState.foundProfiles.length,
     "tTag:",
     searchState.tTagEvents.length,
   );
-}
-
-/**
- * Process profile event
- */
-function processProfileEvent(
-  event: NDKEvent,
-  subscriptionType: string,
-  normalizedSearchTerm: string,
-  searchState: any,
-) {
-  if (!event.content) return;
-
-  // If this is a specific npub search or NIP-05 found search, include all matching events
-  if (
-    subscriptionType === "npub-specific" ||
-    subscriptionType === "nip05-found"
-  ) {
-    searchState.foundProfiles.push(event);
-    return;
-  }
-
-  // For general profile searches, filter by content
-  const profileData = JSON.parse(event.content);
-  const displayName = profileData.display_name || profileData.displayName || "";
-  const name = profileData.name || "";
-  const nip05 = profileData.nip05 || "";
-  const username = profileData.username || "";
-  const about = profileData.about || "";
-  const bio = profileData.bio || "";
-  const description = profileData.description || "";
-
-  const matchesDisplayName = fieldMatches(displayName, normalizedSearchTerm);
-  const matchesName = fieldMatches(name, normalizedSearchTerm);
-  const matchesNip05 = nip05Matches(nip05, normalizedSearchTerm);
-  const matchesUsername = fieldMatches(username, normalizedSearchTerm);
-  const matchesAbout = fieldMatches(about, normalizedSearchTerm);
-  const matchesBio = fieldMatches(bio, normalizedSearchTerm);
-  const matchesDescription = fieldMatches(description, normalizedSearchTerm);
-
-  if (
-    matchesDisplayName ||
-    matchesName ||
-    matchesNip05 ||
-    matchesUsername ||
-    matchesAbout ||
-    matchesBio ||
-    matchesDescription
-  ) {
-    searchState.foundProfiles.push(event);
-  }
 }
 
 /**
@@ -601,9 +517,8 @@ function hasResults(
   searchState: any,
   searchType: SearchSubscriptionType,
 ): boolean {
-  if (searchType === "n") {
-    return searchState.foundProfiles.length > 0;
-  } else if (searchType === "d") {
+  // AI-NOTE: 2025-01-24 - Profile searches (n:) are now handled by centralized searchProfiles function
+  if (searchType === "d") {
     return searchState.firstOrderEvents.length > 0;
   } else if (searchType === "t") {
     return searchState.tTagEvents.length > 0;
@@ -619,13 +534,17 @@ function createSearchResult(
   searchType: SearchSubscriptionType,
   normalizedSearchTerm: string,
 ): SearchResult {
+  let events;
+  
+  // AI-NOTE: 2025-01-24 - Profile searches (n:) are now handled by centralized searchProfiles function
+  if (searchType === "t") {
+    events = searchState.tTagEvents;
+  } else {
+    events = searchState.firstOrderEvents;
+  }
+  
   return {
-    events:
-      searchType === "n"
-        ? searchState.foundProfiles
-        : searchType === "t"
-          ? searchState.tTagEvents
-          : searchState.firstOrderEvents,
+    events,
     secondOrder: [],
     tTagEvents: [],
     eventIds: searchState.eventIds,
@@ -649,13 +568,14 @@ function searchOtherRelaysInBackground(
 
   // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
   // This ensures we don't miss events that might be on any available relay
+  const allRelays = Array.from(ndk.pool.relays.values());
   const otherRelays = new NDKRelaySet(
-    new Set(Array.from(ndk.pool.relays.values())),
+    new Set(allRelays),
     ndk,
   );
   
   console.debug('subscription_search: Background search using ALL relays:', 
-    Array.from(ndk.pool.relays.values()).map((r: any) => r.url));
+    allRelays.map((r: any) => r.url));
 
   // Subscribe to events from other relays
   const sub = ndk.subscribe(
@@ -675,12 +595,8 @@ function searchOtherRelaysInBackground(
   sub.on("event", (event: NDKEvent) => {
     try {
       if (searchType === "n") {
-        processProfileEvent(
-          event,
-          searchFilter.subscriptionType,
-          searchState.normalizedSearchTerm,
-          searchState,
-        );
+        // AI-NOTE: 2025-01-24 - Profile processing is now handled by centralized searchProfiles function
+        // No need to process profile events here as they're handled in profile_search.ts
       } else {
         processContentEvent(event, searchType, searchState);
       }
@@ -713,92 +629,21 @@ function processEoseResults(
   searchFilter: SearchFilter,
   callbacks?: SearchCallbacks,
 ): SearchResult {
-  if (searchType === "n") {
-    return processProfileEoseResults(searchState, searchFilter, callbacks);
-  } else if (searchType === "d") {
+  // AI-NOTE: 2025-01-24 - Profile searches (n:) are now handled by centralized searchProfiles function
+  if (searchType === "d") {
     return processContentEoseResults(searchState, searchType);
   } else if (searchType === "t") {
     return processTTagEoseResults(searchState);
+  } else if (searchType === "n") {
+    // AI-NOTE: 2025-01-24 - n: searches are handled by centralized searchProfiles function
+    // Second-order search is performed in the main searchBySubscription function
+    return createEmptySearchResult(searchType, searchState.normalizedSearchTerm);
   }
 
   return createEmptySearchResult(searchType, searchState.normalizedSearchTerm);
 }
 
-/**
- * Process profile EOSE results
- */
-function processProfileEoseResults(
-  searchState: any,
-  searchFilter: SearchFilter,
-  callbacks?: SearchCallbacks,
-): SearchResult {
-  if (searchState.foundProfiles.length === 0) {
-    return createEmptySearchResult("n", searchState.normalizedSearchTerm);
-  }
-
-  // Deduplicate by pubkey, keep only newest
-  const deduped: Record<string, { event: NDKEvent; created_at: number }> = {};
-  for (const event of searchState.foundProfiles) {
-    const pubkey = event.pubkey;
-    const created_at = event.created_at || 0;
-    if (!deduped[pubkey] || deduped[pubkey].created_at < created_at) {
-      deduped[pubkey] = { event, created_at };
-    }
-  }
-
-  // Sort by creation time (newest first) and take only the most recent profiles
-  const dedupedProfiles = Object.values(deduped)
-    .sort((a, b) => b.created_at - a.created_at)
-    .map((x) => x.event);
-
-  // Perform second-order search for npub searches
-  if (
-    searchFilter.subscriptionType === "npub-specific" ||
-    searchFilter.subscriptionType === "nip05-found"
-  ) {
-    const targetPubkey = dedupedProfiles[0]?.pubkey;
-    if (targetPubkey) {
-      console.log("subscription_search: Triggering second-order search for npub-specific profile:", targetPubkey);
-      performSecondOrderSearchInBackground(
-        "n",
-        dedupedProfiles,
-        new Set(),
-        new Set(),
-        targetPubkey,
-        callbacks,
-      );
-    } else {
-      console.log("subscription_search: No targetPubkey found for second-order search");
-    }
-  } else if (searchFilter.subscriptionType === "profile") {
-    // For general profile searches, perform second-order search for each found profile
-    for (const profile of dedupedProfiles) {
-      if (profile.pubkey) {
-        console.log("subscription_search: Triggering second-order search for general profile:", profile.pubkey);
-        performSecondOrderSearchInBackground(
-          "n",
-          dedupedProfiles,
-          new Set(),
-          new Set(),
-          profile.pubkey,
-          callbacks,
-        );
-      }
-    }
-  } else {
-    console.log("subscription_search: No second-order search triggered for subscription type:", searchFilter.subscriptionType);
-  }
-
-  return {
-    events: dedupedProfiles,
-    secondOrder: [],
-    tTagEvents: [],
-    eventIds: new Set(dedupedProfiles.map((p) => p.id)),
-    addresses: new Set(),
-    searchType: "n",
-    searchTerm: searchState.normalizedSearchTerm,
-  };
-}
+// AI-NOTE: 2025-01-24 - processProfileEoseResults function removed as profile searches are now handled by centralized searchProfiles function
 
 /**
  * Process content EOSE results
@@ -853,6 +698,37 @@ function processContentEoseResults(
 function processTTagEoseResults(searchState: any): SearchResult {
   if (searchState.tTagEvents.length === 0) {
     return createEmptySearchResult("t", searchState.normalizedSearchTerm);
+  }
+
+  // AI-NOTE: 2025-01-24 - Perform second-order search for t-tag searches
+  // This finds events that reference the t-tag events
+  if (searchState.tTagEvents.length > 0) {
+    // Collect event IDs and addresses from t-tag events for second-order search
+    const eventIds = new Set<string>();
+    const addresses = new Set<string>();
+    
+    for (const event of searchState.tTagEvents) {
+      if (event.id) {
+        eventIds.add(event.id);
+      }
+      // Handle both "a" tags (NIP-62) and "e" tags (legacy)
+      let tags = getMatchingTags(event, "a");
+      if (tags.length === 0) {
+        tags = getMatchingTags(event, "e");
+      }
+      tags.forEach((tag: string[]) => {
+        if (tag[1]) {
+          addresses.add(tag[1]);
+        }
+      });
+    }
+    
+    performSecondOrderSearchInBackground(
+      "d", // Use "d" type for second-order search since t-tag events are addressable
+      searchState.tTagEvents,
+      eventIds,
+      addresses,
+    );
   }
 
   return {
@@ -924,38 +800,92 @@ async function performSecondOrderSearchInBackground(
         
         console.log("subscription_search: Using", activeRelays.length, "active relays for second-order search");
         
-        // Search for events that mention this pubkey via p-tags
-        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
-        const pTagEvents = await ndk.fetchEvents(
-          pTagFilter,
-          { closeOnEose: true },
-          relaySet,
-        );
-        console.log("subscription_search: Found", pTagEvents.size, "events with p-tag for", targetPubkey);
+        // AI-NOTE: 2025-01-24 - Search for events that mention this pubkey in various tags
+        // Focus on events that are actually about the profile, not just random mentions
+        const searchFilters = [
+          { authors: [targetPubkey], limit: 50 }, // Events written by this pubkey (most relevant)
+          { "#p": [targetPubkey], limit: 25 }, // p-tags (mentions) - reduced limit
+          { "#q": [targetPubkey], limit: 25 }, // q-tags (quotes) - reduced limit
+        ];
         
-        // AI-NOTE: 2025-01-24 - Also search for events written by this pubkey with limit
-        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
-        const authorEvents = await ndk.fetchEvents(
-          authorFilter,
-          { closeOnEose: true },
-          relaySet,
-        );
-        console.log("subscription_search: Found", authorEvents.size, "events written by", targetPubkey);
+        const searchPromises = searchFilters.map(async (filter, index) => {
+          const filterName = index === 0 ? "author" : index === 1 ? "p-tag" : "q-tag";
+          try {
+            const events = await ndk.fetchEvents(filter, { closeOnEose: true }, relaySet);
+            console.log(`subscription_search: Found ${events.size} events with ${filterName} for ${targetPubkey}`);
+            return filterUnwantedEvents(Array.from(events));
+          } catch (error) {
+            console.warn(`subscription_search: Error searching ${filterName}:`, error);
+            return [];
+          }
+        });
         
-        // Filter out unwanted events from both sets
-        const filteredPTagEvents = filterUnwantedEvents(Array.from(pTagEvents));
-        const filteredAuthorEvents = filterUnwantedEvents(Array.from(authorEvents));
+        const searchResults = await Promise.allSettled(searchPromises);
         
-        console.log("subscription_search: After filtering unwanted events:", filteredPTagEvents.length, "p-tag events,", filteredAuthorEvents.length, "author events");
+        // Combine all results, prioritizing author events
+        for (const result of searchResults) {
+          if (result.status === "fulfilled") {
+            allSecondOrderEvents.push(...result.value);
+          }
+        }
         
-        // Combine both sets of events
-        allSecondOrderEvents = [...filteredPTagEvents, ...filteredAuthorEvents];
+        // AI-NOTE: 2025-01-24 - Filter events to ensure they're relevant to the profile
+        // Remove events that are just random mentions without meaningful content
+        const relevantEvents = allSecondOrderEvents.filter(event => {
+          // Always include events written by the target pubkey
+          if (event.pubkey === targetPubkey) {
+            return true;
+          }
+          
+          // For events that mention the pubkey, check if they have meaningful content
+          if (event.content && event.content.trim().length > 0) {
+            // Include events with substantial content (more than just a mention)
+            return event.content.trim().length > 10;
+          }
+          
+          // Include events with tags that suggest they're about the profile
+          const pTags = getMatchingTags(event, "p");
+          const qTags = getMatchingTags(event, "q");
+          if (pTags.length > 0 || qTags.length > 0) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        // AI-NOTE: 2025-01-24 - Further filter to prioritize events that are actually about the profile
+        // This helps reduce noise from random mentions
+        const highQualityEvents = relevantEvents.filter(event => {
+          // Always keep events written by the target pubkey
+          if (event.pubkey === targetPubkey) {
+            return true;
+          }
+          
+          // For events by others, require more substantial content
+          if (event.content && event.content.trim().length > 0) {
+            const content = event.content.toLowerCase();
+            // Prefer events that mention the profile name or have substantial discussion
+            return content.length > 20; // Require more substantial content
+          }
+          
+          // Keep events with relevant tags but limit them
+          const pTags = getMatchingTags(event, "p");
+          const qTags = getMatchingTags(event, "q");
+          return pTags.length > 0 || qTags.length > 0;
+        });
+        
+        allSecondOrderEvents = highQualityEvents;
+        console.log("subscription_search: Total relevant second-order events found:", allSecondOrderEvents.length);
       } else if (searchType === "d") {
         // Parallel fetch for #e and #a tag events
+        const allRelays = Array.from(ndk.pool.relays.values());
         const relaySet = new NDKRelaySet(
-          new Set(Array.from(ndk.pool.relays.values())),
+          new Set(allRelays),
           ndk,
         );
+        console.debug('subscription_search: Second-order search using ALL relays:', 
+          allRelays.map((r: any) => r.url));
+        
         const [eTagEvents, aTagEvents] = await Promise.all([
           eventIds.size > 0
             ? ndk.fetchEvents(

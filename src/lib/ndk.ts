@@ -20,13 +20,11 @@ import {
 // Re-export testRelayConnection for components that need it
 export { testRelayConnection };
 import { userStore } from "./stores/userStore.ts";
-import { userPubkey } from "./stores/authStore.Svelte.ts";
 import { startNetworkStatusMonitoring, stopNetworkStatusMonitoring } from "./stores/networkStore.ts";
 import { WebSocketPool } from "./data_structures/websocket_pool.ts";
 
 export const ndkInstance: Writable<NDK> = writable();
 export const ndkSignedIn = writable(false);
-export const activePubkey = writable<string | null>(null);
 export const inboxRelays = writable<string[]>([]);
 export const outboxRelays = writable<string[]>([]);
 
@@ -757,8 +755,7 @@ export async function loginWithExtension(
       console.debug("[NDK.ts] Switching pubkeys from last login.");
     }
 
-    activePubkey.set(signerUser.pubkey);
-    userPubkey.set(signerUser.pubkey);
+
 
     const user = ndk.getUser({ pubkey: signerUser.pubkey });
     
@@ -784,8 +781,7 @@ export async function loginWithExtension(
 export function logout(user: NDKUser): void {
   clearLogin();
   clearPersistedRelays(user);
-  activePubkey.set(null);
-  userPubkey.set(null);
+
   ndkSignedIn.set(false);
   
   // Clear relay stores

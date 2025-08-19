@@ -20,7 +20,6 @@
   } from "$lib/utils/asciidoc_metadata";
   import { get } from "svelte/store";
   import { ndkInstance } from "$lib/ndk";
-  import { userPubkey } from "$lib/stores/authStore.Svelte";
   import { userStore } from "$lib/stores/userStore";
   import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -163,11 +162,8 @@
   }
 
   function validate(): { valid: boolean; reason?: string; warning?: string } {
-    const currentUserPubkey = get(userPubkey as any);
     const userState = get(userStore);
-    
-    // Try userPubkey first, then fallback to userStore
-    const pubkey = currentUserPubkey || userState.pubkey;
+    const pubkey = userState.pubkey;
     if (!pubkey) return { valid: false, reason: "Not logged in." };
     
     if (!content.trim()) return { valid: false, reason: "Content required." };
@@ -222,11 +218,8 @@
 
     try {
       const ndk = get(ndkInstance);
-      const currentUserPubkey = get(userPubkey as any);
-      const userState = get(userStore);
-      
-      // Try userPubkey first, then fallback to userStore
-      const pubkey = currentUserPubkey || userState.pubkey;
+          const userState = get(userStore);
+    const pubkey = userState.pubkey;
       if (!ndk || !pubkey) {
         error = "NDK or pubkey missing.";
         loading = false;

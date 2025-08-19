@@ -17,7 +17,7 @@
   import type { PageData } from './$types';
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/profileCache";
-  import { activePubkey } from "$lib/ndk";
+  import { userStore } from "$lib/stores/userStore";
   // Import utility functions for tag-based event fetching
   // These functions handle the complex logic of finding publications by tags
   // and extracting their associated content events
@@ -122,8 +122,8 @@
     }
     
     // Get the current user's pubkey
-    const currentUserPubkey = get(activePubkey);
-    if (!currentUserPubkey) {
+      const currentUserPubkey = get(userStore).pubkey;
+  if (!currentUserPubkey) {
       console.warn("No logged-in user, cannot fetch user's follow list");
       return [];
     }

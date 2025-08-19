@@ -6,7 +6,7 @@
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkNode, NetworkLink } from "../types";
-import { getDisplayNameSync } from "$lib/utils/profileCache";
+import { getDisplayNameSync, batchFetchProfiles } from "$lib/utils/profileCache";
 import { SeededRandom, createDebugFunction } from "./common";
 
 const PERSON_ANCHOR_RADIUS = 15;
@@ -186,14 +186,14 @@ function getEligiblePersons(
 /**
  * Creates person anchor nodes
  */
-export function createPersonAnchorNodes(
+export async function createPersonAnchorNodes(
   personMap: Map<string, PersonConnection>,
   width: number,
   height: number,
   showSignedBy: boolean,
   showReferenced: boolean,
   limit: number = MAX_PERSON_NODES
-): { nodes: NetworkNode[], totalCount: number } {
+): Promise<{ nodes: NetworkNode[], totalCount: number }> {
   const anchorNodes: NetworkNode[] = [];
 
   const centerX = width / 2;
@@ -201,6 +201,17 @@ export function createPersonAnchorNodes(
 
   // Calculate eligible persons and their connection counts
   const eligiblePersons = getEligiblePersons(personMap, showSignedBy, showReferenced, limit);
+
+  // Cache profiles for person anchor nodes
+  const personPubkeys = eligiblePersons.map(p => p.pubkey);
+  if (personPubkeys.length > 0) {
+    debug("Caching profiles for person anchor nodes", { count: personPubkeys.length });
+    try {
+      await batchFetchProfiles(personPubkeys);
+    } catch (error) {
+      debug("Failed to cache profiles for person anchor nodes", error);
+    }
+  }
 
   // Create nodes for the limited set
   debug("Creating person anchor nodes", { 

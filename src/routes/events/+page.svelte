@@ -13,7 +13,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import EventInput from "$lib/components/EventInput.svelte";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
+
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays, logCurrentRelayConfiguration } from "$lib/ndk";
@@ -21,6 +21,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
   import { parseRepostContent, parseContent } from "$lib/utils/notification_utils";
+  import { fetchCurrentUserLists, isPubkeyInUserLists } from "$lib/utils/user_lists";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -53,6 +54,13 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
   let searchResultsCollapsed = $state(false);
 
   userStore.subscribe((val) => (user = val));
+  
+  // Debug: Check if user is logged in
+  $effect(() => {
+    console.log("[Events Page] User state:", user);
+    console.log("[Events Page] User signed in:", user?.signedIn);
+    console.log("[Events Page] User pubkey:", user?.pubkey);
+  });
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -69,10 +77,35 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     // searchInProgress = false;
     // secondOrderSearchMessage = null;
 
+    // AI-NOTE: 2025-01-24 - Properly parse profile data for kind 0 events
     if (newEvent.kind === 0) {
       try {
-        profile = JSON.parse(newEvent.content);
-      } catch {
+        const parsedProfile = parseProfileContent(newEvent);
+        if (parsedProfile) {
+          profile = parsedProfile;
+          console.log("[Events Page] Parsed profile data:", parsedProfile);
+          
+          // If the event doesn't have user list information, fetch it
+          if (typeof parsedProfile.isInUserLists !== 'boolean') {
+            fetchCurrentUserLists()
+              .then((userLists) => {
+                const isInLists = isPubkeyInUserLists(newEvent.pubkey, userLists);
+                // Update the profile with user list information
+                profile = { ...parsedProfile, isInUserLists: isInLists } as any;
+                // Also update the event's profileData
+                (newEvent as any).profileData = { ...parsedProfile, isInUserLists: isInLists };
+              })
+              .catch(() => {
+                profile = { ...parsedProfile, isInUserLists: false } as any;
+                (newEvent as any).profileData = { ...parsedProfile, isInUserLists: false };
+              });
+          }
+        } else {
+          console.warn("[Events Page] Failed to parse profile content for event:", newEvent.id);
+          profile = null;
+        }
+      } catch (error) {
+        console.error("[Events Page] Error parsing profile content:", error);
         profile = null;
       }
     } else {
@@ -82,6 +115,20 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     // AI-NOTE: 2025-01-24 - Ensure profile is cached for the event author
     if (newEvent.pubkey) {
       cacheProfileForPubkey(newEvent.pubkey);
+      
+      // Update profile data with user list information
+      updateProfileDataWithUserLists([newEvent]);
+      
+      // Also check community status for the individual event
+      if (!communityStatus[newEvent.pubkey]) {
+        checkCommunity(newEvent.pubkey)
+          .then((status) => {
+            communityStatus = { ...communityStatus, [newEvent.pubkey]: status };
+          })
+          .catch(() => {
+            communityStatus = { ...communityStatus, [newEvent.pubkey]: false };
+          });
+      }
     }
   }
 
@@ -160,6 +207,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     addresses: Set<string> = new Set(),
     searchTypeParam?: string,
     searchTermParam?: string,
+    loading: boolean = false, // AI-NOTE: 2025-01-24 - Add loading parameter for second-order search message logic
   ) {
     searchResults = results;
     secondOrderResults = secondOrder;
@@ -230,7 +278,29 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     const cachePromises = Array.from(uniquePubkeys).map(pubkey => cacheProfileForPubkey(pubkey));
     await Promise.allSettled(cachePromises);
     
+    // AI-NOTE: 2025-01-24 - Update profile data with user list information for cached events
+    await updateProfileDataWithUserLists(events);
+    
     console.log(`[Events Page] Profile caching complete`);
+  }
+
+  // AI-NOTE: 2025-01-24 - Function to update profile data with user list information
+  async function updateProfileDataWithUserLists(events: NDKEvent[]) {
+    try {
+      const userLists = await fetchCurrentUserLists();
+      
+      for (const event of events) {
+        if (event.kind === 0 && event.pubkey) {
+          const existingProfileData = (event as any).profileData || parseProfileContent(event);
+          if (existingProfileData) {
+            const isInLists = isPubkeyInUserLists(event.pubkey, userLists);
+            (event as any).profileData = { ...existingProfileData, isInUserLists: isInLists };
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("[Events Page] Failed to update profile data with user lists:", error);
+    }
   }
 
   function handleClear() {
@@ -310,6 +380,8 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     website?: string;
     lud16?: string;
     nip05?: string;
+    isInUserLists?: boolean;
+    listKinds?: number[];
   } | null {
     if (event.kind !== 0 || !event.content) {
       return null;
@@ -365,6 +437,16 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
     return addr.slice(0, head) + "…" + addr.slice(-tail);
   }
 
+  function formatEventDate(event: NDKEvent): string {
+    if (event.created_at) {
+      return new Date(event.created_at * 1000).toLocaleDateString();
+    }
+    if ((event as any).timestamp) {
+      return new Date((event as any).timestamp * 1000).toLocaleDateString();
+    }
+    return "Unknown date";
+  }
+
   function onLoadingChange(val: boolean) {
     loading = val;
     searchInProgress =
@@ -394,7 +476,9 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
       }
     }
 
+    // AI-NOTE: 2025-01-24 - Ensure proper reactivity by creating a new object
     communityStatus = { ...communityStatus, ...newCommunityStatus };
+    console.log("Community status updated:", communityStatus);
   }
 
 
@@ -490,7 +574,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
               </Heading>
             <div class="space-y-4">
               {#each searchResults as result, index}
-                {@const profileData = parseProfileContent(result)}
+                {@const profileData = (result as any).profileData || parseProfileContent(result)}
                 <button
                   class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
                   onclick={() => handleEventFound(result)}
@@ -504,6 +588,22 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span class="text-xs text-gray-600 dark:text-gray-400"
                         >Kind: {result.kind}</span
                       >
+                      {#if profileData?.isInUserLists}
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                          title="In your lists (follows, etc.)"
+                        >
+                          <svg
+                            class="w-3 h-3 text-red-600 dark:text-red-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            />
+                          </svg>
+                        </div>
+                      {/if}
                       {#if result.pubkey && communityStatus[result.pubkey]}
                         <div
                           class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
@@ -519,7 +619,8 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                             />
                           </svg>
                         </div>
-                      {:else}
+                      {/if}
+                      {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
                         <div class="flex-shrink-0 w-4 h-4"></div>
                       {/if}
                       <span class="text-xs text-gray-600 dark:text-gray-400">
@@ -531,11 +632,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
-                        {result.created_at
-                          ? new Date(
-                              result.created_at * 1000,
-                            ).toLocaleDateString()
-                          : "Unknown date"}
+                        {formatEventDate(result)}
                       </span>
                     </div>
                     {#if result.kind === 0 && profileData}
@@ -664,7 +761,22 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span class="text-xs text-gray-600 dark:text-gray-400"
                         >Kind: {result.kind}</span
                       >
-                      {#if result.pubkey && communityStatus[result.pubkey]}
+                      {#if profileData?.isInUserLists}
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                          title="In your lists (follows, etc.)"
+                        >
+                          <svg
+                            class="w-3 h-3 text-red-600 dark:text-red-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            />
+                          </svg>
+                        </div>
+                      {:else if result.pubkey && communityStatus[result.pubkey]}
                         <div
                           class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
                           title="Has posted to the community"
@@ -691,11 +803,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
-                        {result.created_at
-                          ? new Date(
-                              result.created_at * 1000,
-                            ).toLocaleDateString()
-                          : "Unknown date"}
+                        {formatEventDate(result)}
                       </span>
                     </div>
                     <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">
@@ -825,7 +933,22 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span class="text-xs text-gray-600 dark:text-gray-400"
                         >Kind: {result.kind}</span
                       >
-                      {#if result.pubkey && communityStatus[result.pubkey]}
+                      {#if profileData?.isInUserLists}
+                        <div
+                          class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                          title="In your lists (follows, etc.)"
+                        >
+                          <svg
+                            class="w-3 h-3 text-red-600 dark:text-red-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            />
+                          </svg>
+                        </div>
+                      {:else if result.pubkey && communityStatus[result.pubkey]}
                         <div
                           class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
                           title="Has posted to the community"
@@ -852,11 +975,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
                       <span
                         class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                       >
-                        {result.created_at
-                          ? new Date(
-                              result.created_at * 1000,
-                            ).toLocaleDateString()
-                          : "Unknown date"}
+                        {formatEventDate(result)}
                       </span>
                     </div>
                     {#if result.kind === 0 && profileData}
@@ -997,7 +1116,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
         {/if}
 
         <div class="min-w-0 overflow-hidden">
-          <EventDetails {event} {profile} {searchValue} />
+          <EventDetails {event} {profile} {searchValue} communityStatusMap={communityStatus} />
         </div>
         <div class="min-w-0 overflow-hidden">
           <RelayActions {event} />
@@ -1007,7 +1126,7 @@ import CommentViewer from "$lib/components/CommentViewer.svelte";
           <CommentViewer {event} />
         </div>
         
-        {#if isLoggedIn && userPubkey}
+        {#if user?.signedIn}
           <div class="mt-8 min-w-0 overflow-hidden">
             <Heading tag="h3" class="h-leather mb-4 break-words">Add Comment</Heading>
             <CommentBox {event} {userRelayPreference} />

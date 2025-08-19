@@ -27,6 +27,9 @@ export const TIMEOUTS = {
 
   /** Cache cleanup interval */
   CACHE_CLEANUP: 60000,
+
+  /** Timeout for relay search operations */
+  RELAY_TIMEOUT: 1500, // 1.5 seconds for quick relay searches
 } as const;
 
 // Cache duration constants (in milliseconds)
@@ -54,6 +57,12 @@ export const SEARCH_LIMITS = {
 
   /** Limit for second-order search results */
   SECOND_ORDER_RESULTS: 100,
+
+  /** Maximum results for profile searches */
+  MAX_PROFILE_RESULTS: 20,
+
+  /** Batch size for profile fetching operations */
+  BATCH_SIZE: 50,
 } as const;
 
 // Nostr event kind ranges

@@ -207,7 +207,23 @@ export async function searchNip05(
 
     const data = await res.json();
 
-    const pubkey = data.names?.[name];
+    // Try exact match first
+    let pubkey = data.names?.[name];
+
+    // If not found, try case-insensitive search
+    if (!pubkey && data.names) {
+      const names = Object.keys(data.names);
+      const matchingName = names.find(
+        (n) => n.toLowerCase() === name.toLowerCase(),
+      );
+      if (matchingName) {
+        pubkey = data.names[matchingName];
+        console.log(
+          `[searchNip05] Found case-insensitive match: ${name} -> ${matchingName}`,
+        );
+      }
+    }
+
     if (pubkey) {
       const profileFilter = { kinds: [0], authors: [pubkey] };
       const profileEvent = await fetchEventWithFallback(

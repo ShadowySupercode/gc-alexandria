@@ -4,7 +4,7 @@ import { ndkInstance } from "../ndk.ts";
 import { npubCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NDKKind, NostrEvent } from "@nostr-dev-kit/ndk";
-import type { Filter } from "./search_types.ts";
+import type { Filter, NostrProfile } from "./search_types.ts";
 import { communityRelays, secondaryRelays, searchRelays, anonymousRelays } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
@@ -26,16 +26,7 @@ export const NOSTR_PROFILE_REGEX =
 export const NOSTR_NOTE_REGEX =
   /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0-9]{20,})(?![\w/])/g;
 
-export interface NostrProfile {
-  name?: string;
-  displayName?: string;
-  nip05?: string;
-  picture?: string;
-  about?: string;
-  banner?: string;
-  website?: string;
-  lud16?: string;
-}
+// AI-NOTE: 2025-01-24 - NostrProfile interface moved to search_types.ts for consistency
 
 /**
  * HTML escape a string
@@ -130,6 +121,7 @@ export async function getUserMetadata(
       banner: profile?.banner,
       website: profile?.website,
       lud16: profile?.lud16,
+      created_at: profileEvent?.created_at, // AI-NOTE: 2025-01-24 - Preserve timestamp for proper date display
     };
 
     console.log("getUserMetadata: Final metadata:", metadata);

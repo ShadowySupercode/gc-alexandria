@@ -27,6 +27,9 @@ export interface NostrProfile {
   website?: string;
   lud16?: string;
   pubkey?: string;
+  isInUserLists?: boolean;
+  listKinds?: number[];
+  created_at?: number; // AI-NOTE: 2025-01-24 - Timestamp for proper date display
 }
 
 /**

@@ -2,7 +2,8 @@
   import { Card, Modal, Button, P } from "flowbite-svelte";
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils.ts";
+  import { toNpub } from "$lib/utils/nostrUtils.ts";
+  import type { NostrProfile } from "$lib/utils/search_types";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
@@ -14,20 +15,24 @@
   import { bech32 } from "bech32";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { goto } from "$app/navigation";
+  import { isPubkeyInUserLists, fetchCurrentUserLists } from "$lib/utils/user_lists";
 
   const {
     event,
     profile,
     identifiers = [],
+    communityStatusMap = {},
   } = $props<{
     event: NDKEvent;
     profile: NostrProfile;
     identifiers?: { label: string; value: string; link?: string }[];
+    communityStatusMap?: Record<string, boolean>;
   }>();
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
   let communityStatus = $state<boolean | null>(null);
+  let isInUserLists = $state<boolean | null>(null);
 
   onMount(async () => {
     if (profile?.lud16) {
@@ -45,13 +50,42 @@
 
   $effect(() => {
     if (event?.pubkey) {
-      checkCommunity(event.pubkey)
-        .then((status) => {
-          communityStatus = status;
-        })
-        .catch(() => {
-          communityStatus = false;
-        });
+      // First check if we have cached profileData with user list information
+      const cachedProfileData = (event as any).profileData;
+      console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
+      
+      if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
+        isInUserLists = cachedProfileData.isInUserLists;
+        console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+      } else {
+        console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
+        // Fallback to fetching user lists
+        fetchCurrentUserLists()
+          .then((userLists) => {
+            console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
+            isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
+            console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
+          })
+          .catch((error) => {
+            console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
+            isInUserLists = false;
+          });
+      }
+
+      // Check community status - use cached data if available
+      if (communityStatusMap[event.pubkey] !== undefined) {
+        communityStatus = communityStatusMap[event.pubkey];
+        console.log(`[ProfileHeader] Using cached community status for ${event.pubkey}: ${communityStatus}`);
+      } else {
+        // Fallback to checking community status
+        checkCommunity(event.pubkey)
+          .then((status) => {
+            communityStatus = status;
+          })
+          .catch(() => {
+            communityStatus = false;
+          });
+      }
     }
   });
 
@@ -116,6 +150,24 @@
               </svg>
             </div>
           {:else if communityStatus === false}
+            <div class="flex-shrink-0 w-4 h-4"></div>
+          {/if}
+          {#if isInUserLists === true}
+            <div
+              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+              title="In your lists (follows, etc.)"
+            >
+              <svg
+                class="w-3 h-3 text-red-600 dark:text-red-400"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                />
+              </svg>
+            </div>
+          {:else if isInUserLists === false}
             <div class="flex-shrink-0 w-4 h-4"></div>
           {/if}
         </div>

@@ -10,7 +10,7 @@
     ProfileSearchResult,
   } from "$lib/utils/search_utility";
 
-  import { userPubkey } from "$lib/stores/authStore.Svelte";
+
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -174,7 +174,7 @@
     success = null;
 
     try {
-      const pk = $userPubkey || "";
+      const pk = $userStore.pubkey || "";
       const npub = toNpub(pk);
 
       if (!npub) {
@@ -430,7 +430,22 @@
                 class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
                 onclick={() => selectMention(profile)}
               >
-                {#if profile.pubkey && communityStatus[profile.pubkey]}
+                {#if profile.isInUserLists}
+                  <div
+                    class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                    title="In your lists"
+                  >
+                    <svg
+                      class="w-4 h-4 text-red-600 dark:text-red-400"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                      />
+                    </svg>
+                  </div>
+                {:else if profile.pubkey && communityStatus[profile.pubkey]}
                   <div
                     class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
                     title="Has posted to the community"
@@ -604,10 +619,10 @@
     {/if}
     <Button
       onclick={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !$userPubkey}
+                  disabled={isSubmitting || !content.trim() || !$userStore.pubkey}
       class="w-full md:w-auto"
     >
-      {#if !$userPubkey}
+      {#if !$userStore.pubkey}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -617,7 +632,7 @@
     </Button>
   </div>
 
-  {#if !$userPubkey}
+  {#if !$userStore.pubkey}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

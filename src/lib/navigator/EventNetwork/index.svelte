@@ -250,7 +250,7 @@
   /**
    * Generates graph data from events, including tag and person anchors
    */
-  function generateGraphData() {
+  async function generateGraphData() {
     debug("Generating graph with events", {
       eventCount: events.length,
       currentLevels,
@@ -309,7 +309,7 @@
       personMap = extractUniquePersons(events, followListEvents);
       
       // Create person anchor nodes based on filters
-      const personResult = createPersonAnchorNodes(
+      const personResult = await createPersonAnchorNodes(
         personMap, 
         width, 
         height, 
@@ -866,7 +866,7 @@
    * Updates the graph with new data
    * Generates the graph from events, creates the simulation, and renders nodes and links
    */
-  function updateGraph() {
+  async function updateGraph() {
     debug("updateGraph called", {
       eventCount: events?.length,
       starVisualization,
@@ -878,7 +878,7 @@
 
     try {
       validateGraphElements();
-      const graphData = generateGraphData();
+      const graphData = await generateGraphData();
       
       // Save current positions before filtering
       saveNodePositions(graphData.nodes);
@@ -1011,17 +1011,17 @@
   });
   
   // Debounced update function
-  function scheduleGraphUpdate() {
+  async function scheduleGraphUpdate() {
     if (updateTimer) {
       clearTimeout(updateTimer);
     }
     
-    updateTimer = setTimeout(() => {
+    updateTimer = setTimeout(async () => {
       if (!isUpdating && svg && events?.length > 0) {
         debug("Scheduled graph update executing", graphDependencies);
         isUpdating = true;
         try {
-          updateGraph();
+          await updateGraph();
         } catch (error) {
           console.error("Error updating graph:", error);
           errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
@@ -1235,9 +1235,9 @@
       <p>{errorMessage}</p>
       <button
         class="network-error-retry"
-        onclick={() => {
+        onclick={async () => {
           errorMessage = null;
-          updateGraph();
+          await updateGraph();
         }}
       >
         Retry
@@ -1258,20 +1258,20 @@
       {autoDisabledTags}
       bind:showTagAnchors
       bind:selectedTagType
-      onTagSettingsChange={() => {
+      onTagSettingsChange={async () => {
         // Trigger graph update when tag settings change
         if (svg && events?.length) {
-          updateGraph();
+          await updateGraph();
         }
       }}
       bind:showPersonNodes
       personAnchors={personAnchorInfo}
       {disabledPersons}
       onPersonToggle={handlePersonToggle}
-      onPersonSettingsChange={() => {
+      onPersonSettingsChange={async () => {
         // Trigger graph update when person settings change
         if (svg && events?.length) {
-          updateGraph();
+          await updateGraph();
         }
       }}
       bind:showSignedBy
