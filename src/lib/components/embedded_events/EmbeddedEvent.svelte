@@ -1,7 +1,6 @@
 <script lang="ts">
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
-  import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { fetchEventWithFallback, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { parsedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { naddrEncode } from "$lib/utils";
@@ -41,6 +40,8 @@
 
   // AI-NOTE: 2025-01-24 - Embedded event component for rendering nested Nostr events
   // Supports up to 3 levels of nesting, after which it falls back to showing just the link
+  // AI-NOTE: 2025-01-24 - Updated to handle both NIP-19 identifiers and raw event IDs
+  // If a raw event ID is passed, it automatically creates a nevent identifier
 
   $effect(() => {
     if (nostrIdentifier) {
@@ -66,8 +67,24 @@
       // Clean the identifier (remove nostr: prefix if present)
       const cleanId = nostrIdentifier.replace(/^nostr:/, "");
 
-      // Decode the identifier to get the event ID
-      const decoded = nip19.decode(cleanId);
+      // Try to decode as NIP-19 identifier first
+      let decoded;
+      try {
+        decoded = nip19.decode(cleanId);
+      } catch (decodeError) {
+        // If decoding fails, assume it's a raw event ID and create a nevent
+        if (/^[0-9a-fA-F]{64}$/.test(cleanId)) {
+          // It's a valid hex event ID, create a nevent
+          const nevent = nip19.neventEncode({
+            id: cleanId,
+            relays: [],
+          });
+          decoded = nip19.decode(nevent);
+        } else {
+          throw new Error(`Invalid identifier format: ${cleanId}`);
+        }
+      }
+
       if (!decoded) {
         throw new Error("Failed to decode Nostr identifier");
       }
