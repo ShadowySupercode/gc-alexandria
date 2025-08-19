@@ -9,6 +9,7 @@ import {
   communityRelays,
   searchRelays,
   secondaryRelays,
+  localRelays,
 } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
@@ -389,7 +390,7 @@ Promise.prototype.withTimeout = function <T>(
 export async function fetchEventWithFallback(
   ndk: NDK,
   filterOrId: string | Filter,
-  timeoutMs: number = 3000,
+  timeoutMs: number = 10000,
 ): Promise<NDKEvent | null> {
   // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
   // This ensures we don't miss events that might be on any available relay
@@ -417,7 +418,15 @@ export async function fetchEventWithFallback(
       "fetchEventWithFallback: No relays available for event fetch, using fallback relays",
     );
     // Use fallback relays when no relays are available
-    allRelays = [...secondaryRelays, ...searchRelays, ...anonymousRelays];
+    // AI-NOTE: 2025-01-24 - Include ALL available relays for comprehensive event discovery
+    // This ensures we don't miss events that might be on any available relay
+    allRelays = [
+      ...secondaryRelays, 
+      ...searchRelays, 
+      ...anonymousRelays,
+      ...inboxRelays, // Include user's inbox relays
+      ...outboxRelays, // Include user's outbox relays
+    ];
     console.log("fetchEventWithFallback: Using fallback relays:", allRelays);
   }
 

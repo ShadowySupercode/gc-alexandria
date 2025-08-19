@@ -23,6 +23,7 @@
   import NDK, { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
+  import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { Button, Tooltip } from "flowbite-svelte";
   import { goto } from "$app/navigation";
@@ -40,17 +41,89 @@
   let success = $state<string | null>(null);
   let publishedRelays = $state<string[]>([]);
 
-  let title = $state("");
-  let dTag = $state("");
-  let titleManuallyEdited = $state(false);
-  let dTagManuallyEdited = $state(false);
-  let dTagError = $state("");
   let lastPublishedEventId = $state<string | null>(null);
   let showWarning = $state(false);
   let warningMessage = $state("");
   let pendingPublish = $state(false);
   let extractedMetadata = $state<[string, string][]>([]);
   let hasLoadedFromStorage = $state(false);
+  let showJsonPreview = $state(false);
+  let removedTags = $state<Set<string>>(new Set());
+  let eventIdSearch = $state("");
+  let loadingEvent = $state(false);
+
+  // AI-NOTE: 2025-01-24 - Initialize default tags when component loads
+  // This ensures default tags are visible in the UI from the start
+  $effect(() => {
+    // Only run this initialization once when the component first loads
+    if (tags.length === 0) {
+      const initialTags: string[][] = [];
+      
+      // Add default version tag for 30040 events
+      if (kind === 30040) {
+        initialTags.push(["version", "1"]);
+        // Always add d-tag and title tag for 30040 events, even if empty
+        initialTags.push(["d", ""]);
+        initialTags.push(["title", ""]);
+      }
+      
+      // Add empty tag row for user input
+      initialTags.push(["", ""]);
+      
+      tags = initialTags;
+      console.log("Initialized default tags:", tags);
+    }
+  });
+
+  // Add default tags for different event types
+  $effect(() => {
+    if (kind === 30040 && !removedTags.has("version")) {
+      // Check if version tag already exists
+      const versionTagIndex = tags.findIndex(tag => tag[0] === "version");
+      if (versionTagIndex === -1) {
+        // Add default version tag if it doesn't exist
+        tags = [...tags, ["version", "1"]];
+      }
+    }
+    
+    // Add d-tag and title tags for addressable events
+    if (requiresDTag(kind)) {
+      // Extract title from content
+      const { metadata } = extractSmartMetadata(content);
+      const title = metadata.title || "";
+      const dTagValue = titleToDTag(title);
+      
+      // Add d-tag if it doesn't exist and hasn't been removed
+      if (!removedTags.has("d")) {
+        const dTagIndex = tags.findIndex(tag => tag[0] === "d");
+        if (dTagIndex === -1) {
+          // Always add d-tag for 30040 events, even if empty
+          tags = [...tags, ["d", dTagValue || ""]];
+        } else {
+          // Update existing d-tag
+          tags[dTagIndex][1] = dTagValue || "";
+        }
+      }
+      
+      // Add title tag if it doesn't exist and hasn't been removed
+      if (!removedTags.has("title")) {
+        const titleTagIndex = tags.findIndex(tag => tag[0] === "title");
+        if (titleTagIndex === -1) {
+          // Always add title tag for 30040 events, even if empty
+          tags = [...tags, ["title", title || ""]];
+        } else {
+          // Update existing title tag
+          tags[titleTagIndex][1] = title || "";
+        }
+      }
+    }
+    
+    // AI-NOTE: 2025-01-24 - Ensure there's always at least one empty tag row for users to add new tags
+    // This ensures the UI is always interactive even when default tags are present
+    if (tags.length === 0) {
+      tags = [["", ""]];
+    }
+  });
 
   // Load content from sessionStorage if available (from ZettelEditor)
   $effect(() => {
@@ -67,16 +140,9 @@
       sessionStorage.removeItem('zettelEditorContent');
       sessionStorage.removeItem('zettelEditorSource');
       
-      // Extract title and metadata using the standardized parser
-      const { metadata } = extractSmartMetadata(content);
-      if (metadata.title) {
-        title = metadata.title;
-        titleManuallyEdited = false;
-        dTagManuallyEdited = false;
-      }
-      
       // Extract metadata for 30040 and 30041 events
       if (kind === 30040 || kind === 30041) {
+        const { metadata } = extractSmartMetadata(content);
         extractedMetadata = metadataToTags(metadata);
       }
     }
@@ -93,74 +159,20 @@
   function handleContentInput(e: Event) {
     content = (e.target as HTMLTextAreaElement).value;
     
-    // Extract title and metadata using the standardized parser
-    const { metadata } = extractSmartMetadata(content);
-    
-    if (!titleManuallyEdited) {
-      console.log("Content input - extracted title:", metadata.title);
-      title = metadata.title || "";
-      // Reset dTagManuallyEdited when title changes so d-tag can be auto-generated
-      dTagManuallyEdited = false;
-    }
-    
     // Extract metadata from AsciiDoc content for 30040 and 30041 events
     if (kind === 30040 || kind === 30041) {
+      const { metadata } = extractSmartMetadata(content);
       extractedMetadata = metadataToTags(metadata);
     } else {
       extractedMetadata = [];
     }
   }
 
-  function handleTitleInput(e: Event) {
-    title = (e.target as HTMLInputElement).value;
-    titleManuallyEdited = true;
-  }
 
-  function handleDTagInput(e: Event) {
-    dTag = (e.target as HTMLInputElement).value;
-    dTagManuallyEdited = true;
-  }
 
-  $effect(() => {
-    console.log(
-      "Effect running - title:",
-      title,
-      "dTagManuallyEdited:",
-      dTagManuallyEdited,
-    );
-    if (!dTagManuallyEdited) {
-      const newDTag = titleToDTag(title);
-      console.log("Setting dTag to:", newDTag);
-      dTag = newDTag;
-    }
-  });
 
-  function updateTag(index: number, key: string, value: string): void {
-    tags = tags.map((t, i) => {
-      if (i === index) {
-        const newTag = [...t];
-        newTag[0] = key;
-        if (newTag.length < 2) {
-          newTag.push(value);
-        } else {
-          newTag[1] = value;
-        }
-        return newTag;
-      }
-      return t;
-    });
-  }
-  
-  function updateTagValue(index: number, valueIndex: number, value: string): void {
-    tags = tags.map((t, i) => {
-      if (i === index) {
-        const newTag = [...t];
-        newTag[valueIndex] = value;
-        return newTag;
-      }
-      return t;
-    });
-  }
+
+
   
   function addTag(): void {
     tags = [...tags, ["", ""]];
@@ -178,7 +190,7 @@
   function removeTagValue(tagIndex: number, valueIndex: number): void {
     tags = tags.map((t, i) => {
       if (i === tagIndex) {
-        const newTag = t.filter((_, vi) => vi !== valueIndex);
+        const newTag = t.filter((_, vi) => vi  !== valueIndex);
         // Ensure we always have at least the key and one value
         return newTag.length >= 2 ? newTag : [newTag[0] || "", ""];
       }
@@ -188,24 +200,20 @@
   
   // AI-NOTE: 2025-01-24 - Fixed tag deletion to allow removing all tags and automatically add empty row
   function removeTag(index: number): void {
+    // Get the tag key before removing it
+    const tagKey = tags[index]?.[0];
+    
     // Remove the tag at the specified index
     tags = tags.filter((_, i) => i !== index);
+    
+    // Track that this tag was manually removed
+    if (tagKey && (tagKey === "version" || tagKey === "d" || tagKey === "title")) {
+      removedTags.add(tagKey);
+    }
     
     // If no tags remain, add an empty tag row so users can continue adding tags
     if (tags.length === 0) {
       tags = [["", ""]];
-    }
-  }
-
-  function addExtractedTag(key: string, value: string): void {
-    // Check if tag already exists
-    const existingIndex = tags.findIndex(([k]) => k === key);
-    if (existingIndex >= 0) {
-      // Update existing tag's first value
-      tags = tags.map((t, i) => (i === existingIndex ? [key, value] : t));
-    } else {
-      // Add new tag
-      tags = [...tags, [key, value]];
     }
   }
 
@@ -239,13 +247,7 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
-    dTagError = "";
     error = null; // Clear any previous errors
-    
-    if (requiresDTag(kind) && (!dTag || dTag.trim() === "")) {
-      dTagError = "A d-tag is required.";
-      return;
-    }
     
     const validation = validate();
     if (!validation.valid) {
@@ -302,8 +304,6 @@
       console.log("Content length:", content.length);
       console.log("Content preview:", content.substring(0, 100));
       console.log("Tags:", tags);
-      console.log("Title:", title);
-      console.log("DTag:", dTag);
 
       if (Number(kind) === 30040) {
         console.log("=== 30040 EVENT CREATION START ===");
@@ -351,27 +351,7 @@
           .filter(tag => tag.length >= 2 && tag[0].trim() !== "")
           .map(tag => [...tag]); // Keep all values
 
-        // Ensure d-tag exists and has a value for addressable events
-        if (requiresDTag(kind)) {
-          const dTagIndex = eventTags.findIndex(([k]) => k === "d");
-          const dTagValue = dTag.trim() || getDTagForEvent(kind, content, "");
 
-          if (dTagValue) {
-            if (dTagIndex >= 0) {
-              // Update existing d-tag
-              eventTags[dTagIndex] = ["d", dTagValue];
-            } else {
-              // Add new d-tag
-              eventTags = [...eventTags, ["d", dTagValue]];
-            }
-          }
-        }
-
-        // Add title tag if we have a title
-        const titleValue = title.trim() || getTitleTagForEvent(kind, content);
-        if (titleValue) {
-          eventTags = [...eventTags, ["title", titleValue]];
-        }
 
         // For AsciiDoc events, remove metadata from content
         let finalContent = content;
@@ -548,12 +528,206 @@
     pendingPublish = false;
     warningMessage = "";
   }
+
+  /**
+   * Clears all form fields and resets to initial state.
+   */
+  function clearForm(): void {
+    kind = 30040;
+    tags = [];
+    content = "";
+    createdAt = Math.floor(Date.now() / 1000);
+    error = null;
+    success = null;
+    publishedRelays = [];
+    lastPublishedEventId = null;
+    showWarning = false;
+    warningMessage = "";
+    pendingPublish = false;
+    extractedMetadata = [];
+    showJsonPreview = false;
+    removedTags = new Set();
+    eventIdSearch = "";
+    
+    // Reset to initial state - the $effect will handle adding default tags
+    console.log("Form cleared");
+  }
+
+  /**
+   * Loads an event by its hex ID for editing.
+   */
+  async function loadEventById(): Promise<void> {
+    if (!eventIdSearch.trim()) {
+      error = "Please enter an event ID.";
+      return;
+    }
+
+    const eventId = eventIdSearch.trim();
+    
+    // Validate hex format
+    if (!/^[a-fA-F0-9]{64}$/.test(eventId)) {
+      error = "Invalid event ID format. Must be a 64-character hex string.";
+      return;
+    }
+
+    loadingEvent = true;
+    error = null;
+
+    try {
+      // AI-NOTE: 2025-01-24 - Use fetchEventWithFallback for comprehensive relay search
+      // This ensures we search across ALL available relays including local, inbox, outbox, and fallback relays
+      const foundEvent = await fetchEventWithFallback(ndk, eventId, 10000);
+
+      if (foundEvent) {
+        // Populate form with event data
+        kind = foundEvent.kind || 30040;
+        content = foundEvent.content || "";
+        createdAt = Math.floor(Date.now() / 1000); // Use current time for replacement
+        tags = foundEvent.tags.map((tag: string[]) => [...tag]);
+        removedTags = new Set(); // Reset removed tags
+        
+        // Extract metadata if applicable
+        if (kind === 30040 || kind === 30041) {
+          const { metadata } = extractSmartMetadata(content);
+          extractedMetadata = metadataToTags(metadata);
+        }
+        
+        success = `Loaded event ${eventId.substring(0, 8)}...`;
+        console.log("Loaded event:", foundEvent);
+      } else {
+        error = `Event ${eventId} not found on any relay.`;
+      }
+    } catch (err) {
+      console.error("Error loading event:", err);
+      error = `Failed to load event: ${err instanceof Error ? err.message : "Unknown error"}`;
+    } finally {
+      loadingEvent = false;
+    }
+  }
+
+  /**
+   * Generates a preview of what the event would look like if published.
+   */
+  let eventPreview = $derived(() => {
+    const userState = get(userStore);
+    const pubkey = userState.pubkey;
+    
+    if (!pubkey) {
+      return null;
+    }
+
+    // Build the event data similar to how it's done in handlePublish
+    const baseEvent = { 
+      pubkey: String(pubkey), 
+      created_at: createdAt,
+      kind: Number(kind)
+    };
+
+    if (Number(kind) === 30040) {
+      // For 30040, we need to show the index event structure
+      try {
+        // Convert multi-value tags to the format expected by build30040EventSet
+        const compatibleTags: [string, string][] = tags
+          .filter(tag => tag.length >= 2 && tag[0].trim() !== "")
+          .map(tag => [tag[0], tag[1] || ""] as [string, string]);
+        
+        // Create a mock NDK instance for preview
+        const mockNdk = { sign: async () => ({ sig: "mock_signature" }) };
+        
+        const { indexEvent } = build30040EventSet(
+          content,
+          compatibleTags,
+          baseEvent,
+          mockNdk as any,
+        );
+
+        return {
+          type: "30040_index_event",
+          event: {
+            id: "[will be generated]",
+            pubkey: String(pubkey),
+            created_at: createdAt,
+            kind: 30040,
+            tags: indexEvent.tags,
+            content: indexEvent.content,
+            sig: "[will be generated]"
+          }
+        };
+      } catch (error) {
+        return {
+          type: "error",
+          message: `Failed to generate 30040 preview: ${error instanceof Error ? error.message : "Unknown error"}`
+        };
+      }
+    } else {
+      // For other event types
+      let eventTags = tags
+        .filter(tag => tag.length >= 2 && tag[0].trim() !== "")
+        .map(tag => [...tag]);
+
+
+
+      // For AsciiDoc events, remove metadata from content
+      let finalContent = content;
+      if (kind === 30040 || kind === 30041) {
+        finalContent = removeMetadataFromContent(content);
+      }
+      
+      // Prefix Nostr addresses
+      const prefixedContent = prefixNostrAddresses(finalContent);
+
+      return {
+        type: "standard_event",
+        event: {
+          id: "[will be generated]",
+          pubkey: String(pubkey),
+          created_at: createdAt,
+          kind: Number(kind),
+          tags: eventTags,
+          content: prefixedContent,
+          sig: "[will be generated]"
+        }
+      };
+    }
+  });
 </script>
 
 <div
   class="w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg"
 >
   <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Publish Nostr Event</h2>
+  
+  <!-- Event ID Search Section -->
+  <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Load Existing Event</h3>
+    <div class="flex gap-2">
+      <input
+        type="text"
+        class="input input-bordered flex-1"
+        placeholder="Enter 64-character hex event ID"
+        bind:value={eventIdSearch}
+        maxlength="64"
+        onkeydown={(e) => {
+          if (e.key === 'Enter' && !loadingEvent && eventIdSearch.trim()) {
+            e.preventDefault();
+            loadEventById();
+          }
+        }}
+      />
+      <button
+        type="button"
+        class="btn btn-secondary"
+        onclick={loadEventById}
+        disabled={loadingEvent || !eventIdSearch.trim()}
+      >
+        {loadingEvent ? 'Loading...' : 'Load Event'}
+      </button>
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      Load an existing event to edit and publish as a replacement with your signature.
+    </p>
+  </div>
+  
   <form class="space-y-4" onsubmit={handleSubmit}>
     <div>
       <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-kind">Kind</label>
@@ -596,25 +770,8 @@
           <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
             Extracted Metadata (from AsciiDoc header)
           </h4>
-          <div class="space-y-2">
-            {#each extractedMetadata as [key, value], i}
-              <div class="flex gap-2 items-center">
-                <span class="text-xs text-blue-600 dark:text-blue-400 min-w-[60px]">{key}:</span>
-                <input
-                  type="text"
-                  class="input input-bordered input-sm flex-1 text-sm"
-                  value={value}
-                  readonly
-                />
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline btn-primary"
-                  onclick={() => addExtractedTag(key, value)}
-                >
-                  Add to Tags
-                </button>
-              </div>
-            {/each}
+          <div class="text-sm text-blue-700 dark:text-blue-300">
+            {extractedMetadata.map(([key, value]) => `${key}: ${value}`).join(', ')}
           </div>
         </div>
       {/if}
@@ -629,8 +786,6 @@
                 class="input input-bordered flex-1"
                 placeholder="tag key (e.g., q, p, e)"
                 bind:value={tags[i][0]}
-                oninput={(e) =>
-                  updateTag(i, (e.target as HTMLInputElement).value, tags[i][1] || "")}
               />
               <button
                 type="button"
@@ -659,8 +814,6 @@
                     class="input input-bordered flex-1"
                     placeholder="value"
                     bind:value={tags[i][valueIndex + 1]}
-                    oninput={(e) =>
-                      updateTagValue(i, valueIndex + 1, (e.target as HTMLInputElement).value)}
                   />
                   {#if tag.length > 2}
                     <button
@@ -696,33 +849,15 @@
         required
       ></textarea>
     </div>
-    <div>
-      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-title">Title</label>
-      <input
-        type="text"
-        id="event-title"
-        bind:value={title}
-        oninput={handleTitleInput}
-        placeholder="Title (auto-filled from header)"
-        class="input input-bordered w-full"
-      />
-    </div>
-    <div>
-      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-d-tag">d-tag</label>
-      <input
-        type="text"
-        id="event-d-tag"
-        bind:value={dTag}
-        oninput={handleDTagInput}
-        placeholder="d-tag (auto-generated from title)"
-        class="input input-bordered w-full"
-        required={requiresDTag(kind)}
-      />
-      {#if dTagError}
-        <div class="text-red-600 dark:text-red-400 text-sm mt-1">{dTagError}</div>
-      {/if}
-    </div>
-    <div class="flex justify-end">
+
+    <div class="flex justify-end gap-2">
+      <button
+        type="button"
+        class="btn btn-outline btn-secondary"
+        onclick={clearForm}
+      >
+        Clear Form
+      </button>
       <button
         type="submit"
         class="btn btn-primary border border-primary-600 px-4 py-2"
@@ -751,8 +886,47 @@
           </Button>
         </div>
       {/if}
+    {/if}
+  </form>
+
+  <!-- JSON Preview Section -->
+  <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Event Preview</h3>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline btn-secondary"
+        onclick={() => showJsonPreview = !showJsonPreview}
+      >
+        {showJsonPreview ? 'Hide' : 'Show'} JSON Preview
+      </button>
+    </div>
+    
+    {#if showJsonPreview}
+      {@const preview = eventPreview()}
+      {#if preview}
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+          {#if preview.type === 'error'}
+            <div class="text-red-600 dark:text-red-400 text-sm">
+              {preview.message}
+            </div>
+          {:else}
+            <div class="mb-2">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Event Type: {preview.type === '30040_index_event' ? '30040 Publication Index' : 'Standard Event'}
+              </span>
+            </div>
+            <pre class="text-xs bg-white dark:bg-gray-900 p-3 rounded border overflow-x-auto text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{JSON.stringify(preview.event, null, 2)}</pre>
           {/if}
-    </form>
+        </div>
+      {:else}
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+          <div class="text-yellow-800 dark:text-yellow-200 text-sm">
+            Please log in to see the event preview.
+          </div>
+        </div>
+      {/if}
+    {/if}
   </div>
 
   {#if showWarning}
@@ -779,3 +953,4 @@
       </div>
     </div>
   {/if}
+</div>
