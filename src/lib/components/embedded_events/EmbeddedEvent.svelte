@@ -305,10 +305,380 @@
     <!-- Content for text events -->
     {#if event.kind === 1 || repostKinds.includes(event.kind)}
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
-        {@render parsedContent(event.content.slice(0, 300))}
-        {#if event.content.length > 300}
-          <span class="text-gray-500 dark:text-gray-400">...</span>
+        {#if repostKinds.includes(event.kind)}
+          <!-- Repost content -->
+          <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Reposted content:
+            </div>
+            {@render parsedContent(event.content.slice(0, 300))}
+            {#if event.content.length > 300}
+              <span class="text-gray-500 dark:text-gray-400">...</span>
+            {/if}
+          </div>
+        {:else}
+          <!-- Regular text content -->
+          {@render parsedContent(event.content.slice(0, 300))}
+          {#if event.content.length > 300}
+            <span class="text-gray-500 dark:text-gray-400">...</span>
+          {/if}
         {/if}
+      </div>
+    <!-- Contact list content (kind 3) -->
+    {:else if event.kind === 3}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        {#if event.content}
+          {@const contactData = (() => {
+            try {
+              return JSON.parse(event.content);
+            } catch {
+              return null;
+            }
+          })()}
+          {#if contactData}
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+              <div class="mb-2">
+                <span class="font-semibold">Contact List</span>
+                {#if contactData.relays}
+                  <div class="mt-1">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Relays: {Object.keys(contactData.relays).length}</span>
+                  </div>
+                {/if}
+              </div>
+              {#if contactData.follows}
+                <div class="mt-2">
+                  <span class="text-xs text-gray-500 dark:text-gray-400">Following: {contactData.follows.length} users</span>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Invalid contact list data
+            </div>
+          {/if}
+        {:else}
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            Empty contact list
+          </div>
+        {/if}
+      </div>
+    <!-- Publication index content (kind 30040) -->
+    {:else if event.kind === 30040}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        {#if event.content}
+          {@const indexData = (() => {
+            try {
+              return JSON.parse(event.content);
+            } catch {
+              return null;
+            }
+          })()}
+          {#if indexData}
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+              <div class="mb-2">
+                <span class="font-semibold">Publication Index</span>
+                {#if indexData.title}
+                  <div class="mt-1">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Title: {indexData.title}</span>
+                  </div>
+                {/if}
+                {#if indexData.summary}
+                  <div class="mt-1">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Summary: {indexData.summary}</span>
+                  </div>
+                {/if}
+                {#if indexData.authors}
+                  <div class="mt-1">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Authors: {indexData.authors.length}</span>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Invalid publication index data
+            </div>
+          {/if}
+        {:else}
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            Empty publication index
+          </div>
+        {/if}
+      </div>
+    <!-- Publication content (kinds 30041, 30818) -->
+    {:else if event.kind === 30041 || event.kind === 30818}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        {#if event.content}
+          <div class="text-sm text-gray-700 dark:text-gray-300">
+            <div class="mb-2">
+              <span class="font-semibold">
+                {event.kind === 30041 ? 'Publication Content' : 'Wiki Content'}
+              </span>
+            </div>
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                {event.content.slice(0, 300)}
+                {#if event.content.length > 300}
+                  <span class="text-gray-500 dark:text-gray-400">...</span>
+                {/if}
+              </pre>
+            </div>
+          </div>
+        {:else}
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            Empty {event.kind === 30041 ? 'publication' : 'wiki'} content
+          </div>
+        {/if}
+      </div>
+    <!-- Long-form content (kind 30023) -->
+    {:else if event.kind === 30023}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        {#if event.content}
+          <div class="text-sm text-gray-700 dark:text-gray-300">
+            <div class="mb-2">
+              <span class="font-semibold">Long-form Content</span>
+            </div>
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                {event.content.slice(0, 300)}
+                {#if event.content.length > 300}
+                  <span class="text-gray-500 dark:text-gray-400">...</span>
+                {/if}
+              </pre>
+            </div>
+          </div>
+        {:else}
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            Empty long-form content
+          </div>
+        {/if}
+      </div>
+    <!-- Reply/Comment content (kind 1111) -->
+    {:else if event.kind === 1111}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Reply/Comment</span>
+          </div>
+          {#if event.content && event.content.trim()}
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              {@render parsedContent(event.content)}
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Empty reply
+            </div>
+          {/if}
+        </div>
+      </div>
+    <!-- Git Issue content (kind 1621) -->
+    {:else if event.kind === 1621}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Git Issue</span>
+            {#if event.tags}
+              {@const subjectTag = event.tags.find(tag => tag[0] === 'subject')}
+              {#if subjectTag && subjectTag[1]}
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Subject: {subjectTag[1]}
+                </div>
+              {/if}
+            {/if}
+          </div>
+          {#if event.content && event.content.trim()}
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              {@render parsedContent(event.content)}
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Empty issue description
+            </div>
+          {/if}
+        </div>
+      </div>
+    <!-- Git Comment content (kind 1622) -->
+    {:else if event.kind === 1622}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Git Comment</span>
+          </div>
+          {#if event.content && event.content.trim()}
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              {@render parsedContent(event.content)}
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Empty comment
+            </div>
+          {/if}
+        </div>
+      </div>
+    <!-- Reaction content (kind 7) -->
+    {:else if event.kind === 7}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Reaction</span>
+          </div>
+          {#if event.content && event.content.trim()}
+            <div class="text-lg">
+              {event.content}
+            </div>
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Empty reaction
+            </div>
+          {/if}
+        </div>
+      </div>
+    <!-- Zap receipt content (kind 9735) -->
+    {:else if event.kind === 9735}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Zap Receipt</span>
+          </div>
+          {#if event.content && event.content.trim()}
+            {@const zapData = (() => {
+              try {
+                return JSON.parse(event.content);
+              } catch {
+                return null;
+              }
+            })()}
+            {#if zapData}
+              <div class="text-xs text-gray-500 dark:text-gray-400">
+                {#if zapData.amount}
+                  <div>Amount: {zapData.amount} sats</div>
+                {/if}
+                {#if zapData.preimage}
+                  <div>Preimage: {zapData.preimage.slice(0, 8)}...</div>
+                {/if}
+                {#if zapData.bolt11}
+                  <div>Invoice: {zapData.bolt11.slice(0, 20)}...</div>
+                {/if}
+              </div>
+            {:else}
+              <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+                <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                  {event.content.slice(0, 200)}
+                  {#if event.content.length > 200}
+                    <span class="text-gray-500 dark:text-gray-400">...</span>
+                  {/if}
+                </pre>
+              </div>
+            {/if}
+          {:else}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              Empty zap receipt
+            </div>
+          {/if}
+        </div>
+      </div>
+    <!-- Image/media content (kind 20) -->
+    {:else if event.kind === 20}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">Image/Media Post</span>
+          </div>
+          
+          <!-- Render images from imeta tags -->
+          {#if event.tags}
+            {@const imetaTags = event.tags.filter(tag => tag[0] === 'imeta')}
+            {#if imetaTags.length > 0}
+              <div class="space-y-2">
+                {#each imetaTags as imetaTag}
+                  {@const imetaData = (() => {
+                    const data: any = {};
+                    for (let i = 1; i < imetaTag.length; i++) {
+                      const item = imetaTag[i];
+                      if (item.startsWith('url ')) {
+                        data.url = item.substring(4);
+                      } else if (item.startsWith('dim ')) {
+                        data.dimensions = item.substring(4);
+                      } else if (item.startsWith('m ')) {
+                        data.mimeType = item.substring(2);
+                      } else if (item.startsWith('size ')) {
+                        data.size = item.substring(5);
+                      } else if (item.startsWith('blurhash ')) {
+                        data.blurhash = item.substring(9);
+                      } else if (item.startsWith('x ')) {
+                        data.x = item.substring(2);
+                      }
+                    }
+                    return data;
+                  })()}
+                  
+                  {#if imetaData.url && imetaData.mimeType?.startsWith('image/')}
+                    <div class="relative">
+                      <img 
+                        src={imetaData.url} 
+                        alt="imeta"
+                        class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
+                        style="max-height: 300px; object-fit: cover;"
+                        onerror={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                          if (fallback) fallback.classList.remove('hidden');
+                        }}
+                      />
+                      <div class="hidden text-xs text-gray-500 dark:text-gray-400 mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+                        Image failed to load: {imetaData.url}
+                      </div>
+                      
+                      <!-- Image metadata -->
+                      <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {#if imetaData.dimensions}
+                          <span class="mr-2">Size: {imetaData.dimensions}</span>
+                        {/if}
+                        {#if imetaData.size}
+                          <span class="mr-2">File: {Math.round(parseInt(imetaData.size) / 1024)}KB</span>
+                        {/if}
+                        {#if imetaData.mimeType}
+                          <span>Type: {imetaData.mimeType}</span>
+                        {/if}
+                      </div>
+                    </div>
+                  {:else if imetaData.url}
+                    <!-- Non-image media -->
+                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div class="text-sm text-gray-600 dark:text-gray-400">
+                        <a href={imetaData.url} target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline">
+                          View Media ({imetaData.mimeType || 'unknown type'})
+                        </a>
+                      </div>
+                      {#if imetaData.size}
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Size: {Math.round(parseInt(imetaData.size) / 1024)}KB
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {/if}
+          
+          <!-- Text content -->
+          {#if event.content && event.content.trim()}
+            <div class="mt-3 prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              {@render parsedContent(event.content)}
+            </div>
+          {/if}
+          
+          <!-- Alt text -->
+          {#if event.tags}
+            {@const altTag = event.tags.find(tag => tag[0] === 'alt')}
+            {#if altTag && altTag[1]}
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                Alt: {altTag[1]}
+              </div>
+            {/if}
+          {/if}
+        </div>
       </div>
     <!-- Profile content -->
     {:else if event.kind === 0 && profile}
@@ -339,6 +709,20 @@
             {/if}
           </p>
         {/if}
+      </div>
+    <!-- Generic content for other event kinds -->
+    {:else if event.content}
+      <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+        <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+          {event.content.slice(0, 300)}
+          {#if event.content.length > 300}
+            <span class="text-gray-500 dark:text-gray-400">...</span>
+          {/if}
+        </pre>
+      </div>
+    {:else}
+      <div class="text-sm text-gray-500 dark:text-gray-400">
+        No content
       </div>
     {/if}
 
