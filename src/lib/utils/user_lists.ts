@@ -1,6 +1,7 @@
 import { getNdkContext, activeInboxRelays } from "../ndk.ts";
 import { get } from "svelte/store";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type NDK from "@nostr-dev-kit/ndk";
 import { userStore } from "../stores/userStore.ts";
 import { nip19 } from "nostr-tools";
 import { npubCache } from "./npubCache.ts";
@@ -50,10 +51,11 @@ export interface UserListEvent {
  */
 export async function fetchUserLists(
   pubkey: string,
-  listKinds: number[] = [...PEOPLE_LIST_KINDS]
+  listKinds: number[] = [...PEOPLE_LIST_KINDS],
+  ndk?: NDK
 ): Promise<UserListEvent[]> {
-  const ndk = getNdkContext();
-  if (!ndk) {
+  const ndkInstance = ndk || getNdkContext();
+  if (!ndkInstance) {
     console.warn("fetchUserLists: No NDK instance available");
     return [];
   }
@@ -61,7 +63,7 @@ export async function fetchUserLists(
   console.log(`fetchUserLists: Fetching lists for ${pubkey}, kinds:`, listKinds);
 
   try {
-    const events = await ndk.fetchEvents({
+    const events = await ndkInstance.fetchEvents({
       kinds: listKinds,
       authors: [pubkey],
     });
@@ -120,10 +122,12 @@ export async function fetchUserLists(
 /**
  * Fetch the current user's lists
  * @param listKinds - Array of list kinds to fetch (defaults to all people list kinds)
+ * @param ndk - Optional NDK instance (if not provided, will use getNdkContext)
  * @returns Promise that resolves to an array of UserListEvent objects
  */
 export async function fetchCurrentUserLists(
-  listKinds: number[] = [...PEOPLE_LIST_KINDS]
+  listKinds: number[] = [...PEOPLE_LIST_KINDS],
+  ndk?: NDK
 ): Promise<UserListEvent[]> {
   const userState = get(userStore);
   
@@ -133,7 +137,7 @@ export async function fetchCurrentUserLists(
   }
 
   console.log("fetchCurrentUserLists: Found user pubkey:", userState.pubkey);
-  return fetchUserLists(userState.pubkey, listKinds);
+  return fetchUserLists(userState.pubkey, listKinds, ndk);
 }
 
 /**
@@ -205,14 +209,14 @@ export function getListKindsForPubkey(pubkey: string, userLists: UserListEvent[]
  * This ensures follows are always cached and prioritized
  * @param pubkeys - Array of pubkeys to cache profiles for
  */
-export async function updateProfileCacheForPubkeys(pubkeys: string[]): Promise<void> {
+export async function updateProfileCacheForPubkeys(pubkeys: string[], ndk?: NDK): Promise<void> {
   if (pubkeys.length === 0) return;
   
   try {
     console.log(`Updating profile cache for ${pubkeys.length} pubkeys`);
     
-    const ndk = getNdkContext();
-    if (!ndk) {
+    const ndkInstance = ndk || getNdkContext();
+    if (!ndkInstance) {
       console.warn("updateProfileCacheForPubkeys: No NDK instance available");
       return;
     }
@@ -223,7 +227,7 @@ export async function updateProfileCacheForPubkeys(pubkeys: string[]): Promise<v
       const batch = pubkeys.slice(i, i + batchSize);
       
       try {
-        const events = await ndk.fetchEvents({
+        const events = await ndkInstance.fetchEvents({
           kinds: [0],
           authors: batch,
         });

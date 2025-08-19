@@ -13,7 +13,7 @@
   import EventInput from "$lib/components/EventInput.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -57,6 +57,9 @@
 
   userStore.subscribe((val) => (user = val));
   
+  // Get NDK context during component initialization
+  const ndk = getNdkContext();
+  
   // Debug: Check if user is logged in
   $effect(() => {
     console.log("[Events Page] User state:", user);
@@ -80,7 +83,7 @@
           
           // If the event doesn't have user list information, fetch it
           if (typeof parsedProfile.isInUserLists !== 'boolean') {
-            fetchCurrentUserLists()
+            fetchCurrentUserLists(undefined, ndk)
               .then((userLists) => {
                 const isInLists = isPubkeyInUserLists(newEvent.pubkey, userLists);
                 // Update the profile with user list information
@@ -142,7 +145,7 @@
   // AI-NOTE: 2025-01-24 - Function to update profile data with user list information
   async function updateProfileDataWithUserLists(events: NDKEvent[]) {
     try {
-      const userLists = await fetchCurrentUserLists();
+      const userLists = await fetchCurrentUserLists(undefined, ndk);
       
       for (const event of events) {
         if (event.kind === 0 && event.pubkey) {
