@@ -70,6 +70,12 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   #bookmark?: string;
 
   /**
+   * AI-NOTE: 2025-01-24 - Track visited nodes to prevent duplicate iteration
+   * This ensures that each node is only yielded once during iteration
+   */
+  #visitedNodes: Set<string> = new Set();
+
+  /**
    * The NDK instance used to fetch events.
    */
   #ndk: NDK;
@@ -223,6 +229,38 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     this.#cursor.tryMoveTo(address).then((success) => {
       if (success) {
         this.#bookmarkMovedObservers.forEach((observer) => observer(address));
+      }
+    });
+  }
+
+  /**
+   * AI-NOTE: 2025-01-24 - Reset the cursor to the beginning of the tree
+   * This is useful when the component state is reset and we want to start iteration from the beginning
+   */
+  resetCursor() {
+    this.#bookmark = undefined;
+    this.#cursor.target = null;
+  }
+
+  /**
+   * AI-NOTE: 2025-01-24 - Reset the iterator state to start from the beginning
+   * This ensures that when the component resets, the iterator starts fresh
+   */
+  resetIterator() {
+    this.resetCursor();
+    // Clear visited nodes to allow fresh iteration
+    this.#visitedNodes.clear();
+    // Clear all nodes except the root to force fresh loading
+    const rootAddress = this.#root.address;
+    this.#nodes.clear();
+    this.#nodes.set(rootAddress, new Lazy<PublicationTreeNode>(() => Promise.resolve(this.#root)));
+    // Clear events cache to ensure fresh data
+    this.#events.clear();
+    this.#eventCache.clear();
+    // Force the cursor to move to the root node to restart iteration
+    this.#cursor.tryMoveTo().then((success) => {
+      if (!success) {
+        console.warn("[PublicationTree] Failed to reset iterator to root node");
       }
     });
   }
@@ -458,7 +496,19 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     if (!this.#cursor.target) {
       return { done, value: null };
     }
-    const value = (await this.getEvent(this.#cursor.target.address)) ?? null;
+    
+    const address = this.#cursor.target.address;
+    
+    // AI-NOTE: 2025-01-24 - Check if this node has already been visited
+    if (this.#visitedNodes.has(address)) {
+      console.debug(`[PublicationTree] Skipping already visited node: ${address}`);
+      return { done: false, value: null };
+    }
+    
+    // Mark this node as visited
+    this.#visitedNodes.add(address);
+    
+    const value = (await this.getEvent(address)) ?? null;
     return { done, value };
   }
 
@@ -711,6 +761,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #addNode(address: string, parentNode: PublicationTreeNode) {
+    // AI-NOTE: 2025-01-24 - Add debugging to track node addition
+    console.debug(`[PublicationTree] Adding node ${address} to parent ${parentNode.address}`);
+    
     const lazyNode = new Lazy<PublicationTreeNode>(() =>
       this.#resolveNode(address, parentNode)
     );
@@ -961,11 +1014,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         }
       });
 
-      // Note: We can't await here since this is a synchronous method
-      // The e-tag resolution will happen when the children are processed
-      // For now, we'll add the e-tags as potential child addresses
-      const eTagAddresses = eTags.map((tag) => tag[1]);
-      childAddresses.push(...eTagAddresses);
+      // AI-NOTE: 2025-01-24 - Remove e-tag processing from synchronous method
+      // E-tags should be resolved asynchronously in #resolveNode method
+      // Adding raw event IDs here causes duplicate processing
+      console.debug(`[PublicationTree] Found ${eTags.length} e-tags but skipping processing in buildNodeFromEvent`);
     }
 
     const node: PublicationTreeNode = {
@@ -976,17 +1028,21 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
+    // AI-NOTE: 2025-01-24 - Fixed child node addition in buildNodeFromEvent
+    // Previously called addEventByAddress which expected parent to be in tree
+    // Now directly adds child nodes to current node's children array
     // Add children in the order they appear in the a-tags to preserve section order
     // Use sequential processing to ensure order is maintained
     console.log(`[PublicationTree] Adding ${childAddresses.length} children in order:`, childAddresses);
-    for (const address of childAddresses) {
-      console.log(`[PublicationTree] Adding child: ${address}`);
+    for (const childAddress of childAddresses) {
+      console.log(`[PublicationTree] Adding child: ${childAddress}`);
       try {
-        await this.addEventByAddress(address, event);
-        console.log(`[PublicationTree] Successfully added child: ${address}`);
+        // Add the child node directly to the current node's children
+        this.#addNode(childAddress, node);
+        console.log(`[PublicationTree] Successfully added child: ${childAddress}`);
       } catch (error) {
         console.warn(
-          `[PublicationTree] Error adding child ${address} for ${node.address}:`,
+          `[PublicationTree] Error adding child ${childAddress} for ${node.address}:`,
           error,
         );
       }
@@ -998,18 +1054,30 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    if (
-      event.kind === 30040 && (
-        event.tags.some((tag) => tag[0] === "a") ||
-        event.tags.some((tag) =>
-          tag[0] === "e" && tag[1] && /^[0-9a-fA-F]{64}$/.test(tag[1])
-        )
-      )
-    ) {
-      return PublicationTreeNodeType.Branch;
+    // AI-NOTE: 2025-01-24 - Show nested 30040s and their zettel kind leaves
+    // Only 30040 events with children should be branches
+    // Zettel kinds (30041, 30818, 30023) are always leaves
+    if (event.kind === 30040) {
+      // Check if this 30040 has any children (a-tags only, since e-tags are handled separately)
+      const hasChildren = event.tags.some((tag) => tag[0] === "a");
+      
+      console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? 'Branch' : 'Leaf'}`);
+      
+      return hasChildren ? PublicationTreeNodeType.Branch : PublicationTreeNodeType.Leaf;
     }
 
-    return PublicationTreeNodeType.Leaf;
+    // Zettel kinds are always leaves
+    if ([30041, 30818, 30023].includes(event.kind)) {
+      console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - Zettel kind, type: Leaf`);
+      return PublicationTreeNodeType.Leaf;
+    }
+
+    // For other kinds, check if they have children (a-tags only)
+    const hasChildren = event.tags.some((tag) => tag[0] === "a");
+    
+    console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? 'Branch' : 'Leaf'}`);
+    
+    return hasChildren ? PublicationTreeNodeType.Branch : PublicationTreeNodeType.Leaf;
   }
 
   // #endregion

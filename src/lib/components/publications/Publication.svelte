@@ -109,24 +109,31 @@
 
   // #endregion
 
-  // AI-NOTE: Load initial content when publicationTree becomes available
-  $effect(() => {
-    if (publicationTree && leaves.length === 0 && !isLoading && !isDone && !hasInitialized) {
-      console.log("[Publication] Loading initial content");
-      hasInitialized = true;
-      loadMore(12);
-    }
-  });
-
-  // AI-NOTE: Reset state when publicationTree changes
+  // AI-NOTE: 2025-01-24 - Combined effect to handle publicationTree changes and initial loading
+  // This prevents conflicts between separate effects that could cause duplicate loading
   $effect(() => {
     if (publicationTree) {
+      // Reset state when publicationTree changes
       leaves = [];
       isLoading = false;
       isDone = false;
       lastElementRef = null;
       loadedAddresses = new Set();
       hasInitialized = false;
+      
+      // Reset the publication tree iterator to prevent duplicate events
+      if (typeof publicationTree.resetIterator === 'function') {
+        publicationTree.resetIterator();
+      }
+      
+      // AI-NOTE: 2025-01-24 - Use setTimeout to ensure iterator reset completes before loading
+      // This prevents race conditions where loadMore is called before the iterator is fully reset
+      setTimeout(() => {
+        // Load initial content after reset
+        console.log("[Publication] Loading initial content after reset");
+        hasInitialized = true;
+        loadMore(12);
+      }, 0);
     }
   });
 
@@ -228,10 +235,9 @@
       { threshold: 0.5 },
     );
     
-    // Only load initial content if publicationTree is available
-    if (publicationTree) {
-      loadMore(12);
-    }
+    // AI-NOTE: 2025-01-24 - Removed duplicate loadMore call
+    // Initial content loading is handled by the $effect that watches publicationTree
+    // This prevents duplicate loading when both onMount and $effect trigger
 
     return () => {
       observer.disconnect();
