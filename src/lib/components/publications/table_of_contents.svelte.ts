@@ -219,7 +219,9 @@ export class TableOfContents {
         this.addressMap.set(childAddress, childEntry);
       }
 
-      await this.#matchChildrenToTagOrder(entry);
+      // AI-NOTE: 2025-01-24 - Removed redundant sorting since the publication tree already preserves 'a' tag order
+      // The children are already in the correct order from the publication tree
+      // await this.#matchChildrenToTagOrder(entry);
 
       entry.childrenResolved = true;
     };
@@ -253,35 +255,8 @@ export class TableOfContents {
     return entry;
   }
 
-  /**
-   * Reorders the children of a ToC entry to match the order of 'a' tags in the corresponding
-   * Nostr index event.
-   *
-   * @param entry The ToC entry to reorder.
-   *
-   * This function has a time complexity of `O(n log n)`, where `n` is the number of children the
-   * parent event has. Average size of `n` is small enough to be negligible.
-   */
-  async #matchChildrenToTagOrder(entry: TocEntry) {
-    const parentEvent = await this.#publicationTree.getEvent(entry.address);
-    if (parentEvent?.kind === indexKind) {
-      const tagOrder = parentEvent.getMatchingTags("a").map((tag) => tag[1]);
-      const addressToOrdinal = new Map<string, number>();
-
-      // Build map of addresses to their ordinals from tag order
-      tagOrder.forEach((address, index) => {
-        addressToOrdinal.set(address, index);
-      });
-
-      entry.children.sort((a, b) => {
-        const aOrdinal = addressToOrdinal.get(a.address) ??
-          Number.MAX_SAFE_INTEGER;
-        const bOrdinal = addressToOrdinal.get(b.address) ??
-          Number.MAX_SAFE_INTEGER;
-        return aOrdinal - bOrdinal;
-      });
-    }
-  }
+  // AI-NOTE: 2025-01-24 - Removed #matchChildrenToTagOrder method since the publication tree already preserves 'a' tag order
+  // The children are already in the correct order from the publication tree, so no additional sorting is needed
 
   #buildTocEntryFromResolvedNode(address: string) {
     if (this.addressMap.has(address)) {
