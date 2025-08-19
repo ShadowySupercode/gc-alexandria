@@ -24,7 +24,7 @@
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
-  import { Button } from "flowbite-svelte";
+  import { Button, Tooltip } from "flowbite-svelte";
   import { goto } from "$app/navigation";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
   import { anonymousRelays } from "$lib/consts";
@@ -32,7 +32,7 @@
   const ndk = getNdkContext();
 
   let kind = $state<number>(30040);
-  let tags = $state<[string, string][]>([]);
+  let tags = $state<string[][]>([]);
   let content = $state("");
   let createdAt = $state<number>(Math.floor(Date.now() / 1000));
   let loading = $state(false);
@@ -136,20 +136,72 @@
   });
 
   function updateTag(index: number, key: string, value: string): void {
-    tags = tags.map((t, i) => (i === index ? [key, value] : t));
+    tags = tags.map((t, i) => {
+      if (i === index) {
+        const newTag = [...t];
+        newTag[0] = key;
+        if (newTag.length < 2) {
+          newTag.push(value);
+        } else {
+          newTag[1] = value;
+        }
+        return newTag;
+      }
+      return t;
+    });
   }
+  
+  function updateTagValue(index: number, valueIndex: number, value: string): void {
+    tags = tags.map((t, i) => {
+      if (i === index) {
+        const newTag = [...t];
+        newTag[valueIndex] = value;
+        return newTag;
+      }
+      return t;
+    });
+  }
+  
   function addTag(): void {
     tags = [...tags, ["", ""]];
   }
+  
+  function addTagValue(tagIndex: number): void {
+    tags = tags.map((t, i) => {
+      if (i === tagIndex) {
+        return [...t, ""];
+      }
+      return t;
+    });
+  }
+  
+  function removeTagValue(tagIndex: number, valueIndex: number): void {
+    tags = tags.map((t, i) => {
+      if (i === tagIndex) {
+        const newTag = t.filter((_, vi) => vi !== valueIndex);
+        // Ensure we always have at least the key and one value
+        return newTag.length >= 2 ? newTag : [newTag[0] || "", ""];
+      }
+      return t;
+    });
+  }
+  
+  // AI-NOTE: 2025-01-24 - Fixed tag deletion to allow removing all tags and automatically add empty row
   function removeTag(index: number): void {
+    // Remove the tag at the specified index
     tags = tags.filter((_, i) => i !== index);
+    
+    // If no tags remain, add an empty tag row so users can continue adding tags
+    if (tags.length === 0) {
+      tags = [["", ""]];
+    }
   }
 
   function addExtractedTag(key: string, value: string): void {
     // Check if tag already exists
     const existingIndex = tags.findIndex(([k]) => k === key);
     if (existingIndex >= 0) {
-      // Update existing tag
+      // Update existing tag's first value
       tags = tags.map((t, i) => (i === existingIndex ? [key, value] : t));
     } else {
       // Add new tag
@@ -257,9 +309,14 @@
         console.log("=== 30040 EVENT CREATION START ===");
         console.log("Creating 30040 event set with content:", content);
         try {
+          // Convert multi-value tags to the format expected by build30040EventSet
+          const compatibleTags: [string, string][] = tags
+            .filter(tag => tag.length >= 2 && tag[0].trim() !== "")
+            .map(tag => [tag[0], tag[1] || ""] as [string, string]);
+          
           const { indexEvent, sectionEvents } = build30040EventSet(
             content,
-            tags,
+            compatibleTags,
             baseEvent,
             ndk,
           );
@@ -289,7 +346,10 @@
           return;
         }
       } else {
-        let eventTags = [...tags];
+        // Convert multi-value tags to the format expected by NDK
+        let eventTags = tags
+          .filter(tag => tag.length >= 2 && tag[0].trim() !== "")
+          .map(tag => [...tag]); // Keep all values
 
         // Ensure d-tag exists and has a value for addressable events
         if (requiresDTag(kind)) {
@@ -355,7 +415,7 @@
             created_at: Number(
               event.created_at ?? Math.floor(Date.now() / 1000),
             ),
-            tags: event.tags.map((tag) => [String(tag[0]), String(tag[1])]),
+            tags: event.tags.map((tag) => tag.map(String)),
             content: String(event.content),
           };
           if (
@@ -510,11 +570,20 @@
         </div>
       {/if}
       {#if Number(kind) === 30040}
-        <div
-          class="text-blue-600 text-sm mt-1 bg-blue-50 dark:bg-blue-50 dark:text-blue-800 p-2 rounded whitespace-pre-wrap"
-        >
-          <strong>30040 - Publication Index:</strong>
-          {get30040EventDescription()}
+        <div class="flex items-center gap-2 mt-1">
+          <span class="text-sm text-gray-600 dark:text-gray-400">Publication Index</span>
+          <Tooltip class="tooltip-leather" type="auto" placement="bottom">
+            <button
+              type="button"
+              class="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center text-sm font-bold border border-blue-600 shadow-sm"
+              title="Learn more about Publication Index events"
+            >
+              ?
+            </button>
+            <div class="max-w-sm p-2 text-xs">
+              <strong>30040 - Publication Index:</strong> Events that organize AsciiDoc content into structured publications with metadata tags and section references.
+            </div>
+          </Tooltip>
         </div>
       {/if}
     </div>
@@ -551,30 +620,60 @@
       {/if}
       
       <div id="tags-container" class="space-y-2">
-        {#each tags as [key, value], i}
-          <div class="flex gap-2">
-            <input
-              type="text"
-              class="input input-bordered flex-1"
-              placeholder="tag"
-              bind:value={tags[i][0]}
-              oninput={(e) =>
-                updateTag(i, (e.target as HTMLInputElement).value, tags[i][1])}
-            />
-            <input
-              type="text"
-              class="input input-bordered flex-1"
-              placeholder="value"
-              bind:value={tags[i][1]}
-              oninput={(e) =>
-                updateTag(i, tags[i][0], (e.target as HTMLInputElement).value)}
-            />
-            <button
-              type="button"
-              class="btn btn-error btn-sm"
-              onclick={() => removeTag(i)}
-              disabled={tags.length === 1}>×</button
-            >
+        {#each tags as tag, i}
+          <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2">
+            <div class="flex gap-2 items-center">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">Tag:</span>
+              <input
+                type="text"
+                class="input input-bordered flex-1"
+                placeholder="tag key (e.g., q, p, e)"
+                bind:value={tags[i][0]}
+                oninput={(e) =>
+                  updateTag(i, (e.target as HTMLInputElement).value, tags[i][1] || "")}
+              />
+              <button
+                type="button"
+                class="btn btn-error btn-sm"
+                onclick={() => removeTag(i)}>×</button
+              >
+            </div>
+            
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">Values:</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline btn-primary"
+                  onclick={() => addTagValue(i)}
+                >
+                  Add Value
+                </button>
+              </div>
+              
+              {#each tag.slice(1) as value, valueIndex}
+                <div class="flex gap-2 items-center">
+                  <span class="text-xs text-gray-500 dark:text-gray-400 min-w-[40px]">{valueIndex + 1}:</span>
+                  <input
+                    type="text"
+                    class="input input-bordered flex-1"
+                    placeholder="value"
+                    bind:value={tags[i][valueIndex + 1]}
+                    oninput={(e) =>
+                      updateTagValue(i, valueIndex + 1, (e.target as HTMLInputElement).value)}
+                  />
+                  {#if tag.length > 2}
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline btn-error"
+                      onclick={() => removeTagValue(i, valueIndex + 1)}
+                    >
+                      ×
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
           </div>
         {/each}
         <div class="flex justify-end">

@@ -536,9 +536,17 @@
         </div>
 
         <P class="mb-3">
-          Use this page to view any event (npub, nprofile, nevent, naddr, note,
-          pubkey, or eventID). You can also search for events by d-tag using the
-          format "d:tag-name".
+          Search and explore Nostr events across the network. Find events by:
+        </P>
+        <ul class="mb-3 list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <li><strong>Event identifiers:</strong> nevent, note, naddr, npub, nprofile, pubkey, or event ID</li>
+          <li><strong>NIP-05 addresses:</strong> username@domain.com</li>
+          <li><strong>Profile names:</strong> Search by display name or username (use "n:" prefix for exact matches)</li>
+          <li><strong>D-tags:</strong> Find events with specific d-tags using "d:tag-name"</li>
+          <li><strong>T-tags:</strong> Find events tagged with specific topics using "t:topic"</li>
+        </ul>
+        <P class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+          The page shows primary search results, second-order references (replies, quotes, mentions), and related tagged events. Click any event to view details, comments, and relay information.
         </P>
 
         <EventSearch
@@ -1050,6 +1058,15 @@
 
         {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !dTagValue && !searchInProgress}
           <div class="mt-8">
+            <Heading tag="h2" class="h-leather mb-4">Publish Nostr Event</Heading>
+            <P class="mb-4">
+              Create and publish new Nostr events to the network. This form supports various event kinds including:
+            </P>
+            <ul class="mb-6 list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+              <li><strong>Kind 30040:</strong> Publication indexes that organize AsciiDoc content into structured publications</li>
+              <li><strong>Kind 30041:</strong> Individual section content for publications</li>
+              <li><strong>Other kinds:</strong> Standard Nostr events with custom tags and content</li>
+            </ul>
             <EventInput />
           </div>
         {/if}
