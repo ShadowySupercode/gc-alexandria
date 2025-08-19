@@ -196,7 +196,7 @@
       return;
     }
 
-    getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
+    getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
       authorDisplayName =
         profile.displayName ||
         (profile as any).display_name ||

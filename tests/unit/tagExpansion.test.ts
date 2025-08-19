@@ -44,7 +44,12 @@ class MockNDKEvent {
 // Mock NDK instance
 const mockNDK = {
   fetchEvents: vi.fn(),
-};
+  pool: {},
+  debug: false,
+  mutedIds: new Set(),
+  queuesZapConfig: {},
+  // Add other required properties as needed for the mock
+} as any;
 
 // Mock the ndkInstance store
 // TODO: Replace with getNdkContext mock.
@@ -167,6 +172,7 @@ describe("Tag Expansion Tests", () => {
         ["bitcoin"],
         existingEventIds,
         baseEvents,
+        mockNDK as any,
         debug,
       );
 
@@ -205,6 +211,7 @@ describe("Tag Expansion Tests", () => {
         ["bitcoin"],
         existingEventIds,
         baseEvents,
+        mockNDK as any,
         debug,
       );
 
@@ -227,6 +234,7 @@ describe("Tag Expansion Tests", () => {
         [],
         existingEventIds,
         baseEvents,
+        mockNDK as any,
         debug,
       );
 
@@ -336,6 +344,7 @@ describe("Tag Expansion Tests", () => {
       await fetchProfilesForNewEvents(
         mockPublications as NDKEvent[],
         mockContentEvents as NDKEvent[],
+        mockNDK as any,
         onProgressUpdate,
         debug,
       );
@@ -357,6 +366,7 @@ describe("Tag Expansion Tests", () => {
       await fetchProfilesForNewEvents(
         [],
         [],
+        mockNDK as any,
         onProgressUpdate,
         debug,
       );
@@ -390,6 +400,7 @@ describe("Tag Expansion Tests", () => {
         ["bitcoin"],
         existingEventIds,
         baseEvents,
+        mockNDK as any,
         debug,
       );
 
@@ -413,6 +424,7 @@ describe("Tag Expansion Tests", () => {
       await fetchProfilesForNewEvents(
         relayResult.publications,
         relayResult.contentEvents,
+        mockNDK as any,
         onProgressUpdate,
         debug,
       );

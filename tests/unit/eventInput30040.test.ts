@@ -18,13 +18,12 @@ vi.mock("@nostr-dev-kit/ndk", () => ({
   })),
 }));
 
-// TODO: Replace with getNdkContext mock.
-vi.mock("../../src/lib/ndk", () => ({
-  ndkInstance: {
-    subscribe: vi.fn(),
-  },
-  getNdk: vi.fn(() => ({})),
-}));
+// Mock NDK context
+const mockNdk = {
+  subscribe: vi.fn(),
+  fetchEvents: vi.fn(),
+  pool: { relays: new Map() },
+};
 
 vi.mock("svelte/store", () => ({
   get: vi.fn(() => ({})),
@@ -67,6 +66,7 @@ This is the content of the second section.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -163,6 +163,7 @@ This is the content of the second section.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -240,6 +241,7 @@ This is the preamble content.
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -295,6 +297,7 @@ This is the preamble content.
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -343,6 +346,7 @@ index card`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -368,6 +372,7 @@ index card`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event
@@ -435,6 +440,7 @@ This is the section content.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       // Test index event metadata
@@ -574,6 +580,7 @@ This is just preamble content.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       expect(indexEvent.kind).toBe(30040);
@@ -602,6 +609,7 @@ Content here.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       expect(indexEvent.kind).toBe(30040);
@@ -631,6 +639,7 @@ Content here.`;
         content,
         tags,
         baseEvent,
+        mockNdk as any,
       );
 
       expect(indexEvent.kind).toBe(30040);

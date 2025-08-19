@@ -22,7 +22,7 @@
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Profile isNav={true} pubkey={userState.npub || undefined} />
+    <Profile isNav={true} />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">

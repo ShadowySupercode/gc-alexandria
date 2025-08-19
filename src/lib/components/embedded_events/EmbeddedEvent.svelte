@@ -107,7 +107,7 @@
       if (event?.pubkey) {
         const npub = toNpub(event.pubkey);
         if (npub) {
-          const userProfile = await getUserMetadata(npub);
+          const userProfile = await getUserMetadata(npub, ndk);
           authorDisplayName =
             userProfile.displayName ||
             (userProfile as any).display_name ||

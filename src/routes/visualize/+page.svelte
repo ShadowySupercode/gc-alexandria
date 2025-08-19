@@ -578,7 +578,8 @@
       
       profileEvents = await batchFetchProfiles(
         Array.from(allPubkeys),
-        (fetched, total) => {
+        ndk,
+        (fetched: number, total: number) => {
           profileLoadingProgress = { current: fetched, total };
         }
       );
@@ -681,6 +682,7 @@
           tags,
           existingEventIds,
           baseEvents,
+          ndk,
           debug
         );
         newPublications = result.publications;
@@ -698,6 +700,7 @@
       await fetchProfilesForNewEvents(
         newPublications,
         newContentEvents,
+        ndk,
         (progress: { current: number; total: number } | null) => { profileLoadingProgress = progress; },
         debug
       );

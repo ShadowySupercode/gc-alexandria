@@ -40,7 +40,7 @@
       if (!npub) return;
       
       // Force fetch to ensure we get the latest profile data
-      const profile = await getUserMetadata(npub, true);
+      const profile = await getUserMetadata(npub, ndk, true);
       const newProfiles = new Map(profiles);
       newProfiles.set(pubkey, profile);
       profiles = newProfiles;

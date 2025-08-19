@@ -23,12 +23,14 @@
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
   const props = $props<{
     event: NDKEvent;
     userRelayPreference: boolean;
   }>();
+
+  const ndk = getNdkContext();
 
   let content = $state("");
   let preview = $state("");
@@ -216,7 +218,7 @@
         relays = $activeOutboxRelays.slice(0, 3); // Use first 3 outbox relays
       }
 
-      const successfulRelays = await publishEvent(signedEvent, relays);
+      const successfulRelays = await publishEvent(signedEvent, relays, ndk);
 
       success = {
         relay: successfulRelays[0] || "Unknown relay",
@@ -282,7 +284,7 @@
 
     try {
       console.log("Search promise created, waiting for result...");
-      const result = await searchProfiles(mentionSearch.trim());
+      const result = await searchProfiles(mentionSearch.trim(), ndk);
       console.log("Search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);

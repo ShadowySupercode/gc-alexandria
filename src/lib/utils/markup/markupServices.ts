@@ -1,3 +1,4 @@
+import NDK from "@nostr-dev-kit/ndk";
 import {
   createProfileLink,
   getUserMetadata,
@@ -85,6 +86,7 @@ export function processMediaUrl(url: string, alt?: string): string {
  */
 export async function processNostrIdentifiersInText(
   text: string,
+  ndk?: NDK,
 ): Promise<string> {
   let processedText = text;
 
@@ -113,7 +115,13 @@ export async function processNostrIdentifiersInText(
     }
 
     // Get user metadata and create link
-    const metadata = await getUserMetadata(identifier);
+    let metadata;
+    if (ndk) {
+      metadata = await getUserMetadata(identifier, ndk);
+    } else {
+      // Fallback when NDK is not available - just use the identifier
+      metadata = { name: identifier.slice(0, 8) + "..." + identifier.slice(-4) };
+    }
     const displayText = metadata.displayName || metadata.name;
     const link = createProfileLink(identifier, displayText);
 

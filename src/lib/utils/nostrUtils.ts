@@ -67,7 +67,7 @@ function escapeRegExp(string: string): string {
  */
 export async function getUserMetadata(
   identifier: string,
-  ndk: NDK,
+  ndk?: NDK,
   force = false,
 ): Promise<NostrProfile> {
   // Remove nostr: prefix if present
@@ -175,7 +175,7 @@ export function createProfileLink(
 export async function createProfileLinkWithVerification(
   identifier: string,
   displayText: string | undefined,
-  ndk: NDK,
+  ndk?: NDK,
 ): Promise<string> {
   if (!ndk) {
     return createProfileLink(identifier, displayText);

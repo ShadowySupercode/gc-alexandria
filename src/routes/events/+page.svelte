@@ -76,7 +76,7 @@
       const npub = toNpub(pubkey);
       if (npub) {
         // Force fetch to ensure profile is cached
-        await getUserMetadata(npub, true);
+        await getUserMetadata(npub, undefined, true);
         console.log(`[Events Page] Cached profile for pubkey: ${pubkey}`);
       }
     } catch (error) {

@@ -8,6 +8,7 @@
     searchBySubscription,
     searchNip05,
   } from "$lib/utils/search_utility";
+  import type { SearchCallbacks } from "$lib/utils/search_types";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
@@ -81,7 +82,7 @@
   // AI-NOTE: 2025-01-24 - Core search handlers extracted for better organization
   async function handleNip05Search(query: string) {
     try {
-      const foundEvent = await searchNip05(query);
+      const foundEvent = await searchNip05(query, ndk);
       if (foundEvent) {
         handleFoundEvent(foundEvent);
         updateSearchState(false, true, 1, "nip05");
@@ -96,7 +97,7 @@
 
   async function handleEventSearch(query: string) {
     try {
-      const foundEvent = await searchEvent(query);
+      const foundEvent = await searchEvent(query, ndk);
       if (!foundEvent) {
         console.warn("[Events] Event not found for query:", query);
         localError = "Event not found";
@@ -505,6 +506,7 @@
     const searchPromise = searchBySubscription(
       searchType,
       searchTerm,
+      ndk,
       {
         onSecondOrderUpdate: (updatedResult) => {
           console.log("EventSearch: Second order update:", updatedResult);

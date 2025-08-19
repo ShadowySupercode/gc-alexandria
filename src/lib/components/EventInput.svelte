@@ -265,6 +265,7 @@
             content,
             tags,
             baseEvent,
+            ndk,
           );
           console.log("Index event:", indexEvent);
           console.log("Section events:", sectionEvents);

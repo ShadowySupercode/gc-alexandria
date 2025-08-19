@@ -5,11 +5,13 @@
   import { findContainingIndexEvents } from "$lib/utils/event_search";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
   let { event } = $props<{
     event: NDKEvent;
   }>();
+
+  const ndk = getNdkContext();
 
   let containingIndexes = $state<NDKEvent[]>([]);
   let loading = $state(false);
@@ -25,7 +27,7 @@
     error = null;
 
     try {
-      containingIndexes = await findContainingIndexEvents(event);
+      containingIndexes = await findContainingIndexEvents(event, ndk);
       console.log(
         "[ContainingIndexes] Found containing indexes:",
         containingIndexes.length,

@@ -45,7 +45,7 @@
         </span>
       {/await}
     {:else}
-      {#await createProfileLinkWithVerification(npub as string, displayText)}
+      {#await createProfileLinkWithVerification(npub as string, displayText, undefined)}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"

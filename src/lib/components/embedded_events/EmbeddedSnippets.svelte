@@ -104,7 +104,7 @@
         if (!npub) return;
 
         // Try cache first
-        let profile = await getUserMetadata(npub, false);
+        let profile = await getUserMetadata(npub, ndk, false);
         if (profile && (profile.name || profile.displayName || profile.picture)) {
           authorProfiles.set(pubkey, profile);
           return;

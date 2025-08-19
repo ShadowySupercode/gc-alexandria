@@ -235,7 +235,7 @@
       
       // Fallback to getUserMetadata
       console.log("Falling back to getUserMetadata");
-      const freshProfile = await getUserMetadata(userState.npub, true); // Force fresh fetch
+      const freshProfile = await getUserMetadata(userState.npub, ndk, true); // Force fresh fetch
       console.log("Fresh profile data from getUserMetadata:", freshProfile);
       
       // Update the userStore with fresh profile data
@@ -325,7 +325,7 @@
         qrCodeDataUrl =
           (await generateQrCode(amberSigner.nostrConnectUri)) ?? undefined;
         const user = await amberSigner.blockUntilReady();
-        await loginWithAmber(amberSigner, user);
+        await loginWithAmber(amberSigner, user, ndk);
         showQrCode = false;
       } else {
         throw new Error("Failed to generate Nostr Connect URI");
@@ -343,7 +343,7 @@
     const inputNpub = prompt("Enter your npub (public key):");
     if (inputNpub) {
       try {
-        await loginWithNpub(inputNpub);
+        await loginWithNpub(inputNpub, ndk);
       } catch (err: unknown) {
         showResultMessage(
           `❌ npub login failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -355,7 +355,7 @@
   async function handleSignOutClick() {
     localStorage.removeItem("amber/nsec");
     localStorage.removeItem("alexandria/amber/fallback");
-    logoutUser();
+    logoutUser(ndk);
   }
 
   function handleViewProfile() {

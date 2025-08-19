@@ -1,4 +1,4 @@
-import { ndkInstance, activeInboxRelays } from "../ndk.ts";
+import { getNdkContext, activeInboxRelays } from "../ndk.ts";
 import { get } from "svelte/store";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { userStore } from "../stores/userStore.ts";
@@ -52,7 +52,7 @@ export async function fetchUserLists(
   pubkey: string,
   listKinds: number[] = [...PEOPLE_LIST_KINDS]
 ): Promise<UserListEvent[]> {
-  const ndk = get(ndkInstance);
+  const ndk = getNdkContext();
   if (!ndk) {
     console.warn("fetchUserLists: No NDK instance available");
     return [];
@@ -211,7 +211,7 @@ export async function updateProfileCacheForPubkeys(pubkeys: string[]): Promise<v
   try {
     console.log(`Updating profile cache for ${pubkeys.length} pubkeys`);
     
-    const ndk = get(ndkInstance);
+    const ndk = getNdkContext();
     if (!ndk) {
       console.warn("updateProfileCacheForPubkeys: No NDK instance available");
       return;

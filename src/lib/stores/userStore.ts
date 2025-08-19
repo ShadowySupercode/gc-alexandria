@@ -178,7 +178,7 @@ export async function loginWithExtension(ndk: NDK) {
   let profile: NostrProfile | null = null;
   try {
     console.log("Login with extension - attempting to fetch profile...");
-    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
     console.log("Login with extension - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during login:", error);
@@ -253,7 +253,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
 
   let profile: NostrProfile | null = null;
   try {
-    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
     console.log("Login with Amber - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during Amber login:", error);
@@ -368,7 +368,7 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   try {
-    profile = await getUserMetadata(npub, true); // Force fresh fetch
+    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
     console.log("Login with npub - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during npub login:", error);

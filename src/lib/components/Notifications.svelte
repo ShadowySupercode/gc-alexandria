@@ -263,7 +263,7 @@
 
     try {
       console.log("Recipient search promise created, waiting for result...");
-      const result = await searchProfiles(recipientSearch.trim());
+      const result = await searchProfiles(recipientSearch.trim(), ndk);
       console.log("Recipient search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
@@ -388,7 +388,7 @@
       
       // Get relay sets for all recipients and combine them
       const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey)
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
       );
       const relaySets = await Promise.all(relaySetPromises);
       
@@ -623,7 +623,7 @@
       
       // Get relay sets for all recipients and combine them
       const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey)
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
       );
       
       const relaySets = await Promise.all(relaySetPromises);
