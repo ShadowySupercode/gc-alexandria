@@ -493,10 +493,10 @@
 <div
   class="w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg"
 >
-  <h2 class="text-xl font-bold mb-4">Publish Nostr Event</h2>
+  <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Publish Nostr Event</h2>
   <form class="space-y-4" onsubmit={handleSubmit}>
     <div>
-      <label class="block font-medium mb-1" for="event-kind">Kind</label>
+      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-kind">Kind</label>
       <input
         id="event-kind"
         type="text"
@@ -505,7 +505,7 @@
         required
       />
       {#if !isValidKind(kind)}
-        <div class="text-red-600 text-sm mt-1">
+        <div class="text-red-600 dark:text-red-400 text-sm mt-1">
           Kind must be an integer between 0 and 65535 (NIP-01).
         </div>
       {/if}
@@ -519,7 +519,7 @@
       {/if}
     </div>
     <div>
-      <label class="block font-medium mb-1" for="tags-container">Tags</label>
+      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="tags-container">Tags</label>
       
       <!-- Extracted Metadata Section -->
       {#if extractedMetadata.length > 0}
@@ -587,7 +587,7 @@
       </div>
     </div>
     <div>
-      <label class="block font-medium mb-1" for="event-content">Content</label>
+      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-content">Content</label>
       <textarea
         id="event-content"
         bind:value={content}
@@ -598,7 +598,7 @@
       ></textarea>
     </div>
     <div>
-      <label class="block font-medium mb-1" for="event-title">Title</label>
+      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-title">Title</label>
       <input
         type="text"
         id="event-title"
@@ -609,7 +609,7 @@
       />
     </div>
     <div>
-      <label class="block font-medium mb-1" for="event-d-tag">d-tag</label>
+      <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-d-tag">d-tag</label>
       <input
         type="text"
         id="event-d-tag"
@@ -620,7 +620,7 @@
         required={requiresDTag(kind)}
       />
       {#if dTagError}
-        <div class="text-red-600 text-sm mt-1">{dTagError}</div>
+        <div class="text-red-600 dark:text-red-400 text-sm mt-1">{dTagError}</div>
       {/if}
     </div>
     <div class="flex justify-end">
@@ -631,18 +631,18 @@
       >
     </div>
     {#if loading}
-      <span class="ml-2 text-gray-500">Publishing...</span>
+      <span class="ml-2 text-gray-500 dark:text-gray-400">Publishing...</span>
     {/if}
     {#if error}
-      <div class="mt-2 text-red-600">{error}</div>
+      <div class="mt-2 text-red-600 dark:text-red-400">{error}</div>
     {/if}
     {#if success}
-      <div class="mt-2 text-green-600">{success}</div>
-      <div class="text-xs text-gray-500">
+      <div class="mt-2 text-green-600 dark:text-green-400">{success}</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400">
         Relays: {publishedRelays.join(", ")}
       </div>
       {#if lastPublishedEventId}
-        <div class="mt-2 text-green-700">
+        <div class="mt-2 text-green-700 dark:text-green-300">
           Event ID: <span class="font-mono">{lastPublishedEventId}</span>
           <Button
             onclick={viewPublishedEvent}
@@ -658,9 +658,9 @@
 
   {#if showWarning}
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
-        <h3 class="text-lg font-bold mb-4">Warning</h3>
-        <p class="mb-4">{warningMessage}</p>
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+              <h3 class="text-lg font-bold mb-4 text-gray-900 dark:text-gray-100">Warning</h3>
+        <p class="mb-4 text-gray-700 dark:text-gray-300">{warningMessage}</p>
         <div class="flex justify-end space-x-2">
           <button
             type="button"

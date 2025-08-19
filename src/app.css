@@ -332,6 +332,9 @@
       border-primary-200 has-[:hover]:border-primary-700;
     @apply dark:bg-primary-1000 dark:border-primary-800
       dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+    max-width: 300px;
+    min-width: 200px;
+    overflow: hidden;
   }
 
   /* Tooltip */
