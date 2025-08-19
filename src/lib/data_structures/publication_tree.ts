@@ -788,9 +788,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         });
     }
 
-    return Promise.resolve(
-      this.#buildNodeFromEvent(event, address, parentNode),
-    );
+    return await this.#buildNodeFromEvent(event, address, parentNode);
   }
 
   /**
@@ -851,7 +849,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
             this.#eventCache.set(address, fetchedEvent);
             this.#events.set(address, fetchedEvent);
 
-            return this.#buildNodeFromEvent(fetchedEvent, address, parentNode);
+            return await this.#buildNodeFromEvent(fetchedEvent, address, parentNode);
           }
         } catch (error) {
           console.debug(
@@ -894,11 +892,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * AI-NOTE: 2025-01-24 - Helper method to build a node from an event
    * This extracts the common logic for building nodes from events
    */
-  #buildNodeFromEvent(
+  async #buildNodeFromEvent(
     event: NDKEvent,
     address: string,
     parentNode: PublicationTreeNode,
-  ): PublicationTreeNode {
+  ): Promise<PublicationTreeNode> {
     this.#events.set(address, event);
 
     const childAddresses = event.tags
@@ -978,16 +976,21 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
-    // Add children asynchronously
-    const childPromises = childAddresses.map((address) =>
-      this.addEventByAddress(address, event)
-    );
-    Promise.all(childPromises).catch((error) => {
-      console.warn(
-        `[PublicationTree] Error adding children for ${address}:`,
-        error,
-      );
-    });
+    // Add children in the order they appear in the a-tags to preserve section order
+    // Use sequential processing to ensure order is maintained
+    console.log(`[PublicationTree] Adding ${childAddresses.length} children in order:`, childAddresses);
+    for (const address of childAddresses) {
+      console.log(`[PublicationTree] Adding child: ${address}`);
+      try {
+        await this.addEventByAddress(address, event);
+        console.log(`[PublicationTree] Successfully added child: ${address}`);
+      } catch (error) {
+        console.warn(
+          `[PublicationTree] Error adding child ${address} for ${node.address}:`,
+          error,
+        );
+      }
+    }
 
     this.#nodeResolvedObservers.forEach((observer) => observer(address));
 
