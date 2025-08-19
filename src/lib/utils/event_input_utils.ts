@@ -170,6 +170,14 @@ export function validate30040EventSet(content: string): {
 function normalizeDTagValue(header: string): string {
   return header
     .toLowerCase()
+    // Decode common HTML entities first
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    // Then normalize as before
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
 }

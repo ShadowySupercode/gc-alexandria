@@ -1,0 +1,4178 @@
+
+> alexandria@0.0.2 test
+> vitest
+
+
+ DEV  v3.2.4 /home/madmin/Projects/GitCitadel/gc-alexandria
+
+ ✓ tests/unit/ZettelEditor.test.ts (24 tests) 20ms
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Addressable Event Deduplication > should keep only the most recent version of addressable events by coordinate
+[eventDeduplication] Found 1 duplicate events out of 3 total events
+[eventDeduplication] Reduced to 2 unique coordinates
+[eventDeduplication] Duplicate details: [
+  {
+    coordinate: [32m'30041:pubkey1:chapter-1'[39m,
+    count: [33m2[39m,
+    events: [ [32m'event1 (created_at: 1000)'[39m, [32m'event2 (created_at: 2000)'[39m ]
+  }
+]
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Addressable Event Deduplication > should handle events with missing d-tags gracefully
+[eventDeduplication] No duplicates found in 1 events
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Addressable Event Deduplication > should handle events with missing timestamps
+[eventDeduplication] Found 1 duplicate events out of 2 total events
+[eventDeduplication] Reduced to 1 unique coordinates
+[eventDeduplication] Duplicate details: [
+  {
+    coordinate: [32m'30041:pubkey1:chapter-3'[39m,
+    count: [33m2[39m,
+    events: [ [32m'event7 (created_at: 0)'[39m, [32m'event8 (created_at: 1500)'[39m ]
+  }
+]
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Mixed Event Type Deduplication > should only deduplicate addressable events (kinds 30000-39999)
+[eventDeduplication] deduplicateAndCombineEvents: Found 1 duplicate coordinates out of 4 replaceable events
+[eventDeduplication] deduplicateAndCombineEvents: Reduced from 5 to 4 events (1 removed)
+[eventDeduplication] deduplicateAndCombineEvents: Duplicate details: [
+  {
+    coordinate: [32m'30041:pubkey1:chapter-1'[39m,
+    count: [33m2[39m,
+    events: [ [32m'event1 (created_at: 1000)'[39m, [32m'event2 (created_at: 2000)'[39m ]
+  }
+]
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Edge Cases > should handle events with null/undefined values
+[eventDeduplication] No duplicates found in 1 events
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Deduplication Behavior Tests > Edge Cases > should handle events from different authors with same d-tag
+[eventDeduplication] No duplicates found in 2 events
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Behavior Simulation > should simulate what happens when relays return duplicate events
+[eventDeduplication] Found 2 duplicate events out of 3 total events
+[eventDeduplication] Reduced to 1 unique coordinates
+[eventDeduplication] Duplicate details: [
+  {
+    coordinate: [32m'30041:pubkey1:chapter-1'[39m,
+    count: [33m3[39m,
+    events: [
+      [32m'event1 (created_at: 1000)'[39m,
+      [32m'event2 (created_at: 2000)'[39m,
+      [32m'event3 (created_at: 1500)'[39m
+    ]
+  }
+]
+
+stdout | tests/unit/relayDeduplication.test.ts > Relay Behavior Simulation > should simulate multiple relays returning different versions
+[eventDeduplication] Found 1 duplicate events out of 2 total events
+[eventDeduplication] Reduced to 1 unique coordinates
+[eventDeduplication] Duplicate details: [
+  {
+    coordinate: [32m'30041:pubkey1:chapter-1'[39m,
+    count: [33m2[39m,
+    events: [ [32m'event1 (created_at: 1000)'[39m, [32m'event2 (created_at: 2000)'[39m ]
+  }
+]
+
+stdout | tests/unit/relayDeduplication.test.ts > Real Relay Deduplication Tests > should detect if relays are returning duplicate replaceable events
+Note: This test would require actual relay queries to verify deduplication behavior
+To run this test properly, we would need to:
+1. Query real relays for replaceable events
+2. Check if relays return duplicates
+3. Verify our deduplication logic works on real data
+
+stdout | tests/unit/relayDeduplication.test.ts > Real Relay Deduplication Tests > should verify that our deduplication logic works on real relay data
+Note: This test would require actual relay queries
+To implement this test, we would need to:
+1. Set up NDK with real relays
+2. Fetch events for a known author with multiple versions
+3. Apply deduplication and verify results
+
+stdout | tests/unit/relayDeduplication.test.ts > Practical Relay Behavior Analysis > should document what we know about relay deduplication behavior
+
+=== RELAY DEDUPLICATION BEHAVIOR ANALYSIS ===
+
+Based on the code analysis and the comment from onedev:
+
+1. THEORETICAL BEHAVIOR:
+   - Relays SHOULD handle deduplication for replaceable events
+   - Only the most recent version of each coordinate should be stored
+   - Client-side deduplication should only be needed for cached/local events
+
+2. REALITY CHECK:
+   - Not all relays implement deduplication correctly
+   - Some relays may return multiple versions of the same event
+   - Network conditions and relay availability can cause inconsistencies
+
+3. ALEXANDRIA'S APPROACH:
+   - Implements client-side deduplication as a safety net
+   - Uses coordinate system (kind:pubkey:d-tag) for addressable events
+   - Keeps the most recent version based on created_at timestamp
+   - Only applies to replaceable events (kinds 30000-39999)
+
+4. WHY KEEP THE DEDUPLICATION:
+   - Defensive programming against imperfect relay implementations
+   - Handles multiple relay sources with different data
+   - Works with cached events that might be outdated
+   - Ensures consistent user experience regardless of relay behavior
+
+5. TESTING STRATEGY:
+   - Unit tests verify our deduplication logic works correctly
+   - Integration tests would verify relay behavior (when network allows)
+   - Monitoring can help determine if relays improve over time
+
+stdout | tests/unit/relayDeduplication.test.ts > Practical Relay Behavior Analysis > should provide recommendations for when to remove deduplication
+
+=== RECOMMENDATIONS FOR REMOVING DEDUPLICATION ===
+
+The deduplication logic should be kept until:
+
+1. RELAY STANDARDS:
+   - NIP-33 (replaceable events) is widely implemented by relays
+   - Relays consistently return only the most recent version
+   - No major relay implementations return duplicates
+
+2. TESTING EVIDENCE:
+   - Real-world testing shows relays don't return duplicates
+   - Multiple relay operators confirm deduplication behavior
+   - No user reports of duplicate content issues
+
+3. MONITORING:
+   - Add logging to track when deduplication is actually used
+   - Monitor relay behavior over time
+   - Collect metrics on duplicate events found
+
+4. GRADUAL REMOVAL:
+   - Make deduplication configurable (on/off)
+   - Test with deduplication disabled in controlled environments
+   - Monitor for issues before removing completely
+
+5. FALLBACK STRATEGY:
+   - Keep deduplication as a fallback option
+   - Allow users to enable it if they experience issues
+   - Maintain the code for potential future use
+
+ ✓ tests/unit/relayDeduplication.test.ts (22 tests) 22ms
+ ✓ tests/unit/nostr_identifiers.test.ts (12 tests) 9ms
+ ✓ tests/unit/tagExpansion.test.ts (12 tests) 23ms
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure with Preamble > should build 30040 event set with preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document with Preamble'[39m,
+    authors: [ [32m'John Doe'[39m, [32m'Section Author'[39m ],
+    version: [32m'1.0'[39m,
+    publicationDate: [32m'2024-01-15, Alexandria Test'[39m,
+    summary: [32m'This is a test document with preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document with Preamble\n'[39m +
+    [32m'John Doe <john@example.com>\n'[39m +
+    [32m'1.0, 2024-01-15, Alexandria Test\n'[39m +
+    [32m':summary: This is a test document with preamble\n'[39m +
+    [32m':keywords: test, preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content that should be included.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document with Preamble'[39m,
+  indexDTag: [32m'test-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-with-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-with-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [ [32m'author'[39m, [32m'John Doe'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'1.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-01-15, Alexandria Test'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document with preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure without Preamble > should build 30040 event set without preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document without Preamble'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    version: [32m'Version'[39m,
+    summary: [32m'This is a test document without preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'no-preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document without Preamble\n'[39m +
+    [32m':summary: This is a test document without preamble\n'[39m +
+    [32m':keywords: test, no-preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document without Preamble'[39m,
+  indexDTag: [32m'test-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-without-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-without-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document without preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ❯ tests/unit/metadataExtraction.test.ts (16 tests | 2 failed) 231ms
+   × AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly 124ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract section metadata correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract standalone author names and remove them from content 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should handle multiple standalone author names 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should not extract non-author lines as authors 4ms
+   ✓ AsciiDoc Metadata Extraction > parseAsciiDocWithMetadata should parse complete document 23ms
+   ✓ AsciiDoc Metadata Extraction > metadataToTags should convert metadata to Nostr tags 2ms
+   ✓ AsciiDoc Metadata Extraction > should handle index card format correctly 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle empty content gracefully 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle keywords as tags 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both tags and keywords 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle tags only 8ms
+   ✓ AsciiDoc Metadata Extraction > should handle both summary and description 15ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle section-only content correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle minimal document header (just title) correctly 1ms
+   × AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly 7ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure with Preamble > should build 30040 event set with skeleton structure and preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document with Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document with preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document with Preamble\n'[39m +
+    [32m':summary: This is a skeleton document with preamble\n'[39m +
+    [32m':keywords: skeleton, preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document with Preamble'[39m,
+  indexDTag: [32m'skeleton-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document with preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure without Preamble > should build 30040 event set with skeleton structure without preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document without Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document without preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'no-preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document without Preamble\n'[39m +
+    [32m':summary: This is a skeleton document without preamble\n'[39m +
+    [32m':keywords: skeleton, no-preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document without Preamble'[39m,
+  indexDTag: [32m'skeleton-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document without preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card format
+Parsed AsciiDoc: {
+  metadata: { title: [32m'Test Index Card'[39m, version: [32m'Version'[39m },
+  content: [32m'= Test Index Card\nindex card'[39m,
+  sections: []
+}
+Creating index card format (no sections)
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card with metadata
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Index Card with Metadata'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is an index card with metadata'[39m,
+    tags: [ [32m'index'[39m, [32m'card'[39m, [32m'metadata'[39m ]
+  },
+  content: [32m'= Test Index Card with Metadata\n'[39m +
+    [32m':summary: This is an index card with metadata\n'[39m +
+    [32m':keywords: index, card, metadata\n'[39m +
+    [32m'index card'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Test Index Card with Metadata'[39m,
+  indexDTag: [32m'test-index-card-with-metadata'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'index-card'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is an index card with metadata'[39m ],
+    [ [32m't'[39m, [32m'index'[39m ],
+    [ [32m't'[39m, [32m'card'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m'd'[39m, [32m'test-index-card-with-metadata'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Complex Metadata Structures > should handle complex metadata with all attribute types
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Complex Metadata Document'[39m,
+    authors: [
+      [32m'Jane Smith'[39m,
+      [32m'Override Author'[39m,
+      [32m'Third Author'[39m,
+      [32m'Section Author'[39m,
+      [32m'Section Co-Author'[39m
+    ],
+    version: [32m'2.0'[39m,
+    publicationDate: [32m'2024-03-01'[39m,
+    summary: [32m'This is a complex document with all metadata types Alternative description field'[39m,
+    publishedBy: [32m'Alexandria Complex'[39m,
+    type: [32m'book'[39m,
+    coverImage: [32m'https://example.com/cover.jpg'[39m,
+    isbn: [32m'978-0-123456-78-9'[39m,
+    source: [32m'https://github.com/alexandria/complex'[39m,
+    autoUpdate: [32m'yes'[39m,
+    tags: [
+      [32m'additional'[39m,
+      [32m'tags'[39m,
+      [32m'here'[39m,
+      [32m'complex'[39m,
+      [32m'metadata'[39m,
+      [32m'all-types'[39m
+    ]
+  },
+  content: [32m'= Complex Metadata Document\n'[39m +
+    [32m'Jane Smith <jane@example.com>\n'[39m +
+    [32m'2.0, 2024-02-20, Alexandria Complex\n'[39m +
+    [32m':summary: This is a complex document with all metadata types\n'[39m +
+    [32m':description: Alternative description field\n'[39m +
+    [32m':keywords: complex, metadata, all-types\n'[39m +
+    [32m':tags: additional, tags, here\n'[39m +
+    [32m':author: Override Author\n'[39m +
+    [32m':author: Third Author\n'[39m +
+    [32m':version: 3.0\n'[39m +
+    [32m':published_on: 2024-03-01\n'[39m +
+    [32m':published_by: Alexandria Complex\n'[39m +
+    [32m':type: book\n'[39m +
+    [32m':image: https://example.com/cover.jpg\n'[39m +
+    [32m':isbn: 978-0-123456-78-9\n'[39m +
+    [32m':source: https://github.com/alexandria/complex\n'[39m +
+    [32m':auto-update: yes\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section with Complex Metadata\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':author: Section Co-Author\n'[39m +
+    [32m':summary: This section has complex metadata\n'[39m +
+    [32m':description: Alternative description for section\n'[39m +
+    [32m':keywords: section, complex, metadata\n'[39m +
+    [32m':tags: section, tags\n'[39m +
+    [32m':type: chapter\n'[39m +
+    [32m':image: https://example.com/section-image.jpg\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the section content.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the section content.'[39m,
+      title: [32m'Section with Complex Metadata'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Complex Metadata Document'[39m,
+  indexDTag: [32m'complex-metadata-document'[39m
+}
+Creating section 0: {
+  title: [32m'Section with Complex Metadata'[39m,
+  dTag: [32m'complex-metadata-document-section-with-complex-metadata'[39m,
+  content: [32m'This is the section content.'[39m,
+  metadata: {
+    title: [32m'Section with Complex Metadata'[39m,
+    authors: [ [32m'Section Author'[39m, [32m'Section Co-Author'[39m ],
+    summary: [32m'This section has complex metadata Alternative description for section'[39m,
+    type: [32m'chapter'[39m,
+    coverImage: [32m'https://example.com/section-image.jpg'[39m,
+    tags: [ [32m'section'[39m, [32m'tags'[39m, [32m'complex'[39m, [32m'metadata'[39m ]
+  }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'complex'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [ [32m'author'[39m, [32m'Jane Smith'[39m ],
+    [ [32m'author'[39m, [32m'Override Author'[39m ],
+    [ [32m'author'[39m, [32m'Third Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Co-Author'[39m ],
+    [ [32m'version'[39m, [32m'2.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-03-01'[39m ],
+    [ [32m'published_by'[39m, [32m'Alexandria Complex'[39m ],
+    [
+      [32m'summary'[39m,
+      [32m'This is a complex document with all metadata types Alternative description field'[39m
+    ],
+    [ [32m'image'[39m, [32m'https://example.com/cover.jpg'[39m ],
+    [ [32m'i'[39m, [32m'978-0-123456-78-9'[39m ],
+    [ [32m'source'[39m, [32m'https://github.com/alexandria/complex'[39m ],
+    [ [32m'type'[39m, [32m'book'[39m ],
+    [ [32m'auto-update'[39m, [32m'yes'[39m ],
+    [ [32m't'[39m, [32m'additional'[39m ],
+    [ [32m't'[39m, [32m'tags'[39m ],
+    [ [32m't'[39m, [32m'here'[39m ],
+    [ [32m't'[39m, [32m'complex'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m't'[39m, [32m'all-types'[39m ],
+    [ [32m'd'[39m, [32m'complex-metadata-document'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with only title and no sections
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with No Sections'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has no sections'[39m
+  },
+  content: [32m'= Document with No Sections\n'[39m +
+    [32m':summary: This document has no sections\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is just preamble content.'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Document with No Sections'[39m,
+  indexDTag: [32m'document-with-no-sections'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has no sections'[39m ],
+    [ [32m'd'[39m, [32m'document-with-no-sections'[39m ],
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with special characters in title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with Special Characters: Test & More!'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has special characters in the title'[39m
+  },
+  content: [32m'= Document with Special Characters: Test & More!\n'[39m +
+    [32m':summary: This document has special characters in the title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Document with Special Characters: Test & More!'[39m,
+  indexDTag: [32m'document-with-special-characters-test-more'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'document-with-special-characters-test-more-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has special characters in the title'[39m ],
+    [ [32m'd'[39m, [32m'document-with-special-characters-test-more'[39m ],
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with very long title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has a very long title'[39m
+  },
+  content: [32m'= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality\n'[39m +
+    [32m':summary: This document has a very long title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+  indexDTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has a very long title'[39m ],
+    [
+      [32m'd'[39m,
+      [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+    ],
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ✓ tests/unit/eventInput30040.test.ts (14 tests) 389ms
+(node:1443840) Warning: To load an ES module, set "type": "module" in the package.json or use the .mjs extension.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/unit/mathProcessing.test.ts (18 tests) 16ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:44:30
+     42| 
+     43|     expect(metadata.title).toBe("Test Document with Metadata");
+     44|     expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                              ^
+     45|     expect(metadata.version).toBe("1.0");
+     46|     expect(metadata.publicationDate).toBe("2024-01-15");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:318:32
+    316|       // Should extract document-level metadata
+    317|       expect(metadata.title).toBe("Test Document");
+    318|       expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                                ^
+    319|       expect(metadata.version).toBe("1.0");
+    320|       expect(metadata.publishedBy).toBe("Alexandria Test");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 6 passed (7)
+      Tests  2 failed | 116 passed (118)
+   Start at  13:16:23
+   Duration  2.53s (transform 1.97s, setup 0ms, collect 3.66s, tests 710ms, environment 2ms, prepare 1.10s)
+
+ FAIL  Tests failed. Watching for file changes...
+       press h to show help, press q to quit
+c[3J RERUN  src/lib/utils/asciidoc_metadata.ts 
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure with Preamble > should build 30040 event set with preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document with Preamble'[39m,
+    authors: [ [32m'John Doe'[39m, [32m'Section Author'[39m ],
+    version: [32m'1.0'[39m,
+    publicationDate: [32m'2024-01-15, Alexandria Test'[39m,
+    summary: [32m'This is a test document with preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document with Preamble\n'[39m +
+    [32m'John Doe <john@example.com>\n'[39m +
+    [32m'1.0, 2024-01-15, Alexandria Test\n'[39m +
+    [32m':summary: This is a test document with preamble\n'[39m +
+    [32m':keywords: test, preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content that should be included.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document with Preamble'[39m,
+  indexDTag: [32m'test-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-with-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-with-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [ [32m'author'[39m, [32m'John Doe'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'1.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-01-15, Alexandria Test'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document with preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure without Preamble > should build 30040 event set without preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document without Preamble'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    version: [32m'Version'[39m,
+    summary: [32m'This is a test document without preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'no-preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document without Preamble\n'[39m +
+    [32m':summary: This is a test document without preamble\n'[39m +
+    [32m':keywords: test, no-preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document without Preamble'[39m,
+  indexDTag: [32m'test-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-without-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-without-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document without preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure with Preamble > should build 30040 event set with skeleton structure and preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document with Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document with preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document with Preamble\n'[39m +
+    [32m':summary: This is a skeleton document with preamble\n'[39m +
+    [32m':keywords: skeleton, preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document with Preamble'[39m,
+  indexDTag: [32m'skeleton-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document with preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ❯ tests/unit/metadataExtraction.test.ts (16 tests | 2 failed) 202ms
+   × AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly 116ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract section metadata correctly 7ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract standalone author names and remove them from content 4ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should handle multiple standalone author names 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should not extract non-author lines as authors 4ms
+   ✓ AsciiDoc Metadata Extraction > parseAsciiDocWithMetadata should parse complete document 20ms
+   ✓ AsciiDoc Metadata Extraction > metadataToTags should convert metadata to Nostr tags 2ms
+   ✓ AsciiDoc Metadata Extraction > should handle index card format correctly 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle empty content gracefully 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle keywords as tags 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both tags and keywords 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle tags only 3ms
+   ✓ AsciiDoc Metadata Extraction > should handle both summary and description 7ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle section-only content correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle minimal document header (just title) correctly 1ms
+   × AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly 7ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure without Preamble > should build 30040 event set with skeleton structure without preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document without Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document without preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'no-preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document without Preamble\n'[39m +
+    [32m':summary: This is a skeleton document without preamble\n'[39m +
+    [32m':keywords: skeleton, no-preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document without Preamble'[39m,
+  indexDTag: [32m'skeleton-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document without preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card format
+Parsed AsciiDoc: {
+  metadata: { title: [32m'Test Index Card'[39m, version: [32m'Version'[39m },
+  content: [32m'= Test Index Card\nindex card'[39m,
+  sections: []
+}
+Creating index card format (no sections)
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card with metadata
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Index Card with Metadata'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is an index card with metadata'[39m,
+    tags: [ [32m'index'[39m, [32m'card'[39m, [32m'metadata'[39m ]
+  },
+  content: [32m'= Test Index Card with Metadata\n'[39m +
+    [32m':summary: This is an index card with metadata\n'[39m +
+    [32m':keywords: index, card, metadata\n'[39m +
+    [32m'index card'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Test Index Card with Metadata'[39m,
+  indexDTag: [32m'test-index-card-with-metadata'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'index-card'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is an index card with metadata'[39m ],
+    [ [32m't'[39m, [32m'index'[39m ],
+    [ [32m't'[39m, [32m'card'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m'd'[39m, [32m'test-index-card-with-metadata'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Complex Metadata Structures > should handle complex metadata with all attribute types
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Complex Metadata Document'[39m,
+    authors: [
+      [32m'Jane Smith'[39m,
+      [32m'Override Author'[39m,
+      [32m'Third Author'[39m,
+      [32m'Section Author'[39m,
+      [32m'Section Co-Author'[39m
+    ],
+    version: [32m'2.0'[39m,
+    publicationDate: [32m'2024-03-01'[39m,
+    summary: [32m'This is a complex document with all metadata types Alternative description field'[39m,
+    publishedBy: [32m'Alexandria Complex'[39m,
+    type: [32m'book'[39m,
+    coverImage: [32m'https://example.com/cover.jpg'[39m,
+    isbn: [32m'978-0-123456-78-9'[39m,
+    source: [32m'https://github.com/alexandria/complex'[39m,
+    autoUpdate: [32m'yes'[39m,
+    tags: [
+      [32m'additional'[39m,
+      [32m'tags'[39m,
+      [32m'here'[39m,
+      [32m'complex'[39m,
+      [32m'metadata'[39m,
+      [32m'all-types'[39m
+    ]
+  },
+  content: [32m'= Complex Metadata Document\n'[39m +
+    [32m'Jane Smith <jane@example.com>\n'[39m +
+    [32m'2.0, 2024-02-20, Alexandria Complex\n'[39m +
+    [32m':summary: This is a complex document with all metadata types\n'[39m +
+    [32m':description: Alternative description field\n'[39m +
+    [32m':keywords: complex, metadata, all-types\n'[39m +
+    [32m':tags: additional, tags, here\n'[39m +
+    [32m':author: Override Author\n'[39m +
+    [32m':author: Third Author\n'[39m +
+    [32m':version: 3.0\n'[39m +
+    [32m':published_on: 2024-03-01\n'[39m +
+    [32m':published_by: Alexandria Complex\n'[39m +
+    [32m':type: book\n'[39m +
+    [32m':image: https://example.com/cover.jpg\n'[39m +
+    [32m':isbn: 978-0-123456-78-9\n'[39m +
+    [32m':source: https://github.com/alexandria/complex\n'[39m +
+    [32m':auto-update: yes\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section with Complex Metadata\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':author: Section Co-Author\n'[39m +
+    [32m':summary: This section has complex metadata\n'[39m +
+    [32m':description: Alternative description for section\n'[39m +
+    [32m':keywords: section, complex, metadata\n'[39m +
+    [32m':tags: section, tags\n'[39m +
+    [32m':type: chapter\n'[39m +
+    [32m':image: https://example.com/section-image.jpg\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the section content.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the section content.'[39m,
+      title: [32m'Section with Complex Metadata'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Complex Metadata Document'[39m,
+  indexDTag: [32m'complex-metadata-document'[39m
+}
+Creating section 0: {
+  title: [32m'Section with Complex Metadata'[39m,
+  dTag: [32m'complex-metadata-document-section-with-complex-metadata'[39m,
+  content: [32m'This is the section content.'[39m,
+  metadata: {
+    title: [32m'Section with Complex Metadata'[39m,
+    authors: [ [32m'Section Author'[39m, [32m'Section Co-Author'[39m ],
+    summary: [32m'This section has complex metadata Alternative description for section'[39m,
+    type: [32m'chapter'[39m,
+    coverImage: [32m'https://example.com/section-image.jpg'[39m,
+    tags: [ [32m'section'[39m, [32m'tags'[39m, [32m'complex'[39m, [32m'metadata'[39m ]
+  }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'complex'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [ [32m'author'[39m, [32m'Jane Smith'[39m ],
+    [ [32m'author'[39m, [32m'Override Author'[39m ],
+    [ [32m'author'[39m, [32m'Third Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Co-Author'[39m ],
+    [ [32m'version'[39m, [32m'2.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-03-01'[39m ],
+    [ [32m'published_by'[39m, [32m'Alexandria Complex'[39m ],
+    [
+      [32m'summary'[39m,
+      [32m'This is a complex document with all metadata types Alternative description field'[39m
+    ],
+    [ [32m'image'[39m, [32m'https://example.com/cover.jpg'[39m ],
+    [ [32m'i'[39m, [32m'978-0-123456-78-9'[39m ],
+    [ [32m'source'[39m, [32m'https://github.com/alexandria/complex'[39m ],
+    [ [32m'type'[39m, [32m'book'[39m ],
+    [ [32m'auto-update'[39m, [32m'yes'[39m ],
+    [ [32m't'[39m, [32m'additional'[39m ],
+    [ [32m't'[39m, [32m'tags'[39m ],
+    [ [32m't'[39m, [32m'here'[39m ],
+    [ [32m't'[39m, [32m'complex'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m't'[39m, [32m'all-types'[39m ],
+    [ [32m'd'[39m, [32m'complex-metadata-document'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with only title and no sections
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with No Sections'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has no sections'[39m
+  },
+  content: [32m'= Document with No Sections\n'[39m +
+    [32m':summary: This document has no sections\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is just preamble content.'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Document with No Sections'[39m,
+  indexDTag: [32m'document-with-no-sections'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has no sections'[39m ],
+    [ [32m'd'[39m, [32m'document-with-no-sections'[39m ],
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with special characters in title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with Special Characters: Test & More!'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has special characters in the title'[39m
+  },
+  content: [32m'= Document with Special Characters: Test & More!\n'[39m +
+    [32m':summary: This document has special characters in the title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Document with Special Characters: Test & More!'[39m,
+  indexDTag: [32m'document-with-special-characters-test-more'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'document-with-special-characters-test-more-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has special characters in the title'[39m ],
+    [ [32m'd'[39m, [32m'document-with-special-characters-test-more'[39m ],
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with very long title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has a very long title'[39m
+  },
+  content: [32m'= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality\n'[39m +
+    [32m':summary: This document has a very long title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+  indexDTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has a very long title'[39m ],
+    [
+      [32m'd'[39m,
+      [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+    ],
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ✓ tests/unit/eventInput30040.test.ts (14 tests) 333ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:44:30
+     42| 
+     43|     expect(metadata.title).toBe("Test Document with Metadata");
+     44|     expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                              ^
+     45|     expect(metadata.version).toBe("1.0");
+     46|     expect(metadata.publicationDate).toBe("2024-01-15");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:318:32
+    316|       // Should extract document-level metadata
+    317|       expect(metadata.title).toBe("Test Document");
+    318|       expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                                ^
+    319|       expect(metadata.version).toBe("1.0");
+    320|       expect(metadata.publishedBy).toBe("Alexandria Test");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 28 passed (30)
+   Start at  13:18:57
+   Duration  1.00s
+
+ FAIL  Tests failed. Watching for file changes...
+       press h to show help, press q to quit
+c[3J RERUN  src/lib/utils/asciidoc_metadata.ts 
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure with Preamble > should build 30040 event set with preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document with Preamble'[39m,
+    authors: [ [32m'John Doe'[39m, [32m'Section Author'[39m ],
+    version: [32m'1.0'[39m,
+    publicationDate: [32m'2024-01-15, Alexandria Test'[39m,
+    summary: [32m'This is a test document with preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document with Preamble\n'[39m +
+    [32m'John Doe <john@example.com>\n'[39m +
+    [32m'1.0, 2024-01-15, Alexandria Test\n'[39m +
+    [32m':summary: This is a test document with preamble\n'[39m +
+    [32m':keywords: test, preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content that should be included.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document with Preamble'[39m,
+  indexDTag: [32m'test-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-with-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-with-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [ [32m'author'[39m, [32m'John Doe'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'1.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-01-15, Alexandria Test'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document with preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure without Preamble > should build 30040 event set without preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document without Preamble'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    version: [32m'Version'[39m,
+    summary: [32m'This is a test document without preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'no-preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document without Preamble\n'[39m +
+    [32m':summary: This is a test document without preamble\n'[39m +
+    [32m':keywords: test, no-preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document without Preamble'[39m,
+  indexDTag: [32m'test-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-without-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-without-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document without preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ❯ tests/unit/metadataExtraction.test.ts (16 tests | 2 failed) 228ms
+   × AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly 129ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract section metadata correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract standalone author names and remove them from content 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should handle multiple standalone author names 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should not extract non-author lines as authors 4ms
+   ✓ AsciiDoc Metadata Extraction > parseAsciiDocWithMetadata should parse complete document 21ms
+   ✓ AsciiDoc Metadata Extraction > metadataToTags should convert metadata to Nostr tags 2ms
+   ✓ AsciiDoc Metadata Extraction > should handle index card format correctly 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle empty content gracefully 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle keywords as tags 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both tags and keywords 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle tags only 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both summary and description 8ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle section-only content correctly 10ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle minimal document header (just title) correctly 1ms
+   × AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly 9ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure with Preamble > should build 30040 event set with skeleton structure and preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document with Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document with preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document with Preamble\n'[39m +
+    [32m':summary: This is a skeleton document with preamble\n'[39m +
+    [32m':keywords: skeleton, preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document with Preamble'[39m,
+  indexDTag: [32m'skeleton-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document with preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure without Preamble > should build 30040 event set with skeleton structure without preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document without Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document without preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'no-preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document without Preamble\n'[39m +
+    [32m':summary: This is a skeleton document without preamble\n'[39m +
+    [32m':keywords: skeleton, no-preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document without Preamble'[39m,
+  indexDTag: [32m'skeleton-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document without preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card format
+Parsed AsciiDoc: {
+  metadata: { title: [32m'Test Index Card'[39m, version: [32m'Version'[39m },
+  content: [32m'= Test Index Card\nindex card'[39m,
+  sections: []
+}
+Creating index card format (no sections)
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card with metadata
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Index Card with Metadata'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is an index card with metadata'[39m,
+    tags: [ [32m'index'[39m, [32m'card'[39m, [32m'metadata'[39m ]
+  },
+  content: [32m'= Test Index Card with Metadata\n'[39m +
+    [32m':summary: This is an index card with metadata\n'[39m +
+    [32m':keywords: index, card, metadata\n'[39m +
+    [32m'index card'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Test Index Card with Metadata'[39m,
+  indexDTag: [32m'test-index-card-with-metadata'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'index-card'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is an index card with metadata'[39m ],
+    [ [32m't'[39m, [32m'index'[39m ],
+    [ [32m't'[39m, [32m'card'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m'd'[39m, [32m'test-index-card-with-metadata'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Complex Metadata Structures > should handle complex metadata with all attribute types
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Complex Metadata Document'[39m,
+    authors: [
+      [32m'Jane Smith'[39m,
+      [32m'Override Author'[39m,
+      [32m'Third Author'[39m,
+      [32m'Section Author'[39m,
+      [32m'Section Co-Author'[39m
+    ],
+    version: [32m'2.0'[39m,
+    publicationDate: [32m'2024-03-01'[39m,
+    summary: [32m'This is a complex document with all metadata types Alternative description field'[39m,
+    publishedBy: [32m'Alexandria Complex'[39m,
+    type: [32m'book'[39m,
+    coverImage: [32m'https://example.com/cover.jpg'[39m,
+    isbn: [32m'978-0-123456-78-9'[39m,
+    source: [32m'https://github.com/alexandria/complex'[39m,
+    autoUpdate: [32m'yes'[39m,
+    tags: [
+      [32m'additional'[39m,
+      [32m'tags'[39m,
+      [32m'here'[39m,
+      [32m'complex'[39m,
+      [32m'metadata'[39m,
+      [32m'all-types'[39m
+    ]
+  },
+  content: [32m'= Complex Metadata Document\n'[39m +
+    [32m'Jane Smith <jane@example.com>\n'[39m +
+    [32m'2.0, 2024-02-20, Alexandria Complex\n'[39m +
+    [32m':summary: This is a complex document with all metadata types\n'[39m +
+    [32m':description: Alternative description field\n'[39m +
+    [32m':keywords: complex, metadata, all-types\n'[39m +
+    [32m':tags: additional, tags, here\n'[39m +
+    [32m':author: Override Author\n'[39m +
+    [32m':author: Third Author\n'[39m +
+    [32m':version: 3.0\n'[39m +
+    [32m':published_on: 2024-03-01\n'[39m +
+    [32m':published_by: Alexandria Complex\n'[39m +
+    [32m':type: book\n'[39m +
+    [32m':image: https://example.com/cover.jpg\n'[39m +
+    [32m':isbn: 978-0-123456-78-9\n'[39m +
+    [32m':source: https://github.com/alexandria/complex\n'[39m +
+    [32m':auto-update: yes\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section with Complex Metadata\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':author: Section Co-Author\n'[39m +
+    [32m':summary: This section has complex metadata\n'[39m +
+    [32m':description: Alternative description for section\n'[39m +
+    [32m':keywords: section, complex, metadata\n'[39m +
+    [32m':tags: section, tags\n'[39m +
+    [32m':type: chapter\n'[39m +
+    [32m':image: https://example.com/section-image.jpg\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the section content.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the section content.'[39m,
+      title: [32m'Section with Complex Metadata'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Complex Metadata Document'[39m,
+  indexDTag: [32m'complex-metadata-document'[39m
+}
+Creating section 0: {
+  title: [32m'Section with Complex Metadata'[39m,
+  dTag: [32m'complex-metadata-document-section-with-complex-metadata'[39m,
+  content: [32m'This is the section content.'[39m,
+  metadata: {
+    title: [32m'Section with Complex Metadata'[39m,
+    authors: [ [32m'Section Author'[39m, [32m'Section Co-Author'[39m ],
+    summary: [32m'This section has complex metadata Alternative description for section'[39m,
+    type: [32m'chapter'[39m,
+    coverImage: [32m'https://example.com/section-image.jpg'[39m,
+    tags: [ [32m'section'[39m, [32m'tags'[39m, [32m'complex'[39m, [32m'metadata'[39m ]
+  }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'complex'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [ [32m'author'[39m, [32m'Jane Smith'[39m ],
+    [ [32m'author'[39m, [32m'Override Author'[39m ],
+    [ [32m'author'[39m, [32m'Third Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Co-Author'[39m ],
+    [ [32m'version'[39m, [32m'2.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-03-01'[39m ],
+    [ [32m'published_by'[39m, [32m'Alexandria Complex'[39m ],
+    [
+      [32m'summary'[39m,
+      [32m'This is a complex document with all metadata types Alternative description field'[39m
+    ],
+    [ [32m'image'[39m, [32m'https://example.com/cover.jpg'[39m ],
+    [ [32m'i'[39m, [32m'978-0-123456-78-9'[39m ],
+    [ [32m'source'[39m, [32m'https://github.com/alexandria/complex'[39m ],
+    [ [32m'type'[39m, [32m'book'[39m ],
+    [ [32m'auto-update'[39m, [32m'yes'[39m ],
+    [ [32m't'[39m, [32m'additional'[39m ],
+    [ [32m't'[39m, [32m'tags'[39m ],
+    [ [32m't'[39m, [32m'here'[39m ],
+    [ [32m't'[39m, [32m'complex'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m't'[39m, [32m'all-types'[39m ],
+    [ [32m'd'[39m, [32m'complex-metadata-document'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with only title and no sections
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with No Sections'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has no sections'[39m
+  },
+  content: [32m'= Document with No Sections\n'[39m +
+    [32m':summary: This document has no sections\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is just preamble content.'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Document with No Sections'[39m,
+  indexDTag: [32m'document-with-no-sections'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has no sections'[39m ],
+    [ [32m'd'[39m, [32m'document-with-no-sections'[39m ],
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with special characters in title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with Special Characters: Test & More!'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has special characters in the title'[39m
+  },
+  content: [32m'= Document with Special Characters: Test & More!\n'[39m +
+    [32m':summary: This document has special characters in the title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Document with Special Characters: Test & More!'[39m,
+  indexDTag: [32m'document-with-special-characters-test-more'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'document-with-special-characters-test-more-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has special characters in the title'[39m ],
+    [ [32m'd'[39m, [32m'document-with-special-characters-test-more'[39m ],
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with very long title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has a very long title'[39m
+  },
+  content: [32m'= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality\n'[39m +
+    [32m':summary: This document has a very long title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+  indexDTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has a very long title'[39m ],
+    [
+      [32m'd'[39m,
+      [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+    ],
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ✓ tests/unit/eventInput30040.test.ts (14 tests) 424ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:44:30
+     42| 
+     43|     expect(metadata.title).toBe("Test Document with Metadata");
+     44|     expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                              ^
+     45|     expect(metadata.version).toBe("1.0");
+     46|     expect(metadata.publicationDate).toBe("2024-01-15");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:318:32
+    316|       // Should extract document-level metadata
+    317|       expect(metadata.title).toBe("Test Document");
+    318|       expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                                ^
+    319|       expect(metadata.version).toBe("1.0");
+    320|       expect(metadata.publishedBy).toBe("Alexandria Test");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 28 passed (30)
+   Start at  13:19:15
+   Duration  1.04s
+
+ FAIL  Tests failed. Watching for file changes...
+       press h to show help, press q to quit
+c[3J RERUN  src/lib/utils/asciidoc_metadata.ts 
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure with Preamble > should build 30040 event set with preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document with Preamble'[39m,
+    authors: [ [32m'John Doe'[39m, [32m'Section Author'[39m ],
+    version: [32m'1.0'[39m,
+    publicationDate: [32m'2024-01-15, Alexandria Test'[39m,
+    summary: [32m'This is a test document with preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document with Preamble\n'[39m +
+    [32m'John Doe <john@example.com>\n'[39m +
+    [32m'1.0, 2024-01-15, Alexandria Test\n'[39m +
+    [32m':summary: This is a test document with preamble\n'[39m +
+    [32m':keywords: test, preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content that should be included.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document with Preamble'[39m,
+  indexDTag: [32m'test-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-with-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-with-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [ [32m'author'[39m, [32m'John Doe'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'1.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-01-15, Alexandria Test'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document with preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure without Preamble > should build 30040 event set without preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document without Preamble'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    version: [32m'Version'[39m,
+    summary: [32m'This is a test document without preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'no-preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document without Preamble\n'[39m +
+    [32m':summary: This is a test document without preamble\n'[39m +
+    [32m':keywords: test, no-preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document without Preamble'[39m,
+  indexDTag: [32m'test-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-without-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-without-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document without preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure with Preamble > should build 30040 event set with skeleton structure and preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document with Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document with preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document with Preamble\n'[39m +
+    [32m':summary: This is a skeleton document with preamble\n'[39m +
+    [32m':keywords: skeleton, preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document with Preamble'[39m,
+  indexDTag: [32m'skeleton-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document with preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure without Preamble > should build 30040 event set with skeleton structure without preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document without Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document without preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'no-preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document without Preamble\n'[39m +
+    [32m':summary: This is a skeleton document without preamble\n'[39m +
+    [32m':keywords: skeleton, no-preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document without Preamble'[39m,
+  indexDTag: [32m'skeleton-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document without preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ❯ tests/unit/metadataExtraction.test.ts (16 tests | 2 failed) 246ms
+   × AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly 154ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract section metadata correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract standalone author names and remove them from content 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should handle multiple standalone author names 5ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should not extract non-author lines as authors 4ms
+   ✓ AsciiDoc Metadata Extraction > parseAsciiDocWithMetadata should parse complete document 21ms
+   ✓ AsciiDoc Metadata Extraction > metadataToTags should convert metadata to Nostr tags 2ms
+   ✓ AsciiDoc Metadata Extraction > should handle index card format correctly 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle empty content gracefully 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle keywords as tags 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle both tags and keywords 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle tags only 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both summary and description 7ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle section-only content correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle minimal document header (just title) correctly 1ms
+   × AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly 7ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card format
+Parsed AsciiDoc: {
+  metadata: { title: [32m'Test Index Card'[39m, version: [32m'Version'[39m },
+  content: [32m'= Test Index Card\nindex card'[39m,
+  sections: []
+}
+Creating index card format (no sections)
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card with metadata
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Index Card with Metadata'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is an index card with metadata'[39m,
+    tags: [ [32m'index'[39m, [32m'card'[39m, [32m'metadata'[39m ]
+  },
+  content: [32m'= Test Index Card with Metadata\n'[39m +
+    [32m':summary: This is an index card with metadata\n'[39m +
+    [32m':keywords: index, card, metadata\n'[39m +
+    [32m'index card'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Test Index Card with Metadata'[39m,
+  indexDTag: [32m'test-index-card-with-metadata'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'index-card'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is an index card with metadata'[39m ],
+    [ [32m't'[39m, [32m'index'[39m ],
+    [ [32m't'[39m, [32m'card'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m'd'[39m, [32m'test-index-card-with-metadata'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Complex Metadata Structures > should handle complex metadata with all attribute types
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Complex Metadata Document'[39m,
+    authors: [
+      [32m'Jane Smith'[39m,
+      [32m'Override Author'[39m,
+      [32m'Third Author'[39m,
+      [32m'Section Author'[39m,
+      [32m'Section Co-Author'[39m
+    ],
+    version: [32m'2.0'[39m,
+    publicationDate: [32m'2024-03-01'[39m,
+    summary: [32m'This is a complex document with all metadata types Alternative description field'[39m,
+    publishedBy: [32m'Alexandria Complex'[39m,
+    type: [32m'book'[39m,
+    coverImage: [32m'https://example.com/cover.jpg'[39m,
+    isbn: [32m'978-0-123456-78-9'[39m,
+    source: [32m'https://github.com/alexandria/complex'[39m,
+    autoUpdate: [32m'yes'[39m,
+    tags: [
+      [32m'additional'[39m,
+      [32m'tags'[39m,
+      [32m'here'[39m,
+      [32m'complex'[39m,
+      [32m'metadata'[39m,
+      [32m'all-types'[39m
+    ]
+  },
+  content: [32m'= Complex Metadata Document\n'[39m +
+    [32m'Jane Smith <jane@example.com>\n'[39m +
+    [32m'2.0, 2024-02-20, Alexandria Complex\n'[39m +
+    [32m':summary: This is a complex document with all metadata types\n'[39m +
+    [32m':description: Alternative description field\n'[39m +
+    [32m':keywords: complex, metadata, all-types\n'[39m +
+    [32m':tags: additional, tags, here\n'[39m +
+    [32m':author: Override Author\n'[39m +
+    [32m':author: Third Author\n'[39m +
+    [32m':version: 3.0\n'[39m +
+    [32m':published_on: 2024-03-01\n'[39m +
+    [32m':published_by: Alexandria Complex\n'[39m +
+    [32m':type: book\n'[39m +
+    [32m':image: https://example.com/cover.jpg\n'[39m +
+    [32m':isbn: 978-0-123456-78-9\n'[39m +
+    [32m':source: https://github.com/alexandria/complex\n'[39m +
+    [32m':auto-update: yes\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section with Complex Metadata\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':author: Section Co-Author\n'[39m +
+    [32m':summary: This section has complex metadata\n'[39m +
+    [32m':description: Alternative description for section\n'[39m +
+    [32m':keywords: section, complex, metadata\n'[39m +
+    [32m':tags: section, tags\n'[39m +
+    [32m':type: chapter\n'[39m +
+    [32m':image: https://example.com/section-image.jpg\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the section content.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the section content.'[39m,
+      title: [32m'Section with Complex Metadata'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Complex Metadata Document'[39m,
+  indexDTag: [32m'complex-metadata-document'[39m
+}
+Creating section 0: {
+  title: [32m'Section with Complex Metadata'[39m,
+  dTag: [32m'complex-metadata-document-section-with-complex-metadata'[39m,
+  content: [32m'This is the section content.'[39m,
+  metadata: {
+    title: [32m'Section with Complex Metadata'[39m,
+    authors: [ [32m'Section Author'[39m, [32m'Section Co-Author'[39m ],
+    summary: [32m'This section has complex metadata Alternative description for section'[39m,
+    type: [32m'chapter'[39m,
+    coverImage: [32m'https://example.com/section-image.jpg'[39m,
+    tags: [ [32m'section'[39m, [32m'tags'[39m, [32m'complex'[39m, [32m'metadata'[39m ]
+  }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'complex'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [ [32m'author'[39m, [32m'Jane Smith'[39m ],
+    [ [32m'author'[39m, [32m'Override Author'[39m ],
+    [ [32m'author'[39m, [32m'Third Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Co-Author'[39m ],
+    [ [32m'version'[39m, [32m'2.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-03-01'[39m ],
+    [ [32m'published_by'[39m, [32m'Alexandria Complex'[39m ],
+    [
+      [32m'summary'[39m,
+      [32m'This is a complex document with all metadata types Alternative description field'[39m
+    ],
+    [ [32m'image'[39m, [32m'https://example.com/cover.jpg'[39m ],
+    [ [32m'i'[39m, [32m'978-0-123456-78-9'[39m ],
+    [ [32m'source'[39m, [32m'https://github.com/alexandria/complex'[39m ],
+    [ [32m'type'[39m, [32m'book'[39m ],
+    [ [32m'auto-update'[39m, [32m'yes'[39m ],
+    [ [32m't'[39m, [32m'additional'[39m ],
+    [ [32m't'[39m, [32m'tags'[39m ],
+    [ [32m't'[39m, [32m'here'[39m ],
+    [ [32m't'[39m, [32m'complex'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m't'[39m, [32m'all-types'[39m ],
+    [ [32m'd'[39m, [32m'complex-metadata-document'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with only title and no sections
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with No Sections'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has no sections'[39m
+  },
+  content: [32m'= Document with No Sections\n'[39m +
+    [32m':summary: This document has no sections\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is just preamble content.'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Document with No Sections'[39m,
+  indexDTag: [32m'document-with-no-sections'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has no sections'[39m ],
+    [ [32m'd'[39m, [32m'document-with-no-sections'[39m ],
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with special characters in title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with Special Characters: Test & More!'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has special characters in the title'[39m
+  },
+  content: [32m'= Document with Special Characters: Test & More!\n'[39m +
+    [32m':summary: This document has special characters in the title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Document with Special Characters: Test & More!'[39m,
+  indexDTag: [32m'document-with-special-characters-test-more'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'document-with-special-characters-test-more-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has special characters in the title'[39m ],
+    [ [32m'd'[39m, [32m'document-with-special-characters-test-more'[39m ],
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with very long title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has a very long title'[39m
+  },
+  content: [32m'= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality\n'[39m +
+    [32m':summary: This document has a very long title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+  indexDTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has a very long title'[39m ],
+    [
+      [32m'd'[39m,
+      [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+    ],
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ✓ tests/unit/eventInput30040.test.ts (14 tests) 374ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:44:30
+     42| 
+     43|     expect(metadata.title).toBe("Test Document with Metadata");
+     44|     expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                              ^
+     45|     expect(metadata.version).toBe("1.0");
+     46|     expect(metadata.publicationDate).toBe("2024-01-15");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:318:32
+    316|       // Should extract document-level metadata
+    317|       expect(metadata.title).toBe("Test Document");
+    318|       expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                                ^
+    319|       expect(metadata.version).toBe("1.0");
+    320|       expect(metadata.publishedBy).toBe("Alexandria Test");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 28 passed (30)
+   Start at  13:20:56
+   Duration  1.17s
+
+ FAIL  Tests failed. Watching for file changes...
+       press h to show help, press q to quit
+c[3J RERUN  src/lib/utils/asciidoc_metadata.ts 
+
+ ❯ tests/unit/metadataExtraction.test.ts (16 tests | 2 failed) 270ms
+   × AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly 158ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract section metadata correctly 8ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should extract standalone author names and remove them from content 6ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should handle multiple standalone author names 6ms
+   ✓ AsciiDoc Metadata Extraction > extractSectionMetadata should not extract non-author lines as authors 6ms
+   ✓ AsciiDoc Metadata Extraction > parseAsciiDocWithMetadata should parse complete document 26ms
+   ✓ AsciiDoc Metadata Extraction > metadataToTags should convert metadata to Nostr tags 2ms
+   ✓ AsciiDoc Metadata Extraction > should handle index card format correctly 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle empty content gracefully 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle keywords as tags 5ms
+   ✓ AsciiDoc Metadata Extraction > should handle both tags and keywords 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle tags only 4ms
+   ✓ AsciiDoc Metadata Extraction > should handle both summary and description 9ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle section-only content correctly 9ms
+   ✓ AsciiDoc Metadata Extraction > Smart metadata extraction > should handle minimal document header (just title) correctly 1ms
+   × AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly 11ms
+     → expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure with Preamble > should build 30040 event set with preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document with Preamble'[39m,
+    authors: [ [32m'John Doe'[39m, [32m'Section Author'[39m ],
+    version: [32m'1.0'[39m,
+    publicationDate: [32m'2024-01-15, Alexandria Test'[39m,
+    summary: [32m'This is a test document with preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document with Preamble\n'[39m +
+    [32m'John Doe <john@example.com>\n'[39m +
+    [32m'1.0, 2024-01-15, Alexandria Test\n'[39m +
+    [32m':summary: This is a test document with preamble\n'[39m +
+    [32m':keywords: test, preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content that should be included.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document with Preamble'[39m,
+  indexDTag: [32m'test-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-with-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-with-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [ [32m'author'[39m, [32m'John Doe'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'1.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-01-15, Alexandria Test'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document with preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-with-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Normal Structure without Preamble > should build 30040 event set without preamble content
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Document without Preamble'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    version: [32m'Version'[39m,
+    summary: [32m'This is a test document without preamble'[39m,
+    tags: [ [32m'test'[39m, [32m'no-preamble'[39m, [32m'asciidoc'[39m ]
+  },
+  content: [32m'= Test Document without Preamble\n'[39m +
+    [32m':summary: This is a test document without preamble\n'[39m +
+    [32m':keywords: test, no-preamble, asciidoc\n'[39m +
+    [32m'\n'[39m +
+    [32m'== First Section\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':summary: This is the first section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the first section.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Second Section\n'[39m +
+    [32m':summary: This is the second section\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the content of the second section.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the first section.'[39m,
+      title: [32m'First Section'[39m
+    },
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the content of the second section.'[39m,
+      title: [32m'Second Section'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Test Document without Preamble'[39m,
+  indexDTag: [32m'test-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'First Section'[39m,
+  dTag: [32m'test-document-without-preamble-first-section'[39m,
+  content: [32m'This is the content of the first section.'[39m,
+  metadata: {
+    title: [32m'First Section'[39m,
+    authors: [ [32m'Section Author'[39m ],
+    summary: [32m'This is the first section'[39m
+  }
+}
+Creating section 1: {
+  title: [32m'Second Section'[39m,
+  dTag: [32m'test-document-without-preamble-second-section'[39m,
+  content: [32m'This is the content of the second section.'[39m,
+  metadata: { title: [32m'Second Section'[39m, summary: [32m'This is the second section'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'article'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a test document without preamble'[39m ],
+    [ [32m't'[39m, [32m'test'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'asciidoc'[39m ],
+    [ [32m'd'[39m, [32m'test-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Test Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-first-section'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:test-document-without-preamble-second-section'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure with Preamble > should build 30040 event set with skeleton structure and preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document with Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document with preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document with Preamble\n'[39m +
+    [32m':summary: This is a skeleton document with preamble\n'[39m +
+    [32m':keywords: skeleton, preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document with Preamble'[39m,
+  indexDTag: [32m'skeleton-document-with-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-with-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document with preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-with-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document with Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-with-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Skeleton Structure without Preamble > should build 30040 event set with skeleton structure without preamble
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Skeleton Document without Preamble'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is a skeleton document without preamble'[39m,
+    tags: [ [32m'skeleton'[39m, [32m'no-preamble'[39m, [32m'empty'[39m ]
+  },
+  content: [32m'= Skeleton Document without Preamble\n'[39m +
+    [32m':summary: This is a skeleton document without preamble\n'[39m +
+    [32m':keywords: skeleton, no-preamble, empty\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 2\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Empty Section 3'[39m,
+  sections: [
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 1'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 2'[39m },
+    { metadata: [36m[Object][39m, content: [32m''[39m, title: [32m'Empty Section 3'[39m }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Skeleton Document without Preamble'[39m,
+  indexDTag: [32m'skeleton-document-without-preamble'[39m
+}
+Creating section 0: {
+  title: [32m'Empty Section 1'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-1'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 1'[39m }
+}
+Creating section 1: {
+  title: [32m'Empty Section 2'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-2'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 2'[39m }
+}
+Creating section 2: {
+  title: [32m'Empty Section 3'[39m,
+  dTag: [32m'skeleton-document-without-preamble-empty-section-3'[39m,
+  content: [32m''[39m,
+  metadata: { title: [32m'Empty Section 3'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+  ],
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'skeleton'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is a skeleton document without preamble'[39m ],
+    [ [32m't'[39m, [32m'skeleton'[39m ],
+    [ [32m't'[39m, [32m'no-preamble'[39m ],
+    [ [32m't'[39m, [32m'empty'[39m ],
+    [ [32m'd'[39m, [32m'skeleton-document-without-preamble'[39m ],
+    [ [32m'title'[39m, [32m'Skeleton Document without Preamble'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-1'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-2'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:skeleton-document-without-preamble-empty-section-3'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card format
+Parsed AsciiDoc: {
+  metadata: { title: [32m'Test Index Card'[39m, version: [32m'Version'[39m },
+  content: [32m'= Test Index Card\nindex card'[39m,
+  sections: []
+}
+Creating index card format (no sections)
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Index Card Format > should build 30040 event set for index card with metadata
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Test Index Card with Metadata'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This is an index card with metadata'[39m,
+    tags: [ [32m'index'[39m, [32m'card'[39m, [32m'metadata'[39m ]
+  },
+  content: [32m'= Test Index Card with Metadata\n'[39m +
+    [32m':summary: This is an index card with metadata\n'[39m +
+    [32m':keywords: index, card, metadata\n'[39m +
+    [32m'index card'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Test Index Card with Metadata'[39m,
+  indexDTag: [32m'test-index-card-with-metadata'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'index-card'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This is an index card with metadata'[39m ],
+    [ [32m't'[39m, [32m'index'[39m ],
+    [ [32m't'[39m, [32m'card'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m'd'[39m, [32m'test-index-card-with-metadata'[39m ],
+    [ [32m'title'[39m, [32m'Test Index Card with Metadata'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Complex Metadata Structures > should handle complex metadata with all attribute types
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Complex Metadata Document'[39m,
+    authors: [
+      [32m'Jane Smith'[39m,
+      [32m'Override Author'[39m,
+      [32m'Third Author'[39m,
+      [32m'Section Author'[39m,
+      [32m'Section Co-Author'[39m
+    ],
+    version: [32m'2.0'[39m,
+    publicationDate: [32m'2024-03-01'[39m,
+    summary: [32m'This is a complex document with all metadata types Alternative description field'[39m,
+    publishedBy: [32m'Alexandria Complex'[39m,
+    type: [32m'book'[39m,
+    coverImage: [32m'https://example.com/cover.jpg'[39m,
+    isbn: [32m'978-0-123456-78-9'[39m,
+    source: [32m'https://github.com/alexandria/complex'[39m,
+    autoUpdate: [32m'yes'[39m,
+    tags: [
+      [32m'additional'[39m,
+      [32m'tags'[39m,
+      [32m'here'[39m,
+      [32m'complex'[39m,
+      [32m'metadata'[39m,
+      [32m'all-types'[39m
+    ]
+  },
+  content: [32m'= Complex Metadata Document\n'[39m +
+    [32m'Jane Smith <jane@example.com>\n'[39m +
+    [32m'2.0, 2024-02-20, Alexandria Complex\n'[39m +
+    [32m':summary: This is a complex document with all metadata types\n'[39m +
+    [32m':description: Alternative description field\n'[39m +
+    [32m':keywords: complex, metadata, all-types\n'[39m +
+    [32m':tags: additional, tags, here\n'[39m +
+    [32m':author: Override Author\n'[39m +
+    [32m':author: Third Author\n'[39m +
+    [32m':version: 3.0\n'[39m +
+    [32m':published_on: 2024-03-01\n'[39m +
+    [32m':published_by: Alexandria Complex\n'[39m +
+    [32m':type: book\n'[39m +
+    [32m':image: https://example.com/cover.jpg\n'[39m +
+    [32m':isbn: 978-0-123456-78-9\n'[39m +
+    [32m':source: https://github.com/alexandria/complex\n'[39m +
+    [32m':auto-update: yes\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the preamble content.\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section with Complex Metadata\n'[39m +
+    [32m':author: Section Author\n'[39m +
+    [32m':author: Section Co-Author\n'[39m +
+    [32m':summary: This section has complex metadata\n'[39m +
+    [32m':description: Alternative description for section\n'[39m +
+    [32m':keywords: section, complex, metadata\n'[39m +
+    [32m':tags: section, tags\n'[39m +
+    [32m':type: chapter\n'[39m +
+    [32m':image: https://example.com/section-image.jpg\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is the section content.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'This is the section content.'[39m,
+      title: [32m'Section with Complex Metadata'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Complex Metadata Document'[39m,
+  indexDTag: [32m'complex-metadata-document'[39m
+}
+Creating section 0: {
+  title: [32m'Section with Complex Metadata'[39m,
+  dTag: [32m'complex-metadata-document-section-with-complex-metadata'[39m,
+  content: [32m'This is the section content.'[39m,
+  metadata: {
+    title: [32m'Section with Complex Metadata'[39m,
+    authors: [ [32m'Section Author'[39m, [32m'Section Co-Author'[39m ],
+    summary: [32m'This section has complex metadata Alternative description for section'[39m,
+    type: [32m'chapter'[39m,
+    coverImage: [32m'https://example.com/section-image.jpg'[39m,
+    tags: [ [32m'section'[39m, [32m'tags'[39m, [32m'complex'[39m, [32m'metadata'[39m ]
+  }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'type'[39m, [32m'complex'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [ [32m'author'[39m, [32m'Jane Smith'[39m ],
+    [ [32m'author'[39m, [32m'Override Author'[39m ],
+    [ [32m'author'[39m, [32m'Third Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Author'[39m ],
+    [ [32m'author'[39m, [32m'Section Co-Author'[39m ],
+    [ [32m'version'[39m, [32m'2.0'[39m ],
+    [ [32m'published_on'[39m, [32m'2024-03-01'[39m ],
+    [ [32m'published_by'[39m, [32m'Alexandria Complex'[39m ],
+    [
+      [32m'summary'[39m,
+      [32m'This is a complex document with all metadata types Alternative description field'[39m
+    ],
+    [ [32m'image'[39m, [32m'https://example.com/cover.jpg'[39m ],
+    [ [32m'i'[39m, [32m'978-0-123456-78-9'[39m ],
+    [ [32m'source'[39m, [32m'https://github.com/alexandria/complex'[39m ],
+    [ [32m'type'[39m, [32m'book'[39m ],
+    [ [32m'auto-update'[39m, [32m'yes'[39m ],
+    [ [32m't'[39m, [32m'additional'[39m ],
+    [ [32m't'[39m, [32m'tags'[39m ],
+    [ [32m't'[39m, [32m'here'[39m ],
+    [ [32m't'[39m, [32m'complex'[39m ],
+    [ [32m't'[39m, [32m'metadata'[39m ],
+    [ [32m't'[39m, [32m'all-types'[39m ],
+    [ [32m'd'[39m, [32m'complex-metadata-document'[39m ],
+    [ [32m'title'[39m, [32m'Complex Metadata Document'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:complex-metadata-document-section-with-complex-metadata'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with only title and no sections
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with No Sections'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has no sections'[39m
+  },
+  content: [32m'= Document with No Sections\n'[39m +
+    [32m':summary: This document has no sections\n'[39m +
+    [32m'\n'[39m +
+    [32m'This is just preamble content.'[39m,
+  sections: []
+}
+Index event: {
+  documentTitle: [32m'Document with No Sections'[39m,
+  indexDTag: [32m'document-with-no-sections'[39m
+}
+A tags: []
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has no sections'[39m ],
+    [ [32m'd'[39m, [32m'document-with-no-sections'[39m ],
+    [ [32m'title'[39m, [32m'Document with No Sections'[39m ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with special characters in title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'Document with Special Characters: Test & More!'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has special characters in the title'[39m
+  },
+  content: [32m'= Document with Special Characters: Test & More!\n'[39m +
+    [32m':summary: This document has special characters in the title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'Document with Special Characters: Test & More!'[39m,
+  indexDTag: [32m'document-with-special-characters-test-more'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'document-with-special-characters-test-more-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has special characters in the title'[39m ],
+    [ [32m'd'[39m, [32m'document-with-special-characters-test-more'[39m ],
+    [ [32m'title'[39m, [32m'Document with Special Characters: Test & More!'[39m ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:document-with-special-characters-test-more-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+stdout | tests/unit/eventInput30040.test.ts > EventInput 30040 Publishing > Edge Cases > should handle document with very long title
+Parsed AsciiDoc: {
+  metadata: {
+    title: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+    version: [32m'Version'[39m,
+    summary: [32m'This document has a very long title'[39m
+  },
+  content: [32m'= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality\n'[39m +
+    [32m':summary: This document has a very long title\n'[39m +
+    [32m'\n'[39m +
+    [32m'== Section 1\n'[39m +
+    [32m'\n'[39m +
+    [32m'Content here.'[39m,
+  sections: [
+    {
+      metadata: [36m[Object][39m,
+      content: [32m'Content here.'[39m,
+      title: [32m'Section 1'[39m
+    }
+  ]
+}
+Index event: {
+  documentTitle: [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m,
+  indexDTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+}
+Creating section 0: {
+  title: [32m'Section 1'[39m,
+  dTag: [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m,
+  content: [32m'Content here.'[39m,
+  metadata: { title: [32m'Section 1'[39m }
+}
+A tags: [
+  [
+    [32m'a'[39m,
+    [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+  ]
+]
+Final index event: {
+  kind: [33m30040[39m,
+  content: [32m''[39m,
+  tags: [
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [ [32m'version'[39m, [32m'Version'[39m ],
+    [ [32m'summary'[39m, [32m'This document has a very long title'[39m ],
+    [
+      [32m'd'[39m,
+      [32m'this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality'[39m
+    ],
+    [
+      [32m'title'[39m,
+      [32m'This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality'[39m
+    ],
+    [
+      [32m'a'[39m,
+      [32m'30041:test-pubkey:this-is-a-very-long-document-title-that-should-be-handled-properly-by-the-system-and-should-not-cause-any-issues-with-the-d-tag-generation-or-any-other-functionality-section-1'[39m
+    ]
+  ],
+  pubkey: [32m'test-pubkey'[39m,
+  created_at: [33m1234567890[39m,
+  id: [32m'mock-event-id'[39m,
+  sig: [32m'mock-signature'[39m
+}
+=== build30040EventSet completed ===
+
+ ✓ tests/unit/eventInput30040.test.ts (14 tests) 517ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > extractDocumentMetadata should extract document metadata correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:44:30
+     42| 
+     43|     expect(metadata.title).toBe("Test Document with Metadata");
+     44|     expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                              ^
+     45|     expect(metadata.version).toBe("1.0");
+     46|     expect(metadata.publicationDate).toBe("2024-01-15");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/metadataExtraction.test.ts > AsciiDoc Metadata Extraction > Smart metadata extraction > should handle document with full header correctly
+AssertionError: expected [ 'John Doe', 'Jane Smith', …(1) ] to deeply equal [ 'John Doe', 'Jane Smith' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "John Doe",[22m
+[2m    "Jane Smith",[22m
+[31m+   "Section Author",[39m
+[2m  ][22m
+
+ ❯ tests/unit/metadataExtraction.test.ts:318:32
+    316|       // Should extract document-level metadata
+    317|       expect(metadata.title).toBe("Test Document");
+    318|       expect(metadata.authors).toEqual(["John Doe", "Jane Smith"]);
+       |                                ^
+    319|       expect(metadata.version).toBe("1.0");
+    320|       expect(metadata.publishedBy).toBe("Alexandria Test");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 28 passed (30)
+   Start at  13:21:50
+   Duration  1.36s
+
+ FAIL  Tests failed. Watching for file changes...
+       press h to show help, press q to quit

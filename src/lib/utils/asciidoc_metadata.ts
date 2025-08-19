@@ -115,6 +115,13 @@ function mapAttributesToMetadata(
       } else if (metadataKey === "tags") {
         // Skip tags mapping since it's handled by extractTagsFromAttributes
         continue;
+      } else if (metadataKey === "summary") {
+        // Handle summary specially - combine with existing summary if present
+        if (metadata.summary) {
+          metadata.summary = `${metadata.summary} ${value}`;
+        } else {
+          metadata.summary = value;
+        }
       } else {
         (metadata as any)[metadataKey] = value;
       }
@@ -123,83 +130,177 @@ function mapAttributesToMetadata(
 }
 
 /**
- * Extracts authors from header line (document or section)
+ * Extracts authors from document header only (not sections)
  */
-function extractAuthorsFromHeader(
-  sourceContent: string,
-  isSection: boolean = false,
-): string[] {
+function extractDocumentAuthors(sourceContent: string): string[] {
   const authors: string[] = [];
   const lines = sourceContent.split(/\r?\n/);
-  const headerPattern = isSection ? /^==\s+/ : /^=\s+/;
-
+  
+  // Find the document title line
+  let titleLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.match(headerPattern)) {
-      // Found title line, check subsequent lines for authors
-      let j = i + 1;
-      while (j < lines.length) {
-        const authorLine = lines[j];
-
-        // Stop if we hit a blank line or content that's not an author
-        if (authorLine.trim() === "") {
-          break;
-        }
-
-        if (authorLine.includes("<") && !authorLine.startsWith(":")) {
-          // This is an author line like "John Doe <john@example.com>"
-          const authorName = authorLine.split("<")[0].trim();
-          if (authorName) {
-            authors.push(authorName);
-          }
-        } else if (
-          isSection && authorLine.match(/^[A-Za-z\s]+$/) &&
-          authorLine.trim() !== "" && authorLine.trim().split(/\s+/).length <= 2
-        ) {
-          // This is a simple author name without email (for sections)
-          authors.push(authorLine.trim());
-        } else if (authorLine.startsWith(":")) {
-          // This is an attribute line, skip it - attributes are handled by mapAttributesToMetadata
-          // Don't break here, continue to next line
-        } else {
-          // Not an author line, stop looking
-          break;
-        }
-
-        j++;
-      }
+    if (lines[i].match(/^=\s+/)) {
+      titleLineIndex = i;
       break;
     }
   }
-
+  
+  if (titleLineIndex === -1) {
+    return authors;
+  }
+  
+  // Look for authors in the lines immediately following the title
+  let i = titleLineIndex + 1;
+  while (i < lines.length) {
+    const line = lines[i];
+    
+    // Stop if we hit a blank line, section header, or content that's not an author
+    if (line.trim() === "" || line.match(/^==\s+/)) {
+      break;
+    }
+    
+    if (line.includes("<") && !line.startsWith(":")) {
+      // This is an author line like "John Doe <john@example.com>"
+      const authorName = line.split("<")[0].trim();
+      if (authorName) {
+        authors.push(authorName);
+      }
+    } else if (line.startsWith(":")) {
+      // This is an attribute line, skip it
+      // Don't break here, continue to next line
+    } else {
+      // Not an author line, stop looking
+      break;
+    }
+    
+    i++;
+  }
+  
   return authors;
 }
 
 /**
- * Strips header and attribute lines from content
+ * Extracts authors from section header only
  */
-function stripHeaderAndAttributes(
-  content: string,
-  isSection: boolean = false,
-): string {
+function extractSectionAuthors(sectionContent: string): string[] {
+  const authors: string[] = [];
+  const lines = sectionContent.split(/\r?\n/);
+  
+  // Find the section title line
+  let titleLineIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].match(/^==\s+/)) {
+      titleLineIndex = i;
+      break;
+    }
+  }
+  
+  if (titleLineIndex === -1) {
+    return authors;
+  }
+  
+  // Look for authors in the lines immediately following the section title
+  let i = titleLineIndex + 1;
+  while (i < lines.length) {
+    const line = lines[i];
+    
+    // Stop if we hit a blank line, another section header, or content that's not an author
+    if (line.trim() === "" || line.match(/^==\s+/)) {
+      break;
+    }
+    
+    if (line.includes("<") && !line.startsWith(":")) {
+      // This is an author line like "John Doe <john@example.com>"
+      const authorName = line.split("<")[0].trim();
+      if (authorName) {
+        authors.push(authorName);
+      }
+    } else if (
+      line.match(/^[A-Za-z\s]+$/) &&
+      line.trim() !== "" && 
+      line.trim().split(/\s+/).length <= 2 &&
+      !line.startsWith(":")
+    ) {
+      // This is a simple author name without email (for sections)
+      authors.push(line.trim());
+    } else if (line.startsWith(":")) {
+      // This is an attribute line, skip it
+      // Don't break here, continue to next line
+    } else {
+      // Not an author line, stop looking
+      break;
+    }
+    
+    i++;
+  }
+  
+  return authors;
+}
+
+/**
+ * Strips document header and attribute lines from content
+ */
+function stripDocumentHeader(content: string): string {
   const lines = content.split(/\r?\n/);
   let contentStart = 0;
-  const headerPattern = isSection ? /^==\s+/ : /^=\s+/;
-
+  
+  // Find where the document header ends
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Skip title line, author line, revision line, and attribute lines
     if (
-      !line.match(headerPattern) && !line.includes("<") &&
+      !line.match(/^=\s+/) && 
+      !line.includes("<") &&
       !line.match(/^.+,\s*.+:\s*.+$/) &&
-      !line.match(/^:[^:]+:\s*.+$/) && line.trim() !== ""
+      !line.match(/^:[^:]+:\s*.+$/) && 
+      line.trim() !== ""
     ) {
       contentStart = i;
       break;
     }
   }
-
+  
   // Filter out all attribute lines and author lines from the content
+  const contentLines = lines.slice(contentStart);
+  const filteredLines = contentLines.filter((line) => {
+    // Skip attribute lines
+    if (line.match(/^:[^:]+:\s*.+$/)) {
+      return false;
+    }
+    return true;
+  });
+  
+  // Remove extra blank lines and normalize newlines
+  return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
+    /\n\s*\n/g,
+    "\n",
+  ).trim();
+}
+
+/**
+ * Strips section header and attribute lines from content
+ */
+function stripSectionHeader(sectionContent: string): string {
+  const lines = sectionContent.split(/\r?\n/);
+  let contentStart = 0;
+  
+  // Find where the section header ends
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Skip section title line, author line, and attribute lines
+    if (
+      !line.match(/^==\s+/) && 
+      !line.includes("<") &&
+      !line.match(/^:[^:]+:\s*.+$/) && 
+      line.trim() !== "" &&
+      !(line.match(/^[A-Za-z\s]+$/) && line.trim() !== "" && line.trim().split(/\s+/).length <= 2)
+    ) {
+      contentStart = i;
+      break;
+    }
+  }
+  
+  // Filter out all attribute lines, author lines, and section headers from the content
   const contentLines = lines.slice(contentStart);
   const filteredLines = contentLines.filter((line) => {
     // Skip attribute lines
@@ -208,14 +309,19 @@ function stripHeaderAndAttributes(
     }
     // Skip author lines (simple names without email)
     if (
-      isSection && line.match(/^[A-Za-z\s]+$/) && line.trim() !== "" &&
+      line.match(/^[A-Za-z\s]+$/) && 
+      line.trim() !== "" &&
       line.trim().split(/\s+/).length <= 2
     ) {
       return false;
     }
+    // Skip section headers
+    if (line.match(/^==\s+/)) {
+      return false;
+    }
     return true;
   });
-
+  
   // Remove extra blank lines and normalize newlines
   return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
     /\n\s*\n/g,
@@ -258,18 +364,40 @@ export function extractDocumentMetadata(inputContent: string): {
 
   // Extract basic metadata
   const title = document.getTitle();
-  if (title) metadata.title = title;
+  if (title) {
+    // Decode HTML entities in the title
+    metadata.title = title
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&nbsp;/g, " ");
+  }
 
   // Handle multiple authors - combine header line and attributes
-  const authors = extractAuthorsFromHeader(document.getSource());
+  const authors = extractDocumentAuthors(document.getSource());
 
-  // Get authors from attributes (but avoid duplicates)
-  const attrAuthor = attributes["author"];
-  if (
-    attrAuthor && typeof attrAuthor === "string" &&
-    !authors.includes(attrAuthor)
-  ) {
-    authors.push(attrAuthor);
+  // Get authors from attributes in the document header only (including multiple :author: lines)
+  const lines = document.getSource().split(/\r?\n/);
+  let inDocumentHeader = true;
+  for (const line of lines) {
+    // Stop scanning when we hit a section header
+    if (line.match(/^==\s+/)) {
+      inDocumentHeader = false;
+      break;
+    }
+    
+    // Process :author: attributes regardless of other content
+    if (inDocumentHeader) {
+      const match = line.match(/^:author:\s*(.+)$/);
+      if (match) {
+        const authorName = match[1].trim();
+        if (authorName && !authors.includes(authorName)) {
+          authors.push(authorName);
+        }
+      }
+    }
   }
 
   if (authors.length > 0) {
@@ -305,7 +433,7 @@ export function extractDocumentMetadata(inputContent: string): {
     metadata.tags = tags;
   }
 
-  const content = stripHeaderAndAttributes(document.getSource());
+  const content = stripDocumentHeader(document.getSource());
   return { metadata, content };
 }
 
@@ -335,13 +463,28 @@ export function extractSectionMetadata(inputSectionContent: string): {
   const attributes = parseSectionAttributes(inputSectionContent);
 
   // Extract authors from section content
-  const authors = extractAuthorsFromHeader(inputSectionContent, true);
+  const authors = extractSectionAuthors(inputSectionContent);
+  
+  // Get authors from attributes (including multiple :author: lines)
+  const lines = inputSectionContent.split(/\r?\n/);
+  for (const line of lines) {
+    const match = line.match(/^:author:\s*(.+)$/);
+    if (match) {
+      const authorName = match[1].trim();
+      if (authorName && !authors.includes(authorName)) {
+        authors.push(authorName);
+      }
+    }
+  }
+  
   if (authors.length > 0) {
     metadata.authors = authors;
   }
 
-  // Map attributes to metadata (sections can have authors)
-  mapAttributesToMetadata(attributes, metadata, false);
+  // Map attributes to metadata (sections can have authors, but skip author mapping to avoid duplication)
+  const attributesWithoutAuthor = { ...attributes };
+  delete attributesWithoutAuthor.author;
+  mapAttributesToMetadata(attributesWithoutAuthor, metadata, false);
 
   // Handle tags and keywords
   const tags = extractTagsFromAttributes(attributes);
@@ -349,7 +492,7 @@ export function extractSectionMetadata(inputSectionContent: string): {
     metadata.tags = tags;
   }
 
-  const content = stripHeaderAndAttributes(inputSectionContent, true);
+  const content = stripSectionHeader(inputSectionContent);
   return { metadata, content, title };
 }
 

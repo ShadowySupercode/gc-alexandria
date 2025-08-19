@@ -74,11 +74,14 @@ vi.mock("../../src/lib/utils/profileCache", () => ({
   batchFetchProfiles: vi.fn(
     async (
       pubkeys: string[],
-      onProgress: (fetched: number, total: number) => void,
+      ndk: any,
+      onProgress?: (fetched: number, total: number) => void,
     ) => {
       // Simulate progress updates
-      onProgress(0, pubkeys.length);
-      onProgress(pubkeys.length, pubkeys.length);
+      if (onProgress) {
+        onProgress(0, pubkeys.length);
+        onProgress(pubkeys.length, pubkeys.length);
+      }
       return [];
     },
   ),
