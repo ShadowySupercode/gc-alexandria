@@ -8,6 +8,7 @@ import {
 } from "../consts.ts";
 import { getRelaySetForNetworkCondition } from "./network_detection.ts";
 import { networkCondition } from "../stores/networkStore.ts";
+import { includeLocalhostRelays } from "../stores/userStore.ts";
 import { get } from "svelte/store";
 
 /**
@@ -349,6 +350,23 @@ async function testLocalRelays(
   }
 }
 
+// AI-NOTE: 2025-01-24 - Cache invalidation for localhost preference changes
+// This allows the relay management system to react to user preference changes
+let localhostPreferenceChangeCallback: (() => void) | null = null;
+
+export function setLocalhostPreferenceChangeCallback(callback: () => void) {
+  localhostPreferenceChangeCallback = callback;
+}
+
+// Subscribe to localhost preference changes and trigger relay updates
+if (typeof window !== "undefined") {
+  includeLocalhostRelays.subscribe(() => {
+    if (localhostPreferenceChangeCallback) {
+      localhostPreferenceChangeCallback();
+    }
+  });
+}
+
 /**
  * Discovers local relays by testing common localhost URLs
  * @param ndk NDK instance
@@ -356,6 +374,13 @@ async function testLocalRelays(
  */
 export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
   try {
+    // Check if user has disabled localhost relays
+    const shouldIncludeLocalhost = get(includeLocalhostRelays);
+    if (!shouldIncludeLocalhost) {
+      console.debug("[relay_management.ts] Localhost relays disabled by user preference");
+      return [];
+    }
+
     // If no local relays are configured, return empty array
     if (localRelays.length === 0) {
       console.debug("[relay_management.ts] No local relays configured");
@@ -686,7 +711,8 @@ export async function buildCompleteRelaySet(
     user?.pubkey || "null",
   );
 
-  // Discover local relays first
+  // AI-NOTE: 2025-01-24 - Local relay discovery respects user preference
+  // The discoverLocalRelays function will return empty array if user has disabled localhost relays
   const discoveredLocalRelays = await discoverLocalRelays(ndk);
   console.debug(
     "[relay_management.ts] buildCompleteRelaySet: Discovered local relays:",
