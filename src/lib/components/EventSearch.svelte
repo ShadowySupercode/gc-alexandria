@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import {
     searchEvent,
     searchBySubscription,
@@ -110,6 +110,35 @@
       }
     } catch (error) {
       handleSearchError(error, "NIP-05 lookup failed");
+    }
+  }
+
+  async function handleProfileSearch(query: string) {
+    try {
+      console.log("EventSearch: Starting profile search for:", query);
+      
+      // Use the profile search service to find the profile
+      const { searchProfiles } = await import("$lib/utils/profile_search");
+      const result = await searchProfiles(query, ndk);
+      
+      if (result.profiles && result.profiles.length > 0) {
+        console.log("EventSearch: Profile found:", result.profiles[0]);
+        
+        // Create an NDKEvent from the profile data
+        const profileEvent = new NDKEvent(ndk);
+        profileEvent.kind = 0; // Profile event kind
+        profileEvent.content = JSON.stringify(result.profiles[0]);
+        profileEvent.pubkey = result.profiles[0].pubkey || "";
+        
+        handleFoundEvent(profileEvent);
+        updateSearchState(false, true, 1, "profile");
+      } else {
+        console.log("EventSearch: No profile found for:", query);
+        cleanupSearch();
+        updateSearchState(false, true, 0, "profile");
+      }
+    } catch (error) {
+      handleSearchError(error, "Profile lookup failed");
     }
   }
 
@@ -252,9 +281,22 @@
       return { type: "nip05", term: query };
     }
 
+    // AI-NOTE: Detect Nostr identifiers (npub, nevent, naddr, nprofile)
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.startsWith("npub") || trimmedQuery.startsWith("nprofile")) {
+      return { type: "profile", term: trimmedQuery };
+    }
+
+    if (trimmedQuery.startsWith("nevent") || trimmedQuery.startsWith("note")) {
+      return { type: "event", term: trimmedQuery };
+    }
+
+    if (trimmedQuery.startsWith("naddr")) {
+      return { type: "event", term: trimmedQuery };
+    }
+
     // AI-NOTE: Detect hex IDs (64-character hex strings with no spaces)
     // These are likely event IDs and should be searched as events
-    const trimmedQuery = query.trim();
     if (trimmedQuery && isEventId(trimmedQuery)) {
       return { type: "event", term: trimmedQuery };
     }
@@ -262,12 +304,7 @@
     // AI-NOTE: Treat plain text searches as generic searches by default
     // This allows for flexible searching without assuming it's always a profile search
     // Users can still use n: prefix for explicit name/profile searches
-    if (
-      trimmedQuery &&
-      !trimmedQuery.startsWith("nevent") &&
-      !trimmedQuery.startsWith("npub") &&
-      !trimmedQuery.startsWith("naddr")
-    ) {
+    if (trimmedQuery) {
       return null; // Let handleSearchEvent treat this as a generic search
     }
 
@@ -290,6 +327,12 @@
 
     if (type === "nip05") {
       await handleNip05Search(term);
+      return;
+    }
+
+    if (type === "profile") {
+      console.log("EventSearch: Processing profile search:", term);
+      await handleProfileSearch(term);
       return;
     }
 
