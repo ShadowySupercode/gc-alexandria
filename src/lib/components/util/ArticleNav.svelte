@@ -138,7 +138,7 @@
 </script>
 
 <nav
-  class="Navbar navbar-leather flex fixed top-[60px] sm:top-[76px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+  class="Navbar navbar-leather flex fixed top-[100px] sm:top-[106px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
     ? 'translate-y-0'
     : '-translate-y-full'}"
 >
