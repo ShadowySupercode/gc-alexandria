@@ -361,7 +361,7 @@
       return;
     }
 
-    if (type === "event") {
+    if (type === "event" || type === "id") {
       console.log("EventSearch: Processing event ID search:", term);
       // URL navigation is now handled in handleSearchEvent
       await handleEventSearch(term);
@@ -491,6 +491,8 @@
             handleSearchBySubscription("t", activeSearchValue);
           } else if (activeSearchType === "n") {
             handleSearchBySubscription("n", activeSearchValue);
+          } else if (activeSearchType === "id") {
+            handleEventSearch(activeSearchValue);
           }
           // Note: "q" (generic) searches are not processed here since they're
           // unstructured queries that don't require actual search execution
