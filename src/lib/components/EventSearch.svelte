@@ -62,6 +62,20 @@
   let searchResultType = $state<string | null>(null);
   let isResetting = $state(false);
 
+  // Track current search type for internal logic
+  let currentSearchType = $state<SearchType | null>(searchType);
+  let currentSearchValue = $state<string | null>(searchValue);
+
+  // Sync internal state with props when they change externally
+  $effect(() => {
+    if (searchType !== undefined) {
+      currentSearchType = searchType;
+    }
+    if (searchValue !== undefined) {
+      currentSearchValue = searchValue;
+    }
+  });
+
   // Internal state for cleanup
   let activeSub: any = null;
   let currentAbortController: AbortController | null = null;
@@ -83,7 +97,7 @@
   // Debounced search timeout
   let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // AI-NOTE: 2025-01-24 - Core search handlers extracted for better organization
+  // AI-NOTE: Core search handlers extracted for better organization
   async function handleNip05Search(query: string) {
     try {
       const foundEvent = await searchNip05(query, ndk);
@@ -145,45 +159,46 @@
 
     // Update URL with search query for all search types
     if (clearInput) {
-      const searchType = getSearchType(query);
-      if (searchType) {
-        const { type, term } = searchType;
+      const detectedSearchType = getSearchType(query);
+      if (detectedSearchType) {
+        const { type, term } = detectedSearchType;
         const encoded = encodeURIComponent(term);
+        let newUrl = "";
+
         if (type === "d") {
-          goto(`?d=${encoded}`, {
-            replaceState: false,
-            keepFocus: true,
-            noScroll: true,
-          });
+          newUrl = `?d=${encoded}`;
+          currentSearchType = "d";
+          currentSearchValue = term;
         } else if (type === "t") {
-          goto(`?t=${encoded}`, {
-            replaceState: false,
-            keepFocus: true,
-            noScroll: true,
-          });
+          newUrl = `?t=${encoded}`;
+          currentSearchType = "t";
+          currentSearchValue = term;
         } else if (type === "n") {
-          goto(`?n=${encoded}`, {
-            replaceState: false,
-            keepFocus: true,
-            noScroll: true,
-          });
+          newUrl = `?n=${encoded}`;
+          currentSearchType = "n";
+          currentSearchValue = term;
         } else if (type === "nip05") {
-          goto(`?q=${encodeURIComponent(query)}`, {
-            replaceState: false,
-            keepFocus: true,
-            noScroll: true,
-          });
+          newUrl = `?q=${encodeURIComponent(query)}`;
+          currentSearchType = "q";
+          currentSearchValue = query;
         } else if (type === "event") {
-          goto(`?id=${encoded}`, {
-            replaceState: false,
-            keepFocus: true,
-            noScroll: true,
-          });
+          newUrl = `?id=${encoded}`;
+          currentSearchType = "id";
+          currentSearchValue = term;
         }
+
+        goto(newUrl, {
+          replaceState: false,
+          keepFocus: true,
+          noScroll: true,
+        });
       } else {
         // No specific search type detected, treat as general search
         const encoded = encodeURIComponent(query);
-        goto(`?q=${encoded}`, {
+        const newUrl = `?q=${encoded}`;
+        currentSearchType = "q";
+        currentSearchValue = query;
+        goto(newUrl, {
           replaceState: false,
           keepFocus: true,
           noScroll: true,
@@ -198,12 +213,23 @@
       return;
     }
 
-    // AI-NOTE: 2025-01-24 - If no specific search type is detected, treat as event ID search
-    // URL navigation is now handled in the URL update logic above
-    await handleEventSearch(query);
+    // AI-NOTE: If no specific search type is detected, check if it could be an event ID
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && isEventId(trimmedQuery)) {
+      // Looks like an event ID, treat as event search
+      await handleEventSearch(query);
+    } else {
+      // AI-NOTE: Doesn't look like an event ID, treat as generic search
+      // The URL update logic above should have set currentSearchType = "q"
+      // For generic "q" searches, we don't perform actual searches since they're
+      // unstructured queries. We just update the URL for shareability and show completion
+
+      // TODO: Handle generic "q" searches with a semantic search capability (when available).
+      updateSearchState(false, true, 0, "q");
+    }
   }
 
-  // AI-NOTE: 2025-01-24 - Helper functions for better code organization
+  // AI-NOTE: Helper functions for better code organization
   function getSearchType(query: string): { type: string; term: string } | null {
     const lowerQuery = query.toLowerCase();
 
@@ -226,22 +252,23 @@
       return { type: "nip05", term: query };
     }
 
-    // AI-NOTE: 2025-01-24 - Detect hex IDs (64-character hex strings with no spaces)
+    // AI-NOTE: Detect hex IDs (64-character hex strings with no spaces)
     // These are likely event IDs and should be searched as events
     const trimmedQuery = query.trim();
     if (trimmedQuery && isEventId(trimmedQuery)) {
       return { type: "event", term: trimmedQuery };
     }
 
-    // AI-NOTE: 2025-01-24 - Treat plain text searches as profile searches by default
-    // This allows searching for names like "thebeave" or "TheBeave" without needing n: prefix
+    // AI-NOTE: Treat plain text searches as generic searches by default
+    // This allows for flexible searching without assuming it's always a profile search
+    // Users can still use n: prefix for explicit name/profile searches
     if (
       trimmedQuery &&
       !trimmedQuery.startsWith("nevent") &&
       !trimmedQuery.startsWith("npub") &&
       !trimmedQuery.startsWith("naddr")
     ) {
-      return { type: "n", term: trimmedQuery };
+      return null; // Let handleSearchEvent treat this as a generic search
     }
 
     return null;
@@ -310,15 +337,19 @@
       return;
     }
 
-    if (searchValue && searchType) {
-      if (searchType === "d") {
-        searchQuery = `d:${searchValue}`;
-      } else if (searchType === "t") {
-        searchQuery = `t:${searchValue}`;
-      } else if (searchType === "n") {
-        searchQuery = `n:${searchValue}`;
+    // Use internal state if set (from user actions), otherwise use props
+    const activeSearchType = currentSearchType ?? searchType;
+    const activeSearchValue = currentSearchValue ?? searchValue;
+
+    if (activeSearchValue && activeSearchType) {
+      if (activeSearchType === "d") {
+        searchQuery = `d:${activeSearchValue}`;
+      } else if (activeSearchType === "t") {
+        searchQuery = `t:${activeSearchValue}`;
+      } else if (activeSearchType === "n") {
+        searchQuery = `n:${activeSearchValue}`;
       } else {
-        searchQuery = searchValue;
+        searchQuery = activeSearchValue;
       }
     } else if (!searchQuery) {
       searchQuery = "";
@@ -368,30 +399,33 @@
   });
 
   $effect(() => {
+    // Use internal state if set (from user actions), otherwise use props
+    const activeSearchType = currentSearchType ?? searchType;
+    const activeSearchValue = currentSearchValue ?? searchValue;
+
     if (
-      searchValue &&
-      searchType &&
+      activeSearchValue &&
+      activeSearchType &&
       !searching &&
       !isResetting &&
-      (searchType !== lastProcessedSearchType ||
-        searchValue !== lastProcessedSearchValue)
+      (activeSearchType !== lastProcessedSearchType ||
+        activeSearchValue !== lastProcessedSearchValue)
     ) {
-      console.log("EventSearch: Processing search:", {
-        searchType,
-        searchValue,
-      });
-      lastProcessedSearchType = searchType;
-      lastProcessedSearchValue = searchValue;
+
+      lastProcessedSearchType = activeSearchType;
+      lastProcessedSearchValue = activeSearchValue;
 
       setTimeout(() => {
         if (!searching && !isResetting) {
-          if (searchType === "d") {
-            handleSearchBySubscription("d", searchValue);
-          } else if (searchType === "t") {
-            handleSearchBySubscription("t", searchValue);
-          } else if (searchType === "n") {
-            handleSearchBySubscription("n", searchValue);
+          if (activeSearchType === "d") {
+            handleSearchBySubscription("d", activeSearchValue);
+          } else if (activeSearchType === "t") {
+            handleSearchBySubscription("t", activeSearchValue);
+          } else if (activeSearchType === "n") {
+            handleSearchBySubscription("n", activeSearchValue);
           }
+          // Note: "q" (generic) searches are not processed here since they're
+          // unstructured queries that don't require actual search execution
         }
       }, 100);
     }
@@ -468,6 +502,9 @@
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
     lastSearchValue = null;
+    // Reset internal search state
+    currentSearchType = null;
+    currentSearchValue = null;
     updateSearchState(false, false, null, null);
 
     cleanupSearch();
@@ -510,16 +547,7 @@
     onEventFound(event);
   }
 
-  function navigateToSearch(query: string, paramName: string) {
-    const encoded = encodeURIComponent(query);
-    goto(`?${paramName}=${encoded}`, {
-      replaceState: false,
-      keepFocus: true,
-      noScroll: true,
-    });
-  }
-
-  // AI-NOTE: 2025-01-24 - Main subscription search handler with improved error handling
+  // AI-NOTE: Main subscription search handler with improved error handling
   async function handleSearchBySubscription(
     searchType: "d" | "t" | "n",
     searchTerm: string,
@@ -529,7 +557,7 @@
       searchTerm,
     });
 
-    // AI-NOTE: 2025-01-24 - Profile search caching is now handled by centralized searchProfiles function
+    // AI-NOTE: Profile search caching is now handled by centralized searchProfiles function
     // No need for separate caching logic here as it's handled in profile_search.ts
 
     isResetting = false;
@@ -545,7 +573,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Profile search is now handled by centralized searchProfiles function
+  // AI-NOTE: Profile search is now handled by centralized searchProfiles function
   // These functions are no longer needed as profile searches go through subscription_search.ts
   // which delegates to the centralized profile_search.ts
 
@@ -553,7 +581,7 @@
     let retryCount = 0;
     const maxRetries = 10; // Reduced retry count since we'll use all available relays
 
-    // AI-NOTE: 2025-01-24 - Wait for any relays to be available, not just specific types
+    // AI-NOTE: Wait for any relays to be available, not just specific types
     // This ensures searches can proceed even if some relay types are not available
     while (retryCount < maxRetries) {
       // Check if we have any relays in the NDK pool
@@ -565,7 +593,7 @@
       retryCount++;
     }
 
-    // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let the search functions handle fallbacks
+    // AI-NOTE: Don't fail if no relays are available, let the search functions handle fallbacks
     // The search functions will use all available relays including fallback relays
     const poolRelayCount = ndk?.pool?.relays?.size || 0;
 
@@ -616,8 +644,8 @@
             updatedResult.eventIds,
             updatedResult.addresses,
             updatedResult.searchType,
-            searchValue || updatedResult.searchTerm, // AI-NOTE: 2025-01-24 - Use original search value for display
-            false, // AI-NOTE: 2025-01-24 - Second-order update means search is complete
+            searchValue || updatedResult.searchTerm, // AI-NOTE: Use original search value for display
+            false, // AI-NOTE: Second-order update means search is complete
           );
         },
         onSubscriptionCreated: (sub) => {
@@ -649,8 +677,8 @@
       result.eventIds,
       result.addresses,
       result.searchType,
-      searchValue || result.searchTerm, // AI-NOTE: 2025-01-24 - Use original search value for display
-      false, // AI-NOTE: 2025-01-24 - Search is complete
+      searchValue || result.searchTerm, // AI-NOTE: Use original search value for display
+      false, // AI-NOTE: Search is complete
     );
 
     const totalCount =
@@ -738,6 +766,9 @@
     currentProcessingSearchValue = null;
     lastSearchValue = null;
     isWaitingForSearchResult = false;
+    // Reset internal search state
+    currentSearchType = null;
+    currentSearchValue = null;
 
     if (searchTimeout) {
       clearTimeout(searchTimeout);
@@ -769,18 +800,6 @@
     return searchResultCount === 1
       ? `Search completed. Found 1 ${typeLabel}.`
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
-  }
-
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
-  }
-
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
-  function getNprofileUrl(pubkey: string): string {
-    return nprofileEncode(pubkey, $activeInboxRelays);
   }
 </script>
 

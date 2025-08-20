@@ -174,12 +174,15 @@
 
   // Use Svelte 5 idiomatic effect to update searchValue and searchType based on URL parameters
   $effect(() => {
-    const url = $page.url.searchParams;
-    const idParam = url.get("id");
-    const dParam = url.get("d");
-    const tParam = url.get("t");
-    const nParam = url.get("n");
-    const qParam = url.get("q");
+    // Ensure we have the full URL object to trigger reactivity
+    const url = $page.url;
+    const searchParams = url.searchParams;
+
+    const idParam = searchParams.get("id");
+    const dParam = searchParams.get("d");
+    const tParam = searchParams.get("t");
+    const nParam = searchParams.get("n");
+    const qParam = searchParams.get("q");
 
     if (idParam) {
       searchValue = idParam;
