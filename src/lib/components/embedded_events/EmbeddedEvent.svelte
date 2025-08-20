@@ -10,7 +10,8 @@
   import { nip19 } from "nostr-tools";
   import { repostKinds } from "$lib/consts";
   import { UserOutline } from "flowbite-svelte-icons";
-
+  import type { UserProfile } from "$lib/models/user_profile";
+  
   const {
     nostrIdentifier,
     nestingLevel = 0,
@@ -22,16 +23,7 @@
   const ndk = getNdkContext();
 
   let event = $state<NDKEvent | null>(null);
-  let profile = $state<{
-    name?: string;
-    display_name?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    nip05?: string;
-  } | null>(null);
+  let profile = $state< UserProfile | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let authorDisplayName = $state<string | undefined>(undefined);

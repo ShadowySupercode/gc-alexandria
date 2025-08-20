@@ -15,22 +15,14 @@
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
   import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import type { UserProfile } from "$lib/models/user_profile";
 
   const {
     event,
     profile = null,
   } = $props<{
     event: NDKEvent;
-    profile?: {
-      name?: string;
-      display_name?: string;
-      about?: string;
-      picture?: string;
-      banner?: string;
-      website?: string;
-      lud16?: string;
-      nip05?: string;
-    } | null;
+    profile?: UserProfile | null;
   }>();
 
   let authorDisplayName = $state<string | undefined>(undefined);

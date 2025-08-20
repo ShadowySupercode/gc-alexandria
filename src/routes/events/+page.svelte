@@ -21,7 +21,7 @@
   import { userStore } from "$lib/stores/userStore";
   import { fetchCurrentUserLists, isPubkeyInUserLists } from "$lib/utils/user_lists";
   import { UserOutline } from "flowbite-svelte-icons";
-  import { clearAllCaches, clearProfileCaches, getCacheStats } from "$lib/utils/cache_manager";
+  import type { UserProfile } from "$lib/models/user_profile";
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -35,18 +35,7 @@
   let originalAddresses = $state<Set<string>>(new Set());
   let searchType = $state<string | null>(null);
   let searchTerm = $state<string | null>(null);
-  let profile = $state<{
-    name?: string;
-    display_name?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    nip05?: string;
-    isInUserLists?: boolean;
-    listKinds?: number[];
-  } | null>(null);
+  let profile = $state<UserProfile | null>(null);
   let userRelayPreference = $state(false);
   let showSidePanel = $state(false);
   let searchInProgress = $state(false);
