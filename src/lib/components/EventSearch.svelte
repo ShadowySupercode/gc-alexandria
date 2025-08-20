@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto } from "$app/navigation";
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -10,18 +9,21 @@
     searchNip05,
   } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
-  import type { SearchResult } from '$lib/utils/search_types';
-  import { userStore } from "$lib/stores/userStore";
-  import { get } from "svelte/store";
+  import { isEventId } from "$lib/utils/nostr_identifiers";
+  import type { SearchType } from "$lib/models/search_type";
 
   // Props definition
   let {
     loading,
     error,
     searchValue,
-    dTagValue,
+    searchType,
     onEventFound,
     onSearchResults,
     event,
@@ -31,7 +33,7 @@
     loading: boolean;
     error: string | null;
     searchValue: string | null;
-    dTagValue: string | null;
+    searchType: SearchType | null;
     onEventFound: (event: NDKEvent) => void;
     onSearchResults: (
       firstOrder: NDKEvent[],
@@ -41,21 +43,38 @@
       addresses: Set<string>,
       searchType?: string,
       searchTerm?: string,
+      loading?: boolean, // AI-NOTE: 2025-01-24 - Add loading parameter for second-order search message logic
     ) => void;
     event: NDKEvent | null;
     onClear?: () => void;
     onLoadingChange?: (loading: boolean) => void;
   } = $props();
 
+  const ndk = getNdkContext();
+
   // Component state
   let searchQuery = $state("");
   let localError = $state<string | null>(null);
   let foundEvent = $state<NDKEvent | null>(null);
   let searching = $state(false);
-  let searchCompleted = $state(false);
+  let searchCompleted = $state<boolean>(false);
   let searchResultCount = $state<number | null>(null);
   let searchResultType = $state<string | null>(null);
   let isResetting = $state(false);
+
+  // Track current search type for internal logic
+  let currentSearchType = $state<SearchType | null>(searchType);
+  let currentSearchValue = $state<string | null>(searchValue);
+
+  // Sync internal state with props when they change externally
+  $effect(() => {
+    if (searchType !== undefined) {
+      currentSearchType = searchType;
+    }
+    if (searchValue !== undefined) {
+      currentSearchValue = searchValue;
+    }
+  });
 
   // Internal state for cleanup
   let activeSub: any = null;
@@ -68,79 +87,39 @@
 
   // Track last processed values to prevent loops
   let lastProcessedSearchValue = $state<string | null>(null);
-  let lastProcessedDTagValue = $state<string | null>(null);
+  let lastProcessedSearchType = $state<SearchType | null>(null);
   let isProcessingSearch = $state(false);
   let currentProcessingSearchValue = $state<string | null>(null);
   let lastSearchValue = $state<string | null>(null);
   let isWaitingForSearchResult = $state(false);
   let isUserEditing = $state(false);
 
-  // Move search handler functions above all $effect runes
+  // Debounced search timeout
+  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // AI-NOTE: Core search handlers extracted for better organization
   async function handleNip05Search(query: string) {
     try {
-      const foundEvent = await searchNip05(query);
+      const foundEvent = await searchNip05(query, ndk);
       if (foundEvent) {
         handleFoundEvent(foundEvent);
         updateSearchState(false, true, 1, "nip05");
       } else {
-        // relayStatuses = {}; // This line was removed as per the edit hint
-        if (activeSub) {
-          try {
-            activeSub.stop();
-          } catch (e) {
-            console.warn("Error stopping subscription:", e);
-          }
-          activeSub = null;
-        }
-        if (currentAbortController) {
-          currentAbortController.abort();
-          currentAbortController = null;
-        }
+        cleanupSearch();
         updateSearchState(false, true, 0, "nip05");
       }
     } catch (error) {
-      localError =
-        error instanceof Error ? error.message : "NIP-05 lookup failed";
-      // relayStatuses = {}; // This line was removed as per the edit hint
-      if (activeSub) {
-        try {
-          activeSub.stop();
-        } catch (e) {
-          console.warn("Error stopping subscription:", e);
-        }
-        activeSub = null;
-      }
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      updateSearchState(false, false, null, null);
-      isProcessingSearch = false;
-      currentProcessingSearchValue = null;
-      lastSearchValue = null;
-      lastSearchValue = null;
+      handleSearchError(error, "NIP-05 lookup failed");
     }
   }
 
   async function handleEventSearch(query: string) {
     try {
-      const foundEvent = await searchEvent(query);
+      const foundEvent = await searchEvent(query, ndk);
       if (!foundEvent) {
         console.warn("[Events] Event not found for query:", query);
         localError = "Event not found";
-        // relayStatuses = {}; // This line was removed as per the edit hint
-        if (activeSub) {
-          try {
-            activeSub.stop();
-          } catch (e) {
-            console.warn("Error stopping subscription:", e);
-          }
-          activeSub = null;
-        }
-        if (currentAbortController) {
-          currentAbortController.abort();
-          currentAbortController = null;
-        }
+        cleanupSearch();
         updateSearchState(false, false, null, null);
       } else {
         console.log("[Events] Event found:", foundEvent);
@@ -148,23 +127,10 @@
         updateSearchState(false, true, 1, "event");
       }
     } catch (err) {
-      console.error("[Events] Error fetching event:", err, "Query:", query);
-      localError = "Error fetching event. Please check the ID and try again.";
-      // relayStatuses = {}; // This line was removed as per the edit hint
-      if (activeSub) {
-        try {
-          activeSub.stop();
-        } catch (e) {
-          console.warn("Error stopping subscription:", e);
-        }
-        activeSub = null;
-      }
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      updateSearchState(false, false, null, null);
-      isProcessingSearch = false;
+      handleSearchError(
+        err,
+        "Error fetching event. Please check the ID and try again.",
+      );
     }
   }
 
@@ -176,11 +142,13 @@
       console.log("EventSearch: Already searching, skipping");
       return;
     }
+
     resetSearchState();
     localError = null;
-    updateSearchState(true);
+    updateSearchState(true, false);
     isResetting = false;
-    isUserEditing = false; // Reset user editing flag when search starts
+    isUserEditing = false;
+
     const query = (
       queryOverride !== undefined ? queryOverride || "" : searchQuery || ""
     ).trim();
@@ -188,60 +156,206 @@
       updateSearchState(false, false, null, null);
       return;
     }
-    if (query.toLowerCase().startsWith("d:")) {
-      const dTag = query.slice(2).trim().toLowerCase();
-      if (dTag) {
-        console.log("EventSearch: Processing d-tag search:", dTag);
-        navigateToSearch(dTag, "d");
-        updateSearchState(false, false, null, null);
-        return;
+
+    // Update URL with search query for all search types
+    if (clearInput) {
+      const detectedSearchType = getSearchType(query);
+      if (detectedSearchType) {
+        const { type, term } = detectedSearchType;
+        const encoded = encodeURIComponent(term);
+        let newUrl = "";
+
+        if (type === "d") {
+          newUrl = `?d=${encoded}`;
+          currentSearchType = "d";
+          currentSearchValue = term;
+        } else if (type === "t") {
+          newUrl = `?t=${encoded}`;
+          currentSearchType = "t";
+          currentSearchValue = term;
+        } else if (type === "n") {
+          newUrl = `?n=${encoded}`;
+          currentSearchType = "n";
+          currentSearchValue = term;
+        } else if (type === "nip05") {
+          newUrl = `?q=${encodeURIComponent(query)}`;
+          currentSearchType = "q";
+          currentSearchValue = query;
+        } else if (type === "event") {
+          newUrl = `?id=${encoded}`;
+          currentSearchType = "id";
+          currentSearchValue = term;
+        }
+
+        goto(newUrl, {
+          replaceState: false,
+          keepFocus: true,
+          noScroll: true,
+        });
+      } else {
+        // No specific search type detected, treat as general search
+        const encoded = encodeURIComponent(query);
+        const newUrl = `?q=${encoded}`;
+        currentSearchType = "q";
+        currentSearchValue = query;
+        goto(newUrl, {
+          replaceState: false,
+          keepFocus: true,
+          noScroll: true,
+        });
       }
     }
-    if (query.toLowerCase().startsWith("t:")) {
-      const searchTerm = query.slice(2).trim();
-      if (searchTerm) {
-        await handleSearchBySubscription("t", searchTerm);
-        return;
-      }
-    }
-    if (query.toLowerCase().startsWith("n:")) {
-      const searchTerm = query.slice(2).trim();
-      if (searchTerm) {
-        await handleSearchBySubscription("n", searchTerm);
-        return;
-      }
-    }
-    if (query.includes("@")) {
-      await handleNip05Search(query);
+
+    // Handle different search types
+    const searchType = getSearchType(query);
+    if (searchType) {
+      await handleSearchByType(searchType, query, clearInput);
       return;
     }
-    if (clearInput) {
-      navigateToSearch(query, "id");
-      // Don't clear searchQuery here - let the effect handle it
+
+    // AI-NOTE: If no specific search type is detected, check if it could be an event ID
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && isEventId(trimmedQuery)) {
+      // Looks like an event ID, treat as event search
+      await handleEventSearch(query);
+    } else {
+      // AI-NOTE: Doesn't look like an event ID, treat as generic search
+      // The URL update logic above should have set currentSearchType = "q"
+      // For generic "q" searches, we don't perform actual searches since they're
+      // unstructured queries. We just update the URL for shareability and show completion
+
+      // TODO: Handle generic "q" searches with a semantic search capability (when available).
+      updateSearchState(false, true, 0, "q");
     }
-    await handleEventSearch(query);
   }
 
-  // Keep searchQuery in sync with searchValue and dTagValue props
+  // AI-NOTE: Helper functions for better code organization
+  function getSearchType(query: string): { type: string; term: string } | null {
+    const lowerQuery = query.toLowerCase();
+
+    if (lowerQuery.startsWith("d:")) {
+      const dTag = query.slice(2).trim().toLowerCase();
+      return dTag ? { type: "d", term: dTag } : null;
+    }
+
+    if (lowerQuery.startsWith("t:")) {
+      const searchTerm = query.slice(2).trim();
+      return searchTerm ? { type: "t", term: searchTerm } : null;
+    }
+
+    if (lowerQuery.startsWith("n:")) {
+      const searchTerm = query.slice(2).trim();
+      return searchTerm ? { type: "n", term: searchTerm } : null;
+    }
+
+    if (query.includes("@")) {
+      return { type: "nip05", term: query };
+    }
+
+    // AI-NOTE: Detect hex IDs (64-character hex strings with no spaces)
+    // These are likely event IDs and should be searched as events
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && isEventId(trimmedQuery)) {
+      return { type: "event", term: trimmedQuery };
+    }
+
+    // AI-NOTE: Treat plain text searches as generic searches by default
+    // This allows for flexible searching without assuming it's always a profile search
+    // Users can still use n: prefix for explicit name/profile searches
+    if (
+      trimmedQuery &&
+      !trimmedQuery.startsWith("nevent") &&
+      !trimmedQuery.startsWith("npub") &&
+      !trimmedQuery.startsWith("naddr")
+    ) {
+      return null; // Let handleSearchEvent treat this as a generic search
+    }
+
+    return null;
+  }
+
+  async function handleSearchByType(
+    searchType: { type: string; term: string },
+    query: string,
+    clearInput: boolean,
+  ) {
+    const { type, term } = searchType;
+
+    if (type === "d") {
+      console.log("EventSearch: Processing d-tag search:", term);
+      // URL navigation is now handled in handleSearchEvent
+      updateSearchState(false, false, null, null);
+      return;
+    }
+
+    if (type === "nip05") {
+      await handleNip05Search(term);
+      return;
+    }
+
+    if (type === "event") {
+      console.log("EventSearch: Processing event ID search:", term);
+      // URL navigation is now handled in handleSearchEvent
+      await handleEventSearch(term);
+      return;
+    }
+
+    if (type === "t" || type === "n") {
+      await handleSearchBySubscription(type as "t" | "n", term);
+      return;
+    }
+  }
+
+  function handleSearchError(error: unknown, defaultMessage: string) {
+    localError = error instanceof Error ? error.message : defaultMessage;
+    cleanupSearch();
+    updateSearchState(false, false, null, null);
+    isProcessingSearch = false;
+    currentProcessingSearchValue = null;
+    lastSearchValue = null;
+  }
+
+  function cleanupSearch() {
+    if (activeSub) {
+      try {
+        activeSub.stop();
+      } catch (e) {
+        console.warn("Error stopping subscription:", e);
+      }
+      activeSub = null;
+    }
+
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
+  }
+
+  // AI-NOTE: 2025-01-24 - Effects organized for better readability
   $effect(() => {
-    // Only sync if we're not currently searching, resetting, or if the user is editing
     if (searching || isResetting || isUserEditing) {
       return;
     }
 
-    if (dTagValue) {
-      // If dTagValue is set, show it as "d:tag" in the search bar
-      searchQuery = `d:${dTagValue}`;
-    } else if (searchValue) {
-      // searchValue should already be in the correct format (t:, n:, d:, etc.)
-      searchQuery = searchValue;
+    // Use internal state if set (from user actions), otherwise use props
+    const activeSearchType = currentSearchType ?? searchType;
+    const activeSearchValue = currentSearchValue ?? searchValue;
+
+    if (activeSearchValue && activeSearchType) {
+      if (activeSearchType === "d") {
+        searchQuery = `d:${activeSearchValue}`;
+      } else if (activeSearchType === "t") {
+        searchQuery = `t:${activeSearchValue}`;
+      } else if (activeSearchType === "n") {
+        searchQuery = `n:${activeSearchValue}`;
+      } else {
+        searchQuery = activeSearchValue;
+      }
     } else if (!searchQuery) {
-      // Only clear if searchQuery is empty to avoid clearing user input
       searchQuery = "";
     }
   });
 
-  // Debounced effect to handle searchValue changes
   $effect(() => {
     if (
       !searchValue ||
@@ -253,76 +367,19 @@
       return;
     }
 
-    // Check if we've already processed this searchValue
     if (searchValue === lastProcessedSearchValue) {
       return;
     }
 
-    // If we already have the event for this searchValue, do nothing
-    if (foundEvent) {
-      const currentEventId = foundEvent.id;
-      let currentNaddr = null;
-      let currentNevent = null;
-      let currentNpub = null;
-      try {
-        currentNevent = neventEncode(foundEvent, $activeInboxRelays);
-      } catch {}
-      try {
-        currentNaddr = getMatchingTags(foundEvent, "d")[0]?.[1]
-          ? naddrEncode(foundEvent, $activeInboxRelays)
-          : null;
-      } catch {}
-      try {
-        currentNpub = foundEvent.kind === 0 ? toNpub(foundEvent.pubkey) : null;
-      } catch {}
-
-      // Debug log for comparison
-      console.log(
-        "[EventSearch effect] searchValue:",
-        searchValue,
-        "foundEvent.id:",
-        currentEventId,
-        "foundEvent.pubkey:",
-        foundEvent.pubkey,
-        "toNpub(pubkey):",
-        currentNpub,
-        "foundEvent.kind:",
-        foundEvent.kind,
-        "currentNaddr:",
-        currentNaddr,
-        "currentNevent:",
-        currentNevent,
-      );
-
-      // Also check if searchValue is an nprofile and matches the current event's pubkey
-      let currentNprofile = null;
-      if (
-        searchValue &&
-        searchValue.startsWith("nprofile1") &&
-        foundEvent.kind === 0
-      ) {
-        try {
-          currentNprofile = nprofileEncode(foundEvent.pubkey, $activeInboxRelays);
-        } catch {}
-      }
-
-      if (
-        searchValue === currentEventId ||
-        (currentNaddr && searchValue === currentNaddr) ||
-        (currentNevent && searchValue === currentNevent) ||
-        (currentNpub && searchValue === currentNpub) ||
-        (currentNprofile && searchValue === currentNprofile)
-      ) {
-        // Already displaying the event for this searchValue
-        lastProcessedSearchValue = searchValue;
-        return;
-      }
+    if (foundEvent && isCurrentEventMatch(searchValue, foundEvent)) {
+      lastProcessedSearchValue = searchValue;
+      return;
     }
 
-    // Otherwise, trigger a search for the new value
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
+
     searchTimeout = setTimeout(() => {
       isProcessingSearch = true;
       isWaitingForSearchResult = true;
@@ -333,10 +390,6 @@
     }, 300);
   });
 
-  // Add debouncing to prevent rapid successive searches
-  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  // Cleanup function to clear timeout when component is destroyed
   $effect(() => {
     return () => {
       if (searchTimeout) {
@@ -345,34 +398,86 @@
     };
   });
 
-  // Simple effect to handle dTagValue changes
   $effect(() => {
+    // Use internal state if set (from user actions), otherwise use props
+    const activeSearchType = currentSearchType ?? searchType;
+    const activeSearchValue = currentSearchValue ?? searchValue;
+
     if (
-      dTagValue &&
+      activeSearchValue &&
+      activeSearchType &&
       !searching &&
       !isResetting &&
-      dTagValue !== lastProcessedDTagValue
+      (activeSearchType !== lastProcessedSearchType ||
+        activeSearchValue !== lastProcessedSearchValue)
     ) {
-      console.log("EventSearch: Processing dTagValue:", dTagValue);
-      lastProcessedDTagValue = dTagValue;
-      
-      // Add a small delay to prevent rapid successive calls
+
+      lastProcessedSearchType = activeSearchType;
+      lastProcessedSearchValue = activeSearchValue;
+
       setTimeout(() => {
         if (!searching && !isResetting) {
-          handleSearchBySubscription("d", dTagValue);
+          if (activeSearchType === "d") {
+            handleSearchBySubscription("d", activeSearchValue);
+          } else if (activeSearchType === "t") {
+            handleSearchBySubscription("t", activeSearchValue);
+          } else if (activeSearchType === "n") {
+            handleSearchBySubscription("n", activeSearchValue);
+          }
+          // Note: "q" (generic) searches are not processed here since they're
+          // unstructured queries that don't require actual search execution
         }
       }, 100);
     }
   });
 
-  // Simple effect to handle event prop changes
   $effect(() => {
     if (event && !searching && !isResetting) {
       foundEvent = event;
     }
   });
 
-  // Search utility functions
+  // AI-NOTE: 2025-01-24 - Utility functions for event matching and state management
+  function isCurrentEventMatch(searchValue: string, event: NDKEvent): boolean {
+    const currentEventId = event.id;
+    let currentNaddr: string | null = null;
+    let currentNevent: string | null = null;
+    let currentNpub: string | null = null;
+    let currentNprofile: string | null = null;
+
+    try {
+      currentNevent = neventEncode(event, $activeInboxRelays);
+    } catch {}
+
+    try {
+      currentNaddr = getMatchingTags(event, "d")[0]?.[1]
+        ? naddrEncode(event, $activeInboxRelays)
+        : null;
+    } catch {}
+
+    try {
+      currentNpub = event.kind === 0 ? toNpub(event.pubkey) : null;
+    } catch {}
+
+    if (
+      searchValue &&
+      searchValue.startsWith("nprofile1") &&
+      event.kind === 0
+    ) {
+      try {
+        currentNprofile = nprofileEncode(event.pubkey, $activeInboxRelays);
+      } catch {}
+    }
+
+    return !!(
+      searchValue === currentEventId ||
+      (currentNaddr && searchValue === currentNaddr) ||
+      (currentNevent && searchValue === currentNevent) ||
+      (currentNpub && searchValue === currentNpub) ||
+      (currentNprofile && searchValue === currentNprofile)
+    );
+  }
+
   function updateSearchState(
     isSearching: boolean,
     completed: boolean = false,
@@ -393,38 +498,23 @@
     foundEvent = null;
     localError = null;
     lastProcessedSearchValue = null;
-    lastProcessedDTagValue = null;
+    lastProcessedSearchType = null;
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
     lastSearchValue = null;
+    // Reset internal search state
+    currentSearchType = null;
+    currentSearchValue = null;
     updateSearchState(false, false, null, null);
 
-    // Cancel ongoing search
-    if (currentAbortController) {
-      currentAbortController.abort();
-      currentAbortController = null;
-    }
-
-    // Clean up subscription
-    if (activeSub) {
-      try {
-        activeSub.stop();
-      } catch (e) {
-        console.warn("Error stopping subscription:", e);
-      }
-      activeSub = null;
-    }
-
-    // Clear search results
+    cleanupSearch();
     onSearchResults([], [], [], new Set(), new Set());
 
-    // Clear any pending timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
       searchTimeout = null;
     }
 
-    // Reset the flag after a short delay to allow effects to settle
     setTimeout(() => {
       isResetting = false;
     }, 100);
@@ -432,37 +522,24 @@
 
   function handleFoundEvent(event: NDKEvent) {
     foundEvent = event;
-    localError = null; // Clear local error when event is found
+    localError = null;
 
-    // Stop any ongoing subscription
-    if (activeSub) {
-      try {
-        activeSub.stop();
-      } catch (e) {
-        console.warn("Error stopping subscription:", e);
-      }
-      activeSub = null;
-    }
+    cleanupSearch();
 
-    // Abort any ongoing fetch
-    if (currentAbortController) {
-      currentAbortController.abort();
-      currentAbortController = null;
-    }
-
-    // Clear search state
     searching = false;
     searchCompleted = true;
     searchResultCount = 1;
     searchResultType = "event";
 
-    // Update last processed search value to prevent re-processing
     if (searchValue) {
       lastProcessedSearchValue = searchValue;
       lastSearchValue = searchValue;
     }
 
-    // Reset processing flag
+    if (searchType) {
+      lastProcessedSearchType = searchType;
+    }
+
     isProcessingSearch = false;
     currentProcessingSearchValue = null;
     isWaitingForSearchResult = false;
@@ -470,16 +547,7 @@
     onEventFound(event);
   }
 
-  function navigateToSearch(query: string, paramName: string) {
-    const encoded = encodeURIComponent(query);
-    goto(`?${paramName}=${encoded}`, {
-      replaceState: false,
-      keepFocus: true,
-      noScroll: true,
-    });
-  }
-
-  // Search handlers
+  // AI-NOTE: Main subscription search handler with improved error handling
   async function handleSearchBySubscription(
     searchType: "d" | "t" | "n",
     searchTerm: string,
@@ -488,195 +556,206 @@
       searchType,
       searchTerm,
     });
-    isResetting = false; // Allow effects to run for new searches
+
+    // AI-NOTE: Profile search caching is now handled by centralized searchProfiles function
+    // No need for separate caching logic here as it's handled in profile_search.ts
+
+    isResetting = false;
     localError = null;
-    updateSearchState(true);
-    
-    // Wait for relays to be available (with timeout)
-    let retryCount = 0;
-    const maxRetries = 20; // Wait up to 10 seconds (20 * 500ms) for user login to complete
-    
-    while ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0 && retryCount < maxRetries) {
-      console.debug(`EventSearch: Waiting for relays... (attempt ${retryCount + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-      retryCount++;
-    }
-    
-    // Additional wait for user-specific relays if user is logged in
-    const currentUser = get(userStore);
-    if (currentUser.signedIn && currentUser.pubkey) {
-      console.debug(`EventSearch: User is logged in (${currentUser.pubkey}), waiting for user-specific relays...`);
-      retryCount = 0;
-      while ($activeOutboxRelays.length <= 9 && retryCount < maxRetries) {
-        // If we still have the default relay count (9), wait for user-specific relays
-        console.debug(`EventSearch: Waiting for user-specific relays... (attempt ${retryCount + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        retryCount++;
-      }
-    }
-    
-    // Check if we have any relays available
-    if ($activeInboxRelays.length === 0 && $activeOutboxRelays.length === 0) {
-      console.warn("EventSearch: No relays available after waiting, failing search");
-      localError = "No relays available. Please check your connection and try again.";
-      updateSearchState(false, false, null, null);
-      isProcessingSearch = false;
-      currentProcessingSearchValue = null;
-      isWaitingForSearchResult = false;
-      searching = false;
-      return;
-    }
-    
-    console.log("EventSearch: Relays available, proceeding with search:", {
-      inboxCount: $activeInboxRelays.length,
-      outboxCount: $activeOutboxRelays.length
-    });
-    
+    updateSearchState(true, false);
+
+    await waitForRelays();
+
     try {
-      // Cancel existing search
-      if (currentAbortController) {
-        currentAbortController.abort();
-      }
-      currentAbortController = new AbortController();
-      // Add a timeout to prevent hanging searches
-      const searchPromise = searchBySubscription(
-        searchType,
-        searchTerm,
-        {
-          onSecondOrderUpdate: (updatedResult) => {
-            console.log("EventSearch: Second order update:", updatedResult);
-            onSearchResults(
-              updatedResult.events,
-              updatedResult.secondOrder,
-              updatedResult.tTagEvents,
-              updatedResult.eventIds,
-              updatedResult.addresses,
-              updatedResult.searchType,
-              updatedResult.searchTerm,
-            );
-          },
-          onSubscriptionCreated: (sub) => {
-            console.log("EventSearch: Subscription created:", sub);
-            if (activeSub) {
-              activeSub.stop();
-            }
-            activeSub = sub;
-          },
-        },
-        currentAbortController.signal,
-      );
-      
-      // Add a 30-second timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("Search timeout: No results received within 30 seconds"));
-        }, 30000);
-      });
-      
-      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
-      console.log("EventSearch: Search completed:", result);
-      onSearchResults(
-        result.events,
-        result.secondOrder,
-        result.tTagEvents,
-        result.eventIds,
-        result.addresses,
-        result.searchType,
-        result.searchTerm,
-      );
-      const totalCount =
-        result.events.length +
-        result.secondOrder.length +
-        result.tTagEvents.length;
-      localError = null; // Clear local error when search completes
-      // Stop any ongoing subscription
-      if (activeSub) {
-        try {
-          activeSub.stop();
-        } catch (e) {
-          console.warn("Error stopping subscription:", e);
-        }
-        activeSub = null;
-      }
-      // Abort any ongoing fetch
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      updateSearchState(false, true, totalCount, searchType);
-      isProcessingSearch = false;
-      currentProcessingSearchValue = null;
-      isWaitingForSearchResult = false;
-      
-      // Update last processed search value to prevent re-processing
-      if (searchValue) {
-        lastProcessedSearchValue = searchValue;
-      }
+      await performSubscriptionSearch(searchType, searchTerm);
     } catch (error) {
-      if (error instanceof Error && error.message === "Search cancelled") {
-        isProcessingSearch = false;
-        currentProcessingSearchValue = null;
-        isWaitingForSearchResult = false;
-        return;
-      }
-      console.error("EventSearch: Search failed:", error);
-      localError = error instanceof Error ? error.message : "Search failed";
-      // Provide more specific error messages for different failure types
-      if (error instanceof Error) {
-        if (
-          error.message.includes("timeout") ||
-          error.message.includes("connection")
-        ) {
-          localError =
-            "Search timed out. The relays may be temporarily unavailable. Please try again.";
-        } else if (error.message.includes("NDK not initialized")) {
-          localError =
-            "Nostr client not initialized. Please refresh the page and try again.";
-        } else {
-          localError = `Search failed: ${error.message}`;
-        }
-      }
-      localError = null; // Clear local error when search fails
-      // Stop any ongoing subscription
-      if (activeSub) {
-        try {
-          activeSub.stop();
-        } catch (e) {
-          console.warn("Error stopping subscription:", e);
-        }
-        activeSub = null;
-      }
-      // Abort any ongoing fetch
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      updateSearchState(false, false, null, null);
-      isProcessingSearch = false;
-      currentProcessingSearchValue = null;
-      isWaitingForSearchResult = false;
-      
-      // Update last processed search value to prevent re-processing even on error
-      if (searchValue) {
-        lastProcessedSearchValue = searchValue;
-      }
+      handleSubscriptionSearchError(error);
     }
   }
+
+  // AI-NOTE: Profile search is now handled by centralized searchProfiles function
+  // These functions are no longer needed as profile searches go through subscription_search.ts
+  // which delegates to the centralized profile_search.ts
+
+  async function waitForRelays(): Promise<void> {
+    let retryCount = 0;
+    const maxRetries = 10; // Reduced retry count since we'll use all available relays
+
+    // AI-NOTE: Wait for any relays to be available, not just specific types
+    // This ensures searches can proceed even if some relay types are not available
+    while (retryCount < maxRetries) {
+      // Check if we have any relays in the NDK pool
+      if (ndk && ndk.pool && ndk.pool.relays && ndk.pool.relays.size > 0) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      retryCount++;
+    }
+
+    // AI-NOTE: Don't fail if no relays are available, let the search functions handle fallbacks
+    // The search functions will use all available relays including fallback relays
+    const poolRelayCount = ndk?.pool?.relays?.size || 0;
+
+    console.log("EventSearch: Relay status for search:", {
+      poolRelayCount,
+      inboxCount: $activeInboxRelays.length,
+      outboxCount: $activeOutboxRelays.length,
+      willUseAllRelays:
+        poolRelayCount > 0 ||
+        $activeInboxRelays.length > 0 ||
+        $activeOutboxRelays.length > 0,
+    });
+
+    // If we have any relays available, proceed with search
+    if (
+      poolRelayCount > 0 ||
+      $activeInboxRelays.length > 0 ||
+      $activeOutboxRelays.length > 0
+    ) {
+      console.log("EventSearch: Relays available, proceeding with search");
+    } else {
+      console.warn(
+        "EventSearch: No relays detected, but proceeding with search - fallback relays will be used",
+      );
+    }
+  }
+
+  async function performSubscriptionSearch(
+    searchType: "d" | "t" | "n",
+    searchTerm: string,
+  ): Promise<void> {
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    currentAbortController = new AbortController();
+
+    const searchPromise = searchBySubscription(
+      searchType,
+      searchTerm,
+      ndk,
+      {
+        onSecondOrderUpdate: (updatedResult) => {
+          console.log("EventSearch: Second order update:", updatedResult);
+          onSearchResults(
+            updatedResult.events,
+            updatedResult.secondOrder,
+            updatedResult.tTagEvents,
+            updatedResult.eventIds,
+            updatedResult.addresses,
+            updatedResult.searchType,
+            searchValue || updatedResult.searchTerm, // AI-NOTE: Use original search value for display
+            false, // AI-NOTE: Second-order update means search is complete
+          );
+        },
+        onSubscriptionCreated: (sub) => {
+          console.log("EventSearch: Subscription created:", sub);
+          if (activeSub) {
+            activeSub.stop();
+          }
+          activeSub = sub;
+        },
+      },
+      currentAbortController.signal,
+    );
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error("Search timeout: No results received within 30 seconds"),
+        );
+      }, 30000);
+    });
+
+    const result = (await Promise.race([searchPromise, timeoutPromise])) as any;
+    console.log("EventSearch: Search completed:", result);
+
+    onSearchResults(
+      result.events,
+      result.secondOrder,
+      result.tTagEvents,
+      result.eventIds,
+      result.addresses,
+      result.searchType,
+      searchValue || result.searchTerm, // AI-NOTE: Use original search value for display
+      false, // AI-NOTE: Search is complete
+    );
+
+    const totalCount =
+      result.events.length +
+      result.secondOrder.length +
+      result.tTagEvents.length;
+    localError = null;
+
+    cleanupSearch();
+    updateSearchState(false, true, totalCount, searchType);
+    isProcessingSearch = false;
+    currentProcessingSearchValue = null;
+    isWaitingForSearchResult = false;
+
+    if (searchValue) {
+      lastProcessedSearchValue = searchValue;
+    }
+  }
+
+  function handleSubscriptionSearchError(error: unknown): void {
+    if (error instanceof Error && error.message === "Search cancelled") {
+      isProcessingSearch = false;
+      currentProcessingSearchValue = null;
+      isWaitingForSearchResult = false;
+      return;
+    }
+
+    console.error("EventSearch: Search failed:", error);
+
+    if (error instanceof Error) {
+      if (
+        error.message.includes("timeout") ||
+        error.message.includes("connection")
+      ) {
+        localError =
+          "Search timed out. The relays may be temporarily unavailable. Please try again.";
+      } else if (error.message.includes("NDK not initialized")) {
+        localError =
+          "Nostr client not initialized. Please refresh the page and try again.";
+      } else {
+        localError = `Search failed: ${error.message}`;
+      }
+    } else {
+      localError = "Search failed";
+    }
+
+    cleanupSearch();
+    updateSearchState(false, false, null, null);
+    isProcessingSearch = false;
+    currentProcessingSearchValue = null;
+    isWaitingForSearchResult = false;
+
+    if (searchValue) {
+      lastProcessedSearchValue = searchValue;
+    }
+
+    if (searchType) {
+      lastProcessedSearchType = searchType;
+    }
+  }
+
+  // AI-NOTE: 2025-01-24 - Background profile search is now handled by centralized searchProfiles function
+  // This function is no longer needed as profile searches go through subscription_search.ts
+  // which delegates to the centralized profile_search.ts
 
   function handleClear() {
     isResetting = true;
     searchQuery = "";
-    isUserEditing = false; // Reset user editing flag
+    isUserEditing = false;
     resetSearchState();
 
-    // Clear URL parameters to reset the page
     goto("", {
       replaceState: true,
       keepFocus: true,
       noScroll: true,
     });
 
-    // Ensure all search state is cleared
     searching = false;
     searchCompleted = false;
     searchResultCount = null;
@@ -687,8 +766,10 @@
     currentProcessingSearchValue = null;
     lastSearchValue = null;
     isWaitingForSearchResult = false;
+    // Reset internal search state
+    currentSearchType = null;
+    currentSearchValue = null;
 
-    // Clear any pending timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
       searchTimeout = null;
@@ -698,7 +779,6 @@
       onClear();
     }
 
-    // Reset the flag after a short delay to allow effects to settle
     setTimeout(() => {
       isResetting = false;
     }, 100);
@@ -720,18 +800,6 @@
     return searchResultCount === 1
       ? `Search completed. Found 1 ${typeLabel}.`
       : `Search completed. Found ${searchResultCount} ${countLabel}.`;
-  }
-
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
-  }
-
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
-  function getNprofileUrl(pubkey: string): string {
-    return nprofileEncode(pubkey, $activeInboxRelays);
   }
 </script>
 

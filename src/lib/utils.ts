@@ -19,12 +19,19 @@ export class InvalidKindError extends DecodeError {
 }
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
-  return nip19.neventEncode({
-    id: event.id,
-    kind: event.kind,
-    relays,
-    author: event.pubkey,
-  });
+  try {
+    const nevent = nip19.neventEncode({
+      id: event.id,
+      kind: event.kind,
+      relays,
+      author: event.pubkey,
+    });
+
+    return nevent;
+  } catch (error) {
+    console.error(`[neventEncode] Error encoding nevent:`, error);
+    throw error;
+  }
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
@@ -47,7 +54,10 @@ export function naddrEncode(event: NDKEvent, relays: string[]) {
  * @param relays Optional relay list for the address
  * @returns A tag address string
  */
-export function createTagAddress(event: NostrEvent, relays: string[] = []): string {
+export function createTagAddress(
+  event: NostrEvent,
+  relays: string[] = [],
+): string {
   const dTag = event.tags.find((tag: string[]) => tag[0] === "d")?.[1];
   if (!dTag) {
     throw new Error("Event does not have a d tag");
@@ -137,10 +147,9 @@ export function next(): number {
 
 export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
   function scrollTab() {
-    const element =
-      typeof el === "string"
-        ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-        : el;
+    const element = typeof el === "string"
+      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+      : el;
     if (!element) return;
 
     element.scrollIntoView({
@@ -159,10 +168,9 @@ export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
 }
 
 export function isElementInViewport(el: string | HTMLElement) {
-  const element =
-    typeof el === "string"
-      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-      : el;
+  const element = typeof el === "string"
+    ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+    : el;
   if (!element) return;
 
   const rect = element.getBoundingClientRect();
@@ -172,7 +180,8 @@ export function isElementInViewport(el: string | HTMLElement) {
     rect.left >= 0 &&
     rect.bottom <=
       (globalThis.innerHeight || document.documentElement.clientHeight) &&
-    rect.right <= (globalThis.innerWidth || document.documentElement.clientWidth)
+    rect.right <=
+      (globalThis.innerWidth || document.documentElement.clientWidth)
   );
 }
 

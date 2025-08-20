@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
+  import { UserOutline } from "flowbite-svelte-icons";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
   import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
@@ -9,7 +10,8 @@
     ProfileSearchResult,
   } from "$lib/utils/search_utility";
 
-  import { userPubkey } from "$lib/stores/authStore.Svelte";
+
+  import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
     extractRootEventInfo,
@@ -21,12 +23,14 @@
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
   const props = $props<{
     event: NDKEvent;
     userRelayPreference: boolean;
   }>();
+
+  const ndk = getNdkContext();
 
   let content = $state("");
   let preview = $state("");
@@ -67,17 +71,12 @@
     }
   });
 
+  // Get user profile from userStore
   $effect(() => {
-    const trimmedPubkey = $userPubkey?.trim();
-    const npub = toNpub(trimmedPubkey);
-    if (npub) {
-      // Call an async function, but don't make the effect itself async
-      getUserMetadata(npub).then((metadata) => {
-        userProfile = metadata;
-      });
-    } else if (trimmedPubkey) {
-      userProfile = null;
-      error = "Invalid public key: must be a 64-character hex string.";
+    const currentUser = $userStore;
+    if (currentUser?.signedIn && currentUser.profile) {
+      userProfile = currentUser.profile;
+      error = null;
     } else {
       userProfile = null;
       error = null;
@@ -177,7 +176,7 @@
     success = null;
 
     try {
-      const pk = $userPubkey || "";
+      const pk = $userStore.pubkey || "";
       const npub = toNpub(pk);
 
       if (!npub) {
@@ -219,7 +218,7 @@
         relays = $activeOutboxRelays.slice(0, 3); // Use first 3 outbox relays
       }
 
-      const successfulRelays = await publishEvent(signedEvent, relays);
+      const successfulRelays = await publishEvent(signedEvent, relays, ndk);
 
       success = {
         relay: successfulRelays[0] || "Unknown relay",
@@ -265,6 +264,30 @@
   let communityStatus: Record<string, boolean> = $state({});
   let isSearching = $state(false);
 
+  // Reactive search with debouncing
+  $effect(() => {
+    // Clear existing timeout
+    if (mentionSearchTimeout) {
+      clearTimeout(mentionSearchTimeout);
+    }
+
+    // If search is empty, clear results immediately
+    if (!mentionSearch.trim()) {
+      mentionResults = [];
+      communityStatus = {};
+      mentionLoading = false;
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    mentionLoading = true;
+
+    // Debounce the search with 300ms delay
+    mentionSearchTimeout = setTimeout(() => {
+      searchMentions();
+    }, 300);
+  });
+
   async function searchMentions() {
     if (!mentionSearch.trim()) {
       mentionResults = [];
@@ -285,7 +308,7 @@
 
     try {
       console.log("Search promise created, waiting for result...");
-      const result = await searchProfiles(mentionSearch.trim());
+      const result = await searchProfiles(mentionSearch.trim(), ndk);
       console.log("Search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
@@ -324,15 +347,15 @@
       try {
         const npub = toNpub(profile.pubkey);
         if (npub) {
-          mention = `nostr:${npub}`;
+          mention = `${npub}`;
         } else {
           // If toNpub fails, fallback to pubkey
-          mention = `nostr:${profile.pubkey}`;
+          mention = `${profile.pubkey}`;
         }
       } catch (e) {
         console.error("Error in toNpub:", e);
         // Fallback to pubkey if conversion fails
-        mention = `nostr:${profile.pubkey}`;
+        mention = `${profile.pubkey}`;
       }
     } else {
       console.warn("No pubkey in profile, falling back to display name");
@@ -368,12 +391,12 @@
 <div class="w-full space-y-4">
   <div class="flex flex-wrap gap-2">
     {#each markupButtons as button}
-      <Button size="xs" on:click={button.action}>{button.label}</Button>
+      <Button size="xs" onclick={button.action}>{button.label}</Button>
     {/each}
-    <Button size="xs" color="alternative" on:click={removeFormatting}
+    <Button size="xs" color="alternative" onclick={removeFormatting}
       >Remove Formatting</Button
     >
-    <Button size="xs" color="alternative" on:click={clearForm}>Clear</Button>
+    <Button size="xs" color="alternative" onclick={clearForm}>Clear</Button>
   </div>
 
   <!-- Mention Modal -->
@@ -393,8 +416,9 @@
           bind:value={mentionSearch}
           bind:this={mentionSearchInput}
           onkeydown={(e) => {
-            if (e.key === "Enter" && mentionSearch.trim() && !isSearching) {
-              searchMentions();
+            if (e.key === "Enter" && mentionSearch.trim()) {
+              // The reactive effect will handle the search automatically
+              e.preventDefault();
             }
           }}
           class="flex-1 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500 p-2.5"
@@ -405,9 +429,9 @@
           onclick={(e: Event) => {
             e.preventDefault();
             e.stopPropagation();
-            searchMentions();
+            // The reactive effect will handle the search automatically
           }}
-          disabled={isSearching || !mentionSearch.trim()}
+          disabled={!mentionSearch.trim()}
         >
           {#if isSearching}
             Searching...
@@ -433,7 +457,22 @@
                 class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
                 onclick={() => selectMention(profile)}
               >
-                {#if profile.pubkey && communityStatus[profile.pubkey]}
+                {#if profile.isInUserLists}
+                  <div
+                    class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                    title="In your lists"
+                  >
+                    <svg
+                      class="w-4 h-4 text-red-600 dark:text-red-400"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                      />
+                    </svg>
+                  </div>
+                {:else if profile.pubkey && communityStatus[profile.pubkey]}
                   <div
                     class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
                     title="Has posted to the community"
@@ -458,13 +497,13 @@
                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
                 {:else}
-                  <div
-                    class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
-                  ></div>
+                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                    <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  </div>
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
-                    {profile.displayName || profile.name || mentionSearch}
+                    {profile.displayName || profile.name || "anon"}
                   </span>
                   {#if profile.nip05}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -523,12 +562,12 @@
       class="mb-4"
     />
     <div class="flex justify-end gap-2">
-      <Button size="xs" color="primary" on:click={insertWikilink}>Insert</Button
+      <Button size="xs" color="primary" onclick={insertWikilink}>Insert</Button
       >
       <Button
         size="xs"
         color="alternative"
-        on:click={() => {
+        onclick={() => {
           showWikilinkModal = false;
         }}>Cancel</Button
       >
@@ -556,7 +595,7 @@
     <Alert color="red" dismissable>
       {error}
       {#if showOtherRelays}
-        <Button size="xs" class="mt-2" on:click={() => handleSubmit(true)}
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(true)}
           >Try Other Relays</Button
         >
       {/if}
@@ -564,7 +603,7 @@
         <Button
           size="xs"
           class="mt-2"
-          on:click={() => handleSubmit(false, true)}>Try Fallback Relays</Button
+          onclick={() => handleSubmit(false, true)}>Try Fallback Relays</Button
         >
       {/if}
     </Alert>
@@ -590,26 +629,27 @@
           <img
             src={userProfile.picture}
             alt={userProfile.name || "Profile"}
-            class="w-8 h-8 rounded-full"
-            onerror={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(img.alt)}`;
-            }}
+            class="w-8 h-8 rounded-full object-cover"
+            onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />
+        {:else}
+          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+            <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100">
           {userProfile.displayName ||
             userProfile.name ||
-            nip19.npubEncode($userPubkey || "").slice(0, 8) + "..."}
+            "anon"}
         </span>
       </div>
     {/if}
     <Button
-      on:click={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !$userPubkey}
+      onclick={() => handleSubmit()}
+                  disabled={isSubmitting || !content.trim() || !$userStore.pubkey}
       class="w-full md:w-auto"
     >
-      {#if !$userPubkey}
+      {#if !$userStore.pubkey}
         Not Signed In
       {:else if isSubmitting}
         Publishing...
@@ -619,7 +659,7 @@
     </Button>
   </div>
 
-  {#if !$userPubkey}
+  {#if !$userStore.pubkey}
     <Alert color="yellow" class="mt-4">
       Please sign in to post comments. Your comments will be signed with your
       current account.

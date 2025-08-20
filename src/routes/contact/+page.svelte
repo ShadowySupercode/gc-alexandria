@@ -9,9 +9,9 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkInstance, ndkSignedIn, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
-  import { communityRelays } from "$lib/consts";
+  import { anonymousRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue
@@ -20,6 +20,8 @@
   import { nip19 } from "nostr-tools";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+
+  const ndk = getNdkContext();
 
   // Function to close the success message
   function closeSuccessMessage() {
@@ -62,13 +64,11 @@
   const repoAddress =
     "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
 
-  // Use the new relay management system instead of hardcoded relays
+  // Use the new relay management system with anonymous relays as fallbacks
   const allRelays = [
-    "wss://relay.damus.io",
-    "wss://relay.nostr.band",
-    "wss://nos.lol",
     ...$activeInboxRelays,
     ...$activeOutboxRelays,
+    ...anonymousRelays,
   ];
 
   // Hard-coded repository owner pubkey and ID from the task
@@ -195,7 +195,6 @@
 
     try {
       // Get NDK instance
-      const ndk = $ndkInstance;
       if (!ndk) {
         throw new Error("NDK instance not available");
       }
@@ -213,7 +212,7 @@
         ...(ndk.pool
           ? Array.from(ndk.pool.relays.values())
               .filter(
-                (relay) => relay.url && !relay.url.includes("wss://nos.lol"),
+                (relay) => relay.url,
               )
               .map((relay) => normalizeRelayUrl(relay.url))
           : []),

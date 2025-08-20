@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev:debug": "DEBUG_RELAYS=true vite dev",
     "dev:node": "node --version && vite dev",
     "build": "vite build",
     "preview": "vite preview",

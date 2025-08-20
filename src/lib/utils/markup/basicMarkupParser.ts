@@ -1,30 +1,24 @@
-import { processNostrIdentifiers } from "../nostrUtils.ts";
-import * as emoji from "node-emoji";
 import { nip19 } from "nostr-tools";
+import {
+  processBasicTextFormatting,
+  processBlockquotes,
+  processEmojiShortcodes,
+  processHashtags,
+  processImageWithReveal,
+  processMediaUrl,
+  processNostrIdentifiersInText,
+  processWebSocketUrls,
+  processWikilinks,
+  stripTrackingParams,
+} from "./markupServices.ts";
 
 /* Regex constants for basic markup parsing */
-
-// Text formatting
-const BOLD_REGEX = /(\*\*|[*])((?:[^*\n]|\*(?!\*))+)\1/g;
-const ITALIC_REGEX = /\b(_[^_\n]+_|\b__[^_\n]+__)\b/g;
-const STRIKETHROUGH_REGEX = /~~([^~\n]+)~~|~([^~\n]+)~/g;
-const HASHTAG_REGEX = /(?<![^\s])#([a-zA-Z0-9_]+)(?!\w)/g;
-
-// Block elements
-const BLOCKQUOTE_REGEX = /^([ \t]*>[ \t]?.*)(?:\n\1[ \t]*(?!>).*)*$/gm;
 
 // Links and media
 const MARKUP_LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
 const MARKUP_IMAGE = /!\[([^\]]*)\]\(([^)]+)\)/g;
-const WSS_URL = /wss:\/\/[^\s<>"]+/g;
-const DIRECT_LINK = /(?<!["'=])(https?:\/\/[^\s<>"]+)(?!["'])/g;
-
-// Media URL patterns
-const IMAGE_EXTENSIONS = /\.(jpg|jpeg|gif|png|webp|svg)$/i;
-const VIDEO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp4|webm|mov|avi)(?:[^\s<]*)?/i;
-const AUDIO_URL_REGEX = /https?:\/\/[^\s<]+\.(?:mp3|wav|ogg|m4a)(?:[^\s<]*)?/i;
-const YOUTUBE_URL_REGEX =
-  /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/i;
+// AI-NOTE: 2025-01-24 - Added negative lookbehind (?<!\]\() to prevent processing URLs in markdown syntax
+const DIRECT_LINK = /(?<!["'=])(?<!\]\()(https?:\/\/[^\s<>"]+)(?!["'])/g;
 
 // Add this helper function near the top:
 function replaceAlexandriaNostrLinks(text: string): string {
@@ -78,94 +72,11 @@ function replaceAlexandriaNostrLinks(text: string): string {
         return `nostr:${bech32Match[0]}`;
       }
     }
-    // For non-Alexandria/localhost URLs, append (View here: nostr:<id>) if a Nostr identifier is present
-    const hexMatch = url.match(hexPattern);
-    if (hexMatch) {
-      try {
-        const nevent = nip19.neventEncode({ id: hexMatch[0] });
-        return `${url} (View here: nostr:${nevent})`;
-      } catch {
-        return url;
-      }
-    }
-    const bech32Match = url.match(bech32Pattern);
-    if (bech32Match) {
-      return `${url} (View here: nostr:${bech32Match[0]})`;
-    }
+    // For non-Alexandria/localhost URLs, just return the URL as-is
     return url;
   });
 
   return text;
-}
-
-// Utility to strip tracking parameters from URLs
-function stripTrackingParams(url: string): string {
-  // List of tracking params to remove
-  const trackingParams = [
-    /^utm_/i,
-    /^fbclid$/i,
-    /^gclid$/i,
-    /^tracking$/i,
-    /^ref$/i,
-  ];
-  try {
-    // Absolute URL
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
-      const parsed = new URL(url);
-      trackingParams.forEach((pattern) => {
-        for (const key of Array.from(parsed.searchParams.keys())) {
-          if (pattern.test(key)) {
-            parsed.searchParams.delete(key);
-          }
-        }
-      });
-      const queryString = parsed.searchParams.toString();
-      return (
-        parsed.origin +
-        parsed.pathname +
-        (queryString ? "?" + queryString : "") +
-        (parsed.hash || "")
-      );
-    } else {
-      // Relative URL: parse query string manually
-      const [path, queryAndHash = ""] = url.split("?");
-      const [query = "", hash = ""] = queryAndHash.split("#");
-      if (!query) return url;
-      const params = query.split("&").filter(Boolean);
-      const filtered = params.filter((param) => {
-        const [key] = param.split("=");
-        return !trackingParams.some((pattern) => pattern.test(key));
-      });
-      const queryString = filtered.length ? "?" + filtered.join("&") : "";
-      const hashString = hash ? "#" + hash : "";
-      return path + queryString + hashString;
-    }
-  } catch {
-    return url;
-  }
-}
-
-function normalizeDTag(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function replaceWikilinks(text: string): string {
-  // [[target page]] or [[target page|display text]]
-  return text.replace(
-    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (_match, target, label) => {
-      const normalized = normalizeDTag(target.trim());
-      const display = (label || target).trim();
-      const url = `/events?d=${normalized}`;
-      // Output as a clickable <a> with the [[display]] format and matching link colors
-      // Use onclick to bypass SvelteKit routing and navigate directly
-      return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}" onclick="window.location.href='${url}'; return false;">${display}</a>`;
-    },
-  );
 }
 
 function renderListGroup(lines: string[], typeHint?: "ol" | "ul"): string {
@@ -176,7 +87,9 @@ function renderListGroup(lines: string[], typeHint?: "ol" | "ul"): string {
   ): [string, number] {
     let html = "";
     let i = start;
-    html += `<${type} class="${type === "ol" ? "list-decimal" : "list-disc"} ml-6 mb-2">`;
+    html += `<${type} class="${
+      type === "ol" ? "list-decimal" : "list-disc"
+    } ml-6 mb-2">`;
     while (i < lines.length) {
       const line = lines[i];
       const match = line.match(/^([ \t]*)([*+-]|\d+\.)[ \t]+(.*)$/);
@@ -237,84 +150,35 @@ function processBasicFormatting(content: string): string {
     processedText = replaceAlexandriaNostrLinks(processedText);
 
     // Process markup images first
-    processedText = processedText.replace(MARKUP_IMAGE, (_match, alt, url) => {
-      url = stripTrackingParams(url);
-      if (YOUTUBE_URL_REGEX.test(url)) {
-        const videoId = extractYouTubeVideoId(url);
-        if (videoId) {
-          return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-4" src="https://www.youtube-nocookie.com/embed/${videoId}" title="${alt || "YouTube video"}" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
-        }
-      }
-      if (VIDEO_URL_REGEX.test(url)) {
-        return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${url}">${alt || "Video"}</video>`;
-      }
-      if (AUDIO_URL_REGEX.test(url)) {
-        return `<audio controls class="w-full my-4" preload="none"><source src="${url}">${alt || "Audio"}</audio>`;
-      }
-      // Only render <img> if the url ends with a direct image extension
-      if (IMAGE_EXTENSIONS.test(url.split("?")[0])) {
-        return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
-      }
-      // Otherwise, render as a clickable link
-      return `<a href="${url}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${alt || url}</a>`;
+    processedText = processedText.replace(MARKUP_IMAGE, (match, alt, url) => {
+      // Clean the URL and alt text
+      const cleanUrl = url.trim();
+      const cleanAlt = alt ? alt.trim() : "";
+      return processImageWithReveal(cleanUrl, cleanAlt);
     });
 
     // Process markup links
     processedText = processedText.replace(
       MARKUP_LINK,
       (_match, text, url) =>
-        `<a href="${stripTrackingParams(url)}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
+        `<a href="${
+          stripTrackingParams(url)
+        }" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
     );
 
-    // Process WebSocket URLs
-    processedText = processedText.replace(WSS_URL, (match) => {
-      // Remove 'wss://' from the start and any trailing slashes
-      const cleanUrl = match.slice(6).replace(/\/+$/, "");
-      return `<a href="https://nostrudel.ninja/#/r/wss%3A%2F%2F${cleanUrl}%2F" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-500 hover:underline">${match}</a>`;
-    });
+    // Process WebSocket URLs using shared services
+    processedText = processWebSocketUrls(processedText);
 
     // Process direct media URLs and auto-link all URLs
     processedText = processedText.replace(DIRECT_LINK, (match) => {
-      const clean = stripTrackingParams(match);
-      if (YOUTUBE_URL_REGEX.test(clean)) {
-        const videoId = extractYouTubeVideoId(clean);
-        if (videoId) {
-          return `<iframe class="w-full aspect-video rounded-lg shadow-lg my-4" src="https://www.youtube-nocookie.com/embed/${videoId}" title="YouTube video" frameborder="0" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation" class="text-primary-600 dark:text-primary-500 hover:underline"></iframe>`;
-        }
-      }
-      if (VIDEO_URL_REGEX.test(clean)) {
-        return `<video controls class="max-w-full rounded-lg shadow-lg my-4" preload="none" playsinline><source src="${clean}">Your browser does not support the video tag.</video>`;
-      }
-      if (AUDIO_URL_REGEX.test(clean)) {
-        return `<audio controls class="w-full my-4" preload="none"><source src="${clean}">Your browser does not support the audio tag.</audio>`;
-      }
-      // Only render <img> if the url ends with a direct image extension
-      if (IMAGE_EXTENSIONS.test(clean.split("?")[0])) {
-        return `<img src="${clean}" alt="Embedded media" class="max-w-full h-auto rounded-lg shadow-lg my-4" loading="lazy" decoding="async">`;
-      }
-      // Otherwise, render as a clickable link
-      return `<a href="${clean}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">${clean}</a>`;
+      return processMediaUrl(match);
     });
 
-    // Process text formatting
-    processedText = processedText.replace(BOLD_REGEX, "<strong>$2</strong>");
-    processedText = processedText.replace(ITALIC_REGEX, (match) => {
-      const text = match.replace(/^_+|_+$/g, "");
-      return `<em>${text}</em>`;
-    });
-    processedText = processedText.replace(
-      STRIKETHROUGH_REGEX,
-      (_match, doubleText, singleText) => {
-        const text = doubleText || singleText;
-        return `<del class="line-through">${text}</del>`;
-      },
-    );
+    // Process text formatting using shared services
+    processedText = processBasicTextFormatting(processedText);
 
-    // Process hashtags
-    processedText = processedText.replace(
-      HASHTAG_REGEX,
-      '<span class="text-primary-600 dark:text-primary-500">#$1</span>',
-    );
+    // Process hashtags using shared services
+    processedText = processHashtags(processedText);
 
     // --- Improved List Grouping and Parsing ---
     const lines = processedText.split("\n");
@@ -351,47 +215,6 @@ function processBasicFormatting(content: string): string {
   return processedText;
 }
 
-// Helper function to extract YouTube video ID
-function extractYouTubeVideoId(url: string): string | null {
-  const match = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  );
-  return match ? match[1] : null;
-}
-
-function processBlockquotes(content: string): string {
-  try {
-    if (!content) return "";
-
-    return content.replace(BLOCKQUOTE_REGEX, (match) => {
-      const lines = match.split("\n").map((line) => {
-        return line.replace(/^[ \t]*>[ \t]?/, "").trim();
-      });
-
-      return `<blockquote class="pl-4 border-l-4 border-gray-300 dark:border-gray-600 my-4">${lines.join(
-        "\n",
-      )}</blockquote>`;
-    });
-  } catch (e: unknown) {
-    console.error("Error in processBlockquotes:", e);
-    return content;
-  }
-}
-
-function processEmojiShortcuts(content: string): string {
-  try {
-    return emoji.emojify(content, {
-      fallback: (name: string) => {
-        const emojiChar = emoji.get(name);
-        return emojiChar || `:${name}:`;
-      },
-    });
-  } catch (e: unknown) {
-    console.error("Error in processEmojiShortcuts:", e);
-    return content;
-  }
-}
-
 export async function parseBasicmarkup(text: string): Promise<string> {
   if (!text) return "";
 
@@ -400,7 +223,7 @@ export async function parseBasicmarkup(text: string): Promise<string> {
     let processedText = processBasicFormatting(text);
 
     // Process emoji shortcuts
-    processedText = processEmojiShortcuts(processedText);
+    processedText = processEmojiShortcodes(processedText);
 
     // Process blockquotes
     processedText = processBlockquotes(processedText);
@@ -412,11 +235,13 @@ export async function parseBasicmarkup(text: string): Promise<string> {
       .map((para) => para.trim())
       .filter((para) => para.length > 0)
       .map((para) => {
-        // Skip wrapping if para already contains block-level elements or math blocks
+        // AI-NOTE: 2025-01-24 - Added img tag to skip wrapping to prevent image rendering issues
+        // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
-          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr)/i.test(
-            para,
-          )
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i
+            .test(
+              para,
+            )
         ) {
           return para;
         }
@@ -425,14 +250,16 @@ export async function parseBasicmarkup(text: string): Promise<string> {
       .join("\n");
 
     // Process Nostr identifiers last
-    processedText = await processNostrIdentifiers(processedText);
+    processedText = await processNostrIdentifiersInText(processedText);
 
     // Replace wikilinks
-    processedText = replaceWikilinks(processedText);
+    processedText = processWikilinks(processedText);
 
     return processedText;
   } catch (e: unknown) {
     console.error("Error in parseBasicmarkup:", e);
-    return `<div class="text-red-500">Error processing markup: ${(e as Error)?.message ?? "Unknown error"}</div>`;
+    return `<div class="text-red-500">Error processing markup: ${
+      (e as Error)?.message ?? "Unknown error"
+    }</div>`;
   }
 }

@@ -24,43 +24,67 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
 
-  let { rootAddress, publicationType, indexEvent } = $props<{
+  let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
     rootAddress: string;
     publicationType: string;
     indexEvent: NDKEvent;
+    publicationTree: SveltePublicationTree;
+    toc: TocType;
   }>();
 
-  const publicationTree = getContext(
-    "publicationTree",
-  ) as SveltePublicationTree;
-  const toc = getContext("toc") as TocType;
-
   // #region Loading
-
   let leaves = $state<Array<NDKEvent | null>>([]);
-  let isLoading = $state<boolean>(false);
-  let isDone = $state<boolean>(false);
+  let isLoading = $state(false);
+  let isDone = $state(false);
   let lastElementRef = $state<HTMLElement | null>(null);
   let activeAddress = $state<string | null>(null);
+  let loadedAddresses = $state<Set<string>>(new Set());
+  let hasInitialized = $state(false);
 
   let observer: IntersectionObserver;
 
   async function loadMore(count: number) {
+    if (!publicationTree) {
+      console.warn("[Publication] publicationTree is not available");
+      return;
+    }
+    
+    console.log(`[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
+    
     isLoading = true;
 
-    for (let i = 0; i < count; i++) {
-      const iterResult = await publicationTree.next();
-      const { done, value } = iterResult;
+    try {
+      for (let i = 0; i < count; i++) {
+        const iterResult = await publicationTree.next();
+        const { done, value } = iterResult;
 
-      if (done) {
-        isDone = true;
-        break;
+        if (done) {
+          console.log("[Publication] Iterator done, no more events");
+          isDone = true;
+          break;
+        }
+
+        if (value) {
+          const address = value.tagAddress();
+          console.log(`[Publication] Got event: ${address} (${value.id})`);
+          if (!loadedAddresses.has(address)) {
+            loadedAddresses.add(address);
+            leaves.push(value);
+            console.log(`[Publication] Added event: ${address}`);
+          } else {
+            console.warn(`[Publication] Duplicate event detected: ${address}`);
+          }
+        } else {
+          console.log("[Publication] Got null event");
+          leaves.push(null);
+        }
       }
-
-      leaves.push(value);
+    } catch (error) {
+      console.error("[Publication] Error loading more content:", error);
+    } finally {
+      isLoading = false;
+      console.log(`[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
     }
-
-    isLoading = false;
   }
 
   function setLastElementRef(el: HTMLElement, i: number) {
@@ -84,6 +108,34 @@
   });
 
   // #endregion
+
+  // AI-NOTE: 2025-01-24 - Combined effect to handle publicationTree changes and initial loading
+  // This prevents conflicts between separate effects that could cause duplicate loading
+  $effect(() => {
+    if (publicationTree) {
+      // Reset state when publicationTree changes
+      leaves = [];
+      isLoading = false;
+      isDone = false;
+      lastElementRef = null;
+      loadedAddresses = new Set();
+      hasInitialized = false;
+      
+      // Reset the publication tree iterator to prevent duplicate events
+      if (typeof publicationTree.resetIterator === 'function') {
+        publicationTree.resetIterator();
+      }
+      
+      // AI-NOTE: 2025-01-24 - Use setTimeout to ensure iterator reset completes before loading
+      // This prevents race conditions where loadMore is called before the iterator is fully reset
+      setTimeout(() => {
+        // Load initial content after reset
+        console.log("[Publication] Loading initial content after reset");
+        hasInitialized = true;
+        loadMore(12);
+      }, 0);
+    }
+  });
 
   // #region Columns visibility
 
@@ -175,14 +227,17 @@
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isLoading && !isDone) {
+          if (entry.isIntersecting && !isLoading && !isDone && publicationTree) {
             loadMore(1);
           }
         });
       },
       { threshold: 0.5 },
     );
-    loadMore(12);
+    
+    // AI-NOTE: 2025-01-24 - Removed duplicate loadMore call
+    // Initial content loading is handled by the $effect that watches publicationTree
+    // This prevents duplicate loading when both onMount and $effect trigger
 
     return () => {
       observer.disconnect();
@@ -207,11 +262,12 @@
       />
       <TableOfContents
         {rootAddress}
+        {toc}
         depth={2}
         onSectionFocused={(address: string) =>
           publicationTree.setBookmark(address)}
         onLoadMore={() => {
-          if (!isLoading && !isDone) {
+          if (!isLoading && !isDone && publicationTree) {
             loadMore(4);
           }
         }}
@@ -241,6 +297,8 @@
           {rootAddress}
           {leaves}
           {address}
+          {publicationTree}
+          {toc}
           ref={(el) => onPublicationSectionMounted(el, address)}
         />
       {/if}
@@ -249,7 +307,7 @@
       {#if isLoading}
         <Button disabled color="primary">Loading...</Button>
       {:else if !isDone}
-        <Button color="primary" on:click={() => loadMore(1)}>Show More</Button>
+        <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
       {:else}
         <p class="text-gray-500 dark:text-gray-400">
           You've reached the end of the publication.
@@ -300,6 +358,8 @@
             {rootAddress}
             {leaves}
             address={leaf.tagAddress()}
+            {publicationTree}
+            {toc}
             ref={(el) => setLastElementRef(el, i)}
           />
 

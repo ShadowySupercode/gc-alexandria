@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import {
     contentParagraph,
     sectionHeading,
@@ -10,6 +9,7 @@
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
+  import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
 
@@ -17,15 +17,18 @@
     address,
     rootAddress,
     leaves,
+    publicationTree,
+    toc,
     ref,
   }: {
     address: string;
     rootAddress: string;
     leaves: Array<NDKEvent | null>;
+    publicationTree: SveltePublicationTree;
+    toc: TocType;
     ref: (ref: HTMLElement) => void;
   } = $props();
 
-  const publicationTree: SveltePublicationTree = getContext("publicationTree");
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(

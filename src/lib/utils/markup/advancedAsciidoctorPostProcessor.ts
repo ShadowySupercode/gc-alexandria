@@ -188,7 +188,8 @@ function processPlantUMLBlocks(html: string): string {
         try {
           const rawContent = decodeHTMLEntities(content);
           const encoded = plantumlEncoder.encode(rawContent);
-          const plantUMLUrl = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+          const plantUMLUrl =
+            `https://www.plantuml.com/plantuml/svg/${encoded}`;
           return `<div class="plantuml-block my-4">
             <img src="${plantUMLUrl}" alt="PlantUML diagram" 
                  class="plantuml-diagram max-w-full h-auto rounded-lg shadow-lg" 

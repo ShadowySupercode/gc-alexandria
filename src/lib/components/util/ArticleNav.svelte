@@ -12,6 +12,8 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onDestroy, onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
+  import { indexKind } from "$lib/consts";
 
   let { publicationType, indexEvent } = $props<{
     rootId: any;
@@ -27,7 +29,7 @@
     indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
   );
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
-  let isIndexEvent: boolean = $derived(indexEvent.kind === 30040);
+  let isIndexEvent: boolean = $derived(indexEvent.kind === indexKind);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
@@ -105,9 +107,20 @@
     }
   }
 
+  // Check if user came from visualization page
+  let cameFromVisualization = $derived.by(() => {
+    const url = $page.url;
+    return url.searchParams.has('from') && url.searchParams.get('from') === 'visualize';
+  });
+
   function visualizePublication() {
     const eventId = indexEvent.id;
     goto(`/visualize?event=${eventId}`);
+  }
+
+  function returnToVisualization() {
+    // Go back to visualization page
+    goto('/visualize');
   }
 
   let unsubscribe: () => void;
@@ -194,16 +207,29 @@
           <span class="hidden sm:inline">Discussion</span>
         </Button>
       {/if}
-      <Button
-        class="btn-leather !w-auto"
-        outline={true}
-        onclick={visualizePublication}
-        title="Visualize publication network"
-      >
-        <ChartOutline class="!fill-none inline mr-1" /><span
-          class="hidden sm:inline">Visualize Publication</span
+      {#if cameFromVisualization}
+        <Button
+          class="btn-leather !w-auto"
+          outline={true}
+          onclick={returnToVisualization}
+          title="Return to visualization"
         >
-      </Button>
+          <CaretLeftOutline class="!fill-none inline mr-1" /><span
+            class="hidden sm:inline">Return to Visualization</span
+          >
+        </Button>
+      {:else if isIndexEvent}
+        <Button
+          class="btn-leather !w-auto"
+          outline={true}
+          onclick={visualizePublication}
+          title="Visualize publication network"
+        >
+          <ChartOutline class="!fill-none inline mr-1" /><span
+            class="hidden sm:inline">Visualize Publication</span
+          >
+        </Button>
+      {/if}
     </div>
   </div>
 </nav>

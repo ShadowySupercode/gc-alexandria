@@ -18,11 +18,14 @@
 <Navbar class={`Navbar navbar-leather navbar-main ${className}`}>
   <div class="flex flex-grow justify-between">
     <NavBrand href="/">
-      <h1>Alexandria</h1>
+      <div class="flex flex-col">
+        <h1 class="text-2xl font-bold">Alexandria</h1>
+        <p class="text-xs font-semibold tracking-wide">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+      </div>
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Profile isNav={true} pubkey={userState.npub || undefined} />
+    <Profile isNav={true} />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
@@ -31,7 +34,9 @@
     <NavLi href="/visualize">Visualize</NavLi>
     <NavLi href="/start">Getting Started</NavLi>
     <NavLi href="/events">Events</NavLi>
-    <NavLi href="/my-notes">My Notes</NavLi>
+    {#if userState.signedIn}
+      <NavLi href="/my-notes">My Notes</NavLi>
+    {/if}
     <NavLi href="/about">About</NavLi>
     <NavLi href="/contact">Contact</NavLi>
     <NavLi>

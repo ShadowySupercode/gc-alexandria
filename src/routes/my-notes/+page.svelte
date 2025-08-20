@@ -1,34 +1,37 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { userStore } from "$lib/stores/userStore";
-  import { ndkInstance } from "$lib/ndk";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { getTitleTagForEvent } from "$lib/utils/event_input_utils";
   import asciidoctor from "asciidoctor";
   import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor";
+  import { getNdkContext } from "$lib/ndk";
+  
+  const ndk = getNdkContext();
 
-  let events: NDKEvent[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let showTags: Record<string, boolean> = {};
-  let renderedContent: Record<string, string> = {};
+  let events: NDKEvent[] = $state([]);
+  let loading = $state(true);
+  let error: string | null = $state(null);
+  let checkingAuth = $state(true); // Track authentication check state - prevents premature redirects during auth restoration
+  let showTags: Record<string, boolean> = $state({});
+  let renderedContent: Record<string, string> = $state({});
 
   // Tag type and tag filter state
   const tagTypes = ["t", "title", "m", "w"]; // 'm' is MIME type
-  let selectedTagTypes: Set<string> = new Set();
+  let selectedTagTypes: Set<string> = $state(new Set());
   let tagTypeLabels: Record<string, string> = {
     t: "hashtag",
     title: "",
     m: "mime",
     w: "wiki",
   };
-  let tagFilter: Set<string> = new Set();
+  let tagFilter: Set<string> = $state(new Set());
 
   // Unique tags by type
-  let uniqueTagsByType: Record<string, Set<string>> = {};
-  let allUniqueTags: Set<string> = new Set();
+  let uniqueTagsByType: Record<string, Set<string>> = $state({});
+  let allUniqueTags: Set<string> = $state(new Set());
 
   async function fetchMyNotes() {
     loading = true;
@@ -40,7 +43,6 @@
         loading = false;
         return;
       }
-      const ndk = get(ndkInstance);
       if (!ndk) {
         error = "NDK not initialized.";
         loading = false;
@@ -132,7 +134,7 @@
   }
 
   // Compute which tags to show in the filter
-  $: tagsToShow = (() => {
+  let tagsToShow = $derived.by(() => {
     if (selectedTagTypes.size === 0) {
       return [];
     }
@@ -143,10 +145,10 @@
       }
     }
     return Array.from(tags).sort();
-  })();
+  });
 
   // Compute filtered events
-  $: filteredEvents = (() => {
+  let filteredEvents = $derived.by(() => {
     if (selectedTagTypes.size === 0 && tagFilter.size === 0) {
       return events;
     }
@@ -164,9 +166,54 @@
       // Otherwise, event must have at least one of the selected tags
       return relevantTags.some((tag) => tagFilter.has(tag[1]));
     });
-  })();
+  });
 
-  onMount(fetchMyNotes);
+  // AI-NOTE: Check authentication status and redirect if not logged in
+  // Wait for authentication state to be properly initialized before checking
+  let authCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+  
+  $effect(() => {
+    const user = $userStore;
+    
+    // Clear any existing timeout
+    if (authCheckTimeout) {
+      clearTimeout(authCheckTimeout);
+      authCheckTimeout = null;
+    }
+    
+    // If user is signed in, we're good
+    if (user.signedIn) {
+      checkingAuth = false;
+      return;
+    }
+    
+    // If user is not signed in, wait a bit for auth restoration to complete
+    // This handles the case where the page loads before auth restoration finishes
+    authCheckTimeout = setTimeout(() => {
+      const currentUser = get(userStore);
+      if (!currentUser.signedIn) {
+        console.debug('[MyNotes] User not signed in after auth restoration, redirecting to home page');
+        goto('/');
+      } else {
+        checkingAuth = false;
+      }
+    }, 1500); // 1.5 second delay to allow auth restoration to complete
+    
+    // Cleanup function
+    return () => {
+      if (authCheckTimeout) {
+        clearTimeout(authCheckTimeout);
+        authCheckTimeout = null;
+      }
+    };
+  });
+
+  // AI-NOTE: Only fetch notes after authentication is confirmed
+  $effect(() => {
+    if (!checkingAuth && $userStore.signedIn) {
+      fetchMyNotes();
+    }
+  });
 </script>
 
 <div
@@ -183,7 +230,7 @@
             {selectedTagTypes.has(type)
             ? 'border-2 border-amber-800'
             : 'border border-amber-200'}"
-          on:click={() => toggleTagType(type)}
+          onclick={() => toggleTagType(type)}
         >
           {#if type.length === 1}
             <span class="text-amber-400 font-mono">{type}</span>
@@ -200,7 +247,7 @@
       {#if tagsToShow.length > 0}
         <button
           class="ml-2 px-3 py-1 rounded-full text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
-          on:click={clearTagFilter}
+          onclick={clearTagFilter}
           disabled={tagFilter.size === 0}
         >
           Clear Tag Filter
@@ -215,7 +262,7 @@
             {tagFilter.has(tag)
             ? 'border-2 border-amber-800'
             : 'border border-amber-200'}"
-          on:click={() => toggleTag(tag)}
+          onclick={() => toggleTag(tag)}
         >
           <span>{tag}</span>
         </button>
@@ -226,7 +273,9 @@
   <!-- Notes Feed -->
   <div class="flex-1 w-full lg:max-w-5xl lg:ml-auto px-0 lg:px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
-    {#if loading}
+    {#if checkingAuth}
+      <div class="text-gray-500">Checking authentication...</div>
+    {:else if loading}
       <div class="text-gray-500">Loading…</div>
     {:else if error}
       <div class="text-red-500">{error}</div>
@@ -240,7 +289,7 @@
               <div class="font-semibold text-lg truncate flex-1 mr-2">{getTitle(event)}</div>
               <button
                 class="flex-shrink-0 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                on:click={() => toggleTags(event.id)}
+                onclick={() => toggleTags(event.id)}
                 aria-label="Show tags"
               >
                 {showTags[event.id] ? "Hide Tags" : "Show Tags"}

@@ -43,7 +43,7 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
             }
           };
         });
-        
+
         if (result) {
           return true;
         }
@@ -52,7 +52,7 @@ export async function checkCommunity(pubkey: string): Promise<boolean> {
         continue;
       }
     }
-    
+
     // If we get here, no relay found the user
     communityCache.set(pubkey, false);
     return false;

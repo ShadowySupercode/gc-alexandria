@@ -195,7 +195,7 @@ import Asciidoctor from "asciidoctor";
       <Button
         color="light"
         size="sm"
-        on:click={togglePreview}
+        onclick={togglePreview}
         class="flex items-center space-x-1"
       >
         {#if showPreview}
@@ -210,7 +210,7 @@ import Asciidoctor from "asciidoctor";
       <Button
         color="light"
         size="sm"
-        on:click={toggleTutorial}
+        onclick={toggleTutorial}
         class="flex items-center space-x-1"
       >
         <QuestionCircleOutline class="w-4 h-4" />
@@ -223,7 +223,7 @@ import Asciidoctor from "asciidoctor";
       <Button
         color="primary"
         size="sm"
-        on:click={handlePublish}
+        onclick={handlePublish}
       >
         Publish
       </Button>
@@ -240,7 +240,7 @@ import Asciidoctor from "asciidoctor";
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         <Textarea
           bind:value={content}
-          on:input={handleContentChange}
+          oninput={handleContentChange}
           {placeholder}
           class="w-full h-full resize-none font-mono text-sm leading-relaxed p-4 bg-white dark:bg-gray-900 border-none outline-none"
         />

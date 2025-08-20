@@ -1,8 +1,9 @@
-import { get } from "svelte/store";
-import { ndkInstance } from "../ndk.ts";
 import { getMimeTags } from "../utils/mime.ts";
-import { parseAsciiDocWithMetadata, metadataToTags } from "../utils/asciidoc_metadata.ts";
-import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import {
+  metadataToTags,
+  parseAsciiDocWithMetadata,
+} from "../utils/asciidoc_metadata.ts";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
 export interface PublishResult {
@@ -25,6 +26,7 @@ export interface PublishOptions {
  */
 export async function publishZettel(
   options: PublishOptions,
+  ndk: NDK,
 ): Promise<PublishResult> {
   const { content, kind = 30041, onSuccess, onError } = options;
 
@@ -33,9 +35,6 @@ export async function publishZettel(
     onError?.(error);
     return { success: false, error };
   }
-
-  // Get the current NDK instance from the store
-  const ndk = get(ndkInstance);
 
   if (!ndk?.activeUser) {
     const error = "Please log in first";
@@ -97,8 +96,9 @@ export async function publishZettel(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -116,10 +116,9 @@ export async function publishSingleEvent(
     tags: string[][];
     onError?: (error: string) => void;
   },
+  ndk: NDK,
 ): Promise<PublishResult> {
   const { content, kind, tags, onError } = options;
-
-  const ndk = get(ndkInstance);
   if (!ndk?.activeUser) {
     const error = 'Please log in first';
     onError?.(error);
@@ -204,18 +203,18 @@ export async function publishSingleEvent(
  */
 export async function publishMultipleZettels(
   options: PublishOptions,
+  ndk: NDK,
 ): Promise<PublishResult[]> {
   const { content, kind = 30041, onError } = options;
 
   if (!content.trim()) {
-    const error = 'Please enter some content';
+    const error = "Please enter some content";
     onError?.(error);
     return [{ success: false, error }];
   }
 
-  const ndk = get(ndkInstance);
   if (!ndk?.activeUser) {
-    const error = 'Please log in first';
+    const error = "Please log in first";
     onError?.(error);
     return [{ success: false, error }];
   }
@@ -223,12 +222,14 @@ export async function publishMultipleZettels(
   try {
     const parsed = parseAsciiDocWithMetadata(content);
     if (parsed.sections.length === 0) {
-      throw new Error('No valid sections found in content');
+      throw new Error("No valid sections found in content");
     }
 
-    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map((r) => r.url);
+    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map((r) =>
+      r.url
+    );
     if (allRelayUrls.length === 0) {
-      throw new Error('No relays available in NDK pool');
+      throw new Error("No relays available in NDK pool");
     }
     const relaySet = NDKRelaySet.fromRelayUrls(allRelayUrls, ndk);
 
@@ -257,31 +258,42 @@ export async function publishMultipleZettels(
           results.push({ success: true, eventId: ndkEvent.id });
           publishedEvents.push(ndkEvent);
         } else {
-          results.push({ success: false, error: 'Failed to publish to any relays' });
+          results.push({
+            success: false,
+            error: "Failed to publish to any relays",
+          });
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage = err instanceof Error
+          ? err.message
+          : "Unknown error";
         results.push({ success: false, error: errorMessage });
       }
     }
     // Debug: extract and log 'e' and 'a' tags from all published events
-    publishedEvents.forEach(ev => {
+    publishedEvents.forEach((ev) => {
       // Extract d-tag from tags
-      const dTagEntry = ev.tags.find(t => t[0] === 'd');
-      const dTag = dTagEntry ? dTagEntry[1] : '';
+      const dTagEntry = ev.tags.find((t) => t[0] === "d");
+      const dTag = dTagEntry ? dTagEntry[1] : "";
       const aTag = `${ev.kind}:${ev.pubkey}:${dTag}`;
       console.log(`Event ${ev.id} tags:`);
-      console.log('  e:', ev.id);
-      console.log('  a:', aTag);
+      console.log("  e:", ev.id);
+      console.log("  a:", aTag);
       // Print nevent and naddr using nip19
       const nevent = nip19.neventEncode({ id: ev.id });
-      const naddr = nip19.naddrEncode({ kind: ev.kind, pubkey: ev.pubkey, identifier: dTag });
-      console.log('  nevent:', nevent);
-      console.log('  naddr:', naddr);
+      const naddr = nip19.naddrEncode({
+        kind: ev.kind,
+        pubkey: ev.pubkey,
+        identifier: dTag,
+      });
+      console.log("  nevent:", nevent);
+      console.log("  naddr:", naddr);
     });
     return results;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return [{ success: false, error: errorMessage }];
   }

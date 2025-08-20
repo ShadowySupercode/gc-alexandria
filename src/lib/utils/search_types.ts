@@ -27,6 +27,9 @@ export interface NostrProfile {
   website?: string;
   lud16?: string;
   pubkey?: string;
+  isInUserLists?: boolean;
+  listKinds?: number[];
+  created_at?: number; // AI-NOTE: 2025-01-24 - Timestamp for proper date display
 }
 
 /**
@@ -61,6 +64,8 @@ export type SearchSubscriptionType = "d" | "t" | "n";
 export interface SearchFilter {
   filter: Filter;
   subscriptionType: string;
+  searchTerm?: string; // AI-NOTE: 2025-01-24 - Optional search term for client-side filtering
+  preloadedEvents?: NDKEvent[]; // AI-NOTE: 2025-01-24 - Preloaded events for profile searches
 }
 
 /**

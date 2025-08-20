@@ -4,7 +4,6 @@
     Textarea,
     Toolbar,
     ToolbarButton,
-    Tooltip,
   } from "flowbite-svelte";
   import {
     CodeOutline,
@@ -13,8 +12,11 @@
   } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { pharosInstance } from "$lib/parser";
-  import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
+  import { getNdkContext } from "$lib/ndk";
+  
+  const ndk = getNdkContext();
+
   let someIndexValue = 0;
 
   // TODO: Prompt user to sign in before editing.
@@ -26,7 +28,7 @@
 
   const showPreview = () => {
     try {
-      $pharosInstance ??= new Pharos($ndkInstance);
+      $pharosInstance ??= new Pharos(ndk);
       $pharosInstance.reset();
       $pharosInstance.parse(editorText);
     } catch (e) {
@@ -53,7 +55,7 @@
       return;
     }
 
-    $pharosInstance.generate($ndkInstance.activeUser?.pubkey!);
+    $pharosInstance.generate(ndk.activeUser?.pubkey!);
     goto("/new/compose");
   };
 </script>
@@ -71,10 +73,10 @@
           bind:value={editorText}
         >
           <Toolbar slot="header" embedded>
-            <ToolbarButton name="Preview" on:click={showPreview}>
+            <ToolbarButton name="Preview" onclick={showPreview}>
               <EyeSolid class="w-6 h-6" />
             </ToolbarButton>
-            <ToolbarButton name="Review" slot="end" on:click={prepareReview}>
+            <ToolbarButton name="Review" slot="end" onclick={prepareReview}>
               <PaperPlaneOutline class="w=6 h-6 rotate-90" />
             </ToolbarButton>
           </Toolbar>
@@ -87,10 +89,10 @@
         <Toolbar
           class="toolbar-leather rounded-b-none bg-gray-200 dark:bg-gray-800"
         >
-          <ToolbarButton name="Edit" on:click={hidePreview}>
+          <ToolbarButton name="Edit" onclick={hidePreview}>
             <CodeOutline class="w-6 h-6" />
           </ToolbarButton>
-          <ToolbarButton name="Review" slot="end" on:click={prepareReview}>
+          <ToolbarButton name="Review" slot="end" onclick={prepareReview}>
             <PaperPlaneOutline class="w=6 h-6 rotate-90" />
           </ToolbarButton>
         </Toolbar>

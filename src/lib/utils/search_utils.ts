@@ -106,5 +106,8 @@ export function createProfileFromEvent(event: NDKEvent, profileData: any): any {
     website: profileData.website,
     lud16: profileData.lud16,
     pubkey: event.pubkey,
+    created_at: event.created_at, // AI-NOTE: 2025-01-24 - Preserve timestamp for proper date display
+    isInUserLists: profileData.isInUserLists, // AI-NOTE: 2025-01-24 - Preserve user list information
+    listKinds: profileData.listKinds, // AI-NOTE: 2025-01-24 - Preserve list kinds information
   };
 }

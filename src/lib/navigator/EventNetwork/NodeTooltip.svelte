@@ -7,12 +7,12 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getMatchingTags } from "$lib/utils/nostrUtils";
+  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
   import {
     getDisplayNameSync,
     replacePubkeysWithDisplayNames,
-  } from "$lib/utils/profileCache";
+  } from "$lib/utils/npubCache";
   import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
 
   // Component props
@@ -47,6 +47,11 @@
    * Gets the author name from the event tags
    */
   function getAuthorTag(node: NetworkNode): string {
+    // For person anchor nodes, use the pubkey directly
+    if (node.isPersonAnchor && node.pubkey) {
+      return getDisplayNameSync(node.pubkey);
+    }
+    
     if (node.event) {
       const authorTags = getMatchingTags(node.event, "author");
       if (authorTags.length > 0) {
@@ -98,9 +103,28 @@
    */
   function getEventUrl(node: NetworkNode): string {
     if (isPublicationEvent(node.kind)) {
-      return `/publication?id=${node.id}`;
+      return `/publication/id/${node.id}?from=visualize`;
     }
-    return `/events?id=${node.id}`;
+    // For tag anchor nodes, only create URLs for supported tag types
+    if (node.isTagAnchor && node.tagType && node.tagValue) {
+      // Only create URLs for supported parameters: t, n, d
+      if (node.tagType === 't' || node.tagType === 'n' || node.tagType === 'd') {
+        return `/events?${node.tagType}=${encodeURIComponent(node.tagValue)}`;
+      }
+      // For other tag types, don't create a URL
+      return '';
+    }
+    // For person anchor nodes, use the pubkey to create an npub
+    if (node.isPersonAnchor && node.pubkey) {
+      const npub = toNpub(node.pubkey);
+      return `/events?id=${npub}`;
+    }
+    // For regular events, use the event ID
+    if (node.id && !node.id.startsWith('tag-anchor-')) {
+      return `/events?id=${node.id}`;
+    }
+    // For other nodes, don't create a URL
+    return '';
   }
 
   /**
@@ -188,9 +212,15 @@
   <div class="tooltip-content">
     <!-- Title with link -->
     <div class="tooltip-title">
-      <a href="/publication?id={node.id}" class="tooltip-title-link">
-        {getLinkText(node)}
-      </a>
+      {#if getEventUrl(node)}
+        <a href={getEventUrl(node)} class="tooltip-title-link">
+          {getLinkText(node)}
+        </a>
+      {:else}
+        <span class="tooltip-title-text">
+          {getLinkText(node)}
+        </span>
+      {/if}
     </div>
 
     <!-- Node type and kind -->
@@ -206,12 +236,18 @@
     </div>
 
     <!-- Pub Author -->
-    <div class="tooltip-metadata">
-      Pub Author: {getAuthorTag(node)}
-    </div>
+    {#if !node.isPersonAnchor}
+      <div class="tooltip-metadata">
+        Pub Author: {getAuthorTag(node)}
+      </div>
+    {/if}
 
     <!-- Published by (from node.author) -->
-    {#if node.author}
+    {#if node.isPersonAnchor}
+      <div class="tooltip-metadata">
+        Person: {getAuthorTag(node)}
+      </div>
+    {:else if node.author}
       <div class="tooltip-metadata">
         published_by: {node.author}
       </div>

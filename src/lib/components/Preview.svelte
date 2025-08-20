@@ -22,6 +22,7 @@
   import BlogHeader from "$components/cards/BlogHeader.svelte";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { onMount } from "svelte";
+  import LazyImage from "$components/util/LazyImage.svelte";
 
   // TODO: Fix move between parents.
 
@@ -250,8 +251,14 @@
 
 {#snippet coverImage(rootId: string, index: number, depth: number)}
   {#if hasCoverImage(rootId, index)}
+    {@const event = blogEntries[index][1]}
     <div class="coverImage depth-{depth}">
-      <img src={hasCoverImage(rootId, index)} alt={title} />
+      <LazyImage 
+        src={hasCoverImage(rootId, index)} 
+        alt={title || "Cover image"} 
+        eventId={event?.id || rootId}
+        className="w-full h-full object-cover"
+      />
     </div>
   {/if}
 {/snippet}
