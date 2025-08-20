@@ -100,7 +100,8 @@
   /* blockquote; prose and poetry quotes */
   .publication-leather .quoteblock,
   .publication-leather .verseblock {
-    @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-700;
+    @apply p-4 my-4 border-s-4 rounded border-primary-300 bg-primary-50
+      dark:border-primary-500 dark:bg-primary-700;
   }
 
   .publication-leather .verseblock pre.content {
@@ -154,7 +155,8 @@
   }
 
   .publication-leather .admonitionblock.tip {
-    @apply rounded overflow-hidden border border-success-100 dark:border-success-800;
+    @apply rounded overflow-hidden border border-success-100
+      dark:border-success-800;
   }
 
   .publication-leather .admonitionblock.tip .icon,
@@ -172,7 +174,8 @@
   }
 
   .publication-leather .admonitionblock.important {
-    @apply rounded overflow-hidden border border-primary-200 dark:border-primary-700;
+    @apply rounded overflow-hidden border border-primary-200
+      dark:border-primary-700;
   }
 
   .publication-leather .admonitionblock.important .icon,
@@ -181,7 +184,8 @@
   }
 
   .publication-leather .admonitionblock.caution {
-    @apply rounded overflow-hidden border border-warning-200 dark:border-warning-700;
+    @apply rounded overflow-hidden border border-warning-200
+      dark:border-warning-700;
   }
 
   .publication-leather .admonitionblock.caution .icon,
@@ -190,7 +194,8 @@
   }
 
   .publication-leather .admonitionblock.warning {
-    @apply rounded overflow-hidden border border-danger-200 dark:border-danger-800;
+    @apply rounded overflow-hidden border border-danger-200
+      dark:border-danger-800;
   }
 
   .publication-leather .admonitionblock.warning .icon,
@@ -201,7 +206,7 @@
   /* listingblock, literalblock */
   .publication-leather .listingblock,
   .publication-leather .literalblock {
-    @apply p-4 rounded  bg-highlight dark:bg-primary-700;
+    @apply p-4 rounded bg-highlight dark:bg-primary-700;
   }
 
   .publication-leather .sidebarblock .title,
@@ -254,7 +259,8 @@
   @screen lg {
     @media (hover: hover) {
       .blog .discreet .card-leather:not(:hover) {
-        @apply bg-primary-50 dark:bg-primary-1000 opacity-75 transition duration-500 ease-in-out;
+        @apply bg-primary-50 dark:bg-primary-1000 opacity-75 transition
+          duration-500 ease-in-out;
       }
       .blog .discreet .group {
         @apply bg-transparent;

@@ -3,6 +3,7 @@
 export const wikiKind = 30818;
 export const indexKind = 30040;
 export const zettelKinds = [30041, 30818, 30023];
+export const repostKinds = [6, 16];
 
 export const communityRelays = [
   "wss://theforest.nostr1.com",
@@ -16,7 +17,7 @@ export const searchRelays = [
   "wss://nostr.wine",
   "wss://relay.damus.io",
   "wss://relay.nostr.band",
-  "wss://freelay.sovbit.host"
+  "wss://freelay.sovbit.host",
 ];
 
 export const secondaryRelays = [
@@ -33,8 +34,6 @@ export const secondaryRelays = [
 export const anonymousRelays = [
   "wss://freelay.sovbit.host",
   "wss://thecitadel.nostr1.com",
-  "wss://relay.damus.io",
-  "wss://relay.nostr.band"
 ];
 
 export const lowbandwidthRelays = [
@@ -44,8 +43,9 @@ export const lowbandwidthRelays = [
 ];
 
 export const localRelays: string[] = [
-  "wss://localhost:8080",
-  "wss://localhost:4869",
+  "ws://localhost:8080",
+  "ws://localhost:4869",
+  "ws://localhost:3334",
 ];
 
 export enum FeedType {

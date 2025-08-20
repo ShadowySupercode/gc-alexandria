@@ -247,7 +247,7 @@
               >
                 {showTagAnchors ? 'ON' : 'OFF'}
               </button>
-              <span class="text-sm">Show Tag Anchors</span>
+                <span class="text-sm text-gray-700 dark:text-gray-300">Show Tag Anchors</span>
             </div>
             
             {#if showTagAnchors}
@@ -317,7 +317,7 @@
                       bind:group={tagSortMode}
                       class="w-3 h-3"
                     />
-                    <span class="text-xs">Count</span>
+                    <span class="text-xs text-gray-700 dark:text-gray-300">Count</span>
                   </label>
                   <label class="flex items-center gap-1 cursor-pointer">
                     <input
@@ -327,7 +327,7 @@
                       bind:group={tagSortMode}
                       class="w-3 h-3"
                     />
-                    <span class="text-xs">Alphabetical</span>
+                    <span class="text-xs text-gray-700 dark:text-gray-300">Alphabetical</span>
                   </label>
                 </div>
               </div>
@@ -343,7 +343,7 @@
                     title={isDisabled ? `Click to show ${tag.label}` : `Click to hide ${tag.label}`}
                     aria-pressed={!isDisabled}
                   >
-                    <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate max-w-32" style="opacity: {isDisabled ? 0.5 : 1};" title="{tag.label} ({tag.count})">
                       {tag.label} ({tag.count})
                     </span>
                     <div class="flex items-center">
@@ -395,12 +395,12 @@
                 >
                   {showPersonNodes ? 'ON' : 'OFF'}
                 </button>
-                <span class="text-sm">Show Person Nodes</span>
+                <span class="text-sm text-gray-700 dark:text-gray-300">Show Person Nodes</span>
               </div>
               
               {#if showPersonNodes}
                 <div class="flex items-center space-x-3 text-xs">
-                  <label class="flex items-center space-x-1">
+                  <label class="flex items-center space-x-1 text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
                       bind:checked={showSignedBy}
@@ -409,7 +409,7 @@
                     />
                     <span>Signed by</span>
                   </label>
-                  <label class="flex items-center space-x-1">
+                  <label class="flex items-center space-x-1 text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
                       bind:checked={showReferenced}
@@ -432,13 +432,13 @@
                   {/if}
                 </p>
                 
-                <label class="flex items-center gap-1 cursor-pointer">
+                <label class="flex items-center gap-1 cursor-pointer text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     onclick={invertPersonSelection}
                     class="w-3 h-3"
                   />
-                  <span class="text-xs">Invert Selection</span>
+                  <span class="text-xs text-gray-700 dark:text-gray-300">Invert Selection</span>
                 </label>
               </div>
               
@@ -466,8 +466,8 @@
                         style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
                       ></span>
                     </div>
-                    <span class="text-xs text-gray-700 dark:text-gray-300" style="opacity: {isDisabled ? 0.5 : 1};">
-                      {person.displayName || person.pubkey.substring(0, 8)}
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{person.displayName || person.pubkey}">
+                      {person.displayName || person.pubkey}
                     </span>
                   </button>
                 {/each}

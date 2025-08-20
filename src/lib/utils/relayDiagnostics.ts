@@ -42,9 +42,8 @@ export async function testRelay(url: string): Promise<RelayDiagnostic> {
           responseTime: Date.now() - startTime,
         });
       }
-    }
+    };
   });
-
 }
 
 /**
@@ -93,7 +92,9 @@ export function logRelayDiagnostics(diagnostics: RelayDiagnostic[]): void {
   console.log(`✅ Working relays (${working.length}):`);
   working.forEach((d) => {
     console.log(
-      `  - ${d.url}${d.requiresAuth ? " (requires auth)" : ""}${d.responseTime ? ` (${d.responseTime}ms)` : ""}`,
+      `  - ${d.url}${d.requiresAuth ? " (requires auth)" : ""}${
+        d.responseTime ? ` (${d.responseTime}ms)` : ""
+      }`,
     );
   });
 

@@ -151,7 +151,13 @@
 
 /* Transition utilities */
 .transition-colors {
-  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, text-decoration-color 0.15s ease-in-out, fill 0.15s ease-in-out, stroke 0.15s ease-in-out;
+  transition:
+    color 0.15s ease-in-out,
+    background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out,
+    text-decoration-color 0.15s ease-in-out,
+    fill 0.15s ease-in-out,
+    stroke 0.15s ease-in-out;
 }
 
 .transition-all {

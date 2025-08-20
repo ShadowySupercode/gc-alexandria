@@ -4,7 +4,6 @@
     Textarea,
     Toolbar,
     ToolbarButton,
-    Tooltip,
   } from "flowbite-svelte";
   import {
     CodeOutline,
@@ -13,8 +12,11 @@
   } from "flowbite-svelte-icons";
   import Preview from "$lib/components/Preview.svelte";
   import Pharos, { pharosInstance } from "$lib/parser";
-  import { ndkInstance } from "$lib/ndk";
   import { goto } from "$app/navigation";
+  import { getNdkContext } from "$lib/ndk";
+  
+  const ndk = getNdkContext();
+
   let someIndexValue = 0;
 
   // TODO: Prompt user to sign in before editing.
@@ -26,7 +28,7 @@
 
   const showPreview = () => {
     try {
-      $pharosInstance ??= new Pharos($ndkInstance);
+      $pharosInstance ??= new Pharos(ndk);
       $pharosInstance.reset();
       $pharosInstance.parse(editorText);
     } catch (e) {
@@ -53,7 +55,7 @@
       return;
     }
 
-    $pharosInstance.generate($ndkInstance.activeUser?.pubkey!);
+    $pharosInstance.generate(ndk.activeUser?.pubkey!);
     goto("/new/compose");
   };
 </script>

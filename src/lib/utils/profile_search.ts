@@ -1,22 +1,24 @@
-import { ndkInstance, activeInboxRelays } from "../ndk.ts";
-import { getUserMetadata, getNpubFromNip05 } from "./nostrUtils.ts";
-import NDK, { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
+import { getNpubFromNip05, getUserMetadata, fetchEventWithFallback } from "./nostrUtils.ts";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
-import { searchRelays, communityRelays, secondaryRelays } from "../consts.ts";
+import { communityRelays, searchRelays, secondaryRelays, anonymousRelays } from "../consts.ts";
 import { get } from "svelte/store";
 import type { NostrProfile, ProfileSearchResult } from "./search_types.ts";
 import {
+  createProfileFromEvent,
   fieldMatches,
   nip05Matches,
   normalizeSearchTerm,
-  createProfileFromEvent,
 } from "./search_utils.ts";
+import { nip19 } from "nostr-tools";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
  */
 export async function searchProfiles(
   searchTerm: string,
+  ndk: NDK,
 ): Promise<ProfileSearchResult> {
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
 
@@ -46,7 +48,6 @@ export async function searchProfiles(
     return { profiles, Status: {} };
   }
 
-  const ndk = get(ndkInstance);
   if (!ndk) {
     console.error("NDK not initialized");
     throw new Error("NDK not initialized");
@@ -63,7 +64,7 @@ export async function searchProfiles(
       normalizedSearchTerm.startsWith("nprofile")
     ) {
       try {
-        const metadata = await getUserMetadata(normalizedSearchTerm);
+        const metadata = await getUserMetadata(normalizedSearchTerm, ndk);
         if (metadata) {
           foundProfiles = [metadata];
         }
@@ -76,10 +77,30 @@ export async function searchProfiles(
       try {
         const npub = await getNpubFromNip05(normalizedNip05);
         if (npub) {
-          const metadata = await getUserMetadata(npub);
-          const profile: NostrProfile = {
+          const metadata = await getUserMetadata(npub, ndk);
+          
+          // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+          let created_at: number | undefined = undefined;
+          try {
+            const decoded = nip19.decode(npub);
+            if (decoded.type === "npub") {
+              const pubkey = decoded.data as string;
+              const originalEvent = await fetchEventWithFallback(ndk, {
+                kinds: [0],
+                authors: [pubkey],
+              });
+              if (originalEvent && originalEvent.created_at) {
+                created_at = originalEvent.created_at;
+              }
+            }
+          } catch (e) {
+            console.warn("profile_search: Failed to fetch original event timestamp:", e);
+          }
+          
+          const profile: NostrProfile & { created_at?: number } = {
             ...metadata,
             pubkey: npub,
+            created_at: created_at,
           };
           foundProfiles = [profile];
         }
@@ -89,7 +110,7 @@ export async function searchProfiles(
     } else {
       // Try NIP-05 search first (faster than relay search)
       console.log("Starting NIP-05 search for:", normalizedSearchTerm);
-      foundProfiles = await searchNip05Domains(normalizedSearchTerm);
+      foundProfiles = await searchNip05Domains(normalizedSearchTerm, ndk);
       console.log(
         "NIP-05 search completed, found:",
         foundProfiles.length,
@@ -142,6 +163,7 @@ export async function searchProfiles(
  */
 async function searchNip05Domains(
   searchTerm: string,
+  ndk: NDK,
 ): Promise<NostrProfile[]> {
   const foundProfiles: NostrProfile[] = [];
 
@@ -184,10 +206,30 @@ async function searchNip05Domains(
         "NIP-05 search: SUCCESS! found npub for gitcitadel.com:",
         npub,
       );
-      const metadata = await getUserMetadata(npub);
-      const profile: NostrProfile = {
+      const metadata = await getUserMetadata(npub, ndk);
+      
+      // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+      let created_at: number | undefined = undefined;
+      try {
+        const decoded = nip19.decode(npub);
+        if (decoded.type === "npub") {
+          const pubkey = decoded.data as string;
+          const originalEvent = await fetchEventWithFallback(ndk, {
+            kinds: [0],
+            authors: [pubkey],
+          });
+          if (originalEvent && originalEvent.created_at) {
+            created_at = originalEvent.created_at;
+          }
+        }
+      } catch (e) {
+        console.warn("profile_search: Failed to fetch original event timestamp:", e);
+      }
+      
+      const profile: NostrProfile & { created_at?: number } = {
         ...metadata,
         pubkey: npub,
+        created_at: created_at,
       };
       console.log(
         "NIP-05 search: created profile for gitcitadel.com:",
@@ -216,10 +258,30 @@ async function searchNip05Domains(
       const npub = await getNpubFromNip05(nip05Address);
       if (npub) {
         console.log("NIP-05 search: found npub for", nip05Address, ":", npub);
-        const metadata = await getUserMetadata(npub);
-        const profile: NostrProfile = {
+        const metadata = await getUserMetadata(npub, ndk);
+        
+        // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+        let created_at: number | undefined = undefined;
+        try {
+          const decoded = nip19.decode(npub);
+          if (decoded.type === "npub") {
+            const pubkey = decoded.data as string;
+            const originalEvent = await fetchEventWithFallback(ndk, {
+              kinds: [0],
+              authors: [pubkey],
+            });
+            if (originalEvent && originalEvent.created_at) {
+              created_at = originalEvent.created_at;
+            }
+          }
+        } catch (e) {
+          console.warn("profile_search: Failed to fetch original event timestamp:", e);
+        }
+        
+        const profile: NostrProfile & { created_at?: number } = {
           ...metadata,
           pubkey: npub,
+          created_at: created_at,
         };
         console.log(
           "NIP-05 search: created profile for",
@@ -252,7 +314,7 @@ async function searchNip05Domains(
 }
 
 /**
- * Quick relay search with short timeout
+ * Search for profiles across all available relays
  */
 async function quickRelaySearch(
   searchTerm: string,
@@ -264,18 +326,29 @@ async function quickRelaySearch(
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
   console.log("Normalized search term for relay search:", normalizedSearchTerm);
 
-  // Use search relays (optimized for profiles) + user's inbox relays + community relays
-  const userInboxRelays = get(activeInboxRelays);
-  const quickRelayUrls = [
-    ...searchRelays,           // Dedicated profile search relays
-    ...userInboxRelays,        // User's personal inbox relays  
-    ...communityRelays,        // Community relays
-    ...secondaryRelays         // Secondary relays as fallback
-  ];
+  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive profile discovery
+  // This ensures we don't miss profiles due to stale cache or limited relay coverage
   
+  // Get all available relays from NDK pool (most comprehensive)
+  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) => r.url) as string[];
+  const userInboxRelays = get(activeInboxRelays);
+  const userOutboxRelays = get(activeOutboxRelays);
+  
+  // Combine ALL available relays for maximum coverage
+  const allRelayUrls = [
+    ...poolRelays, // All NDK pool relays
+    ...userInboxRelays, // User's personal inbox relays
+    ...userOutboxRelays, // User's personal outbox relays
+    ...searchRelays, // Dedicated profile search relays
+    ...communityRelays, // Community relays
+    ...secondaryRelays, // Secondary relays as fallback
+    ...anonymousRelays, // Anonymous relays as additional fallback
+  ];
+
   // Deduplicate relay URLs
-  const uniqueRelayUrls = [...new Set(quickRelayUrls)];
-  console.log("Using relays for profile search:", uniqueRelayUrls);
+  const uniqueRelayUrls = [...new Set(allRelayUrls)];
+  console.log("Using ALL available relays for profile search:", uniqueRelayUrls);
+  console.log("Total relays for profile search:", uniqueRelayUrls.length);
 
   // Create relay sets for parallel search
   const relaySets = uniqueRelayUrls
@@ -288,6 +361,8 @@ async function quickRelaySearch(
       }
     })
     .filter(Boolean);
+
+  console.log("Created relay sets for profile search:", relaySets.length);
 
   // Search all relays in parallel with short timeout
   const searchPromises = relaySets.map((relaySet, index) => {
@@ -312,8 +387,8 @@ async function quickRelaySearch(
         try {
           if (!event.content) return;
           const profileData = JSON.parse(event.content);
-          const displayName =
-            profileData.displayName || profileData.display_name || "";
+          const displayName = profileData.displayName ||
+            profileData.display_name || "";
           const display_name = profileData.display_name || "";
           const name = profileData.name || "";
           const nip05 = profileData.nip05 || "";
@@ -345,6 +420,7 @@ async function quickRelaySearch(
               nip05: profileData.nip05,
               pubkey: event.pubkey,
               searchTerm: normalizedSearchTerm,
+              relay: uniqueRelayUrls[index],
             });
             const profile = createProfileFromEvent(event, profileData);
 
@@ -363,7 +439,9 @@ async function quickRelaySearch(
 
       sub.on("eose", () => {
         console.log(
-          `Relay ${index + 1} (${uniqueRelayUrls[index]}) search completed, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+          `Relay ${index + 1} (${
+            uniqueRelayUrls[index]
+          }) search completed, processed ${eventCount} events, found ${foundInRelay.length} matches`,
         );
         resolve(foundInRelay);
       });
@@ -371,7 +449,9 @@ async function quickRelaySearch(
       // Short timeout for quick search
       setTimeout(() => {
         console.log(
-          `Relay ${index + 1} (${uniqueRelayUrls[index]}) search timed out after 1.5s, processed ${eventCount} events, found ${foundInRelay.length} matches`,
+          `Relay ${index + 1} (${
+            uniqueRelayUrls[index]
+          }) search timed out after 1.5s, processed ${eventCount} events, found ${foundInRelay.length} matches`,
         );
         sub.stop();
         resolve(foundInRelay);

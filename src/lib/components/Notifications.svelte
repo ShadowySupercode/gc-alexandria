@@ -1,39 +1,32 @@
 <script lang="ts">
   import "../../styles/notifications.css";
-  import { onMount } from "svelte";
   import { Heading, P } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte";
-  import { ndkInstance, activeInboxRelays } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { get } from "svelte/store";
   import { nip19 } from "nostr-tools";
-  import { communityRelays, localRelays, anonymousRelays, searchRelays } from "$lib/consts";
-  import { createKind24Reply, getKind24RelaySet } from "$lib/utils/kind24_utils";
+  import { anonymousRelays } from "$lib/consts";
+  import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
-  import RelayDisplay from "$lib/components/RelayDisplay.svelte";
-  import RelayInfoList from "$lib/components/RelayInfoList.svelte";
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { PlusOutline, ReplyOutline } from "flowbite-svelte-icons";
+  import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
-    truncateContent, 
-    truncateRenderedContent, 
-    parseContent, 
-    parseRepostContent,
-    renderQuotedContent, 
     getNotificationType, 
-    fetchAuthorProfiles 
-  } from "$lib/utils/notification_utils";
+    fetchAuthorProfiles,
+    quotedContent,
+  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
-  import { toNpub, getUserMetadata, NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import { getNdkContext } from "$lib/ndk";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // Handle navigation events from quoted messages
   $effect(() => {
@@ -60,7 +53,6 @@
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
   let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
   let filteredByUser = $state<string | null>(null);
-
   
   // New Message Modal state
   let showNewMessageModal = $state(false);
@@ -69,7 +61,6 @@
   let newMessageRelays = $state<string[]>([]);
   let isComposingMessage = $state(false);
   let replyToMessage = $state<NDKEvent | null>(null);
-  let quotedContent = $state<string>("");
   
   // Recipient Selection Modal state
   let showRecipientModal = $state(false);
@@ -166,8 +157,6 @@
     filteredByUser = null;
   }
 
-
-
   // AI-NOTE: New Message Modal Functions
   function openNewMessageModal(messageToReplyTo?: NDKEvent) {
     showNewMessageModal = true;
@@ -178,12 +167,7 @@
     replyToMessage = messageToReplyTo || null;
     
     // If replying, set up the quote and pre-select all original recipients plus sender
-    if (messageToReplyTo) {
-      // Store clean content for UI display (no markdown formatting)
-      quotedContent = messageToReplyTo.content.length > 200 
-        ? messageToReplyTo.content.slice(0, 200) + "..." 
-        : messageToReplyTo.content;
-      
+    if (messageToReplyTo) {    
       // Collect all recipients: original sender + all p-tag recipients
       const recipientPubkeys = new Set<string>();
       
@@ -218,8 +202,6 @@
       }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
       
       console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
-    } else {
-      quotedContent = "";
     }
   }
 
@@ -230,7 +212,6 @@
     newMessageRelays = [];
     isComposingMessage = false;
     replyToMessage = null;
-    quotedContent = "";
   }
 
   // AI-NOTE: Recipient Selection Modal Functions
@@ -282,7 +263,7 @@
 
     try {
       console.log("Recipient search promise created, waiting for result...");
-      const result = await searchProfiles(recipientSearch.trim());
+      const result = await searchProfiles(recipientSearch.trim(), ndk);
       console.log("Recipient search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
@@ -407,7 +388,7 @@
       
       // Get relay sets for all recipients and combine them
       const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey)
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
       );
       const relaySets = await Promise.all(relaySetPromises);
       
@@ -486,7 +467,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
       
       const userStoreValue = get(userStore);
@@ -523,7 +503,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 100);
 
-      authorProfiles = await fetchAuthorProfiles(notifications);
+      authorProfiles = await fetchAuthorProfiles(notifications, ndk);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -540,7 +520,6 @@
     error = null;
 
     try {
-      const ndk = get(ndkInstance);
       if (!ndk) throw new Error("No NDK instance available");
 
       const userStoreValue = get(userStore);
@@ -571,7 +550,7 @@
         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
         .slice(0, 200);
 
-      authorProfiles = await fetchAuthorProfiles(publicMessages);
+      authorProfiles = await fetchAuthorProfiles(publicMessages, ndk);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -579,8 +558,6 @@
       loading = false;
     }
   }
-
-
 
   // Check if user is viewing their own profile
   $effect(() => {
@@ -606,8 +583,6 @@
       authorProfiles.clear();
     }
   });
-
-
 
   // AI-NOTE: Refactored to avoid blocking $effect with async operations
   // Calculate relay set when recipients change - non-blocking approach
@@ -648,7 +623,7 @@
       
       // Get relay sets for all recipients and combine them
       const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey)
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
       );
       
       const relaySets = await Promise.all(relaySetPromises);
@@ -662,7 +637,6 @@
       // If no relays found from NIP-65, use fallback relays
       if (uniqueRelays.length === 0) {
         console.log("[Relay Effect] No NIP-65 relays found, using fallback");
-        const ndk = get(ndkInstance);
         if (ndk) {
           const userStoreValue = get(userStore);
           const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -678,7 +652,6 @@
     } catch (error) {
       console.error("[Relay Effect] Error getting relay set:", error);
       console.log("[Relay Effect] Using fallback relays due to error");
-      const ndk = get(ndkInstance);
       if (ndk) {
         const userStoreValue = get(userStore);
         const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
@@ -746,7 +719,7 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || filteredByUser?.slice(0, 8) + "..." + filteredByUser?.slice(-4) || "Unknown"}
+                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -775,14 +748,12 @@
                         />
                       {:else}
                         <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-                            {(authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 1)).toUpperCase()}
-                          </span>
+                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </div>
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || message.pubkey.slice(0, 8) + "..." + message.pubkey.slice(-4)}
+                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
                         </span>
                       </div>
                     </div>
@@ -840,21 +811,13 @@
                     
                     {#if message.getMatchingTags("q").length > 0}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        {#await renderQuotedContent(message, publicMessages) then quotedHtml}
-                          {@html quotedHtml}
-                        {:catch}
-                          <!-- Fallback if quoted content fails to render -->
-                        {/await}
+                        {@render quotedContent(message, publicMessages, ndk)}
                       </div>
                     {/if}
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          {#await ((message.kind === 6 || message.kind === 16) ? parseRepostContent(message.content) : parseContent(message.content)) then parsedContent}
-                            {@html parsedContent}
-                          {:catch}
-                            {@html message.content}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={message.id} nestingLevel={0} />
                         </div>
                       </div>
                     {/if}
@@ -897,14 +860,12 @@
                         />
                       {:else}
                         <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
-                            {(authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 1)).toUpperCase()}
-                          </span>
+                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </div>
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || notification.pubkey.slice(0, 8) + "..." + notification.pubkey.slice(-4)}
+                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
                         </span>
                       </div>
                     </div>
@@ -933,11 +894,7 @@
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          {#await ((notification.kind === 6 || notification.kind === 16) ? parseRepostContent(notification.content) : parseContent(notification.content)) then parsedContent}
-                            {@html parsedContent}
-                          {:catch}
-                            {@html truncateContent(notification.content)}
-                          {/await}
+                          <EmbeddedEvent nostrIdentifier={notification.id} nestingLevel={0} />
                         </div>
                       </div>
                     {/if}
@@ -968,15 +925,11 @@
       </div>
       
       <!-- Quoted Content Display -->
-      {#if quotedContent}
+      {#if replyToMessage}
         <div class="quoted-content mb-4 p-3 rounded-r-lg">
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
-            {#await parseContent(quotedContent) then parsedContent}
-              {@html parsedContent}
-            {:catch}
-              {@html quotedContent}
-            {/await}
+            <EmbeddedEvent nostrIdentifier={replyToMessage.id} nestingLevel={0} />
           </div>
   </div>
       {/if}
@@ -1009,7 +962,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                @{recipient.displayName || recipient.name || recipient.pubkey?.slice(0, 8) + "..." + recipient.pubkey?.slice(-4) || "Unknown"}
+                @{recipient.displayName || recipient.name || "anon"}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1134,13 +1087,13 @@
                       }}
                     />
                   {:else}
-                    <div
-                      class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"
-                    ></div>
+                    <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                      <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </div>
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      @{profile.displayName || profile.name || profile.pubkey?.slice(0, 8) + "..." + profile.pubkey?.slice(-4) || "Unknown"}
+                      @{profile.displayName || profile.name || "anon"}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">

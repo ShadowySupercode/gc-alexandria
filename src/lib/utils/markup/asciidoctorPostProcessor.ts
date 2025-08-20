@@ -1,48 +1,9 @@
-import { processNostrIdentifiers } from "../nostrUtils";
-
-/**
- * Normalizes a string for use as a d-tag by converting to lowercase,
- * replacing non-alphanumeric characters with dashes, and removing
- * leading/trailing dashes.
- */
-function normalizeDTag(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-/**
- * Replaces wikilinks in the format [[target]] or [[target|display]] with
- * clickable links to the events page.
- */
-function replaceWikilinks(html: string): string {
-  // [[target page]] or [[target page|display text]]
-  return html.replace(
-    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (_match, target, label) => {
-      const normalized = normalizeDTag(target.trim());
-      const display = (label || target).trim();
-      const url = `/events?d=${normalized}`;
-      // Output as a clickable <a> with the [[display]] format and matching link colors
-      // Use onclick to bypass SvelteKit routing and navigate directly
-      return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}" onclick="window.location.href='${url}'; return false;">${display}</a>`;
-    },
-  );
-}
-
-/**
- * Replaces AsciiDoctor-generated empty anchor tags <a id="..."></a> with clickable wikilink-style <a> tags.
- */
-function replaceAsciiDocAnchors(html: string): string {
-  return html.replace(/<a id="([^"]+)"><\/a>/g, (_match, id) => {
-    const normalized = normalizeDTag(id.trim());
-    const url = `/events?d=${normalized}`;
-    // Use onclick to bypass SvelteKit routing and navigate directly
-    return `<a class="wikilink text-primary-600 dark:text-primary-500 hover:underline" data-dtag="${normalized}" data-url="${url}" href="${url}" onclick="window.location.href='${url}'; return false;">${id}</a>`;
-  });
-}
+import {
+  processAsciiDocAnchors,
+  processImageWithReveal,
+  processNostrIdentifiersInText,
+  processWikilinks,
+} from "./markupServices.ts";
 
 /**
  * Processes nostr addresses in HTML content, but skips addresses that are
@@ -80,16 +41,41 @@ async function processNostrAddresses(html: string): Promise<string> {
     }
 
     // Process the nostr identifier
-    const processedMatch = await processNostrIdentifiers(fullMatch);
+    const processedMatch = await processNostrIdentifiersInText(fullMatch);
 
     // Replace the match in the HTML
-    processedHtml =
-      processedHtml.slice(0, matchIndex) +
+    processedHtml = processedHtml.slice(0, matchIndex) +
       processedMatch +
       processedHtml.slice(matchIndex + fullMatch.length);
   }
 
   return processedHtml;
+}
+
+/**
+ * Processes AsciiDoc image blocks to add reveal/enlarge functionality
+ */
+function processImageBlocks(html: string): string {
+  // Process image blocks with reveal functionality
+  return html.replace(
+    /<div class="imageblock">\s*<div class="content">\s*<img([^>]+)>\s*<\/div>\s*(?:<div class="title">([^<]+)<\/div>)?\s*<\/div>/g,
+    (match, imgAttributes, title) => {
+      // Extract src and alt from img attributes
+      const srcMatch = imgAttributes.match(/src="([^"]+)"/);
+      const altMatch = imgAttributes.match(/alt="([^"]*)"/);
+      const src = srcMatch ? srcMatch[1] : "";
+      const alt = altMatch ? altMatch[1] : "";
+
+      const titleHtml = title ? `<div class="title">${title}</div>` : "";
+
+      return `<div class="imageblock">
+        <div class="content">
+          ${processImageWithReveal(src, alt)}
+        </div>
+        ${titleHtml}
+      </div>`;
+    },
+  );
 }
 
 /**
@@ -120,12 +106,14 @@ export async function postProcessAsciidoctorHtml(
 
   try {
     // First process AsciiDoctor-generated anchors
-    let processedHtml = replaceAsciiDocAnchors(html);
+    let processedHtml = processAsciiDocAnchors(html);
     // Then process wikilinks in [[...]] format (if any remain)
-    processedHtml = replaceWikilinks(processedHtml);
+    processedHtml = processWikilinks(processedHtml);
     // Then process nostr addresses (but not those already in links)
-    processedHtml = await processNostrAddresses(processedHtml);
+    processedHtml = await processNostrIdentifiersInText(processedHtml);
     processedHtml = fixStemBlocks(processedHtml); // Fix math blocks for MathJax
+    // Process image blocks to add reveal/enlarge functionality
+    processedHtml = processImageBlocks(processedHtml);
 
     return processedHtml;
   } catch (error) {

@@ -9,9 +9,9 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { ndkInstance, ndkSignedIn, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
-  import { communityRelays, anonymousRelays } from "$lib/consts";
+  import { anonymousRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
   // @ts-ignore - Workaround for Svelte component import issue
@@ -20,6 +20,8 @@
   import { nip19 } from "nostr-tools";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+
+  const ndk = getNdkContext();
 
   // Function to close the success message
   function closeSuccessMessage() {
@@ -193,7 +195,6 @@
 
     try {
       // Get NDK instance
-      const ndk = $ndkInstance;
       if (!ndk) {
         throw new Error("NDK instance not available");
       }

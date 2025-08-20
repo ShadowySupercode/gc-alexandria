@@ -8,22 +8,21 @@
     loginWithAmber,
     loginWithNpub
   } from "$lib/stores/userStore";
-  import { ndkInstance } from "$lib/ndk";
   import {
     ArrowRightToBracketOutline,
     UserOutline,
-    FileSearchOutline,
   } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
-  import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
-  let { pubkey, isNav = false } = $props<{ pubkey?: string, isNav?: boolean }>();
+  const ndk = getNdkContext();
+
+  let { isNav = false } = $props<{ isNav?: boolean }>();
 
   // UI state for login functionality
   let isLoadingExtension: boolean = $state(false);
@@ -205,7 +204,6 @@
       }
       
       // Try using NDK's built-in profile fetching first
-      const ndk = get(ndkInstance);
       if (ndk && userState.ndkUser) {
         console.log("Using NDK's built-in profile fetching");
         const userProfile = await userState.ndkUser.fetchProfile();
@@ -237,7 +235,7 @@
       
       // Fallback to getUserMetadata
       console.log("Falling back to getUserMetadata");
-      const freshProfile = await getUserMetadata(userState.npub, true); // Force fresh fetch
+      const freshProfile = await getUserMetadata(userState.npub, ndk, true); // Force fresh fetch
       console.log("Fresh profile data from getUserMetadata:", freshProfile);
       
       // Update the userStore with fresh profile data
@@ -298,7 +296,7 @@
     isLoadingExtension = true;
     isLoadingAmber = false;
     try {
-      await loginWithExtension();
+      await loginWithExtension(ndk);
     } catch (err: unknown) {
       showResultMessage(
         `❌ Browser extension connection failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -327,7 +325,7 @@
         qrCodeDataUrl =
           (await generateQrCode(amberSigner.nostrConnectUri)) ?? undefined;
         const user = await amberSigner.blockUntilReady();
-        await loginWithAmber(amberSigner, user);
+        await loginWithAmber(amberSigner, user, ndk);
         showQrCode = false;
       } else {
         throw new Error("Failed to generate Nostr Connect URI");
@@ -345,7 +343,7 @@
     const inputNpub = prompt("Enter your npub (public key):");
     if (inputNpub) {
       try {
-        await loginWithNpub(inputNpub);
+        await loginWithNpub(inputNpub, ndk);
       } catch (err: unknown) {
         showResultMessage(
           `❌ npub login failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -357,7 +355,7 @@
   async function handleSignOutClick() {
     localStorage.removeItem("amber/nsec");
     localStorage.removeItem("alexandria/amber/fallback");
-    logoutUser();
+    logoutUser(ndk);
   }
 
   function handleViewProfile() {

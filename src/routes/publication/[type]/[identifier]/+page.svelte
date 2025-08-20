@@ -9,35 +9,98 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { createNDKEvent } from "$lib/utils/nostrUtils";
+  import { browser } from "$app/environment";
+  import {
+    fetchEventByDTag,
+    fetchEventById,
+    fetchEventByNaddr,
+    fetchEventByNevent,
+  } from "$lib/utils/websocket_utils.ts";
+  import type { NostrEvent } from "$lib/utils/websocket_utils.ts";
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
   let { data }: PageProps = $props();
 
-  // data.indexEvent can be null from server-side rendering
-  // We need to handle this case properly
-  // AI-NOTE: Always create NDK event since we now ensure NDK is available
-  console.debug('[Publication] data.indexEvent:', data.indexEvent);
-  console.debug('[Publication] data.ndk:', data.ndk);
-  
-  const indexEvent = data.indexEvent && data.ndk 
-    ? createNDKEvent(data.ndk, data.indexEvent) 
-    : null; // No event if no NDK or no event data
-  
-  console.debug('[Publication] indexEvent created:', indexEvent);
+  // AI-NOTE: Handle client-side loading when event is not available during SSR
+  let indexEvent = $state<NDKEvent | null>(null);
+  let loading = $state(false);
+  let error = $state<string | null>(null);
+  let publicationTree = $state<SveltePublicationTree | null>(null);
+  let toc = $state<TableOfContents | null>(null);
+  let initialized = $state(false);
 
-  // Only create publication tree if we have a valid index event
-  const publicationTree = indexEvent ? new SveltePublicationTree(indexEvent, data.ndk) : null;
-  const toc = indexEvent ? new TableOfContents(
-    indexEvent.tagAddress(),
-    publicationTree!,
-    page.url.pathname ?? "",
-  ) : null;
+  // AI-NOTE: Initialize with server-side data if available
+  $effect(() => {
+    if (initialized) return; // Prevent re-initialization
+    
+    if (data.indexEvent && data.ndk) {
+      const serverEvent = createNDKEvent(data.ndk, data.indexEvent);
+      indexEvent = serverEvent;
+      initializePublicationComponents(serverEvent);
+      initialized = true;
+    } else if (browser && data.identifierInfo && !loading) {
+      // AI-NOTE: Client-side loading when server-side data is not available
+      loadEventClientSide();
+    }
+  });
 
-  setContext("publicationTree", publicationTree);
-  setContext("toc", toc);
-  setContext("asciidoctor", Processor());
+  async function loadEventClientSide() {
+    if (!browser || !data.identifierInfo || loading) return;
 
-  // Only set up bookmark handling if we have a valid publication tree
-  if (publicationTree && indexEvent) {
+    loading = true;
+    error = null;
+
+    try {
+      const { type, identifier } = data.identifierInfo;
+      let fetchedEvent: NostrEvent | null = null;
+
+      // Handle different identifier types
+      switch (type) {
+        case "id":
+          fetchedEvent = await fetchEventById(identifier);
+          break;
+        case "d":
+          fetchedEvent = await fetchEventByDTag(identifier);
+          break;
+        case "naddr":
+          fetchedEvent = await fetchEventByNaddr(identifier);
+          break;
+        case "nevent":
+          fetchedEvent = await fetchEventByNevent(identifier);
+          break;
+        default:
+          throw new Error(`Unsupported identifier type: ${type}`);
+      }
+
+      if (fetchedEvent && data.ndk) {
+        const clientEvent = createNDKEvent(data.ndk, fetchedEvent);
+        indexEvent = clientEvent;
+        initializePublicationComponents(clientEvent);
+        initialized = true;
+      } else {
+        throw new Error("Failed to fetch event from relays");
+      }
+    } catch (err) {
+      console.error("[Publication] Client-side loading failed:", err);
+      error = err instanceof Error ? err.message : "Failed to load publication";
+    } finally {
+      loading = false;
+    }
+  }
+
+  function initializePublicationComponents(event: NDKEvent) {
+    if (!data.ndk) return;
+    
+    console.log("[Publication] Initializing publication components for event:", event.tagAddress());
+    
+    publicationTree = new SveltePublicationTree(event, data.ndk);
+    toc = new TableOfContents(
+      event.tagAddress(),
+      publicationTree,
+      page.url.pathname ?? "",
+    );
+
+    // Set up bookmark handling
     publicationTree.onBookmarkMoved((address) => {
       goto(`#${address}`, {
         replaceState: true,
@@ -55,11 +118,26 @@
       db.onsuccess = () => {
         const transaction = db.result.transaction(["bookmarks"], "readwrite");
         const store = transaction.objectStore("bookmarks");
-        const bookmarkKey = `${indexEvent.tagAddress()}`;
+        const bookmarkKey = `${event.tagAddress()}`;
         store.put({ key: bookmarkKey, address });
       };
     });
   }
+
+  // AI-NOTE: Set context values reactively to avoid capturing initial null values
+  $effect(() => {
+    if (publicationTree) {
+      setContext("publicationTree", publicationTree);
+    }
+  });
+
+  $effect(() => {
+    if (toc) {
+      setContext("toc", toc);
+    }
+  });
+
+  setContext("asciidoctor", Processor());
 
   onMount(() => {
     // Only handle bookmarks if we have valid components
@@ -77,11 +155,11 @@
     db.onsuccess = () => {
       const transaction = db.result.transaction(["bookmarks"], "readonly");
       const store = transaction.objectStore("bookmarks");
-      const bookmarkKey = `${indexEvent.tagAddress()}`;
+      const bookmarkKey = `${indexEvent!.tagAddress()}`;
       const request = store.get(bookmarkKey);
 
       request.onsuccess = () => {
-        if (request.result?.address) {
+        if (request.result?.address && publicationTree && indexEvent) {
           // Set the bookmark in the publication tree
           publicationTree.setBookmark(request.result.address);
 
@@ -99,12 +177,12 @@
   });
 </script>
 
-{#if indexEvent && data.indexEvent}
-  {@const debugInfo = `indexEvent: ${!!indexEvent}, data.indexEvent: ${!!data.indexEvent}`}
+{#if indexEvent && publicationTree && toc}
+  {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
   {@const debugElement = console.debug('[Publication] Rendering publication with:', debugInfo)}
   <ArticleNav
     publicationType={data.publicationType}
-    rootId={data.indexEvent.id}
+    rootId={indexEvent.id}
     indexEvent={indexEvent}
   />
 
@@ -113,10 +191,33 @@
       rootAddress={indexEvent.tagAddress()}
       publicationType={data.publicationType}
       indexEvent={indexEvent}
+      publicationTree={publicationTree}
+      toc={toc}
     />
   </main>
+{:else if loading}
+  <main class="publication">
+    <div class="flex items-center justify-center min-h-screen">
+      <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>
+    </div>
+  </main>
+{:else if error}
+  <main class="publication">
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="text-center">
+        <p class="text-red-600 dark:text-red-400 mb-4">Failed to load publication</p>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+        <button 
+          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onclick={loadEventClientSide}
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  </main>
 {:else}
-  {@const debugInfo = `indexEvent: ${!!indexEvent}, data.indexEvent: ${!!data.indexEvent}`}
+  {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
   {@const debugElement = console.debug('[Publication] NOT rendering publication with:', debugInfo)}
   <main class="publication">
     <div class="flex items-center justify-center min-h-screen">

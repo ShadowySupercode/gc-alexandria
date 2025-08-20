@@ -1,4 +1,4 @@
-import type { EventKindConfig } from '$lib/stores/visualizationConfig';
+import type { EventKindConfig } from "$lib/stores/visualizationConfig";
 
 /**
  * Validates an event kind input value.
@@ -7,29 +7,29 @@ import type { EventKindConfig } from '$lib/stores/visualizationConfig';
  * @returns The validated kind number, or null if validation fails.
  */
 export function validateEventKind(
-  value: string | number, 
-  existingKinds: number[]
+  value: string | number,
+  existingKinds: number[],
 ): { kind: number | null; error: string } {
   // Convert to string for consistent handling
   const strValue = String(value);
-  if (strValue === null || strValue === undefined || strValue.trim() === '') {
-    return { kind: null, error: '' };
+  if (strValue === null || strValue === undefined || strValue.trim() === "") {
+    return { kind: null, error: "" };
   }
-  
+
   const kind = parseInt(strValue.trim());
   if (isNaN(kind)) {
-    return { kind: null, error: 'Must be a number' };
+    return { kind: null, error: "Must be a number" };
   }
-  
+
   if (kind < 0) {
-    return { kind: null, error: 'Must be non-negative' };
+    return { kind: null, error: "Must be non-negative" };
   }
-  
+
   if (existingKinds.includes(kind)) {
-    return { kind: null, error: 'Already added' };
+    return { kind: null, error: "Already added" };
   }
-  
-  return { kind, error: '' };
+
+  return { kind, error: "" };
 }
 
 /**
@@ -44,20 +44,20 @@ export function handleAddEventKind(
   newKind: string,
   existingKinds: number[],
   addKindFunction: (kind: number) => void,
-  resetStateFunction: () => void
+  resetStateFunction: () => void,
 ): { success: boolean; error: string } {
-  console.log('[handleAddEventKind] called with:', newKind);
-  
+  console.log("[handleAddEventKind] called with:", newKind);
+
   const validation = validateEventKind(newKind, existingKinds);
-  console.log('[handleAddEventKind] Validation result:', validation);
-  
+  console.log("[handleAddEventKind] Validation result:", validation);
+
   if (validation.kind !== null) {
-    console.log('[handleAddEventKind] Adding event kind:', validation.kind);
+    console.log("[handleAddEventKind] Adding event kind:", validation.kind);
     addKindFunction(validation.kind);
     resetStateFunction();
-    return { success: true, error: '' };
+    return { success: true, error: "" };
   } else {
-    console.log('[handleAddEventKind] Validation failed:', validation.error);
+    console.log("[handleAddEventKind] Validation failed:", validation.error);
     return { success: false, error: validation.error };
   }
 }
@@ -71,11 +71,11 @@ export function handleAddEventKind(
 export function handleEventKindKeydown(
   e: KeyboardEvent,
   onEnter: () => void,
-  onEscape: () => void
+  onEscape: () => void,
 ): void {
-  if (e.key === 'Enter') {
+  if (e.key === "Enter") {
     onEnter();
-  } else if (e.key === 'Escape') {
+  } else if (e.key === "Escape") {
     onEscape();
   }
 }
@@ -87,12 +87,19 @@ export function handleEventKindKeydown(
  */
 export function getEventKindDisplayName(kind: number): string {
   switch (kind) {
-    case 30040: return 'Publication Index';
-    case 30041: return 'Publication Content';
-    case 30818: return 'Wiki';
-    case 1: return 'Text Note';
-    case 0: return 'Metadata';
-    case 3: return 'Follow List';
-    default: return `Kind ${kind}`;
+    case 30040:
+      return "Publication Index";
+    case 30041:
+      return "Publication Content";
+    case 30818:
+      return "Wiki";
+    case 1:
+      return "Text Note";
+    case 0:
+      return "Metadata";
+    case 3:
+      return "Follow List";
+    default:
+      return `Kind ${kind}`;
   }
-} 
+}

@@ -208,7 +208,9 @@
         svgGroup.attr("transform", event.transform);
       });
 
+    // Initialize with identity transform
     svgElement.call(zoomBehavior);
+    svgElement.call(zoomBehavior.transform, d3.zoomIdentity);
 
     // Set up arrow marker for links
     const defs = svgElement.append("defs");
@@ -250,7 +252,7 @@
   /**
    * Generates graph data from events, including tag and person anchors
    */
-  function generateGraphData() {
+  async function generateGraphData() {
     debug("Generating graph with events", {
       eventCount: events.length,
       currentLevels,
@@ -309,7 +311,7 @@
       personMap = extractUniquePersons(events, followListEvents);
       
       // Create person anchor nodes based on filters
-      const personResult = createPersonAnchorNodes(
+      const personResult = await createPersonAnchorNodes(
         personMap, 
         width, 
         height, 
@@ -505,9 +507,10 @@
 
     // Center the nodes when the simulation is done
     newSimulation.on("end", () => {
-      if (!starVisualization) {
+      // Add a small delay to ensure the simulation has fully settled
+      setTimeout(() => {
         centerGraph();
-      }
+      }, 100);
     });
 
     // Create drag handler
@@ -866,7 +869,7 @@
    * Updates the graph with new data
    * Generates the graph from events, creates the simulation, and renders nodes and links
    */
-  function updateGraph() {
+  async function updateGraph() {
     debug("updateGraph called", {
       eventCount: events?.length,
       starVisualization,
@@ -878,7 +881,7 @@
 
     try {
       validateGraphElements();
-      const graphData = generateGraphData();
+      const graphData = await generateGraphData();
       
       // Save current positions before filtering
       saveNodePositions(graphData.nodes);
@@ -1011,17 +1014,17 @@
   });
   
   // Debounced update function
-  function scheduleGraphUpdate() {
+  async function scheduleGraphUpdate() {
     if (updateTimer) {
       clearTimeout(updateTimer);
     }
     
-    updateTimer = setTimeout(() => {
+    updateTimer = setTimeout(async () => {
       if (!isUpdating && svg && events?.length > 0) {
         debug("Scheduled graph update executing", graphDependencies);
         isUpdating = true;
         try {
-          updateGraph();
+          await updateGraph();
         } catch (error) {
           console.error("Error updating graph:", error);
           errorMessage = `Error updating graph: ${error instanceof Error ? error.message : String(error)}`;
@@ -1183,17 +1186,59 @@
    */
   function centerGraph() {
     if (svg && svgGroup && zoomBehavior) {
-      const svgWidth = svg.clientWidth || width;
-      const svgHeight = svg.clientHeight || height;
+      debug("Centering graph", { width, height });
+      
+      // Get all nodes to calculate bounds
+      const nodes = svgGroup.selectAll('.node').data();
+      if (nodes.length === 0) {
+        debug("No nodes found for centering");
+        return;
+      }
+      
+      // Calculate bounds of all nodes
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      nodes.forEach((node: NetworkNode) => {
+        if (node.x != null && node.y != null) {
+          minX = Math.min(minX, node.x);
+          maxX = Math.max(maxX, node.x);
+          minY = Math.min(minY, node.y);
+          maxY = Math.max(maxY, node.y);
+        }
+      });
+      
+      // Calculate the center of the graph content
+      const graphCenterX = (minX + maxX) / 2;
+      const graphCenterY = (minY + maxY) / 2;
+      
+      // Calculate the viewBox center
+      const viewBoxCenterX = width / 2;
+      const viewBoxCenterY = height / 2;
+      
+      // Calculate the translation needed to center the graph
+      const translateX = viewBoxCenterX - graphCenterX;
+      const translateY = viewBoxCenterY - graphCenterY;
+      
+      debug("Centering graph", { 
+        graphBounds: { minX, maxX, minY, maxY },
+        graphCenter: { graphCenterX, graphCenterY },
+        viewBoxCenter: { viewBoxCenterX, viewBoxCenterY },
+        translation: { translateX, translateY }
+      });
 
-      // Reset zoom and center
+      // Apply the centering transform
       d3.select(svg)
         .transition()
         .duration(750)
         .call(
           zoomBehavior.transform,
-          d3.zoomIdentity.translate(svgWidth / 2, svgHeight / 2).scale(0.8),
+          d3.zoomIdentity.translate(translateX, translateY).scale(0.8),
         );
+    } else {
+      debug("Cannot center graph - missing required elements", { 
+        hasSvg: !!svg, 
+        hasSvgGroup: !!svgGroup, 
+        hasZoomBehavior: !!zoomBehavior 
+      });
     }
   }
 
@@ -1235,9 +1280,9 @@
       <p>{errorMessage}</p>
       <button
         class="network-error-retry"
-        onclick={() => {
+        onclick={async () => {
           errorMessage = null;
-          updateGraph();
+          await updateGraph();
         }}
       >
         Retry
@@ -1258,20 +1303,20 @@
       {autoDisabledTags}
       bind:showTagAnchors
       bind:selectedTagType
-      onTagSettingsChange={() => {
+      onTagSettingsChange={async () => {
         // Trigger graph update when tag settings change
         if (svg && events?.length) {
-          updateGraph();
+          await updateGraph();
         }
       }}
       bind:showPersonNodes
       personAnchors={personAnchorInfo}
       {disabledPersons}
       onPersonToggle={handlePersonToggle}
-      onPersonSettingsChange={() => {
+      onPersonSettingsChange={async () => {
         // Trigger graph update when person settings change
         if (svg && events?.length) {
-          updateGraph();
+          await updateGraph();
         }
       }}
       bind:showSignedBy
@@ -1348,7 +1393,10 @@
         outline
         size="lg"
         class="network-control-button btn-leather rounded-lg p-2"
-        onclick={centerGraph}
+        onclick={() => {
+          debug("Center button clicked");
+          centerGraph();
+        }}
         aria-label="Center graph"
       >
         <svg

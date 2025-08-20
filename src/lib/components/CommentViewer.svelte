@@ -2,14 +2,15 @@
   import { Button, P, Heading } from "flowbite-svelte";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode } from "$lib/utils";
-  import { activeInboxRelays, ndkInstance } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // AI-NOTE: 2025-01-08 - Clean, efficient comment viewer implementation
   // This component fetches and displays threaded comments with proper hierarchy
@@ -39,7 +40,7 @@
       if (!npub) return;
       
       // Force fetch to ensure we get the latest profile data
-      const profile = await getUserMetadata(npub, true);
+      const profile = await getUserMetadata(npub, ndk, true);
       const newProfiles = new Map(profiles);
       newProfiles.set(pubkey, profile);
       profiles = newProfiles;
@@ -125,15 +126,15 @@
       
       // Get all available relays for a more comprehensive search
       // Use the full NDK pool relays instead of just active relays
-      const ndkPoolRelays = Array.from($ndkInstance.pool.relays.values()).map(relay => relay.url);
+      const ndkPoolRelays = Array.from(ndk.pool.relays.values()).map(relay => relay.url);
       console.log(`[CommentViewer] Using ${ndkPoolRelays.length} NDK pool relays for search:`, ndkPoolRelays);
       
       // Try all filters to find comments with full relay set
-      activeSub = $ndkInstance.subscribe(filters);
+      activeSub = ndk.subscribe(filters);
       
       // Also try a direct search for the specific comment we're looking for
       console.log(`[CommentViewer] Also searching for specific comment: 64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942`);
-      const specificCommentSub = $ndkInstance.subscribe({
+      const specificCommentSub = ndk.subscribe({
         ids: ["64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942"]
       });
       
@@ -292,7 +293,7 @@
         
         try {
           // Try a broader search to see if there are any events that might be comments
-          const testSub = $ndkInstance.subscribe({
+          const testSub = ndk.subscribe({
             kinds: [1, 1111, 9802],
             "#e": [event.id],
             limit: 10,
@@ -463,7 +464,7 @@
       console.log(`[CommentViewer] Fetching nested replies for event:`, eventId);
       
       // Search for replies to this specific event
-      const nestedSub = $ndkInstance.subscribe({
+      const nestedSub = ndk.subscribe({
         kinds: [1, 1111, 9802],
         "#e": [eventId],
         limit: 50,
@@ -507,7 +508,7 @@
         if (dTag) {
           const eventAddress = `${event.kind}:${event.pubkey}:${dTag}`;
           
-          const nip22Sub = $ndkInstance.subscribe({
+          const nip22Sub = ndk.subscribe({
             kinds: [1111, 9802],
             "#a": [eventAddress],
             limit: 50,
@@ -653,16 +654,6 @@
     return `${actualLevel * 16}px`;
   }
 
-  async function parseContent(content: string): Promise<string> {
-    if (!content) return "";
-    
-    let parsedContent = await parseBasicmarkup(content);
-    
-    return parsedContent;
-  }
-
-
-
   // AI-NOTE: 2025-01-24 - Get highlight source information
   function getHighlightSource(highlightEvent: NDKEvent): { type: string; value: string; url?: string } | null {
     // Check for e-tags (nostr events)
@@ -781,11 +772,7 @@
                 <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
                   <span class="font-medium">Comment:</span>
                 </div>
-                {#await parseContent(node.event.getMatchingTags("comment")[0]?.[1] || "") then parsedContent}
-                  {@html parsedContent}
-                {:catch}
-                  {@html node.event.getMatchingTags("comment")[0]?.[1] || ""}
-                {/await}
+                <EmbeddedEvent nostrIdentifier={node.event.getMatchingTags("comment")[0]?.[1]} nestingLevel={0} />
               </div>
             {:else}
               <!-- Simple highlight -->
@@ -825,18 +812,14 @@
           </div>
         {:else}
           <!-- Regular comment content -->
-          {#await parseContent(node.event.content || "") then parsedContent}
-            {@html parsedContent}
-          {:catch}
-            {@html node.event.content || ""}
-          {/await}
+          <EmbeddedEvent nostrIdentifier={node.event.id} nestingLevel={0} />
         {/if}
       </div>
     </div>
     
     {#if node.children.length > 0}
       <div class="space-y-4">
-        {#each node.children as childNode (childNode.event.id)}
+        {#each node.children as childNode, index (childNode.event.id + '-' + index)}
           {@render CommentItem(childNode)}
         {/each}
       </div>
@@ -863,7 +846,7 @@
     </div>
   {:else}
     <div class="space-y-4">
-      {#each threadedComments as node (node.event.id)}
+      {#each threadedComments as node, index (node.event.id + '-root-' + index)}
         {@render CommentItem(node)}
       {/each}
     </div>

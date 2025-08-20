@@ -6,6 +6,9 @@
   import { nip19 } from "nostr-tools";
   import { publishMultipleZettels } from "$lib/services/publisher";
   import { parseAsciiDocWithMetadata } from "$lib/utils/asciidoc_metadata";
+  import { getNdkContext } from "$lib/ndk";
+
+  const ndk = getNdkContext();
 
   let content = $state("");
   let showPreview = $state(false);
@@ -38,7 +41,7 @@
         // Only used for catastrophic errors
         publishResults = { successCount: 0, total: 0, errors: [error], successfulEvents: [], failedEvents: [] };
       },
-    });
+    }, ndk);
 
     const successCount = results.filter(r => r.success).length;
     const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
@@ -91,7 +94,7 @@
         onError: (error) => {
           console.error('Retry failed:', error);
         },
-      });
+      }, ndk);
       
       if (result[0]?.success && result[0]?.eventId) {
         // Update the successful events list

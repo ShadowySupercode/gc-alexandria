@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import ProfileHeader from "$components/cards/ProfileHeader.svelte";
@@ -15,30 +14,20 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
+  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import type { UserProfile } from "$lib/models/user_profile";
 
   const {
     event,
     profile = null,
-    searchValue = null,
   } = $props<{
     event: NDKEvent;
-    profile?: {
-      name?: string;
-      display_name?: string;
-      about?: string;
-      picture?: string;
-      banner?: string;
-      website?: string;
-      lud16?: string;
-      nip05?: string;
-    } | null;
-    searchValue?: string | null;
+    profile?: UserProfile | null;
   }>();
 
-  let showFullContent = $state(false);
-  let parsedContent = $state("");
-  let contentPreview = $state("");
   let authorDisplayName = $state<string | undefined>(undefined);
+  let showFullContent = $state(false);
+  let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -80,107 +69,9 @@
     return getMatchingTags(event, "summary")[0]?.[1] || "";
   }
 
-  function getEventHashtags(event: NDKEvent): string[] {
-    return getMatchingTags(event, "t").map((tag: string[]) => tag[1]);
-  }
-
   function getEventTypeDisplay(event: NDKEvent): string {
     const [mTag, MTag] = getMimeTags(event.kind || 0);
     return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
-  }
-
-  function renderTag(tag: string[]): string {
-    if (tag[0] === "a" && tag.length > 1) {
-      const parts = tag[1].split(":");
-      if (parts.length >= 3) {
-        const [kind, pubkey, d] = parts;
-        // Validate that pubkey is a valid hex string
-        if (pubkey && /^[0-9a-fA-F]{64}$/.test(pubkey)) {
-          try {
-            const mockEvent = {
-              kind: +kind,
-              pubkey,
-              tags: [["d", d]],
-              content: "",
-              id: "",
-              sig: "",
-            } as any;
-            const naddr = naddrEncode(mockEvent, $activeInboxRelays);
-            return `<a href='/events?id=${naddr}' class='underline text-primary-700'>a:${tag[1]}</a>`;
-          } catch (error) {
-            console.warn(
-              "Failed to encode naddr for a tag in renderTag:",
-              tag[1],
-              error,
-            );
-            return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-          }
-        } else {
-          console.warn("Invalid pubkey in a tag in renderTag:", pubkey);
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid a tag format in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>a:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "e" && tag.length > 1) {
-      // Validate that event ID is a valid hex string
-      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
-        try {
-          const mockEvent = {
-            id: tag[1],
-            kind: 1,
-            content: "",
-            tags: [],
-            pubkey: "",
-            sig: "",
-          } as any;
-          const nevent = neventEncode(mockEvent, $activeInboxRelays);
-          return `<a href='/events?id=${nevent}' class='underline text-primary-700'>e:${tag[1]}</a>`;
-        } catch (error) {
-          console.warn(
-            "Failed to encode nevent for e tag in renderTag:",
-            tag[1],
-            error,
-          );
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid event ID in e tag in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>e:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "note" && tag.length > 1) {
-      // 'note' tags are the same as 'e' tags but with different prefix
-      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
-        try {
-          const mockEvent = {
-            id: tag[1],
-            kind: 1,
-            content: "",
-            tags: [],
-            pubkey: "",
-            sig: "",
-          } as any;
-          const nevent = neventEncode(mockEvent, $activeInboxRelays);
-          return `<a href='/events?id=${nevent}' class='underline text-primary-700'>note:${tag[1]}</a>`;
-        } catch (error) {
-          console.warn(
-            "Failed to encode nevent for note tag in renderTag:",
-            tag[1],
-            error,
-          );
-          return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
-        }
-      } else {
-        console.warn("Invalid event ID in note tag in renderTag:", tag[1]);
-        return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>note:${tag[1]}</span>`;
-      }
-    } else if (tag[0] === "d" && tag.length > 1) {
-      // 'd' tags are used for identifiers in addressable events
-      return `<a href='/events?d=${encodeURIComponent(tag[1])}' class='underline text-primary-700'>d:${tag[1]}</a>`;
-    } else {
-      return `<span class='bg-primary-50 text-primary-800 px-2 py-1 rounded text-xs font-mono'>${tag[0]}:${tag[1]}</span>`;
-    }
   }
 
   function getTagButtonInfo(tag: string[]): {
@@ -291,33 +182,13 @@
     return { text: `${tag[0]}:${tag[1]}` };
   }
 
-  function getNeventUrl(event: NDKEvent): string {
-    return neventEncode(event, $activeInboxRelays);
-  }
-
-  function getNaddrUrl(event: NDKEvent): string {
-    return naddrEncode(event, $activeInboxRelays);
-  }
-
-  function getNprofileUrl(pubkey: string): string {
-    return nprofileEncode(pubkey, $activeInboxRelays);
-  }
-
-  $effect(() => {
-    if (event && event.kind !== 0 && event.content) {
-      parseBasicmarkup(event.content).then((html) => {
-        parsedContent = html;
-        contentPreview = html.slice(0, 250);
-      });
-    }
-  });
-
   $effect(() => {
     if (!event?.pubkey) {
       authorDisplayName = undefined;
       return;
     }
-    getUserMetadata(toNpub(event.pubkey) as string).then((profile) => {
+
+    getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
       authorDisplayName =
         profile.displayName ||
         (profile as any).display_name ||
@@ -365,17 +236,10 @@
         const naddr = naddrEncode(event, $activeInboxRelays);
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
-      // hex id
-      ids.push({ label: "id", value: event.id });
+      // hex id - make it a clickable link to search for the event ID
+      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
     }
     return ids;
-  }
-
-  function isCurrentSearch(value: string): boolean {
-    if (!searchValue) return false;
-    // Compare ignoring case and possible nostr: prefix
-    const norm = (s: string) => s.replace(/^nostr:/, "").toLowerCase();
-    return norm(value) === norm(searchValue);
   }
 
   onMount(() => {
@@ -394,9 +258,9 @@
   });
 </script>
 
-<div class="flex flex-col space-y-4">
+<div class="flex flex-col space-y-4 min-w-0">
   {#if event.kind !== 0 && getEventTitle(event)}
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
       {getEventTitle(event)}
     </h2>
   {/if}
@@ -406,48 +270,33 @@
     <Notifications {event} />
   {/if}
 
-  <div class="flex items-center space-x-2">
+  <div class="flex items-center space-x-2 min-w-0">
     {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400"
+      <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
           profile?.display_name || undefined,
         )}</span
       >
     {:else}
-      <span class="text-gray-600 dark:text-gray-400"
+      <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
         >Author: {profile?.display_name || event.pubkey}</span
       >
     {/if}
   </div>
 
-  <div class="flex items-center space-x-2">
-    <span class="text-gray-700 dark:text-gray-300">Kind:</span>
-    <span class="font-mono">{event.kind}</span>
-    <span class="text-gray-700 dark:text-gray-300"
+  <div class="flex items-center space-x-2 min-w-0">
+    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
+    <span class="font-mono flex-shrink-0">{event.kind}</span>
+    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
       >({getEventTypeDisplay(event)})</span
     >
   </div>
 
   {#if getEventSummary(event)}
-    <div class="flex flex-col space-y-1">
+    <div class="flex flex-col space-y-1 min-w-0">
       <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <p class="text-gray-900 dark:text-gray-100">{getEventSummary(event)}</p>
-    </div>
-  {/if}
-
-  {#if getEventHashtags(event).length}
-    <div class="flex flex-col space-y-1">
-      <span class="text-gray-700 dark:text-gray-300">Tags:</span>
-      <div class="flex flex-wrap gap-2">
-        {#each getEventHashtags(event) as tag}
-          <button
-            onclick={() => goto(`/events?t=${encodeURIComponent(tag)}`)}
-            class="px-2 py-1 rounded bg-primary-100 text-primary-800 text-sm font-medium hover:bg-primary-200 cursor-pointer"
-            >#{tag}</button
-          >
-        {/each}
-      </div>
+      <p class="text-gray-900 dark:text-gray-100 break-words">{getEventSummary(event)}</p>
     </div>
   {/if}
 
@@ -456,17 +305,19 @@
 
   <!-- Content -->
   {#if event.kind !== 0}
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border">
-      <div class="flex flex-col space-y-1">
+    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
+      <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100">
-          {@html showFullContent ? parsedContent : contentPreview}
-          {#if !showFullContent && parsedContent.length > 250}
-            <button
-              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-              onclick={() => (showFullContent = true)}>Show more</button
-            >
-          {/if}
+        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+          <EmbeddedEvent nostrIdentifier={event.id} nestingLevel={0} />
+        </div>
+        {#if shouldTruncate}
+          <button
+            class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+            onclick={() => (showFullContent = true)}>Show more</button
+          >
+        {/if}
         </div>
       </div>
     </div>
@@ -477,78 +328,115 @@
     <ProfileHeader
       {event}
       {profile}
-      identifiers={getIdentifiers(event, profile)}
     />
-  {/if}
-
-  <!-- Tags Array -->
-  {#if event.tags && event.tags.length}
-    <div class="flex flex-col space-y-1">
-      <span class="text-gray-700 dark:text-gray-300">Event Tags:</span>
-      <div class="flex flex-wrap gap-2">
-        {#each event.tags as tag}
-          {@const tagInfo = getTagButtonInfo(tag)}
-          {#if tagInfo.text && tagInfo.gotoValue}
-            <button
-              onclick={() => {
-                // Handle different types of gotoValue
-                if (
-                  tagInfo.gotoValue!.startsWith("naddr") ||
-                  tagInfo.gotoValue!.startsWith("nevent") ||
-                  tagInfo.gotoValue!.startsWith("npub") ||
-                  tagInfo.gotoValue!.startsWith("nprofile") ||
-                  tagInfo.gotoValue!.startsWith("note")
-                ) {
-                  // For naddr, nevent, npub, nprofile, note - navigate directly
-                  goto(`/events?id=${tagInfo.gotoValue!}`);
-                } else if (tagInfo.gotoValue!.startsWith("/")) {
-                  // For relative URLs - navigate directly
-                  goto(tagInfo.gotoValue!);
-                } else if (tagInfo.gotoValue!.startsWith("d:")) {
-                  // For d-tag searches - navigate to d-tag search
-                  const dTag = tagInfo.gotoValue!.substring(2);
-                  goto(`/events?d=${encodeURIComponent(dTag)}`);
-                } else if (tagInfo.gotoValue!.startsWith("t:")) {
-                  // For t-tag searches - navigate to t-tag search
-                  const tTag = tagInfo.gotoValue!.substring(2);
-                  goto(`/events?t=${encodeURIComponent(tTag)}`);
-                } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                  // For hex event IDs - use navigateToEvent
-                  navigateToEvent(tagInfo.gotoValue!);
-                } else {
-                  // For other cases, try direct navigation
-                  goto(`/events?id=${tagInfo.gotoValue!}`);
-                }
-              }}
-              class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100"
-            >
-              {tagInfo.text}
-            </button>
-          {/if}
-        {/each}
-      </div>
-    </div>
   {/if}
 
   <!-- Raw Event JSON -->
   <details
-    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4"
+    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4 overflow-hidden"
   >
     <summary
       class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2"
     >
-      Show Raw Event JSON
+      Show details
     </summary>
-    <div class="absolute top-4 right-4">
-      <CopyToClipboard
-        displayText=""
-        copyText={JSON.stringify(event.rawEvent(), null, 2)}
-      />
+    
+    <!-- Identifiers Section -->
+    <div class="mb-4 max-w-full overflow-hidden">
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
+      <div class="flex flex-col gap-2 min-w-0">
+        {#each getIdentifiers(event, profile) as identifier}
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            {#if identifier.link}
+              <a
+                href={identifier.link}
+                class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
+                title={identifier.value}
+              >
+                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+              </a>
+            {:else}
+              <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
+                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+              </span>
+            {/if}
+            <CopyToClipboard
+              displayText=""
+              copyText={identifier.value}
+            />
+          </div>
+        </div>
+        {/each}
+      </div>
     </div>
-    <pre
-      class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono"
-      style="line-height: 1.7; font-size: 1rem;">
+
+    <!-- Event Tags Section -->
+    {#if event.tags && event.tags.length}
+      <div class="mb-4 max-w-full overflow-hidden">
+        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
+        <div class="flex flex-wrap gap-2 break-words min-w-0">
+          {#each event.tags as tag}
+            {@const tagInfo = getTagButtonInfo(tag)}
+            {#if tagInfo.text && tagInfo.gotoValue}
+              <button
+                onclick={() => {
+                  // Handle different types of gotoValue
+                  if (
+                    tagInfo.gotoValue!.startsWith("naddr") ||
+                    tagInfo.gotoValue!.startsWith("nevent") ||
+                    tagInfo.gotoValue!.startsWith("npub") ||
+                    tagInfo.gotoValue!.startsWith("nprofile") ||
+                    tagInfo.gotoValue!.startsWith("note")
+                  ) {
+                    // For naddr, nevent, npub, nprofile, note - navigate directly
+                    goto(`/events?id=${tagInfo.gotoValue!}`);
+                  } else if (tagInfo.gotoValue!.startsWith("/")) {
+                    // For relative URLs - navigate directly
+                    goto(tagInfo.gotoValue!);
+                  } else if (tagInfo.gotoValue!.startsWith("d:")) {
+                    // For d-tag searches - navigate to d-tag search
+                    const dTag = tagInfo.gotoValue!.substring(2);
+                    goto(`/events?d=${encodeURIComponent(dTag)}`);
+                  } else if (tagInfo.gotoValue!.startsWith("t:")) {
+                    // For t-tag searches - navigate to t-tag search
+                    const tTag = tagInfo.gotoValue!.substring(2);
+                    goto(`/events?t=${encodeURIComponent(tTag)}`);
+                  } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
+                    // For hex event IDs - use navigateToEvent
+                    navigateToEvent(tagInfo.gotoValue!);
+                  } else {
+                    // For other cases, try direct navigation
+                    goto(`/events?id=${tagInfo.gotoValue!}`);
+                  }
+                }}
+                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
+              >
+                {tagInfo.text}
+              </button>
+            {/if}
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    <!-- Raw Event JSON Section -->
+    <div class="mb-4 max-w-full overflow-hidden">
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
+      <div class="relative min-w-0">
+        <div class="absolute top-0 right-0 z-10">
+          <CopyToClipboard
+            displayText=""
+            copyText={JSON.stringify(event.rawEvent(), null, 2)}
+          />
+        </div>
+        <pre
+          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap min-w-0"
+          style="line-height: 1.7; font-size: 1rem;">
 {JSON.stringify(event.rawEvent(), null, 2)}
-    </pre>
+        </pre>
+      </div>
+    </div>
   </details>
 </div>
