@@ -201,9 +201,9 @@ Note content here...
     </Button>
   </div>
 
-  <div class="flex space-x-4 {showPreview ? 'h-96' : ''}">
+  <div class="flex flex-col lg:flex-row lg:space-x-4 {showPreview ? 'lg:h-96' : ''}">
     <!-- Editor Panel -->
-    <div class="{showPreview ? 'w-1/2' : 'w-full'} flex flex-col space-y-4">
+    <div class="{showPreview ? 'lg:w-1/2' : 'w-full'} flex flex-col space-y-4">
       <div class="flex-1">
         <Textarea
           bind:value={content}
@@ -218,8 +218,8 @@ Note content here...
 
     <!-- Preview Panel -->
     {#if showPreview && !hasPublicationHeader}
-      <div class="w-1/2 border-l border-gray-200 dark:border-gray-700 pl-4">
-        <div class="sticky top-4">
+      <div class="lg:w-1/2 lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-4 mt-4 lg:mt-0">
+        <div class="lg:sticky lg:top-4">
           <h3
             class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100"
           >
