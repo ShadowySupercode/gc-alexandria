@@ -143,6 +143,54 @@
       return;
     }
 
+    // Update URL with search query for all search types
+    if (clearInput) {
+      const searchType = getSearchType(query);
+      if (searchType) {
+        const { type, term } = searchType;
+        const encoded = encodeURIComponent(term);
+        if (type === "d") {
+          goto(`?d=${encoded}`, {
+            replaceState: false,
+            keepFocus: true,
+            noScroll: true,
+          });
+        } else if (type === "t") {
+          goto(`?t=${encoded}`, {
+            replaceState: false,
+            keepFocus: true,
+            noScroll: true,
+          });
+        } else if (type === "n") {
+          goto(`?n=${encoded}`, {
+            replaceState: false,
+            keepFocus: true,
+            noScroll: true,
+          });
+        } else if (type === "nip05") {
+          goto(`?q=${encodeURIComponent(query)}`, {
+            replaceState: false,
+            keepFocus: true,
+            noScroll: true,
+          });
+        } else if (type === "event") {
+          goto(`?id=${encoded}`, {
+            replaceState: false,
+            keepFocus: true,
+            noScroll: true,
+          });
+        }
+      } else {
+        // No specific search type detected, treat as general search
+        const encoded = encodeURIComponent(query);
+        goto(`?q=${encoded}`, {
+          replaceState: false,
+          keepFocus: true,
+          noScroll: true,
+        });
+      }
+    }
+
     // Handle different search types
     const searchType = getSearchType(query);
     if (searchType) {
@@ -151,9 +199,7 @@
     }
 
     // AI-NOTE: 2025-01-24 - If no specific search type is detected, treat as event ID search
-    if (clearInput) {
-      navigateToSearch(query, "id");
-    }
+    // URL navigation is now handled in the URL update logic above
     await handleEventSearch(query);
   }
 
@@ -210,7 +256,7 @@
 
     if (type === "d") {
       console.log("EventSearch: Processing d-tag search:", term);
-      navigateToSearch(term, "d");
+      // URL navigation is now handled in handleSearchEvent
       updateSearchState(false, false, null, null);
       return;
     }
@@ -222,6 +268,7 @@
 
     if (type === "event") {
       console.log("EventSearch: Processing event ID search:", term);
+      // URL navigation is now handled in handleSearchEvent
       await handleEventSearch(term);
       return;
     }

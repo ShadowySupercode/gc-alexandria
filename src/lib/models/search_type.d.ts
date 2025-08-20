@@ -1,1 +1,1 @@
-export type SearchType = "id" | "d" | "t" | "n";
+export type SearchType = "id" | "d" | "t" | "n" | "q";

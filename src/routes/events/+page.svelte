@@ -179,6 +179,7 @@
     const dParam = url.get("d");
     const tParam = url.get("t");
     const nParam = url.get("n");
+    const qParam = url.get("q");
 
     if (idParam) {
       searchValue = idParam;
@@ -192,6 +193,9 @@
     } else if (nParam) {
       searchValue = decodeURIComponent(nParam);
       searchType = "n";
+    } else if (qParam) {
+      searchValue = decodeURIComponent(qParam);
+      searchType = "q";
     } else {
       searchValue = null;
       searchType = null;
@@ -200,11 +204,12 @@
 
   // Handle side panel visibility based on search type
   $effect(() => {
-    // Close side panel for searches that return multiple results (d-tag, t-tag, name searches)
+    // Close side panel for searches that return multiple results (d-tag, t-tag, name searches, general searches)
     if (
       searchType === "d" ||
       searchType === "t" ||
-      searchType === "n"
+      searchType === "n" ||
+      searchType === "q"
     ) {
       showSidePanel = false;
       event = null;
