@@ -13,7 +13,7 @@
   import EventInput from "$lib/components/EventInput.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -48,13 +48,6 @@
   
   // Get NDK context during component initialization
   const ndk = getNdkContext();
-  
-  // Debug: Check if user is logged in
-  $effect(() => {
-    console.log("[Events Page] User state:", user);
-    console.log("[Events Page] User signed in:", user?.signedIn);
-    console.log("[Events Page] User pubkey:", user?.pubkey);
-  });
 
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
@@ -321,18 +314,6 @@
     goto("/events", { replaceState: true });
   }
 
-  function handleClearCache() {
-    clearAllCaches();
-    // Force a page refresh to ensure all caches are cleared
-    window.location.reload();
-  }
-
-  function handleClearProfileCache() {
-    clearProfileCaches();
-    // Force a page refresh to ensure profile caches are cleared
-    window.location.reload();
-  }
-
   function closeSidePanel() {
     showSidePanel = false;
     event = null;
@@ -384,18 +365,7 @@
   }
 
   // AI-NOTE: 2025-01-24 - Function to parse profile content from kind 0 events
-  function parseProfileContent(event: NDKEvent): {
-    name?: string;
-    display_name?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    nip05?: string;
-    isInUserLists?: boolean;
-    listKinds?: number[];
-  } | null {
+  function parseProfileContent(event: NDKEvent): UserProfile | null {
     if (event.kind !== 0 || !event.content) {
       return null;
     }
@@ -444,16 +414,6 @@
   function shortenAddress(addr: string, head = 10, tail = 10): string {
     if (!addr || addr.length <= head + tail + 3) return addr;
     return addr.slice(0, head) + "…" + addr.slice(-tail);
-  }
-
-  function formatEventDate(event: NDKEvent): string {
-    if (event.created_at) {
-      return new Date(event.created_at * 1000).toLocaleDateString();
-    }
-    if ((event as any).timestamp) {
-      return new Date((event as any).timestamp * 1000).toLocaleDateString();
-    }
-    return "Unknown date";
   }
 
   function onLoadingChange(val: boolean) {
