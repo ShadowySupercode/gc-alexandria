@@ -1,8 +1,6 @@
 <script lang="ts">
   import { Heading, Button, Alert } from "flowbite-svelte";
-  import { PaperPlaneOutline } from "flowbite-svelte-icons";
   import ZettelEditor from "$lib/components/ZettelEditor.svelte";
-  import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
   import { publishSingleEvent } from "$lib/services/publisher";
   import { getNdkContext } from "$lib/ndk";
@@ -50,14 +48,17 @@
 
       // Publish index event first using publishSingleEvent
       if (events.indexEvent) {
-        const indexResult = await publishSingleEvent({
-          content: events.indexEvent.content,
-          kind: events.indexEvent.kind,
-          tags: events.indexEvent.tags,
-          onError: (error) => {
-            console.error("Index event publish failed:", error);
+        const indexResult = await publishSingleEvent(
+          {
+            content: events.indexEvent.content,
+            kind: events.indexEvent.kind,
+            tags: events.indexEvent.tags,
+            onError: (error) => {
+              console.error("Index event publish failed:", error);
+            },
           },
-        }, ndk);
+          ndk,
+        );
         results.push(indexResult);
       }
 
@@ -67,14 +68,17 @@
         console.log(
           `Publishing content event ${i + 1}: ${event.tags.find((t: any) => t[0] === "title")?.[1] || "Untitled"}`,
         );
-        const result = await publishSingleEvent({
-          content: event.content,
-          kind: event.kind,
-          tags: event.tags,
-          onError: (error) => {
-            console.error(`Content event ${i + 1} publish failed:`, error);
+        const result = await publishSingleEvent(
+          {
+            content: event.content,
+            kind: event.kind,
+            tags: event.tags,
+            onError: (error) => {
+              console.error(`Content event ${i + 1} publish failed:`, error);
+            },
           },
-        }, ndk);
+          ndk,
+        );
         results.push(result);
       }
 
@@ -175,14 +179,17 @@
       // Publish only content events for scattered notes
       for (let i = 0; i < events.contentEvents.length; i++) {
         const event = events.contentEvents[i];
-        const result = await publishSingleEvent({
-          content: event.content,
-          kind: event.kind,
-          tags: event.tags,
-          onError: (error) => {
-            console.error(`Content event ${i + 1} publish failed:`, error);
+        const result = await publishSingleEvent(
+          {
+            content: event.content,
+            kind: event.kind,
+            tags: event.tags,
+            onError: (error) => {
+              console.error(`Content event ${i + 1} publish failed:`, error);
+            },
           },
-        }, ndk);
+          ndk,
+        );
         results.push(result);
       }
 
@@ -254,9 +261,9 @@
 
     // Find the failed event to retry
     const failedEvent = publishResults.failedEvents.find(
-      (event) => event.sectionIndex === sectionIndex
+      (event) => event.sectionIndex === sectionIndex,
     );
-    
+
     if (!failedEvent) return;
 
     isPublishing = true;
@@ -265,7 +272,9 @@
       // Retry publishing the failed content
       // Note: This is a simplified retry - in production you'd want to store the original event data
       // For now, we'll just show an error message
-      console.error("Retry not implemented - would need to store original event data");
+      console.error(
+        "Retry not implemented - would need to store original event data",
+      );
       // Just return early since retry is not implemented
       isPublishing = false;
       return;

@@ -1,8 +1,10 @@
 import { getMimeTags } from "../utils/mime.ts";
 import {
   metadataToTags,
-  parseAsciiDocWithMetadata,
 } from "../utils/asciidoc_metadata.ts";
+import {
+  parseAsciiDocWithMetadata,
+} from "../utils/asciidoc_parser.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 

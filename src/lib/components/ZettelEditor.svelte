@@ -3,10 +3,6 @@
   import { EyeOutline, QuestionCircleOutline } from "flowbite-svelte-icons";
   import {
   extractSmartMetadata,
-  parseAsciiDocWithMetadata,
-  parseAsciiDocIterative,
-  generateNostrEvents,
-  detectContentType,
   type AsciiDocMetadata,
   metadataToTags,
   parseSimpleAttributes,
