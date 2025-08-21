@@ -2,13 +2,14 @@
   import { goto } from "$app/navigation";
   import { Input, Button } from "flowbite-svelte";
   import { Spinner } from "flowbite-svelte";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import {
     searchEvent,
     searchBySubscription,
     searchNip05,
   } from "$lib/utils/search_utility";
   import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+  import { nip19 } from "nostr-tools";
   import {
     activeInboxRelays,
     activeOutboxRelays,
@@ -110,6 +111,59 @@
       }
     } catch (error) {
       handleSearchError(error, "NIP-05 lookup failed");
+    }
+  }
+
+  async function handleProfileSearch(query: string) {
+    try {
+      console.log("EventSearch: Starting profile search for:", query);
+      
+      // Use the profile search service to find the profile
+      const { searchProfiles } = await import("$lib/utils/profile_search");
+      const result = await searchProfiles(query, ndk);
+      
+      if (result.profiles && result.profiles.length > 0) {
+        // Get the npub from the profile, or use the original query if profile doesn't have pubkey
+        let npub = result.profiles[0].pubkey || query;
+        
+        // Convert npub to hex pubkey
+        let hexPubkey = "";
+        try {
+          if (npub.startsWith('npub')) {
+            const decoded = nip19.decode(npub);
+            if (decoded.type === 'npub') {
+              hexPubkey = decoded.data;
+            }
+          } else {
+            hexPubkey = npub;
+          }
+        } catch (error) {
+          console.warn("Failed to decode npub to hex:", error);
+          cleanupSearch();
+          updateSearchState(false, true, 0, "profile");
+          return;
+        }
+        
+        // Fetch the actual profile event from relays
+        const profileEvent = await ndk.fetchEvent({
+          kinds: [0],
+          authors: [hexPubkey],
+        });
+        
+        if (profileEvent) {
+          handleFoundEvent(profileEvent);
+          updateSearchState(false, true, 1, "profile");
+        } else {
+          cleanupSearch();
+          updateSearchState(false, true, 0, "profile");
+        }
+      } else {
+        console.log("EventSearch: No profile found for:", query);
+        cleanupSearch();
+        updateSearchState(false, true, 0, "profile");
+      }
+    } catch (error) {
+      handleSearchError(error, "Profile lookup failed");
     }
   }
 
@@ -252,9 +306,22 @@
       return { type: "nip05", term: query };
     }
 
+    // AI-NOTE: Detect Nostr identifiers (npub, nevent, naddr, nprofile)
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.startsWith("npub") || trimmedQuery.startsWith("nprofile")) {
+      return { type: "profile", term: trimmedQuery };
+    }
+
+    if (trimmedQuery.startsWith("nevent") || trimmedQuery.startsWith("note")) {
+      return { type: "event", term: trimmedQuery };
+    }
+
+    if (trimmedQuery.startsWith("naddr")) {
+      return { type: "event", term: trimmedQuery };
+    }
+
     // AI-NOTE: Detect hex IDs (64-character hex strings with no spaces)
     // These are likely event IDs and should be searched as events
-    const trimmedQuery = query.trim();
     if (trimmedQuery && isEventId(trimmedQuery)) {
       return { type: "event", term: trimmedQuery };
     }
@@ -262,12 +329,7 @@
     // AI-NOTE: Treat plain text searches as generic searches by default
     // This allows for flexible searching without assuming it's always a profile search
     // Users can still use n: prefix for explicit name/profile searches
-    if (
-      trimmedQuery &&
-      !trimmedQuery.startsWith("nevent") &&
-      !trimmedQuery.startsWith("npub") &&
-      !trimmedQuery.startsWith("naddr")
-    ) {
+    if (trimmedQuery) {
       return null; // Let handleSearchEvent treat this as a generic search
     }
 
@@ -293,7 +355,13 @@
       return;
     }
 
-    if (type === "event") {
+    if (type === "profile") {
+      console.log("EventSearch: Processing profile search:", term);
+      await handleProfileSearch(term);
+      return;
+    }
+
+    if (type === "event" || type === "id") {
       console.log("EventSearch: Processing event ID search:", term);
       // URL navigation is now handled in handleSearchEvent
       await handleEventSearch(term);
@@ -423,6 +491,8 @@
             handleSearchBySubscription("t", activeSearchValue);
           } else if (activeSearchType === "n") {
             handleSearchBySubscription("n", activeSearchValue);
+          } else if (activeSearchType === "id") {
+            handleEventSearch(activeSearchValue);
           }
           // Note: "q" (generic) searches are not processed here since they're
           // unstructured queries that don't require actual search execution

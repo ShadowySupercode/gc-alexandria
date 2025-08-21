@@ -179,7 +179,7 @@ import Asciidoctor from "asciidoctor";
         <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
           Unified AsciiDoc Publisher
         </h3>
-        <div class="flex items-center space-x-4 mb-3">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:space-x-4 mb-3 space-y-2 lg:space-y-0">
           <div class="flex items-center space-x-2">
             <label for="parse-level" class="text-xs text-gray-600 dark:text-gray-400 font-medium">Parse Level:</label>
             <select 
@@ -216,7 +216,7 @@ import Asciidoctor from "asciidoctor";
     </div>
   </div>
 
-  <div class="flex items-center justify-between">
+  <div class="flex flex-col lg:flex-row items-center justify-between space-y-2 lg:space-y-0">
     <div class="flex items-center space-x-2">
       <Button
         color="light"
@@ -260,9 +260,9 @@ import Asciidoctor from "asciidoctor";
     {/if}
   </div>
 
-  <div class="flex space-x-6 h-[60vh] min-h-[400px] max-h-[800px]">
+  <div class="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-6 h-[60vh] min-h-[400px] max-h-[800px]">
     <!-- Editor Panel -->
-    <div class="{showPreview && showTutorial ? 'w-1/3' : showPreview || showTutorial ? 'w-1/2' : 'w-full'} flex flex-col">
+    <div class="{showPreview && showTutorial ? 'lg:w-1/3' : showPreview || showTutorial ? 'lg:w-1/2' : 'w-full'} flex flex-col">
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         <Textarea
           bind:value={content}
@@ -275,7 +275,7 @@ import Asciidoctor from "asciidoctor";
 
     <!-- Preview Panel -->
     {#if showPreview}
-      <div class="w-1/2 flex flex-col">
+      <div class="{showTutorial ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
           <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -445,7 +445,7 @@ import Asciidoctor from "asciidoctor";
 
     <!-- Tutorial Sidebar -->
     {#if showTutorial}
-      <div class="{showPreview ? 'w-1/3' : 'w-1/2'} flex flex-col">
+      <div class="{showPreview ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
           <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">

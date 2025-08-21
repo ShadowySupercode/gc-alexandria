@@ -1127,7 +1127,7 @@
         {/if}
 
         {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !searchInProgress}
-          <div class="mt-8">
+          <div class="mt-8 w-full">
             <Heading tag="h2" class="h-leather mb-4"
               >Publish Nostr Event</Heading
             >
@@ -1150,7 +1150,9 @@
                 and content
               </li>
             </ul>
-            <EventInput />
+            <div class="w-full flex justify-center">
+              <EventInput />
+            </div>
           </div>
         {/if}
       </div>

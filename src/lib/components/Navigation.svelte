@@ -20,7 +20,7 @@
     <NavBrand href="/">
       <div class="flex flex-col">
         <h1 class="text-2xl font-bold">Alexandria</h1>
-        <p class="text-xs font-semibold tracking-wide">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem]">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
       </div>
     </NavBrand>
   </div>
