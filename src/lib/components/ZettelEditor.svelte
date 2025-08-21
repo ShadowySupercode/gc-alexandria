@@ -7,8 +7,8 @@
   metadataToTags,
   parseSimpleAttributes,
 } from "$lib/utils/asciidoc_metadata";
-import { createPublicationTreeFromContent, exportEventsFromTree } from "$lib/utils/publication_tree_factory.ts";
-import { getNdkContext } from "$lib/ndk.ts";
+import { createPublicationTreeFromContent, exportEventsFromTree } from "$lib/utils/publication_tree_factory";
+import { getNdkContext } from "$lib/ndk";
 import Asciidoctor from "asciidoctor";
 
   // Initialize Asciidoctor processor

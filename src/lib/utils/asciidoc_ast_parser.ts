@@ -7,10 +7,10 @@
 
 import Processor from "asciidoctor";
 import type { Document } from "asciidoctor";
-import { PublicationTree } from "../data_structures/publication_tree.ts";
+import { PublicationTree } from "../data_structures/publication_tree";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
-import { getMimeTags } from "./mime.ts";
+import { getMimeTags } from "./mime";
 
 export interface ASTSection {
   title: string;

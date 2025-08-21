@@ -5,12 +5,12 @@
  * providing a clean bridge between AsciiDoc parsing and Nostr event publishing.
  */
 
-import { PublicationTree } from "$lib/data_structures/publication_tree.ts";
-import { SveltePublicationTree } from "$lib/components/publications/svelte_publication_tree.svelte.ts";
-import { parseAsciiDocAST } from "$lib/utils/asciidoc_ast_parser.ts";
+import { PublicationTree } from "$lib/data_structures/publication_tree";
+import { SveltePublicationTree } from "$lib/components/publications/svelte_publication_tree.svelte";
+import { parseAsciiDocAST } from "$lib/utils/asciidoc_ast_parser";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
-import { getMimeTags } from "$lib/utils/mime.ts";
+import { getMimeTags } from "$lib/utils/mime";
 
 export interface PublicationTreeFactoryResult {
   tree: PublicationTree;
