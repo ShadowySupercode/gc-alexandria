@@ -223,7 +223,7 @@
   }
 </script>
 
-<div class="w-full max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg">
+<div class="w-full max-w-2xl mx-auto my-8 p-4 sm:p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg overflow-hidden">
   <div class="flex justify-between items-center mb-4">
     <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Publish Nostr Event</h2>
     <div class="flex gap-2">
@@ -251,7 +251,7 @@
   </div>
   
   <!-- Event ID Search Section -->
-  <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+  <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
     <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Load Existing Event</h3>
     
     <!-- Load Method Tabs -->
@@ -274,10 +274,10 @@
 
     {#if loadMethod === 'hex'}
       <!-- Hex ID Input -->
-      <div class="flex gap-2">
+      <div class="flex gap-2 min-w-0">
         <input
           type="text"
-          class="input input-bordered flex-1"
+          class="input input-bordered flex-1 min-w-0"
           placeholder="Enter 64-character hex event ID"
           bind:value={eventIdSearch}
           maxlength="64"
@@ -290,7 +290,7 @@
         />
         <button
           type="button"
-          class="btn btn-secondary"
+          class="btn btn-secondary flex-shrink-0"
           onclick={loadEventById}
           disabled={loadingEvent || !eventIdSearch.trim()}
         >

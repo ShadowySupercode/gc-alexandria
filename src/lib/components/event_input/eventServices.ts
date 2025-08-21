@@ -178,6 +178,12 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
         ...get(activeOutboxRelays),
         ...get(activeInboxRelays),
       ];
+      
+      console.log("publishEvent: Publishing to relays:", relays);
+      console.log("publishEvent: Anonymous relays:", anonymousRelays);
+      console.log("publishEvent: Active outbox relays:", get(activeOutboxRelays));
+      console.log("publishEvent: Active inbox relays:", get(activeInboxRelays));
+      
       let published = false;
 
       for (const relayUrl of relays) {
@@ -254,9 +260,15 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     throw new Error("NDK context not available");
   }
   
+  console.log("loadEvent: Starting search for event ID:", eventId);
+  console.log("loadEvent: NDK pool relays:", Array.from(ndk.pool.relays.values()).map((r: any) => r.url));
+  console.log("loadEvent: Active inbox relays:", get(activeInboxRelays));
+  console.log("loadEvent: Active outbox relays:", get(activeOutboxRelays));
+  
   const foundEvent = await fetchEventWithFallback(ndk, eventId, 10000);
 
   if (foundEvent) {
+    console.log("loadEvent: Successfully found event:", foundEvent.id);
     // Convert NDK event format to our format
     const eventData: EventData = {
       kind: foundEvent.kind, // Use the actual kind from the event
@@ -273,5 +285,6 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     return { eventData, tags };
   }
 
+  console.log("loadEvent: Event not found on any relay");
   return null;
 }

@@ -133,7 +133,7 @@
 </script>
 
 <!-- Event Preview Section -->
-<div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+<div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 overflow-hidden">
   <div class="flex items-center justify-between mb-3">
     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Event Preview</h3>
     <button
@@ -147,7 +147,7 @@
   
   {#if showJsonPreview}
     {#if eventPreview}
-      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600 overflow-hidden">
         {#if eventPreview.type === 'error'}
           <div class="text-red-600 dark:text-red-400 text-sm">
             {eventPreview.message}
@@ -158,7 +158,9 @@
               Event Type: {eventPreview.type === '30040_index_event' ? '30040 Publication Index' : 'Standard Event'}
             </span>
           </div>
-          <pre class="text-xs bg-white dark:bg-gray-900 p-3 rounded border overflow-x-auto text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{JSON.stringify(eventPreview.event, null, 2)}</pre>
+          <div class="overflow-hidden">
+            <pre class="text-xs bg-white dark:bg-gray-900 p-3 rounded border overflow-x-auto text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap break-words max-w-full">{JSON.stringify(eventPreview.event, null, 2)}</pre>
+          </div>
         {/if}
       </div>
     {:else}

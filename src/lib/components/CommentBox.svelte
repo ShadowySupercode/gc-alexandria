@@ -622,22 +622,22 @@
     </Alert>
   {/if}
 
-  <div class="flex justify-end items-center gap-4">
+  <div class="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4">
     {#if userProfile}
-      <div class="flex items-center gap-2 text-sm">
+      <div class="flex items-center gap-2 text-sm min-w-0 flex-shrink">
         {#if userProfile.picture}
           <img
             src={userProfile.picture}
             alt={userProfile.name || "Profile"}
-            class="w-8 h-8 rounded-full object-cover"
+            class="w-8 h-8 rounded-full object-cover flex-shrink-0"
             onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />
         {:else}
-          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
             <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </div>
         {/if}
-        <span class="text-gray-900 dark:text-gray-100">
+        <span class="text-gray-900 dark:text-gray-100 truncate">
           {userProfile.displayName ||
             userProfile.name ||
             "anon"}
@@ -646,8 +646,8 @@
     {/if}
     <Button
       onclick={() => handleSubmit()}
-                  disabled={isSubmitting || !content.trim() || !$userStore.pubkey}
-      class="w-full md:w-auto"
+      disabled={isSubmitting || !content.trim() || !$userStore.pubkey}
+      class="w-auto min-w-[120px]"
     >
       {#if !$userStore.pubkey}
         Not Signed In
