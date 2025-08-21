@@ -11,6 +11,8 @@
   metadataToTags,
   parseSimpleAttributes,
 } from "$lib/utils/asciidoc_metadata";
+import { createPublicationTreeFromContent, exportEventsFromTree } from "$lib/utils/publication_tree_factory.ts";
+import { getNdkContext } from "$lib/ndk.ts";
 import Asciidoctor from "asciidoctor";
 
   // Initialize Asciidoctor processor
@@ -37,41 +39,52 @@ import Asciidoctor from "asciidoctor";
     onPublishScatteredNotes?: (events: any) => void;
   }>();
 
-  // Parse content using iterative parsing
-  let parsedContent = $derived.by(() => {
-    if (!content.trim()) return null;
-    
-    try {
-      // Use iterative parsing with selected level
-      const parsed = parseAsciiDocIterative(content, parseLevel);
-      
-      // Debug logging
-      console.log("Iterative parsed content:", parsed);
-      
-      return parsed;
-    } catch (error) {
-      console.error("Parsing error:", error);
-      return null;
-    }
-  });
+  // Get NDK context for PublicationTree creation
+  const ndk = getNdkContext();
 
-  // Generate events from parsed content
-  let generatedEvents = $derived.by(() => {
-    if (!parsedContent) return null;
-    
-    try {
-      const events = generateNostrEvents(parsedContent, parseLevel);
-      console.log("Generated events:", events);
-      return events;
-    } catch (error) {
-      console.error("Event generation error:", error);
-      return null;
-    }
-  });
+  // Configuration constants
+  const MIN_PARSE_LEVEL = 2;
+  const MAX_PARSE_LEVEL = 6;
 
-  // Detect content type for smart publishing
-  let contentType = $derived.by(() => {
-    return detectContentType(content);
+  // State for PublicationTree result
+  let publicationResult = $state<any>(null);
+  let generatedEvents = $state<any>(null);
+  let contentType = $state<'article' | 'scattered-notes' | 'none'>('none');
+
+  // Effect to create PublicationTree when content changes
+  $effect(() => {
+    if (!content.trim() || !ndk) {
+      publicationResult = null;
+      generatedEvents = null;
+      contentType = 'none';
+      return;
+    }
+    
+    // Create PublicationTree asynchronously
+    createPublicationTreeFromContent(content, ndk, parseLevel)
+      .then(result => {
+        publicationResult = result;
+        contentType = result.metadata.contentType;
+        
+        // Export events for compatibility
+        return exportEventsFromTree(result);
+      })
+      .then(events => {
+        generatedEvents = events;
+        console.log("AST-based events generated:", {
+          contentType,
+          indexEvent: !!events.indexEvent,
+          contentEvents: events.contentEvents.length,
+          parseLevel: parseLevel
+        });
+        console.log("Updated generatedEvents state:", generatedEvents);
+      })
+      .catch(error => {
+        console.error("PublicationTree creation error:", error);
+        publicationResult = null;
+        generatedEvents = null;
+        contentType = 'none';
+      });
   });
 
   // Helper function to get section level from content
@@ -86,24 +99,41 @@ import Asciidoctor from "asciidoctor";
     return 2; // Default to level 2
   }
 
-  // Parse sections for preview display
-  let parsedSections = $derived.by(() => {
-    if (!parsedContent) return [];
-    
-    return parsedContent.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string; level?: number }) => {
-      // Use simple parsing directly on section content for accurate tag extraction
-      const tags = parseSimpleAttributes(section.content);
-      const level = section.level || getSectionLevel(section.content);
+  // Generate parse level options dynamically
+  function generateParseLevelOptions(minLevel: number, maxLevel: number) {
+    const options = [];
+    for (let level = minLevel; level <= maxLevel; level++) {
+      const equals = '='.repeat(level);
+      const nextEquals = '='.repeat(level + 1);
       
-      // Determine if this is an index section (just title) or content section (full content)
-      const isIndex = parseLevel > 2 && level < parseLevel;
+      let label;
+      if (level === 2) {
+        label = `Level ${level} (${equals} sections → events)`;
+      } else {
+        const prevEquals = '='.repeat(level - 1);
+        label = `Level ${level} (${prevEquals} → indices, ${equals} → events)`;
+      }
+      
+      options.push({ level, label });
+    }
+    return options;
+  }
+
+  // Parse sections for preview display using PublicationTree data
+  let parsedSections = $derived.by(() => {
+    if (!publicationResult) return [];
+    
+    // Convert PublicationTree events to preview format
+    return publicationResult.contentEvents.map((event: any) => {
+      const title = event.tags.find((t: string[]) => t[0] === 'title')?.[1] || 'Untitled';
+      const tags = event.tags.filter((t: string[]) => t[0] === 't');
       
       return {
-        title: section.title || "Untitled",
-        content: section.content.trim(),
-        tags,
-        level,
-        isIndex,
+        title,
+        content: event.content,
+        tags, // Already in [['t', 'tag1'], ['t', 'tag2']] format
+        level: 2, // Default level for display
+        isIndex: event.kind === 30040,
       };
     });
   });
@@ -161,9 +191,9 @@ import Asciidoctor from "asciidoctor";
               bind:value={parseLevel}
               class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value={2}>Level 2 (== sections → events)</option>
-              <option value={3}>Level 3 (== → indices, === → events)</option>
-              <option value={4}>Level 4 (=== → indices, ==== → events)</option>
+              {#each generateParseLevelOptions(MIN_PARSE_LEVEL, MAX_PARSE_LEVEL) as option}
+                <option value={option.level}>{option.label}</option>
+              {/each}
             </select>
           </div>
           
@@ -234,7 +264,7 @@ import Asciidoctor from "asciidoctor";
     {/if}
   </div>
 
-  <div class="flex space-x-6 h-96">
+  <div class="flex space-x-6 h-[60vh] min-h-[400px] max-h-[800px]">
     <!-- Editor Panel -->
     <div class="{showPreview && showTutorial ? 'w-1/3' : showPreview || showTutorial ? 'w-1/2' : 'w-full'} flex flex-col">
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
@@ -264,19 +294,19 @@ import Asciidoctor from "asciidoctor";
               </div>
             {:else}
               <!-- Show document title and tags for articles -->
-              {#if contentType === 'article' && parsedContent?.title}
+              {#if contentType === 'article' && publicationResult?.metadata.title}
                 <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
                   <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                    {parsedContent.title}
+                    {publicationResult.metadata.title}
                   </h1>
                   <!-- Document-level tags -->
-                  {#if parsedContent.content}
-                    {@const documentTags = parseSimpleAttributes(parsedContent.content)}
-                    {#if documentTags.filter(tag => tag[0] === 't').length > 0}
+                  {#if publicationResult.metadata.attributes.tags}
+                    {@const tagsList = publicationResult.metadata.attributes.tags.split(',').map((t: string) => t.trim())}
+                    {#if tagsList.length > 0}
                       <div class="flex flex-wrap gap-2">
-                        {#each documentTags.filter(tag => tag[0] === 't') as tag}
+                        {#each tagsList as tag}
                           <span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
-                            #{tag[1]}
+                            #{tag}
                           </span>
                         {/each}
                       </div>
@@ -287,7 +317,7 @@ import Asciidoctor from "asciidoctor";
               
               <div class="prose prose-sm dark:prose-invert max-w-none">
                 <!-- Render full document with title if it's an article -->
-                {#if contentType === 'article' && parsedContent?.title}
+                {#if contentType === 'article' && publicationResult?.metadata.title}
                   {@const documentHeader = content.split(/\n==\s+/)[0]}
                   <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
                     <div class="asciidoc-content">
@@ -300,17 +330,16 @@ import Asciidoctor from "asciidoctor";
                       })}
                     </div>
                     <!-- Document-level tags -->
-                    {#if parsedContent.content}
-                      {@const documentTags = parseSimpleAttributes(parsedContent.content)}
-                      {#if documentTags.filter(tag => tag[0] === 't').length > 0}
+                    {#if publicationResult.metadata.attributes.tags}
+                      {@const tagsList = publicationResult.metadata.attributes.tags.split(',').map((t: string) => t.trim())}
+                      {#if tagsList.length > 0}
                         <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mt-3">
                           <div class="flex flex-wrap gap-2 items-center">
                             <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Document tags:</span>
-                            <!-- Show only hashtags (t-tags) -->
-                            {#each documentTags.filter(tag => tag[0] === 't') as tag}
+                            {#each tagsList as tag}
                               <div class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline">
                                 <span class="mr-1">#</span>
-                                <span>{tag[1]}</span>
+                                <span>{tag}</span>
                               </div>
                             {/each}
                           </div>
@@ -349,14 +378,7 @@ import Asciidoctor from "asciidoctor";
                       {:else}
                         <!-- Content section: render full content -->
                         <div class="prose prose-sm dark:prose-invert">
-                          {@html asciidoctor.convert(section.content, {
-                            standalone: false,
-                            attributes: {
-                              showtitle: true,
-                              sectanchors: true,
-                              sectids: true
-                            }
-                          })}
+                          {@html section.content}
                         </div>
                       {/if}
                     </div>
@@ -369,9 +391,9 @@ import Asciidoctor from "asciidoctor";
                           class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
                         >
                           <div class="flex flex-wrap gap-2 items-center">
-                            {#if section.tags && section.tags.filter(tag => tag[0] === 't').length > 0}
+                            {#if section.tags && section.tags.filter((tag: string[]) => tag[0] === 't').length > 0}
                               <!-- Show only hashtags (t-tags) -->
-                              {#each section.tags.filter(tag => tag[0] === 't') as tag}
+                              {#each section.tags.filter((tag: string[]) => tag[0] === 't') as tag}
                                 <div
                                   class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
                                 >
@@ -410,10 +432,14 @@ import Asciidoctor from "asciidoctor";
                 class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
               >
                 <strong>Event Count:</strong>
-                {parsedSections.length + (contentType === 'article' ? 1 : 0)} event{(parsedSections.length + (contentType === 'article' ? 1 : 0)) !== 1
-                  ? "s"
-                  : ""}
-                ({contentType === 'article' ? '1 index + ' : ''}{parsedSections.length} content)
+                {#if generatedEvents}
+                  {generatedEvents.contentEvents.length + (generatedEvents.indexEvent ? 1 : 0)} event{(generatedEvents.contentEvents.length + (generatedEvents.indexEvent ? 1 : 0)) !== 1
+                    ? "s"
+                    : ""}
+                  ({generatedEvents.indexEvent ? '1 index + ' : ''}{generatedEvents.contentEvents.length} content)
+                {:else}
+                  0 events
+                {/if}
               </div>
             {/if}
           </div>
@@ -435,9 +461,16 @@ import Asciidoctor from "asciidoctor";
             <div>
               <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Publishing Levels</h4>
               <ul class="space-y-1 text-xs">
-                <li><strong>Level 2:</strong> Only == sections become events (containing === and deeper)</li>
-                <li><strong>Level 3:</strong> == sections become indices, === sections become events</li>
-                <li><strong>Level 4:</strong> === sections become indices, ==== sections become events</li>
+                {#each generateParseLevelOptions(MIN_PARSE_LEVEL, MAX_PARSE_LEVEL) as option}
+                  <li>
+                    <strong>Level {option.level}:</strong> 
+                    {#if option.level === 2}
+                      Only {'='.repeat(option.level)} sections become events (containing {'='.repeat(option.level + 1)} and deeper)
+                    {:else}
+                      {'='.repeat(option.level - 1)} sections become indices, {'='.repeat(option.level)} sections become events
+                    {/if}
+                  </li>
+                {/each}
               </ul>
             </div>
 

@@ -5,7 +5,6 @@
   import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
   import { publishSingleEvent } from "$lib/services/publisher";
-  import { parseAsciiDocWithMetadata } from "$lib/utils/asciidoc_metadata";
   import { getNdkContext } from "$lib/ndk";
 
   const ndk = getNdkContext();
