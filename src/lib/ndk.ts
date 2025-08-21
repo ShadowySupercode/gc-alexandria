@@ -12,7 +12,6 @@ import {
   buildCompleteRelaySet,
   deduplicateRelayUrls,
   testRelayConnection,
-  setLocalhostPreferenceChangeCallback,
 } from "./utils/relay_management.ts";
 import { userStore } from "./stores/userStore.ts";
 
@@ -52,16 +51,6 @@ let persistentRelaySet:
 let relaySetLastUpdated: number = 0;
 const RELAY_SET_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const RELAY_SET_STORAGE_KEY = "alexandria/relay_set_cache";
-
-// AI-NOTE: 2025-01-24 - Function to invalidate relay cache when localhost preference changes
-function invalidateRelayCache() {
-  persistentRelaySet = null;
-  relaySetLastUpdated = 0;
-  console.debug("[NDK.ts] Relay cache invalidated due to localhost preference change");
-}
-
-// Set up callback for localhost preference changes
-setLocalhostPreferenceChangeCallback(invalidateRelayCache);
 
 /**
  * Load persistent relay set from localStorage

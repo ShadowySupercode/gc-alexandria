@@ -39,36 +39,6 @@ export const userStore = writable<UserState>({
   signedIn: false,
 });
 
-// AI-NOTE: 2025-01-24 - User preference for localhost relay inclusion
-// This allows users to disable localhost relays for security reasons
-const LOCALHOST_RELAYS_STORAGE_KEY = "alexandria/preferences/include_localhost_relays";
-
-// Initialize from localStorage if available
-let initialLocalhostPreference = false;
-if (typeof window !== "undefined") {
-  try {
-    const stored = localStorage.getItem(LOCALHOST_RELAYS_STORAGE_KEY);
-    if (stored !== null) {
-      initialLocalhostPreference = JSON.parse(stored);
-    }
-  } catch (error) {
-    console.warn("Failed to load localhost relay preference from localStorage:", error);
-  }
-}
-
-export const includeLocalhostRelays = writable<boolean>(initialLocalhostPreference);
-
-// Subscribe to changes and persist to localStorage
-if (typeof window !== "undefined") {
-  includeLocalhostRelays.subscribe((value) => {
-    try {
-      localStorage.setItem(LOCALHOST_RELAYS_STORAGE_KEY, JSON.stringify(value));
-    } catch (error) {
-      console.warn("Failed to save localhost relay preference to localStorage:", error);
-    }
-  });
-}
-
 // Helper functions for relay management
 function getRelayStorageKey(user: NDKUser, type: "inbox" | "outbox"): string {
   return `${loginStorageKey}/${user.pubkey}/${type}`;

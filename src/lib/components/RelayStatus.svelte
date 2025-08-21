@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, Alert, Checkbox } from "flowbite-svelte";
+  import { Button, Alert } from "flowbite-svelte";
   import {
     ndkSignedIn,
     testRelayConnection,
@@ -7,8 +7,7 @@
     checkEnvironmentForWebSocketDowngrade,
   } from "$lib/ndk";
   import {  onMount } from "svelte";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext, updateActiveRelayStores } from "$lib/ndk";
-  import { includeLocalhostRelays } from "$lib/stores/userStore";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
   const ndk = getNdkContext();
 
@@ -115,19 +114,6 @@
     if (status.error) return `Error: ${status.error}`;
     return "Failed to Connect";
   }
-
-  // AI-NOTE: 2025-01-24 - Handle localhost relay preference change
-  async function handleLocalhostToggle() {
-    // Update relay stores to reflect the new preference
-    try {
-      await updateActiveRelayStores(ndk, true); // Force update
-    } catch (error) {
-      console.warn("Failed to update relay stores after localhost preference change:", error);
-    }
-    
-    // Re-run relay tests when the preference changes
-    void runRelayTests();
-  }
 </script>
 
 <div class="space-y-4">
@@ -136,17 +122,6 @@
     <Button size="sm" onclick={runRelayTests} disabled={testing}>
       {testing ? "Testing..." : "Refresh"}
     </Button>
-  </div>
-
-  <div class="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded">
-    <Checkbox 
-      id="localhost-relays-checkbox"
-      bind:checked={$includeLocalhostRelays}
-      onchange={handleLocalhostToggle}
-    />
-    <label for="localhost-relays-checkbox" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-      Include localhost relays (for development/testing)
-    </label>
   </div>
 
   {#if !$ndkSignedIn}
