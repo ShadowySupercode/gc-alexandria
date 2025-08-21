@@ -387,7 +387,7 @@
   }
 </script>
 
-<div class="relative">
+<div class="relative h-fit my-auto">
   {#if !userState.signedIn}
     <!-- Login button -->
     <div class="group">
