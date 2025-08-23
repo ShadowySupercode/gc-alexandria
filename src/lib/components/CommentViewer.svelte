@@ -6,7 +6,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -772,7 +772,9 @@
                 <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
                   <span class="font-medium">Comment:</span>
                 </div>
-                <EmbeddedEvent nostrIdentifier={node.event.getMatchingTags("comment")[0]?.[1]} nestingLevel={0} />
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                  {node.event.getMatchingTags("comment")[0]?.[1] || "No comment content"}
+                </div>
               </div>
             {:else}
               <!-- Simple highlight -->
@@ -812,7 +814,9 @@
           </div>
         {:else}
           <!-- Regular comment content -->
-          <EmbeddedEvent nostrIdentifier={node.event.id} nestingLevel={0} />
+          <div class="text-sm text-gray-700 dark:text-gray-300">
+            {node.event.content || "No content"}
+          </div>
         {/if}
       </div>
     </div>

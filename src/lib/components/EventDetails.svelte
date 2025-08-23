@@ -14,7 +14,7 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  
   import type { UserProfile } from "$lib/models/user_profile";
 
   const {
@@ -310,7 +310,7 @@
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
         <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
         <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-          <EmbeddedEvent nostrIdentifier={event.id} nestingLevel={0} />
+          {event.content}
         </div>
         {#if shouldTruncate}
           <button

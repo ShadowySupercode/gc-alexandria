@@ -21,7 +21,7 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
-  import EmbeddedEvent from "$lib/components/embedded_events/EmbeddedEvent.svelte";
+  
   import { userStore } from "$lib/stores/userStore";
   import {
     fetchCurrentUserLists,
@@ -751,10 +751,10 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            <EmbeddedEvent
-                              nostrIdentifier={result.id}
-                              nestingLevel={0}
-                            />
+                            {result.content.slice(0, 200)}
+                            {#if result.content.length > 200}
+                              <span class="text-gray-500 dark:text-gray-400">...</span>
+                            {/if}
                           </div>
                         {/if}
                       {/if}
@@ -938,10 +938,10 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            <EmbeddedEvent
-                              nostrIdentifier={result.id}
-                              nestingLevel={0}
-                            />
+                            {result.content.slice(0, 200)}
+                            {#if result.content.length > 200}
+                              <span class="text-gray-500 dark:text-gray-400">...</span>
+                            {/if}
                           </div>
                         {/if}
                       {/if}
@@ -1111,10 +1111,10 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            <EmbeddedEvent
-                              nostrIdentifier={result.id}
-                              nestingLevel={0}
-                            />
+                            {result.content.slice(0, 200)}
+                            {#if result.content.length > 200}
+                              <span class="text-gray-500 dark:text-gray-400">...</span>
+                            {/if}
                           </div>
                         {/if}
                       {/if}

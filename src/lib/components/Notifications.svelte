@@ -21,7 +21,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  
   import { getNdkContext } from "$lib/ndk";
 
   const { event } = $props<{ event: NDKEvent }>();
@@ -817,7 +817,9 @@
                     {#if message.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          <EmbeddedEvent nostrIdentifier={message.id} nestingLevel={0} />
+                          <div class="text-sm text-gray-700 dark:text-gray-300">
+                            {message.content || "No content"}
+                          </div>
                         </div>
                       </div>
                     {/if}
@@ -894,7 +896,9 @@
                     {#if notification.content}
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
-                          <EmbeddedEvent nostrIdentifier={notification.id} nestingLevel={0} />
+                          <div class="text-sm text-gray-700 dark:text-gray-300">
+                            {notification.content || "No content"}
+                          </div>
                         </div>
                       </div>
                     {/if}
@@ -929,7 +933,9 @@
         <div class="quoted-content mb-4 p-3 rounded-r-lg">
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
-            <EmbeddedEvent nostrIdentifier={replyToMessage.id} nestingLevel={0} />
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+              {replyToMessage.content || "No content"}
+            </div>
           </div>
   </div>
       {/if}
