@@ -17,7 +17,7 @@ export const TIMEOUTS = {
   SUBSCRIPTION_SEARCH: 10000,
 
   /** Timeout for second-order search operations */
-  SECOND_ORDER_SEARCH: 3000, // AI-NOTE: 2025-01-24 - Reduced timeout since we limit scope
+  SECOND_ORDER_SEARCH: 30000, // AI-NOTE: 2025-01-24 - Increased timeout to allow more time for relay responses
 
   /** Timeout for relay diagnostics */
   RELAY_DIAGNOSTICS: 5000,
@@ -56,7 +56,7 @@ export const SEARCH_LIMITS = {
   COMMUNITY_CHECK: 1,
 
   /** Limit for second-order search results */
-  SECOND_ORDER_RESULTS: 100,
+  SECOND_ORDER_RESULTS: 50, // AI-NOTE: 2025-01-24 - Reduced to improve performance and reduce timeout issues
 
   /** Maximum results for profile searches */
   MAX_PROFILE_RESULTS: 20,

@@ -25,6 +25,168 @@ const normalizeUrl = (url: string): string => {
   return url.replace(/\/$/, ""); // Remove trailing slash
 };
 
+// AI-NOTE: 2025-01-24 - Define prioritized event kinds for subscription search
+const PRIORITIZED_EVENT_KINDS = new Set([
+  1,    // Text notes
+  1111, // Comments
+  9802, // Highlights
+  20,   // Article
+  21,   // Article
+  22,   // Article
+  1222, // Long-form content
+  1244, // Long-form content
+  30023, // Long-form content
+  30040, // Long-form content
+  30041, // Long-form content
+]);
+
+/**
+ * Prioritize events for subscription search results
+ * @param events Array of events to prioritize
+ * @param targetPubkey The pubkey being searched for (for n: searches only - events from this pubkey get highest priority)
+ * @param maxResults Maximum number of results to return
+ * @param ndk NDK instance for user list and community checks
+ * @returns Prioritized array of events
+ * 
+ * Priority tiers:
+ * 1. Prioritized event kinds (1, 1111, 9802, 20, 21, 22, 1222, 1244, 30023, 30040, 30041) + target pubkey events (n: searches only)
+ * 2. Events from user's follows (if logged in)
+ * 3. Events from community members
+ * 4. All other events
+ */
+async function prioritizeSubscriptionEvents(
+  events: NDKEvent[],
+  targetPubkey?: string,
+  maxResults: number = SEARCH_LIMITS.GENERAL_CONTENT,
+  ndk?: NDK
+): Promise<NDKEvent[]> {
+  if (events.length === 0) {
+    return [];
+  }
+
+  // AI-NOTE: 2025-01-24 - Get user lists and community status for prioritization
+  let userFollowPubkeys = new Set<string>();
+  let communityMemberPubkeys = new Set<string>();
+  
+  // Only attempt user list and community checks if NDK is provided
+  if (ndk) {
+    try {
+      // Import user list functions dynamically to avoid circular dependencies
+      const { fetchCurrentUserLists, getPubkeysFromListKind } = await import("./user_lists.ts");
+      const { checkCommunity } = await import("./community_checker.ts");
+      
+      // Get current user's follow lists (if logged in)
+      const userLists = await fetchCurrentUserLists(undefined, ndk);
+      userFollowPubkeys = getPubkeysFromListKind(userLists, 3); // Kind 3 = follow list
+      
+      // Check community status for unique pubkeys in events (limit to prevent hanging)
+      const uniquePubkeys = new Set(events.map(e => e.pubkey).filter(Boolean));
+      const pubkeysToCheck = Array.from(uniquePubkeys).slice(0, 20); // Limit to first 20 pubkeys
+      
+      console.log(`subscription_search: Checking community status for ${pubkeysToCheck.length} pubkeys out of ${uniquePubkeys.size} total`);
+      
+      const communityChecks = await Promise.allSettled(
+        pubkeysToCheck.map(async (pubkey) => {
+          try {
+            const isCommunityMember = await Promise.race([
+              checkCommunity(pubkey),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Community check timeout')), 2000)
+              )
+            ]);
+            return { pubkey, isCommunityMember };
+          } catch (error) {
+            console.warn(`subscription_search: Community check failed for ${pubkey}:`, error);
+            return { pubkey, isCommunityMember: false };
+          }
+        })
+      );
+      
+      // Build set of community member pubkeys
+      communityChecks.forEach(result => {
+        if (result.status === "fulfilled" && result.value.isCommunityMember) {
+          communityMemberPubkeys.add(result.value.pubkey);
+        }
+      });
+      
+      console.log("subscription_search: Prioritization data loaded:", {
+        userFollows: userFollowPubkeys.size,
+        communityMembers: communityMemberPubkeys.size,
+        totalEvents: events.length
+      });
+    } catch (error) {
+      console.warn("subscription_search: Failed to load prioritization data:", error);
+    }
+  } else {
+    console.log("subscription_search: No NDK provided, skipping user list and community checks");
+  }
+
+  // Separate events into priority tiers
+  const tier1: NDKEvent[] = []; // Events from target pubkey (n: searches only) + prioritized kinds
+  const tier2: NDKEvent[] = []; // Events from user's follows
+  const tier3: NDKEvent[] = []; // Events from community members
+  const tier4: NDKEvent[] = []; // All other events
+
+  for (const event of events) {
+    const isFromTarget = targetPubkey && event.pubkey === targetPubkey;
+    const isPrioritizedKind = PRIORITIZED_EVENT_KINDS.has(event.kind || 0);
+    const isFromFollow = userFollowPubkeys.has(event.pubkey || "");
+    const isFromCommunityMember = communityMemberPubkeys.has(event.pubkey || "");
+    
+    // AI-NOTE: 2025-01-24 - Prioritized kinds are always in tier 1
+    // Target pubkey priority only applies to n: searches (when targetPubkey is provided)
+    if (isPrioritizedKind || isFromTarget) {
+      tier1.push(event);
+    } else if (isFromFollow) {
+      tier2.push(event);
+    } else if (isFromCommunityMember) {
+      tier3.push(event);
+    } else {
+      tier4.push(event);
+    }
+  }
+
+  // Sort each tier by creation time (newest first)
+  tier1.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier2.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier3.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier4.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+  // Combine tiers in priority order, respecting the limit
+  const result: NDKEvent[] = [];
+  
+  // Add tier 1 events (highest priority)
+  result.push(...tier1);
+  
+  // Add tier 2 events (follows) if we haven't reached the limit
+  const remainingAfterTier1 = maxResults - result.length;
+  if (remainingAfterTier1 > 0) {
+    result.push(...tier2.slice(0, remainingAfterTier1));
+  }
+  
+  // Add tier 3 events (community members) if we haven't reached the limit
+  const remainingAfterTier2 = maxResults - result.length;
+  if (remainingAfterTier2 > 0) {
+    result.push(...tier3.slice(0, remainingAfterTier2));
+  }
+  
+  // Add tier 4 events (others) if we haven't reached the limit
+  const remainingAfterTier3 = maxResults - result.length;
+  if (remainingAfterTier3 > 0) {
+    result.push(...tier4.slice(0, remainingAfterTier3));
+  }
+
+  console.log("subscription_search: Event prioritization complete:", {
+    tier1: tier1.length, // Prioritized kinds + target pubkey (n: searches only)
+    tier2: tier2.length, // User follows
+    tier3: tier3.length, // Community members
+    tier4: tier4.length, // Others
+    total: result.length
+  });
+
+  return result;
+}
+
 /**
  * Filter out unwanted events from search results
  * @param events Array of NDKEvent to filter
@@ -870,12 +1032,12 @@ function searchOtherRelaysInBackground(
     let resolved = false;
     
     // Add timeout to prevent hanging
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       if (!resolved) {
         console.log("subscription_search: Background search timeout, resolving with current results");
         resolved = true;
         sub.stop();
-        const result = processEoseResults(
+        const result = await processEoseResults(
           searchType,
           searchState,
           searchFilter,
@@ -888,11 +1050,11 @@ function searchOtherRelaysInBackground(
       }
     }, TIMEOUTS.SUBSCRIPTION_SEARCH);
     
-    sub.on("eose", () => {
+    sub.on("eose", async () => {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeoutId);
-        const result = processEoseResults(
+        const result = await processEoseResults(
           searchType,
           searchState,
           searchFilter,
@@ -910,19 +1072,19 @@ function searchOtherRelaysInBackground(
 /**
  * Process EOSE results
  */
-function processEoseResults(
+async function processEoseResults(
   searchType: SearchSubscriptionType,
   searchState: any,
   searchFilter: SearchFilter,
   ndk: NDK,
   callbacks?: SearchCallbacks,
-): SearchResult {
+): Promise<SearchResult> {
   if (searchType === "n") {
     return processProfileEoseResults(searchState, searchFilter, ndk, callbacks);
   } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType, ndk, callbacks);
+    return await processContentEoseResults(searchState, searchType, ndk, callbacks);
   } else if (searchType === "t") {
-    return processTTagEoseResults(searchState);
+    return await processTTagEoseResults(searchState, ndk);
   }
 
   return createEmptySearchResult(searchType, searchState.normalizedSearchTerm);
@@ -955,6 +1117,10 @@ function processProfileEoseResults(
   const dedupedProfiles = Object.values(deduped)
     .sort((a, b) => b.created_at - a.created_at)
     .map((x) => x.event);
+
+  // AI-NOTE: 2025-01-24 - For profile searches, we don't apply prioritization to the profiles themselves
+  // since they are all kind 0 events and should be shown in chronological order
+  // However, we do pass the target pubkey to the second-order search for prioritization
 
   // Perform second-order search for npub searches
   if (
@@ -1021,12 +1187,12 @@ function processProfileEoseResults(
 /**
  * Process content EOSE results
  */
-function processContentEoseResults(
+async function processContentEoseResults(
   searchState: any,
   searchType: SearchSubscriptionType,
   ndk: NDK,
   callbacks?: SearchCallbacks,
-): SearchResult {
+): Promise<SearchResult> {
   if (searchState.firstOrderEvents.length === 0) {
     return createEmptySearchResult(
       searchType,
@@ -1046,6 +1212,15 @@ function processContentEoseResults(
   }
   const dedupedEvents = Object.values(deduped).map((x) => x.event);
 
+  // AI-NOTE: 2025-01-24 - Apply prioritization to first-order events for d-tag searches
+  // For d-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
+  const prioritizedEvents = await prioritizeSubscriptionEvents(
+    dedupedEvents,
+    undefined, // No specific target pubkey for d-tag searches
+    SEARCH_LIMITS.GENERAL_CONTENT,
+    ndk
+  );
+
   // Perform second-order search for d-tag searches
   if (dedupedEvents.length > 0) {
     performSecondOrderSearchInBackground(
@@ -1060,7 +1235,7 @@ function processContentEoseResults(
   }
 
   return {
-    events: dedupedEvents,
+    events: prioritizedEvents,
     secondOrder: [],
     tTagEvents: [],
     eventIds: searchState.eventIds,
@@ -1073,13 +1248,22 @@ function processContentEoseResults(
 /**
  * Process t-tag EOSE results
  */
-function processTTagEoseResults(searchState: any): SearchResult {
+async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<SearchResult> {
   if (searchState.tTagEvents.length === 0) {
     return createEmptySearchResult("t", searchState.normalizedSearchTerm);
   }
 
+  // AI-NOTE: 2025-01-24 - Apply prioritization to t-tag search results
+  // For t-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
+  const prioritizedEvents = await prioritizeSubscriptionEvents(
+    searchState.tTagEvents,
+    undefined, // No specific target pubkey for t-tag searches
+    SEARCH_LIMITS.GENERAL_CONTENT,
+    ndk
+  );
+
   return {
-    events: searchState.tTagEvents,
+    events: prioritizedEvents,
     secondOrder: [],
     tTagEvents: [],
     eventIds: new Set(),
@@ -1128,15 +1312,15 @@ async function performSecondOrderSearchInBackground(
     );
     let allSecondOrderEvents: NDKEvent[] = [];
 
-    // Set a timeout for second-order search
-    const timeoutPromise = new Promise((_, reject) => {
+    // Set a timeout for the initial event fetching only
+    const fetchTimeoutPromise = new Promise((_, reject) => {
       setTimeout(
-        () => reject(new Error("Second-order search timeout")),
+        () => reject(new Error("Second-order search fetch timeout")),
         TIMEOUTS.SECOND_ORDER_SEARCH,
       );
     });
 
-    const searchPromise = (async () => {
+    const fetchPromise = (async () => {
       if (searchType === "n" && targetPubkey) {
         console.log(
           "subscription_search: Searching for events mentioning pubkey:",
@@ -1236,64 +1420,103 @@ async function performSecondOrderSearchInBackground(
           ...filteredATagEvents,
         ];
       }
+    })();
 
-      // Deduplicate by event ID
-      const uniqueSecondOrder = new Map<string, NDKEvent>();
-      allSecondOrderEvents.forEach((event) => {
-        if (event.id) {
-          uniqueSecondOrder.set(event.id, event);
-        }
-      });
+    // Race between fetch and timeout - only timeout the initial event fetching
+    await Promise.race([fetchPromise, fetchTimeoutPromise]);
+    
+    // Now do the prioritization without timeout
+    console.log("subscription_search: Event fetching completed, starting prioritization...");
+    
+    // Deduplicate by event ID
+    const uniqueSecondOrder = new Map<string, NDKEvent>();
+    allSecondOrderEvents.forEach((event) => {
+      if (event.id) {
+        uniqueSecondOrder.set(event.id, event);
+      }
+    });
 
-      let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
+    let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
 
-      // Remove any events already in first order
-      const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
-      deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
-        (e) => !firstOrderIds.has(e.id),
-      );
+    // Remove any events already in first order
+    const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
+    deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
+      (e) => !firstOrderIds.has(e.id),
+    );
 
-      // Sort by creation date (newest first) and limit to newest results
-      const sortedSecondOrder = deduplicatedSecondOrder
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+    // AI-NOTE: 2025-01-24 - Apply prioritization to second-order search results with timeout
+    // Prioritize events from the target pubkey and specific event kinds
+    const prioritizationPromise = prioritizeSubscriptionEvents(
+      deduplicatedSecondOrder,
+      targetPubkey,
+      SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+      ndk
+    );
+    
+    const prioritizationTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Prioritization timeout')), 15000); // 15 second timeout
+    });
+    
+    let prioritizedSecondOrder: NDKEvent[];
+    try {
+      prioritizedSecondOrder = await Promise.race([
+        prioritizationPromise,
+        prioritizationTimeoutPromise
+      ]) as NDKEvent[];
 
       console.log(
         "subscription_search: Second-order search completed with",
-        sortedSecondOrder.length,
+        prioritizedSecondOrder.length,
+        "prioritized results",
+      );
+    } catch (error) {
+      console.warn("subscription_search: Prioritization failed, using simple sorting:", error);
+      // Fallback to simple sorting if prioritization fails
+      prioritizedSecondOrder = deduplicatedSecondOrder.sort((a, b) => {
+        // Prioritize events from target pubkey first
+        if (targetPubkey) {
+          const aIsTarget = a.pubkey === targetPubkey;
+          const bIsTarget = b.pubkey === targetPubkey;
+          if (aIsTarget && !bIsTarget) return -1;
+          if (!aIsTarget && bIsTarget) return 1;
+        }
+        // Then sort by creation time (newest first)
+        return (b.created_at || 0) - (a.created_at || 0);
+      }).slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+      
+      console.log(
+        "subscription_search: Using fallback sorting with",
+        prioritizedSecondOrder.length,
         "results",
       );
+    }
 
-      // Update the search results with second-order events
-      const result: SearchResult = {
-        events: firstOrderEvents,
-        secondOrder: sortedSecondOrder,
-        tTagEvents: [],
-        eventIds: searchType === "n"
-          ? new Set(firstOrderEvents.map((p) => p.id))
-          : eventIds,
-        addresses: searchType === "n" ? new Set() : addresses,
-        searchType: searchType,
-        searchTerm: "", // This will be set by the caller
-      };
+    // Update the search results with second-order events
+    const result: SearchResult = {
+      events: firstOrderEvents,
+      secondOrder: prioritizedSecondOrder,
+      tTagEvents: [],
+      eventIds: searchType === "n"
+        ? new Set(firstOrderEvents.map((p) => p.id))
+        : eventIds,
+      addresses: searchType === "n" ? new Set() : addresses,
+      searchType: searchType,
+      searchTerm: "", // This will be set by the caller
+    };
 
-      // Notify UI of updated results
-      if (callbacks?.onSecondOrderUpdate) {
-        console.log(
-          "subscription_search: Calling onSecondOrderUpdate callback with",
-          sortedSecondOrder.length,
-          "second-order events",
-        );
-        callbacks.onSecondOrderUpdate(result);
-      } else {
-        console.log(
-          "subscription_search: No onSecondOrderUpdate callback available",
-        );
-      }
-    })();
-
-    // Race between search and timeout
-    await Promise.race([searchPromise, timeoutPromise]);
+    // Notify UI of updated results
+    if (callbacks?.onSecondOrderUpdate) {
+      console.log(
+        "subscription_search: Calling onSecondOrderUpdate callback with",
+        prioritizedSecondOrder.length,
+        "second-order events",
+      );
+      callbacks.onSecondOrderUpdate(result);
+    } else {
+      console.log(
+        "subscription_search: No onSecondOrderUpdate callback available",
+      );
+    }
   } catch (err) {
     console.error(
       `[Search] Error in second-order ${searchType}-tag search:`,
