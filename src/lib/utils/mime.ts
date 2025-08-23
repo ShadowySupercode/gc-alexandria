@@ -1,4 +1,5 @@
 import { EVENT_KINDS } from "./search_constants";
+import { NostrKind } from "../types";
 
 /**
  * Determine the type of Nostr event based on its kind number
@@ -57,51 +58,87 @@ export function getMimeTags(kind: number): [string, string][] {
 
   switch (kind) {
     // Short text note
-    case 1:
+    case NostrKind.TextNote:
       mTag = ["m", "text/plain"];
       MTag = ["M", `note/microblog/${replaceability}`];
       break;
 
+    // Image/media content (NIP-94)
+    case NostrKind.ImageMedia:
+      mTag = ["m", "image/*"];
+      MTag = ["M", `media/image/${replaceability}`];
+      break;
+
+    // Normal video (NIP-71)
+    case NostrKind.NormalVideo:
+      mTag = ["m", "video/*"];
+      MTag = ["M", `media/video/normal/${replaceability}`];
+      break;
+
+    // Short video (NIP-71)
+    case NostrKind.ShortVideo:
+      mTag = ["m", "video/*"];
+      MTag = ["M", `media/video/short/${replaceability}`];
+      break;
+
+    // Root voice message (NIP-A0)
+    case NostrKind.RootVoiceMessage:
+      mTag = ["m", "audio/*"];
+      MTag = ["M", `media/audio/root/${replaceability}`];
+      break;
+
+    // Reply voice message (NIP-A0)
+    case NostrKind.ReplyVoiceMessage:
+      mTag = ["m", "audio/*"];
+      MTag = ["M", `media/audio/reply/${replaceability}`];
+      break;
+
     // Generic reply
-    case 1111:
+    case NostrKind.GenericReply:
       mTag = ["m", "text/plain"];
       MTag = ["M", `note/comment/${replaceability}`];
       break;
 
     // Issue
-    case 1621:
+    case NostrKind.Issue:
       mTag = ["m", "text/markup"];
       MTag = ["M", `git/issue/${replaceability}`];
       break;
 
     // Issue comment
-    case 1622:
+    case NostrKind.IssueComment:
       mTag = ["m", "text/markup"];
       MTag = ["M", `git/comment/${replaceability}`];
       break;
 
     // Book metadata
-    case 30040:
+    case NostrKind.PublicationIndex:
       mTag = ["m", "application/json"];
       MTag = ["M", `meta-data/index/${replaceability}`];
       break;
 
     // Book content
-    case 30041:
+    case NostrKind.PublicationContent:
       mTag = ["m", "text/asciidoc"];
       MTag = ["M", `article/publication-content/${replaceability}`];
       break;
 
     // Wiki page
-    case 30818:
+    case NostrKind.Wiki:
       mTag = ["m", "text/asciidoc"];
       MTag = ["M", `article/wiki/${replaceability}`];
       break;
 
     // Long-form note
-    case 30023:
+    case NostrKind.LongFormNote:
       mTag = ["m", "text/markup"];
       MTag = ["M", `article/long-form/${replaceability}`];
+      break;
+
+    // Blossom server list (NIP-B7)
+    case NostrKind.BlossomServerList:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `blossom/server-list/${replaceability}`];
       break;
 
       // Add more cases as needed...

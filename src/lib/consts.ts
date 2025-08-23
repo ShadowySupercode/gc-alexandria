@@ -1,9 +1,21 @@
 // AI SHOULD NEVER CHANGE THIS FILE
 
-export const wikiKind = 30818;
-export const indexKind = 30040;
-export const zettelKinds = [30041, 30818, 30023];
-export const repostKinds = [6, 16];
+// Import event kinds from types.ts to consolidate all event kind constants
+import { 
+  NostrKind, 
+  ZETTEL_KINDS, 
+  REPOST_KINDS, 
+  PUBLICATION_KINDS
+} from './types';
+
+// Re-export for backward compatibility
+export const wikiKind = NostrKind.Wiki;
+export const indexKind = NostrKind.PublicationIndex;
+export const zettelKinds = ZETTEL_KINDS;
+export const repostKinds = REPOST_KINDS;
+
+// AI-NOTE: 2025-01-24 - Added Blossom support (NIP-B7)
+export const blossomKind = NostrKind.BlossomServerList;
 
 export const communityRelays = [
   "wss://theforest.nostr1.com",

@@ -11,6 +11,21 @@
   import { repostKinds } from "$lib/consts";
   import { UserOutline } from "flowbite-svelte-icons";
   import type { UserProfile } from "$lib/models/user_profile";
+  import { 
+    getImetaTags, 
+    getBestVideoUrl, 
+    getBestAudioUrl, 
+    getPreviewImageUrl, 
+    getVideoDuration, 
+    getAudioDuration, 
+    getWaveformData 
+  } from "$lib/utils/imeta";
+  import { 
+    processImageWithBlossom, 
+    processVideoWithBlossom, 
+    processAudioWithBlossom,
+    shouldUseBlossomFallback 
+  } from "$lib/utils/blossom_media_utils";
   
   const {
     nostrIdentifier,
@@ -198,6 +213,34 @@
 
   function isAddressableEvent(event: NDKEvent): boolean {
     return getEventType(event.kind || 0) === "addressable";
+  }
+
+  // AI-NOTE: 2025-01-24 - Helper functions for media event types
+  function formatDuration(seconds: string): string {
+    const totalSeconds = parseInt(seconds);
+    if (isNaN(totalSeconds)) return seconds;
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+
+  function renderWaveform(waveformData: string): string {
+    const values = waveformData.split(' ').map(v => parseInt(v)).filter(v => !isNaN(v));
+    if (values.length === 0) return '';
+    
+    const maxValue = Math.max(...values);
+    const normalizedValues = values.map(v => (v / maxValue) * 100);
+    
+    return normalizedValues.map(height => 
+      `<div class="waveform-bar" style="height: ${height}%; width: 2px; background: currentColor; margin: 0 1px;"></div>`
+    ).join('');
   }
 </script>
 
@@ -571,6 +614,18 @@
             <span class="font-semibold">Image/Media Post</span>
           </div>
           
+          <!-- Media title -->
+          {#if event.tags}
+            {@const titleTag = event.tags.find(tag => tag[0] === 'title')}
+            {#if titleTag && titleTag[1]}
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-900 dark:text-gray-100">
+                  {titleTag[1]}
+                </h5>
+              </div>
+            {/if}
+          {/if}
+          
           <!-- Render images from imeta tags -->
           {#if event.tags}
             {@const imetaTags = event.tags.filter(tag => tag[0] === 'imeta')}
@@ -593,6 +648,12 @@
                         data.blurhash = item.substring(9);
                       } else if (item.startsWith('x ')) {
                         data.x = item.substring(2);
+                      } else if (item.startsWith('image ')) {
+                        if (!data.image) data.image = [];
+                        data.image.push(item.substring(6));
+                      } else if (item.startsWith('fallback ')) {
+                        if (!data.fallback) data.fallback = [];
+                        data.fallback.push(item.substring(9));
                       }
                     }
                     return data;
@@ -600,17 +661,46 @@
                   
                   {#if imetaData.url && imetaData.mimeType?.startsWith('image/')}
                     <div class="relative">
-                      <img 
-                        src={imetaData.url} 
-                        alt="imeta"
-                        class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
-                        style="max-height: 300px; object-fit: cover;"
-                        onerror={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          const fallback = (e.target as HTMLImageElement).nextElementSibling;
-                          if (fallback) fallback.classList.remove('hidden');
-                        }}
-                      />
+                      {#if shouldUseBlossomFallback(imetaData.url) && event?.pubkey}
+                        <!-- Blossom-enabled image with fallback support -->
+                        <img 
+                          src={imetaData.url} 
+                          alt="imeta"
+                          class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
+                          style="max-height: 300px; object-fit: cover;"
+                          onerror={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            // Try Blossom fallback before giving up
+                                                         processImageWithBlossom(
+                               imetaData.url, 
+                               event!.pubkey!, 
+                               (blobUrl) => {
+                                img.src = blobUrl;
+                                img.style.display = 'block';
+                              },
+                              (error) => {
+                                console.error('Blossom fallback failed:', error);
+                                img.style.display = 'none';
+                                const fallback = img.nextElementSibling;
+                                if (fallback) fallback.classList.remove('hidden');
+                              }
+                            );
+                          }}
+                        />
+                      {:else}
+                        <!-- Standard image without Blossom -->
+                        <img 
+                          src={imetaData.url} 
+                          alt="imeta"
+                          class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
+                          style="max-height: 300px; object-fit: cover;"
+                          onerror={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                            if (fallback) fallback.classList.remove('hidden');
+                          }}
+                        />
+                      {/if}
                       <div class="hidden text-xs text-gray-500 dark:text-gray-400 mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded">
                         Image failed to load: {imetaData.url}
                       </div>
@@ -627,6 +717,20 @@
                           <span>Type: {imetaData.mimeType}</span>
                         {/if}
                       </div>
+                      
+                      <!-- Fallback links -->
+                      {#if imetaData.fallback && imetaData.fallback.length > 0}
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span class="font-medium">Fallback URLs:</span>
+                          <div class="mt-1 space-y-1">
+                            {#each imetaData.fallback as fallbackUrl}
+                              <a href={fallbackUrl} target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline block">
+                                {fallbackUrl}
+                              </a>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
                     </div>
                   {:else if imetaData.url}
                     <!-- Non-image media -->
@@ -661,6 +765,340 @@
             {#if altTag && altTag[1]}
               <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
                 Alt: {altTag[1]}
+              </div>
+            {/if}
+          {/if}
+          
+          <!-- Hashtags -->
+          {#if event.tags}
+            {@const hashtags = event.tags.filter(tag => tag[0] === 't')}
+            {#if hashtags.length > 0}
+              <div class="mt-2 flex flex-wrap gap-1">
+                {#each hashtags as hashtag}
+                  {#if hashtag[1]}
+                    <span class="text-xs bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 px-2 py-1 rounded">
+                      #{hashtag[1]}
+                    </span>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </div>
+    <!-- Video content (kinds 21, 22) -->
+    {:else if event.kind === 21 || event.kind === 22}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">
+              {event.kind === 21 ? 'Normal Video' : 'Short Video'}
+            </span>
+          </div>
+          
+          <!-- Video title -->
+          {#if event.tags}
+            {@const titleTag = event.tags.find(tag => tag[0] === 'title')}
+            {#if titleTag && titleTag[1]}
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-900 dark:text-gray-100">
+                  {titleTag[1]}
+                </h5>
+              </div>
+            {/if}
+          {/if}
+          
+          <!-- Render videos from imeta tags -->
+          {#if event.tags}
+            {@const imetaTags = event.tags.filter(tag => tag[0] === 'imeta')}
+            {#if imetaTags.length > 0}
+              <div class="space-y-2">
+                {#each imetaTags as imetaTag}
+                  {@const imetaData = (() => {
+                    const data: any = {};
+                    for (let i = 1; i < imetaTag.length; i++) {
+                      const item = imetaTag[i];
+                      if (item.startsWith('url ')) {
+                        data.url = item.substring(4);
+                      } else if (item.startsWith('dim ')) {
+                        data.dimensions = item.substring(4);
+                      } else if (item.startsWith('m ')) {
+                        data.mimeType = item.substring(2);
+                      } else if (item.startsWith('size ')) {
+                        data.size = item.substring(5);
+                      } else if (item.startsWith('x ')) {
+                        data.x = item.substring(2);
+                      } else if (item.startsWith('image ')) {
+                        if (!data.image) data.image = [];
+                        data.image.push(item.substring(6));
+                      } else if (item.startsWith('fallback ')) {
+                        if (!data.fallback) data.fallback = [];
+                        data.fallback.push(item.substring(9));
+                      }
+                    }
+                    return data;
+                  })()}
+                  
+                  {#if imetaData.url && imetaData.mimeType?.startsWith('video/')}
+                    <div class="relative">
+                      <!-- Video preview image -->
+                      {#if imetaData.image && imetaData.image.length > 0}
+                        <div class="relative mb-2">
+                          <img 
+                            src={imetaData.image[0]} 
+                            alt="Video preview"
+                            class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
+                            style="max-height: 200px; object-fit: cover;"
+                            onerror={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <!-- Play button overlay -->
+                          <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="bg-black bg-opacity-50 rounded-full p-3">
+                              <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      {/if}
+                      
+                      <!-- Video player -->
+                      <!-- AI-NOTE: 2025-01-24 - Video element without captions as they are not provided in the event data -->
+                      <video 
+                        controls
+                        preload="metadata"
+                        class="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700"
+                        style="max-height: 300px;"
+                        aria-label="Video content - no captions available"
+                        onerror={(e) => {
+                          const video = e.target as HTMLVideoElement;
+                          // Try Blossom fallback if this is a Blossom-style URL
+                          if (shouldUseBlossomFallback(imetaData.url) && event?.pubkey) {
+                            processVideoWithBlossom(
+                              imetaData.url, 
+                              event.pubkey, 
+                              (blobUrl) => {
+                                // Replace the video source with the blob URL
+                                const source = video.querySelector('source');
+                                if (source) {
+                                  source.src = blobUrl;
+                                  video.load();
+                                }
+                              },
+                              (error) => {
+                                console.error('Blossom fallback failed for video:', error);
+                              }
+                            );
+                          }
+                        }}
+                      >
+                        <source src={imetaData.url} type={imetaData.mimeType}>
+                        {#if imetaData.fallback && imetaData.fallback.length > 0}
+                          <source src={imetaData.fallback[0]} type={imetaData.mimeType}>
+                        {/if}
+                        <!-- Caption track - always present for accessibility -->
+                        <track 
+                          kind="captions" 
+                          src={(() => {
+                            if (event.tags) {
+                              const textTrack = event.tags.find(tag => tag[0] === 'text-track');
+                              if (textTrack && textTrack[1]) {
+                                return textTrack[1];
+                              }
+                            }
+                            return "data:text/vtt;base64,V0VCVlRUCg0KMDowMDowMC4wMDAgLS0+IDAwOjAwOjAwLjAwMQ0KVmlkZW8gY29udGVudCB3aXRob3V0IGNhcHRpb25zDQo=";
+                          })()}
+                          srclang="en" 
+                          label="Video captions"
+                          default
+                        />
+                        Your browser does not support the video tag.
+                      </video>
+                      
+                      <!-- Video metadata -->
+                      <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {#if imetaData.dimensions}
+                          <span class="mr-2">Resolution: {imetaData.dimensions}</span>
+                        {/if}
+                        {#if imetaData.size}
+                          <span class="mr-2">Size: {Math.round(parseInt(imetaData.size) / 1024 / 1024 * 10) / 10}MB</span>
+                        {/if}
+                        {#if imetaData.mimeType}
+                          <span class="mr-2">Type: {imetaData.mimeType}</span>
+                        {/if}
+                        {#if event.tags}
+                          {@const durationTag = event.tags.find(tag => tag[0] === 'duration')}
+                          {#if durationTag && durationTag[1]}
+                            <span>Duration: {formatDuration(durationTag[1])}</span>
+                          {/if}
+                        {/if}
+                      </div>
+                      
+                      <!-- Fallback links -->
+                      {#if imetaData.fallback && imetaData.fallback.length > 0}
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span class="font-medium">Fallback URLs:</span>
+                          <div class="mt-1 space-y-1">
+                            {#each imetaData.fallback as fallbackUrl}
+                              <a href={fallbackUrl} target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline block">
+                                {fallbackUrl}
+                              </a>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                    </div>
+                  {:else if imetaData.url}
+                    <!-- Non-video media -->
+                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div class="text-sm text-gray-600 dark:text-gray-400">
+                        <a href={imetaData.url} target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline">
+                          View Video ({imetaData.mimeType || 'unknown type'})
+                        </a>
+                      </div>
+                      {#if imetaData.size}
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Size: {Math.round(parseInt(imetaData.size) / 1024 / 1024 * 10) / 10}MB
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {/if}
+          
+          <!-- Text content -->
+          {#if event.content && event.content.trim()}
+            <div class="mt-3 prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
+              {@render parsedContent(event.content)}
+            </div>
+          {/if}
+          
+          <!-- Alt text -->
+          {#if event.tags}
+            {@const altTag = event.tags.find(tag => tag[0] === 'alt')}
+            {#if altTag && altTag[1]}
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                Alt: {altTag[1]}
+              </div>
+            {/if}
+          {/if}
+          
+          <!-- Hashtags -->
+          {#if event.tags}
+            {@const hashtags = event.tags.filter(tag => tag[0] === 't')}
+            {#if hashtags.length > 0}
+              <div class="mt-2 flex flex-wrap gap-1">
+                {#each hashtags as hashtag}
+                  {#if hashtag[1]}
+                    <span class="text-xs bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 px-2 py-1 rounded">
+                      #{hashtag[1]}
+                    </span>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </div>
+    <!-- Voice message content (kinds 1222, 1244) -->
+    {:else if event.kind === 1222 || event.kind === 1244}
+      <div class="space-y-2 min-w-0 overflow-hidden">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <div class="mb-2">
+            <span class="font-semibold">
+              {event.kind === 1222 ? 'Voice Message' : 'Voice Reply'}
+            </span>
+          </div>
+          
+          <!-- Audio player -->
+          {#if event.content && event.content.trim()}
+            <div class="mb-3">
+              <audio 
+                controls
+                preload="metadata"
+                class="w-full"
+                onerror={(e) => {
+                  const audio = e.target as HTMLAudioElement;
+                  // Try Blossom fallback if this is a Blossom-style URL
+                  if (shouldUseBlossomFallback(event!.content) && event?.pubkey) {
+                    processAudioWithBlossom(
+                      event.content, 
+                      event.pubkey, 
+                      (blobUrl) => {
+                        // Replace the audio source with the blob URL
+                        const source = audio.querySelector('source');
+                        if (source) {
+                          source.src = blobUrl;
+                          audio.load();
+                        }
+                      },
+                      (error) => {
+                        console.error('Blossom fallback failed for audio:', error);
+                      }
+                    );
+                  }
+                }}
+              >
+                <source src={event.content} type="audio/mp4">
+                Your browser does not support the audio tag.
+              </audio>
+            </div>
+          {/if}
+          
+          <!-- Waveform visualization -->
+          {#if event.tags}
+            {@const imetaTags = event.tags.filter(tag => tag[0] === 'imeta')}
+            {#if imetaTags.length > 0}
+              {#each imetaTags as imetaTag}
+                {@const imetaData = (() => {
+                  const data: any = {};
+                  for (let i = 1; i < imetaTag.length; i++) {
+                    const item = imetaTag[i];
+                    if (item.startsWith('waveform ')) {
+                      data.waveform = item.substring(9);
+                    } else if (item.startsWith('duration ')) {
+                      data.duration = item.substring(9);
+                    }
+                  }
+                  return data;
+                })()}
+                
+                {#if imetaData.waveform}
+                  <div class="mb-3">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Waveform:
+                    </div>
+                    <div class="flex items-end h-8 bg-gray-100 dark:bg-gray-800 rounded p-1">
+                      {@html renderWaveform(imetaData.waveform)}
+                    </div>
+                  </div>
+                {/if}
+                
+                {#if imetaData.duration}
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Duration: {formatDuration(imetaData.duration)}
+                  </div>
+                {/if}
+              {/each}
+            {/if}
+          {/if}
+          
+          <!-- Hashtags -->
+          {#if event.tags}
+            {@const hashtags = event.tags.filter(tag => tag[0] === 't')}
+            {#if hashtags.length > 0}
+              <div class="mt-2 flex flex-wrap gap-1">
+                {#each hashtags as hashtag}
+                  {#if hashtag[1]}
+                    <span class="text-xs bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 px-2 py-1 rounded">
+                      #{hashtag[1]}
+                    </span>
+                  {/if}
+                {/each}
               </div>
             {/if}
           {/if}

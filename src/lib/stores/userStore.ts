@@ -15,6 +15,7 @@ import {
 } from "../ndk.ts";
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
+import { NostrKind } from "../types.ts";
 
 
 export interface UserState {
@@ -22,6 +23,7 @@ export interface UserState {
   npub: string | null;
   profile: NostrProfile | null;
   relays: { inbox: string[]; outbox: string[] };
+  blossomServers: string[]; // AI-NOTE: 2025-01-24 - Added Blossom server list caching
   loginMethod: "extension" | "amber" | "npub" | null;
   ndkUser: NDKUser | null;
   signer: NDKSigner | null;
@@ -33,6 +35,7 @@ export const userStore = writable<UserState>({
   npub: null,
   profile: null,
   relays: { inbox: [], outbox: [] },
+  blossomServers: [], // AI-NOTE: 2025-01-24 - Added Blossom server list caching
   loginMethod: null,
   ndkUser: null,
   signer: null,
@@ -145,6 +148,43 @@ async function getUserPreferredRelays(
   return [inboxRelays, outboxRelays];
 }
 
+/**
+ * Fetch user's Blossom server list (kind:10063)
+ * @param ndk NDK instance
+ * @param user NDKUser instance
+ * @returns Array of Blossom server URLs
+ */
+async function getUserBlossomServers(
+  ndk: NDK,
+  user: NDKUser,
+): Promise<string[]> {
+  try {
+    const blossomEvent = await ndk.fetchEvent(
+      {
+        kinds: [NostrKind.BlossomServerList as number],
+        authors: [user.pubkey],
+      },
+      {
+        groupable: false,
+        skipVerification: false,
+        skipValidation: false,
+      },
+    );
+
+    if (!blossomEvent) {
+      return [];
+    }
+
+    // Extract server URLs from tags
+    return blossomEvent.tags
+      .filter(tag => tag[0] === "server" && tag[1])
+      .map(tag => tag[1]);
+  } catch (error) {
+    console.warn("Failed to fetch Blossom servers:", error);
+    return [];
+  }
+}
+
 // --- Unified login/logout helpers ---
 
 // AI-NOTE: 2025-01-24 - Authentication persistence system
@@ -202,6 +242,10 @@ export async function loginWithExtension(ndk: NDK) {
   }
   const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
   persistRelays(user, inboxes, outboxes);
+  
+  // Fetch Blossom servers
+  const blossomServers = await getUserBlossomServers(ndk, user);
+  
   ndk.signer = signer;
   ndk.activeUser = user;
 
@@ -215,6 +259,7 @@ export async function loginWithExtension(ndk: NDK) {
         (relay) => relay.url,
       ),
     },
+    blossomServers,
     loginMethod: "extension" as const,
     ndkUser: user,
     signer,
@@ -275,6 +320,10 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
   }
   const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
   persistRelays(user, inboxes, outboxes);
+  
+  // Fetch Blossom servers
+  const blossomServers = await getUserBlossomServers(ndk, user);
+  
   ndk.signer = amberSigner;
   ndk.activeUser = user;
 
@@ -288,6 +337,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
         (relay) => relay.url,
       ),
     },
+    blossomServers,
     loginMethod: "amber" as const,
     ndkUser: user,
     signer: amberSigner,
@@ -386,11 +436,15 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   ndk.signer = undefined;
   ndk.activeUser = user;
 
+  // Fetch Blossom servers for npub login
+  const blossomServers = await getUserBlossomServers(ndk, user);
+  
   const userState = {
     pubkey: user.pubkey,
     npub,
     profile,
     relays: { inbox: [], outbox: [] },
+    blossomServers,
     loginMethod: "npub" as const,
     ndkUser: user,
     signer: null,
@@ -467,6 +521,7 @@ export function logoutUser(ndk: NDK) {
     npub: null,
     profile: null,
     relays: { inbox: [], outbox: [] },
+    blossomServers: [],
     loginMethod: null,
     ndkUser: null,
     signer: null,
