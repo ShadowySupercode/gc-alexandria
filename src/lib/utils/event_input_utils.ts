@@ -1,6 +1,6 @@
 import type { NDKEvent } from "./nostrUtils.ts";
 import NDK, { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
-import { EVENT_KINDS } from "./search_constants";
+import { EVENT_KINDS } from "./search_constants.ts";
 import {
   extractDocumentMetadata,
   metadataToTags,

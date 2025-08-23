@@ -12,7 +12,7 @@ import type {
 } from "asciidoctor";
 import he from "he";
 import { type Writable, writable } from "svelte/store";
-import { zettelKinds } from "./consts.ts";
+import { ZETTEL_KINDS } from "./types.ts";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
 
 interface IndexMetadata {
@@ -703,7 +703,7 @@ export default class Pharos {
     }
 
     // Base case: The event is a zettel.
-    if (zettelKinds.includes(event.kind ?? -1)) {
+    if (ZETTEL_KINDS.includes(event.kind ?? -1)) {
       content += event.content;
       return content;
     }

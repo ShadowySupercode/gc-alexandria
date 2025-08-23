@@ -13,7 +13,7 @@
     getDisplayNameSync,
     replacePubkeysWithDisplayNames,
   } from "$lib/utils/npubCache";
-  import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
+  import {NostrKind, ZETTEL_KINDS} from "$lib/types";
 
   // Component props
   let {
@@ -41,7 +41,7 @@
   const MAX_CONTENT_LENGTH = 200;
 
   // Publication event kinds (text/article based)
-  const PUBLICATION_KINDS = [wikiKind, indexKind, ...zettelKinds];
+  const PUBLICATION_KINDS = [NostrKind.Wiki, NostrKind.PublicationIndex, ...ZETTEL_KINDS];
 
   /**
    * Gets the author name from the event tags

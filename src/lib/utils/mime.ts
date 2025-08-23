@@ -1,5 +1,8 @@
-import { EVENT_KINDS, EVENT_TYPES, getEventType } from "./search_constants";
-import { NostrKind } from "../types";
+import { EVENT_KINDS, EVENT_TYPES, getEventType } from "./search_constants.ts";
+import { NostrKind } from "../types.ts";
+
+// Re-export getEventType for convenience
+export { getEventType };
 
 /**
  * Get MIME tags for a Nostr event based on its kind number

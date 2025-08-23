@@ -1,6 +1,6 @@
 import type { NostrProfile } from "./search_types";
 import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
-import { fetchEventWithFallback } from "./nostrUtils";
+import { fetchEventWithFallback } from "./nostrUtils.ts";
 import { nip19 } from "nostr-tools";
 
 export type NpubMetadata = NostrProfile;

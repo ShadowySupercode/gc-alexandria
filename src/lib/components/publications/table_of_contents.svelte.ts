@@ -1,7 +1,7 @@
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
 import type { NDKEvent } from "../../utils/nostrUtils.ts";
-import { indexKind } from "../../consts.ts";
+import { NostrKind } from "../../types.ts";
 
 export interface TocEntry {
   address: string;
@@ -188,7 +188,7 @@ export class TableOfContents {
       }
 
       const event = await this.#publicationTree.getEvent(entry.address);
-      if (event?.kind !== indexKind) {
+      if (event?.kind !== NostrKind.PublicationIndex) {
         // TODO: Build ToC entries from HTML markup in this case.
         return;
       }
@@ -204,7 +204,7 @@ export class TableOfContents {
         // Michael J - 16 June 2025 - This duplicates logic in the outer function, but is necessary
         // here so that we can determine whether to render an entry as a leaf before it is fully
         // resolved.
-        if (childAddress.split(":")[0] !== indexKind.toString()) {
+        if (childAddress.split(":")[0] !== NostrKind.PublicationIndex.toString()) {
           this.leaves.add(childAddress);
         }
 
@@ -248,7 +248,7 @@ export class TableOfContents {
     // resolver function.  The resolver function is called when entries are resolved by expanding
     // a ToC entry, and we'll reach the block below when entries are resolved by the publication
     // tree.
-    if (event.kind !== indexKind) {
+    if (event.kind !== NostrKind.PublicationIndex) {
       this.leaves.add(address);
     }
 

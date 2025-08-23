@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   build30040EventSet,
   validate30040EventSet,
-} from "../../src/lib/utils/event_input_utils";
+} from "../../src/lib/utils/event_input_utils.ts";
 
 // Mock NDK and other dependencies
 vi.mock("@nostr-dev-kit/ndk", () => ({

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { indexKind } from "$lib/consts";
+  import { NostrKind } from "$lib/types";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
@@ -241,7 +241,7 @@
           ws.send(JSON.stringify([
             "REQ", 
             subId, 
-            { kinds: [indexKind], limit: 1000 }
+            { kinds: [NostrKind.PublicationIndex], limit: 1000 }
           ]));
           
           // Set up cleanup

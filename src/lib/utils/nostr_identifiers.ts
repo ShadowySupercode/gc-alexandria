@@ -1,4 +1,4 @@
-import { VALIDATION } from "./search_constants";
+import { VALIDATION } from "./search_constants.ts";
 
 /**
  * Nostr identifier types

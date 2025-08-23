@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AsciiDocMetadata } from "../../src/lib/utils/asciidoc_metadata";
+import type { AsciiDocMetadata } from "../../src/lib/utils/asciidoc_metadata.ts";
 
 // Mock all Svelte components and dependencies
 vi.mock("flowbite-svelte", () => ({

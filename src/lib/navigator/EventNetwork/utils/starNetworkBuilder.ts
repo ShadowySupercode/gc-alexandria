@@ -17,7 +17,7 @@ import {
   getEventColor,
 } from "./networkBuilder";
 import { createDebugFunction } from "./common";
-import { indexKind, wikiKind, zettelKinds } from "$lib/consts";
+import { NostrKind, ZETTEL_KINDS } from "$lib/types";
 
 // Debug function
 const debug = createDebugFunction("StarNetworkBuilder");
@@ -129,8 +129,8 @@ export function createStarNetworks(
   };
 
   // Find all index events and non-publication events
-  const publicationKinds = [wikiKind, indexKind, ...zettelKinds];
-  const indexEvents = events.filter((event) => event.kind === indexKind);
+  const publicationKinds = [NostrKind.Wiki, NostrKind.PublicationIndex, ...ZETTEL_KINDS];
+  const indexEvents = events.filter((event) => event.kind === NostrKind.PublicationIndex);
   const nonPublicationEvents = events.filter((event) =>
     event.kind !== undefined && !publicationKinds.includes(event.kind)
   );

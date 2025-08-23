@@ -5,7 +5,7 @@ import {
   isEventId,
   isNostrIdentifier,
   parseCoordinate,
-} from "../../src/lib/utils/nostr_identifiers";
+} from "../../src/lib/utils/nostr_identifiers.ts";
 
 describe("Nostr Identifier Validation", () => {
   describe("isEventId", () => {

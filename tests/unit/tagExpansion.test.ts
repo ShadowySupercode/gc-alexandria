@@ -4,7 +4,7 @@ import {
   fetchProfilesForNewEvents,
   fetchTaggedEventsFromRelays,
   findTaggedEventsInFetched,
-} from "../../src/lib/utils/tag_event_fetch";
+} from "../../src/lib/utils/tag_event_fetch.ts";
 
 // Mock NDKEvent for testing
 class MockNDKEvent {

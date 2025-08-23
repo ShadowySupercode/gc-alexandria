@@ -1,17 +1,17 @@
 // Re-export all search functionality from modular files
-export * from "./search_types";
-export * from "./search_utils";
-export * from "./community_checker";
-export * from "./profile_search";
-export * from "./event_search";
-export * from "./subscription_search";
-export * from "./search_constants";
+export * from "./search_types.ts";
+export * from "./search_utils.ts";
+export * from "./community_checker.ts";
+export * from "./profile_search.ts";
+export * from "./event_search.ts";
+export * from "./subscription_search.ts";
+export * from "./search_constants.ts";
 
 // Legacy exports for backward compatibility
-export { searchProfiles } from "./profile_search";
-export { searchBySubscription } from "./subscription_search";
-export { searchEvent, searchNip05 } from "./event_search";
-export { checkCommunity } from "./community_checker";
+export { searchProfiles } from "./profile_search.ts";
+export { searchBySubscription } from "./subscription_search.ts";
+export { searchEvent, searchNip05 } from "./event_search.ts";
+export { checkCommunity } from "./community_checker.ts";
 export {
   COMMON_DOMAINS,
   createProfileFromEvent,
@@ -22,4 +22,4 @@ export {
   nip05Matches,
   normalizeSearchTerm,
   wellKnownUrl,
-} from "./search_utils";
+} from "./search_utils.ts";

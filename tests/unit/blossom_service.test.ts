@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BlossomService } from '../../src/lib/utils/blossom_service';
-import { NDK } from '@nostr-dev-kit/ndk';
+import { BlossomService } from '../../src/lib/utils/blossom_service.ts';
+import NDK from '@nostr-dev-kit/ndk';
+import { NostrKind } from '../../src/lib/types.ts';
 
 // Mock NDK
 vi.mock('@nostr-dev-kit/ndk', () => ({
@@ -22,15 +23,15 @@ describe('BlossomService', () => {
 
   describe('extractSha256FromUrl', () => {
     it('should extract SHA-256 hash from URL ending with hex string', () => {
-      const url = 'https://example.com/image/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678.png';
+      const url = 'https://example.com/image/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456.png';
       const hash = blossomService.extractSha256FromUrl(url);
-      expect(hash).toBe('a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678');
+      expect(hash).toBe('a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456');
     });
 
     it('should extract SHA-256 hash from URL ending with hex string without extension', () => {
-      const url = 'https://example.com/file/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678';
+      const url = 'https://example.com/file/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
       const hash = blossomService.extractSha256FromUrl(url);
-      expect(hash).toBe('a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678');
+      expect(hash).toBe('a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456');
     });
 
     it('should return null for URLs without SHA-256 hash', () => {
@@ -48,7 +49,7 @@ describe('BlossomService', () => {
 
   describe('isBlossomStyleUrl', () => {
     it('should return true for Blossom-style URLs', () => {
-      const url = 'https://example.com/image/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678.png';
+      const url = 'https://example.com/image/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456.png';
       expect(blossomService.isBlossomStyleUrl(url)).toBe(true);
     });
 
@@ -77,7 +78,7 @@ describe('BlossomService', () => {
       ]);
 
       expect(mockNdk.fetchEvents).toHaveBeenCalledWith({
-        kinds: [10063], // Using raw number for test compatibility
+        kinds: [NostrKind.BlossomServerList],
         authors: ['test-pubkey'],
         limit: 1,
       });
@@ -102,56 +103,56 @@ describe('BlossomService', () => {
 
   describe('generateBlossomUrls', () => {
     it('should generate Blossom URLs with extension', () => {
-      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678';
+      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
       const servers = ['https://blossom.self.hosted', 'https://cdn.blossom.cloud'];
       const extension = '.png';
 
       const urls = blossomService.generateBlossomUrls(hash, servers, extension);
       
       expect(urls).toEqual([
-        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678.png',
-        'https://cdn.blossom.cloud/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678.png',
+        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456.png',
+        'https://cdn.blossom.cloud/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456.png',
       ]);
     });
 
     it('should generate Blossom URLs without extension', () => {
-      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678';
+      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
       const servers = ['https://blossom.self.hosted'];
 
       const urls = blossomService.generateBlossomUrls(hash, servers);
       
       expect(urls).toEqual([
-        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678',
+        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456',
       ]);
     });
 
     it('should handle servers with trailing slash', () => {
-      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678';
+      const hash = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
       const servers = ['https://blossom.self.hosted/'];
 
       const urls = blossomService.generateBlossomUrls(hash, servers);
       
       expect(urls).toEqual([
-        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678',
+        'https://blossom.self.hosted/a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456',
       ]);
     });
   });
 
   describe('verifySha256Hash', () => {
     it('should verify correct SHA-256 hash', () => {
-      const content = new TextEncoder().encode('test content');
-      // This is the actual SHA-256 hash of 'test content'
-      const expectedHash = '954cdcd4c2a4c568a97d2c7d82a85c4c082e4e3d8e6e5f2a1b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5';
+      const content = new TextEncoder().encode('test');
+      // This is the actual SHA-256 hash of 'test'
+      const expectedHash = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
       
-      const result = blossomService.verifySha256Hash(content.buffer, expectedHash);
-      expect(result).toBe(false); // This will be false because we're using a made-up hash
+      const result = blossomService.verifySha256Hash(content.buffer as ArrayBuffer, expectedHash);
+      expect(result).toBe(true);
     });
 
     it('should return false for incorrect hash', () => {
       const content = new TextEncoder().encode('test content');
       const wrongHash = 'wronghash';
       
-      const result = blossomService.verifySha256Hash(content.buffer, wrongHash);
+      const result = blossomService.verifySha256Hash(content.buffer as ArrayBuffer, wrongHash);
       expect(result).toBe(false);
     });
 
@@ -165,11 +166,11 @@ describe('BlossomService', () => {
 
     it('should handle case-insensitive hash comparison', () => {
       const content = new TextEncoder().encode('test');
-      const hash = '954cdcd4c2a4c568a97d2c7d82a85c4c082e4e3d8e6e5f2a1b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5';
+      const hash = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
       const upperHash = hash.toUpperCase();
       
-      const result1 = blossomService.verifySha256Hash(content.buffer, hash);
-      const result2 = blossomService.verifySha256Hash(content.buffer, upperHash);
+      const result1 = blossomService.verifySha256Hash(content.buffer as ArrayBuffer, hash);
+      const result2 = blossomService.verifySha256Hash(content.buffer as ArrayBuffer, upperHash);
       expect(result1).toBe(result2);
     });
   });

@@ -13,7 +13,7 @@
   import { onDestroy, onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { indexKind } from "$lib/consts";
+  import { NostrKind } from "$lib/types";
 
   let { publicationType, indexEvent } = $props<{
     rootId: any;
@@ -29,7 +29,7 @@
     indexEvent.getMatchingTags("p")[0]?.[1] ?? null,
   );
   let isLeaf: boolean = $derived(indexEvent.kind === 30041);
-  let isIndexEvent: boolean = $derived(indexEvent.kind === indexKind);
+  let isIndexEvent: boolean = $derived(indexEvent.kind === NostrKind.PublicationIndex);
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);

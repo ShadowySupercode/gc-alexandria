@@ -4,7 +4,7 @@ import { goto } from "$app/navigation";
 import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
 import { EXPIRATION_DURATION } from "../consts.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
-import { NostrKind } from "../types";
+import { NostrKind } from "../types.ts";
 
 export interface RootEventInfo {
   rootId: string;
@@ -208,7 +208,7 @@ export function buildReplyTags(
   const isParentReplaceable =
     parentInfo.parentKind >= EVENT_KINDS.ADDRESSABLE.MIN &&
     parentInfo.parentKind < EVENT_KINDS.ADDRESSABLE.MAX;
-  const isParentComment = parentInfo.parentKind === EVENT_KINDS.COMMENT;
+  const isParentComment = parentInfo.parentKind === NostrKind.GenericReply;
   const isReplyToComment = isParentComment && rootInfo.rootId !== parent.id;
 
   if (kind === 1) {

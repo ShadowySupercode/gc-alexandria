@@ -5,7 +5,7 @@ import {
   deduplicateContentEvents,
   getEventCoordinate,
   isReplaceableEvent,
-} from "../../src/lib/utils/eventDeduplication";
+} from "../../src/lib/utils/eventDeduplication.ts";
 
 // Mock NDKEvent for testing
 class MockNDKEvent {
@@ -168,11 +168,11 @@ describe("Relay Deduplication Behavior Tests", () => {
       expect(result.length).toBe(4);
 
       // Verify the content events were deduplicated
-      const contentEvents = result.filter((e) => e.kind === 30041);
+      const contentEvents = result.filter((e: any) => e.kind === 30041);
       expect(contentEvents.length).toBe(2);
 
       // Verify the newer version was kept
-      const newerEvent = contentEvents.find((e) => e.id === "event2");
+      const newerEvent = contentEvents.find((e: any) => e.id === "event2");
       expect(newerEvent).toBeDefined();
     });
 

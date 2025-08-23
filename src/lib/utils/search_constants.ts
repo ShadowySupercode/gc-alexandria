@@ -5,7 +5,7 @@
  * to improve maintainability and reduce code duplication.
  */
 
-import { NostrKind } from "../types";
+import { NostrKind } from "../types.ts";
 
 // Event type constants
 export const EVENT_TYPES = {
@@ -101,6 +101,7 @@ export const EVENT_KINDS = {
     MIN: 30000,
     MAX: 39999,
   },
+
 } as const;
 
 /**

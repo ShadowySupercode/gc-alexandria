@@ -7,7 +7,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
-  import { indexKind } from "$lib/consts";
+  import { NostrKind } from "$lib/types";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -21,7 +21,7 @@
 
   const href = $derived.by(() => {
     const dTag = event.getMatchingTags("d")[0]?.[1];
-    const isIndexEvent = event.kind === indexKind;
+    const isIndexEvent = event.kind === NostrKind.PublicationIndex;
     
     if (dTag != null && isIndexEvent) {
       // For index events with d tag, use naddr encoding

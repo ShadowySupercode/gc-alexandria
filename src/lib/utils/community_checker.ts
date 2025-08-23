@@ -1,6 +1,6 @@
-import { communityRelays } from "$lib/consts";
+import { communityRelays } from "../consts.ts";
 import { WebSocketPool } from "../data_structures/websocket_pool.ts";
-import { RELAY_CONSTANTS, SEARCH_LIMITS } from "./search_constants";
+import { RELAY_CONSTANTS, SEARCH_LIMITS } from "./search_constants.ts";
 
 // Cache for pubkeys with kind 1 events on communityRelay
 const communityCache = new Map<string, boolean>();
