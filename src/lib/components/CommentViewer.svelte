@@ -6,6 +6,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   
 
   const { event } = $props<{ event: NDKEvent }>();
@@ -773,7 +774,9 @@
                   <span class="font-medium">Comment:</span>
                 </div>
                 <div class="text-sm text-gray-700 dark:text-gray-300">
-                  {node.event.getMatchingTags("comment")[0]?.[1] || "No comment content"}
+                  {#await parseBasicmarkup(node.event.getMatchingTags("comment")[0]?.[1] || "No comment content") then parsed}
+                    {@html parsed}
+                  {/await}
                 </div>
               </div>
             {:else}
@@ -815,7 +818,9 @@
         {:else}
           <!-- Regular comment content -->
           <div class="text-sm text-gray-700 dark:text-gray-300">
-            {node.event.content || "No content"}
+            {#await parseBasicmarkup(node.event.content || "No content") then parsed}
+              {@html parsed}
+            {/await}
           </div>
         {/if}
       </div>

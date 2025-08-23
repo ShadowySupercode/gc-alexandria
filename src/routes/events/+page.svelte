@@ -21,6 +21,7 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   
   import { userStore } from "$lib/stores/userStore";
   import {
@@ -751,10 +752,9 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {result.content.slice(0, 200)}
-                            {#if result.content.length > 200}
-                              <span class="text-gray-500 dark:text-gray-400">...</span>
-                            {/if}
+                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                              {@html parsed}
+                            {/await}
                           </div>
                         {/if}
                       {/if}
@@ -938,10 +938,9 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {result.content.slice(0, 200)}
-                            {#if result.content.length > 200}
-                              <span class="text-gray-500 dark:text-gray-400">...</span>
-                            {/if}
+                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                              {@html parsed}
+                            {/await}
                           </div>
                         {/if}
                       {/if}
@@ -1111,10 +1110,9 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {result.content.slice(0, 200)}
-                            {#if result.content.length > 200}
-                              <span class="text-gray-500 dark:text-gray-400">...</span>
-                            {/if}
+                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                              {@html parsed}
+                            {/await}
                           </div>
                         {/if}
                       {/if}

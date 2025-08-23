@@ -13,9 +13,10 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
-  import Notifications from "$lib/components/Notifications.svelte";
-  
-  import type { UserProfile } from "$lib/models/user_profile";
+import Notifications from "$lib/components/Notifications.svelte";
+import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+
+import type { UserProfile } from "$lib/models/user_profile";
 
   const {
     event,
@@ -28,6 +29,7 @@
   let authorDisplayName = $state<string | undefined>(undefined);
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
+  let parsedContent = $state<string>("");
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -242,6 +244,19 @@
     return ids;
   }
 
+  $effect(() => {
+    if (event.content) {
+      parseBasicmarkup(event.content).then((parsed) => {
+        parsedContent = parsed;
+      }).catch((error) => {
+        console.error("Error parsing content:", error);
+        parsedContent = event.content;
+      });
+    } else {
+      parsedContent = "";
+    }
+  });
+
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
@@ -310,7 +325,7 @@
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
         <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
         <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-          {event.content}
+          {@html parsedContent}
         </div>
         {#if shouldTruncate}
           <button

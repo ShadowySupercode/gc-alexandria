@@ -21,6 +21,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   
   import { getNdkContext } from "$lib/ndk";
 
@@ -818,7 +819,9 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           <div class="text-sm text-gray-700 dark:text-gray-300">
-                            {message.content || "No content"}
+                            {#await parseBasicmarkup(message.content || "No content") then parsed}
+                              {@html parsed}
+                            {/await}
                           </div>
                         </div>
                       </div>
@@ -897,7 +900,9 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           <div class="text-sm text-gray-700 dark:text-gray-300">
-                            {notification.content || "No content"}
+                            {#await parseBasicmarkup(notification.content || "No content") then parsed}
+                              {@html parsed}
+                            {/await}
                           </div>
                         </div>
                       </div>
@@ -934,7 +939,9 @@
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             <div class="text-sm text-gray-700 dark:text-gray-300">
-              {replyToMessage.content || "No content"}
+              {#await parseBasicmarkup(replyToMessage.content || "No content") then parsed}
+                {@html parsed}
+              {/await}
             </div>
           </div>
   </div>

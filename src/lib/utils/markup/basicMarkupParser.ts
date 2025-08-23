@@ -7,6 +7,7 @@ import {
   processImageWithReveal,
   processMediaUrl,
   processNostrIdentifiersInText,
+  processAllNostrIdentifiers,
   processWebSocketUrls,
   processWikilinks,
   stripTrackingParams,
@@ -251,6 +252,7 @@ export async function parseBasicmarkup(text: string): Promise<string> {
 
     // Process Nostr identifiers last
     processedText = await processNostrIdentifiersInText(processedText);
+    processedText = processAllNostrIdentifiers(processedText);
 
     // Replace wikilinks
     processedText = processWikilinks(processedText);
