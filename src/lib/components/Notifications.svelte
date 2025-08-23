@@ -22,7 +22,6 @@
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { processNostrIdentifiers } from "$lib/utils/nostrUtils";
   import { repostContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   
@@ -842,7 +841,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await processNostrIdentifiers(message.content, ndk) then parsed}
+                                    {#await parseBasicmarkup(message.content) then parsed}
                                       {@html parsed}
                                     {/await}
                                   </div>
@@ -850,7 +849,7 @@
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await processNostrIdentifiers(message.content || "No content", ndk) then parsed}
+                              {#await parseBasicmarkup(message.content || "No content") then parsed}
                                 {@html parsed}
                               {/await}
                             {/if}
@@ -952,7 +951,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await processNostrIdentifiers(notification.content, ndk) then parsed}
+                                    {#await parseBasicmarkup(notification.content) then parsed}
                                       {@html parsed}
                                     {/await}
                                   </div>
@@ -960,7 +959,7 @@
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await processNostrIdentifiers(notification.content || "No content", ndk) then parsed}
+                              {#await parseBasicmarkup(notification.content || "No content") then parsed}
                                 {@html parsed}
                               {/await}
                             {/if}
