@@ -179,7 +179,7 @@ export async function createProfileLinkWithVerification(
 /**
  * Create a note link element
  */
-function createNoteLink(identifier: string): string {
+export function createNoteLink(identifier: string): string {
   const cleanId = identifier.replace(/^nostr:/, "");
   const shortId = `${cleanId.slice(0, 12)}...${cleanId.slice(-8)}`;
   const escapedId = escapeHtml(cleanId);

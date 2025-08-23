@@ -22,6 +22,8 @@
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { repostContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { repostKinds } from "$lib/consts";
   
   import { getNdkContext } from "$lib/ndk";
 
@@ -819,9 +821,38 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           <div class="text-sm text-gray-700 dark:text-gray-300">
-                            {#await parseBasicmarkup(message.content || "No content") then parsed}
-                              {@html parsed}
-                            {/await}
+                            {#if repostKinds.includes(message.kind)}
+                              <!-- Repost content - parse stringified JSON -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  {message.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                                </div>
+                                {@render repostContent(message.content)}
+                              </div>
+                            {:else if message.kind === 1 && message.getMatchingTags("q").length > 0}
+                              <!-- Quote repost content -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Quote repost:
+                                </div>
+                                {@render quotedContent(message, publicMessages, ndk)}
+                                {#if message.content && message.content.trim()}
+                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Comment:
+                                    </div>
+                                    {#await parseBasicmarkup(message.content.slice(0, 100) + (message.content.length > 100 ? "..." : "")) then parsed}
+                                      {@html parsed}
+                                    {/await}
+                                  </div>
+                                {/if}
+                              </div>
+                            {:else}
+                              <!-- Regular content -->
+                              {#await parseBasicmarkup(message.content || "No content") then parsed}
+                                {@html parsed}
+                              {/await}
+                            {/if}
                           </div>
                         </div>
                       </div>
@@ -900,9 +931,38 @@
                       <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
                         <div class="px-2">
                           <div class="text-sm text-gray-700 dark:text-gray-300">
-                            {#await parseBasicmarkup(notification.content || "No content") then parsed}
-                              {@html parsed}
-                            {/await}
+                            {#if repostKinds.includes(notification.kind)}
+                              <!-- Repost content - parse stringified JSON -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  {notification.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                                </div>
+                                {@render repostContent(notification.content)}
+                              </div>
+                            {:else if notification.kind === 1 && notification.getMatchingTags("q").length > 0}
+                              <!-- Quote repost content -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Quote repost:
+                                </div>
+                                {@render quotedContent(notification, notifications, ndk)}
+                                {#if notification.content && notification.content.trim()}
+                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Comment:
+                                    </div>
+                                    {#await parseBasicmarkup(notification.content.slice(0, 100) + (notification.content.length > 100 ? "..." : "")) then parsed}
+                                      {@html parsed}
+                                    {/await}
+                                  </div>
+                                {/if}
+                              </div>
+                            {:else}
+                              <!-- Regular content -->
+                              {#await parseBasicmarkup(notification.content || "No content") then parsed}
+                                {@html parsed}
+                              {/await}
+                            {/if}
                           </div>
                         </div>
                       </div>

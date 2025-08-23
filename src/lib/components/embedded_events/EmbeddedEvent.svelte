@@ -2,7 +2,7 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { fetchEventWithFallback, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parsedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { parsedContent, repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
   import { naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
@@ -292,14 +292,27 @@
     {#if event.kind === 1 || repostKinds.includes(event.kind)}
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
         {#if repostKinds.includes(event.kind)}
-          <!-- Repost content -->
+          <!-- Repost content - parse stringified JSON according to NIP-18 -->
           <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Reposted content:
+              {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
             </div>
-            {@render parsedContent(event.content.slice(0, 300))}
-            {#if event.content.length > 300}
-              <span class="text-gray-500 dark:text-gray-400">...</span>
+            {@render repostContent(event.content)}
+          </div>
+        {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+          <!-- Quote repost content - kind 1 with q tag according to NIP-18 -->
+          <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Quote repost:
+            </div>
+            {@render quotedContent(event, [], ndk)}
+            {#if event.content && event.content.trim()}
+              <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Added comment:
+                </div>
+                {@render parsedContent(event.content)}
+              </div>
             {/if}
           </div>
         {:else}

@@ -22,6 +22,8 @@
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { repostKinds } from "$lib/consts";
   
   import { userStore } from "$lib/stores/userStore";
   import {
@@ -752,9 +754,38 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                              {@html parsed}
-                            {/await}
+                            {#if repostKinds.includes(result.kind)}
+                              <!-- Repost content - parse stringified JSON -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                                </div>
+                                {@render repostContent(result.content)}
+                              </div>
+                            {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
+                              <!-- Quote repost content -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Quote repost:
+                                </div>
+                                {@render quotedContent(result, [], ndk)}
+                                {#if result.content && result.content.trim()}
+                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Comment:
+                                    </div>
+                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
+                                      {@html parsed}
+                                    {/await}
+                                  </div>
+                                {/if}
+                              </div>
+                            {:else}
+                              <!-- Regular content -->
+                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                                {@html parsed}
+                              {/await}
+                            {/if}
                           </div>
                         {/if}
                       {/if}
@@ -938,9 +969,38 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                              {@html parsed}
-                            {/await}
+                            {#if repostKinds.includes(result.kind)}
+                              <!-- Repost content - parse stringified JSON -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                                </div>
+                                {@render repostContent(result.content)}
+                              </div>
+                            {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
+                              <!-- Quote repost content -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Quote repost:
+                                </div>
+                                {@render quotedContent(result, [], ndk)}
+                                {#if result.content && result.content.trim()}
+                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Comment:
+                                    </div>
+                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
+                                      {@html parsed}
+                                    {/await}
+                                  </div>
+                                {/if}
+                              </div>
+                            {:else}
+                              <!-- Regular content -->
+                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                                {@html parsed}
+                              {/await}
+                            {/if}
                           </div>
                         {/if}
                       {/if}
@@ -1110,9 +1170,38 @@
                           <div
                             class="text-sm text-gray-800 dark:text-gray-200 mt-1 line-clamp-2 break-words"
                           >
-                            {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                              {@html parsed}
-                            {/await}
+                            {#if repostKinds.includes(result.kind)}
+                              <!-- Repost content - parse stringified JSON -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                                </div>
+                                {@render repostContent(result.content)}
+                              </div>
+                            {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
+                              <!-- Quote repost content -->
+                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Quote repost:
+                                </div>
+                                {@render quotedContent(result, [], ndk)}
+                                {#if result.content && result.content.trim()}
+                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Comment:
+                                    </div>
+                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
+                                      {@html parsed}
+                                    {/await}
+                                  </div>
+                                {/if}
+                              </div>
+                            {:else}
+                              <!-- Regular content -->
+                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
+                                {@html parsed}
+                              {/await}
+                            {/if}
                           </div>
                         {/if}
                       {/if}

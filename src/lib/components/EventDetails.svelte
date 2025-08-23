@@ -15,6 +15,10 @@
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
 import Notifications from "$lib/components/Notifications.svelte";
 import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+import { repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+import { repostKinds } from "$lib/consts";
+import { getNdkContext } from "$lib/ndk";
+import { processNostrIdentifiers } from "$lib/utils/nostrUtils";
 
 import type { UserProfile } from "$lib/models/user_profile";
 
@@ -30,6 +34,7 @@ import type { UserProfile } from "$lib/models/user_profile";
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
   let parsedContent = $state<string>("");
+  let isRepost = $derived(repostKinds.includes(event.kind) || (event.kind === 1 && event.getMatchingTags("q").length > 0));
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -246,12 +251,20 @@ import type { UserProfile } from "$lib/models/user_profile";
 
   $effect(() => {
     if (event.content) {
-      parseBasicmarkup(event.content).then((parsed) => {
-        parsedContent = parsed;
-      }).catch((error) => {
-        console.error("Error parsing content:", error);
+      // For kind 6 and 16 reposts, we don't need to parse the content as basic markup since it's JSON
+      // For quote reposts (kind 1 with q tags), we still need to parse the content for nostr identifiers
+      if (repostKinds.includes(event.kind)) {
         parsedContent = event.content;
-      });
+      } else {
+        // For all other events (including quote reposts), parse the content for nostr identifiers
+        // Use the proper processNostrIdentifiers function to get display names
+        processNostrIdentifiers(event.content, getNdkContext()).then((processed) => {
+          parsedContent = processed;
+        }).catch((error) => {
+          console.error("Error parsing content:", error);
+          parsedContent = event.content;
+        });
+      }
     } else {
       parsedContent = "";
     }
@@ -324,14 +337,44 @@ import type { UserProfile } from "$lib/models/user_profile";
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
         <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-          {@html parsedContent}
-        </div>
-        {#if shouldTruncate}
-          <button
-            class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-            onclick={() => (showFullContent = true)}>Show more</button
-          >
+        {#if isRepost}
+          <!-- Repost content handling -->
+          {#if repostKinds.includes(event.kind)}
+            <!-- Kind 6 and 16 reposts - stringified JSON content -->
+            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
+              </div>
+              {@render repostContent(event.content)}
+            </div>
+          {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+            <!-- Quote repost - kind 1 with q tag -->
+            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Quote repost:
+              </div>
+              {@render quotedContent(event, [], getNdkContext())}
+              {#if event.content && event.content.trim()}
+                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Added comment:
+                  </div>
+                  {@html parsedContent}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        {:else}
+          <!-- Regular content -->
+          <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+            {@html parsedContent}
+          </div>
+          {#if shouldTruncate}
+            <button
+              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+              onclick={() => (showFullContent = true)}>Show more</button
+            >
+          {/if}
         {/if}
         </div>
       </div>
