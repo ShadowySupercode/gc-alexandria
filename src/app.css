@@ -588,4 +588,24 @@
   .prose-invert p:first-line {
     font-weight: normal !important;
   }
+
+  /* Prevent first-line indentation in prose content */
+  .prose p,
+  .prose-sm p,
+  .prose-invert p {
+    text-indent: 0 !important;
+  }
+
+  /* Ensure embedded event content doesn't have unwanted indentation */
+  .embedded-event .prose p,
+  .embedded-event .prose-sm p,
+  .embedded-event .prose-invert p {
+    text-indent: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Prevent indentation for paragraphs with no-indent class */
+  .no-indent {
+    text-indent: 0 !important;
+  }
 }

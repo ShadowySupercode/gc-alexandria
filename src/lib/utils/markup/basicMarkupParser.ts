@@ -245,7 +245,7 @@ export async function parseBasicmarkup(text: string): Promise<string> {
         ) {
           return para;
         }
-        return `<p class="my-4">${para}</p>`;
+        return `<p class="my-4 no-indent">${para}</p>`;
       })
       .join("\n");
 

@@ -251,7 +251,7 @@ export async function parseEmbeddedMarkup(
           return para;
         }
 
-        return `<p class="my-1">${para}</p>`;
+        return `<p class="my-1 no-indent">${para}</p>`;
       })
       .join("\n");
 
