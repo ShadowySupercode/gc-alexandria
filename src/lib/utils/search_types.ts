@@ -20,6 +20,7 @@ export interface Filter {
 export interface NostrProfile {
   name?: string;
   displayName?: string;
+  display_name?: string; // AI-NOTE: 2025-01-24 - Added for compatibility with existing code
   nip05?: string;
   picture?: string;
   about?: string;

@@ -21,7 +21,7 @@
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
-            @{p.display_name ||
+            @{p.displayName ||
               p.display_name ||
               p.name ||
               npub.slice(0, 8) + "..." + npub.slice(-4)}
