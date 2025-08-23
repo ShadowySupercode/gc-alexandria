@@ -4,6 +4,7 @@ import { goto } from "$app/navigation";
 import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
 import { EXPIRATION_DURATION } from "../consts.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import { NostrKind } from "../types";
 
 export interface RootEventInfo {
   rootId: string;
@@ -228,7 +229,7 @@ export function buildReplyTags(
       }
     }
   } else {
-    // Kind 1111 (comment) uses NIP-22 threading format
+    // Kind GenericReply (comment) uses NIP-22 threading format
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {

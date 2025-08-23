@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Heading, Img, P, A } from "flowbite-svelte";
   import { goto } from "$app/navigation";
+  import { NostrKind } from "$lib/types";
 
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
@@ -116,7 +117,7 @@
 
     <P class="mb-3">
       Correctly displaying such papers, integrating citations, and allowing them
-      to be reviewed (with kind 1111 comments), and annotated (with highlights)
+      to be reviewed (with kind {NostrKind.GenericReply} comments), and annotated (with highlights)
       by users, is the focus of the second minor version, Euler.
     </P>
 

@@ -5,6 +5,22 @@
  * to improve maintainability and reduce code duplication.
  */
 
+import { NostrKind } from "../types";
+
+// Event type constants
+export const EVENT_TYPES = {
+  /** Regular events - all expected to be stored by relays */
+  REGULAR: "regular",
+  /** Replaceable events - only latest stored by relays */
+  REPLACEABLE: "replaceable",
+  /** Ephemeral events - not expected to be stored by relays */
+  EPHEMERAL: "ephemeral",
+  /** Addressable events - latest per d-tag stored by relays */
+  ADDRESSABLE: "addressable",
+} as const;
+
+export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];
+
 // Timeout constants (in milliseconds)
 export const TIMEOUTS = {
   /** Default timeout for event fetching operations */
@@ -65,36 +81,65 @@ export const SEARCH_LIMITS = {
   BATCH_SIZE: 50,
 } as const;
 
-// Nostr event kind ranges
+// Nostr event kind ranges according to NIP specification
 export const EVENT_KINDS = {
-  /** Replaceable event kinds (0, 3, 10000-19999) */
+  /** Replaceable event kinds (0, 3, 10000-19999) - only latest stored by relays */
   REPLACEABLE: {
-    MIN: 0,
+    MIN: 10000,
     MAX: 19999,
-    SPECIFIC: [0, 3],
+    SPECIFIC: [NostrKind.UserMetadata, NostrKind.ContactList],
   },
 
-  /** Parameterized replaceable event kinds (20000-29999) */
-  PARAMETERIZED_REPLACEABLE: {
+  /** Ephemeral event kinds (20000-29999) - not expected to be stored by relays */
+  EPHEMERAL: {
     MIN: 20000,
     MAX: 29999,
   },
 
-  /** Addressable event kinds (30000-39999) */
+  /** Addressable event kinds (30000-39999) - latest per d-tag stored by relays */
   ADDRESSABLE: {
     MIN: 30000,
     MAX: 39999,
   },
-
-  /** Comment event kind */
-  COMMENT: 1111,
-
-  /** Text note event kind */
-  TEXT_NOTE: 1,
-
-  /** Profile metadata event kind */
-  PROFILE_METADATA: 0,
 } as const;
+
+/**
+ * Determine the type of Nostr event based on its kind number
+ * Following NIP specification for kind ranges:
+ * - Replaceable: 0, 3, 10000-19999 (only latest stored)
+ * - Ephemeral: 20000-29999 (not stored)
+ * - Addressable: 30000-39999 (latest per d-tag stored)
+ * - Regular: all other kinds (stored by relays)
+ */
+export function getEventType(kind: number): EventType {
+  // Check addressable events first (30000-39999)
+  if (
+    kind >= EVENT_KINDS.ADDRESSABLE.MIN &&
+    kind < EVENT_KINDS.ADDRESSABLE.MAX
+  ) {
+    return EVENT_TYPES.ADDRESSABLE;
+  }
+
+  // Check ephemeral events (20000-29999)
+  if (
+    kind >= EVENT_KINDS.EPHEMERAL.MIN &&
+    kind < EVENT_KINDS.EPHEMERAL.MAX
+  ) {
+    return EVENT_TYPES.EPHEMERAL;
+  }
+
+  // Check replaceable events (0, 3, 10000-19999)
+  if (
+    (kind >= EVENT_KINDS.REPLACEABLE.MIN &&
+      kind < EVENT_KINDS.REPLACEABLE.MAX) ||
+    EVENT_KINDS.REPLACEABLE.SPECIFIC.includes(kind as NostrKind.UserMetadata | NostrKind.ContactList)
+  ) {
+    return EVENT_TYPES.REPLACEABLE;
+  }
+
+  // Everything else is regular
+  return EVENT_TYPES.REGULAR;
+}
 
 // Relay-specific constants
 export const RELAY_CONSTANTS = {

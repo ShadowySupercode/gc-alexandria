@@ -13,6 +13,7 @@
 
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { NostrKind } from "$lib/types";
   import {
     extractRootEventInfo,
     extractParentEventInfo,
@@ -190,8 +191,8 @@
       }
 
       const parent = props.event;
-      // Use the same kind as parent for replies, or 1111 for generic replies
-      const kind = parent.kind === 1 ? 1 : 1111;
+      // Use the same kind as parent for replies, or GenericReply for generic replies
+      const kind = parent.kind === NostrKind.TextNote ? NostrKind.TextNote : NostrKind.GenericReply;
 
       // Extract root and parent event information
       const rootInfo = extractRootEventInfo(parent);

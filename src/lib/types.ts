@@ -33,6 +33,8 @@ export enum NostrKind {
   Repost = 6,
   /** Generic repost event (kind 16) */
   GenericRepost = 16,
+  /** Reaction event (kind 7) */
+  Reaction = 7,
   /** Image/media content event (kind 20) - NIP-94 */
   ImageMedia = 20,
   /** Normal video event (kind 21) - NIP-71 */
@@ -61,6 +63,8 @@ export enum NostrKind {
   BlossomServerList = 10063,
   /** Wiki event (kind 30818) */
   Wiki = 30818,
+  /** Zap receipt event (kind 9735) */
+  ZapReceipt = 9735,
   /** Highlight event (kind 9802) */
   Highlight = 9802,
 }
@@ -89,6 +93,33 @@ export const PUBLICATION_KINDS = [
   NostrKind.PublicationIndex,
   NostrKind.PublicationContent,
   NostrKind.Wiki,
+] as const;
+
+/**
+ * Array of media event kinds
+ */
+export const MEDIA_KINDS = [
+  NostrKind.ImageMedia,
+  NostrKind.NormalVideo,
+  NostrKind.ShortVideo,
+  NostrKind.RootVoiceMessage,
+  NostrKind.ReplyVoiceMessage,
+] as const;
+
+/**
+ * Array of video event kinds
+ */
+export const VIDEO_KINDS = [
+  NostrKind.NormalVideo,
+  NostrKind.ShortVideo,
+] as const;
+
+/**
+ * Array of audio event kinds
+ */
+export const AUDIO_KINDS = [
+  NostrKind.RootVoiceMessage,
+  NostrKind.ReplyVoiceMessage,
 ] as const;
 
 

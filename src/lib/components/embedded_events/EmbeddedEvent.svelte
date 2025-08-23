@@ -6,9 +6,9 @@
   import { naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
-  import { getEventType } from "$lib/utils/mime";
+  import { getEventType } from "$lib/utils/search_constants";
   import { nip19 } from "nostr-tools";
-  import { repostKinds } from "$lib/consts";
+  import { NostrKind, REPOST_KINDS, MEDIA_KINDS, VIDEO_KINDS, AUDIO_KINDS } from "$lib/types";
   import { UserOutline } from "flowbite-svelte-icons";
   import type { UserProfile } from "$lib/models/user_profile";
   import { 
@@ -142,7 +142,7 @@
       }
 
       // Parse profile if it's a profile event
-      if (event?.kind === 0) {
+      if (event?.kind === NostrKind.UserMetadata) {
         try {
           profile = JSON.parse(event.content);
         } catch {
@@ -163,12 +163,12 @@
     if (titleTag) return titleTag;
     
     // For profile events, use display name
-    if (event.kind === 0 && profile) {
+    if (event.kind === NostrKind.UserMetadata && profile) {
       return profile.display_name || profile.name || "Profile";
     }
     
     // For text events (kind 1), don't show a title if it would duplicate the content
-    if (event.kind === 1) {
+    if (event.kind === NostrKind.TextNote) {
       return "";
     }
     
@@ -323,7 +323,7 @@
     {/if}
 
     <!-- Summary for non-content events -->
-    {#if event.kind !== 1 && getEventSummary(event)}
+    {#if event.kind !== NostrKind.TextNote && getEventSummary(event)}
       <div class="mb-2 min-w-0">
         <p class="text-sm text-gray-700 dark:text-gray-300 break-words">
           {getEventSummary(event)}
@@ -332,9 +332,9 @@
     {/if}
 
     <!-- Content for text events -->
-    {#if event.kind === 1 || repostKinds.includes(event.kind)}
+    {#if event.kind === NostrKind.TextNote || REPOST_KINDS.includes(event.kind)}
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
-        {#if repostKinds.includes(event.kind)}
+        {#if REPOST_KINDS.includes(event.kind)}
           <!-- Repost content -->
           <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -354,7 +354,7 @@
         {/if}
       </div>
     <!-- Contact list content (kind 3) -->
-    {:else if event.kind === 3}
+    {:else if event.kind === NostrKind.ContactList}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if event.content}
           {@const contactData = (() => {
@@ -392,7 +392,7 @@
         {/if}
       </div>
     <!-- Publication index content (kind 30040) -->
-    {:else if event.kind === 30040}
+    {:else if event.kind === NostrKind.PublicationIndex}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if event.content}
           {@const indexData = (() => {
@@ -435,13 +435,13 @@
         {/if}
       </div>
     <!-- Publication content (kinds 30041, 30818) -->
-    {:else if event.kind === 30041 || event.kind === 30818}
+    {:else if event.kind === NostrKind.PublicationContent || event.kind === NostrKind.Wiki}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if event.content}
           <div class="text-sm text-gray-700 dark:text-gray-300">
             <div class="mb-2">
               <span class="font-semibold">
-                {event.kind === 30041 ? 'Publication Content' : 'Wiki Content'}
+                {event.kind === NostrKind.PublicationContent ? 'Publication Content' : 'Wiki Content'}
               </span>
             </div>
             <div class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 min-w-0 overflow-hidden">
@@ -455,12 +455,12 @@
           </div>
         {:else}
           <div class="text-sm text-gray-500 dark:text-gray-400">
-            Empty {event.kind === 30041 ? 'publication' : 'wiki'} content
+            Empty {event.kind === NostrKind.PublicationContent ? 'publication' : 'wiki'} content
           </div>
         {/if}
       </div>
     <!-- Long-form content (kind 30023) -->
-    {:else if event.kind === 30023}
+    {:else if event.kind === NostrKind.LongFormNote}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if event.content}
           <div class="text-sm text-gray-700 dark:text-gray-300">
@@ -483,7 +483,7 @@
         {/if}
       </div>
     <!-- Reply/Comment content (kind 1111) -->
-    {:else if event.kind === 1111}
+    {:else if event.kind === NostrKind.GenericReply}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -501,7 +501,7 @@
         </div>
       </div>
     <!-- Git Issue content (kind 1621) -->
-    {:else if event.kind === 1621}
+    {:else if event.kind === NostrKind.Issue}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -527,7 +527,7 @@
         </div>
       </div>
     <!-- Git Comment content (kind 1622) -->
-    {:else if event.kind === 1622}
+    {:else if event.kind === NostrKind.IssueComment}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -545,7 +545,7 @@
         </div>
       </div>
     <!-- Reaction content (kind 7) -->
-    {:else if event.kind === 7}
+    {:else if event.kind === NostrKind.Reaction}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -563,7 +563,7 @@
         </div>
       </div>
     <!-- Zap receipt content (kind 9735) -->
-    {:else if event.kind === 9735}
+    {:else if event.kind === NostrKind.ZapReceipt}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -607,7 +607,7 @@
         </div>
       </div>
     <!-- Image/media content (kind 20) -->
-    {:else if event.kind === 20}
+    {:else if event.kind === NostrKind.ImageMedia}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
@@ -787,12 +787,12 @@
         </div>
       </div>
     <!-- Video content (kinds 21, 22) -->
-    {:else if event.kind === 21 || event.kind === 22}
+    {:else if VIDEO_KINDS.includes(event.kind)}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
             <span class="font-semibold">
-              {event.kind === 21 ? 'Normal Video' : 'Short Video'}
+              {event.kind === NostrKind.NormalVideo ? 'Normal Video' : 'Short Video'}
             </span>
           </div>
           
@@ -1004,13 +1004,13 @@
           {/if}
         </div>
       </div>
-    <!-- Voice message content (kinds 1222, 1244) -->
-    {:else if event.kind === 1222 || event.kind === 1244}
+    <!-- Voice message content (kinds 1222, 1224) -->
+    {:else if AUDIO_KINDS.includes(event.kind)}
       <div class="space-y-2 min-w-0 overflow-hidden">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <div class="mb-2">
             <span class="font-semibold">
-              {event.kind === 1222 ? 'Voice Message' : 'Voice Reply'}
+              {event.kind === NostrKind.RootVoiceMessage ? 'Voice Message' : 'Voice Reply'}
             </span>
           </div>
           
@@ -1105,7 +1105,7 @@
         </div>
       </div>
     <!-- Profile content -->
-    {:else if event.kind === 0 && profile}
+    {:else if event.kind === NostrKind.UserMetadata && profile}
       <div class="space-y-2 min-w-0 overflow-hidden">
         {#if profile.picture}
           <img 

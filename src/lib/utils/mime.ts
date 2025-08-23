@@ -1,43 +1,5 @@
-import { EVENT_KINDS } from "./search_constants";
+import { EVENT_KINDS, EVENT_TYPES, getEventType } from "./search_constants";
 import { NostrKind } from "../types";
-
-/**
- * Determine the type of Nostr event based on its kind number
- * Following NIP specification for kind ranges:
- * - Replaceable: 0, 3, 10000-19999 (only latest stored)
- * - Ephemeral: 20000-29999 (not stored)
- * - Addressable: 30000-39999 (latest per d-tag stored)
- * - Regular: all other kinds (stored by relays)
- */
-export function getEventType(
-  kind: number,
-): "regular" | "replaceable" | "ephemeral" | "addressable" {
-  // Check special ranges first
-  if (
-    kind >= EVENT_KINDS.ADDRESSABLE.MIN &&
-    kind < EVENT_KINDS.ADDRESSABLE.MAX
-  ) {
-    return "addressable";
-  }
-
-  if (
-    kind >= EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MIN &&
-    kind < EVENT_KINDS.PARAMETERIZED_REPLACEABLE.MAX
-  ) {
-    return "ephemeral";
-  }
-
-  if (
-    (kind >= EVENT_KINDS.REPLACEABLE.MIN &&
-      kind < EVENT_KINDS.REPLACEABLE.MAX) ||
-    EVENT_KINDS.REPLACEABLE.SPECIFIC.includes(kind as 0 | 3)
-  ) {
-    return "replaceable";
-  }
-
-  // Everything else is regular
-  return "regular";
-}
 
 /**
  * Get MIME tags for a Nostr event based on its kind number
@@ -47,101 +9,145 @@ export function getEventType(
 export function getMimeTags(kind: number): [string, string][] {
   // Default tags for unknown kinds
   let mTag: [string, string] = ["m", "text/plain"];
-  let MTag: [string, string] = ["M", "note/generic/nonreplaceable"];
+  let MTag: [string, string] = ["M", "note/generic/regular"];
 
-  // Determine replaceability based on event type
+  // Determine event type for MIME tags
   const eventType = getEventType(kind);
-  const replaceability =
-    eventType === "replaceable" || eventType === "addressable"
-      ? "replaceable"
-      : "nonreplaceable";
 
   switch (kind) {
+    // User metadata (kind 0)
+    case NostrKind.UserMetadata:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `meta-data/user/${eventType}`];
+      break;
+
     // Short text note
     case NostrKind.TextNote:
       mTag = ["m", "text/plain"];
-      MTag = ["M", `note/microblog/${replaceability}`];
+      MTag = ["M", `note/microblog/${eventType}`];
+      break;
+
+    // Contact list (kind 3)
+    case NostrKind.ContactList:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `meta-data/contacts/${eventType}`];
+      break;
+
+    // Repost (kind 6)
+    case NostrKind.Repost:
+      mTag = ["m", "text/plain"];
+      MTag = ["M", `note/repost/${eventType}`];
+      break;
+
+    // Generic repost (kind 16)
+    case NostrKind.GenericRepost:
+      mTag = ["m", "text/plain"];
+      MTag = ["M", `note/generic-repost/${eventType}`];
+      break;
+
+    // Reaction (kind 7)
+    case NostrKind.Reaction:
+      mTag = ["m", "text/plain"];
+      MTag = ["M", `note/reaction/${eventType}`];
       break;
 
     // Image/media content (NIP-94)
     case NostrKind.ImageMedia:
       mTag = ["m", "image/*"];
-      MTag = ["M", `media/image/${replaceability}`];
+      MTag = ["M", `media/image/${eventType}`];
       break;
 
     // Normal video (NIP-71)
     case NostrKind.NormalVideo:
       mTag = ["m", "video/*"];
-      MTag = ["M", `media/video/normal/${replaceability}`];
+      MTag = ["M", `media/video/normal/${eventType}`];
       break;
 
     // Short video (NIP-71)
     case NostrKind.ShortVideo:
       mTag = ["m", "video/*"];
-      MTag = ["M", `media/video/short/${replaceability}`];
+      MTag = ["M", `media/video/short/${eventType}`];
       break;
 
-    // Root voice message (NIP-A0)
-    case NostrKind.RootVoiceMessage:
-      mTag = ["m", "audio/*"];
-      MTag = ["M", `media/audio/root/${replaceability}`];
-      break;
-
-    // Reply voice message (NIP-A0)
-    case NostrKind.ReplyVoiceMessage:
-      mTag = ["m", "audio/*"];
-      MTag = ["M", `media/audio/reply/${replaceability}`];
+    // Public message (kind 24)
+    case NostrKind.PublicMessage:
+      mTag = ["m", "text/plain"];
+      MTag = ["M", `note/public-message/${eventType}`];
       break;
 
     // Generic reply
     case NostrKind.GenericReply:
       mTag = ["m", "text/plain"];
-      MTag = ["M", `note/comment/${replaceability}`];
+      MTag = ["M", `note/comment/${eventType}`];
       break;
 
     // Issue
     case NostrKind.Issue:
       mTag = ["m", "text/markup"];
-      MTag = ["M", `git/issue/${replaceability}`];
+      MTag = ["M", `git/issue/${eventType}`];
       break;
 
     // Issue comment
     case NostrKind.IssueComment:
       mTag = ["m", "text/markup"];
-      MTag = ["M", `git/comment/${replaceability}`];
+      MTag = ["M", `git/comment/${eventType}`];
       break;
 
-    // Book metadata
-    case NostrKind.PublicationIndex:
-      mTag = ["m", "application/json"];
-      MTag = ["M", `meta-data/index/${replaceability}`];
+    // Root voice message (NIP-A0)
+    case NostrKind.RootVoiceMessage:
+      mTag = ["m", "audio/*"];
+      MTag = ["M", `media/audio/root/${eventType}`];
       break;
 
-    // Book content
-    case NostrKind.PublicationContent:
-      mTag = ["m", "text/asciidoc"];
-      MTag = ["M", `article/publication-content/${replaceability}`];
-      break;
-
-    // Wiki page
-    case NostrKind.Wiki:
-      mTag = ["m", "text/asciidoc"];
-      MTag = ["M", `article/wiki/${replaceability}`];
+    // Reply voice message (NIP-A0)
+    case NostrKind.ReplyVoiceMessage:
+      mTag = ["m", "audio/*"];
+      MTag = ["M", `media/audio/reply/${eventType}`];
       break;
 
     // Long-form note
     case NostrKind.LongFormNote:
       mTag = ["m", "text/markup"];
-      MTag = ["M", `article/long-form/${replaceability}`];
+      MTag = ["M", `article/long-form/${eventType}`];
+      break;
+
+    // Book metadata
+    case NostrKind.PublicationIndex:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `meta-data/index/${eventType}`];
+      break;
+
+    // Book content
+    case NostrKind.PublicationContent:
+      mTag = ["m", "text/asciidoc"];
+      MTag = ["M", `article/publication-content/${eventType}`];
       break;
 
     // Blossom server list (NIP-B7)
     case NostrKind.BlossomServerList:
       mTag = ["m", "application/json"];
-      MTag = ["M", `blossom/server-list/${replaceability}`];
+      MTag = ["M", `blossom/server-list/${eventType}`];
       break;
 
-      // Add more cases as needed...
+    // Wiki page
+    case NostrKind.Wiki:
+      mTag = ["m", "text/asciidoc"];
+      MTag = ["M", `article/wiki/${eventType}`];
+      break;
+
+    // Zap receipt (kind 9735)
+    case NostrKind.ZapReceipt:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `zap/receipt/${eventType}`];
+      break;
+
+    // Highlight (kind 9802)
+    case NostrKind.Highlight:
+      mTag = ["m", "text/plain"];
+      MTag = ["M", `note/highlight/${eventType}`];
+      break;
+
+    // Add more cases as needed...
   }
 
   return [mTag, MTag];

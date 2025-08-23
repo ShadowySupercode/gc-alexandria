@@ -7,6 +7,7 @@
   import { onMount } from "svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import { NostrKind } from "$lib/types";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -102,7 +103,7 @@
       const filters = [
         // Primary filter: events that explicitly reference our target via e-tags
         {
-          kinds: [1, 1111, 9802],
+          kinds: [NostrKind.TextNote, NostrKind.GenericReply, NostrKind.Highlight] as number[],
           "#e": [event.id],
           limit: 50,
         }
@@ -111,7 +112,7 @@
       // Add NIP-22 filter only if we have a valid event address
       if (eventAddress) {
         filters.push({
-          kinds: [1111, 9802],
+          kinds: [NostrKind.GenericReply, NostrKind.Highlight] as number[],
           "#a": [eventAddress],
           limit: 50,
         } as any);
@@ -294,7 +295,7 @@
         try {
           // Try a broader search to see if there are any events that might be comments
           const testSub = ndk.subscribe({
-            kinds: [1, 1111, 9802],
+            kinds: [NostrKind.TextNote, NostrKind.GenericReply, NostrKind.Highlight] as number[],
             "#e": [event.id],
             limit: 10,
           });
@@ -357,7 +358,7 @@
       let parentId: string | null = null;
       const eTags = event.getMatchingTags("e");
       
-      if (event.kind === 1) {
+      if (event.kind === NostrKind.TextNote) {
         // Kind 1: Look for the last e-tag that references another comment
         for (let i = eTags.length - 1; i >= 0; i--) {
           const tag = eTags[i];
@@ -367,7 +368,7 @@
             break;
           }
         }
-      } else if (event.kind === 1111) {
+      } else if (event.kind === NostrKind.GenericReply) {
         // Kind 1111: Use NIP-22 threading format
         // First try to find parent using 'a' tags (NIP-22 parent scope)
         const aTags = event.getMatchingTags("a");
@@ -465,7 +466,7 @@
       
       // Search for replies to this specific event
       const nestedSub = ndk.subscribe({
-        kinds: [1, 1111, 9802],
+        kinds: [NostrKind.TextNote, NostrKind.GenericReply, NostrKind.Highlight] as number[],
         "#e": [eventId],
         limit: 50,
       });
@@ -509,7 +510,7 @@
           const eventAddress = `${event.kind}:${event.pubkey}:${dTag}`;
           
           const nip22Sub = ndk.subscribe({
-            kinds: [1111, 9802],
+            kinds: [NostrKind.GenericReply, NostrKind.Highlight] as number[],
             "#a": [eventAddress],
             limit: 50,
           });

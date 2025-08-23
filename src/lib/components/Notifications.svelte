@@ -23,6 +23,7 @@
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
   import { getNdkContext } from "$lib/ndk";
+  import { NostrKind } from "$lib/types";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -476,7 +477,7 @@
       if (relays.length === 0) throw new Error("No relays available");
 
       const filter = {
-        kinds: [1, 1111, 9802, 6, 16],
+        kinds: [NostrKind.TextNote, NostrKind.GenericReply, NostrKind.Highlight, NostrKind.Repost, NostrKind.GenericRepost] as number[],
         ...(notificationMode === "to-me" 
           ? { "#p": [$userStore.pubkey] }
           : { authors: [$userStore.pubkey] }
@@ -532,8 +533,8 @@
 
       // Fetch only kind 24 messages
       const [messagesEvents, userMessagesEvents] = await Promise.all([
-        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet),
-        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet)
+        ndk.fetchEvents({ kinds: [NostrKind.PublicMessage] as number[], "#p": [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet),
+        ndk.fetchEvents({ kinds: [NostrKind.PublicMessage] as number[], authors: [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet)
       ]);
 
       const allMessages = [
