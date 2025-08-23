@@ -275,9 +275,20 @@
         {#if quotedMessage}
           {@const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content"}
           {#await parseEmbeddedMarkup(quotedContent, 0) then parsedContent}
-            <button type="button" class="block text-left w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick={() => window.dispatchEvent(new CustomEvent('jump-to-message', { detail: eventId }))}>
+            <div 
+              class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" 
+              onclick={() => window.dispatchEvent(new CustomEvent('jump-to-message', { detail: eventId }))} 
+              role="button" 
+              tabindex="0" 
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.dispatchEvent(new CustomEvent('jump-to-message', { detail: eventId }));
+                }
+              }}
+            >
               {@html parsedContent}
-            </button>
+            </div>
           {/await}
         {:else}
           {@const isValidEventId = /^[a-fA-F0-9]{64}$/.test(eventId)}
@@ -291,9 +302,20 @@
               }
             })()}
             {#if nevent}
-              <button type="button" class="block text-left w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" onclick={() => window.location.href=`/events?id=${nevent}`}>
+              <div 
+                class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" 
+                onclick={() => window.location.href=`/events?id=${nevent}`} 
+                role="button" 
+                tabindex="0" 
+                onkeydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    window.location.href = `/events?id=${nevent}`;
+                  }
+                }}
+              >
                 Quoted message not found. Click to view event {eventId.slice(0, 8)}...
-              </button>
+              </div>
             {:else}
               <div class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded text-sm text-gray-600 dark:text-gray-300">
                 Quoted message not found. Event ID: {eventId.slice(0, 8)}...
