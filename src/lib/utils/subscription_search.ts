@@ -1473,13 +1473,20 @@ async function performSecondOrderSearchInBackground(
       console.warn("subscription_search: Prioritization failed, using simple sorting:", error);
       // Fallback to simple sorting if prioritization fails
       prioritizedSecondOrder = deduplicatedSecondOrder.sort((a, b) => {
-        // Prioritize events from target pubkey first
+        // Prioritize events from target pubkey first (for n: searches)
         if (targetPubkey) {
           const aIsTarget = a.pubkey === targetPubkey;
           const bIsTarget = b.pubkey === targetPubkey;
           if (aIsTarget && !bIsTarget) return -1;
           if (!aIsTarget && bIsTarget) return 1;
         }
+        
+        // Prioritize by event kind (for t: searches and general prioritization)
+        const aIsPrioritized = PRIORITIZED_EVENT_KINDS.has(a.kind || 0);
+        const bIsPrioritized = PRIORITIZED_EVENT_KINDS.has(b.kind || 0);
+        if (aIsPrioritized && !bIsPrioritized) return -1;
+        if (!aIsPrioritized && bIsPrioritized) return 1;
+        
         // Then sort by creation time (newest first)
         return (b.created_at || 0) - (a.created_at || 0);
       }).slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
