@@ -72,9 +72,40 @@ import type { UserProfile } from "$lib/models/user_profile";
     return "Untitled";
   }
 
+  let parsedSummary = $state<string>("");
+  let parsedTitle = $state<string>("");
+
   function getEventSummary(event: NDKEvent): string {
     return getMatchingTags(event, "summary")[0]?.[1] || "";
   }
+
+  $effect(() => {
+    const summary = getEventSummary(event);
+    if (summary) {
+      parseBasicmarkup(summary).then((processed) => {
+        parsedSummary = processed;
+      }).catch((error) => {
+        console.error("Error parsing summary:", error);
+        parsedSummary = summary;
+      });
+    } else {
+      parsedSummary = "";
+    }
+  });
+
+  $effect(() => {
+    const title = getEventTitle(event);
+    if (title && title !== "Untitled") {
+      parseBasicmarkup(title).then((processed) => {
+        parsedTitle = processed;
+      }).catch((error) => {
+        console.error("Error parsing title:", error);
+        parsedTitle = title;
+      });
+    } else {
+      parsedTitle = title || "";
+    }
+  });
 
   function getEventTypeDisplay(event: NDKEvent): string {
     const [mTag, MTag] = getMimeTags(event.kind || 0);
@@ -256,9 +287,8 @@ import type { UserProfile } from "$lib/models/user_profile";
       if (repostKinds.includes(event.kind)) {
         parsedContent = event.content;
       } else {
-        // For all other events (including quote reposts), parse the content for nostr identifiers
-        // Use the proper processNostrIdentifiers function to get display names
-        processNostrIdentifiers(event.content, getNdkContext()).then((processed) => {
+        // For all other events (including quote reposts), parse the content using basic markup parser
+        parseBasicmarkup(event.content).then((processed) => {
           parsedContent = processed;
         }).catch((error) => {
           console.error("Error parsing content:", error);
@@ -287,9 +317,9 @@ import type { UserProfile } from "$lib/models/user_profile";
 </script>
 
 <div class="flex flex-col space-y-4 min-w-0">
-  {#if event.kind !== 0 && getEventTitle(event)}
+  {#if event.kind !== 0 && parsedTitle}
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
-      {getEventTitle(event)}
+      {@html parsedTitle}
     </h2>
   {/if}
 
@@ -321,10 +351,12 @@ import type { UserProfile } from "$lib/models/user_profile";
     >
   </div>
 
-  {#if getEventSummary(event)}
+  {#if parsedSummary}
     <div class="flex flex-col space-y-1 min-w-0">
       <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <p class="text-gray-900 dark:text-gray-100 break-words">{getEventSummary(event)}</p>
+      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+        {@html parsedSummary}
+      </div>
     </div>
   {/if}
 
