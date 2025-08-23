@@ -93,16 +93,28 @@ export async function searchBySubscription(
       tTagEvents: tTagEventsWithCreatedAt
     };
     
-    // AI-NOTE: 2025-01-24 - For profile searches, return cached results immediately
-    // The EventSearch component now handles cache checking before calling this function
-    if (searchType === "n") {
-      console.log(
-        "subscription_search: Returning cached profile result immediately",
-      );
-      return resultWithCreatedAt;
-    } else {
-      return resultWithCreatedAt;
-    }
+    // AI-NOTE: 2025-01-24 - Return cached results immediately but trigger second-order search in background
+    // This ensures we get fast results while still updating second-order data
+    console.log("subscription_search: Returning cached result immediately, triggering background second-order search");
+    
+          // Trigger second-order search in background for all search types
+      if (ndk) {
+        // Start second-order search in background for n and d searches only
+        if (searchType === "n" || searchType === "d") {
+          console.log("subscription_search: Triggering background second-order search for cached result");
+          performSecondOrderSearchInBackground(
+            searchType as "n" | "d",
+            eventsWithCreatedAt,
+            cachedResult.eventIds || new Set(),
+            cachedResult.addresses || new Set(),
+            ndk,
+            searchType === "n" ? eventsWithCreatedAt[0]?.pubkey : undefined,
+            callbacks
+          );
+        }
+      }
+    
+    return resultWithCreatedAt;
   }
 
   if (!ndk) {
@@ -161,6 +173,27 @@ export async function searchBySubscription(
         normalizedSearchTerm,
       );
       searchCache.set(searchType, normalizedSearchTerm, immediateResult);
+
+      // AI-NOTE: 2025-01-24 - For profile searches, start background second-order search even for preloaded events
+      if (searchType === "n") {
+        console.log(
+          "subscription_search: Profile found from preloaded events, starting background second-order search",
+        );
+
+        // Start Phase 2 in background for second-order results
+        searchOtherRelaysInBackground(
+          searchType,
+          searchFilter,
+          searchState,
+          ndk,
+          callbacks,
+          cleanup,
+        );
+
+        // Clear the main timeout since we're returning early
+        cleanup();
+      }
+
       return immediateResult;
     }
   }
@@ -172,11 +205,19 @@ export async function searchBySubscription(
         "subscription_search: Searching primary relay with filter:",
         searchFilter.filter,
       );
-      const primaryEvents = await ndk.fetchEvents(
+      
+      // Add timeout to primary relay search
+      const primaryEventsPromise = ndk.fetchEvents(
         searchFilter.filter,
         { closeOnEose: true },
         primaryRelaySet,
       );
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Primary relay search timeout")), TIMEOUTS.SUBSCRIPTION_SEARCH);
+      });
+      
+      const primaryEvents = await Promise.race([primaryEventsPromise, timeoutPromise]) as any;
 
       console.log(
         "subscription_search: Primary relay returned",
@@ -226,6 +267,9 @@ export async function searchBySubscription(
           console.log(
             `subscription_search: Profile search completed in ${elapsed}ms`,
           );
+          
+          // Clear the main timeout since we're returning early
+          cleanup();
           return immediateResult;
         }
 
@@ -239,6 +283,8 @@ export async function searchBySubscription(
           cleanup,
         );
 
+        // Clear the main timeout since we're returning early
+        cleanup();
         return immediateResult;
       } else {
         console.log(
@@ -257,11 +303,18 @@ export async function searchBySubscription(
             ndk,
           );
           try {
-            const fallbackEvents = await ndk.fetchEvents(
+            // Add timeout to fallback search
+            const fallbackEventsPromise = ndk.fetchEvents(
               searchFilter.filter,
               { closeOnEose: true },
               allRelaySet,
             );
+            
+            const fallbackTimeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error("Fallback search timeout")), TIMEOUTS.SUBSCRIPTION_SEARCH);
+            });
+            
+            const fallbackEvents = await Promise.race([fallbackEventsPromise, fallbackTimeoutPromise]) as any;
 
             console.log(
               "subscription_search: Fallback search returned",
@@ -293,6 +346,9 @@ export async function searchBySubscription(
               console.log(
                 `subscription_search: Profile search completed in ${elapsed}ms (fallback)`,
               );
+              
+              // Clear the main timeout since we're returning early
+              cleanup();
               return fallbackResult;
             }
           } catch (fallbackError) {
@@ -300,6 +356,11 @@ export async function searchBySubscription(
               "subscription_search: Fallback search failed:",
               fallbackError,
             );
+            
+            // If it's a timeout error, continue to return empty result
+            if (fallbackError instanceof Error && fallbackError.message.includes("timeout")) {
+              console.log("subscription_search: Fallback search timed out, returning empty result");
+            }
           }
 
           console.log(
@@ -315,6 +376,9 @@ export async function searchBySubscription(
           console.log(
             `subscription_search: Profile search completed in ${elapsed}ms (not found)`,
           );
+          
+          // Clear the main timeout since we're returning early
+          cleanup();
           return emptyResult;
         } else {
           console.log(
@@ -327,6 +391,14 @@ export async function searchBySubscription(
         `subscription_search: Error searching primary relay:`,
         error,
       );
+      
+      // If it's a timeout error, continue to Phase 2 instead of failing
+      if (error instanceof Error && error.message.includes("timeout")) {
+        console.log("subscription_search: Primary relay search timed out, continuing to Phase 2");
+      } else {
+        // For other errors, we might want to fail the search
+        throw error;
+      }
     }
   } else {
     console.log(
@@ -352,6 +424,8 @@ export async function searchBySubscription(
     );
   }
 
+  // Clear the main timeout since we're completing normally
+  cleanup();
   return result;
 }
 
@@ -793,17 +867,42 @@ function searchOtherRelaysInBackground(
   });
 
   return new Promise<SearchResult>((resolve) => {
+    let resolved = false;
+    
+    // Add timeout to prevent hanging
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        console.log("subscription_search: Background search timeout, resolving with current results");
+        resolved = true;
+        sub.stop();
+        const result = processEoseResults(
+          searchType,
+          searchState,
+          searchFilter,
+          ndk,
+          callbacks,
+        );
+        searchCache.set(searchType, searchState.normalizedSearchTerm, result);
+        cleanup?.();
+        resolve(result);
+      }
+    }, TIMEOUTS.SUBSCRIPTION_SEARCH);
+    
     sub.on("eose", () => {
-      const result = processEoseResults(
-        searchType,
-        searchState,
-        searchFilter,
-        ndk,
-        callbacks,
-      );
-      searchCache.set(searchType, searchState.normalizedSearchTerm, result);
-      cleanup?.();
-      resolve(result);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        const result = processEoseResults(
+          searchType,
+          searchState,
+          searchFilter,
+          ndk,
+          callbacks,
+        );
+        searchCache.set(searchType, searchState.normalizedSearchTerm, result);
+        cleanup?.();
+        resolve(result);
+      }
     });
   });
 }
@@ -821,7 +920,7 @@ function processEoseResults(
   if (searchType === "n") {
     return processProfileEoseResults(searchState, searchFilter, ndk, callbacks);
   } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType, ndk);
+    return processContentEoseResults(searchState, searchType, ndk, callbacks);
   } else if (searchType === "t") {
     return processTTagEoseResults(searchState);
   }
@@ -926,6 +1025,7 @@ function processContentEoseResults(
   searchState: any,
   searchType: SearchSubscriptionType,
   ndk: NDK,
+  callbacks?: SearchCallbacks,
 ): SearchResult {
   if (searchState.firstOrderEvents.length === 0) {
     return createEmptySearchResult(
@@ -954,6 +1054,8 @@ function processContentEoseResults(
       searchState.eventIds,
       searchState.eventAddresses,
       ndk,
+      undefined, // targetPubkey not needed for d-tag searches
+      callbacks,
     );
   }
 
@@ -1041,23 +1143,16 @@ async function performSecondOrderSearchInBackground(
           targetPubkey,
         );
 
-        // AI-NOTE: 2025-01-24 - Use only active relays for second-order profile search to prevent hanging
-        const activeRelays = [
-          ...get(activeInboxRelays),
-          ...get(activeOutboxRelays),
-        ];
-        const availableRelays = activeRelays
-          .map((url) => ndk.pool.relays.get(url))
-          .filter((relay): relay is any => relay !== undefined);
+        // AI-NOTE: 2025-01-24 - Use all available relays for second-order search to maximize results
         const relaySet = new NDKRelaySet(
-          new Set(availableRelays),
+          new Set(Array.from(ndk.pool.relays.values())),
           ndk,
         );
 
         console.log(
           "subscription_search: Using",
-          activeRelays.length,
-          "active relays for second-order search",
+          ndk.pool.relays.size,
+          "relays for second-order search",
         );
 
         // Search for events that mention this pubkey via p-tags

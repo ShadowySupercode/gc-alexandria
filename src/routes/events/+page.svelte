@@ -33,6 +33,28 @@
   import { UserOutline } from "flowbite-svelte-icons";
   import type { UserProfile } from "$lib/models/user_profile";
   import type { SearchType } from "$lib/models/search_type";
+  import { clearAllCaches } from "$lib/utils/cache_manager";
+
+  // AI-NOTE: 2025-01-24 - Add cache clearing function for testing second-order search
+  // This can be called from browser console: window.clearCache()
+  if (typeof window !== 'undefined') {
+    (window as any).clearCache = () => {
+      console.log('Clearing all caches for testing...');
+      clearAllCaches();
+      console.log('Caches cleared. Try searching again to test second-order search.');
+    };
+    
+    // AI-NOTE: 2025-01-24 - Add function to clear specific search cache
+    // Usage: window.clearSearchCache('n', 'silberengel')
+    (window as any).clearSearchCache = (searchType: string, searchTerm: string) => {
+      console.log(`Clearing search cache for ${searchType}:${searchTerm}...`);
+      // Import searchCache dynamically
+      import('$lib/utils/searchCache').then(({ searchCache }) => {
+        searchCache.clear();
+        console.log('Search cache cleared. Try searching again to test second-order search.');
+      });
+    };
+  }
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -137,7 +159,7 @@
       const npub = toNpub(pubkey);
       if (npub) {
         // Force fetch to ensure profile is cached
-        await getUserMetadata(npub, undefined, true);
+        await getUserMetadata(npub, ndk, true);
         console.log(`[Events Page] Cached profile for pubkey: ${pubkey}`);
       }
     } catch (error) {
