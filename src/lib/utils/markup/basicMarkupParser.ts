@@ -1,4 +1,5 @@
 import { nip19 } from "nostr-tools";
+import NDK from "@nostr-dev-kit/ndk";
 import {
   processBasicTextFormatting,
   processBlockquotes,
@@ -216,7 +217,7 @@ function processBasicFormatting(content: string): string {
   return processedText;
 }
 
-export async function parseBasicmarkup(text: string): Promise<string> {
+export async function parseBasicmarkup(text: string, ndk?: NDK): Promise<string> {
   if (!text) return "";
 
   try {
@@ -251,7 +252,7 @@ export async function parseBasicmarkup(text: string): Promise<string> {
       .join("\n");
 
     // Process Nostr identifiers last
-    processedText = await processNostrIdentifiersInText(processedText);
+    processedText = await processNostrIdentifiersInText(processedText, ndk);
 
     // Replace wikilinks
     processedText = processWikilinks(processedText);

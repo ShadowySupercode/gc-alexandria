@@ -288,7 +288,7 @@ import type { UserProfile } from "$lib/models/user_profile";
         parsedContent = event.content;
       } else {
         // For all other events (including quote reposts), parse the content using basic markup parser
-        parseBasicmarkup(event.content).then((processed) => {
+        parseBasicmarkup(event.content, getNdkContext()).then((processed) => {
           parsedContent = processed;
         }).catch((error) => {
           console.error("Error parsing content:", error);

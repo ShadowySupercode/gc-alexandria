@@ -841,7 +841,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(message.content) then parsed}
+                                    {#await parseBasicmarkup(message.content, ndk) then parsed}
                                       {@html parsed}
                                     {/await}
                                   </div>
@@ -849,7 +849,7 @@
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(message.content || "No content") then parsed}
+                              {#await parseBasicmarkup(message.content || "No content", ndk) then parsed}
                                 {@html parsed}
                               {/await}
                             {/if}
@@ -951,7 +951,7 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(notification.content) then parsed}
+                                    {#await parseBasicmarkup(notification.content, ndk) then parsed}
                                       {@html parsed}
                                     {/await}
                                   </div>
@@ -959,7 +959,7 @@
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(notification.content || "No content") then parsed}
+                              {#await parseBasicmarkup(notification.content || "No content", ndk) then parsed}
                                 {@html parsed}
                               {/await}
                             {/if}
@@ -999,7 +999,7 @@
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             <div class="text-sm text-gray-700 dark:text-gray-300">
-              {#await parseBasicmarkup(replyToMessage.content || "No content") then parsed}
+              {#await parseBasicmarkup(replyToMessage.content || "No content", ndk) then parsed}
                 {@html parsed}
               {/await}
             </div>
