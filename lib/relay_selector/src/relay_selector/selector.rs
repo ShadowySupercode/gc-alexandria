@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
 use crate::relay::RelayVariant;
+use crate::relay_selector::weighted_sort::weighted_sort;
+
+pub type RelayWeights = HashMap<String, f32>;
 
 const CONNECTION_WEIGHT: f32 = 0.1;
 
 pub struct RelaySelector {
-    initial_weights: HashMap<String, f32>,
-    current_weights: HashMap<String, f32>,
+    initial_weights: RelayWeights,
+    current_weights: RelayWeights,
 
     active_connections: HashMap<String, u8>,
 
@@ -52,13 +55,16 @@ impl RelaySelector {
 
         // Grab the relay of the requested rank
         // Assumes relays are sorted in descending order of rank
-        let selected = ranked.get(rank).clone().ok_or(format!(
-            "[RelaySelector] No {:?} relay found at rank {:?}",
-            variant, rank
-        ))?;
+        let selected = ranked
+            .get(rank)
+            .ok_or(format!(
+                "[RelaySelector] No {:?} relay found at rank {:?}",
+                variant, rank
+            ))?
+            .clone();
 
         // Increment the number of active connections
-        let count = self.active_connections.get_mut(selected).ok_or(format!(
+        let count = self.active_connections.get_mut(&selected).ok_or(format!(
             "[RelaySelector] Relay {:?} not found in active connections",
             selected
         ))?;
@@ -68,17 +74,22 @@ impl RelaySelector {
         ))?;
 
         // Update the current weight based on the new number of active connections
-        let initial_weight = self.initial_weights.get(selected).ok_or(format!(
+        let initial_weight = self.initial_weights.get(&selected).ok_or(format!(
             "[RelaySelector] Relay {:?} not found in initial weights",
             selected
         ))?;
-        let current_weight = self.current_weights.get_mut(selected).ok_or(format!(
+        let current_weight = self.current_weights.get_mut(&selected).ok_or(format!(
             "[RelaySelector] Relay {:?} not found in current weights",
             selected
         ))?;
         *current_weight = initial_weight + *count as f32 * CONNECTION_WEIGHT;
 
-        // TODO: Invoke sort on current weights.
+        match variant {
+            RelayVariant::General => weighted_sort(&mut self.general, &self.current_weights),
+            RelayVariant::Inbox => weighted_sort(&mut self.inbox, &self.current_weights),
+            RelayVariant::Outbox => weighted_sort(&mut self.outbox, &self.current_weights),
+            _ => (),
+        }
 
         Ok(selected.clone())
     }
