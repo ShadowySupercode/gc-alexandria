@@ -90,21 +90,6 @@ const config = {
       hueRotate: {
         20: "20deg",
       },
-      typography: {
-        DEFAULT: {
-          css: {
-            // Remove first-line indentation
-            'p:first-line': {
-              'text-indent': '0',
-            },
-            // Ensure paragraphs don't have unwanted indentation
-            p: {
-              'text-indent': '0',
-              'margin': '0',
-            },
-          },
-        },
-      },
     },
   },
 
