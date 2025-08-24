@@ -298,6 +298,7 @@
           label: n.title,
           count: n.connectedNodes?.length || 0,
           color: getTagAnchorColor(n.tagType || ""),
+          value: `${n.tagType}-${n.title}`, // Use the correct tag ID format for toggling
         }));
     } else {
       tagAnchorInfo = [];
