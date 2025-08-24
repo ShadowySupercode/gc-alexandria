@@ -48,6 +48,10 @@ import Asciidoctor from "asciidoctor";
   let contentType = $state<'article' | 'scattered-notes' | 'none'>('none');
 
   // Effect to create PublicationTree when content changes
+  // Uses tree processor extension as Michael envisioned:
+  // "register a tree processor extension in our Asciidoctor instance"
+  // "use the AST that Asciidoctor generates during parsing"
+  // "publication tree side-loads into memory as AsciiDoc is parsed"
   $effect(() => {
     if (!content.trim() || !ndk) {
       publicationResult = null;
@@ -56,27 +60,28 @@ import Asciidoctor from "asciidoctor";
       return;
     }
     
-    // Create PublicationTree asynchronously
+    // Use tree factory with corrected AST parser
     createPublicationTreeFromContent(content, ndk, parseLevel)
       .then(result => {
+        console.log("Tree factory result:", result);
         publicationResult = result;
         contentType = result.metadata.contentType;
         
-        // Export events for compatibility
+        // Export events for publishing workflow
         return exportEventsFromTree(result);
       })
       .then(events => {
         generatedEvents = events;
-        console.log("AST-based events generated:", {
+        
+        console.log("Tree factory result:", {
           contentType,
           indexEvent: !!events.indexEvent,
           contentEvents: events.contentEvents.length,
           parseLevel: parseLevel
         });
-        console.log("Updated generatedEvents state:", generatedEvents);
       })
       .catch(error => {
-        console.error("PublicationTree creation error:", error);
+        console.error("Tree factory error:", error);
         publicationResult = null;
         generatedEvents = null;
         contentType = 'none';
@@ -118,6 +123,12 @@ import Asciidoctor from "asciidoctor";
   // Parse sections for preview display using PublicationTree data
   let parsedSections = $derived.by(() => {
     if (!publicationResult) return [];
+    
+    console.log("Preview: publicationResult structure:", {
+      hasContentEvents: !!publicationResult.contentEvents,
+      contentEventsLength: publicationResult.contentEvents?.length,
+      keys: Object.keys(publicationResult)
+    });
     
     // Convert PublicationTree events to preview format
     return publicationResult.contentEvents.map((event: any) => {
