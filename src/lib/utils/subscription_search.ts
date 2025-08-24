@@ -54,7 +54,7 @@ const PRIORITIZED_EVENT_KINDS = new Set([
  * 3. Events from community members
  * 4. All other events
  */
-async function prioritizeSubscriptionEvents(
+async function prioritizeSearchEvents(
   events: NDKEvent[],
   targetPubkey?: string,
   maxResults: number = SEARCH_LIMITS.GENERAL_CONTENT,
@@ -1238,7 +1238,7 @@ async function processContentEoseResults(
 
   // AI-NOTE: 2025-01-24 - Apply prioritization to first-order events for d-tag searches
   // For d-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
-  const prioritizedEvents = await prioritizeSubscriptionEvents(
+  const prioritizedEvents = await prioritizeSearchEvents(
     dedupedEvents,
     undefined, // No specific target pubkey for d-tag searches
     SEARCH_LIMITS.GENERAL_CONTENT,
@@ -1283,7 +1283,7 @@ async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<Sear
 
   // AI-NOTE: 2025-01-24 - Apply prioritization to t-tag search results
   // For t-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
-  const prioritizedEvents = await prioritizeSubscriptionEvents(
+  const prioritizedEvents = await prioritizeSearchEvents(
     searchState.tTagEvents,
     undefined, // No specific target pubkey for t-tag searches
     SEARCH_LIMITS.GENERAL_CONTENT,
@@ -1480,7 +1480,7 @@ async function performSecondOrderSearchInBackground(
 
     // AI-NOTE: 2025-01-24 - Apply prioritization to second-order search results with timeout
     // Prioritize events from the target pubkey and specific event kinds
-    const prioritizationPromise = prioritizeSubscriptionEvents(
+    const prioritizationPromise = prioritizeSearchEvents(
       deduplicatedSecondOrder,
       targetPubkey,
       SEARCH_LIMITS.SECOND_ORDER_RESULTS,
