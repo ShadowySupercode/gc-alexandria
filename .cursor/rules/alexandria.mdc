@@ -42,7 +42,6 @@ NEVER assume developer intent. If you are unsure about something, ALWAYS stop an
 
 - Use anchor comments prefixed with `AI-NOTE:`, `AI-TODO:`, or `AI-QUESTION:` to share context between AI agents and developers across time.
  - Use all-caps prefixes.
- - Also _read_ (but do not write) variants of this format that begin with `AI-<date>:` where `<date>` is some date in `MM/DD/YYYY` format. Anchor comments with this format are used by developers to record context.
 - **Important:** Before scanning files, ALWAYS search first for `AI-` anchor comments in relevant subdirectories.
 - ALWAYS update relevant anchor comments when modifying associated code.
 - NEVER remove `AI-` comments unless the developer explicitly instructs it.
