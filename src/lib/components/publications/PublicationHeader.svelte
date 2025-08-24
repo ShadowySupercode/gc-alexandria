@@ -1,7 +1,7 @@
 <script lang="ts">
   import { naddrEncode, neventEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { activeInboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { Card } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -10,6 +10,8 @@
   import { indexKind } from "$lib/consts";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   function getRelayUrls(): string[] {
     return $activeInboxRelays;
@@ -75,7 +77,7 @@
             <h3 class="text-base font-normal mt-2 break-words">
               by
               {#if authorPubkey != null}
-                {@render userBadge(authorPubkey, author)}
+                {@render userBadge(authorPubkey, author, ndk)}
               {:else}
                 {author}
               {/if}

@@ -14,6 +14,9 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { indexKind } from "$lib/consts";
+  import { getNdkContext } from "$lib/ndk";
+
+  const ndk = getNdkContext();
 
   let { publicationType, indexEvent } = $props<{
     rootId: any;
@@ -182,7 +185,7 @@
       </p>
       <p>
         <span class="whitespace-nowrap"
-          >by {@render userBadge(pubkey, author)}</span
+          >by {@render userBadge(pubkey, author, ndk)}</span
         >
       </p>
     </div>

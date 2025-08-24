@@ -285,6 +285,7 @@
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
           profile?.display_name || undefined,
+          ndk,
         )}</span
       >
     {:else}
@@ -336,7 +337,7 @@
               <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Quote repost:
               </div>
-              {@render quotedContent(event, [], getNdkContext())}
+              {@render quotedContent(event, [], ndk)}
               {#if content}
                 <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">

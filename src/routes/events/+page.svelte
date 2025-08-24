@@ -665,6 +665,7 @@
                           {@render userBadge(
                             toNpub(result.pubkey) as string,
                             profileData?.display_name || profileData?.name,
+                            ndk,
                           )}
                         </span>
                         <span
@@ -873,6 +874,7 @@
                           {@render userBadge(
                             toNpub(result.pubkey) as string,
                             profileData?.display_name || profileData?.name,
+                            ndk,
                           )}
                         </span>
                         <span
@@ -1079,6 +1081,7 @@
                           {@render userBadge(
                             toNpub(result.pubkey) as string,
                             profileData?.display_name || profileData?.name,
+                            ndk,
                           )}
                         </span>
                         <span

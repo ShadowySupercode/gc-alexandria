@@ -6,18 +6,17 @@
     getUserMetadata,
   } from "$lib/utils/nostrUtils";
   import type { UserProfile } from "$lib/models/user_profile";
-  import { getNdkContext } from "$lib/ndk";
+  import NDK from "@nostr-dev-kit/ndk";
 
   export { userBadge };
 </script>
 
-{#snippet userBadge(identifier: string, displayText: string | undefined)}
+{#snippet userBadge(identifier: string, displayText: string | undefined, ndk?: NDK)}
   {@const npub = toNpub(identifier)}
   {#if npub}
     {#if !displayText || displayText.trim().toLowerCase() === "unknown"}
-      {#await getUserMetadata(npub, getNdkContext(), false) then profile}
+      {#await getUserMetadata(npub, ndk, false) then profile}
         {@const p = profile as UserProfile}
-        {@const debugInfo = console.log("Profile data for", npub, ":", p)}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
@@ -41,7 +40,7 @@
         </span>
       {/await}
     {:else}
-      {#await createProfileLinkWithVerification(npub as string, displayText, getNdkContext())}
+      {#await createProfileLinkWithVerification(npub as string, displayText, ndk)}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"

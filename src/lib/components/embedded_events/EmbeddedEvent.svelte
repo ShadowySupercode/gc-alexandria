@@ -261,6 +261,7 @@
               {@render userBadge(
                 toNpub(event.pubkey) as string,
                 authorDisplayName,
+                ndk,
               )}
             {:else}
               <span class="text-xs text-gray-700 dark:text-gray-300 break-all">

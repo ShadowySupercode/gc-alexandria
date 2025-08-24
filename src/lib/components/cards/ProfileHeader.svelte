@@ -145,6 +145,7 @@
                 profile.display_name ||
                 profile.name ||
                 event.pubkey,
+              ndk,
             )}
           </div>
           {#if communityStatus === true}
@@ -277,6 +278,7 @@
           {@render userBadge(
             toNpub(event.pubkey) as string,
             profile?.displayName || profile.name || event.pubkey,
+            ndk,
           )}
           <P class="break-all">{profile.lud16}</P>
         </div>
