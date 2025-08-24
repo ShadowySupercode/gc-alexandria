@@ -156,7 +156,7 @@
   let autoDisabledTags = $state(false);
   
   // Maximum number of tag anchors before auto-disabling
-  const MAX_TAG_ANCHORS = 20;
+  const MAX_TAG_ANCHORS = 50;
   
   // Person nodes state
   let showPersonNodes = $state(false);
@@ -1108,11 +1108,14 @@
       if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
         // Defer the state update to break the sync cycle
         autoDisableTimer = setTimeout(() => {
-          debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
+          debug(`Auto-disabling excess tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
           
-          // Disable all tags
+          // Sort tags by count (most connected first) and disable the excess ones
+          const sortedTags = [...tagAnchorInfo].sort((a, b) => b.count - a.count);
+          const tagsToDisable = sortedTags.slice(MAX_TAG_ANCHORS);
+          
           const newDisabledTags = new Set<string>();
-          tagAnchorInfo.forEach(anchor => {
+          tagsToDisable.forEach(anchor => {
             const tagId = `${anchor.type}-${anchor.label}`;
             newDisabledTags.add(tagId);
           });
@@ -1121,13 +1124,15 @@
           autoDisabledTags = true;
           
           // Optional: Show a notification to the user
-          console.info(`[EventNetwork] Auto-disabled ${tagAnchorInfo.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+          console.info(`[EventNetwork] Auto-disabled ${tagsToDisable.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
         }, 0);
       }
       
       // Reset auto-disabled flag if tag count goes back down
       if (tagAnchorInfo.length <= MAX_TAG_ANCHORS && autoDisabledTags) {
         autoDisableTimer = setTimeout(() => {
+          // Clear disabled tags when we're back under the limit
+          disabledTags.clear();
           autoDisabledTags = false;
         }, 0);
       }

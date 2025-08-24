@@ -301,7 +301,7 @@
             <div id="tag-anchors-content">
               {#if autoDisabledTags}
                 <div class="text-xs text-amber-600 dark:text-amber-400 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
-                  <strong>Note:</strong> All {tagAnchors.length} tags were auto-disabled to prevent graph overload. Click individual tags below to enable them.
+                  <strong>Note:</strong> Some tags were auto-disabled to prevent graph overload. Click individual tags below to enable/disable them.
                 </div>
               {/if}
               
@@ -334,11 +334,12 @@
               
               <div class="space-y-1 max-h-48 overflow-y-auto">
                 {#each sortedAnchors as tag}
-                  {@const isDisabled = disabledTags.has(tag.value)}
+                  {@const tagId = `${tag.type}-${tag.label}`}
+                  {@const isDisabled = disabledTags.has(tagId)}
                   <button
                     class="flex items-center justify-between w-full p-2 rounded text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
-                    onclick={() => onTagToggle(tag.value)}
-                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tag.value) : null}
+                    onclick={() => onTagToggle(tagId)}
+                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tagId) : null}
                     disabled={false}
                     title={isDisabled ? `Click to show ${tag.label}` : `Click to hide ${tag.label}`}
                     aria-pressed={!isDisabled}
