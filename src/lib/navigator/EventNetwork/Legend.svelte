@@ -77,7 +77,7 @@
 
   function invertTagSelection() {
     // Invert selection - toggle all tags one by one
-    const allTagIds = tagAnchors.map((anchor: any) => `${anchor.type}-${anchor.label}`);
+    const allTagIds = tagAnchors.map((anchor: any) => anchor.value);
     
     // Process all tags
     allTagIds.forEach((tagId: string) => {
@@ -330,6 +330,16 @@
                     <span class="text-xs text-gray-700 dark:text-gray-300">Alphabetical</span>
                   </label>
                 </div>
+                
+                <!-- Invert Selection -->
+                <label class="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    onclick={invertTagSelection}
+                    class="w-3 h-3"
+                  />
+                  <span class="text-xs text-gray-700 dark:text-gray-300">Invert Selection</span>
+                </label>
               </div>
               
               <div class="space-y-1 max-h-48 overflow-y-auto">
@@ -337,22 +347,26 @@
                   {@const tagId = `${tag.type}-${tag.label}`}
                   {@const isDisabled = disabledTags.has(tagId)}
                   <button
-                    class="flex items-center justify-between w-full p-2 rounded text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+                    class="flex items-center gap-2 w-full p-2 rounded text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5"
                     onclick={() => onTagToggle(tagId)}
                     onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tagId) : null}
-                    disabled={false}
                     title={isDisabled ? `Click to show ${tag.label}` : `Click to hide ${tag.label}`}
                     aria-pressed={!isDisabled}
                   >
-                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate max-w-32" style="opacity: {isDisabled ? 0.5 : 1};" title="{tag.label} ({tag.count})">
-                      {tag.label} ({tag.count})
-                    </span>
+                    <!-- Circular icon with # symbol -->
                     <div class="flex items-center">
                       <span
-                        class="inline-block w-3.5 h-3.5 rotate-45 border-2 border-white"
-                        style="background-color: {getEventKindColor(30040)}; opacity: {isDisabled ? 0.3 : 1};"
-                      ></span>
+                        class="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-xs text-white font-bold"
+                        style="background-color: {tag.color || '#FB7185'}; opacity: {isDisabled ? 0.3 : 1};"
+                      >
+                        #
+                      </span>
                     </div>
+                    <!-- Tag label with count -->
+                    <span class="text-xs text-gray-700 dark:text-gray-300 flex-1" style="opacity: {isDisabled ? 0.5 : 1};">
+                      {tag.label}
+                      <span class="text-gray-500">({tag.count})</span>
+                    </span>
                   </button>
                 {/each}
               </div>
