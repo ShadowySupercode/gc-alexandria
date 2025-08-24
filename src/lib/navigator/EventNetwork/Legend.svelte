@@ -344,12 +344,11 @@
               
               <div class="space-y-1 max-h-48 overflow-y-auto">
                 {#each sortedAnchors as tag}
-                  {@const tagId = `${tag.type}-${tag.label}`}
-                  {@const isDisabled = disabledTags.has(tagId)}
+                  {@const isDisabled = disabledTags.has(tag.value)}
                   <button
                     class="flex items-center gap-2 w-full p-2 rounded text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5"
-                    onclick={() => onTagToggle(tagId)}
-                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tagId) : null}
+                    onclick={() => onTagToggle(tag.value)}
+                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tag.value) : null}
                     title={isDisabled ? `Click to show ${tag.label}` : `Click to hide ${tag.label}`}
                     aria-pressed={!isDisabled}
                   >

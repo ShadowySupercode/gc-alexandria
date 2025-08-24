@@ -168,7 +168,7 @@
   let totalPersonCount = $state(0);
   let displayedPersonCount = $state(0);
   let hasInitializedPersons = $state(false);
-  let hasInitializedTags = $state(false);
+  let hasInitializedTags = $state(new Map<string, boolean>());
 
 
   // Update dimensions when container changes
@@ -302,18 +302,18 @@
           value: `${n.tagType}-${n.title}`, // Use the correct tag ID format for toggling
         }));
         
-      // Auto-disable all tag anchors by default (only on first time showing)
-      if (!hasInitializedTags && tagAnchors.length > 0) {
+      // Auto-disable all tag anchors by default (only on first time showing this tag type)
+      if (!hasInitializedTags.get(selectedTagType) && tagAnchors.length > 0) {
         tagAnchorInfo.forEach(anchor => {
           disabledTags.add(anchor.value);
         });
-        hasInitializedTags = true;
+        hasInitializedTags.set(selectedTagType, true);
       }
     } else {
       tagAnchorInfo = [];
-      // Reset initialization flag when tag anchors are hidden
-      if (hasInitializedTags && tagAnchorInfo.length === 0) {
-        hasInitializedTags = false;
+      // Reset initialization flag for this tag type when tag anchors are hidden
+      if (hasInitializedTags.get(selectedTagType) && tagAnchorInfo.length === 0) {
+        hasInitializedTags.set(selectedTagType, false);
       }
     }
 
