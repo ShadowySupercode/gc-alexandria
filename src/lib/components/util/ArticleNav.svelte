@@ -117,7 +117,18 @@
   });
 
   function visualizePublication() {
+    // Use the event ID directly, but also try to get the tagAddress as a fallback
     const eventId = indexEvent.id;
+    const tagAddress = indexEvent.tagAddress();
+    
+    // For debugging, log both identifiers
+    console.log("[ArticleNav] Visualizing publication:", {
+      eventId,
+      tagAddress,
+      kind: indexEvent.kind,
+      pubkey: indexEvent.pubkey
+    });
+    
     goto(`/visualize?event=${eventId}`);
   }
 
