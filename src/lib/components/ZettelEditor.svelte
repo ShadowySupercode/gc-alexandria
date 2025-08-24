@@ -7,7 +7,7 @@
   metadataToTags,
   parseSimpleAttributes,
 } from "$lib/utils/asciidoc_metadata";
-import { createPublicationTreeFromContent, exportEventsFromTree } from "$lib/utils/publication_tree_factory";
+import { parseAsciiDocWithTree, exportEventsFromTree } from "$lib/utils/asciidoc_publication_parser";
 import { getNdkContext } from "$lib/ndk";
 import Asciidoctor from "asciidoctor";
 
@@ -40,7 +40,7 @@ import Asciidoctor from "asciidoctor";
 
   // Configuration constants
   const MIN_PARSE_LEVEL = 2;
-  const MAX_PARSE_LEVEL = 6;
+  const MAX_PARSE_LEVEL = 5;
 
   // State for PublicationTree result
   let publicationResult = $state<any>(null);
