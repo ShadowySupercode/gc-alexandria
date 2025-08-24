@@ -1245,6 +1245,10 @@ async function processContentEoseResults(
     ndk
   );
 
+  // AI-NOTE: 2025-01-24 - Attach profile data to first-order events for display
+  // This ensures profile pictures and other metadata are available in the UI
+  await attachProfileDataToEvents(prioritizedEvents, ndk);
+
   // Perform second-order search for d-tag searches
   if (dedupedEvents.length > 0) {
     performSecondOrderSearchInBackground(
@@ -1285,6 +1289,12 @@ async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<Sear
     SEARCH_LIMITS.GENERAL_CONTENT,
     ndk
   );
+
+  // AI-NOTE: 2025-01-24 - Attach profile data to t-tag events for display
+  // This ensures profile pictures and other metadata are available in the UI
+  if (ndk) {
+    await attachProfileDataToEvents(prioritizedEvents, ndk);
+  }
 
   return {
     events: prioritizedEvents,
@@ -1522,6 +1532,10 @@ async function performSecondOrderSearchInBackground(
       );
     }
 
+    // AI-NOTE: 2025-01-24 - Attach profile data to second-order events for display
+    // This ensures profile pictures and other metadata are available in the UI
+    await attachProfileDataToEvents(prioritizedSecondOrder, ndk);
+
     // Update the search results with second-order events
     const result: SearchResult = {
       events: firstOrderEvents,
@@ -1553,5 +1567,90 @@ async function performSecondOrderSearchInBackground(
       `[Search] Error in second-order ${searchType}-tag search:`,
       err,
     );
+  }
+}
+
+/**
+ * Attach profile data to events for display purposes
+ * This function fetches and attaches profile information to events so they can display profile pictures and other metadata
+ * @param events Array of events to attach profile data to
+ * @param ndk NDK instance for fetching profile data
+ * @returns Promise that resolves when profile data is attached
+ */
+async function attachProfileDataToEvents(events: NDKEvent[], ndk: NDK): Promise<void> {
+  if (events.length === 0) {
+    return;
+  }
+
+  console.log(`subscription_search: Attaching profile data to ${events.length} events`);
+
+  try {
+    // Import user list functions dynamically to avoid circular dependencies
+    const { fetchCurrentUserLists, isPubkeyInUserLists } = await import("./user_lists.ts");
+    
+    // Get current user's lists for user list status
+    const userLists = await fetchCurrentUserLists(undefined, ndk);
+    
+    // Get unique pubkeys from events
+    const uniquePubkeys = new Set<string>();
+    events.forEach((event) => {
+      if (event.pubkey) {
+        uniquePubkeys.add(event.pubkey);
+      }
+    });
+
+    console.log(`subscription_search: Found ${uniquePubkeys.size} unique pubkeys to fetch profiles for`);
+
+    // Fetch profile data for each unique pubkey
+    const profilePromises = Array.from(uniquePubkeys).map(async (pubkey) => {
+      try {
+        // Import getUserMetadata dynamically to avoid circular dependencies
+        const { getUserMetadata } = await import("./nostrUtils.ts");
+        const npub = await import("./nostrUtils.ts").then(m => m.toNpub(pubkey));
+        
+        if (npub) {
+          const profileData = await getUserMetadata(npub, ndk, true);
+          if (profileData) {
+            // Check if this pubkey is in user's lists
+            const isInLists = isPubkeyInUserLists(pubkey, userLists);
+            
+            // Return profile data with user list status
+            return {
+              pubkey,
+              profileData: {
+                ...profileData,
+                isInUserLists: isInLists
+              }
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`subscription_search: Failed to fetch profile for ${pubkey}:`, error);
+      }
+      return null;
+    });
+
+    const profileResults = await Promise.allSettled(profilePromises);
+    
+    // Create a map of pubkey to profile data
+    const profileMap = new Map<string, any>();
+    profileResults.forEach((result) => {
+      if (result.status === "fulfilled" && result.value) {
+        profileMap.set(result.value.pubkey, result.value.profileData);
+      }
+    });
+
+    console.log(`subscription_search: Successfully fetched ${profileMap.size} profiles`);
+
+    // Attach profile data to each event
+    events.forEach((event) => {
+      if (event.pubkey && profileMap.has(event.pubkey)) {
+        (event as any).profileData = profileMap.get(event.pubkey);
+      }
+    });
+
+    console.log(`subscription_search: Profile data attachment complete`);
+  } catch (error) {
+    console.error("subscription_search: Error attaching profile data:", error);
   }
 }

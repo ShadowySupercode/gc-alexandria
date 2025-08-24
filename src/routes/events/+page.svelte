@@ -177,32 +177,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Function to update profile data with user list information
-  async function updateProfileDataWithUserLists(events: NDKEvent[]) {
-    try {
-      const userLists = await fetchCurrentUserLists(undefined, ndk);
 
-      for (const event of events) {
-        if (event.kind === 0 && event.pubkey) {
-          const existingProfileData =
-            (event as any).profileData || parseProfileContent(event);
-
-          if (existingProfileData) {
-            const isInLists = isPubkeyInUserLists(event.pubkey, userLists);
-            (event as any).profileData = {
-              ...existingProfileData,
-              isInUserLists: isInLists,
-            };
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(
-        "[Events Page] Failed to update profile data with user lists:",
-        error,
-      );
-    }
-  }
 
   // Use Svelte 5 idiomatic effect to update searchValue and searchType based on URL parameters
   $effect(() => {
@@ -330,30 +305,11 @@
       checkCommunityStatusForResults(tTagEvents);
     }
 
-    // AI-NOTE: 2025-01-24 - Cache profiles for all search results
-    cacheProfilesForEvents([...results, ...secondOrder, ...tTagEvents]);
+    // AI-NOTE: 2025-01-24 - Profile data is now handled in subscription_search.ts
+    // No need to cache profiles here as they're already attached to events
   }
 
-  // AI-NOTE: 2025-01-24 - Function to cache profiles for multiple events
-  async function cacheProfilesForEvents(events: NDKEvent[]) {
-    const uniquePubkeys = new Set<string>();
-    events.forEach((event) => {
-      if (event.pubkey) {
-        uniquePubkeys.add(event.pubkey);
-      }
-    });
 
-    // Cache profiles in parallel
-    const cachePromises = Array.from(uniquePubkeys).map((pubkey) =>
-      cacheProfileForPubkey(pubkey),
-    );
-    await Promise.allSettled(cachePromises);
-
-    // AI-NOTE: 2025-01-24 - Update profile data with user list information for cached events
-    await updateProfileDataWithUserLists(events);
-
-    console.log(`[Events Page] Profile caching complete`);
-  }
 
   function handleClear() {
     searchType = null;
