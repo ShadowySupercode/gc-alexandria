@@ -17,7 +17,8 @@
   import { goto } from "$app/navigation";
   import { isPubkeyInUserLists, fetchCurrentUserLists } from "$lib/utils/user_lists";
   import { UserOutline } from "flowbite-svelte-icons";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { getNdkContext } from "$lib/ndk";
 
   const {
     event,
@@ -31,11 +32,12 @@
     communityStatusMap?: Record<string, boolean>;
   }>();
 
+  const ndk = getNdkContext();
+
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
   let communityStatus = $state<boolean | null>(null);
   let isInUserLists = $state<boolean | null>(null);
-  let parsedAbout = $state<string>("");
 
   onMount(async () => {
     if (profile?.lud16) {
@@ -89,19 +91,6 @@
             communityStatus = false;
           });
       }
-    }
-  });
-
-  $effect(() => {
-    if (profile?.about) {
-      parseBasicmarkup(profile.about).then((processed) => {
-        parsedAbout = processed;
-      }).catch((error) => {
-        console.error("Error parsing about:", error);
-        parsedAbout = profile.about;
-      });
-    } else {
-      parsedAbout = "";
     }
   });
 
@@ -211,12 +200,12 @@
                 <dd class="min-w-0 break-words">{profile.displayName}</dd>
               </div>
             {/if}
-            {#if parsedAbout}
+            {#if profile.about}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
                 <dd class="min-w-0 break-words">
                   <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-                    {@html parsedAbout}
+                    {@render basicMarkup(profile.about, ndk)}
                   </div>
                 </dd>
               </div>

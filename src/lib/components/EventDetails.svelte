@@ -14,14 +14,14 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { 
     repostContent, 
     quotedContent,
-  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
   import type { UserProfile } from "$lib/models/user_profile";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const {
     event,
@@ -31,10 +31,11 @@
     profile?: UserProfile | null;
   }>();
 
+  const ndk = getNdkContext();
+
   let authorDisplayName = $state<string | undefined>(undefined);
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
-  let parsedContent = $state<string>("");
   let isRepost = $derived(repostKinds.includes(event.kind) || (event.kind === 1 && event.getMatchingTags("q").length > 0));
 
   function getEventTitle(event: NDKEvent): string {
@@ -73,43 +74,12 @@
     return "Untitled";
   }
 
-  let parsedSummary = $state<string>("");
-  let parsedTitle = $state<string>("");
-
   function getEventSummary(event: NDKEvent): string {
     return getMatchingTags(event, "summary")[0]?.[1] || "";
   }
 
-  $effect(() => {
-    const summary = getEventSummary(event);
-    if (summary) {
-      parseBasicmarkup(summary).then((processed) => {
-        parsedSummary = processed;
-      }).catch((error) => {
-        console.error("Error parsing summary:", error);
-        parsedSummary = summary;
-      });
-    } else {
-      parsedSummary = "";
-    }
-  });
-
-  $effect(() => {
-    const title = getEventTitle(event);
-    if (title && title !== "Untitled") {
-      parseBasicmarkup(title).then((processed) => {
-        parsedTitle = processed;
-      }).catch((error) => {
-        console.error("Error parsing title:", error);
-        parsedTitle = title;
-      });
-    } else {
-      parsedTitle = title || "";
-    }
-  });
-
   function getEventTypeDisplay(event: NDKEvent): string {
-    const [mTag, MTag] = getMimeTags(event.kind || 0);
+    const [_, MTag] = getMimeTags(event.kind || 0);
     return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
   }
 
@@ -281,26 +251,6 @@
     return ids;
   }
 
-  $effect(() => {
-    if (event.content) {
-      // For kind 6 and 16 reposts, we don't need to parse the content as basic markup since it's JSON
-      // For quote reposts (kind 1 with q tags), we still need to parse the content for nostr identifiers
-      if (repostKinds.includes(event.kind)) {
-        parsedContent = event.content;
-      } else {
-        // For all other events (including quote reposts), parse the content using basic markup parser
-        parseBasicmarkup(event.content, getNdkContext()).then((processed) => {
-          parsedContent = processed;
-        }).catch((error) => {
-          console.error("Error parsing content:", error);
-          parsedContent = event.content;
-        });
-      }
-    } else {
-      parsedContent = "";
-    }
-  });
-
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
@@ -318,9 +268,9 @@
 </script>
 
 <div class="flex flex-col space-y-4 min-w-0">
-  {#if event.kind !== 0 && parsedTitle}
+  {#if event.kind !== 0}
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
-      {@html parsedTitle}
+      {@render basicMarkup(getEventTitle(event), ndk)}
     </h2>
   {/if}
 
@@ -352,20 +302,20 @@
     >
   </div>
 
-  {#if parsedSummary}
-    <div class="flex flex-col space-y-1 min-w-0">
-      <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        {@html parsedSummary}
-      </div>
+  <div class="flex flex-col space-y-1 min-w-0">
+    <span class="text-gray-700 dark:text-gray-300">Summary:</span>
+    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+      {@render basicMarkup(getEventSummary(event), ndk)}
     </div>
-  {/if}
+  </div>
 
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
 
   <!-- Content -->
   {#if event.kind !== 0}
+    {@const kind = event.kind}
+    {@const content = event.content.trim()}
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
@@ -387,12 +337,16 @@
                 Quote repost:
               </div>
               {@render quotedContent(event, [], getNdkContext())}
-              {#if event.content && event.content.trim()}
+              {#if content}
                 <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                     Added comment:
                   </div>
-                  {@html parsedContent}
+                  {#if repostKinds.includes(kind)}
+                    {@html content}
+                  {:else}
+                    {@render basicMarkup(content, ndk)}
+                  {/if}
                 </div>
               {/if}
             </div>
@@ -400,7 +354,11 @@
         {:else}
           <!-- Regular content -->
           <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-            {@html parsedContent}
+            {#if repostKinds.includes(kind)}
+              {@html content}
+            {:else}
+              {@render basicMarkup(content, ndk)}
+            {/if}
           </div>
           {#if shouldTruncate}
             <button

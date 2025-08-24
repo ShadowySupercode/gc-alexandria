@@ -8,7 +8,6 @@ import {
   processImageWithReveal,
   processMediaUrl,
   processNostrIdentifiersInText,
-  processAllNostrIdentifiers,
   processWebSocketUrls,
   processWikilinks,
   stripTrackingParams,
@@ -217,7 +216,7 @@ function processBasicFormatting(content: string): string {
   return processedText;
 }
 
-export async function parseBasicmarkup(text: string, ndk?: NDK): Promise<string> {
+export async function parseBasicMarkup(text: string, ndk?: NDK): Promise<string> {
   if (!text) return "";
 
   try {
@@ -258,10 +257,7 @@ export async function parseBasicmarkup(text: string, ndk?: NDK): Promise<string>
     processedText = processWikilinks(processedText);
 
     return processedText;
-  } catch (e: unknown) {
-    console.error("Error in parseBasicmarkup:", e);
-    return `<div class="text-red-500">Error processing markup: ${
-      (e as Error)?.message ?? "Unknown error"
-    }</div>`;
+  } catch (e) {
+    throw new Error(`Error in parseBasicMarkup: ${e}`);
   }
 }

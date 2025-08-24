@@ -5,9 +5,8 @@
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  
+  import type { NDKEvent } from "@nostr-dev-kit/ndk";  
+    import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -689,6 +688,7 @@
 
 <!-- Recursive Comment Item Component -->
 {#snippet CommentItem(node: CommentNode)}
+  {@const comment = node.event.getMatchingTags("comment")[0]?.[1] || "No comment content"}
   <div class="mb-4">
     <div 
       class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 break-words"
@@ -774,9 +774,7 @@
                   <span class="font-medium">Comment:</span>
                 </div>
                 <div class="text-sm text-gray-700 dark:text-gray-300">
-                  {#await parseBasicmarkup(node.event.getMatchingTags("comment")[0]?.[1] || "No comment content") then parsed}
-                    {@html parsed}
-                  {/await}
+                  {@render basicMarkup(comment, ndk)}
                 </div>
               </div>
             {:else}
@@ -818,9 +816,7 @@
         {:else}
           <!-- Regular comment content -->
           <div class="text-sm text-gray-700 dark:text-gray-300">
-            {#await parseBasicmarkup(node.event.content || "No content") then parsed}
-              {@html parsed}
-            {/await}
+            {@render basicMarkup(node.event.content || "No content", ndk)}
           </div>
         {/if}
       </div>

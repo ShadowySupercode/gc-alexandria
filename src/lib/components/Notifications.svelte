@@ -17,15 +17,14 @@
     getNotificationType, 
     fetchAuthorProfiles,
     quotedContent,
-  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { repostContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { repostContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
-  
   import { getNdkContext } from "$lib/ndk";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -841,17 +840,13 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(message.content, ndk) then parsed}
-                                      {@html parsed}
-                                    {/await}
+                                    {@render basicMarkup(message.content, ndk)}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(message.content || "No content", ndk) then parsed}
-                                {@html parsed}
-                              {/await}
+                              {@render basicMarkup(message.content || "No content", ndk)}
                             {/if}
                           </div>
                         </div>
@@ -951,17 +946,13 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(notification.content, ndk) then parsed}
-                                      {@html parsed}
-                                    {/await}
+                                    {@render basicMarkup(notification.content, ndk)}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(notification.content || "No content", ndk) then parsed}
-                                {@html parsed}
-                              {/await}
+                              {@render basicMarkup(notification.content || "No content", ndk)}
                             {/if}
                           </div>
                         </div>
@@ -999,9 +990,7 @@
           <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             <div class="text-sm text-gray-700 dark:text-gray-300">
-              {#await parseBasicmarkup(replyToMessage.content || "No content", ndk) then parsed}
-                {@html parsed}
-              {/await}
+              {@render basicMarkup(replyToMessage.content || "No content", ndk)}
             </div>
           </div>
   </div>

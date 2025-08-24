@@ -2,7 +2,7 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { fetchEventWithFallback, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { parsedContent, repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { parsedContent, repostContent, quotedContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";

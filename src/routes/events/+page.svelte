@@ -21,10 +21,8 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-  import { repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { repostContent, quotedContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
-  
   import { userStore } from "$lib/stores/userStore";
   import {
     fetchCurrentUserLists,
@@ -34,6 +32,7 @@
   import type { UserProfile } from "$lib/models/user_profile";
   import type { SearchType } from "$lib/models/search_type";
   import { clearAllCaches } from "$lib/utils/cache_manager";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   // AI-NOTE: 2025-01-24 - Add cache clearing function for testing second-order search
   // This can be called from browser console: window.clearCache()
@@ -796,17 +795,13 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
-                                      {@html parsed}
-                                    {/await}
+                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                                {@html parsed}
-                              {/await}
+                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
                             {/if}
                           </div>
                         {/if}
@@ -1011,17 +1006,13 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
-                                      {@html parsed}
-                                    {/await}
+                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                                {@html parsed}
-                              {/await}
+                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
                             {/if}
                           </div>
                         {/if}
@@ -1212,17 +1203,13 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                                       Comment:
                                     </div>
-                                    {#await parseBasicmarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "")) then parsed}
-                                      {@html parsed}
-                                    {/await}
+                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {#await parseBasicmarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : "")) then parsed}
-                                {@html parsed}
-                              {/await}
+                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
                             {/if}
                           </div>
                         {/if}

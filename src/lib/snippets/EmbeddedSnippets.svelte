@@ -7,7 +7,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { nip19 } from "nostr-tools";
   import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
-    import type NDK from "@nostr-dev-kit/ndk";
+  import type NDK from "@nostr-dev-kit/ndk";
 
   export {
     parsedContent,
