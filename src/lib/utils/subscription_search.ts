@@ -809,7 +809,17 @@ function processPrimaryRelayResults(
     "events from primary relay",
   );
 
+  // AI-NOTE: Apply subscription fetch limit to primary relay results
+  const maxEvents = SEARCH_LIMITS.SUBSCRIPTION_FETCH_LIMIT;
+  let processedCount = 0;
+
   for (const event of events) {
+    // Check if we've reached the event limit
+    if (processedCount >= maxEvents) {
+      console.log(`subscription_search: Reached event limit of ${maxEvents} in primary relay processing`);
+      break;
+    }
+
     // Check for abort signal
     if (abortSignal?.aborted) {
       cleanup?.();
@@ -827,6 +837,7 @@ function processPrimaryRelayResults(
       } else {
         processContentEvent(event, searchType, searchState);
       }
+      processedCount++;
     } catch (e) {
       console.warn("subscription_search: Error processing event:", e);
       // Invalid JSON or other error, skip
@@ -834,7 +845,7 @@ function processPrimaryRelayResults(
   }
 
   console.log(
-    "subscription_search: Processed events - firstOrder:",
+    `subscription_search: Processed ${processedCount} events (limit: ${maxEvents}) - firstOrder:`,
     searchState.firstOrderEvents.length,
     "profiles:",
     searchState.foundProfiles.length,
@@ -1011,7 +1022,20 @@ function searchOtherRelaysInBackground(
     callbacks.onSubscriptionCreated(sub);
   }
 
+  // AI-NOTE: Track event count to enforce subscription fetch limit
+  let eventCount = 0;
+  const maxEvents = SEARCH_LIMITS.SUBSCRIPTION_FETCH_LIMIT;
+
   sub.on("event", (event: NDKEvent) => {
+    // Check if we've reached the event limit
+    if (eventCount >= maxEvents) {
+      console.log(`subscription_search: Reached event limit of ${maxEvents}, stopping event processing`);
+      sub.stop();
+      return;
+    }
+
+    eventCount++;
+    
     try {
       if (searchType === "n") {
         processProfileEvent(

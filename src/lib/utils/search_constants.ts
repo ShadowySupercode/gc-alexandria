@@ -63,6 +63,9 @@ export const SEARCH_LIMITS = {
 
   /** Batch size for profile fetching operations */
   BATCH_SIZE: 50,
+
+  /** Maximum events to fetch before processing in subscription search */
+  SUBSCRIPTION_FETCH_LIMIT: 1000,
 } as const;
 
 // Nostr event kind ranges
