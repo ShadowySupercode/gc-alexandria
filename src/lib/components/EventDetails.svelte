@@ -26,9 +26,11 @@
   const {
     event,
     profile = null,
+    communityStatusMap = {},
   } = $props<{
     event: NDKEvent;
     profile?: UserProfile | null;
+    communityStatusMap?: Record<string, boolean>;
   }>();
 
   const ndk = getNdkContext();
@@ -378,6 +380,7 @@
     <ProfileHeader
       {event}
       {profile}
+      {communityStatusMap}
     />
   {/if}
 

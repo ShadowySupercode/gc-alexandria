@@ -55,26 +55,32 @@
 
   $effect(() => {
     if (event?.pubkey) {
-      // First check if we have cached profileData with user list information
-      const cachedProfileData = (event as any).profileData;
-      console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
-      
-      if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
-        isInUserLists = cachedProfileData.isInUserLists;
-        console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+      // First check if we have user list information in the profile prop
+      if (profile && typeof profile.isInUserLists === 'boolean') {
+        isInUserLists = profile.isInUserLists;
+        console.log(`[ProfileHeader] Using profile prop user list status for ${event.pubkey}: ${isInUserLists}`);
       } else {
-        console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
-        // Fallback to fetching user lists
-        fetchCurrentUserLists()
-          .then((userLists) => {
-            console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
-            isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
-            console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
-          })
-          .catch((error) => {
-            console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
-            isInUserLists = false;
-          });
+        // Then check if we have cached profileData with user list information
+        const cachedProfileData = (event as any).profileData;
+        console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
+        
+        if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
+          isInUserLists = cachedProfileData.isInUserLists;
+          console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+        } else {
+          console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
+          // Fallback to fetching user lists
+          fetchCurrentUserLists()
+            .then((userLists) => {
+              console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
+              isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
+              console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
+            })
+            .catch((error) => {
+              console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
+              isInUserLists = false;
+            });
+        }
       }
 
       // Check community status - use cached data if available

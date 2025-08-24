@@ -98,6 +98,15 @@
     @apply text-gray-900 dark:text-gray-100;
   }
 
+  /* Responsive card styles */
+  .responsive-card {
+    @apply w-full min-w-0 overflow-hidden;
+  }
+
+  .responsive-card-content {
+    @apply break-words overflow-hidden;
+  }
+
   h1.h-leather {
     @apply text-4xl font-bold;
   }

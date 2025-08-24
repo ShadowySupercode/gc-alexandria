@@ -91,10 +91,17 @@
       try {
         const parsedProfile = parseProfileContent(newEvent);
         if (parsedProfile) {
-          profile = parsedProfile;
-
-          // If the event doesn't have user list information, fetch it
-          if (typeof parsedProfile.isInUserLists !== "boolean") {
+          // Check if we already have user list information from the search results
+          const existingProfileData = (newEvent as any).profileData;
+          if (existingProfileData && typeof existingProfileData.isInUserLists === "boolean") {
+            // Use the existing user list status from search results
+            profile = { ...parsedProfile, isInUserLists: existingProfileData.isInUserLists } as any;
+            console.log(`[Events Page] Using existing user list status for ${newEvent.pubkey}: ${existingProfileData.isInUserLists}`);
+          } else {
+            // Set initial profile and fetch user list information
+            profile = parsedProfile;
+            
+            // Fetch user list information
             fetchCurrentUserLists(undefined, ndk)
               .then((userLists) => {
                 const isInLists = isPubkeyInUserLists(
@@ -103,11 +110,12 @@
                 );
                 // Update the profile with user list information
                 profile = { ...parsedProfile, isInUserLists: isInLists } as any;
-                // Also update the event's profileData
+                // Also update the event's profileData for consistency
                 (newEvent as any).profileData = {
                   ...parsedProfile,
                   isInUserLists: isInLists,
                 };
+                console.log(`[Events Page] Updated user list status for ${newEvent.pubkey}: ${isInLists}`);
               })
               .catch(() => {
                 profile = { ...parsedProfile, isInUserLists: false } as any;
@@ -115,6 +123,7 @@
                   ...parsedProfile,
                   isInUserLists: false,
                 };
+                console.log(`[Events Page] Set default user list status for ${newEvent.pubkey}: false`);
               });
           }
         } else {
@@ -136,17 +145,16 @@
     if (newEvent.pubkey) {
       cacheProfileForPubkey(newEvent.pubkey);
 
-      // Update profile data with user list information
-      updateProfileDataWithUserLists([newEvent]);
-
-      // Also check community status for the individual event
+      // Also check community status for the individual event if not already cached
       if (!communityStatus[newEvent.pubkey]) {
         checkCommunity(newEvent.pubkey)
           .then((status) => {
             communityStatus = { ...communityStatus, [newEvent.pubkey]: status };
+            console.log(`[Events Page] Updated community status for ${newEvent.pubkey}: ${status}`);
           })
           .catch(() => {
             communityStatus = { ...communityStatus, [newEvent.pubkey]: false };
+            console.log(`[Events Page] Set default community status for ${newEvent.pubkey}: false`);
           });
       }
     }
@@ -501,15 +509,16 @@
 
 <div class="w-full flex justify-center">
   <div
-    class="flex flex-col lg:flex-row w-full max-w-7xl my-6 px-4 mx-auto gap-6"
+    class="flex flex-col lg:flex-row w-full max-w-7xl my-6 px-4 mx-auto gap-6 overflow-hidden"
   >
     <!-- Left Panel: Search and Results -->
     <div
       class={showSidePanel
         ? "w-full lg:w-80 lg:min-w-80"
-        : "flex-1 max-w-4xl mx-auto"}
+        : "w-full max-w-4xl mx-auto lg:max-w-4xl"}
+      class:min-w-0={true}
     >
-      <div class="main-leather flex flex-col space-y-6">
+      <div class="main-leather flex flex-col space-y-6 w-full">
         <div class="flex justify-between items-center">
           <Heading tag="h1" class="h-leather mb-2">Events</Heading>
           <div class="flex items-center gap-2">
@@ -588,7 +597,7 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4 break-words">
+              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
                 {#if searchType === "n"}
                   Search Results for name: "{searchTerm &&
                   searchTerm.length > 50
@@ -610,64 +619,95 @@
                   })()}" ({searchResults.length} events)
                 {/if}
               </Heading>
-              <div class="space-y-4">
+              <div class="space-y-4 w-full max-w-full">
                 {#each searchResults as result, index}
                   {@const profileData =
                     (result as any).profileData || parseProfileContent(result)}
                   <button
-                    class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
+                    class="responsive-card text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-primary-900/70 hover:bg-gray-100 dark:hover:bg-primary-800 focus:bg-gray-100 dark:focus:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                     onclick={() => handleEventFound(result)}
                   >
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-2 mb-1">
-                        <span
-                          class="font-medium text-gray-800 dark:text-gray-100"
-                          >{searchType === "n" ? "Profile" : "Event"}
-                          {index + 1}</span
-                        >
-                        <span class="text-xs text-gray-600 dark:text-gray-400"
-                          >Kind: {result.kind}</span
-                        >
-                        {#if profileData?.isInUserLists}
-                          <div
-                            class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
-                            title="In your lists (follows, etc.)"
+                    <div class="flex flex-col gap-1 responsive-card-content">
+                        <div class="flex items-center gap-2 mb-1 min-w-0">
+                          <span
+                            class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
+                            >{searchType === "n" ? "Profile" : "Event"}
+                            {index + 1}</span
                           >
-                            <svg
-                              class="w-3 h-3 text-red-600 dark:text-red-400"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                              />
-                            </svg>
-                          </div>
-                        {:else if result.pubkey && communityStatus[result.pubkey]}
-                          <div
-                            class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                            title="Has posted to the community"
+                          <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
+                            >Kind: {result.kind}</span
                           >
-                            <svg
-                              class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
+                          <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                          <!-- Indicators -->
+                          {#if profileData?.isInUserLists}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                              title="In your lists (follows, etc.)"
                             >
-                              <path
-                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                              />
-                            </svg>
-                          </div>
-                        {:else}
-                          <div class="flex-shrink-0 w-4 h-4"></div>
-                        {/if}
-                        <span class="text-xs text-gray-600 dark:text-gray-400">
-                          {@render userBadge(
-                            toNpub(result.pubkey) as string,
-                            profileData?.display_name || profileData?.name,
-                            ndk,
-                          )}
-                        </span>
+                              <svg
+                                class="w-3 h-3 text-red-600 dark:text-red-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if result.pubkey && communityStatus[result.pubkey]}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                              title="Has posted to the community"
+                            >
+                              <svg
+                                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
+                            <div class="flex-shrink-0 w-4 h-4"></div>
+                          {/if}
+                          
+                          <!-- Profile picture -->
+                          {#if profileData?.picture}
+                            <img
+                              src={profileData.picture}
+                              alt="Profile"
+                              class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                              onerror={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                              }}
+                            />
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {:else}
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {/if}
+                          
+                          <!-- User badge -->
+                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                            {@render userBadge(
+                              toNpub(result.pubkey) as string,
+                              profileData?.display_name || profileData?.name,
+                              ndk,
+                            )}
+                          </span>
+                        </div>
                         <span
                           class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                         >
@@ -684,7 +724,7 @@
                             <img
                               src={profileData.picture}
                               alt="Profile"
-                              class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                              class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
                                 (e.target as HTMLImageElement).style.display =
                                   "none";
@@ -696,7 +736,7 @@
                               }}
                             />
                             <div
-                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 hidden"
+                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 hidden flex-shrink-0"
                             >
                               <UserOutline
                                 class="w-6 h-6 text-gray-600 dark:text-gray-300"
@@ -704,14 +744,14 @@
                             </div>
                           {:else}
                             <div
-                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
                             >
                               <UserOutline
                                 class="w-6 h-6 text-gray-600 dark:text-gray-300"
                               />
                             </div>
                           {/if}
-                          <div class="flex flex-col min-w-0 flex-1">
+                          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
                             {#if profileData.display_name || profileData.name}
                               <span
                                 class="font-medium text-gray-900 dark:text-gray-100 truncate"
@@ -721,7 +761,7 @@
                             {/if}
                             {#if profileData.about}
                               <span
-                                class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
+                                class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
                               >
                                 {profileData.about}
                               </span>
@@ -822,7 +862,7 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4">
+              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
                 Second-Order Events (References, Replies, Quotes) ({secondOrderResults.length}
                 events)
               </Heading>
@@ -835,50 +875,96 @@
                 Events that reference, reply to, highlight, or quote the
                 original events.
               </P>
-              <div class="space-y-4">
+              <div class="space-y-4 w-full max-w-full">
                 {#each secondOrderResults as result, index}
                   {@const profileData =
                     (result as any).profileData || parseProfileContent(result)}
                   <button
-                    class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
+                    class="responsive-card text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                     onclick={() => handleEventFound(result)}
                   >
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-2 mb-1">
+                    <div class="flex flex-col gap-1 responsive-card-content">
+                      <div class="flex items-center gap-2 mb-1 min-w-0">
                         <span
-                          class="font-medium text-gray-800 dark:text-gray-100"
+                          class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
                           >Reference {index + 1}</span
                         >
-                        <span class="text-xs text-gray-600 dark:text-gray-400"
+                        <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
                           >Kind: {result.kind}</span
                         >
-                        {#if result.pubkey && communityStatus[result.pubkey]}
-                          <div
-                            class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                            title="Has posted to the community"
-                          >
-                            <svg
-                              class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
+                        <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                          <!-- Indicators -->
+                          {#if profileData?.isInUserLists}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                              title="In your lists (follows, etc.)"
                             >
-                              <path
-                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                              />
-                            </svg>
-                          </div>
-                        {:else}
-                          <div class="flex-shrink-0 w-4 h-4"></div>
-                        {/if}
-                        <span class="text-xs text-gray-600 dark:text-gray-400">
-                          {@render userBadge(
-                            toNpub(result.pubkey) as string,
-                            profileData?.display_name || profileData?.name,
-                            ndk,
-                          )}
-                        </span>
+                              <svg
+                                class="w-3 h-3 text-red-600 dark:text-red-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if result.pubkey && communityStatus[result.pubkey]}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                              title="Has posted to the community"
+                            >
+                              <svg
+                                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
+                            <div class="flex-shrink-0 w-4 h-4"></div>
+                          {/if}
+                          
+                          <!-- Profile picture -->
+                          {#if profileData?.picture}
+                            <img
+                              src={profileData.picture}
+                              alt="Profile"
+                              class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                              onerror={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                              }}
+                            />
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {:else}
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {/if}
+                          
+                          <!-- User badge -->
+                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                            {@render userBadge(
+                              toNpub(result.pubkey) as string,
+                              profileData?.display_name || profileData?.name,
+                              ndk,
+                            )}
+                          </span>
+                        </div>
                         <span
-                          class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
+                          class="text-xs text-gray-500 dark:text-gray-400 ml-auto flex-shrink-0"
                         >
                           {result.created_at
                             ? new Date(
@@ -902,7 +988,7 @@
                             <img
                               src={profileData.picture}
                               alt="Profile"
-                              class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                              class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
                                 (e.target as HTMLImageElement).style.display =
                                   "none";
@@ -910,7 +996,7 @@
                             />
                           {:else}
                             <div
-                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                              class="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
                             >
                               <span
                                 class="text-lg font-medium text-gray-600 dark:text-gray-300"
@@ -923,7 +1009,7 @@
                               </span>
                             </div>
                           {/if}
-                          <div class="flex flex-col min-w-0 flex-1">
+                          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
                             {#if profileData.display_name || profileData.name}
                               <span
                                 class="font-medium text-gray-900 dark:text-gray-100 truncate"
@@ -933,7 +1019,7 @@
                             {/if}
                             {#if profileData.about}
                               <span
-                                class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
+                                class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
                               >
                                 {profileData.about}
                               </span>
@@ -1034,7 +1120,7 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4">
+              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
                 Search Results for t-tag: "{searchTerm ||
                   (searchType === "t" ? searchValue : "")}" ({tTagResults.length}
                 events)
@@ -1042,48 +1128,94 @@
               <P class="mb-4 text-sm text-gray-600 dark:text-gray-400">
                 Events that are tagged with the t-tag.
               </P>
-              <div class="space-y-4">
+              <div class="space-y-4 w-full max-w-full">
                 {#each tTagResults as result, index}
                   {@const profileData =
                     (result as any).profileData || parseProfileContent(result)}
                   <button
-                    class="w-full text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors overflow-hidden"
+                    class="responsive-card text-left border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-primary-800/50 hover:bg-gray-100 dark:hover:bg-primary-700 focus:bg-gray-100 dark:focus:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                     onclick={() => handleEventFound(result)}
                   >
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-2 mb-1">
+                    <div class="flex flex-col gap-1 responsive-card-content">
+                      <div class="flex items-center gap-2 mb-1 min-w-0">
                         <span
-                          class="font-medium text-gray-800 dark:text-gray-100"
+                          class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
                           >Tagged Event {index + 1}</span
                         >
-                        <span class="text-xs text-gray-600 dark:text-gray-400"
+                        <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
                           >Kind: {result.kind}</span
                         >
-                        {#if result.pubkey && communityStatus[result.pubkey]}
-                          <div
-                            class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                            title="Has posted to the community"
-                          >
-                            <svg
-                              class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
+                        <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                          <!-- Indicators -->
+                          {#if profileData?.isInUserLists}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                              title="In your lists (follows, etc.)"
                             >
-                              <path
-                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                              />
-                            </svg>
-                          </div>
-                        {:else}
-                          <div class="flex-shrink-0 w-4 h-4"></div>
-                        {/if}
-                        <span class="text-xs text-gray-600 dark:text-gray-400">
-                          {@render userBadge(
-                            toNpub(result.pubkey) as string,
-                            profileData?.display_name || profileData?.name,
-                            ndk,
-                          )}
-                        </span>
+                              <svg
+                                class="w-3 h-3 text-red-600 dark:text-red-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if result.pubkey && communityStatus[result.pubkey]}
+                            <div
+                              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                              title="Has posted to the community"
+                            >
+                              <svg
+                                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                />
+                              </svg>
+                            </div>
+                          {/if}
+                          {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
+                            <div class="flex-shrink-0 w-4 h-4"></div>
+                          {/if}
+                          
+                          <!-- Profile picture -->
+                          {#if profileData?.picture}
+                            <img
+                              src={profileData.picture}
+                              alt="Profile"
+                              class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                              onerror={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                              }}
+                            />
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {:else}
+                            <div
+                              class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
+                            >
+                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                            </div>
+                          {/if}
+                          
+                          <!-- User badge -->
+                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                            {@render userBadge(
+                              toNpub(result.pubkey) as string,
+                              profileData?.display_name || profileData?.name,
+                              ndk,
+                            )}
+                          </span>
+                        </div>
                         <span
                           class="text-xs text-gray-500 dark:text-gray-400 ml-auto"
                         >
@@ -1296,7 +1428,7 @@
         {/if}
 
         <div class="min-w-0 overflow-hidden">
-          <EventDetails {event} {profile} />
+          <EventDetails {event} {profile} communityStatusMap={communityStatus} />
         </div>
         <div class="min-w-0 overflow-hidden">
           <RelayActions {event} />
