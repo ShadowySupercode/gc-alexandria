@@ -191,7 +191,7 @@ export function createNoteLink(identifier: string): string {
 /**
  * Process Nostr identifiers in text
  */
-// AI-NOTE: 2025-01-24 - Enhanced URL detection to prevent processing nostr identifiers that are part of URLs
+// AI-NOTE:  Enhanced URL detection to prevent processing nostr identifiers that are part of URLs
 export async function processNostrIdentifiers(
   content: string,
   ndk: NDK,
@@ -411,7 +411,7 @@ export async function fetchEventWithFallback(
   filterOrId: string | Filter,
   timeoutMs: number = 10000,
 ): Promise<NDKEvent | null> {
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
+  // AI-NOTE:  Use ALL available relays for comprehensive event discovery
   // This ensures we don't miss events that might be on any available relay
 
   // Get all relays from NDK pool first (most comprehensive)
@@ -437,7 +437,7 @@ export async function fetchEventWithFallback(
       "fetchEventWithFallback: No relays available for event fetch, using fallback relays",
     );
     // Use fallback relays when no relays are available
-    // AI-NOTE: 2025-01-24 - Include ALL available relays for comprehensive event discovery
+    // AI-NOTE:  Include ALL available relays for comprehensive event discovery
     // This ensures we don't miss events that might be on any available relay
     allRelays = [
       ...secondaryRelays, 

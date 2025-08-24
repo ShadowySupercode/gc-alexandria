@@ -443,7 +443,7 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
     processedText = processInlineCodeMath(processedText);
 
     // Step 4: Process block-level elements (tables, headings, horizontal rules)
-    // AI-NOTE: 2025-01-24 - Removed duplicate processBlockquotes call to fix image rendering issues
+    // AI-NOTE:  Removed duplicate processBlockquotes call to fix image rendering issues
     // Blockquotes are now processed only by parseBasicMarkup to avoid double-processing conflicts
     processedText = processTables(processedText);
     processedText = processHeadings(processedText);

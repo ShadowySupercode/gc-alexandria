@@ -53,7 +53,7 @@ export async function parseBasicMarkup(text: string, ndk?: NDK): Promise<string>
       .map((para) => para.trim())
       .filter((para) => para.length > 0)
       .map((para) => {
-        // AI-NOTE: 2025-01-24 - Added img tag to skip wrapping to prevent image rendering issues
+        // AI-NOTE:  Added img tag to skip wrapping to prevent image rendering issues
         // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
           /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i

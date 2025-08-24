@@ -3,7 +3,7 @@ import { processNostrIdentifiersWithEmbeddedEvents } from "./markupUtils.ts";
 
 /**
  * Parse markup with support for embedded Nostr events
- * AI-NOTE: 2025-01-24 - Enhanced markup parser that supports nested Nostr event embedding
+ * AI-NOTE:  Enhanced markup parser that supports nested Nostr event embedding
  * Up to 3 levels of nesting are supported, after which events are shown as links
  */
 export async function parseEmbeddedMarkup(

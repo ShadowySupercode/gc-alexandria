@@ -3,7 +3,7 @@
   import { titleToDTag, requiresDTag } from "$lib/utils/event_input_utils";
   import type { TagData, PresetTag } from "./types";
 
-  // AI-NOTE: 2025-01-24 - TagManager component handles tag management with preset tags
+  // AI-NOTE:  TagManager component handles tag management with preset tags
   // This component automatically manages preset tags based on event kind and content
 
   let {

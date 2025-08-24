@@ -20,7 +20,7 @@ export interface Filter {
 export interface NostrProfile {
   name?: string;
   displayName?: string;
-  display_name?: string; // AI-NOTE: 2025-01-24 - Added for compatibility with existing code
+  display_name?: string; // AI-NOTE:  Added for compatibility with existing code
   nip05?: string;
   picture?: string;
   about?: string;
@@ -30,7 +30,7 @@ export interface NostrProfile {
   pubkey?: string;
   isInUserLists?: boolean;
   listKinds?: number[];
-  created_at?: number; // AI-NOTE: 2025-01-24 - Timestamp for proper date display
+  created_at?: number; // AI-NOTE:  Timestamp for proper date display
 }
 
 /**
@@ -65,8 +65,8 @@ export type SearchSubscriptionType = "d" | "t" | "n";
 export interface SearchFilter {
   filter: Filter;
   subscriptionType: string;
-  searchTerm?: string; // AI-NOTE: 2025-01-24 - Optional search term for client-side filtering
-  preloadedEvents?: NDKEvent[]; // AI-NOTE: 2025-01-24 - Preloaded events for profile searches
+  searchTerm?: string; // AI-NOTE:  Optional search term for client-side filtering
+  preloadedEvents?: NDKEvent[]; // AI-NOTE:  Preloaded events for profile searches
 }
 
 /**

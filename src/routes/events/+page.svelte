@@ -34,7 +34,7 @@
   import { clearAllCaches } from "$lib/utils/cache_manager";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
-  // AI-NOTE: 2025-01-24 - Add cache clearing function for testing second-order search
+  // AI-NOTE:  Add cache clearing function for testing second-order search
   // This can be called from browser console: window.clearCache()
   if (typeof window !== 'undefined') {
     (window as any).clearCache = () => {
@@ -43,7 +43,7 @@
       console.log('Caches cleared. Try searching again to test second-order search.');
     };
     
-    // AI-NOTE: 2025-01-24 - Add function to clear specific search cache
+    // AI-NOTE:  Add function to clear specific search cache
     // Usage: window.clearSearchCache('n', 'silberengel')
     (window as any).clearSearchCache = (searchType: string, searchTerm: string) => {
       console.log(`Clearing search cache for ${searchType}:${searchTerm}...`);
@@ -86,7 +86,7 @@
     // searchInProgress = false;
     // secondOrderSearchMessage = null;
 
-    // AI-NOTE: 2025-01-24 - Properly parse profile data for kind 0 events
+    // AI-NOTE:  Properly parse profile data for kind 0 events
     if (newEvent.kind === 0) {
       try {
         const parsedProfile = parseProfileContent(newEvent);
@@ -141,7 +141,7 @@
       profile = null;
     }
 
-    // AI-NOTE: 2025-01-24 - Ensure profile is cached for the event author
+    // AI-NOTE:  Ensure profile is cached for the event author
     if (newEvent.pubkey) {
       cacheProfileForPubkey(newEvent.pubkey);
 
@@ -160,7 +160,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Function to ensure profile is cached for a pubkey
+  // AI-NOTE:  Function to ensure profile is cached for a pubkey
   async function cacheProfileForPubkey(pubkey: string) {
     try {
       const npub = toNpub(pubkey);
@@ -227,7 +227,7 @@
     }
   });
 
-  // AI-NOTE: 2025-01-24 - Function to ensure events have created_at property
+  // AI-NOTE:  Function to ensure events have created_at property
   // This fixes the "Unknown date" issue when events are retrieved from cache
   function ensureEventProperties(events: NDKEvent[]): NDKEvent[] {
     return events.map((event) => {
@@ -254,7 +254,7 @@
     searchTypeParam?: string,
     searchTermParam?: string,
   ) {
-    // AI-NOTE: 2025-01-24 - Ensure all events have proper properties
+    // AI-NOTE:  Ensure all events have proper properties
     const processedResults = ensureEventProperties(results);
     const processedSecondOrder = ensureEventProperties(secondOrder);
     const processedTTagEvents = ensureEventProperties(tTagEvents);
@@ -271,7 +271,7 @@
     searchInProgress =
       loading || (results.length > 0 && secondOrder.length === 0);
 
-    // AI-NOTE: 2025-01-08 - Only show second-order search message if we're actually searching
+    // AI-NOTE:  Only show second-order search message if we're actually searching
     // Don't show it for cached results that have no second-order events
     if (
       results.length > 0 &&
@@ -305,7 +305,7 @@
       checkCommunityStatusForResults(tTagEvents);
     }
 
-    // AI-NOTE: 2025-01-24 - Profile data is now handled in subscription_search.ts
+    // AI-NOTE:  Profile data is now handled in subscription_search.ts
     // No need to cache profiles here as they're already attached to events
   }
 
@@ -378,7 +378,7 @@
     return "Reference";
   }
 
-  // AI-NOTE: 2025-01-24 - Function to parse profile content from kind 0 events
+  // AI-NOTE:  Function to parse profile content from kind 0 events
   function parseProfileContent(event: NDKEvent): UserProfile | null {
     if (event.kind !== 0 || !event.content) {
       return null;

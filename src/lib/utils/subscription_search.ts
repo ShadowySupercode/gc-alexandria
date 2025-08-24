@@ -25,7 +25,7 @@ const normalizeUrl = (url: string): string => {
   return url.replace(/\/$/, ""); // Remove trailing slash
 };
 
-// AI-NOTE: 2025-01-24 - Define prioritized event kinds for subscription search
+// AI-NOTE:  Define prioritized event kinds for subscription search
 const PRIORITIZED_EVENT_KINDS = new Set([
   1,    // Text notes
   1111, // Comments
@@ -64,7 +64,7 @@ async function prioritizeSearchEvents(
     return [];
   }
 
-  // AI-NOTE: 2025-01-24 - Get user lists and community status for prioritization
+  // AI-NOTE:  Get user lists and community status for prioritization
   let userFollowPubkeys = new Set<string>();
   let communityMemberPubkeys = new Set<string>();
   
@@ -133,7 +133,7 @@ async function prioritizeSearchEvents(
     const isFromFollow = userFollowPubkeys.has(event.pubkey || "");
     const isFromCommunityMember = communityMemberPubkeys.has(event.pubkey || "");
     
-    // AI-NOTE: 2025-01-24 - Prioritized kinds are always in tier 1
+    // AI-NOTE:  Prioritized kinds are always in tier 1
     // Target pubkey priority only applies to n: searches (when targetPubkey is provided)
     if (isPrioritizedKind || isFromTarget) {
       tier1.push(event);
@@ -208,7 +208,7 @@ export async function searchBySubscription(
   callbacks?: SearchCallbacks,
   abortSignal?: AbortSignal,
 ): Promise<SearchResult> {
-  const startTime = Date.now(); // AI-NOTE: 2025-01-08 - Track search performance
+  const startTime = Date.now(); // AI-NOTE:  Track search performance
   const normalizedSearchTerm = searchTerm.toLowerCase().trim();
 
   console.log("subscription_search: Starting search:", {
@@ -222,7 +222,7 @@ export async function searchBySubscription(
   if (cachedResult) {
     console.log("subscription_search: Found cached result:", cachedResult);
     
-    // AI-NOTE: 2025-01-24 - Ensure cached events have created_at property preserved
+    // AI-NOTE:  Ensure cached events have created_at property preserved
     // This fixes the "Unknown date" issue when events are retrieved from cache
     const eventsWithCreatedAt = cachedResult.events.map(event => {
       if (event && typeof event === 'object' && !event.created_at) {
@@ -255,7 +255,7 @@ export async function searchBySubscription(
       tTagEvents: tTagEventsWithCreatedAt
     };
     
-    // AI-NOTE: 2025-01-24 - Return cached results immediately but trigger second-order search in background
+    // AI-NOTE:  Return cached results immediately but trigger second-order search in background
     // This ensures we get fast results while still updating second-order data
     console.log("subscription_search: Returning cached result immediately, triggering background second-order search");
     
@@ -292,7 +292,7 @@ export async function searchBySubscription(
   searchState.timeoutId = setTimeout(() => {
     console.log("subscription_search: Search timeout reached");
     cleanup();
-  }, TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE: 2025-01-24 - Use standard timeout since cache is checked first
+  }, TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE:  Use standard timeout since cache is checked first
 
   // Check for abort signal
   if (abortSignal?.aborted) {
@@ -314,7 +314,7 @@ export async function searchBySubscription(
     "relays",
   );
 
-  // AI-NOTE: 2025-01-24 - Check for preloaded events first (for profile searches)
+  // AI-NOTE:  Check for preloaded events first (for profile searches)
   if (searchFilter.preloadedEvents && searchFilter.preloadedEvents.length > 0) {
     console.log("subscription_search: Using preloaded events:", searchFilter.preloadedEvents.length);
     processPrimaryRelayResults(
@@ -336,7 +336,7 @@ export async function searchBySubscription(
       );
       searchCache.set(searchType, normalizedSearchTerm, immediateResult);
 
-      // AI-NOTE: 2025-01-24 - For profile searches, start background second-order search even for preloaded events
+      // AI-NOTE:  For profile searches, start background second-order search even for preloaded events
       if (searchType === "n") {
         console.log(
           "subscription_search: Profile found from preloaded events, starting background second-order search",
@@ -408,7 +408,7 @@ export async function searchBySubscription(
         );
         searchCache.set(searchType, normalizedSearchTerm, immediateResult);
 
-        // AI-NOTE: 2025-01-08 - For profile searches, return immediately when found
+        // AI-NOTE:  For profile searches, return immediately when found
         // but still start background search for second-order results
         if (searchType === "n") {
           console.log(
@@ -453,7 +453,7 @@ export async function searchBySubscription(
           "subscription_search: No results from primary relay",
         );
 
-        // AI-NOTE: 2025-01-08 - For profile searches, if no results found in search relays,
+        // AI-NOTE:  For profile searches, if no results found in search relays,
         // try all relays as fallback
         if (searchType === "n") {
           console.log(
@@ -532,7 +532,7 @@ export async function searchBySubscription(
             searchType,
             normalizedSearchTerm,
           );
-          // AI-NOTE: 2025-01-08 - Don't cache empty profile results as they may be due to search issues
+          // AI-NOTE:  Don't cache empty profile results as they may be due to search issues
           // rather than the profile not existing
           const elapsed = Date.now() - startTime;
           console.log(
@@ -578,7 +578,7 @@ export async function searchBySubscription(
     cleanup,
   );
 
-  // AI-NOTE: 2025-01-08 - Log performance for non-profile searches
+  // AI-NOTE:  Log performance for non-profile searches
   if (searchType !== "n") {
     const elapsed = Date.now() - startTime;
     console.log(
@@ -665,7 +665,7 @@ async function createSearchFilter(
       return tFilter;
     }
     case "n": {
-      // AI-NOTE: 2025-01-24 - Use the existing profile search functionality
+      // AI-NOTE:  Use the existing profile search functionality
       // This properly handles NIP-05 lookups and name searches
       const { searchProfiles } = await import("./profile_search.ts");
       const profileResult = await searchProfiles(normalizedSearchTerm, ndk);
@@ -675,7 +675,7 @@ async function createSearchFilter(
         const event = new NDKEvent(ndk);
         event.content = JSON.stringify(profile);
         
-        // AI-NOTE: 2025-01-24 - Convert npub to hex public key for compatibility with nprofileEncode
+        // AI-NOTE:  Convert npub to hex public key for compatibility with nprofileEncode
         // The profile.pubkey is an npub (bech32-encoded), but nprofileEncode expects hex-encoded public key
         let hexPubkey = profile.pubkey || "";
         if (profile.pubkey && profile.pubkey.startsWith("npub")) {
@@ -691,7 +691,7 @@ async function createSearchFilter(
         event.pubkey = hexPubkey;
         event.kind = 0;
         
-        // AI-NOTE: 2025-01-24 - Use the preserved created_at timestamp from the profile
+        // AI-NOTE:  Use the preserved created_at timestamp from the profile
         // This ensures the profile cards show the actual creation date instead of "Unknown date"
         if ((profile as any).created_at) {
           event.created_at = (profile as any).created_at;
@@ -710,7 +710,7 @@ async function createSearchFilter(
         filter: { kinds: [0], limit: 1 }, // Dummy filter
         subscriptionType: "profile-search",
         searchTerm: normalizedSearchTerm,
-        preloadedEvents: events, // AI-NOTE: 2025-01-24 - Pass preloaded events
+        preloadedEvents: events, // AI-NOTE:  Pass preloaded events
       };
       console.log("subscription_search: Created profile filter with preloaded events:", nFilter);
       return nFilter;
@@ -725,7 +725,7 @@ async function createSearchFilter(
 
 /**
  * Create primary relay set for search operations
- * AI-NOTE: 2025-01-24 - Updated to use all available relays to prevent search failures
+ * AI-NOTE:  Updated to use all available relays to prevent search failures
  */
 function createPrimaryRelaySet(
   searchType: SearchSubscriptionType,
@@ -738,7 +738,7 @@ function createPrimaryRelaySet(
     poolRelays.map((r: any) => r.url),
   );
 
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // AI-NOTE:  Use ALL available relays for comprehensive search coverage
   // This ensures searches don't fail due to missing relays and provides maximum event discovery
 
   if (searchType === "n") {
@@ -781,7 +781,7 @@ function createPrimaryRelaySet(
       activeRelays,
     });
 
-    // AI-NOTE: 2025-01-24 - Use all pool relays instead of filtering to active relays only
+    // AI-NOTE:  Use all pool relays instead of filtering to active relays only
     // This ensures we don't miss events that might be on other relays
     console.debug(
       "subscription_search: Using ALL pool relays for comprehensive search coverage:",
@@ -995,7 +995,7 @@ function searchOtherRelaysInBackground(
   callbacks?: SearchCallbacks,
   cleanup?: () => void,
 ): Promise<SearchResult> {
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // AI-NOTE:  Use ALL available relays for comprehensive search coverage
   // This ensures we don't miss events that might be on any available relay
   const otherRelays = new NDKRelaySet(
     new Set(Array.from(ndk.pool.relays.values())),
@@ -1142,7 +1142,7 @@ function processProfileEoseResults(
     .sort((a, b) => b.created_at - a.created_at)
     .map((x) => x.event);
 
-  // AI-NOTE: 2025-01-24 - For profile searches, we don't apply prioritization to the profiles themselves
+  // AI-NOTE:  For profile searches, we don't apply prioritization to the profiles themselves
   // since they are all kind 0 events and should be shown in chronological order
   // However, we do pass the target pubkey to the second-order search for prioritization
 
@@ -1236,7 +1236,7 @@ async function processContentEoseResults(
   }
   const dedupedEvents = Object.values(deduped).map((x) => x.event);
 
-  // AI-NOTE: 2025-01-24 - Apply prioritization to first-order events for d-tag searches
+  // AI-NOTE:  Apply prioritization to first-order events for d-tag searches
   // For d-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
   const prioritizedEvents = await prioritizeSearchEvents(
     dedupedEvents,
@@ -1245,7 +1245,7 @@ async function processContentEoseResults(
     ndk
   );
 
-  // AI-NOTE: 2025-01-24 - Attach profile data to first-order events for display
+  // AI-NOTE:  Attach profile data to first-order events for display
   // This ensures profile pictures and other metadata are available in the UI
   await attachProfileDataToEvents(prioritizedEvents, ndk);
 
@@ -1281,7 +1281,7 @@ async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<Sear
     return createEmptySearchResult("t", searchState.normalizedSearchTerm);
   }
 
-  // AI-NOTE: 2025-01-24 - Apply prioritization to t-tag search results
+  // AI-NOTE:  Apply prioritization to t-tag search results
   // For t-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
   const prioritizedEvents = await prioritizeSearchEvents(
     searchState.tTagEvents,
@@ -1290,7 +1290,7 @@ async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<Sear
     ndk
   );
 
-  // AI-NOTE: 2025-01-24 - Attach profile data to t-tag events for display
+  // AI-NOTE:  Attach profile data to t-tag events for display
   // This ensures profile pictures and other metadata are available in the UI
   if (ndk) {
     await attachProfileDataToEvents(prioritizedEvents, ndk);
@@ -1361,7 +1361,7 @@ async function performSecondOrderSearchInBackground(
           targetPubkey,
         );
 
-        // AI-NOTE: 2025-01-24 - Use all available relays for second-order search to maximize results
+        // AI-NOTE:  Use all available relays for second-order search to maximize results
         const relaySet = new NDKRelaySet(
           new Set(Array.from(ndk.pool.relays.values())),
           ndk,
@@ -1374,7 +1374,7 @@ async function performSecondOrderSearchInBackground(
         );
 
         // Search for events that mention this pubkey via p-tags
-        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
+        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE:  Limit results to prevent hanging
         const pTagEvents = await ndk.fetchEvents(
           pTagFilter,
           { closeOnEose: true },
@@ -1387,8 +1387,8 @@ async function performSecondOrderSearchInBackground(
           targetPubkey,
         );
 
-        // AI-NOTE: 2025-01-24 - Also search for events written by this pubkey with limit
-        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
+        // AI-NOTE:  Also search for events written by this pubkey with limit
+        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE:  Limit results to prevent hanging
         const authorEvents = await ndk.fetchEvents(
           authorFilter,
           { closeOnEose: true },
@@ -1478,7 +1478,7 @@ async function performSecondOrderSearchInBackground(
       (e) => !firstOrderIds.has(e.id),
     );
 
-    // AI-NOTE: 2025-01-24 - Apply prioritization to second-order search results with timeout
+    // AI-NOTE:  Apply prioritization to second-order search results with timeout
     // Prioritize events from the target pubkey and specific event kinds
     const prioritizationPromise = prioritizeSearchEvents(
       deduplicatedSecondOrder,
@@ -1532,7 +1532,7 @@ async function performSecondOrderSearchInBackground(
       );
     }
 
-    // AI-NOTE: 2025-01-24 - Attach profile data to second-order events for display
+    // AI-NOTE:  Attach profile data to second-order events for display
     // This ensures profile pictures and other metadata are available in the UI
     await attachProfileDataToEvents(prioritizedSecondOrder, ndk);
 

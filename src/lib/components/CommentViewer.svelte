@@ -12,10 +12,10 @@
 
   const ndk = getNdkContext();
 
-  // AI-NOTE: 2025-01-08 - Clean, efficient comment viewer implementation
+  // AI-NOTE:  Clean, efficient comment viewer implementation
   // This component fetches and displays threaded comments with proper hierarchy
   // Uses simple, reliable profile fetching and efficient state management
-  // AI-NOTE: 2025-01-24 - Added support for kind 9802 highlights (NIP-84)
+  // AI-NOTE:  Added support for kind 9802 highlights (NIP-84)
   // Highlights are displayed with special styling and include source attribution
 
   // State management
@@ -238,12 +238,12 @@
         // Pre-fetch all profiles after comments are loaded
         preFetchAllProfiles();
         
-        // AI-NOTE: 2025-01-24 - Fetch nested replies for all found comments
+        // AI-NOTE:  Fetch nested replies for all found comments
         comments.forEach(comment => {
           fetchNestedReplies(comment.id);
         });
         
-        // AI-NOTE: 2025-01-24 - Test for comments if none were found
+        // AI-NOTE:  Test for comments if none were found
         if (comments.length === 0) {
           testForComments();
         }
@@ -285,7 +285,7 @@
     console.log(`[CommentViewer] Pre-fetching complete`);
   }
 
-        // AI-NOTE: 2025-01-24 - Function to manually test for comments
+        // AI-NOTE:  Function to manually test for comments
       async function testForComments() {
         if (!event?.id) return;
         
@@ -445,7 +445,7 @@
     }
   });
 
-  // AI-NOTE: 2025-01-24 - Add recursive comment fetching for nested replies
+  // AI-NOTE:  Add recursive comment fetching for nested replies
   let isFetchingNestedReplies = $state(false);
   let nestedReplyIds = $state<Set<string>>(new Set());
 
@@ -573,7 +573,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - View button functionality is working correctly
+  // AI-NOTE:  View button functionality is working correctly
   // This function navigates to the specific event as the main event, allowing
   // users to view replies as the primary content
   function navigateToComment(commentEvent: NDKEvent) {
@@ -654,7 +654,7 @@
     return `${actualLevel * 16}px`;
   }
 
-  // AI-NOTE: 2025-01-24 - Get highlight source information
+  // AI-NOTE:  Get highlight source information
   function getHighlightSource(highlightEvent: NDKEvent): { type: string; value: string; url?: string } | null {
     // Check for e-tags (nostr events)
     const eTags = highlightEvent.getMatchingTags("e");
@@ -671,7 +671,7 @@
     return null;
   }
 
-  // AI-NOTE: 2025-01-24 - Get highlight attribution
+  // AI-NOTE:  Get highlight attribution
   function getHighlightAttribution(highlightEvent: NDKEvent): Array<{ pubkey: string; role?: string }> {
     const pTags = highlightEvent.getMatchingTags("p");
     return pTags.map(tag => ({
@@ -680,7 +680,7 @@
     }));
   }
 
-  // AI-NOTE: 2025-01-24 - Check if highlight has comment
+  // AI-NOTE:  Check if highlight has comment
   function hasHighlightComment(highlightEvent: NDKEvent): boolean {
     return highlightEvent.getMatchingTags("comment").length > 0;
   }
