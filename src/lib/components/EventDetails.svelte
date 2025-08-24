@@ -13,14 +13,15 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
-import Notifications from "$lib/components/Notifications.svelte";
-import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
-import { repostContent, quotedContent } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
-import { repostKinds } from "$lib/consts";
-import { getNdkContext } from "$lib/ndk";
-import { processNostrIdentifiers } from "$lib/utils/nostrUtils";
-
-import type { UserProfile } from "$lib/models/user_profile";
+  import Notifications from "$lib/components/Notifications.svelte";
+  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
+  import { 
+    repostContent, 
+    quotedContent,
+  } from "$lib/components/embedded_events/EmbeddedSnippets.svelte";
+  import { repostKinds } from "$lib/consts";
+  import { getNdkContext } from "$lib/ndk";
+  import type { UserProfile } from "$lib/models/user_profile";
 
   const {
     event,
