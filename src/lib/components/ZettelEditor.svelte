@@ -60,8 +60,8 @@ import Asciidoctor from "asciidoctor";
       return;
     }
     
-    // Use tree factory with corrected AST parser
-    createPublicationTreeFromContent(content, ndk, parseLevel)
+    // Use new hierarchical tree processor for NKBIP-01 compliance  
+    parseAsciiDocWithTree(content, ndk, parseLevel)
       .then(result => {
         console.log("Tree factory result:", result);
         publicationResult = result;
