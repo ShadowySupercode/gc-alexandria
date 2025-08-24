@@ -120,27 +120,39 @@ import Asciidoctor from "asciidoctor";
     return options;
   }
 
-  // Parse sections for preview display using PublicationTree data
+  // Parse sections for preview display using hierarchical eventStructure
   let parsedSections = $derived.by(() => {
-    if (!publicationResult) return [];
+    if (!publicationResult || !publicationResult.metadata?.eventStructure) return [];
     
     console.log("Preview: publicationResult structure:", {
       hasContentEvents: !!publicationResult.contentEvents,
       contentEventsLength: publicationResult.contentEvents?.length,
+      hasEventStructure: !!publicationResult.metadata.eventStructure,
+      eventStructureLength: publicationResult.metadata.eventStructure?.length,
       keys: Object.keys(publicationResult)
     });
     
-    // Convert PublicationTree events to preview format
-    return publicationResult.contentEvents.map((event: any) => {
-      const title = event.tags.find((t: string[]) => t[0] === 'title')?.[1] || 'Untitled';
-      const tags = event.tags.filter((t: string[]) => t[0] === 't');
+    // Helper to find event by dTag
+    const findEventByDTag = (events: any[], dTag: string) => {
+      return events.find(event => {
+        const eventDTag = event.tags.find((t: string[]) => t[0] === 'd')?.[1];
+        return eventDTag === dTag;
+      });
+    };
+    
+    // Use eventStructure for accurate hierarchy display
+    return publicationResult.metadata.eventStructure.map((node: any) => {
+      const event = findEventByDTag(publicationResult.contentEvents, node.dTag);
+      const tags = event?.tags.filter((t: string[]) => t[0] === 't') || [];
       
       return {
-        title,
-        content: event.content,
+        title: node.title,
+        content: event?.content || '',
         tags, // Already in [['t', 'tag1'], ['t', 'tag2']] format
-        level: 2, // Default level for display
-        isIndex: event.kind === 30040,
+        level: node.level,
+        isIndex: node.eventKind === 30040,
+        eventKind: node.eventKind,
+        eventType: node.eventType
       };
     });
   });
