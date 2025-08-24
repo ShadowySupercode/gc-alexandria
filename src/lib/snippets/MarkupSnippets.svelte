@@ -5,6 +5,8 @@
   export { basicMarkup };
 </script>
 
+<!-- AI-NOTE: Use the snippet to parse basic markup, such as that found in the `content` field of 
+many event kinds, into HTML. -->
 {#snippet basicMarkup(text: string, ndk?: NDK)}
   {#await parseBasicMarkup(text, ndk) then parsed}
     {@html parsed}
