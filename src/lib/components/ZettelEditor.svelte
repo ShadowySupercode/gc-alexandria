@@ -109,10 +109,10 @@ import Asciidoctor from "asciidoctor";
       
       let label;
       if (level === 2) {
-        label = `Level ${level} (${equals} sections → events)`;
+        label = `Level ${level} (${equals} → content events with nested AsciiDoc)`;
       } else {
         const prevEquals = '='.repeat(level - 1);
-        label = `Level ${level} (${prevEquals} → indices, ${equals} → events)`;
+        label = `Level ${level} (${prevEquals} → index events, ${equals} → content events)`;
       }
       
       options.push({ level, label });
