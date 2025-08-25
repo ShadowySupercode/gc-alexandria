@@ -680,7 +680,6 @@
           onclick={() => openNewMessageModal()}
           class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
         >
-          <PlusOutline class="w-4 h-4" />
           New Message
         </Button>
       
