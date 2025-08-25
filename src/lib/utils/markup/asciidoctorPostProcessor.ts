@@ -1,3 +1,4 @@
+import NDK from "@nostr-dev-kit/ndk";
 import {
   processAsciiDocAnchors,
   processImageWithReveal,
@@ -54,6 +55,7 @@ function fixStemBlocks(html: string): string {
  */
 export async function postProcessAsciidoctorHtml(
   html: string,
+  ndk?: NDK,
 ): Promise<string> {
   if (!html) return html;
 
@@ -63,7 +65,7 @@ export async function postProcessAsciidoctorHtml(
     // Then process wikilinks in [[...]] format (if any remain)
     processedHtml = processWikilinks(processedHtml);
     // Then process nostr addresses (but not those already in links)
-    processedHtml = await processNostrIdentifiersInText(processedHtml);
+    processedHtml = await processNostrIdentifiersInText(processedHtml, ndk);
     processedHtml = fixStemBlocks(processedHtml); // Fix math blocks for MathJax
     // Process image blocks to add reveal/enlarge functionality
     processedHtml = processImageBlocks(processedHtml);

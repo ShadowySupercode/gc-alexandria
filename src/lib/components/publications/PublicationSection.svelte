@@ -12,6 +12,7 @@
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
+  import NDK from "@nostr-dev-kit/ndk";
 
   let {
     address,
@@ -30,6 +31,7 @@
   } = $props();
 
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
+  const ndk: NDK = getContext("ndk");
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(address),
@@ -62,7 +64,7 @@
     } else {
       // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
       const converted = asciidoctor.convert(content);
-      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
+      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString(), ndk);
       return processed;
     }
   });
