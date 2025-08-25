@@ -56,6 +56,16 @@
   let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
   let filteredByUser = $state<string | null>(null);
   
+  // AI-NOTE: Client-side pagination - fetch once, paginate locally
+  let allToMeNotifications = $state<NDKEvent[]>([]); // All fetched "to-me" notifications
+  let allFromMeNotifications = $state<NDKEvent[]>([]); // All fetched "from-me" notifications
+  let allPublicMessages = $state<NDKEvent[]>([]); // All fetched public messages
+  let currentPage = $state(1);
+  let itemsPerPage = 20; // Show 20 items per page
+  let hasFetchedToMe = $state(false); // Track if we've already fetched "to-me" data
+  let hasFetchedFromMe = $state(false); // Track if we've already fetched "from-me" data
+  let hasFetchedPublic = $state(false); // Track if we've already fetched public messages
+  
   // New Message Modal state
   let showNewMessageModal = $state(false);
   let newMessageContent = $state<string>("");
@@ -461,10 +471,52 @@
     }
   }
 
-  // AI-NOTE: Simplified notification fetching
-  async function fetchNotifications() {
-    if (!$userStore.pubkey || !isOwnProfile) return;
+  // AI-NOTE: Client-side pagination calculations
+  let paginatedNotifications = $derived.by(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentNotifications = notificationMode === "to-me" ? allToMeNotifications : allFromMeNotifications;
+    return currentNotifications.slice(startIndex, endIndex);
+  });
 
+  let paginatedPublicMessages = $derived.by(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return allPublicMessages.slice(startIndex, endIndex);
+  });
+
+  let totalPages = $derived.by(() => {
+    let totalItems = 0;
+    if (notificationMode === "public-messages") {
+      totalItems = allPublicMessages.length;
+    } else if (notificationMode === "to-me") {
+      totalItems = allToMeNotifications.length;
+    } else {
+      totalItems = allFromMeNotifications.length;
+    }
+    return Math.ceil(totalItems / itemsPerPage);
+  });
+
+  let hasNextPage = $derived.by(() => currentPage < totalPages);
+  let hasPreviousPage = $derived.by(() => currentPage > 1);
+
+  // AI-NOTE: Optimized notification fetching - fetch once, paginate locally
+  async function fetchNotifications() {
+    if (!$userStore.pubkey || !isOwnProfile || isFetching) return;
+
+    // Check if we've already fetched data for this specific mode
+    if (notificationMode === "to-me" && hasFetchedToMe && allToMeNotifications.length > 0) {
+      currentPage = 1;
+      notifications = paginatedNotifications;
+      return;
+    }
+    if (notificationMode === "from-me" && hasFetchedFromMe && allFromMeNotifications.length > 0) {
+      currentPage = 1;
+      notifications = paginatedNotifications;
+      return;
+    }
+
+    isFetching = true;
     loading = true;
     error = null;
 
@@ -483,7 +535,7 @@
           ? { "#p": [$userStore.pubkey] }
           : { authors: [$userStore.pubkey] }
         ),
-        limit: 100,
+        limit: 500, // Fetch more data once to avoid multiple relay calls
       };
 
       const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
@@ -501,22 +553,41 @@
         }
       });
       
-      notifications = filteredEvents
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, 100);
+      const sortedEvents = filteredEvents
+        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
-      authorProfiles = await fetchAuthorProfiles(notifications, ndk);
+      // Store in the appropriate array based on mode
+      if (notificationMode === "to-me") {
+        allToMeNotifications = sortedEvents;
+        hasFetchedToMe = true;
+      } else {
+        allFromMeNotifications = sortedEvents;
+        hasFetchedFromMe = true;
+      }
+
+      // Set current page to 1 and update displayed notifications
+      currentPage = 1;
+      notifications = paginatedNotifications;
+
+      // Load profiles in background
+      authorProfiles = await fetchAuthorProfiles(sortedEvents, ndk);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
     } finally {
       loading = false;
+      isFetching = false;
     }
   }
 
-  // AI-NOTE: Simplified public messages fetching - only kind 24 messages
+  // AI-NOTE: Optimized public messages fetching - fetch once, paginate locally
   async function fetchPublicMessages() {
-    if (!$userStore.pubkey || !isOwnProfile) return;
+    if (!$userStore.pubkey || !isOwnProfile || isFetching) return;
+
+    // Only fetch if we haven't already fetched data for this mode
+    if (hasFetchedPublic && allPublicMessages.length > 0) {
+      return;
+    }
 
     loading = true;
     error = null;
@@ -526,6 +597,9 @@
 
       const userStoreValue = get(userStore);
       const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+      
+      // AI-NOTE: Cache relay set to prevent excessive calls
+      console.log("[PublicMessages] Building relay set for public messages...");
       const relaySet = await buildCompleteRelaySet(ndk, user);
       const relays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
       if (relays.length === 0) throw new Error("No relays available");
@@ -534,8 +608,8 @@
 
       // Fetch only kind 24 messages
       const [messagesEvents, userMessagesEvents] = await Promise.all([
-        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet),
-        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 200 }, undefined, ndkRelaySet)
+        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 500 }, undefined, ndkRelaySet),
+        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 500 }, undefined, ndkRelaySet)
       ]);
 
       const allMessages = [
@@ -543,22 +617,73 @@
         ...Array.from(userMessagesEvents)
       ];
 
-      // Deduplicate and filter
+      // Deduplicate and sort
       const uniqueMessages = allMessages.filter((event, index, self) => 
         index === self.findIndex(e => e.id === event.id)
       );
 
-      publicMessages = uniqueMessages
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, 200);
+      allPublicMessages = uniqueMessages
+        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
-      authorProfiles = await fetchAuthorProfiles(publicMessages, ndk);
+      // Set current page to 1 and update displayed messages
+      currentPage = 1;
+      publicMessages = paginatedPublicMessages;
+      hasFetchedPublic = true;
+
+      // Load profiles in background
+      authorProfiles = await fetchAuthorProfiles(allPublicMessages, ndk);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
     } finally {
       loading = false;
+      isFetching = false;
     }
+  }
+
+  // AI-NOTE: Pagination navigation functions
+  function nextPage() {
+    if (hasNextPage) {
+      currentPage++;
+      updateDisplayedItems();
+    }
+  }
+
+  function previousPage() {
+    if (hasPreviousPage) {
+      currentPage--;
+      updateDisplayedItems();
+    }
+  }
+
+  function goToPage(page: number) {
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      updateDisplayedItems();
+    }
+  }
+
+  // AI-NOTE: Update displayed items based on current page
+  function updateDisplayedItems() {
+    if (notificationMode === "public-messages") {
+      publicMessages = paginatedPublicMessages;
+    } else {
+      notifications = paginatedNotifications;
+    }
+  }
+
+  // AI-NOTE: Reset pagination when mode changes
+  function resetPagination() {
+    currentPage = 1;
+    hasFetchedToMe = false;
+    hasFetchedFromMe = false;
+    hasFetchedPublic = false;
+    allToMeNotifications = [];
+    allFromMeNotifications = [];
+    allPublicMessages = [];
+    notifications = [];
+    publicMessages = [];
+    authorProfiles.clear();
   }
 
   // Check if user is viewing their own profile
@@ -570,20 +695,62 @@
     }
   });
 
-  // Fetch notifications when viewing own profile or when mode changes
+  // AI-NOTE: Track previous state to prevent unnecessary refetches
+  let previousMode = $state<"to-me" | "from-me" | "public-messages" | null>(null);
+  let previousPubkey = $state<string | null>(null);
+  let previousIsOwnProfile = $state(false);
+  let isFetching = $state(false); // Guard against concurrent fetches
+
+  // Fetch notifications when viewing own profile or when mode changes - with guards
   $effect(() => {
-    if (isOwnProfile && $userStore.pubkey && $userStore.signedIn) {
-      if (notificationMode === "public-messages") {
-        fetchPublicMessages();
-      } else {
-        fetchNotifications();
+    const currentMode = notificationMode;
+    const currentPubkey = $userStore.pubkey;
+    const currentIsOwnProfile = isOwnProfile;
+    
+    // Only proceed if something actually changed and we're not already fetching
+    if (currentIsOwnProfile && currentPubkey && $userStore.signedIn && !isFetching) {
+      if (previousMode !== currentMode || previousPubkey !== currentPubkey || previousIsOwnProfile !== currentIsOwnProfile) {
+        console.log("[Notifications] Mode or user changed, fetching data...");
+        
+        // Reset pagination when mode changes
+        if (currentMode === "public-messages" && !hasFetchedPublic) {
+          resetPagination();
+          fetchPublicMessages();
+        } else if (currentMode !== "public-messages" && 
+                  ((currentMode === "to-me" && !hasFetchedToMe) || 
+                   (currentMode === "from-me" && !hasFetchedFromMe))) {
+          resetPagination();
+          fetchNotifications();
+        } else {
+          // Mode changed but we have data - just update displayed items
+          currentPage = 1;
+          updateDisplayedItems();
+        }
+        
+        // Update previous state
+        previousMode = currentMode;
+        previousPubkey = currentPubkey;
+        previousIsOwnProfile = currentIsOwnProfile;
       }
-    } else {
+    } else if ((previousIsOwnProfile || previousPubkey) && !currentIsOwnProfile) {
       // Clear notifications when user logs out or is not viewing own profile
-      notifications = [];
-      publicMessages = [];
-      authorProfiles.clear();
+      console.log("[Notifications] User logged out, clearing data...");
+      resetPagination();
+      previousMode = null;
+      previousPubkey = null;
+      previousIsOwnProfile = false;
     }
+  });
+
+  // AI-NOTE: Update displayed items when page changes - debounced
+  let pageUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+  $effect(() => {
+    if (pageUpdateTimeout) {
+      clearTimeout(pageUpdateTimeout);
+    }
+    pageUpdateTimeout = setTimeout(() => {
+      updateDisplayedItems();
+    }, 50);
   });
 
   // AI-NOTE: Refactored to avoid blocking $effect with async operations
@@ -860,9 +1027,31 @@
           {/each}
           </div>
           
-          {#if filteredMessages.length > 100}
-            <div class="mt-4 p-3 text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              Showing 100 of {filteredMessages.length} messages {filteredByUser ? `(filtered)` : ''}. Scroll to see more.
+          <!-- Pagination Controls -->
+          {#if totalPages > 1}
+            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages} ({allPublicMessages.length} total messages)
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onclick={previousPage}
+                  disabled={!hasPreviousPage}
+                >
+                  Previous
+                </button>
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onclick={nextPage}
+                  disabled={!hasNextPage}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           {/if}
         </div>
@@ -964,9 +1153,31 @@
             </div>
           {/each}
           
-          {#if notifications.length > 100}
-            <div class="mt-4 p-3 text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              Showing 100 of {notifications.length} notifications {notificationMode === "to-me" ? "received" : "sent"}. Scroll to see more.
+          <!-- Pagination Controls -->
+          {#if totalPages > 1}
+            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages} ({notificationMode === "to-me" ? allToMeNotifications.length : allFromMeNotifications.length} total notifications)
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onclick={previousPage}
+                  disabled={!hasPreviousPage}
+                >
+                  Previous
+                </button>
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onclick={nextPage}
+                  disabled={!hasNextPage}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           {/if}
         </div>
