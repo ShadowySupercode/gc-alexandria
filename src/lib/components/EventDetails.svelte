@@ -189,6 +189,31 @@
         text: `t:${tag[1]}`,
         gotoValue: `t:${tag[1]}`,
       };
+    } else if (tag[0] === "q" && tag.length > 1) {
+      // 'q' tags are quoted events - navigate to the quoted event
+      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
+        try {
+          const mockEvent = {
+            id: tag[1],
+            kind: 1,
+            content: "",
+            tags: [],
+            pubkey: "",
+            sig: "",
+          } as any;
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
+          return {
+            text: `q:${tag[1]}`,
+            gotoValue: nevent,
+          };
+        } catch (error) {
+          console.warn("Failed to encode nevent for q tag:", tag[1], error);
+          return { text: `q:${tag[1]}` };
+        }
+      } else {
+        console.warn("Invalid event ID in q tag:", tag[1]);
+        return { text: `q:${tag[1]}` };
+      }
     }
     return { text: `${tag[0]}:${tag[1]}` };
   }
