@@ -1,16 +1,10 @@
 <script lang="ts">
   import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
   import { UserOutline } from "flowbite-svelte-icons";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser";
   import { nip19 } from "nostr-tools";
-  import { toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
+  import { toNpub } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
-  import type {
-    NostrProfile,
-    ProfileSearchResult,
-  } from "$lib/utils/search_utility";
-
-
+  import type { NostrProfile } from "$lib/utils/search_types";
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -19,11 +13,11 @@
     buildReplyTags,
     createSignedEvent,
     publishEvent,
-    navigateToEvent,
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const props = $props<{
     event: NDKEvent;
@@ -33,7 +27,6 @@
   const ndk = getNdkContext();
 
   let content = $state("");
-  let preview = $state("");
   let isSubmitting = $state(false);
   let success = $state<{ relay: string; eventId: string } | null>(null);
   let error = $state<string | null>(null);
@@ -87,7 +80,6 @@
     if (!success) return;
 
     content = "";
-    preview = "";
   });
 
   // Markup buttons
@@ -131,7 +123,6 @@
       selectedText +
       suffix +
       content.substring(end);
-    updatePreview();
 
     // Set cursor position after the inserted markup
     setTimeout(() => {
@@ -141,13 +132,9 @@
     }, 0);
   }
 
-  async function updatePreview() {
-    preview = await parseBasicmarkup(content);
-  }
 
   function clearForm() {
     content = "";
-    preview = "";
     error = null;
     showOtherRelays = false;
     showSecondaryRelays = false;
@@ -164,7 +151,6 @@
       .replace(/^[-*]\s*/gm, "")
       .replace(/^\d+\.\s*/gm, "")
       .replace(/#(\w+)/g, "$1");
-    updatePreview();
   }
 
   async function handleSubmit(
@@ -227,7 +213,6 @@
 
       // Clear form after successful submission
       content = "";
-      preview = "";
       showOtherRelays = false;
       showSecondaryRelays = false;
     } catch (e) {
@@ -251,7 +236,6 @@
     const end = textarea.selectionEnd;
 
     content = content.substring(0, start) + text + content.substring(end);
-    updatePreview();
 
     // Wait for DOM updates to complete
     await tick();
@@ -578,7 +562,6 @@
     <div>
       <Textarea
         bind:value={content}
-        on:input={updatePreview}
         placeholder="Write your comment..."
         rows={10}
         class="w-full"
@@ -587,7 +570,7 @@
     <div
       class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg"
     >
-      {@html preview}
+      {@render basicMarkup(content, ndk)}
     </div>
   </div>
 

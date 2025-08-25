@@ -26,7 +26,7 @@
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
 
-    // AI-NOTE: 2025-01-24 - Restore authentication state from localStorage on page load
+    // AI-NOTE:  Restore authentication state from localStorage on page load
     // This function automatically restores the user's login state when the page is refreshed,
     // preventing the user from being logged out unexpectedly. It handles extension, npub, and Amber logins.
     async function restoreAuthentication() {

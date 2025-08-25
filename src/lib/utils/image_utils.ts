@@ -22,12 +22,3 @@ export function generateDarkPastelColor(seed: string): string {
     g.toString(16).padStart(2, "0")
   }${b.toString(16).padStart(2, "0")}`;
 }
-
-/**
- * Test function to verify color generation
- * @param eventId - The event ID to test
- * @returns The generated color
- */
-export function testColorGeneration(eventId: string): string {
-  return generateDarkPastelColor(eventId);
-}

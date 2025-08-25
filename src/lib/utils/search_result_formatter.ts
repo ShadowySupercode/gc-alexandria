@@ -1,6 +1,6 @@
 /**
  * Utility class for formatting search result messages
- * AI-NOTE: 2025-01-24 - Extracted from EventSearch component for better separation of concerns
+ * AI-NOTE:  Extracted from EventSearch component for better separation of concerns
  */
 export class SearchResultFormatter {
   /**

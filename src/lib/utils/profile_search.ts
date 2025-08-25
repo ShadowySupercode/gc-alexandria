@@ -79,7 +79,7 @@ export async function searchProfiles(
         if (npub) {
           const metadata = await getUserMetadata(npub, ndk);
           
-          // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+          // AI-NOTE:  Fetch the original event timestamp to preserve created_at
           let created_at: number | undefined = undefined;
           try {
             const decoded = nip19.decode(npub);
@@ -208,7 +208,7 @@ async function searchNip05Domains(
       );
       const metadata = await getUserMetadata(npub, ndk);
       
-      // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+      // AI-NOTE:  Fetch the original event timestamp to preserve created_at
       let created_at: number | undefined = undefined;
       try {
         const decoded = nip19.decode(npub);
@@ -260,7 +260,7 @@ async function searchNip05Domains(
         console.log("NIP-05 search: found npub for", nip05Address, ":", npub);
         const metadata = await getUserMetadata(npub, ndk);
         
-        // AI-NOTE: 2025-01-24 - Fetch the original event timestamp to preserve created_at
+        // AI-NOTE:  Fetch the original event timestamp to preserve created_at
         let created_at: number | undefined = undefined;
         try {
           const decoded = nip19.decode(npub);
@@ -326,7 +326,7 @@ async function quickRelaySearch(
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
   console.log("Normalized search term for relay search:", normalizedSearchTerm);
 
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive profile discovery
+  // AI-NOTE:  Use ALL available relays for comprehensive profile discovery
   // This ensures we don't miss profiles due to stale cache or limited relay coverage
   
   // Get all available relays from NDK pool (most comprehensive)

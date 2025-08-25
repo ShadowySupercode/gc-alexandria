@@ -179,7 +179,7 @@ export async function createProfileLinkWithVerification(
 /**
  * Create a note link element
  */
-function createNoteLink(identifier: string): string {
+export function createNoteLink(identifier: string): string {
   const cleanId = identifier.replace(/^nostr:/, "");
   const shortId = `${cleanId.slice(0, 12)}...${cleanId.slice(-8)}`;
   const escapedId = escapeHtml(cleanId);
@@ -191,6 +191,7 @@ function createNoteLink(identifier: string): string {
 /**
  * Process Nostr identifiers in text
  */
+// AI-NOTE:  Enhanced URL detection to prevent processing nostr identifiers that are part of URLs
 export async function processNostrIdentifiers(
   content: string,
   ndk: NDK,
@@ -201,7 +202,25 @@ export async function processNostrIdentifiers(
   function isPartOfUrl(text: string, index: number): boolean {
     // Look for http(s):// or www. before the match
     const before = text.slice(Math.max(0, index - 12), index);
-    return /https?:\/\/$|www\.$/i.test(before);
+    if (/https?:\/\/$|www\.$/i.test(before)) {
+      return true;
+    }
+    
+    // Check if the match is part of a larger URL structure
+    // Look for common URL patterns that might contain nostr identifiers
+    const beforeContext = text.slice(Math.max(0, index - 50), index);
+    const afterContext = text.slice(index, Math.min(text.length, index + 50));
+    
+    // Check if there's a URL-like structure around the match
+    const urlPatterns = [
+      /https?:\/\/[^\s]*$/i,  // URL starting with http(s)://
+      /www\.[^\s]*$/i,        // URL starting with www.
+      /[^\s]*\.(com|org|net|io|eu|co|me|app|dev)[^\s]*$/i,  // Common TLDs
+      /[^\s]*\/[^\s]*$/i,     // Path-like structures
+    ];
+    
+    const combinedContext = beforeContext + afterContext;
+    return urlPatterns.some(pattern => pattern.test(combinedContext));
   }
 
   // Process profiles (npub and nprofile)
@@ -392,7 +411,7 @@ export async function fetchEventWithFallback(
   filterOrId: string | Filter,
   timeoutMs: number = 10000,
 ): Promise<NDKEvent | null> {
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive event discovery
+  // AI-NOTE:  Use ALL available relays for comprehensive event discovery
   // This ensures we don't miss events that might be on any available relay
 
   // Get all relays from NDK pool first (most comprehensive)
@@ -418,7 +437,7 @@ export async function fetchEventWithFallback(
       "fetchEventWithFallback: No relays available for event fetch, using fallback relays",
     );
     // Use fallback relays when no relays are available
-    // AI-NOTE: 2025-01-24 - Include ALL available relays for comprehensive event discovery
+    // AI-NOTE:  Include ALL available relays for comprehensive event discovery
     // This ensures we don't miss events that might be on any available relay
     allRelays = [
       ...secondaryRelays, 

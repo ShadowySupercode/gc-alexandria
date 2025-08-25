@@ -17,7 +17,7 @@
   import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import { extractPubkeysFromEvents, batchFetchProfiles } from "$lib/utils/npubCache";
   import { userStore } from "$lib/stores/userStore";
-  import { getNdkContext } from "$lib/ndk";
+  import { getNdkContext, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   // Import utility functions for tag-based event fetching
   // These functions handle the complex logic of finding publications by tags
   // and extracting their associated content events
@@ -28,6 +28,7 @@
   } from "$lib/utils/tag_event_fetch";
   import { deduplicateAndCombineEvents } from "$lib/utils/eventDeduplication";
   import type { EventCounts } from "$lib/types";
+  import { fetchEventWithFallback } from "$lib/utils/nostrUtils";
 
   const ndk = getNdkContext();
   
@@ -394,13 +395,25 @@
     const shouldFetchIndex = publicationConfigs.some(ec => ec.kind === INDEX_EVENT_KIND);
 
     if (data.eventId) {
-      // Fetch specific publication
+      // Fetch specific publication using comprehensive relay search
       debug(`Fetching specific publication: ${data.eventId}`);
-      const event = await ndk.fetchEvent(data.eventId);
+      
+      // Log the event ID being searched for
+      console.log("[VisualizePage] Attempting to fetch event:", data.eventId);
+      
+      const event = await fetchEventWithFallback(ndk, data.eventId, 15000);
       
       if (!event) {
-        throw new Error(`Publication not found: ${data.eventId}`);
+        console.error("[VisualizePage] Event not found:", data.eventId);
+        throw new Error(`Publication not found: ${data.eventId}. The event may not be available on any of the configured relays.`);
       }
+      
+      console.log("[VisualizePage] Successfully fetched event:", {
+        id: event.id,
+        kind: event.kind,
+        pubkey: event.pubkey,
+        title: event.getMatchingTags("title")[0]?.[1]
+      });
       
       if (event.kind !== INDEX_EVENT_KIND) {
         throw new Error(`Event ${data.eventId} is not a publication index (kind ${INDEX_EVENT_KIND})`);
@@ -735,6 +748,14 @@
   // Fetch events when component mounts
   onMount(() => {
     debug("Component mounted");
+    
+    // Log relay configuration for debugging
+    console.log("[VisualizePage] Relay configuration:", {
+      poolRelays: Array.from(ndk.pool.relays.values()).map(r => r.url),
+      activeInboxRelays: get(activeInboxRelays),
+      activeOutboxRelays: get(activeOutboxRelays)
+    });
+    
     fetchEvents();
   });
 </script>

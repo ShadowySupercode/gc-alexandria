@@ -3,10 +3,13 @@
   import { Heading, Img, P, A } from "flowbite-svelte";
   import { goto } from "$app/navigation";
   import RelayStatus from "$lib/components/RelayStatus.svelte";
-
+  import { getNdkContext } from "$lib/ndk";
+  
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
   const isVersionKnown = appVersion !== "development";
+
+  const ndk = getNdkContext();
 </script>
 
 <div class="w-full flex justify-center">
@@ -52,6 +55,7 @@
       We are easiest to contact over our Nostr address {@render userBadge(
         "npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz",
         "GitCitadel",
+        ndk,
       )}. Or, you can visit us on our <A
         href="https://gitcitadel.com"
         title="GitCitadel Homepage"

@@ -1,5 +1,6 @@
 import flowbite from "flowbite/plugin";
 import plugin from "tailwindcss/plugin";
+import typography from "@tailwindcss/typography";
 
 /** @type {import('tailwindcss').Config}*/
 const config = {
@@ -94,6 +95,7 @@ const config = {
 
   plugins: [
     flowbite(),
+    typography,
     plugin(function ({ addUtilities, matchUtilities }) {
       addUtilities({
         ".content-visibility-auto": {
