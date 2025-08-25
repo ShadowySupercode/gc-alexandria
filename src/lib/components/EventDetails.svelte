@@ -457,7 +457,14 @@
                     const tTag = tagInfo.gotoValue!.substring(2);
                     goto(`/events?t=${encodeURIComponent(tTag)}`);
                   } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                    // For hex event IDs - use navigateToEvent
+                    // AI-NOTE:  E-tag navigation may cause comment feed update issues
+                    // When navigating to a new event via e-tag, the CommentViewer component
+                    // may experience timing issues that result in:
+                    // - Empty comment feeds even when comments exist
+                    // - UI flashing between different thread views
+                    // - Delayed comment loading
+                    // This is likely due to race conditions between event prop changes
+                    // and comment fetching in the CommentViewer component.
                     navigateToEvent(tagInfo.gotoValue!);
                   } else {
                     // For other cases, try direct navigation

@@ -80,6 +80,12 @@
   // Get NDK context during component initialization
   const ndk = getNdkContext();
 
+  // AI-NOTE:  Event navigation and comment feed update issue
+  // When navigating to events via e-tags, the CommentViewer component may experience
+  // timing issues that cause comment feed problems. This function is called when
+  // a new event is found, and it triggers the CommentViewer to update.
+  // The CommentViewer has been updated with better state management to handle
+  // these race conditions.
   function handleEventFound(newEvent: NDKEvent) {
     event = newEvent;
     showSidePanel = true;

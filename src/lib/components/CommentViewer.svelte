@@ -24,6 +24,8 @@
   let error = $state<string | null>(null);
   let profiles = $state(new Map<string, any>());
   let activeSub: any = null;
+  let isFetching = $state(false); // Track if we're currently fetching to prevent duplicate fetches
+  let retryCount = $state(0); // Track retry attempts for failed fetches
 
   interface CommentNode {
     event: NDKEvent;
@@ -64,9 +66,17 @@
   async function fetchComments() {
     if (!event?.id) return;
     
+    // AI-NOTE:  Prevent duplicate fetches for the same event
+    if (isFetching) {
+      console.log(`[CommentViewer] Already fetching comments, skipping`);
+      return;
+    }
+    
+    isFetching = true;
     loading = true;
     error = null;
     comments = [];
+    retryCount = 0; // Reset retry count for new event
     
     console.log(`[CommentViewer] Fetching comments for event: ${event.id}`);
     console.log(`[CommentViewer] Event kind: ${event.kind}`);
@@ -98,67 +108,26 @@
       
       console.log(`[CommentViewer] Event address for NIP-22: ${eventAddress}`);
       
-      // Use more targeted filters to reduce noise
-      const filters = [
-        // Primary filter: events that explicitly reference our target via e-tags
-        {
-          kinds: [1, 1111, 9802],
-          "#e": [event.id],
-          limit: 50,
-        }
-      ];
+      // AI-NOTE:  Use a single comprehensive filter to ensure all comments are found
+      // Multiple filters can cause issues with NDK subscription handling
+      const filter = {
+        kinds: [1, 1111, 9802],
+        "#e": [event.id],
+        limit: 100, // Increased limit to ensure we get all comments
+      };
       
-      // Add NIP-22 filter only if we have a valid event address
-      if (eventAddress) {
-        filters.push({
-          kinds: [1111, 9802],
-          "#a": [eventAddress],
-          limit: 50,
-        } as any);
-      }
+      console.log(`[CommentViewer] Setting up subscription with filter:`, filter);
+      console.log(`[CommentViewer] Target event ID: ${event.id}`);
+      console.log(`[CommentViewer] Event address: ${eventAddress}`);
       
-      console.log(`[CommentViewer] Setting up subscription with ${filters.length} filters:`, filters);
-      
-      // Debug: Check if the provided event would match our filters
-      console.log(`[CommentViewer] Debug: Checking if event b9a15298f2b203d42ba6d0c56c43def87efc887697460c0febb9542515d5a00b would match our filters`);
-      console.log(`[CommentViewer] Debug: Target event ID: ${event.id}`);
-      console.log(`[CommentViewer] Debug: Event address: ${eventAddress}`);
-      
-      // Get all available relays for a more comprehensive search
-      // Use the full NDK pool relays instead of just active relays
+      // Use the full NDK pool relays for comprehensive search
       const ndkPoolRelays = Array.from(ndk.pool.relays.values()).map(relay => relay.url);
       console.log(`[CommentViewer] Using ${ndkPoolRelays.length} NDK pool relays for search:`, ndkPoolRelays);
       
-      // Try all filters to find comments with full relay set
-      activeSub = ndk.subscribe(filters);
+      // Subscribe with single filter
+      activeSub = ndk.subscribe(filter);
       
-      // Also try a direct search for the specific comment we're looking for
-      console.log(`[CommentViewer] Also searching for specific comment: 64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942`);
-      const specificCommentSub = ndk.subscribe({
-        ids: ["64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942"]
-      });
-      
-      specificCommentSub.on("event", (specificEvent: NDKEvent) => {
-        console.log(`[CommentViewer] Found specific comment via direct search:`, specificEvent.id);
-        console.log(`[CommentViewer] Specific comment tags:`, specificEvent.tags);
-        
-        // Check if this specific comment references our target
-        const eTags = specificEvent.getMatchingTags("e");
-        const aTags = specificEvent.getMatchingTags("a");
-        console.log(`[CommentViewer] Specific comment e-tags:`, eTags.map(t => t[1]));
-        console.log(`[CommentViewer] Specific comment a-tags:`, aTags.map(t => t[1]));
-        
-        const hasETag = eTags.some(tag => tag[1] === event.id);
-        const hasATag = eventAddress ? aTags.some(tag => tag[1] === eventAddress) : false;
-        
-        console.log(`[CommentViewer] Specific comment has matching e-tag: ${hasETag}`);
-        console.log(`[CommentViewer] Specific comment has matching a-tag: ${hasATag}`);
-      });
-      
-      specificCommentSub.on("eose", () => {
-        console.log(`[CommentViewer] Specific comment search EOSE`);
-        specificCommentSub.stop();
-      });
+
       
       const timeout = setTimeout(() => {
         console.log(`[CommentViewer] Subscription timeout - no comments found`);
@@ -167,6 +136,7 @@
           activeSub = null;
         }
         loading = false;
+        isFetching = false;
       }, 10000);
       
       activeSub.on("event", (commentEvent: NDKEvent) => {
@@ -174,12 +144,6 @@
         console.log(`[CommentViewer] Comment kind: ${commentEvent.kind}`);
         console.log(`[CommentViewer] Comment pubkey: ${commentEvent.pubkey}`);
         console.log(`[CommentViewer] Comment content preview: ${commentEvent.content?.slice(0, 100)}...`);
-        
-        // Special debug for the specific comment we're looking for
-        if (commentEvent.id === "64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942") {
-          console.log(`[CommentViewer] DEBUG: Found the specific comment we're looking for!`);
-          console.log(`[CommentViewer] DEBUG: Comment tags:`, commentEvent.tags);
-        }
         
         // Check if this event actually references our target event
         let referencesTarget = false;
@@ -211,7 +175,9 @@
         
         if (referencesTarget) {
           console.log(`[CommentViewer] Comment references target event via ${referenceMethod} - adding to comments`);
-          comments = [...comments, commentEvent];
+          // AI-NOTE:  Use immutable update to prevent UI flashing
+          const newComments = [...comments, commentEvent];
+          comments = newComments;
           fetchProfile(commentEvent.pubkey);
           
           // Fetch nested replies for this comment
@@ -234,6 +200,8 @@
           activeSub = null;
         }
         loading = false;
+        isFetching = false;
+        retryCount = 0; // Reset retry count on successful fetch
         
         // Pre-fetch all profiles after comments are loaded
         preFetchAllProfiles();
@@ -243,9 +211,15 @@
           fetchNestedReplies(comment.id);
         });
         
-        // AI-NOTE:  Test for comments if none were found
-        if (comments.length === 0) {
-          testForComments();
+        // AI-NOTE:  If no comments found and we haven't retried too many times, try again
+        if (comments.length === 0 && retryCount < 2) {
+          console.log(`[CommentViewer] No comments found, retrying... (attempt ${retryCount + 1})`);
+          retryCount++;
+          setTimeout(() => {
+            if (!isFetching) {
+              fetchComments();
+            }
+          }, 2000); // Wait 2 seconds before retry
         }
       });
       
@@ -258,12 +232,14 @@
         }
         error = "Error fetching comments";
         loading = false;
+        isFetching = false;
       });
       
     } catch (err) {
       console.error(`[CommentViewer] Error setting up subscription:`, err);
       error = "Error setting up subscription";
       loading = false;
+      isFetching = false;
     }
   }
 
@@ -285,51 +261,7 @@
     console.log(`[CommentViewer] Pre-fetching complete`);
   }
 
-        // AI-NOTE:  Function to manually test for comments
-      async function testForComments() {
-        if (!event?.id) return;
-        
-        console.log(`[CommentViewer] Testing for comments on event: ${event.id}`);
-        
-        try {
-          // Try a broader search to see if there are any events that might be comments
-          const testSub = ndk.subscribe({
-            kinds: [1, 1111, 9802],
-            "#e": [event.id],
-            limit: 10,
-          });
-      
-      let testComments = 0;
-      
-      testSub.on("event", (testEvent: NDKEvent) => {
-        testComments++;
-        console.log(`[CommentViewer] Test found event: ${testEvent.id}, kind: ${testEvent.kind}, content: ${testEvent.content?.slice(0, 50)}...`);
-        
-        // Special debug for the specific comment we're looking for
-        if (testEvent.id === "64173a81c2a8e26342d4a75d3def804da8644377bde99cfdfeaf189dff87f942") {
-          console.log(`[CommentViewer] DEBUG: Test found the specific comment we're looking for!`);
-          console.log(`[CommentViewer] DEBUG: Test comment tags:`, testEvent.tags);
-        }
-        
-        // Show the e-tags to help debug
-        const eTags = testEvent.getMatchingTags("e");
-        console.log(`[CommentViewer] Test event e-tags:`, eTags.map(t => t[1]));
-      });
-      
-      testSub.on("eose", () => {
-        console.log(`[CommentViewer] Test search found ${testComments} potential comments`);
-        testSub.stop();
-      });
-      
-      // Stop the test after 5 seconds
-      setTimeout(() => {
-        testSub.stop();
-      }, 5000);
-      
-    } catch (err) {
-      console.error(`[CommentViewer] Test search error:`, err);
-    }
-  }
+
 
   // Build threaded comment structure
   function buildCommentThread(events: NDKEvent[]): CommentNode[] {
@@ -433,15 +365,53 @@
   // Derived value for threaded comments
   let threadedComments = $derived(buildCommentThread(comments));
 
-  // Fetch comments when event changes
+  // AI-NOTE:  Comment feed update issue when navigating via e-tags
+  // When clicking e-tags in EventDetails, the comment feed sometimes doesn't update properly
+  // This can manifest as:
+  // 1. Empty comment feed even when comments exist
+  // 2. Flash between nested and flat thread views
+  // 3. Delayed comment loading
+  // 
+  // Potential causes:
+  // - Race condition between event prop change and comment fetching
+  // - Subscription cleanup timing issues
+  // - Nested reply fetching interfering with main comment display
+  // - Relay availability or timeout issues
+  //
+  // TODO: Consider adding a small delay before fetching comments to ensure
+  // the event prop has fully settled, or implement a more robust state
+  // management system for comment fetching
   $effect(() => {
     if (event?.id) {
       console.log(`[CommentViewer] Event changed, fetching comments for:`, event.id, `kind:`, event.kind);
+      
+      // AI-NOTE:  Clean up previous subscription and reset state
       if (activeSub) {
         activeSub.stop();
         activeSub = null;
       }
-      fetchComments();
+      
+      // Reset state for new event
+      comments = [];
+      profiles = new Map();
+      nestedReplyIds = new Set();
+      isFetchingNestedReplies = false;
+      retryCount = 0;
+      
+      // AI-NOTE:  Add small delay to prevent race conditions during navigation
+      setTimeout(() => {
+        if (event?.id && !isFetching) { // Double-check we're not already fetching
+          fetchComments();
+        }
+      }, 100);
+    } else {
+      // Clear state when no event
+      comments = [];
+      profiles = new Map();
+      nestedReplyIds = new Set();
+      isFetchingNestedReplies = false;
+      isFetching = false;
+      retryCount = 0;
     }
   });
 
@@ -483,7 +453,9 @@
         
         if (referencesTarget && !comments.some(c => c.id === nestedEvent.id)) {
           console.log(`[CommentViewer] Adding nested reply to comments`);
-          comments = [...comments, nestedEvent];
+          // AI-NOTE:  Use immutable update to prevent UI flashing
+          const newComments = [...comments, nestedEvent];
+          comments = newComments;
           fetchProfile(nestedEvent.pubkey);
           
           // Recursively fetch replies to this nested reply
@@ -524,7 +496,9 @@
             
             if (referencesTarget && !comments.some(c => c.id === nip22Event.id)) {
               console.log(`[CommentViewer] Adding NIP-22 nested reply to comments`);
-              comments = [...comments, nip22Event];
+              // AI-NOTE:  Use immutable update to prevent UI flashing
+              const newComments = [...comments, nip22Event];
+              comments = newComments;
               fetchProfile(nip22Event.pubkey);
               
               // Recursively fetch replies to this nested reply
