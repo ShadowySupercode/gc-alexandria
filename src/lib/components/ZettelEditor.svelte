@@ -46,6 +46,18 @@ import Asciidoctor from "asciidoctor";
   let publicationResult = $state<any>(null);
   let generatedEvents = $state<any>(null);
   let contentType = $state<'article' | 'scattered-notes' | 'none'>('none');
+  
+  // Gutter visualization state for Phase 2
+  let gutterIndicators = $state<Array<{
+    lineNumber: number;
+    eventKind: 30040 | 30041;
+    eventType: 'index' | 'content';
+    level: number;
+    title: string;
+  }>>([]);
+  let hoveredLineNumber = $state<number | null>(null);
+  let textareaRef = $state<any>(null); // Flowbite Textarea component ref
+  let gutterElement = $state<HTMLDivElement | null>(null);
 
   // Effect to create PublicationTree when content changes
   // Uses tree processor extension as Michael envisioned:
@@ -57,6 +69,7 @@ import Asciidoctor from "asciidoctor";
       publicationResult = null;
       generatedEvents = null;
       contentType = 'none';
+      gutterIndicators = [];
       return;
     }
     
@@ -79,12 +92,47 @@ import Asciidoctor from "asciidoctor";
           contentEvents: events.contentEvents.length,
           parseLevel: parseLevel
         });
+        
+        // Temporary: Create sample gutter indicators for testing
+        // This will be replaced with proper line detection in Checkpoint 2.2
+        if (publicationResult?.metadata?.eventStructure) {
+          const tempIndicators: typeof gutterIndicators = [];
+          const lines = content.split('\n');
+          
+          // Simple detection of section headers for testing
+          lines.forEach((line: string, index: number) => {
+            const match = line.match(/^(=+)\s+(.+)/);
+            if (match) {
+              const level = match[1].length;
+              const title = match[2].trim();
+              
+              // Find matching event structure node
+              const node = publicationResult.metadata.eventStructure.find((n: any) => 
+                n.title === title || n.title.includes(title)
+              );
+              
+              if (node) {
+                tempIndicators.push({
+                  lineNumber: index + 1,
+                  eventKind: node.eventKind as 30040 | 30041,
+                  eventType: node.eventType as 'index' | 'content',
+                  level: level,
+                  title: title
+                });
+              }
+            }
+          });
+          
+          gutterIndicators = tempIndicators;
+          console.log("Gutter indicators:", gutterIndicators);
+        }
       })
       .catch(error => {
         console.error("Tree factory error:", error);
         publicationResult = null;
         generatedEvents = null;
         contentType = 'none';
+        gutterIndicators = [];
       });
   });
 
@@ -140,14 +188,55 @@ import Asciidoctor from "asciidoctor";
       });
     };
     
-    // Use eventStructure for accurate hierarchy display
-    return publicationResult.metadata.eventStructure.map((node: any) => {
-      const event = findEventByDTag(publicationResult.contentEvents, node.dTag);
+    // Flatten eventStructure recursively to show all nodes
+    function flattenNodes(nodes: any[], result: any[] = []): any[] {
+      for (const node of nodes) {
+        result.push(node);
+        if (node.children && node.children.length > 0) {
+          flattenNodes(node.children, result);
+        }
+      }
+      return result;
+    }
+    
+    let flatNodes: any[] = [];
+    if (publicationResult.metadata.eventStructure.length > 0) {
+      flatNodes = flattenNodes(publicationResult.metadata.eventStructure);
+    }
+    
+    // Map nodes to display sections
+    return flatNodes.map((node: any) => {
+      // For the root index, use indexEvent. For others, find in contentEvents
+      let event;
+      if (node.dTag === publicationResult.indexEvent?.tagValue('d')) {
+        event = publicationResult.indexEvent;
+      } else {
+        // contentEvents can contain both 30040 and 30041 events at parse level 3+
+        event = findEventByDTag(publicationResult.contentEvents, node.dTag);
+      }
+      
       const tags = event?.tags.filter((t: string[]) => t[0] === 't') || [];
       
+      // Extract the title from the title tag
+      const titleTag = event?.tags.find((t: string[]) => t[0] === 'title');
+      const eventTitle = titleTag ? titleTag[1] : node.title;
+      
+      // For content events, remove the first heading from content since we'll use the title tag
+      let processedContent = event?.content || '';
+      if (event && node.eventType === 'content') {
+        // Remove the first heading line (which should match the title)
+        const lines = processedContent.split('\n');
+        const firstHeadingIndex = lines.findIndex((line: string) => line.match(/^=+\s+/));
+        if (firstHeadingIndex !== -1) {
+          // Remove the heading line and join back
+          lines.splice(firstHeadingIndex, 1);
+          processedContent = lines.join('\n').trim();
+        }
+      }
+      
       return {
-        title: node.title,
-        content: event?.content || '',
+        title: eventTitle,
+        content: processedContent,
         tags, // Already in [['t', 'tag1'], ['t', 'tag2']] format
         level: node.level,
         isIndex: node.eventKind === 30040,
@@ -191,6 +280,21 @@ import Asciidoctor from "asciidoctor";
   function handleContentChange(event: Event) {
     const target = event.target as HTMLTextAreaElement;
     onContentChange(target.value);
+  }
+  
+  // Synchronize gutter scroll with textarea scroll
+  function handleTextareaScroll(event: Event) {
+    if (!gutterElement) return;
+    const target = event.target as HTMLTextAreaElement;
+    gutterElement.scrollTop = target.scrollTop;
+  }
+  
+  // Calculate top position for a line number in the gutter
+  function calculateLineTop(lineNumber: number): number {
+    // Approximate line height based on textarea's line-height
+    // We use 1.5rem (24px) as specified in the textarea class
+    const lineHeight = 24; // 1.5rem with text-sm
+    return (lineNumber - 1) * lineHeight;
   }
 </script>
 
@@ -287,11 +391,46 @@ import Asciidoctor from "asciidoctor";
     <!-- Editor Panel -->
     <div class="{showPreview && showTutorial ? 'lg:w-1/3' : showPreview || showTutorial ? 'lg:w-1/2' : 'w-full'} flex flex-col">
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
+        <!-- Gutter Overlay for Visual Indicators (Phase 2) -->
+        <div 
+          bind:this={gutterElement}
+          class="absolute left-0 top-0 w-12 h-full overflow-hidden pointer-events-none z-10"
+          style="padding-top: 1rem; padding-bottom: 1rem;" 
+        >
+          <div class="relative h-full">
+            <!-- Gutter background -->
+            <div class="absolute inset-0 bg-gray-50 dark:bg-gray-800 opacity-50 border-r border-gray-200 dark:border-gray-700"></div>
+            
+            <!-- Indicators will be rendered here in future checkpoints -->
+            {#each gutterIndicators as indicator}
+              <div
+                class="absolute left-0 flex items-center justify-center w-full h-6 transition-all duration-200"
+                style="top: {calculateLineTop(indicator.lineNumber)}px;"
+              >
+                <!-- Placeholder for visual indicators -->
+                <div class="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-600"></div>
+              </div>
+            {/each}
+            
+            <!-- Hover highlight (for future interactivity) -->
+            {#if hoveredLineNumber}
+              <div 
+                class="absolute left-0 w-full h-6 bg-blue-100 dark:bg-blue-900 opacity-30 transition-all duration-150"
+                style="top: {calculateLineTop(hoveredLineNumber)}px;"
+              ></div>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- Textarea with left padding to accommodate gutter -->
         <Textarea
+          bind:this={textareaRef}
           bind:value={content}
           oninput={handleContentChange}
+          onscroll={handleTextareaScroll}
           {placeholder}
           class="w-full h-full resize-none font-mono text-sm leading-relaxed p-4 bg-white dark:bg-gray-900 border-none outline-none"
+          style="padding-left: 4rem;"
         />
       </div>
     </div>
@@ -369,78 +508,65 @@ import Asciidoctor from "asciidoctor";
                 {/if}
                 
                 {#each parsedSections as section, index}
-                  {@const indentLevel = Math.max(0, section.level - 2)}
-                  {@const levelColors = {
-                    2: 'bg-yellow-400', 
-                    3: 'bg-yellow-500',
-                    4: 'bg-yellow-600',
-                    5: 'bg-gray-400',
-                    6: 'bg-gray-500'
-                  } as Record<number, string>}
-                  {@const currentColor = levelColors[section.level] || 'bg-gray-600'}
-                  
-                  <div class="mb-6 relative" style="margin-left: {indentLevel * 24}px; padding-left: 12px;">
-                    <!-- Vertical indent guide -->
-                    <div 
-                      class="absolute top-0 w-1 {currentColor} opacity-60"
-                      style="left: 0; height: 100%;"
-                    ></div>
-                    
-                    <div
-                      class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content"
-                    >
-                      {#if section.isIndex}
-                        <!-- Index section: just show the title as a header -->
-                        <div class="font-semibold text-gray-900 dark:text-gray-100 py-2">
-                          {section.title}
+                  <div class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                    {#if section.isIndex}
+                      <!-- Index event: show as simple title -->
+                      <div class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Index Event (30040)
+                      </div>
+                      <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {section.title}
+                      </h2>
+                    {:else}
+                      <!-- Content event: show title, tags, then content -->
+                      <div class="space-y-3">
+                        <!-- Event type indicator -->
+                        <div class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">
+                          Content Event (30041)
                         </div>
-                      {:else}
-                        <!-- Content section: render full content -->
-                        <div class="prose prose-sm dark:prose-invert">
-                          {@html section.content}
-                        </div>
-                      {/if}
-                    </div>
-
-                    <!-- Gray area with tag bubbles only for content sections -->
-                    {#if !section.isIndex}
-                      <div class="my-4 relative">
-                        <!-- Gray background area -->
-                        <div
-                          class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
-                        >
-                          <div class="flex flex-wrap gap-2 items-center">
-                            {#if section.tags && section.tags.filter((tag: string[]) => tag[0] === 't').length > 0}
-                              <!-- Show only hashtags (t-tags) -->
-                              {#each section.tags.filter((tag: string[]) => tag[0] === 't') as tag}
-                                <div
-                                  class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
-                                >
-                                  <span class="mr-1">#</span>
-                                  <span>{tag[1]}</span>
-                                </div>
-                              {/each}
-                            {:else}
-                              <span
-                                class="text-gray-500 dark:text-gray-400 text-xs italic"
-                                >No hashtags</span
-                              >
-                            {/if}
-                          </div>
-                        </div>
-
-                        {#if index < parsedSections.length - 1 && !parsedSections[index + 1].isIndex}
-                          <!-- Event boundary line only between content sections -->
-                          <div
-                            class="border-t-2 border-dashed border-blue-400 relative"
-                          >
-                            <div
-                              class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium"
-                            >
-                              Event Boundary
-                            </div>
+                        
+                        <!-- Title as level 2 heading -->
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                          == {section.title}
+                        </h2>
+                        
+                        <!-- Tags -->
+                        {#if section.tags && section.tags.length > 0}
+                          <div class="flex flex-wrap gap-2">
+                            {#each section.tags as tag}
+                              <span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
+                                #{tag[1]}
+                              </span>
+                            {/each}
                           </div>
                         {/if}
+                        
+                        <!-- Content rendered as AsciiDoc -->
+                        {#if section.content}
+                          <div class="prose prose-sm dark:prose-invert max-w-none mt-4">
+                            {@html asciidoctor.convert(section.content, {
+                              standalone: false,
+                              attributes: {
+                                showtitle: false,
+                                sectids: false,
+                              }
+                            })}
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
+                    
+                    <!-- Event boundary indicator -->
+                    {#if index < parsedSections.length - 1}
+                      <div class="mt-6 relative">
+                        <div class="absolute inset-0 flex items-center">
+                          <div class="w-full border-t-2 border-dashed border-gray-300 dark:border-gray-600"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                          <span class="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400">
+                            Event Boundary
+                          </span>
+                        </div>
                       </div>
                     {/if}
                   </div>
