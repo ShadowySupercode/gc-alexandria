@@ -24,27 +24,29 @@ pub fn init() {
 }
 
 #[wasm_bindgen]
-pub fn add_response_time(relay_url: &str, response_time: f32) {
+pub fn add_response_time(relay_url: &str, response_time: Option<f32>) {
     // TODO: Implement.
     // May delegate to other modules.
 }
 
 #[wasm_bindgen]
-pub fn add_success(relay_url: &str, relay_type: &str) {
-    // TODO: Implement.
+pub fn add_success(relay_url: &str, success: bool, relay_type: Option<String>) {
+    let variant = match relay_type {
+        Some(t) => RelayVariant::from_str(&t).unwrap_throw(),
+        None => RelayVariant::General,
+    };
 
-    let relay_variant = RelayVariant::from_str(relay_type).unwrap_throw();
+    if !RELAY_SELECTOR.with(|selector| selector.borrow().contains(relay_url)) {
+        RELAY_SELECTOR.with(|selector| selector.borrow_mut().insert(relay_url, variant));
+    }
 
-    // May delegate to other modules.
-}
+    RELAY_SELECTOR.with(|selector| {
+        selector
+            .borrow_mut()
+            .update_success_rate(relay_url, success)
+    });
 
-#[wasm_bindgen]
-pub fn add_relay(relay_url: &str, relay_type: &str) {
-    // TODO: Implement.
-
-    let relay_variant = RelayVariant::from_str(relay_type).unwrap_throw();
-
-    // May delegate to other modules.
+    // TODO: Get success rate and sort
 }
 
 /// Get a recommended relay URL based on current weights.

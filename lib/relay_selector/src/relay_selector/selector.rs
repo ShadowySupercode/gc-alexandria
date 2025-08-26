@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::relay::RelayVariant;
+use crate::relay::{self, RelayVariant};
 use crate::relay_selector::weighted_sort::weighted_sort;
 
 pub type RelayWeights = HashMap<String, f32>;
@@ -10,6 +10,10 @@ const CONNECTION_WEIGHT: f32 = 0.1;
 pub struct RelaySelector {
     initial_weights: RelayWeights,
     current_weights: RelayWeights,
+
+    // Storage for success rate data
+    requests: HashMap<String, u32>,
+    successful_requests: HashMap<String, u32>,
 
     active_connections: HashMap<String, u8>,
 
@@ -26,10 +30,64 @@ impl RelaySelector {
         Self {
             initial_weights: HashMap::new(),
             current_weights: HashMap::new(),
+            requests: HashMap::new(),
+            successful_requests: HashMap::new(),
             active_connections: HashMap::new(),
             general: Vec::new(),
             inbox: Vec::new(),
             outbox: Vec::new(),
+        }
+    }
+}
+
+// Relay management methods
+impl RelaySelector {
+    pub fn contains(&self, relay: &str) -> bool {
+        self.general.contains(&relay.to_string())
+            || self.inbox.contains(&relay.to_string())
+            || self.outbox.contains(&relay.to_string())
+    }
+
+    pub fn insert(&mut self, relay: &str, variant: RelayVariant) {
+        match variant {
+            RelayVariant::General => self.general.push(relay.to_string()),
+            RelayVariant::Inbox => self.inbox.push(relay.to_string()),
+            RelayVariant::Outbox => self.outbox.push(relay.to_string()),
+            _ => self.general.push(relay.to_string()),
+        }
+
+        self.requests.insert(relay.to_string(), 0);
+        self.successful_requests.insert(relay.to_string(), 0);
+        self.active_connections.insert(relay.to_string(), 0);
+
+        // TODO: Set initial weight and sort
+    }
+}
+
+// Success rate update methods
+impl RelaySelector {
+    pub fn update_success_rate(&mut self, relay: &str, success: bool) {
+        let total_count = self.requests.get_mut(relay);
+        let success_count = self.successful_requests.get_mut(relay);
+
+        match total_count {
+            Some(total) => *total += 1,
+            None => {
+                self.requests.insert(relay.to_string(), 1);
+                ()
+            }
+        }
+
+        if !success {
+            return;
+        }
+
+        match success_count {
+            Some(success) => *success += 1,
+            None => {
+                self.successful_requests.insert(relay.to_string(), 1);
+                ()
+            }
         }
     }
 }
