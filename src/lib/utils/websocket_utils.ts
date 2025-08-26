@@ -97,7 +97,7 @@ export async function fetchNostrEvent(
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Enhanced relay strategy for better event discovery
+  // AI-NOTE:  Enhanced relay strategy for better event discovery
   // Always include search relays in the relay set for comprehensive event discovery
   const { searchRelays, secondaryRelays } = await import("../consts.ts");
   const allRelays = [...availableRelays, ...searchRelays, ...secondaryRelays];

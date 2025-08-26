@@ -9,7 +9,8 @@
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
-
+  import { getNdkContext } from "$lib/ndk";
+  
   const {
     rootId,
     event,
@@ -21,6 +22,8 @@
     onBlogUpdate?: any;
     active: boolean;
   }>();
+
+  const ndk = getNdkContext();
 
   let title: string = $derived(event.getMatchingTags("title")[0]?.[1]);
   let author: string = $derived(
@@ -59,7 +62,7 @@
     <div class="space-y-4 relative">
       <div class="flex flex-row justify-between my-2">
         <div class="flex flex-col">
-          {@render userBadge(authorPubkey, author)}
+          {@render userBadge(authorPubkey, author, ndk)}
           <span class="text-gray-700 dark:text-gray-300">{publishedAt()}</span>
         </div>
       </div>

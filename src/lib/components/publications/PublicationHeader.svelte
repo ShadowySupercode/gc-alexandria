@@ -1,7 +1,7 @@
 <script lang="ts">
   import { naddrEncode, neventEncode } from "$lib/utils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { activeInboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { Card } from "flowbite-svelte";
   import CardActions from "$components/util/CardActions.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -10,6 +10,8 @@
   import { indexKind } from "$lib/consts";
 
   const { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   function getRelayUrls(): string[] {
     return $activeInboxRelays;
@@ -67,22 +69,22 @@
       {/if}
     </div>
     
-    <div class="flex flex-col flex-grow space-x-2 min-w-0">
-      <div class="flex flex-col flex-grow min-w-0">
-        <a href="/{href}" class="flex flex-col space-y-2 h-full min-w-0">
-          <div class="flex-grow pt-2 min-w-0">
-            <h2 class="text-lg font-bold line-clamp-2 break-words" {title}>{title}</h2>
-            <h3 class="text-base font-normal mt-2 break-words">
+    <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
+      <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
+        <a href="/{href}" class="flex flex-col space-y-2 h-full min-w-0 overflow-hidden">
+          <div class="flex-grow pt-2 min-w-0 overflow-hidden">
+            <h2 class="text-lg font-bold line-clamp-2 break-words overflow-hidden" {title}>{title}</h2>
+            <h3 class="text-base font-normal mt-2 break-words overflow-hidden">
               by
               {#if authorPubkey != null}
-                {@render userBadge(authorPubkey, author)}
+                {@render userBadge(authorPubkey, author, ndk)}
               {:else}
-                {author}
+                <span class="truncate">{author}</span>
               {/if}
             </h3>
           </div>
           {#if version != "1"}
-            <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words">version: {version}</h3>
+            <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden">version: {version}</h3>
           {/if}
         </a>
       </div>

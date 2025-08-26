@@ -25,6 +25,168 @@ const normalizeUrl = (url: string): string => {
   return url.replace(/\/$/, ""); // Remove trailing slash
 };
 
+// AI-NOTE:  Define prioritized event kinds for subscription search
+const PRIORITIZED_EVENT_KINDS = new Set([
+  1,    // Text notes
+  1111, // Comments
+  9802, // Highlights
+  20,   // Article
+  21,   // Article
+  22,   // Article
+  1222, // Long-form content
+  1244, // Long-form content
+  30023, // Long-form content
+  30040, // Long-form content
+  30041, // Long-form content
+]);
+
+/**
+ * Prioritize events for subscription search results
+ * @param events Array of events to prioritize
+ * @param targetPubkey The pubkey being searched for (for n: searches only - events from this pubkey get highest priority)
+ * @param maxResults Maximum number of results to return
+ * @param ndk NDK instance for user list and community checks
+ * @returns Prioritized array of events
+ * 
+ * Priority tiers:
+ * 1. Prioritized event kinds (1, 1111, 9802, 20, 21, 22, 1222, 1244, 30023, 30040, 30041) + target pubkey events (n: searches only)
+ * 2. Events from user's follows (if logged in)
+ * 3. Events from community members
+ * 4. All other events
+ */
+async function prioritizeSearchEvents(
+  events: NDKEvent[],
+  targetPubkey?: string,
+  maxResults: number = SEARCH_LIMITS.GENERAL_CONTENT,
+  ndk?: NDK
+): Promise<NDKEvent[]> {
+  if (events.length === 0) {
+    return [];
+  }
+
+  // AI-NOTE:  Get user lists and community status for prioritization
+  let userFollowPubkeys = new Set<string>();
+  let communityMemberPubkeys = new Set<string>();
+  
+  // Only attempt user list and community checks if NDK is provided
+  if (ndk) {
+    try {
+      // Import user list functions dynamically to avoid circular dependencies
+      const { fetchCurrentUserLists, getPubkeysFromListKind } = await import("./user_lists.ts");
+      const { checkCommunity } = await import("./community_checker.ts");
+      
+      // Get current user's follow lists (if logged in)
+      const userLists = await fetchCurrentUserLists(undefined, ndk);
+      userFollowPubkeys = getPubkeysFromListKind(userLists, 3); // Kind 3 = follow list
+      
+      // Check community status for unique pubkeys in events (limit to prevent hanging)
+      const uniquePubkeys = new Set(events.map(e => e.pubkey).filter(Boolean));
+      const pubkeysToCheck = Array.from(uniquePubkeys).slice(0, 20); // Limit to first 20 pubkeys
+      
+      console.log(`subscription_search: Checking community status for ${pubkeysToCheck.length} pubkeys out of ${uniquePubkeys.size} total`);
+      
+      const communityChecks = await Promise.allSettled(
+        pubkeysToCheck.map(async (pubkey) => {
+          try {
+            const isCommunityMember = await Promise.race([
+              checkCommunity(pubkey),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Community check timeout')), 2000)
+              )
+            ]);
+            return { pubkey, isCommunityMember };
+          } catch (error) {
+            console.warn(`subscription_search: Community check failed for ${pubkey}:`, error);
+            return { pubkey, isCommunityMember: false };
+          }
+        })
+      );
+      
+      // Build set of community member pubkeys
+      communityChecks.forEach(result => {
+        if (result.status === "fulfilled" && result.value.isCommunityMember) {
+          communityMemberPubkeys.add(result.value.pubkey);
+        }
+      });
+      
+      console.log("subscription_search: Prioritization data loaded:", {
+        userFollows: userFollowPubkeys.size,
+        communityMembers: communityMemberPubkeys.size,
+        totalEvents: events.length
+      });
+    } catch (error) {
+      console.warn("subscription_search: Failed to load prioritization data:", error);
+    }
+  } else {
+    console.log("subscription_search: No NDK provided, skipping user list and community checks");
+  }
+
+  // Separate events into priority tiers
+  const tier1: NDKEvent[] = []; // Events from target pubkey (n: searches only) + prioritized kinds
+  const tier2: NDKEvent[] = []; // Events from user's follows
+  const tier3: NDKEvent[] = []; // Events from community members
+  const tier4: NDKEvent[] = []; // All other events
+
+  for (const event of events) {
+    const isFromTarget = targetPubkey && event.pubkey === targetPubkey;
+    const isPrioritizedKind = PRIORITIZED_EVENT_KINDS.has(event.kind || 0);
+    const isFromFollow = userFollowPubkeys.has(event.pubkey || "");
+    const isFromCommunityMember = communityMemberPubkeys.has(event.pubkey || "");
+    
+    // AI-NOTE:  Prioritized kinds are always in tier 1
+    // Target pubkey priority only applies to n: searches (when targetPubkey is provided)
+    if (isPrioritizedKind || isFromTarget) {
+      tier1.push(event);
+    } else if (isFromFollow) {
+      tier2.push(event);
+    } else if (isFromCommunityMember) {
+      tier3.push(event);
+    } else {
+      tier4.push(event);
+    }
+  }
+
+  // Sort each tier by creation time (newest first)
+  tier1.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier2.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier3.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  tier4.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+  // Combine tiers in priority order, respecting the limit
+  const result: NDKEvent[] = [];
+  
+  // Add tier 1 events (highest priority)
+  result.push(...tier1);
+  
+  // Add tier 2 events (follows) if we haven't reached the limit
+  const remainingAfterTier1 = maxResults - result.length;
+  if (remainingAfterTier1 > 0) {
+    result.push(...tier2.slice(0, remainingAfterTier1));
+  }
+  
+  // Add tier 3 events (community members) if we haven't reached the limit
+  const remainingAfterTier2 = maxResults - result.length;
+  if (remainingAfterTier2 > 0) {
+    result.push(...tier3.slice(0, remainingAfterTier2));
+  }
+  
+  // Add tier 4 events (others) if we haven't reached the limit
+  const remainingAfterTier3 = maxResults - result.length;
+  if (remainingAfterTier3 > 0) {
+    result.push(...tier4.slice(0, remainingAfterTier3));
+  }
+
+  console.log("subscription_search: Event prioritization complete:", {
+    tier1: tier1.length, // Prioritized kinds + target pubkey (n: searches only)
+    tier2: tier2.length, // User follows
+    tier3: tier3.length, // Community members
+    tier4: tier4.length, // Others
+    total: result.length
+  });
+
+  return result;
+}
+
 /**
  * Filter out unwanted events from search results
  * @param events Array of NDKEvent to filter
@@ -46,7 +208,7 @@ export async function searchBySubscription(
   callbacks?: SearchCallbacks,
   abortSignal?: AbortSignal,
 ): Promise<SearchResult> {
-  const startTime = Date.now(); // AI-NOTE: 2025-01-08 - Track search performance
+  const startTime = Date.now(); // AI-NOTE:  Track search performance
   const normalizedSearchTerm = searchTerm.toLowerCase().trim();
 
   console.log("subscription_search: Starting search:", {
@@ -60,7 +222,7 @@ export async function searchBySubscription(
   if (cachedResult) {
     console.log("subscription_search: Found cached result:", cachedResult);
     
-    // AI-NOTE: 2025-01-24 - Ensure cached events have created_at property preserved
+    // AI-NOTE:  Ensure cached events have created_at property preserved
     // This fixes the "Unknown date" issue when events are retrieved from cache
     const eventsWithCreatedAt = cachedResult.events.map(event => {
       if (event && typeof event === 'object' && !event.created_at) {
@@ -93,16 +255,28 @@ export async function searchBySubscription(
       tTagEvents: tTagEventsWithCreatedAt
     };
     
-    // AI-NOTE: 2025-01-24 - For profile searches, return cached results immediately
-    // The EventSearch component now handles cache checking before calling this function
-    if (searchType === "n") {
-      console.log(
-        "subscription_search: Returning cached profile result immediately",
-      );
-      return resultWithCreatedAt;
-    } else {
-      return resultWithCreatedAt;
-    }
+    // AI-NOTE:  Return cached results immediately but trigger second-order search in background
+    // This ensures we get fast results while still updating second-order data
+    console.log("subscription_search: Returning cached result immediately, triggering background second-order search");
+    
+          // Trigger second-order search in background for all search types
+      if (ndk) {
+        // Start second-order search in background for n and d searches only
+        if (searchType === "n" || searchType === "d") {
+          console.log("subscription_search: Triggering background second-order search for cached result");
+          performSecondOrderSearchInBackground(
+            searchType as "n" | "d",
+            eventsWithCreatedAt,
+            cachedResult.eventIds || new Set(),
+            cachedResult.addresses || new Set(),
+            ndk,
+            searchType === "n" ? eventsWithCreatedAt[0]?.pubkey : undefined,
+            callbacks
+          );
+        }
+      }
+    
+    return resultWithCreatedAt;
   }
 
   if (!ndk) {
@@ -118,7 +292,7 @@ export async function searchBySubscription(
   searchState.timeoutId = setTimeout(() => {
     console.log("subscription_search: Search timeout reached");
     cleanup();
-  }, TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE: 2025-01-24 - Use standard timeout since cache is checked first
+  }, TIMEOUTS.SUBSCRIPTION_SEARCH); // AI-NOTE:  Use standard timeout since cache is checked first
 
   // Check for abort signal
   if (abortSignal?.aborted) {
@@ -140,7 +314,7 @@ export async function searchBySubscription(
     "relays",
   );
 
-  // AI-NOTE: 2025-01-24 - Check for preloaded events first (for profile searches)
+  // AI-NOTE:  Check for preloaded events first (for profile searches)
   if (searchFilter.preloadedEvents && searchFilter.preloadedEvents.length > 0) {
     console.log("subscription_search: Using preloaded events:", searchFilter.preloadedEvents.length);
     processPrimaryRelayResults(
@@ -161,6 +335,27 @@ export async function searchBySubscription(
         normalizedSearchTerm,
       );
       searchCache.set(searchType, normalizedSearchTerm, immediateResult);
+
+      // AI-NOTE:  For profile searches, start background second-order search even for preloaded events
+      if (searchType === "n") {
+        console.log(
+          "subscription_search: Profile found from preloaded events, starting background second-order search",
+        );
+
+        // Start Phase 2 in background for second-order results
+        searchOtherRelaysInBackground(
+          searchType,
+          searchFilter,
+          searchState,
+          ndk,
+          callbacks,
+          cleanup,
+        );
+
+        // Clear the main timeout since we're returning early
+        cleanup();
+      }
+
       return immediateResult;
     }
   }
@@ -172,11 +367,19 @@ export async function searchBySubscription(
         "subscription_search: Searching primary relay with filter:",
         searchFilter.filter,
       );
-      const primaryEvents = await ndk.fetchEvents(
+      
+      // Add timeout to primary relay search
+      const primaryEventsPromise = ndk.fetchEvents(
         searchFilter.filter,
         { closeOnEose: true },
         primaryRelaySet,
       );
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Primary relay search timeout")), TIMEOUTS.SUBSCRIPTION_SEARCH);
+      });
+      
+      const primaryEvents = await Promise.race([primaryEventsPromise, timeoutPromise]) as any;
 
       console.log(
         "subscription_search: Primary relay returned",
@@ -205,7 +408,7 @@ export async function searchBySubscription(
         );
         searchCache.set(searchType, normalizedSearchTerm, immediateResult);
 
-        // AI-NOTE: 2025-01-08 - For profile searches, return immediately when found
+        // AI-NOTE:  For profile searches, return immediately when found
         // but still start background search for second-order results
         if (searchType === "n") {
           console.log(
@@ -226,6 +429,9 @@ export async function searchBySubscription(
           console.log(
             `subscription_search: Profile search completed in ${elapsed}ms`,
           );
+          
+          // Clear the main timeout since we're returning early
+          cleanup();
           return immediateResult;
         }
 
@@ -239,13 +445,15 @@ export async function searchBySubscription(
           cleanup,
         );
 
+        // Clear the main timeout since we're returning early
+        cleanup();
         return immediateResult;
       } else {
         console.log(
           "subscription_search: No results from primary relay",
         );
 
-        // AI-NOTE: 2025-01-08 - For profile searches, if no results found in search relays,
+        // AI-NOTE:  For profile searches, if no results found in search relays,
         // try all relays as fallback
         if (searchType === "n") {
           console.log(
@@ -257,11 +465,18 @@ export async function searchBySubscription(
             ndk,
           );
           try {
-            const fallbackEvents = await ndk.fetchEvents(
+            // Add timeout to fallback search
+            const fallbackEventsPromise = ndk.fetchEvents(
               searchFilter.filter,
               { closeOnEose: true },
               allRelaySet,
             );
+            
+            const fallbackTimeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error("Fallback search timeout")), TIMEOUTS.SUBSCRIPTION_SEARCH);
+            });
+            
+            const fallbackEvents = await Promise.race([fallbackEventsPromise, fallbackTimeoutPromise]) as any;
 
             console.log(
               "subscription_search: Fallback search returned",
@@ -293,6 +508,9 @@ export async function searchBySubscription(
               console.log(
                 `subscription_search: Profile search completed in ${elapsed}ms (fallback)`,
               );
+              
+              // Clear the main timeout since we're returning early
+              cleanup();
               return fallbackResult;
             }
           } catch (fallbackError) {
@@ -300,6 +518,11 @@ export async function searchBySubscription(
               "subscription_search: Fallback search failed:",
               fallbackError,
             );
+            
+            // If it's a timeout error, continue to return empty result
+            if (fallbackError instanceof Error && fallbackError.message.includes("timeout")) {
+              console.log("subscription_search: Fallback search timed out, returning empty result");
+            }
           }
 
           console.log(
@@ -309,12 +532,15 @@ export async function searchBySubscription(
             searchType,
             normalizedSearchTerm,
           );
-          // AI-NOTE: 2025-01-08 - Don't cache empty profile results as they may be due to search issues
+          // AI-NOTE:  Don't cache empty profile results as they may be due to search issues
           // rather than the profile not existing
           const elapsed = Date.now() - startTime;
           console.log(
             `subscription_search: Profile search completed in ${elapsed}ms (not found)`,
           );
+          
+          // Clear the main timeout since we're returning early
+          cleanup();
           return emptyResult;
         } else {
           console.log(
@@ -327,6 +553,14 @@ export async function searchBySubscription(
         `subscription_search: Error searching primary relay:`,
         error,
       );
+      
+      // If it's a timeout error, continue to Phase 2 instead of failing
+      if (error instanceof Error && error.message.includes("timeout")) {
+        console.log("subscription_search: Primary relay search timed out, continuing to Phase 2");
+      } else {
+        // For other errors, we might want to fail the search
+        throw error;
+      }
     }
   } else {
     console.log(
@@ -344,7 +578,7 @@ export async function searchBySubscription(
     cleanup,
   );
 
-  // AI-NOTE: 2025-01-08 - Log performance for non-profile searches
+  // AI-NOTE:  Log performance for non-profile searches
   if (searchType !== "n") {
     const elapsed = Date.now() - startTime;
     console.log(
@@ -352,6 +586,8 @@ export async function searchBySubscription(
     );
   }
 
+  // Clear the main timeout since we're completing normally
+  cleanup();
   return result;
 }
 
@@ -429,7 +665,7 @@ async function createSearchFilter(
       return tFilter;
     }
     case "n": {
-      // AI-NOTE: 2025-01-24 - Use the existing profile search functionality
+      // AI-NOTE:  Use the existing profile search functionality
       // This properly handles NIP-05 lookups and name searches
       const { searchProfiles } = await import("./profile_search.ts");
       const profileResult = await searchProfiles(normalizedSearchTerm, ndk);
@@ -439,7 +675,7 @@ async function createSearchFilter(
         const event = new NDKEvent(ndk);
         event.content = JSON.stringify(profile);
         
-        // AI-NOTE: 2025-01-24 - Convert npub to hex public key for compatibility with nprofileEncode
+        // AI-NOTE:  Convert npub to hex public key for compatibility with nprofileEncode
         // The profile.pubkey is an npub (bech32-encoded), but nprofileEncode expects hex-encoded public key
         let hexPubkey = profile.pubkey || "";
         if (profile.pubkey && profile.pubkey.startsWith("npub")) {
@@ -455,7 +691,7 @@ async function createSearchFilter(
         event.pubkey = hexPubkey;
         event.kind = 0;
         
-        // AI-NOTE: 2025-01-24 - Use the preserved created_at timestamp from the profile
+        // AI-NOTE:  Use the preserved created_at timestamp from the profile
         // This ensures the profile cards show the actual creation date instead of "Unknown date"
         if ((profile as any).created_at) {
           event.created_at = (profile as any).created_at;
@@ -474,7 +710,7 @@ async function createSearchFilter(
         filter: { kinds: [0], limit: 1 }, // Dummy filter
         subscriptionType: "profile-search",
         searchTerm: normalizedSearchTerm,
-        preloadedEvents: events, // AI-NOTE: 2025-01-24 - Pass preloaded events
+        preloadedEvents: events, // AI-NOTE:  Pass preloaded events
       };
       console.log("subscription_search: Created profile filter with preloaded events:", nFilter);
       return nFilter;
@@ -489,7 +725,7 @@ async function createSearchFilter(
 
 /**
  * Create primary relay set for search operations
- * AI-NOTE: 2025-01-24 - Updated to use all available relays to prevent search failures
+ * AI-NOTE:  Updated to use all available relays to prevent search failures
  */
 function createPrimaryRelaySet(
   searchType: SearchSubscriptionType,
@@ -502,7 +738,7 @@ function createPrimaryRelaySet(
     poolRelays.map((r: any) => r.url),
   );
 
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // AI-NOTE:  Use ALL available relays for comprehensive search coverage
   // This ensures searches don't fail due to missing relays and provides maximum event discovery
 
   if (searchType === "n") {
@@ -545,7 +781,7 @@ function createPrimaryRelaySet(
       activeRelays,
     });
 
-    // AI-NOTE: 2025-01-24 - Use all pool relays instead of filtering to active relays only
+    // AI-NOTE:  Use all pool relays instead of filtering to active relays only
     // This ensures we don't miss events that might be on other relays
     console.debug(
       "subscription_search: Using ALL pool relays for comprehensive search coverage:",
@@ -573,7 +809,17 @@ function processPrimaryRelayResults(
     "events from primary relay",
   );
 
+  // AI-NOTE: Apply subscription fetch limit to primary relay results
+  const maxEvents = SEARCH_LIMITS.SUBSCRIPTION_FETCH_LIMIT;
+  let processedCount = 0;
+
   for (const event of events) {
+    // Check if we've reached the event limit
+    if (processedCount >= maxEvents) {
+      console.log(`subscription_search: Reached event limit of ${maxEvents} in primary relay processing`);
+      break;
+    }
+
     // Check for abort signal
     if (abortSignal?.aborted) {
       cleanup?.();
@@ -591,6 +837,7 @@ function processPrimaryRelayResults(
       } else {
         processContentEvent(event, searchType, searchState);
       }
+      processedCount++;
     } catch (e) {
       console.warn("subscription_search: Error processing event:", e);
       // Invalid JSON or other error, skip
@@ -598,7 +845,7 @@ function processPrimaryRelayResults(
   }
 
   console.log(
-    "subscription_search: Processed events - firstOrder:",
+    `subscription_search: Processed ${processedCount} events (limit: ${maxEvents}) - firstOrder:`,
     searchState.firstOrderEvents.length,
     "profiles:",
     searchState.foundProfiles.length,
@@ -748,7 +995,7 @@ function searchOtherRelaysInBackground(
   callbacks?: SearchCallbacks,
   cleanup?: () => void,
 ): Promise<SearchResult> {
-  // AI-NOTE: 2025-01-24 - Use ALL available relays for comprehensive search coverage
+  // AI-NOTE:  Use ALL available relays for comprehensive search coverage
   // This ensures we don't miss events that might be on any available relay
   const otherRelays = new NDKRelaySet(
     new Set(Array.from(ndk.pool.relays.values())),
@@ -775,7 +1022,20 @@ function searchOtherRelaysInBackground(
     callbacks.onSubscriptionCreated(sub);
   }
 
+  // AI-NOTE: Track event count to enforce subscription fetch limit
+  let eventCount = 0;
+  const maxEvents = SEARCH_LIMITS.SUBSCRIPTION_FETCH_LIMIT;
+
   sub.on("event", (event: NDKEvent) => {
+    // Check if we've reached the event limit
+    if (eventCount >= maxEvents) {
+      console.log(`subscription_search: Reached event limit of ${maxEvents}, stopping event processing`);
+      sub.stop();
+      return;
+    }
+
+    eventCount++;
+    
     try {
       if (searchType === "n") {
         processProfileEvent(
@@ -793,17 +1053,42 @@ function searchOtherRelaysInBackground(
   });
 
   return new Promise<SearchResult>((resolve) => {
-    sub.on("eose", () => {
-      const result = processEoseResults(
-        searchType,
-        searchState,
-        searchFilter,
-        ndk,
-        callbacks,
-      );
-      searchCache.set(searchType, searchState.normalizedSearchTerm, result);
-      cleanup?.();
-      resolve(result);
+    let resolved = false;
+    
+    // Add timeout to prevent hanging
+    const timeoutId = setTimeout(async () => {
+      if (!resolved) {
+        console.log("subscription_search: Background search timeout, resolving with current results");
+        resolved = true;
+        sub.stop();
+        const result = await processEoseResults(
+          searchType,
+          searchState,
+          searchFilter,
+          ndk,
+          callbacks,
+        );
+        searchCache.set(searchType, searchState.normalizedSearchTerm, result);
+        cleanup?.();
+        resolve(result);
+      }
+    }, TIMEOUTS.SUBSCRIPTION_SEARCH);
+    
+    sub.on("eose", async () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        const result = await processEoseResults(
+          searchType,
+          searchState,
+          searchFilter,
+          ndk,
+          callbacks,
+        );
+        searchCache.set(searchType, searchState.normalizedSearchTerm, result);
+        cleanup?.();
+        resolve(result);
+      }
     });
   });
 }
@@ -811,19 +1096,19 @@ function searchOtherRelaysInBackground(
 /**
  * Process EOSE results
  */
-function processEoseResults(
+async function processEoseResults(
   searchType: SearchSubscriptionType,
   searchState: any,
   searchFilter: SearchFilter,
   ndk: NDK,
   callbacks?: SearchCallbacks,
-): SearchResult {
+): Promise<SearchResult> {
   if (searchType === "n") {
     return processProfileEoseResults(searchState, searchFilter, ndk, callbacks);
   } else if (searchType === "d") {
-    return processContentEoseResults(searchState, searchType, ndk);
+    return await processContentEoseResults(searchState, searchType, ndk, callbacks);
   } else if (searchType === "t") {
-    return processTTagEoseResults(searchState);
+    return await processTTagEoseResults(searchState, ndk);
   }
 
   return createEmptySearchResult(searchType, searchState.normalizedSearchTerm);
@@ -856,6 +1141,10 @@ function processProfileEoseResults(
   const dedupedProfiles = Object.values(deduped)
     .sort((a, b) => b.created_at - a.created_at)
     .map((x) => x.event);
+
+  // AI-NOTE:  For profile searches, we don't apply prioritization to the profiles themselves
+  // since they are all kind 0 events and should be shown in chronological order
+  // However, we do pass the target pubkey to the second-order search for prioritization
 
   // Perform second-order search for npub searches
   if (
@@ -922,11 +1211,12 @@ function processProfileEoseResults(
 /**
  * Process content EOSE results
  */
-function processContentEoseResults(
+async function processContentEoseResults(
   searchState: any,
   searchType: SearchSubscriptionType,
   ndk: NDK,
-): SearchResult {
+  callbacks?: SearchCallbacks,
+): Promise<SearchResult> {
   if (searchState.firstOrderEvents.length === 0) {
     return createEmptySearchResult(
       searchType,
@@ -946,6 +1236,19 @@ function processContentEoseResults(
   }
   const dedupedEvents = Object.values(deduped).map((x) => x.event);
 
+  // AI-NOTE:  Apply prioritization to first-order events for d-tag searches
+  // For d-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
+  const prioritizedEvents = await prioritizeSearchEvents(
+    dedupedEvents,
+    undefined, // No specific target pubkey for d-tag searches
+    SEARCH_LIMITS.GENERAL_CONTENT,
+    ndk
+  );
+
+  // AI-NOTE:  Attach profile data to first-order events for display
+  // This ensures profile pictures and other metadata are available in the UI
+  await attachProfileDataToEvents(prioritizedEvents, ndk);
+
   // Perform second-order search for d-tag searches
   if (dedupedEvents.length > 0) {
     performSecondOrderSearchInBackground(
@@ -954,11 +1257,13 @@ function processContentEoseResults(
       searchState.eventIds,
       searchState.eventAddresses,
       ndk,
+      undefined, // targetPubkey not needed for d-tag searches
+      callbacks,
     );
   }
 
   return {
-    events: dedupedEvents,
+    events: prioritizedEvents,
     secondOrder: [],
     tTagEvents: [],
     eventIds: searchState.eventIds,
@@ -971,13 +1276,28 @@ function processContentEoseResults(
 /**
  * Process t-tag EOSE results
  */
-function processTTagEoseResults(searchState: any): SearchResult {
+async function processTTagEoseResults(searchState: any, ndk?: NDK): Promise<SearchResult> {
   if (searchState.tTagEvents.length === 0) {
     return createEmptySearchResult("t", searchState.normalizedSearchTerm);
   }
 
+  // AI-NOTE:  Apply prioritization to t-tag search results
+  // For t-tag searches, we don't have a specific target pubkey, so we only prioritize by event kind
+  const prioritizedEvents = await prioritizeSearchEvents(
+    searchState.tTagEvents,
+    undefined, // No specific target pubkey for t-tag searches
+    SEARCH_LIMITS.GENERAL_CONTENT,
+    ndk
+  );
+
+  // AI-NOTE:  Attach profile data to t-tag events for display
+  // This ensures profile pictures and other metadata are available in the UI
+  if (ndk) {
+    await attachProfileDataToEvents(prioritizedEvents, ndk);
+  }
+
   return {
-    events: searchState.tTagEvents,
+    events: prioritizedEvents,
     secondOrder: [],
     tTagEvents: [],
     eventIds: new Set(),
@@ -1026,42 +1346,35 @@ async function performSecondOrderSearchInBackground(
     );
     let allSecondOrderEvents: NDKEvent[] = [];
 
-    // Set a timeout for second-order search
-    const timeoutPromise = new Promise((_, reject) => {
+    // Set a timeout for the initial event fetching only
+    const fetchTimeoutPromise = new Promise((_, reject) => {
       setTimeout(
-        () => reject(new Error("Second-order search timeout")),
+        () => reject(new Error("Second-order search fetch timeout")),
         TIMEOUTS.SECOND_ORDER_SEARCH,
       );
     });
 
-    const searchPromise = (async () => {
+    const fetchPromise = (async () => {
       if (searchType === "n" && targetPubkey) {
         console.log(
           "subscription_search: Searching for events mentioning pubkey:",
           targetPubkey,
         );
 
-        // AI-NOTE: 2025-01-24 - Use only active relays for second-order profile search to prevent hanging
-        const activeRelays = [
-          ...get(activeInboxRelays),
-          ...get(activeOutboxRelays),
-        ];
-        const availableRelays = activeRelays
-          .map((url) => ndk.pool.relays.get(url))
-          .filter((relay): relay is any => relay !== undefined);
+        // AI-NOTE:  Use all available relays for second-order search to maximize results
         const relaySet = new NDKRelaySet(
-          new Set(availableRelays),
+          new Set(Array.from(ndk.pool.relays.values())),
           ndk,
         );
 
         console.log(
           "subscription_search: Using",
-          activeRelays.length,
-          "active relays for second-order search",
+          ndk.pool.relays.size,
+          "relays for second-order search",
         );
 
         // Search for events that mention this pubkey via p-tags
-        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
+        const pTagFilter = { "#p": [targetPubkey], limit: 50 }; // AI-NOTE:  Limit results to prevent hanging
         const pTagEvents = await ndk.fetchEvents(
           pTagFilter,
           { closeOnEose: true },
@@ -1074,8 +1387,8 @@ async function performSecondOrderSearchInBackground(
           targetPubkey,
         );
 
-        // AI-NOTE: 2025-01-24 - Also search for events written by this pubkey with limit
-        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE: 2025-01-24 - Limit results to prevent hanging
+        // AI-NOTE:  Also search for events written by this pubkey with limit
+        const authorFilter = { authors: [targetPubkey], limit: 50 }; // AI-NOTE:  Limit results to prevent hanging
         const authorEvents = await ndk.fetchEvents(
           authorFilter,
           { closeOnEose: true },
@@ -1141,68 +1454,203 @@ async function performSecondOrderSearchInBackground(
           ...filteredATagEvents,
         ];
       }
+    })();
 
-      // Deduplicate by event ID
-      const uniqueSecondOrder = new Map<string, NDKEvent>();
-      allSecondOrderEvents.forEach((event) => {
-        if (event.id) {
-          uniqueSecondOrder.set(event.id, event);
-        }
-      });
+    // Race between fetch and timeout - only timeout the initial event fetching
+    await Promise.race([fetchPromise, fetchTimeoutPromise]);
+    
+    // Now do the prioritization without timeout
+    console.log("subscription_search: Event fetching completed, starting prioritization...");
+    
+    // Deduplicate by event ID
+    const uniqueSecondOrder = new Map<string, NDKEvent>();
+    allSecondOrderEvents.forEach((event) => {
+      if (event.id) {
+        uniqueSecondOrder.set(event.id, event);
+      }
+    });
 
-      let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
+    let deduplicatedSecondOrder = Array.from(uniqueSecondOrder.values());
 
-      // Remove any events already in first order
-      const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
-      deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
-        (e) => !firstOrderIds.has(e.id),
-      );
+    // Remove any events already in first order
+    const firstOrderIds = new Set(firstOrderEvents.map((e) => e.id));
+    deduplicatedSecondOrder = deduplicatedSecondOrder.filter(
+      (e) => !firstOrderIds.has(e.id),
+    );
 
-      // Sort by creation date (newest first) and limit to newest results
-      const sortedSecondOrder = deduplicatedSecondOrder
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-        .slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+    // AI-NOTE:  Apply prioritization to second-order search results with timeout
+    // Prioritize events from the target pubkey and specific event kinds
+    const prioritizationPromise = prioritizeSearchEvents(
+      deduplicatedSecondOrder,
+      targetPubkey,
+      SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+      ndk
+    );
+    
+    const prioritizationTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Prioritization timeout')), 15000); // 15 second timeout
+    });
+    
+    let prioritizedSecondOrder: NDKEvent[];
+    try {
+      prioritizedSecondOrder = await Promise.race([
+        prioritizationPromise,
+        prioritizationTimeoutPromise
+      ]) as NDKEvent[];
 
       console.log(
         "subscription_search: Second-order search completed with",
-        sortedSecondOrder.length,
+        prioritizedSecondOrder.length,
+        "prioritized results",
+      );
+    } catch (error) {
+      console.warn("subscription_search: Prioritization failed, using simple sorting:", error);
+      // Fallback to simple sorting if prioritization fails
+      prioritizedSecondOrder = deduplicatedSecondOrder.sort((a, b) => {
+        // Prioritize events from target pubkey first (for n: searches)
+        if (targetPubkey) {
+          const aIsTarget = a.pubkey === targetPubkey;
+          const bIsTarget = b.pubkey === targetPubkey;
+          if (aIsTarget && !bIsTarget) return -1;
+          if (!aIsTarget && bIsTarget) return 1;
+        }
+        
+        // Prioritize by event kind (for t: searches and general prioritization)
+        const aIsPrioritized = PRIORITIZED_EVENT_KINDS.has(a.kind || 0);
+        const bIsPrioritized = PRIORITIZED_EVENT_KINDS.has(b.kind || 0);
+        if (aIsPrioritized && !bIsPrioritized) return -1;
+        if (!aIsPrioritized && bIsPrioritized) return 1;
+        
+        // Then sort by creation time (newest first)
+        return (b.created_at || 0) - (a.created_at || 0);
+      }).slice(0, SEARCH_LIMITS.SECOND_ORDER_RESULTS);
+      
+      console.log(
+        "subscription_search: Using fallback sorting with",
+        prioritizedSecondOrder.length,
         "results",
       );
+    }
 
-      // Update the search results with second-order events
-      const result: SearchResult = {
-        events: firstOrderEvents,
-        secondOrder: sortedSecondOrder,
-        tTagEvents: [],
-        eventIds: searchType === "n"
-          ? new Set(firstOrderEvents.map((p) => p.id))
-          : eventIds,
-        addresses: searchType === "n" ? new Set() : addresses,
-        searchType: searchType,
-        searchTerm: "", // This will be set by the caller
-      };
+    // AI-NOTE:  Attach profile data to second-order events for display
+    // This ensures profile pictures and other metadata are available in the UI
+    await attachProfileDataToEvents(prioritizedSecondOrder, ndk);
 
-      // Notify UI of updated results
-      if (callbacks?.onSecondOrderUpdate) {
-        console.log(
-          "subscription_search: Calling onSecondOrderUpdate callback with",
-          sortedSecondOrder.length,
-          "second-order events",
-        );
-        callbacks.onSecondOrderUpdate(result);
-      } else {
-        console.log(
-          "subscription_search: No onSecondOrderUpdate callback available",
-        );
-      }
-    })();
+    // Update the search results with second-order events
+    const result: SearchResult = {
+      events: firstOrderEvents,
+      secondOrder: prioritizedSecondOrder,
+      tTagEvents: [],
+      eventIds: searchType === "n"
+        ? new Set(firstOrderEvents.map((p) => p.id))
+        : eventIds,
+      addresses: searchType === "n" ? new Set() : addresses,
+      searchType: searchType,
+      searchTerm: "", // This will be set by the caller
+    };
 
-    // Race between search and timeout
-    await Promise.race([searchPromise, timeoutPromise]);
+    // Notify UI of updated results
+    if (callbacks?.onSecondOrderUpdate) {
+      console.log(
+        "subscription_search: Calling onSecondOrderUpdate callback with",
+        prioritizedSecondOrder.length,
+        "second-order events",
+      );
+      callbacks.onSecondOrderUpdate(result);
+    } else {
+      console.log(
+        "subscription_search: No onSecondOrderUpdate callback available",
+      );
+    }
   } catch (err) {
     console.error(
       `[Search] Error in second-order ${searchType}-tag search:`,
       err,
     );
+  }
+}
+
+/**
+ * Attach profile data to events for display purposes
+ * This function fetches and attaches profile information to events so they can display profile pictures and other metadata
+ * @param events Array of events to attach profile data to
+ * @param ndk NDK instance for fetching profile data
+ * @returns Promise that resolves when profile data is attached
+ */
+async function attachProfileDataToEvents(events: NDKEvent[], ndk: NDK): Promise<void> {
+  if (events.length === 0) {
+    return;
+  }
+
+  console.log(`subscription_search: Attaching profile data to ${events.length} events`);
+
+  try {
+    // Import user list functions dynamically to avoid circular dependencies
+    const { fetchCurrentUserLists, isPubkeyInUserLists } = await import("./user_lists.ts");
+    
+    // Get current user's lists for user list status
+    const userLists = await fetchCurrentUserLists(undefined, ndk);
+    
+    // Get unique pubkeys from events
+    const uniquePubkeys = new Set<string>();
+    events.forEach((event) => {
+      if (event.pubkey) {
+        uniquePubkeys.add(event.pubkey);
+      }
+    });
+
+    console.log(`subscription_search: Found ${uniquePubkeys.size} unique pubkeys to fetch profiles for`);
+
+    // Fetch profile data for each unique pubkey
+    const profilePromises = Array.from(uniquePubkeys).map(async (pubkey) => {
+      try {
+        // Import getUserMetadata dynamically to avoid circular dependencies
+        const { getUserMetadata } = await import("./nostrUtils.ts");
+        const npub = await import("./nostrUtils.ts").then(m => m.toNpub(pubkey));
+        
+        if (npub) {
+          const profileData = await getUserMetadata(npub, ndk, true);
+          if (profileData) {
+            // Check if this pubkey is in user's lists
+            const isInLists = isPubkeyInUserLists(pubkey, userLists);
+            
+            // Return profile data with user list status
+            return {
+              pubkey,
+              profileData: {
+                ...profileData,
+                isInUserLists: isInLists
+              }
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`subscription_search: Failed to fetch profile for ${pubkey}:`, error);
+      }
+      return null;
+    });
+
+    const profileResults = await Promise.allSettled(profilePromises);
+    
+    // Create a map of pubkey to profile data
+    const profileMap = new Map<string, any>();
+    profileResults.forEach((result) => {
+      if (result.status === "fulfilled" && result.value) {
+        profileMap.set(result.value.pubkey, result.value.profileData);
+      }
+    });
+
+    console.log(`subscription_search: Successfully fetched ${profileMap.size} profiles`);
+
+    // Attach profile data to each event
+    events.forEach((event) => {
+      if (event.pubkey && profileMap.has(event.pubkey)) {
+        (event as any).profileData = profileMap.get(event.pubkey);
+      }
+    });
+
+    console.log(`subscription_search: Profile data attachment complete`);
+  } catch (error) {
+    console.error("subscription_search: Error attaching profile data:", error);
   }
 }

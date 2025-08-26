@@ -17,7 +17,7 @@ export const TIMEOUTS = {
   SUBSCRIPTION_SEARCH: 10000,
 
   /** Timeout for second-order search operations */
-  SECOND_ORDER_SEARCH: 3000, // AI-NOTE: 2025-01-24 - Reduced timeout since we limit scope
+  SECOND_ORDER_SEARCH: 30000, // AI-NOTE:  Increased timeout to allow more time for relay responses
 
   /** Timeout for relay diagnostics */
   RELAY_DIAGNOSTICS: 5000,
@@ -47,22 +47,25 @@ export const SEARCH_LIMITS = {
   SPECIFIC_PROFILE: 10,
 
   /** Limit for general profile searches */
-  GENERAL_PROFILE: 100, // AI-NOTE: 2025-01-24 - Reduced from 500 to prevent wild searches
+  GENERAL_PROFILE: 100, // AI-NOTE:  Reduced from 500 to prevent wild searches
 
   /** Limit for general content searches (t-tag, d-tag, etc.) */
-  GENERAL_CONTENT: 100, // AI-NOTE: 2025-01-24 - Added limit for all content searches
+  GENERAL_CONTENT: 100, // AI-NOTE:  Added limit for all content searches
 
   /** Limit for community relay checks */
   COMMUNITY_CHECK: 1,
 
   /** Limit for second-order search results */
-  SECOND_ORDER_RESULTS: 100,
+  SECOND_ORDER_RESULTS: 50, // AI-NOTE:  Reduced to improve performance and reduce timeout issues
 
   /** Maximum results for profile searches */
   MAX_PROFILE_RESULTS: 20,
 
   /** Batch size for profile fetching operations */
   BATCH_SIZE: 50,
+
+  /** Maximum events to fetch before processing in subscription search */
+  SUBSCRIPTION_FETCH_LIMIT: 1000,
 } as const;
 
 // Nostr event kind ranges

@@ -109,7 +109,7 @@
 
   // #endregion
 
-  // AI-NOTE: 2025-01-24 - Combined effect to handle publicationTree changes and initial loading
+  // AI-NOTE:  Combined effect to handle publicationTree changes and initial loading
   // This prevents conflicts between separate effects that could cause duplicate loading
   $effect(() => {
     if (publicationTree) {
@@ -126,7 +126,7 @@
         publicationTree.resetIterator();
       }
       
-      // AI-NOTE: 2025-01-24 - Use setTimeout to ensure iterator reset completes before loading
+      // AI-NOTE:  Use setTimeout to ensure iterator reset completes before loading
       // This prevents race conditions where loadMore is called before the iterator is fully reset
       setTimeout(() => {
         // Load initial content after reset
@@ -235,7 +235,7 @@
       { threshold: 0.5 },
     );
     
-    // AI-NOTE: 2025-01-24 - Removed duplicate loadMore call
+    // AI-NOTE:  Removed duplicate loadMore call
     // Initial content loading is handled by the $effect that watches publicationTree
     // This prevents duplicate loading when both onMount and $effect trigger
 

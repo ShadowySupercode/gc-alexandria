@@ -156,7 +156,7 @@
   let autoDisabledTags = $state(false);
   
   // Maximum number of tag anchors before auto-disabling
-  const MAX_TAG_ANCHORS = 20;
+  const MAX_TAG_ANCHORS = 50;
   
   // Person nodes state
   let showPersonNodes = $state(false);
@@ -168,6 +168,7 @@
   let totalPersonCount = $state(0);
   let displayedPersonCount = $state(0);
   let hasInitializedPersons = $state(false);
+  let hasInitializedTags = $state(new Map<string, boolean>());
 
 
   // Update dimensions when container changes
@@ -298,9 +299,22 @@
           label: n.title,
           count: n.connectedNodes?.length || 0,
           color: getTagAnchorColor(n.tagType || ""),
+          value: `${n.tagType}-${n.title}`, // Use the correct tag ID format for toggling
         }));
+        
+      // Auto-disable all tag anchors by default (only on first time showing this tag type)
+      if (!hasInitializedTags.get(selectedTagType) && tagAnchors.length > 0) {
+        tagAnchorInfo.forEach(anchor => {
+          disabledTags.add(anchor.value);
+        });
+        hasInitializedTags.set(selectedTagType, true);
+      }
     } else {
       tagAnchorInfo = [];
+      // Reset initialization flag for this tag type when tag anchors are hidden
+      if (hasInitializedTags.get(selectedTagType) && tagAnchorInfo.length === 0) {
+        hasInitializedTags.set(selectedTagType, false);
+      }
     }
 
     // Add person nodes if enabled
@@ -1108,11 +1122,14 @@
       if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
         // Defer the state update to break the sync cycle
         autoDisableTimer = setTimeout(() => {
-          debug(`Auto-disabling tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
+          debug(`Auto-disabling excess tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
           
-          // Disable all tags
+          // Sort tags by count (most connected first) and disable the excess ones
+          const sortedTags = [...tagAnchorInfo].sort((a, b) => b.count - a.count);
+          const tagsToDisable = sortedTags.slice(MAX_TAG_ANCHORS);
+          
           const newDisabledTags = new Set<string>();
-          tagAnchorInfo.forEach(anchor => {
+          tagsToDisable.forEach(anchor => {
             const tagId = `${anchor.type}-${anchor.label}`;
             newDisabledTags.add(tagId);
           });
@@ -1121,13 +1138,15 @@
           autoDisabledTags = true;
           
           // Optional: Show a notification to the user
-          console.info(`[EventNetwork] Auto-disabled ${tagAnchorInfo.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+          console.info(`[EventNetwork] Auto-disabled ${tagsToDisable.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
         }, 0);
       }
       
       // Reset auto-disabled flag if tag count goes back down
       if (tagAnchorInfo.length <= MAX_TAG_ANCHORS && autoDisabledTags) {
         autoDisableTimer = setTimeout(() => {
+          // Clear disabled tags when we're back under the limit
+          disabledTags.clear();
           autoDisabledTags = false;
         }, 0);
       }

@@ -17,6 +17,8 @@
   import { goto } from "$app/navigation";
   import { isPubkeyInUserLists, fetchCurrentUserLists } from "$lib/utils/user_lists";
   import { UserOutline } from "flowbite-svelte-icons";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { getNdkContext } from "$lib/ndk";
 
   const {
     event,
@@ -29,6 +31,8 @@
     identifiers?: { label: string; value: string; link?: string }[];
     communityStatusMap?: Record<string, boolean>;
   }>();
+
+  const ndk = getNdkContext();
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
@@ -51,26 +55,32 @@
 
   $effect(() => {
     if (event?.pubkey) {
-      // First check if we have cached profileData with user list information
-      const cachedProfileData = (event as any).profileData;
-      console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
-      
-      if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
-        isInUserLists = cachedProfileData.isInUserLists;
-        console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+      // First check if we have user list information in the profile prop
+      if (profile && typeof profile.isInUserLists === 'boolean') {
+        isInUserLists = profile.isInUserLists;
+        console.log(`[ProfileHeader] Using profile prop user list status for ${event.pubkey}: ${isInUserLists}`);
       } else {
-        console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
-        // Fallback to fetching user lists
-        fetchCurrentUserLists()
-          .then((userLists) => {
-            console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
-            isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
-            console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
-          })
-          .catch((error) => {
-            console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
-            isInUserLists = false;
-          });
+        // Then check if we have cached profileData with user list information
+        const cachedProfileData = (event as any).profileData;
+        console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
+        
+        if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
+          isInUserLists = cachedProfileData.isInUserLists;
+          console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+        } else {
+          console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
+          // Fallback to fetching user lists
+          fetchCurrentUserLists()
+            .then((userLists) => {
+              console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
+              isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
+              console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
+            })
+            .catch((error) => {
+              console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
+              isInUserLists = false;
+            });
+        }
       }
 
       // Check community status - use cached data if available
@@ -141,6 +151,7 @@
                 profile.display_name ||
                 profile.name ||
                 event.pubkey,
+              ndk,
             )}
           </div>
           {#if communityStatus === true}
@@ -199,7 +210,11 @@
             {#if profile.about}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
-                <dd class="min-w-0 break-words whitespace-pre-line">{profile.about}</dd>
+                <dd class="min-w-0 break-words">
+                  <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+                    {@render basicMarkup(profile.about, ndk)}
+                  </div>
+                </dd>
               </div>
             {/if}
             {#if profile.website}
@@ -269,6 +284,7 @@
           {@render userBadge(
             toNpub(event.pubkey) as string,
             profile?.displayName || profile.name || event.pubkey,
+            ndk,
           )}
           <P class="break-all">{profile.lud16}</P>
         </div>

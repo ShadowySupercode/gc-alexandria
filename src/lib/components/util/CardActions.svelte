@@ -8,7 +8,7 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -16,6 +16,8 @@
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
+
+  const ndk = getNdkContext();
 
   // Subscribe to userStore
   let user = $state($userStore);
@@ -205,7 +207,7 @@
         <h2 class="text-base font-bold">
           by
           {#if originalAuthor}
-            {@render userBadge(originalAuthor, author)}
+            {@render userBadge(originalAuthor, author, ndk)}
           {:else}
             {author || "Unknown"}
           {/if}
@@ -228,7 +230,7 @@
 
     <div class="flex flex-row">
       <h4 class="text-base font-normal mt-2">
-        Index author: {@render userBadge(event.pubkey, author)}
+        Index author: {@render userBadge(event.pubkey, author, ndk)}
       </h4>
     </div>
 

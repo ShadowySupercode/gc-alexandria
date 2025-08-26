@@ -10,7 +10,7 @@
   import { publishEvent, loadEvent } from "./event_input/eventServices";
   import { getNdkContext } from "$lib/ndk";
 
-  // AI-NOTE: 2025-01-24 - Main EventInput component refactored for better separation of concerns
+  // AI-NOTE:  Main EventInput component refactored for better separation of concerns
   // This component now serves as a container that orchestrates the form, tags, preview, and publishing
 
   // Get NDK context at component level (can only be called during initialization)

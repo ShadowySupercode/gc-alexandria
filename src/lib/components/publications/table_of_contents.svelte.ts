@@ -219,7 +219,7 @@ export class TableOfContents {
         this.addressMap.set(childAddress, childEntry);
       }
 
-      // AI-NOTE: 2025-01-24 - Removed redundant sorting since the publication tree already preserves 'a' tag order
+      // AI-NOTE:  Removed redundant sorting since the publication tree already preserves 'a' tag order
       // The children are already in the correct order from the publication tree
       // await this.#matchChildrenToTagOrder(entry);
 
@@ -255,7 +255,7 @@ export class TableOfContents {
     return entry;
   }
 
-  // AI-NOTE: 2025-01-24 - Removed #matchChildrenToTagOrder method since the publication tree already preserves 'a' tag order
+  // AI-NOTE:  Removed #matchChildrenToTagOrder method since the publication tree already preserves 'a' tag order
   // The children are already in the correct order from the publication tree, so no additional sorting is needed
 
   #buildTocEntryFromResolvedNode(address: string) {

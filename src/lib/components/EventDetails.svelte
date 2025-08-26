@@ -14,20 +14,31 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import EmbeddedEvent from "./embedded_events/EmbeddedEvent.svelte";
+  import { 
+    repostContent, 
+    quotedContent,
+  } from "$lib/snippets/EmbeddedSnippets.svelte";
+  import { repostKinds } from "$lib/consts";
+  import { getNdkContext } from "$lib/ndk";
   import type { UserProfile } from "$lib/models/user_profile";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const {
     event,
     profile = null,
+    communityStatusMap = {},
   } = $props<{
     event: NDKEvent;
     profile?: UserProfile | null;
+    communityStatusMap?: Record<string, boolean>;
   }>();
+
+  const ndk = getNdkContext();
 
   let authorDisplayName = $state<string | undefined>(undefined);
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
+  let isRepost = $derived(repostKinds.includes(event.kind) || (event.kind === 1 && event.getMatchingTags("q").length > 0));
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -70,7 +81,7 @@
   }
 
   function getEventTypeDisplay(event: NDKEvent): string {
-    const [mTag, MTag] = getMimeTags(event.kind || 0);
+    const [_, MTag] = getMimeTags(event.kind || 0);
     return MTag[1].split("/")[1] || `Event Kind ${event.kind}`;
   }
 
@@ -178,6 +189,31 @@
         text: `t:${tag[1]}`,
         gotoValue: `t:${tag[1]}`,
       };
+    } else if (tag[0] === "q" && tag.length > 1) {
+      // 'q' tags are quoted events - navigate to the quoted event
+      if (/^[0-9a-fA-F]{64}$/.test(tag[1])) {
+        try {
+          const mockEvent = {
+            id: tag[1],
+            kind: 1,
+            content: "",
+            tags: [],
+            pubkey: "",
+            sig: "",
+          } as any;
+          const nevent = neventEncode(mockEvent, $activeInboxRelays);
+          return {
+            text: `q:${tag[1]}`,
+            gotoValue: nevent,
+          };
+        } catch (error) {
+          console.warn("Failed to encode nevent for q tag:", tag[1], error);
+          return { text: `q:${tag[1]}` };
+        }
+      } else {
+        console.warn("Invalid event ID in q tag:", tag[1]);
+        return { text: `q:${tag[1]}` };
+      }
     }
     return { text: `${tag[0]}:${tag[1]}` };
   }
@@ -259,9 +295,9 @@
 </script>
 
 <div class="flex flex-col space-y-4 min-w-0">
-  {#if event.kind !== 0 && getEventTitle(event)}
+  {#if event.kind !== 0}
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
-      {getEventTitle(event)}
+      {@render basicMarkup(getEventTitle(event), ndk)}
     </h2>
   {/if}
 
@@ -276,6 +312,7 @@
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
           profile?.display_name || undefined,
+          ndk,
         )}</span
       >
     {:else}
@@ -293,30 +330,70 @@
     >
   </div>
 
-  {#if getEventSummary(event)}
-    <div class="flex flex-col space-y-1 min-w-0">
-      <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <p class="text-gray-900 dark:text-gray-100 break-words">{getEventSummary(event)}</p>
+  <div class="flex flex-col space-y-1 min-w-0">
+    <span class="text-gray-700 dark:text-gray-300">Summary:</span>
+    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+      {@render basicMarkup(getEventSummary(event), ndk)}
     </div>
-  {/if}
+  </div>
 
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
 
   <!-- Content -->
   {#if event.kind !== 0}
+    {@const kind = event.kind}
+    {@const content = event.content.trim()}
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
         <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-          <EmbeddedEvent nostrIdentifier={event.id} nestingLevel={0} />
-        </div>
-        {#if shouldTruncate}
-          <button
-            class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-            onclick={() => (showFullContent = true)}>Show more</button
-          >
+        {#if isRepost}
+          <!-- Repost content handling -->
+          {#if repostKinds.includes(event.kind)}
+            <!-- Kind 6 and 16 reposts - stringified JSON content -->
+            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
+              </div>
+              {@render repostContent(event.content)}
+            </div>
+          {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+            <!-- Quote repost - kind 1 with q tag -->
+            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Quote repost:
+              </div>
+              {@render quotedContent(event, [], ndk)}
+              {#if content}
+                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Added comment:
+                  </div>
+                  {#if repostKinds.includes(kind)}
+                    {@html content}
+                  {:else}
+                    {@render basicMarkup(content, ndk)}
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        {:else}
+          <!-- Regular content -->
+          <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+            {#if repostKinds.includes(kind)}
+              {@html content}
+            {:else}
+              {@render basicMarkup(content, ndk)}
+            {/if}
+          </div>
+          {#if shouldTruncate}
+            <button
+              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+              onclick={() => (showFullContent = true)}>Show more</button
+            >
+          {/if}
         {/if}
         </div>
       </div>
@@ -328,6 +405,7 @@
     <ProfileHeader
       {event}
       {profile}
+      {communityStatusMap}
     />
   {/if}
 
@@ -404,7 +482,14 @@
                     const tTag = tagInfo.gotoValue!.substring(2);
                     goto(`/events?t=${encodeURIComponent(tTag)}`);
                   } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                    // For hex event IDs - use navigateToEvent
+                    // AI-NOTE:  E-tag navigation may cause comment feed update issues
+                    // When navigating to a new event via e-tag, the CommentViewer component
+                    // may experience timing issues that result in:
+                    // - Empty comment feeds even when comments exist
+                    // - UI flashing between different thread views
+                    // - Delayed comment loading
+                    // This is likely due to race conditions between event prop changes
+                    // and comment fetching in the CommentViewer component.
                     navigateToEvent(tagInfo.gotoValue!);
                   } else {
                     // For other cases, try direct navigation

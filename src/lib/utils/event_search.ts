@@ -16,7 +16,7 @@ export async function searchEvent(query: string, ndk: NDK): Promise<NDKEvent | n
     return null;
   }
 
-  // AI-NOTE: 2025-01-24 - Wait for any relays to be available, not just pool relays
+  // AI-NOTE:  Wait for any relays to be available, not just pool relays
   // This ensures searches can proceed even if some relay types are not available
   let attempts = 0;
   const maxAttempts = 5; // Reduced since we'll use fallback relays
@@ -47,7 +47,7 @@ export async function searchEvent(query: string, ndk: NDK): Promise<NDKEvent | n
     attempts++;
   }
 
-  // AI-NOTE: 2025-01-24 - Don't fail if no relays are available, let fetchEventWithFallback handle fallbacks
+  // AI-NOTE:  Don't fail if no relays are available, let fetchEventWithFallback handle fallbacks
   // The fetchEventWithFallback function will use all available relays including fallback relays
   if (ndk.pool.relays.size === 0) {
     console.warn(
