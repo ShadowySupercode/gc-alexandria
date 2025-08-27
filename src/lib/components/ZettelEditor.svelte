@@ -2,9 +2,11 @@
   import { Button } from "flowbite-svelte";
   import { EyeOutline, QuestionCircleOutline } from "flowbite-svelte-icons";
   import { EditorView, basicSetup } from "codemirror";
-  import { EditorState } from "@codemirror/state";
+  import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
   import { oneDark } from "@codemirror/theme-one-dark";
+  import { ViewPlugin, Decoration, type DecorationSet } from "@codemirror/view";
+  import { RangeSet } from "@codemirror/state";
   import { onMount } from "svelte";
   import {
   extractSmartMetadata,
@@ -56,6 +58,15 @@ import Asciidoctor from "asciidoctor";
   // Update editor when content changes externally
   $effect(() => {
     updateEditorContent();
+  });
+
+  // Effect to update syntax highlighting when parsedSections change
+  $effect(() => {
+    if (editorView && parsedSections) {
+      editorView.dispatch({
+        effects: updateHighlighting.of(parsedSections)
+      });
+    }
   });
 
   // Effect to create PublicationTree when content changes
@@ -244,19 +255,142 @@ import Asciidoctor from "asciidoctor";
   let editorContainer = $state<HTMLDivElement | null>(null);
   let editorView = $state<EditorView | null>(null);
 
+  // Create update effect for highlighting
+  const updateHighlighting = StateEffect.define<any>();
+
+  // State field to track header decorations
+  const headerDecorations = StateField.define<DecorationSet>({
+    create() {
+      return Decoration.none;
+    },
+    update(decorations, tr) {
+      // Update decorations when content changes or highlighting is updated
+      decorations = decorations.map(tr.changes);
+      
+      for (let effect of tr.effects) {
+        if (effect.is(updateHighlighting)) {
+          decorations = createHeaderDecorations(tr.state, effect.value);
+        }
+      }
+      
+      return decorations;
+    },
+    provide: (f) => EditorView.decorations.from(f)
+  });
+
+  // Function to create header decorations based on parsed sections
+  function createHeaderDecorations(state: EditorState, sections: any[]): DecorationSet {
+    const ranges: Array<{from: number, to: number, decoration: any}> = [];
+    const doc = state.doc;
+    const content = doc.toString();
+    const lines = content.split('\n');
+    
+    // Create a map of header text to section info for fast lookup
+    const sectionMap = new Map();
+    if (sections) {
+      sections.forEach(section => {
+        if (section.title) {
+          sectionMap.set(section.title.toLowerCase().trim(), {
+            level: section.level,
+            isEventTitle: true,
+            eventType: section.eventType,
+            eventKind: section.eventKind
+          });
+        }
+      });
+    }
+    
+    let pos = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const headerMatch = line.match(/^(=+)\s+(.+)$/);
+      
+      if (headerMatch) {
+        const level = headerMatch[1].length;
+        const headerText = headerMatch[2].trim().toLowerCase();
+        const lineStart = pos;
+        const lineEnd = pos + line.length;
+        
+        // Check if this header is an event title
+        const sectionInfo = sectionMap.get(headerText);
+        let className: string;
+        
+        if (sectionInfo && sectionInfo.isEventTitle) {
+          // Event title - different colors based on event type
+          if (sectionInfo.eventKind === 30040) {
+            className = 'cm-header-index-event';
+          } else if (sectionInfo.eventKind === 30041) {
+            className = 'cm-header-content-event';
+          } else {
+            className = 'cm-header-event-title';
+          }
+        } else {
+          // Regular subheader within content
+          if (level <= parseLevel) {
+            className = 'cm-header-potential-event';
+          } else {
+            className = 'cm-header-subcontent';
+          }
+        }
+        
+        ranges.push({
+          from: lineStart,
+          to: lineEnd,
+          decoration: Decoration.mark({ class: className })
+        });
+      }
+      
+      pos += line.length + 1; // +1 for newline
+    }
+    
+    console.log(`Created ${ranges.length} header decorations`);
+    return RangeSet.of(ranges.map(r => r.decoration.range(r.from, r.to)));
+  }
+
   // Initialize CodeMirror editor
   function createEditor() {
     if (!editorContainer) return;
 
-    // Create custom theme with header highlighting based on parse level
+    // Create custom theme with header highlighting classes
     const headerHighlighting = EditorView.theme({
-      '.cm-asciidoc-header-1': { color: '#6B7280' }, // gray-500
-      '.cm-asciidoc-header-2-index': { color: '#3B82F6', fontWeight: '600' }, // blue-500 for index
-      '.cm-asciidoc-header-2-content': { color: '#22C55E', fontWeight: '600' }, // green-500 for content
-      '.cm-asciidoc-header-3-index': { color: '#3B82F6', fontWeight: '600' },
-      '.cm-asciidoc-header-3-content': { color: '#22C55E', fontWeight: '600' },
-      '.cm-asciidoc-header-4': { color: '#6B7280', fontWeight: '600' },
-      '.cm-asciidoc-header-5': { color: '#6B7280', fontWeight: '600' },
+      // Event titles (extracted as separate events)
+      '.cm-header-index-event': { 
+        color: '#3B82F6', // blue-500 for index events (30040)
+        fontWeight: '700',
+        fontSize: '1.1em',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderLeft: '3px solid #3B82F6',
+        paddingLeft: '8px'
+      },
+      '.cm-header-content-event': { 
+        color: '#10B981', // emerald-500 for content events (30041)
+        fontWeight: '700', 
+        fontSize: '1.1em',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderLeft: '3px solid #10B981',
+        paddingLeft: '8px'
+      },
+      '.cm-header-event-title': {
+        color: '#8B5CF6', // violet-500 for other event types
+        fontWeight: '700',
+        fontSize: '1.1em',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderLeft: '3px solid #8B5CF6',
+        paddingLeft: '8px'
+      },
+      // Potential events (at parse level but not extracted yet)
+      '.cm-header-potential-event': {
+        color: '#F59E0B', // amber-500 for headers at parse level
+        fontWeight: '600',
+        textDecoration: 'underline',
+        textDecorationStyle: 'dotted'
+      },
+      // Subcontent headers (below parse level, part of content)
+      '.cm-header-subcontent': {
+        color: '#6B7280', // gray-500 for regular subheaders
+        fontWeight: '500',
+        fontStyle: 'italic'
+      }
     });
 
     const state = EditorState.create({
@@ -264,6 +398,7 @@ import Asciidoctor from "asciidoctor";
       extensions: [
         basicSetup,
         markdown(), // AsciiDoc is similar to markdown syntax
+        headerDecorations,
         headerHighlighting,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -606,6 +741,29 @@ import Asciidoctor from "asciidoctor";
           </div>
           
           <div class="flex-1 overflow-y-auto p-4 text-sm text-gray-700 dark:text-gray-300 space-y-4">
+            <!-- Syntax Highlighting Legend -->
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Header Highlighting</h4>
+              <div class="space-y-2 text-xs">
+                <div class="flex items-center space-x-2">
+                  <div class="w-4 h-4 rounded" style="background: linear-gradient(to right, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)); border-left: 2px solid #3B82F6;"></div>
+                  <span><strong class="text-blue-600">Blue:</strong> Index Events (30040)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <div class="w-4 h-4 rounded" style="background: linear-gradient(to right, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1)); border-left: 2px solid #10B981;"></div>
+                  <span><strong class="text-green-600">Green:</strong> Content Events (30041)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <div class="w-4 h-4 rounded bg-amber-200 dark:bg-amber-800" style="text-decoration: underline;"></div>
+                  <span><strong class="text-amber-600">Amber:</strong> Potential Events (at parse level)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <div class="w-4 h-4 rounded bg-gray-200 dark:bg-gray-600" style="font-style: italic;"></div>
+                  <span><strong class="text-gray-600">Gray:</strong> Subheaders (within content)</span>
+                </div>
+              </div>
+            </div>
+            
             <div>
               <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Publishing Levels</h4>
               <ul class="space-y-1 text-xs">
