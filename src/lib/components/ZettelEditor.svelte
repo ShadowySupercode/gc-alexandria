@@ -1,6 +1,11 @@
 <script lang="ts">
-  import { Textarea, Button } from "flowbite-svelte";
+  import { Button } from "flowbite-svelte";
   import { EyeOutline, QuestionCircleOutline } from "flowbite-svelte-icons";
+  import { EditorView, basicSetup } from "codemirror";
+  import { EditorState } from "@codemirror/state";
+  import { markdown } from "@codemirror/lang-markdown";
+  import { oneDark } from "@codemirror/theme-one-dark";
+  import { onMount } from "svelte";
   import {
   extractSmartMetadata,
   type AsciiDocMetadata,
@@ -47,17 +52,11 @@ import Asciidoctor from "asciidoctor";
   let generatedEvents = $state<any>(null);
   let contentType = $state<'article' | 'scattered-notes' | 'none'>('none');
   
-  // Gutter visualization state for Phase 2
-  let gutterIndicators = $state<Array<{
-    lineNumber: number;
-    eventKind: 30040 | 30041;
-    eventType: 'index' | 'content';
-    level: number;
-    title: string;
-  }>>([]);
-  let hoveredLineNumber = $state<number | null>(null);
-  let textareaRef = $state<any>(null); // Flowbite Textarea component ref
-  let gutterElement = $state<HTMLDivElement | null>(null);
+
+  // Update editor when content changes externally
+  $effect(() => {
+    updateEditorContent();
+  });
 
   // Effect to create PublicationTree when content changes
   // Uses tree processor extension as Michael envisioned:
@@ -69,7 +68,6 @@ import Asciidoctor from "asciidoctor";
       publicationResult = null;
       generatedEvents = null;
       contentType = 'none';
-      gutterIndicators = [];
       return;
     }
     
@@ -93,46 +91,12 @@ import Asciidoctor from "asciidoctor";
           parseLevel: parseLevel
         });
         
-        // Temporary: Create sample gutter indicators for testing
-        // This will be replaced with proper line detection in Checkpoint 2.2
-        if (publicationResult?.metadata?.eventStructure) {
-          const tempIndicators: typeof gutterIndicators = [];
-          const lines = content.split('\n');
-          
-          // Simple detection of section headers for testing
-          lines.forEach((line: string, index: number) => {
-            const match = line.match(/^(=+)\s+(.+)/);
-            if (match) {
-              const level = match[1].length;
-              const title = match[2].trim();
-              
-              // Find matching event structure node
-              const node = publicationResult.metadata.eventStructure.find((n: any) => 
-                n.title === title || n.title.includes(title)
-              );
-              
-              if (node) {
-                tempIndicators.push({
-                  lineNumber: index + 1,
-                  eventKind: node.eventKind as 30040 | 30041,
-                  eventType: node.eventType as 'index' | 'content',
-                  level: level,
-                  title: title
-                });
-              }
-            }
-          });
-          
-          gutterIndicators = tempIndicators;
-          console.log("Gutter indicators:", gutterIndicators);
-        }
       })
       .catch(error => {
         console.error("Tree factory error:", error);
         publicationResult = null;
         generatedEvents = null;
         contentType = 'none';
-        gutterIndicators = [];
       });
   });
 
@@ -276,26 +240,95 @@ import Asciidoctor from "asciidoctor";
     showTutorial = !showTutorial;
   }
 
-  // Handle content changes
-  function handleContentChange(event: Event) {
-    const target = event.target as HTMLTextAreaElement;
-    onContentChange(target.value);
+  // CodeMirror editor state
+  let editorContainer = $state<HTMLDivElement | null>(null);
+  let editorView = $state<EditorView | null>(null);
+
+  // Initialize CodeMirror editor
+  function createEditor() {
+    if (!editorContainer) return;
+
+    // Create custom theme with header highlighting based on parse level
+    const headerHighlighting = EditorView.theme({
+      '.cm-asciidoc-header-1': { color: '#6B7280' }, // gray-500
+      '.cm-asciidoc-header-2-index': { color: '#3B82F6', fontWeight: '600' }, // blue-500 for index
+      '.cm-asciidoc-header-2-content': { color: '#22C55E', fontWeight: '600' }, // green-500 for content
+      '.cm-asciidoc-header-3-index': { color: '#3B82F6', fontWeight: '600' },
+      '.cm-asciidoc-header-3-content': { color: '#22C55E', fontWeight: '600' },
+      '.cm-asciidoc-header-4': { color: '#6B7280', fontWeight: '600' },
+      '.cm-asciidoc-header-5': { color: '#6B7280', fontWeight: '600' },
+    });
+
+    const state = EditorState.create({
+      doc: content,
+      extensions: [
+        basicSetup,
+        markdown(), // AsciiDoc is similar to markdown syntax
+        headerHighlighting,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onContentChange(update.state.doc.toString());
+          }
+        }),
+        EditorView.theme({
+          '&': {
+            fontSize: '14px',
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+            height: '100%'
+          },
+          '.cm-content': {
+            padding: '16px',
+            minHeight: '100%'
+          },
+          '.cm-editor': {
+            borderRadius: '0.5rem',
+            height: '100%'
+          },
+          '.cm-scroller': {
+            overflow: 'auto',
+            height: '100%',
+            fontFamily: 'inherit'
+          },
+          '.cm-focused': {
+            outline: 'none'
+          }
+        })
+      ]
+    });
+
+    editorView = new EditorView({
+      state,
+      parent: editorContainer
+    });
   }
-  
-  // Synchronize gutter scroll with textarea scroll
-  function handleTextareaScroll(event: Event) {
-    if (!gutterElement) return;
-    const target = event.target as HTMLTextAreaElement;
-    gutterElement.scrollTop = target.scrollTop;
+
+  // Update editor content when content prop changes
+  function updateEditorContent() {
+    if (!editorView) return;
+    
+    const currentContent = editorView.state.doc.toString();
+    if (currentContent !== content) {
+      editorView.dispatch({
+        changes: {
+          from: 0,
+          to: currentContent.length,
+          insert: content
+        }
+      });
+    }
   }
-  
-  // Calculate top position for a line number in the gutter
-  function calculateLineTop(lineNumber: number): number {
-    // Approximate line height based on textarea's line-height
-    // We use 1.5rem (24px) as specified in the textarea class
-    const lineHeight = 24; // 1.5rem with text-sm
-    return (lineNumber - 1) * lineHeight;
-  }
+
+  // Mount CodeMirror when component mounts
+  onMount(() => {
+    createEditor();
+    
+    return () => {
+      if (editorView) {
+        editorView.destroy();
+      }
+    };
+  });
+
 </script>
 
 <div class="flex flex-col space-y-4">
@@ -390,48 +423,12 @@ import Asciidoctor from "asciidoctor";
   <div class="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-6 h-[60vh] min-h-[400px] max-h-[800px]">
     <!-- Editor Panel -->
     <div class="{showPreview && showTutorial ? 'lg:w-1/3' : showPreview || showTutorial ? 'lg:w-1/2' : 'w-full'} flex flex-col">
-      <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
-        <!-- Gutter Overlay for Visual Indicators (Phase 2) -->
-        <div 
-          bind:this={gutterElement}
-          class="absolute left-0 top-0 w-12 h-full overflow-hidden pointer-events-none z-10"
-          style="padding-top: 1rem; padding-bottom: 1rem;" 
-        >
-          <div class="relative h-full">
-            <!-- Gutter background -->
-            <div class="absolute inset-0 bg-gray-50 dark:bg-gray-800 opacity-50 border-r border-gray-200 dark:border-gray-700"></div>
-            
-            <!-- Indicators will be rendered here in future checkpoints -->
-            {#each gutterIndicators as indicator}
-              <div
-                class="absolute left-0 flex items-center justify-center w-full h-6 transition-all duration-200"
-                style="top: {calculateLineTop(indicator.lineNumber)}px;"
-              >
-                <!-- Placeholder for visual indicators -->
-                <div class="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-600"></div>
-              </div>
-            {/each}
-            
-            <!-- Hover highlight (for future interactivity) -->
-            {#if hoveredLineNumber}
-              <div 
-                class="absolute left-0 w-full h-6 bg-blue-100 dark:bg-blue-900 opacity-30 transition-all duration-150"
-                style="top: {calculateLineTop(hoveredLineNumber)}px;"
-              ></div>
-            {/if}
-          </div>
-        </div>
-        
-        <!-- Textarea with left padding to accommodate gutter -->
-        <Textarea
-          bind:this={textareaRef}
-          bind:value={content}
-          oninput={handleContentChange}
-          onscroll={handleTextareaScroll}
-          {placeholder}
-          class="w-full h-full resize-none font-mono text-sm leading-relaxed p-4 bg-white dark:bg-gray-900 border-none outline-none"
-          style="padding-left: 4rem;"
-        />
+      <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900" style="overflow: hidden;">
+        <!-- CodeMirror Editor Container -->
+        <div
+          bind:this={editorContainer}
+          class="w-full h-full"
+        ></div>
       </div>
     </div>
 
@@ -525,10 +522,16 @@ import Asciidoctor from "asciidoctor";
                           Content Event (30041)
                         </div>
                         
-                        <!-- Title as level 2 heading -->
-                        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
-                          == {section.title}
-                        </h2>
+                        <!-- Title at correct heading level -->
+                        <div class="prose prose-sm dark:prose-invert max-w-none">
+                          {@html asciidoctor.convert(`${'='.repeat(section.level)} ${section.title}`, {
+                            standalone: false,
+                            attributes: {
+                              showtitle: false,
+                              sectids: false,
+                            }
+                          })}
+                        </div>
                         
                         <!-- Tags -->
                         {#if section.tags && section.tags.length > 0}
