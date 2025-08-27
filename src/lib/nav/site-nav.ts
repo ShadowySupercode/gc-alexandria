@@ -26,7 +26,8 @@ export const siteNav: NavItem[] = [
       { title: 'Onboarding', children: [{ title: 'Getting Started', href: '/start' }] },
       { title: 'Project', children: [
           { title: 'About', href: '/about' },
-          { title: 'Contact', href: '/contact' }
+          { title: 'Contact', href: '/contact' },
+          { title: 'Relay Status', href: '/about/relay-stats' }
         ] }
     ]
   }

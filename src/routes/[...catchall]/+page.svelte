@@ -10,8 +10,8 @@
   <P class="note-leather mb-6"
     >The page you are looking for does not exist or has been moved.</P
   >
-  <div class="flex space-x-4">
-    <Button class="btn-leather !w-fit" onclick={() => goto("/")}
+  <div class="flex flex-row space-x-4">
+    <Button class="btn-leather !w-fit !mb-0" onclick={() => goto("/")}
       >Return to Home</Button
     >
     <Button

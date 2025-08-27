@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { theme, setTheme } from '$lib/theme/theme-store';
-  import AButton from '../primitives/AButton.svelte';
+  import { theme, setTheme } from '$lib/stores/themeStore.ts';
   let size = 16;
   let line = 1.7;
   function applySize() {
@@ -37,12 +36,12 @@
   </select>
   <div class="mx-2 h-6 w-px bg-muted/30" />
   <label class="text-sm opacity-70">Text size</label>
-  <AButton variant="outline" size="sm" on:click={decSize}>−</AButton>
+  <Button variant="outline" size="sm" on:click={decSize}>−</Button>
   <span class="text-sm w-8 text-center">{size}px</span>
-  <AButton variant="outline" size="sm" on:click={incSize}>+</AButton>
+  <Button variant="outline" size="sm" on:click={incSize}>+</Button>
   <div class="mx-2 h-6 w-px bg-muted/30" />
   <label class="text-sm opacity-70">Line height</label>
-  <AButton variant="outline" size="sm" on:click={decLine}>−</AButton>
+  <Button variant="outline" size="sm" on:click={decLine}>−</Button>
   <span class="text-sm w-10 text-center">{line}</span>
-  <AButton variant="outline" size="sm" on:click={incLine}>+</AButton>
+  <Button variant="outline" size="sm" on:click={incLine}>+</Button>
 </div>

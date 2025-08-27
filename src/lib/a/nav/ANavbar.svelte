@@ -16,6 +16,9 @@
   import { goto } from "$app/navigation";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import { AThemeToggleMini } from "$lib/a";
+  import { getNdkContext } from "$lib/ndk.ts";
+
+  const ndk = getNdkContext();
 
   let {
     currentPath = "",
@@ -29,7 +32,7 @@
     if (item.href) {
       goto(item.href);
     } else if (item.id === 'logout') {
-      logoutUser();
+      logoutUser(ndk);
     }
   }
 
@@ -51,7 +54,7 @@
       <h1>Alexandria</h1>
     </NavBrand>
     <div class="flex md:order-2">
-      <Profile isNav={true} pubkey={userState?.npub || undefined} />
+      <Profile isNav={true} />
       <NavHamburger />
     </div>
     <NavUl class="order-1" activeUrl={currentPath}>
@@ -75,7 +78,6 @@
         {/if}
       {/each}
       <NavLi>
-        <DarkMode class="btn-leather p-0" />
       </NavLi>
       <AThemeToggleMini />
     </NavUl>

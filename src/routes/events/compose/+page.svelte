@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
   import EventInput from "$components/EventInput.svelte";
-  import { userPubkey, isLoggedIn } from "$lib/stores/authStore.Svelte.js";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk.ts";
+  import { userStore } from "$lib/stores/userStore.ts";
 
   // AI-NOTE: 2025-01-24 - Reactive effect to log relay configuration when stores change - non-blocking approach
   $effect.pre(() => {
@@ -32,7 +32,7 @@
         You can create notes, articles, and other event types depending on your needs.
       </P>
 
-      {#if isLoggedIn && userPubkey}
+      {#if $userStore.signedIn}
         <EventInput />
       {:else}
         <div class="p-6 bg-gray-200 dark:bg-gray-700 rounded-lg text-center">

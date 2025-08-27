@@ -290,13 +290,10 @@
   });
 </script>
 
-<div class="w-full flex justify-center">
-  <main
-    class="main-leather flex flex-col space-y-6 max-w-3xl w-full my-6 px-6 sm:px-4"
-  >
+<div class="w-full max-w-3xl flex self-center">
     <Heading tag="h1" class="h-leather mb-2">Contact GitCitadel</Heading>
 
-    <P class="mb-3">
+    <P class="my-3">
       Make sure that you follow us on <A
         href="https://github.com/ShadowySupercode/gitcitadel"
         target="_blank">GitHub</A
@@ -318,7 +315,7 @@
 
     <Heading tag="h2" class="h-leather mt-4 mb-2">Submit an issue</Heading>
 
-    <P class="mb-3">
+    <P class="my-3">
       If you are logged into the Alexandria web application (using the button at
       the top-right of the window), then you can use the form, below, to submit
       an issue, that will appear on our repo page.
@@ -577,7 +574,6 @@ Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. Wi
         </div>
       {/if}
     </form>
-  </main>
 </div>
 
 <!-- Confirmation Dialog -->

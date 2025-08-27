@@ -1,0 +1,5 @@
+@layer components {
+    .alert-leather {
+        @apply border border-s-4;
+    }
+}

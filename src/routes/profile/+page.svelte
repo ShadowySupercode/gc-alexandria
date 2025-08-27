@@ -1,13 +1,13 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
-  import { AAlert } from "$lib/a";
+  import { AAlert, ACommentForm } from "$lib/a";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { userStore } from "$lib/stores/userStore";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { ndkInstance } from "$lib/ndk";
+  import { getNdkContext } from "$lib/ndk.ts";
 
   // State
   let user = $state($userStore);
@@ -34,7 +34,7 @@
     loading = true;
     error = null;
     try {
-      const ndk = $ndkInstance;
+      const ndk = getNdkContext();
       if (!ndk) {
         throw new Error('NDK not initialized');
       }

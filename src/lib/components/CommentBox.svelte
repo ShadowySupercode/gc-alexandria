@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { Button, Textarea, Alert, Modal, Input } from "flowbite-svelte";
+  import { Button, Alert, Modal, Input, ToolbarButton } from "flowbite-svelte";
   import { UserOutline } from "flowbite-svelte-icons";
   import { nip19 } from "nostr-tools";
   import { toNpub } from "$lib/utils/nostrUtils";
   import { searchProfiles } from "$lib/utils/search_utility";
-  import type { NostrProfile } from "$lib/utils/search_types";
+  import type {
+    NostrProfile,
+  } from "$lib/utils/search_utility";
+
+
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
@@ -18,6 +22,8 @@
   import { goto } from "$app/navigation";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { ACommentForm } from "$lib/a";
+  import { AtSign } from "@lucide/svelte";
 
   const props = $props<{
     event: NDKEvent;
@@ -155,7 +161,7 @@
 
   async function handleSubmit(
     useOtherRelays = false,
-    useSecondaryRelays = false,
+    useSecondaryRelays = false
   ) {
     isSubmitting = true;
     error = null;
@@ -372,16 +378,21 @@
   }
 </script>
 
+{#snippet commentExtensions()}
+  <ToolbarButton title="Mention" color="dark" size="md" onclick={() => { showMentionModal = true; }}><AtSign size={24} /></ToolbarButton>
+  <ToolbarButton title="Insert Wikilink" color="dark" size="md" onclick={() => { showWikilinkModal = true; }}>
+    <span class="icon-wiki">[[ ]]</span>
+  </ToolbarButton>
+{/snippet}
+
 <div class="w-full space-y-4">
-  <div class="flex flex-wrap gap-2">
-    {#each markupButtons as button}
-      <Button size="xs" onclick={button.action}>{button.label}</Button>
-    {/each}
-    <Button size="xs" color="alternative" onclick={removeFormatting}
-      >Remove Formatting</Button
-    >
-    <Button size="xs" color="alternative" onclick={clearForm}>Clear</Button>
-  </div>
+
+  <ACommentForm
+    bind:content={content}
+    {isSubmitting}
+    onSubmit={() => handleSubmit()}
+    extensions={commentExtensions}
+  />
 
   <!-- Mention Modal -->
   <Modal
@@ -436,81 +447,85 @@
         >
           <ul class="space-y-1 p-2">
             {#each mentionResults as profile}
-              <button
-                type="button"
-                class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
-                onclick={() => selectMention(profile)}
-              >
-                {#if profile.isInUserLists}
-                  <div
-                    class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
-                    title="In your lists"
-                  >
-                    <svg
-                      class="w-4 h-4 text-red-600 dark:text-red-400"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+              <li>
+                <div
+                  role="button"
+                  tabindex="0"
+                  class="w-full text-left cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded flex items-center gap-3"
+                  onclick={() => selectMention(profile)}
+                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMention(profile); } }}
+                >
+                  {#if profile.isInUserLists}
+                    <div
+                      class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+                      title="In your lists"
                     >
-                      <path
-                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                      />
-                    </svg>
-                  </div>
-                {:else if profile.pubkey && communityStatus[profile.pubkey]}
-                  <div
-                    class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
-                    title="Has posted to the community"
-                  >
-                    <svg
-                      class="w-4 h-4 text-yellow-600 dark:text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                      />
-                    </svg>
-                  </div>
-                {:else}
-                  <div class="flex-shrink-0 w-6 h-6"></div>
-                {/if}
-                {#if profile.picture}
-                  <img
-                    src={profile.picture}
-                    alt="Profile"
-                    class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
-                {:else}
-                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
-                    <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                  </div>
-                {/if}
-                <div class="flex flex-col text-left min-w-0 flex-1">
-                  <span class="font-semibold truncate">
-                    {profile.displayName || profile.name || "anon"}
-                  </span>
-                  {#if profile.nip05}
-                    <span class="text-xs text-gray-500 flex items-center gap-1">
                       <svg
-                        class="inline w-4 h-4 text-primary-500"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
+                        class="w-4 h-4 text-red-600 dark:text-red-400"
+                        fill="currentColor"
                         viewBox="0 0 24 24"
-                        ><path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M5 13l4 4L19 7"
-                        /></svg
                       >
-                      {profile.nip05}
-                    </span>
+                        <path
+                          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                        />
+                      </svg>
+                    </div>
+                  {:else if profile.pubkey && communityStatus[profile.pubkey]}
+                    <div
+                      class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+                      title="Has posted to the community"
+                    >
+                      <svg
+                        class="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                        />
+                      </svg>
+                    </div>
+                  {:else}
+                    <div class="flex-shrink-0 w-6 h-6"></div>
                   {/if}
-                  <span class="text-xs text-gray-400 font-mono truncate"
-                    >{shortenNpub(profile.pubkey)}</span
-                  >
+                  {#if profile.picture}
+                    <img
+                      src={profile.picture}
+                      alt="Profile"
+                      class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  {:else}
+                    <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                      <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </div>
+                  {/if}
+                  <div class="flex flex-col text-left min-w-0 flex-1">
+                    <span class="font-semibold truncate">
+                      {profile.displayName || profile.name || "anon"}
+                    </span>
+                    {#if profile.nip05}
+                      <span class="text-xs text-gray-500 flex items-center gap-1">
+                        <svg
+                          class="inline w-4 h-4 text-primary-500"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          ><path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M5 13l4 4L19 7"
+                          /></svg
+                        >
+                        {profile.nip05}
+                      </span>
+                    {/if}
+                    <span class="text-xs text-gray-400 font-mono truncate"
+                      >{shortenNpub(profile.pubkey)}</span
+                    >
+                  </div>
                 </div>
-              </button>
+              </li>
             {/each}
           </ul>
         </div>
@@ -604,43 +619,6 @@
       </button>
     </Alert>
   {/if}
-
-  <div class="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4">
-    {#if userProfile}
-      <div class="flex items-center gap-2 text-sm min-w-0 flex-shrink">
-        {#if userProfile.picture}
-          <img
-            src={userProfile.picture}
-            alt={userProfile.name || "Profile"}
-            class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-            onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-          />
-        {:else}
-          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-            <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
-          </div>
-        {/if}
-        <span class="text-gray-900 dark:text-gray-100 truncate">
-          {userProfile.displayName ||
-            userProfile.name ||
-            "anon"}
-        </span>
-      </div>
-    {/if}
-    <Button
-      onclick={() => handleSubmit()}
-      disabled={isSubmitting || !content.trim() || !$userStore.pubkey}
-      class="w-auto min-w-[120px]"
-    >
-      {#if !$userStore.pubkey}
-        Not Signed In
-      {:else if isSubmitting}
-        Publishing...
-      {:else}
-        Post Comment
-      {/if}
-    </Button>
-  </div>
 
   {#if !$userStore.pubkey}
     <Alert color="yellow" class="mt-4">

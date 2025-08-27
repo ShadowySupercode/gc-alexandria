@@ -218,6 +218,32 @@
     return { text: `${tag[0]}:${tag[1]}` };
   }
 
+  // Navigation for tag buttons (moved out of template)
+  function handleTagGoto(value: string) {
+    if (!value) return;
+    if (
+      value.startsWith("naddr") ||
+      value.startsWith("nevent") ||
+      value.startsWith("npub") ||
+      value.startsWith("nprofile") ||
+      value.startsWith("note")
+    ) {
+      goto(`/events?id=${value}`);
+    } else if (value.startsWith("/")) {
+      goto(value);
+    } else if (value.startsWith("d:")) {
+      const dTag = value.substring(2);
+      goto(`/events?d=${encodeURIComponent(dTag)}`);
+    } else if (value.startsWith("t:")) {
+      const tTag = value.substring(2);
+      goto(`/events?t=${encodeURIComponent(tTag)}`);
+    } else if (/^[0-9a-fA-F]{64}$/.test(value)) {
+      navigateToEvent(value);
+    } else {
+      goto(`/events?id=${value}`);
+    }
+  }
+
   $effect(() => {
     if (!event?.pubkey) {
       authorDisplayName = undefined;
@@ -299,11 +325,6 @@
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
       {@render basicMarkup(getEventTitle(event), ndk)}
     </h2>
-  {/if}
-
-  <!-- Notifications (for profile events) -->
-  {#if event.kind === 0}
-    <Notifications {event} />
   {/if}
 
   <div class="flex items-center space-x-2 min-w-0">

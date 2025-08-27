@@ -12,15 +12,14 @@
   const ndk = getNdkContext();
 </script>
 
-<div class="w-full flex justify-center">
-  <main class="main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4">
-    <div class="flex justify-between items-center">
+<div class="w-full max-w-3xl flex self-center">
+    <div class="flex justify-between items-center mb-4">
       <Heading tag="h1" class="h-leather mb-2"
         >About the Library of Alexandria</Heading
       >
       {#if isVersionKnown}
         <span
-          class="text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-nowrap"
+          class="mt-2 text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-nowrap"
           >Version: {appVersion}</span
         >
       {/if}
@@ -62,9 +61,4 @@
         target="_blank">homepage</A
       > and find out more about us, and the many projects we are working on.
     </P>
-
-    <div class="border-t pt-6">
-      <RelayStatus />
-    </div>
-  </main>
 </div>

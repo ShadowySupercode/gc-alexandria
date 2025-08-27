@@ -8,7 +8,8 @@
 @import "./styles/publications.css";
 @import "./styles/visualize.css";
 @import "./styles/asciidoc.css";
-@import "./theme-tokens.css";
+@import "theme-tokens.css";
+@import "./styles/a/primitives.css";
 
 @layer theme, base, components, utilities;
 
@@ -208,12 +209,7 @@
   div.note-leather,
   p.note-leather,
   section.note-leather {
-<<<<<<< HEAD
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
-      p-2 rounded;
-=======
     @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
->>>>>>> 470a478 (Update, explode and break styles and components)
   }
 
   .edit div.note-leather:hover:not(:has(.note-leather:hover)),
@@ -265,12 +261,7 @@
   }
 
   div.modal-leather > div {
-<<<<<<< HEAD
-    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100
-      dark:border-primary-600;
-=======
     @apply bg-primary-50 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
->>>>>>> 470a478 (Update, explode and break styles and components)
   }
 
   div.modal-leather > div > h1,
@@ -284,13 +275,7 @@
   }
 
   div.modal-leather button {
-<<<<<<< HEAD
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950
-      dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600
-      dark:text-gray-100 dark:hover:text-primary-400;
-=======
     @apply bg-primary-50 hover:bg-primary-50 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
->>>>>>> 470a478 (Update, explode and break styles and components)
   }
 
   /* Navbar */
@@ -490,13 +475,7 @@
 
   /* Tooltip */
   .tooltip-leather {
-<<<<<<< HEAD
-    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000
-      text-gray-900 dark:text-gray-100 border border-gray-200
-      dark:border-gray-700 transition-colors duration-200;
-=======
     @apply fixed p-4 rounded shadow-lg bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
->>>>>>> 470a478 (Update, explode and break styles and components)
     max-width: 400px;
     z-index: 1000;
   }
@@ -739,4 +718,11 @@
   .no-indent {
     text-indent: 0 !important;
   }
+}
+
+.icon-wiki {
+  font-size: 20px;
+  line-height: 20px;
+  vertical-align: text-bottom;
+  font-weight: 500;
 }

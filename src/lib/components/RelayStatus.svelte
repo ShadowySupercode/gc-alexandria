@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, Alert } from "flowbite-svelte";
+  import { Button, Alert, Heading } from "flowbite-svelte";
   import {
     ndkSignedIn,
     testRelayConnection,
@@ -8,6 +8,7 @@
   } from "$lib/ndk";
   import {  onMount } from "svelte";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import { AAlert } from '$lib/a/index.ts';
 
   const ndk = getNdkContext();
 
@@ -116,27 +117,27 @@
   }
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4 w-full max-w-3xl flex self-center">
   <div class="flex items-center justify-between">
-    <h3 class="text-lg font-medium">Relay Connection Status</h3>
+    <Heading tag="h1">Relay Connection Status</Heading>
     <Button size="sm" onclick={runRelayTests} disabled={testing}>
       {testing ? "Testing..." : "Refresh"}
     </Button>
   </div>
 
   {#if !$ndkSignedIn}
-    <Alert color="yellow">
+    <AAlert color="yellow">
       <span class="font-medium">Anonymous Mode</span>
       <p class="mt-1 text-sm">
         You are not signed in. Some relays require authentication and may not be
         accessible. Sign in to access all relays.
       </p>
-    </Alert>
+    </AAlert>
   {/if}
 
-  <div class="space-y-2">
+  <div class="flex flex-col space-y-2">
     {#each relayStatuses as status}
-      <div class="flex items-center justify-between p-3">
+      <div class="flex flex-row items-center justify-between p-3">
         <div class="flex-1">
           <div class="font-medium">{status.url}</div>
           <div class="text-sm {getStatusColor(status)}">
@@ -154,11 +155,11 @@
   </div>
 
   {#if relayStatuses.some((s) => s.requiresAuth && !$ndkSignedIn)}
-    <Alert color="orange">
+    <AAlert color="orange">
       <span class="font-medium">Authentication Required</span>
       <p class="mt-1 text-sm">
         Some relays require authentication. Sign in to access these relays.
       </p>
-    </Alert>
+    </AAlert>
   {/if}
 </div>

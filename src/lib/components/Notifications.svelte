@@ -26,9 +26,18 @@
   import { getNdkContext } from "$lib/ndk";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
-  const { event } = $props<{ event: NDKEvent }>();
-
   const ndk = getNdkContext();
+
+  // Helper: hide broken images (avoid TS assertions in template)
+  function hideImg(e: Event) {
+    const el = e.target as HTMLImageElement | null;
+    if (el) el.style.display = 'none';
+  }
+
+  // Mode typing and setter to avoid TS in template
+  type Mode = "to-me" | "from-me" | "public-messages";
+  const modes: Mode[] = ["to-me", "from-me", "public-messages"];
+  function setNotificationMode(m: Mode) { notificationMode = m; }
 
   // Handle navigation events from quoted messages
   $effect(() => {
@@ -688,8 +697,9 @@
 
   // Check if user is viewing their own profile
   $effect(() => {
-    if ($userStore.signedIn && $userStore.pubkey && event.pubkey) {
-      isOwnProfile = $userStore.pubkey.toLowerCase() === event.pubkey.toLowerCase();
+    // Only operate for a logged-in user; treat the logged-in user's profile as the source
+    if ($userStore.signedIn && $userStore.pubkey) {
+      isOwnProfile = true;
     } else {
       isOwnProfile = false;
     }
@@ -839,24 +849,24 @@
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
       
-      <div class="flex items-center gap-3">
+      <div class="flex flex-row items-center gap-3">
         <!-- New Message Button -->
         <Button
           color="primary"
           size="sm"
           onclick={() => openNewMessageModal()}
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+          class="flex !mb-0 items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
         >
           New Message
         </Button>
       
       <!-- Mode toggle -->
-      <div class="flex bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
-        {#each ["to-me", "from-me", "public-messages"] as mode}
+      <div class="flex flex-row bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
+        {#each modes as mode}
           {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
           <button
-            class="mode-toggle-button px-3 py-1 text-sm font-medium rounded-md {notificationMode === mode ? 'active' : 'inactive'}"
-            onclick={() => notificationMode = mode as "to-me" | "from-me" | "public-messages"}
+            class={`mode-toggle-button px-3 py-1 text-sm !mb-0 font-medium rounded-md ${notificationMode === mode ? 'active' : 'inactive'}`}
+            onclick={() => setNotificationMode(mode)}
           >
             {modeLabel}
           </button>
@@ -912,7 +922,7 @@
                           src={authorProfile.picture}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                          onerror={hideImg}
                         />
                       {:else}
                         <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
@@ -944,7 +954,7 @@
                         </button>
                         <!-- Filter button -->
                         <button
-                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}"
+                          class={`filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors ${filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}`}
                           onclick={() => filterByUser(message.pubkey)}
                           title="Filter by this user"
                           aria-label="Filter by this user"
@@ -1075,7 +1085,7 @@
                           src={authorProfile.picture}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                          onerror={hideImg}
                         />
                       {:else}
                         <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
@@ -1301,7 +1311,7 @@
           color="primary"
           onclick={sendNewMessage}
           disabled={isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim()}
-          class="flex items-center gap-2 {isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}"
+          class={`flex items-center gap-2 ${isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}`}
         >
           {#if isComposingMessage}
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -1326,7 +1336,7 @@
             placeholder="Search display name, name, NIP-05, or npub..."
             bind:value={recipientSearch}
             bind:this={recipientSearchInput}
-            class="search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 p-2.5 {recipientLoading ? 'pr-10' : ''}"
+            class={`search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 ${recipientLoading ? 'pr-10' : ''}`}
           />
           {#if recipientLoading}
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1347,16 +1357,14 @@
                     selectRecipient(profile);
                   }}
                   disabled={isAlreadySelected}
-                  class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
+                  class={`recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {#if profile.picture}
                     <img
                       src={profile.picture}
                       alt="Profile"
                       class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
-                      onerror={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
+                      onerror={hideImg}
                     />
                   {:else}
                     <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
@@ -1423,4 +1431,4 @@
       </div>
     </div>
   </Modal>
-{/if} 
+{/if}

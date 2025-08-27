@@ -5,19 +5,18 @@
     Quote, Link2, Image, Hash,
     List, ListOrdered
   } from "@lucide/svelte";
-  import { userPubkey } from "$lib/stores/authStore.Svelte";
+  import { userStore } from "$lib/stores/userStore.ts";
   import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser.ts";
 
   let {
-    content = "",
+    // make content bindable
+    content = $bindable(""),
     extensions,
-    profile,
     isSubmitting = false,
     onSubmit = () => {},
   } = $props<{
     content?: string;
     extensions?: any;
-    profile?: any;
     isSubmitting?: boolean;
     onSubmit?: (content: string) => Promise<void>;
   }>();
@@ -124,9 +123,6 @@
         </ToolbarGroup>
       </Toolbar>
     {/snippet}
-    {#snippet addon()}
-      {@render profile()}
-    {/snippet}
     {#snippet footer()}
       <div class="flex flex-row justify-between">
           <div class="flex flex-row flex-wrap gap-3 !m-0">
@@ -134,9 +130,9 @@
             <Button size="xs" color="alternative" class="!m-0" onclick={clearForm}>Clear</Button>
           </div>
         <Button
-          disabled={isSubmitting || !content.trim() || !$userPubkey}
+          disabled={isSubmitting || !content.trim() || !$userStore.signedIn}
           type="submit">
-          {#if !$userPubkey}
+          {#if !$userStore.signedIn}
             Not Signed In
           {:else if isSubmitting}
             Publishing...

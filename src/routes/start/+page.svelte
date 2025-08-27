@@ -7,8 +7,7 @@
   const isVersionKnown = appVersion !== "development";
 </script>
 
-<div class="w-full flex justify-center">
-  <main class="main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4">
+<div class="w-full max-w-2xl flex self-center">
     <Heading tag="h1" class="h-leather mb-2"
       >Getting Started with Alexandria</Heading
     >
@@ -96,7 +95,7 @@
       >
     </P>
 
-    <div class="flex justify-center my-4">
+    <div class="flex flex-col items-center space-y-4 my-4">
       <Img
         src="/screenshots/JaneEyre.png"
         alt="Jane Eyre, by Charlotte Brontë"
@@ -132,7 +131,7 @@
       >
     </P>
 
-    <div class="flex justify-center my-4">
+    <div class="flex flex-col items-center space-y-4 my-4">
       <Img
         src="/screenshots/ResearchPaper.png"
         alt="Research paper"
@@ -152,7 +151,7 @@
       >.
     </P>
 
-    <div class="flex justify-center my-4">
+    <div class="flex flex-col items-center space-y-4 my-4">
       <Img
         src="/screenshots/Documentation.png"
         alt="Documentation"
@@ -178,5 +177,4 @@
       to other wiki pages, creating a web of knowledge that can be navigated and
       explored.
     </P>
-  </main>
 </div>

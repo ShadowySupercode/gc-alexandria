@@ -1,4 +1,3 @@
-export { default as AButton } from './primitives/AButton.svelte';
 export { default as AInput } from './primitives/AInput.svelte';
 export { default as ACard } from './primitives/ACard.svelte';
 export { default as ASwitch } from './primitives/ASwitch.svelte';
