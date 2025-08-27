@@ -1,6 +1,6 @@
 import NDK from "@nostr-dev-kit/ndk";
 import {
-processBasicFormatting,
+  processBasicFormatting,
   processBlockquotes,
   processEmojiShortcodes,
   processNostrIdentifiersInText,

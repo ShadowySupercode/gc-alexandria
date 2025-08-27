@@ -6,7 +6,11 @@
     List, ListOrdered
   } from "@lucide/svelte";
   import { userStore } from "$lib/stores/userStore.ts";
-  import { parseBasicmarkup } from "$lib/utils/markup/basicMarkupParser.ts";
+  import { parseBasicMarkup } from "$lib/utils/markup/basicMarkupParser.ts";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { getNdkContext } from "$lib/ndk.ts";
+
+  const ndk = getNdkContext();
 
   let {
     // make content bindable
@@ -87,7 +91,7 @@
       return;
     }
 
-    parseBasicmarkup(content).then((html) => {
+    parseBasicMarkup(content).then((html) => {
       preview = html;
     });
   });
@@ -147,7 +151,7 @@
 
 <div class="prose dark:prose-invert max-w-none p-4 border border-primary-500 border-s-4 rounded-lg">
   {#if preview}
-    {@html preview}
+    {@render basicMarkup(preview, ndk)}
   {:else}
     <P class="text-xs text-gray-500">Preview will appear here...</P>
   {/if}

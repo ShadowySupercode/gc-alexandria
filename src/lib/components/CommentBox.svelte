@@ -21,7 +21,6 @@
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
-  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
   import { ACommentForm } from "$lib/a";
   import { AtSign } from "@lucide/svelte";
 
@@ -572,22 +571,6 @@
       >
     </div>
   </Modal>
-
-  <div class="space-y-4">
-    <div>
-      <Textarea
-        bind:value={content}
-        placeholder="Write your comment..."
-        rows={10}
-        class="w-full"
-      />
-    </div>
-    <div
-      class="prose dark:prose-invert max-w-none p-4 border border-gray-300 dark:border-gray-700 rounded-lg"
-    >
-      {@render basicMarkup(content, ndk)}
-    </div>
-  </div>
 
   {#if error}
     <Alert color="red" dismissable>

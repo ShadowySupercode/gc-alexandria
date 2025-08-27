@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Heading, P } from "flowbite-svelte";
-  import { AAlert, ACommentForm } from "$lib/a";
+  import { AAlert } from "$lib/a";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
