@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Heading, P } from "flowbite-svelte";
+  import { Heading, P, Button } from "flowbite-svelte";
   import { AAlert } from "$lib/a";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
@@ -8,6 +8,7 @@
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getNdkContext } from "$lib/ndk.ts";
+  import { goto } from "$app/navigation";
 
   // State
   let user = $state($userStore);
@@ -126,11 +127,14 @@
               <a href={profile.website} rel="noopener" class="text-primary-600 dark:text-primary-400 hover:underline break-all" target="_blank">{profile.website}</a>
             {/if}
           </div>
+          <div class="flex flex-row justify-end gap-4 text-sm">
+            <Button size="xs" onclick={() => goto('/profile/notifications')}>Notifications</Button>
+          </div>
           {#if loading}
-            <div class="text-sm text-gray-500 dark:text-gray-400">Loading profile…</div>
+            <AAlert color="primary">Loading profile…</AAlert>
           {/if}
           {#if error}
-            <div class="text-sm text-red-600 dark:text-red-400">{error}</div>
+            <AAlert color="red">Error loading profile: {error}</AAlert>
           {/if}
         </div>
       </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../../styles/notifications.css";
-  import { Heading, P } from "flowbite-svelte";
+  import { Heading, P, Avatar, Button, Modal } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
@@ -9,10 +9,9 @@
   import { anonymousRelays } from "$lib/consts";
   import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
-  import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
+  import { ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
     getNotificationType, 
     fetchAuthorProfiles,
@@ -25,6 +24,7 @@
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { AAlert, APagination } from "$lib/a";
 
   const ndk = getNdkContext();
 
@@ -845,7 +845,7 @@
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
-  <div class="mb-6 w-full overflow-x-hidden">
+  <div class="mb-6 w-full">
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
       
@@ -883,28 +883,21 @@
         </span>
       </div>
     {:else if error}
-      <div class="p-4 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg">
+      <AAlert color="red">
         <P>Error loading {notificationMode === "public-messages" ? "public messages" : "notifications"}: {error}</P>
-      </div>
+      </AAlert>
     {:else if notificationMode === "public-messages"}
       {#if publicMessages.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-          <P>No public messages found.</P>
-        </div>
+        <AAlert color="blue"><P>No public messages found.</P></AAlert>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden">
+        <div>
           {#if filteredByUser}
             <div class="filter-indicator mb-4 p-3 rounded-lg">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}
-                </span>
-                <button
-                  class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
-                  onclick={clearFilter}
-                >
+              <div class="flex flex-row items-center justify-between gap-3">
+                <AAlert color="blue"><P>Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}</P></AAlert>
+                <Button size="xs" color="blue" onclick={clearFilter}>
                   Clear Filter
-                </button>
+                </Button>
               </div>
             </div>
           {/if}
@@ -913,21 +906,14 @@
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
               <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-event-id="{message.id}">
-                <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
+                <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : 'flex-row'}">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
+                    <div class="flex flex-col items-center justify-center gap-2">
                       {#if authorProfile?.picture}
-                        <img
-                          src={authorProfile.picture}
-                          alt="Author avatar"
-                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={hideImg}
-                        />
+                        <Avatar src={authorProfile.picture} onerror={hideImg} border></Avatar>
                       {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        </div>
+                        <Avatar border />
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
@@ -938,7 +924,7 @@
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
-                      <div class="mt-2 flex justify-center gap-1">
+                      <div class="mt-2 flex flex-row justify-center gap-1">
                         <!-- Reply button -->
                         <button
                           class="reply-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors"
@@ -969,20 +955,20 @@
                   
                   <!-- Message Content -->
                   <div class="message-content flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
-                    <div class="flex items-center gap-2 mb-2 {isFromUser ? 'justify-end' : ''}">
-                      <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
+                    <div class="flex flex-row items-center gap-2 mb-2 {isFromUser ? 'justify-end' : 'justify-start'}">
+                      <span class="text-xs !mb-0 font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
                         {isFromUser ? 'Your Message' : 'Public Message'}
                       </span>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {message.created_at ? formatDate(message.created_at) : "Unknown date"}
-                      </span>
                       <button
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
+                        class="text-xs !mb-0 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
                         onclick={() => navigateToEvent(getNeventUrl(message))}
                         title="Click to view event"
                       >
                         {getNeventUrl(message).slice(0, 16)}...
                       </button>
+                      <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                        {message.created_at ? formatDate(message.created_at) : "Unknown date"}
+                      </span>
                     </div>
                     
 
@@ -1039,30 +1025,14 @@
           
           <!-- Pagination Controls -->
           {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({allPublicMessages.length} total messages)
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={previousPage}
-                  disabled={!hasPreviousPage}
-                >
-                  Previous
-                </button>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={nextPage}
-                  disabled={!hasNextPage}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <APagination
+              bind:currentPage
+              {totalPages}
+              {hasNextPage}
+              {hasPreviousPage}
+              totalItems={allPublicMessages.length}
+              itemsLabel="messages"
+            />
           {/if}
         </div>
       {/if}
@@ -1165,30 +1135,14 @@
           
           <!-- Pagination Controls -->
           {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({notificationMode === "to-me" ? allToMeNotifications.length : allFromMeNotifications.length} total notifications)
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={previousPage}
-                  disabled={!hasPreviousPage}
-                >
-                  Previous
-                </button>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={nextPage}
-                  disabled={!hasNextPage}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <APagination
+              bind:currentPage
+              {totalPages}
+              {hasNextPage}
+              {hasPreviousPage}
+              totalItems={notificationMode === 'to-me' ? allToMeNotifications.length : allFromMeNotifications.length}
+              itemsLabel="notifications"
+            />
           {/if}
         </div>
       {/if}

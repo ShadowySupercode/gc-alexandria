@@ -7,6 +7,7 @@ export { default as ANostrBadge } from './primitives/ANostrBadge.svelte';
 export { default as ANostrBadgeRow } from './primitives/ANostrBadgeRow.svelte';
 export { default as AThemeToggleMini } from './primitives/AThemeToggleMini.svelte';
 export { default as AAlert } from './primitives/AAlert.svelte';
+export { default as APagination } from './primitives/APagination.svelte';
 
 export { default as AReaderPage } from './reader/AReaderPage.svelte';
 export { default as AReaderToolbar } from './reader/AReaderToolbar.svelte';
