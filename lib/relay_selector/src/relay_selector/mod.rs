@@ -1,4 +1,4 @@
 mod selector;
-mod weighted_sort;
+mod weights;
 
 pub use selector::RelaySelector;

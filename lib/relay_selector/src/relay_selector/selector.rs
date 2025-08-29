@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::relay::{self, RelayVariant};
-use crate::relay_selector::weighted_sort::weighted_sort;
+use crate::relay::RelayVariant;
+use crate::relay_selector::weights::{calculate_weights, weighted_sort};
 
 pub type RelayWeights = HashMap<String, f32>;
 
@@ -14,6 +14,13 @@ pub struct RelaySelector {
     // Storage for success rate data
     requests: HashMap<String, u32>,
     successful_requests: HashMap<String, u32>,
+
+    // Storage for response time data
+    response_times: HashMap<String, Vec<u32>>,
+
+    // Other weights
+    trust_level_weights: HashMap<String, f32>,
+    preferred_vendor_weights: HashMap<String, f32>,
 
     active_connections: HashMap<String, u8>,
 
@@ -64,9 +71,44 @@ impl RelaySelector {
     }
 }
 
-// Success rate update methods
+// Algorithmic ranking methods
 impl RelaySelector {
+    pub fn update_response_time(&mut self, relay: &str, response_time: Duration) {
+        // Update response time
+        let response_times = self
+            .response_times
+            .get_mut(relay)
+            .unwrap_or(&mut Vec::new());
+
+        response_times.push(response_time);
+
+        // Update weights based on current state
+        let successful_requests = self.successful_requests.get(relay).unwrap_or(&0);
+        let total_requests = self.requests.get(relay).unwrap_or(&0);
+        let trust_level = self.trust_level_weights.get(relay).unwrap_or(&0f32);
+        let preferred_vendor = self.preferred_vendor_weights.get(relay).unwrap_or(&0f32);
+        let active_connections = self.active_connections.get(relay).unwrap_or(&0);
+
+        let (initial_weight, current_weight) = calculate_weights(
+            self.response_times
+                .get(relay)
+                .unwrap_or(&Vec::new())
+                .as_slice(),
+            *successful_requests,
+            *total_requests,
+            *trust_level,
+            *preferred_vendor,
+            *active_connections,
+        );
+
+        self.initial_weights
+            .insert(relay.to_string(), initial_weight);
+        self.current_weights
+            .insert(relay.to_string(), current_weight);
+    }
+
     pub fn update_success_rate(&mut self, relay: &str, success: bool) {
+        // Update counts
         let total_count = self.requests.get_mut(relay);
         let success_count = self.successful_requests.get_mut(relay);
 
@@ -78,17 +120,44 @@ impl RelaySelector {
             }
         }
 
-        if !success {
-            return;
-        }
-
         match success_count {
-            Some(success) => *success += 1,
+            Some(s) => {
+                if success {
+                    *s += 1
+                }
+            }
             None => {
-                self.successful_requests.insert(relay.to_string(), 1);
-                ()
+                if success {
+                    self.successful_requests.insert(relay.to_string(), 1);
+                } else {
+                    self.successful_requests.insert(relay.to_string(), 0);
+                }
             }
         }
+
+        // Update weights based on current state
+        let successful_requests = self.successful_requests.get(relay).unwrap_or(&0);
+        let total_requests = self.requests.get(relay).unwrap_or(&0);
+        let trust_level = self.trust_level_weights.get(relay).unwrap_or(&0f32);
+        let preferred_vendor = self.preferred_vendor_weights.get(relay).unwrap_or(&0f32);
+        let active_connections = self.active_connections.get(relay).unwrap_or(&0);
+
+        let (initial_weight, current_weight) = calculate_weights(
+            self.response_times
+                .get(relay)
+                .unwrap_or(&Vec::new())
+                .as_slice(),
+            *successful_requests,
+            *total_requests,
+            *trust_level,
+            *preferred_vendor,
+            *active_connections,
+        );
+
+        self.initial_weights
+            .insert(relay.to_string(), initial_weight);
+        self.current_weights
+            .insert(relay.to_string(), current_weight);
     }
 }
 
