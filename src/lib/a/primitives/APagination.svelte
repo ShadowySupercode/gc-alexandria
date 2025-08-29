@@ -37,7 +37,7 @@
 
 {#if totalPages > 1}
   <div class={`mt-4 flex flex-row items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg ${className}`}>
-    <div class="text-sm text-gray-600 dark:text-gray-400">
+    <div class="text-sm !mb-0 text-gray-600 dark:text-gray-400">
       Page {currentPage} of {totalPages} ({totalItems} total {itemsLabel})
     </div>
     <div class="flex flex-row items-center gap-2">

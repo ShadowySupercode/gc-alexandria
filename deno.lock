@@ -32,6 +32,7 @@
     "npm:flowbite-svelte-icons@2.1": "2.1.1_svelte@5.38.2__acorn@8.15.0_tailwind-merge@3.3.1",
     "npm:flowbite-svelte@0.48": "0.48.6_svelte@5.38.2__acorn@8.15.0",
     "npm:flowbite-svelte@1.11": "1.11.8_svelte@5.38.2__acorn@8.15.0_tailwindcss@4.1.12_tailwind-merge@3.3.1",
+    "npm:flowbite-typography@^1.0.5": "1.0.5",
     "npm:flowbite@2": "2.5.2",
     "npm:flowbite@~2.5.2": "2.5.2",
     "npm:he@1.2": "1.2.0",
@@ -2104,6 +2105,14 @@
         "tailwindcss"
       ]
     },
+    "flowbite-typography@1.0.5": {
+      "integrity": "sha512-IqTwOYgGZkXTK/5ngx3A9oQwgOqnRyUKUfIiB+w6xDmiD8z3cKDIgYfFpHIMKbLVfg+QmJIPqEEPrGZbAwVT6g==",
+      "dependencies": [
+        "lodash.castarray",
+        "lodash.isplainobject",
+        "lodash.merge"
+      ]
+    },
     "flowbite@2.5.2": {
       "integrity": "sha512-kwFD3n8/YW4EG8GlY3Od9IoKND97kitO+/ejISHSqpn3vw2i5K/+ZI8Jm2V+KC4fGdnfi0XZ+TzYqQb4Q1LshA==",
       "dependencies": [
@@ -3581,6 +3590,7 @@
         "npm:eslint-plugin-svelte@^3.11.0",
         "npm:flowbite-svelte-icons@2.1",
         "npm:flowbite-svelte@1.11",
+        "npm:flowbite-typography@^1.0.5",
         "npm:flowbite@~2.5.2",
         "npm:he@1.2",
         "npm:highlight.js@^11.11.1",

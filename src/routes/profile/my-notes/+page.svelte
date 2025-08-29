@@ -1,13 +1,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { userStore } from "$lib/stores/userStore";
+  import { userStore } from "$lib/stores/userStore.ts";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
-  import { getMatchingTags } from "$lib/utils/nostrUtils";
-  import { getTitleTagForEvent } from "$lib/utils/event_input_utils";
+  import { getMatchingTags } from "$lib/utils/nostrUtils.ts";
+  import { getTitleTagForEvent } from "$lib/utils/event_input_utils.ts";
   import asciidoctor from "asciidoctor";
-  import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor";
-  import { getNdkContext } from "$lib/ndk";
+  import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor.ts";
+  import { getNdkContext } from "$lib/ndk.ts";
   
   const ndk = getNdkContext();
 

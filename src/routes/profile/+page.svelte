@@ -128,7 +128,8 @@
             {/if}
           </div>
           <div class="flex flex-row justify-end gap-4 text-sm">
-            <Button size="xs" onclick={() => goto('/profile/notifications')}>Notifications</Button>
+            <Button class="!mb-0" size="xs" onclick={() => goto('/profile/notifications')}>Notifications</Button>
+            <Button class="!mb-0" size="xs" onclick={() => goto('/profile/my-notes')}>My notes</Button>
           </div>
           {#if loading}
             <AAlert color="primary">Loading profile…</AAlert>

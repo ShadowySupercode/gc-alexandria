@@ -1,6 +1,5 @@
 export { default as AInput } from './primitives/AInput.svelte';
 export { default as ACard } from './primitives/ACard.svelte';
-export { default as ASwitch } from './primitives/ASwitch.svelte';
 export { default as ADetails } from './primitives/ADetails.svelte';
 export { default as ANostrUser } from './primitives/ANostrUser.svelte';
 export { default as ANostrBadge } from './primitives/ANostrBadge.svelte';

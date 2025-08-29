@@ -183,7 +183,7 @@
 </svelte:head>
 
 <div class="min-h-screen flex flex-col">
-  <ANavbar {currentPath} />
+  <ANavbar />
 
   <main class="flex-1 flex-col w-full mt-[75px] self-center">
     {@render children()}

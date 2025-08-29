@@ -14,6 +14,8 @@
 @layer theme, base, components, utilities;
 
 @plugin "flowbite/plugin";
+@plugin "flowbite-typography";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -455,6 +457,11 @@
 }
 
 @layer components {
+
+  nav a {
+    text-decoration-line: none !important;
+  }
+
   canvas.qr-code {
     @apply block mx-auto my-4;
   }
@@ -462,11 +469,11 @@
   /* Legend */
   .leather-legend {
     @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2
-      rounded;
+    rounded;
     @apply shadow-none text-primary-1000 border border-s-4 bg-highlight
-      border-primary-200 has-[:hover]:border-primary-700;
+    border-primary-200 has-[:hover]:border-primary-700;
     @apply dark:bg-primary-1000 dark:border-primary-800
-      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+    dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
     max-width: 450px;
     min-width: 300px;
     overflow-x: auto;
@@ -484,90 +491,106 @@
     @apply dark:text-white;
   }
 
-.publication-leather {
+  .publication-leather {
     @apply flex flex-col space-y-4;
     scroll-margin-top: 150px;
     scroll-behavior: smooth;
 
     /* common heading base styles */
-    h1,h2,h3,h4,h5,h6 { @apply text-gray-900 dark:text-gray-100 pt-4; }
+
+    h1, h2, h3, h4, h5, h6 {
+      @apply text-gray-900 dark:text-gray-100 pt-4;
+    }
 
     /* sizes/weights per level */
-    h1 { @apply text-4xl font-bold; }
-    h2 { @apply text-3xl font-bold; }
-    h3 { @apply text-2xl font-bold; }
-    h4 { @apply text-xl  font-bold; }
-    h5 { @apply text-lg  font-semibold; }
-    h6 { @apply text-base font-semibold; }
+
+    h1 {
+      @apply text-4xl font-bold;
     }
 
-    div {
-      @apply flex flex-col space-y-4;
+    h2 {
+      @apply text-3xl font-bold;
     }
 
-    .olist {
-      @apply flex flex-col space-y-4;
+    h3 {
+      @apply text-2xl font-bold;
+    }
 
-      ol {
-        @apply list-decimal px-6 flex flex-col space-y-2;
+    h4 {
+      @apply text-xl  font-bold;
+    }
 
-        li {
-          .paragraph {
-            @apply py-2;
-          }
+    h5 {
+      @apply text-lg  font-semibold;
+    }
+
+    h6 {
+      @apply text-base font-semibold;
+    }
+  }
+
+  .olist {
+    @apply flex flex-col space-y-4;
+
+    ol {
+      @apply list-decimal px-6 flex flex-col space-y-2;
+
+      li {
+        .paragraph {
+          @apply py-2;
         }
       }
     }
+  }
 
-    .ulist {
-      @apply flex flex-col space-y-4;
+  .ulist {
+    @apply flex flex-col space-y-4;
 
-      ul {
-        @apply list-disc px-6 flex flex-col space-y-2;
+    ul {
+      @apply list-disc px-6 flex flex-col space-y-2;
 
-        li {
-          .paragraph {
-            @apply py-2;
-          }
+      li {
+        .paragraph {
+          @apply py-2;
         }
       }
     }
+  }
 
-    a {
-      @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
+  a {
+    @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
+  }
+
+  .imageblock {
+    @apply flex flex-col items-center;
+
+    .title {
+      @apply text-sm text-center;
+    }
+  }
+
+  .stemblock {
+    @apply bg-gray-200 dark:bg-gray-800 p-4 rounded-lg;
+  }
+
+  .literalblock {
+    pre {
+      @apply text-wrap;
+    }
+  }
+
+  table {
+    @apply w-full overflow-x-auto;
+
+    caption {
+      @apply text-sm;
     }
 
-    .imageblock {
-      @apply flex flex-col items-center;
-
-      .title {
-        @apply text-sm text-center;
-      }
-    }
-
-    .stemblock {
-      @apply bg-gray-200 dark:bg-gray-800 p-4 rounded-lg;
-    }
-
-    .literalblock {
-      pre {
-        @apply text-wrap;
-      }
-    }
-
-    table {
-      @apply w-full overflow-x-auto;
-
-      caption {
-        @apply text-sm;
-      }
-
-      thead,
-      tbody {
-        th,
-        td {
-          @apply border border-gray-200 dark:border-gray-700;
-        }
+    thead,
+    tbody {
+      th,
+      td {
+        @apply border border-gray-200 dark:border-gray-700;
       }
     }
   }
@@ -597,6 +620,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   .footnotes li {
     margin-bottom: 0.5rem;
   }
@@ -684,7 +708,7 @@
   /* Table of Contents highlighting */
   .toc-highlight {
     @apply bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600
-      dark:border-primary-400 font-medium;
+    dark:border-primary-400 font-medium;
     transition: all 0.2s ease-in-out;
   }
 
@@ -720,9 +744,10 @@
   }
 }
 
-.icon-wiki {
-  font-size: 20px;
-  line-height: 20px;
-  vertical-align: text-bottom;
-  font-weight: 500;
+  .icon-wiki {
+    font-size: 20px;
+    line-height: 20px;
+    vertical-align: text-bottom;
+    font-weight: 500;
+  }
 }

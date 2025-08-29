@@ -6,79 +6,52 @@
     NavUl,
     NavHamburger,
     NavBrand,
-    Dropdown,
-    DropdownItem
+    MegaMenu
   } from "flowbite-svelte";
-  import { siteNav } from "$lib/nav/site-nav.js";
-  import { logoutUser, userStore } from "$lib/stores/userStore";
   import Profile from "$components/util/Profile.svelte";
-  import type { NavItem } from "$lib/a/nav/nav-types.ts";
-  import { goto } from "$app/navigation";
+
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import { AThemeToggleMini } from "$lib/a";
-  import { getNdkContext } from "$lib/ndk.ts";
 
-  const ndk = getNdkContext();
+  let menu2 = [
+    { name: 'Publications', href: '/', help: 'Browse publications' },
+    { name: 'Events', href: '/events', help: 'Search and engage with events' },
+    { name: 'Visualize', href: '/visualize', help: 'Visualize connections between publications and authors' },
 
-  let {
-    currentPath = "",
-  }: {
-    currentPath?: string;
-  } = $props();
+    { name: 'Compose notes', href: '/new/compose', help: 'Create individual notes (30041 events)'},
+    { name: 'Publish events', href: '/events/compose', help: 'Create any kind' },
 
-  let userState = $derived($userStore);
+    { name: 'Getting Started', href: '/start', help: 'A quick overview and tutorial' },
+    { name: 'Relay Status', href: '/about/relay-stats', help: 'Relay status and monitoring' },
+    { name: 'About', href: '/about', help: 'About the project' },
+    { name: 'Contact', href: '/contact', help: 'Contact us or submit a bug report' }
+  ];
 
-  function handleNavClick(item: NavItem) {
-    if (item.href) {
-      goto(item.href);
-    } else if (item.id === 'logout') {
-      logoutUser(ndk);
-    }
-  }
-
-  function flattenNavItems(navItems: NavItem[]): NavItem[] {
-    const result: NavItem[] = [];
-    for (const item of navItems) {
-      if (item.children && item.children.length > 0) {
-        result.push(...flattenNavItems(item.children));
-      } else {
-        result.push(item);
-      }
-    }
-    return result;
-  }
 </script>
 
-<Navbar class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800 !p-0" navContainerClass="w-full flex-row justify-between items-center !p-0">
+<Navbar id="navi" class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800 !p-0" navContainerClass="flex-row items-center !p-0">
     <NavBrand href="/">
-      <h1>Alexandria</h1>
+      <div class="flex flex-col">
+        <h1 class="text-2xl font-bold mb-0">Alexandria</h1>
+        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem] mb-0">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+      </div>
     </NavBrand>
     <div class="flex md:order-2">
-      <Profile isNav={true} />
+      <Profile />
       <NavHamburger />
     </div>
-    <NavUl class="order-1" activeUrl={currentPath}>
-      {#each siteNav as navSection}
-        {#if navSection.children && navSection.children.length > 0}
-          <NavLi class="cursor-pointer">
-            {navSection.title}<ChevronDownOutline class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white" />
-          </NavLi>
-          <Dropdown simple class="w-44 z-20">
-            {#each flattenNavItems(navSection.children) as item}
-              <DropdownItem
-                href={item.href || undefined}
-                onclick={() => handleNavClick(item)}
-              >
-                {item.title}
-              </DropdownItem>
-            {/each}
-          </Dropdown>
-        {:else if navSection.href}
-          <NavLi href={navSection.href}>{navSection.title}</NavLi>
-        {/if}
-      {/each}
-      <NavLi>
+    <NavUl class="order-1 ml-auto">
+      <NavLi class="cursor-pointer">
+        Explore<ChevronDownOutline class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white" />
       </NavLi>
+      <MegaMenu full items={menu2}>
+        {#snippet children({ item })}
+          <a href={item.href} class="block h-full rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <div class="font-semibold dark:text-white">{item.name}</div>
+            <span class="text-sm font-light text-gray-500 dark:text-gray-400">{item.help}</span>
+          </a>
+        {/snippet}
+      </MegaMenu>
       <AThemeToggleMini />
     </NavUl>
 </Navbar>

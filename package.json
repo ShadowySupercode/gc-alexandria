@@ -54,6 +54,7 @@
     "flowbite": "~2.5.2",
     "flowbite-svelte": "1.11.x",
     "flowbite-svelte-icons": "2.1.x",
+    "flowbite-typography": "^1.0.5",
     "playwright": "^1.50.1",
     "postcss": "^8.5.6",
     "postcss-load-config": "6.x",
