@@ -1,11 +1,11 @@
 mod relay;
 mod relay_selector;
+mod weights;
 
-use std::cell::RefCell;
+use std::{cell::RefCell, time::Duration};
 
 use wasm_bindgen::prelude::*;
 
-use relay::RelayVariant;
 use relay_selector::RelaySelector;
 
 thread_local! {
@@ -24,29 +24,39 @@ pub fn init() {
 }
 
 #[wasm_bindgen]
-pub fn add_response_time(relay_url: &str, response_time: Option<f32>) {
-    // TODO: Implement.
-    // May delegate to other modules.
+pub fn record_response_time(
+    relay_url: &str,
+    response_time: Option<f32>,
+    relay_type: Option<String>,
+) {
+    let variant = match relay_type {
+        Some(t) => relay::Variant::from_str(&t).unwrap_throw(),
+        None => relay::Variant::General,
+    };
+    let response_duration =
+        Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
+
+    RELAY_SELECTOR.with(|selector| {
+        selector.borrow_mut().update_weights_with_response_time(
+            relay_url,
+            variant,
+            response_duration,
+        );
+    });
 }
 
 #[wasm_bindgen]
-pub fn add_success(relay_url: &str, success: bool, relay_type: Option<String>) {
+pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<String>) {
     let variant = match relay_type {
-        Some(t) => RelayVariant::from_str(&t).unwrap_throw(),
-        None => RelayVariant::General,
+        Some(t) => relay::Variant::from_str(&t).unwrap_throw(),
+        None => relay::Variant::General,
     };
-
-    if !RELAY_SELECTOR.with(|selector| selector.borrow().contains(relay_url)) {
-        RELAY_SELECTOR.with(|selector| selector.borrow_mut().insert(relay_url, variant));
-    }
 
     RELAY_SELECTOR.with(|selector| {
         selector
             .borrow_mut()
-            .update_success_rate(relay_url, success)
+            .update_weights_with_request(relay_url, variant, is_success);
     });
-
-    // TODO: Get success rate and sort
 }
 
 /// Get a recommended relay URL based on current weights.
@@ -71,7 +81,7 @@ pub fn add_success(relay_url: &str, success: bool, relay_type: Option<String>) {
 /// [`return_relay`] to prevent memory leaks.
 #[wasm_bindgen]
 pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<String, String> {
-    let variant = RelayVariant::from_str(relay_type).unwrap_throw();
+    let variant = relay::Variant::from_str(relay_type).unwrap_throw();
     let rank = match relay_rank {
         Some(rank) => rank,
         None => 0,
@@ -92,5 +102,7 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<String, Str
 /// Throws an error if the caller attempts to return a relay URL that is not currently in use.
 #[wasm_bindgen]
 pub fn return_relay(relay_url: &str) -> Result<(), String> {
-    RELAY_SELECTOR.with_borrow_mut(|selector| selector.return_relay(relay_url))
+    // TODO: Determine variant, then return
+    let variant: relay::Variant = relay::Variant::General;
+    RELAY_SELECTOR.with_borrow_mut(|selector| selector.return_relay(relay_url, variant))
 }

@@ -1,4 +1,9 @@
-use crate::relay_selector::selector::RelayWeights;
+use std::collections::HashMap;
+use std::time::Duration;
+
+pub const CONNECTION_WEIGHT: f32 = 0.1;
+
+pub type RelayWeights = HashMap<String, f32>;
 
 pub fn weighted_sort(relays: &mut Vec<String>, weights: &RelayWeights) {
     assert!(!relays.is_empty(), "[weighted_sort] Relay list is empty");
@@ -24,7 +29,7 @@ pub fn weighted_sort(relays: &mut Vec<String>, weights: &RelayWeights) {
 }
 
 pub fn calculate_weights(
-    response_times: &[u32],
+    response_times: &[Duration],
     successful_requests: u32,
     total_requests: u32,
     trust_level_weight: f32,

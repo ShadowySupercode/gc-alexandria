@@ -1,3 +1,5 @@
-mod relay_variant;
+mod statistics;
+mod variant;
 
-pub use relay_variant::RelayVariant;
+pub use statistics::Statistics;
+pub use variant::Variant;
