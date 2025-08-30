@@ -29,14 +29,25 @@ pub fn weighted_sort(relays: &mut Vec<String>, weights: &RelayWeights) {
 }
 
 pub fn calculate_weights(
-    response_times: &[Duration],
+    response_times: &mut [Duration],
     successful_requests: u32,
     total_requests: u32,
     trust_level_weight: f32,
     preferred_vendor_weight: f32,
     active_connections: u8,
 ) -> (f32, f32) {
-    let median_time: f32 = 1.0; // TODO: Get median of response times.
+    // Get the median response time in milliseconds
+    response_times.sort();
+    let response_times_len = response_times.len();
+    let is_odd_len = response_times_len % 2 == 1;
+    let median_time = if is_odd_len {
+        response_times[response_times_len / 2].as_millis() as f32
+    } else {
+        (response_times[response_times_len / 2].as_millis() as f32
+            + response_times[response_times_len / 2 - 1].as_millis() as f32)
+            / 2f32
+    };
+
     let response_time_weight = -1.0 * median_time.log10() + 1.0;
     let success_rate: i32 = successful_requests as i32 / total_requests as i32;
 
