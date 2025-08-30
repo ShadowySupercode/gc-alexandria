@@ -7,6 +7,7 @@ pub enum Variant {
 }
 
 impl Variant {
+    /// Generates a new `Variant` from a string.
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "general" => Some(Variant::General),

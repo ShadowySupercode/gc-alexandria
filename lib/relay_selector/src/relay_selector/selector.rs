@@ -35,12 +35,14 @@ impl RelaySelector {
 
 // Relay management methods
 impl RelaySelector {
+    /// Returns `true` if the relay with the given URL is contained in the selector.
     pub fn contains(&self, relay: &str) -> bool {
         self.general.contains(&relay.to_string())
             || self.inbox.contains(&relay.to_string())
             || self.outbox.contains(&relay.to_string())
     }
 
+    /// Inserts a relay into the selector, respecting its type (i.e., its intended usage category).
     pub fn insert(&mut self, relay: &str, variant: relay::Variant) {
         match variant {
             relay::Variant::General => self.general.push(relay.to_string()),
@@ -53,13 +55,6 @@ impl RelaySelector {
             .insert(relay.to_string(), relay::Statistics::new());
 
         // TODO: Set initial weight and sort
-    }
-
-    pub fn get_statistics(&mut self, relay: &str, variant: relay::Variant) -> &relay::Statistics {
-        if !self.contains(relay) {
-            self.insert(relay, variant);
-        }
-        self.statistics.get(relay).unwrap()
     }
 
     fn get_mut_statistics(
@@ -76,6 +71,13 @@ impl RelaySelector {
 
 // Algorithmic ranking methods
 impl RelaySelector {
+    /// Updates relay weights based on a new response time datum.
+    ///
+    /// # Arguments
+    ///
+    /// * `relay` - The relay URL.
+    /// * `variant`
+    /// * `response_time`
     pub fn update_weights_with_response_time(
         &mut self,
         relay: &str,
@@ -92,6 +94,13 @@ impl RelaySelector {
             .insert(relay.to_string(), current_weight);
     }
 
+    /// Updates relay weights based on a new completed request.
+    ///
+    /// # Arguments
+    ///
+    /// * `relay` - The relay URL.
+    /// * `variant` - The relay variant.
+    /// * `success` - Whether the request was successful.
     pub fn update_weights_with_request(
         &mut self,
         relay: &str,
@@ -110,6 +119,25 @@ impl RelaySelector {
 
 // Get and return methods
 impl RelaySelector {
+    /// Selects a relay based on weighted round-robin algorithm.
+    ///
+    /// Relays are sorted in descending order of rank. Typically, the caller should select the
+    /// highest-ranked relay, i.e., the one at index 0. The method will return an error if the
+    /// requested rank is out of bounds.
+    ///
+    /// When this method is invoked, the returned relay is "checked out" from the selector.
+    /// Checked-out relays are deprioritized in subsequent selections. When the caller is no longer
+    /// using the relay, it should return the relay via the [`RelaySelector::return_relay`] method.
+    ///
+    /// # Arguments
+    ///
+    /// * `variant` - The desired relay variant.
+    /// * `rank` - The desired relay rank.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - The selected relay.
+    /// * `Err(String)` - An error message.
     pub fn get_relay_by_weighted_round_robin(
         &mut self,
         variant: relay::Variant,
@@ -159,7 +187,18 @@ impl RelaySelector {
         Ok(selected.clone())
     }
 
-    pub fn return_relay(&mut self, relay: &str, variant: relay::Variant) -> Result<(), String> {
+    /// Returns a relay to the selector.
+    ///
+    /// Users of the [`RelaySelector`] are expected to call this method when they are done using a
+    /// relay, i.e., all active connections to that relay have been closed. Returning a relay
+    /// increases its weight, making it more likely to be selected in subsequent calls to
+    /// [`RelaySelector::select_relay`].
+    ///
+    /// # Arguments
+    ///
+    /// * `relay` - The URL of the relay to be returned.
+    /// * `variant` - The variant of the relay to be returned.
+    pub fn return_relay(&mut self, relay: &str, variant: relay::Variant) {
         let selected_statistics = self.get_mut_statistics(relay, variant);
         let (initial_weight, current_weight) = selected_statistics.remove_active_connection();
 
@@ -178,7 +217,5 @@ impl RelaySelector {
             }
             _ => (),
         }
-
-        Ok(())
     }
 }

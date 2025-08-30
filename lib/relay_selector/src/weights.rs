@@ -1,10 +1,22 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// The weight modifier applied to a relay when it is in use. Active relays are deprioritized in
+/// weighted round robin selections.
 pub const CONNECTION_WEIGHT: f32 = 0.1;
 
 pub type RelayWeights = HashMap<String, f32>;
 
+/// Given a list of relays and relay weights, sorts the relays in descending order of weight.
+///
+/// # Arguments
+///
+/// * `relays` - A mutable vector of relay URLs. This vector will be sorted in place.
+/// * `weights` - A reference to a map containing the weights of each relay.
+///
+/// # Panics
+///
+/// Panics if the relay list is empty or if any relay is missing a weight.
 pub fn weighted_sort(relays: &mut Vec<String>, weights: &RelayWeights) {
     assert!(!relays.is_empty(), "[weighted_sort] Relay list is empty");
     assert!(
@@ -28,6 +40,24 @@ pub fn weighted_sort(relays: &mut Vec<String>, weights: &RelayWeights) {
     });
 }
 
+/// Calculates weights for a relay based on its statistics.
+///
+/// # Arguments
+///
+/// * `response_times` - A mutable slice of durations representing the response times of the relay.
+///   The slice must be mutable so that it can be sorted in place.
+/// * `successful_requests` - The number of successful requests made to the relay.
+/// * `total_requests` - The total number of requests made to the relay.
+/// * `trust_level_weight` - A modifier used to more strongly weight relays known to be
+///   trustworthy.
+/// * `preferred_vendor_weight` - A modifier used to increase the weight of relays maintained by
+///   preferred or partner vendors.
+/// * `active_connections` - The number of currently active connections to the relay.
+///
+/// # Returns
+///
+/// A tuple of the relay's initial weight (before accounting for active connections) and its
+/// current weight (adjusted for active connections).
 pub fn calculate_weights(
     response_times: &mut [Duration],
     successful_requests: u32,

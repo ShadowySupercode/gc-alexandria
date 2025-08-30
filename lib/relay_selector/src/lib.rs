@@ -104,5 +104,6 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<String, Str
 pub fn return_relay(relay_url: &str) -> Result<(), String> {
     // TODO: Determine variant, then return
     let variant: relay::Variant = relay::Variant::General;
-    RELAY_SELECTOR.with_borrow_mut(|selector| selector.return_relay(relay_url, variant))
+    RELAY_SELECTOR.with_borrow_mut(|selector| selector.return_relay(relay_url, variant));
+    Ok(())
 }
