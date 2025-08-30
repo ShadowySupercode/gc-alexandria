@@ -2,7 +2,7 @@ mod relay;
 mod relay_selector;
 mod weights;
 
-use std::{cell::RefCell, time::Duration};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use wasm_bindgen::prelude::*;
 
@@ -15,7 +15,7 @@ thread_local! {
     /// initialized, it loads data from persistent storage, and when it is no longer needed, it
     /// saves the data back to persistent storage. The repository data may be mutated via the
     /// functions provided in the `relay_selector` crate's API.
-    static RELAY_SELECTOR: RefCell<RelaySelector> = RefCell::new(RelaySelector::new());
+    static RELAY_SELECTOR: Rc<RefCell<RelaySelector>> = Rc::new(RefCell::new(RelaySelector::new()));
 }
 
 #[wasm_bindgen]
@@ -80,15 +80,20 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
 /// When the relay indicated by the returned URL is no longer in use, it should be returned with
 /// [`return_relay`] to prevent memory leaks.
 #[wasm_bindgen]
-pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<String, String> {
+pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::RelayHandle, String> {
     let variant = relay::Variant::from_str(relay_type).unwrap_throw();
     let rank = match relay_rank {
         Some(rank) => rank,
         None => 0,
     } as usize;
 
-    RELAY_SELECTOR
-        .with_borrow_mut(|selector| selector.get_relay_by_weighted_round_robin(variant, rank))
+    RELAY_SELECTOR.with(|selector| {
+        let url = selector
+            .borrow_mut()
+            .get_relay_by_weighted_round_robin(variant, rank)
+            .unwrap_throw();
+        Ok(relay::RelayHandle::new(url, &selector))
+    })
 }
 
 /// Return a relay URL to indicate it that relay is no longer in use.
@@ -104,6 +109,6 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<String, Str
 pub fn return_relay(relay_url: &str) -> Result<(), String> {
     // TODO: Determine variant, then return
     let variant: relay::Variant = relay::Variant::General;
-    RELAY_SELECTOR.with_borrow_mut(|selector| selector.return_relay(relay_url, variant));
+    RELAY_SELECTOR.with(|selector| selector.borrow_mut().return_relay(relay_url, variant));
     Ok(())
 }
