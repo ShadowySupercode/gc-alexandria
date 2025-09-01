@@ -1,15 +1,19 @@
+use futures::executor::block_on;
 use std::collections::HashMap;
 use std::time::Duration;
 
+use wasm_bindgen::UnwrapThrowExt;
+
+use crate::database;
 use crate::relay;
 use crate::weights;
 
 pub struct RelaySelector {
     // Relay statistics
-    pub statistics: HashMap<String, relay::Statistics>,
+    statistics: HashMap<String, relay::Statistics>,
 
     // Weights
-    initial_weights: weights::RelayWeights,
+    pub initial_weights: weights::RelayWeights,
     current_weights: weights::RelayWeights,
 
     // Sorted relay lists by variant
@@ -18,7 +22,6 @@ pub struct RelaySelector {
     outbox: Vec<String>,
 }
 
-// Constructor and destructor
 impl RelaySelector {
     pub fn new() -> Self {
         // TODO: Initialize with data from persistent storage.
@@ -30,6 +33,44 @@ impl RelaySelector {
             inbox: Vec::new(),
             outbox: Vec::new(),
         }
+    }
+}
+
+impl Drop for RelaySelector {
+    fn drop(&mut self) {
+        self.general
+            .iter()
+            .map(|url| {
+                database::Relay::from_repositories(
+                    url,
+                    relay::Variant::General,
+                    &self.statistics[url],
+                    self,
+                )
+            })
+            .chain(self.inbox.iter().map(|url| {
+                database::Relay::from_repositories(
+                    url,
+                    relay::Variant::Inbox,
+                    &self.statistics[url],
+                    self,
+                )
+            }))
+            .chain(self.outbox.iter().map(|url| {
+                database::Relay::from_repositories(
+                    url,
+                    relay::Variant::Outbox,
+                    &self.statistics[url],
+                    self,
+                )
+            }))
+            .for_each(|relay| {
+                // TODO: Derive the store name from pubkey.
+                const STORE_NAME: &str = "my_store";
+
+                // TODO: Blocking on drop isn't ideal. Consider alternate patterns.
+                block_on(database::insert_or_update(STORE_NAME, relay)).unwrap_throw()
+            });
     }
 }
 

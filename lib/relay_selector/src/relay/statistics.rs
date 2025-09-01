@@ -3,14 +3,11 @@ use std::time::Duration;
 use crate::weights;
 
 pub struct Statistics {
-    requests: u32,
-    successful_requests: u32,
-
-    response_times: Vec<Duration>,
-
-    trust_level: f32,
-    vendor_score: f32,
-
+    pub requests: u32,
+    pub successful_requests: u32,
+    pub response_times: Vec<Duration>,
+    pub trust_level: f32,
+    pub vendor_score: f32,
     active_connections: u8,
 }
 
