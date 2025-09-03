@@ -29,7 +29,8 @@
 
 </script>
 
-<Navbar id="navi" class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800 !p-0" navContainerClass="flex-row items-center !p-0">
+<Navbar id="navi" class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800"
+        navContainerClass="flex-row items-center !p-0">
     <NavBrand href="/">
       <div class="flex flex-col">
         <h1 class="text-2xl font-bold mb-0">Alexandria</h1>
@@ -40,7 +41,7 @@
       <Profile />
       <NavHamburger />
     </div>
-    <NavUl class="order-1 ml-auto">
+    <NavUl class="order-1 ml-auto items-center" classes={{ ul: "items-center" }}>
       <NavLi class="cursor-pointer">
         Explore<ChevronDownOutline class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white" />
       </NavLi>
@@ -52,6 +53,11 @@
           </a>
         {/snippet}
       </MegaMenu>
-      <AThemeToggleMini />
+      <NavLi>
+        <AThemeToggleMini />
+      </NavLi>
+      <NavLi>
+        <DarkMode />
+      </NavLi>
     </NavUl>
 </Navbar>
