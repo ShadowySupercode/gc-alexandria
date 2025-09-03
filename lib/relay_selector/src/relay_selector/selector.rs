@@ -23,22 +23,15 @@ pub struct RelaySelector {
 }
 
 impl RelaySelector {
-    pub fn new() -> Self {
-        // TODO: Initialize with data from persistent storage.
-        Self {
-            statistics: HashMap::new(),
-            initial_weights: HashMap::new(),
-            current_weights: HashMap::new(),
-            general: Vec::new(),
-            inbox: Vec::new(),
-            outbox: Vec::new(),
-        }
+    pub fn init() -> Self {
+        // TODO: Fetch data from IndexedDB.
     }
 }
 
 impl Drop for RelaySelector {
     fn drop(&mut self) {
-        self.general
+        let relays: Vec<database::Relay> = self
+            .general
             .iter()
             .map(|url| {
                 database::Relay::from_repositories(
@@ -64,13 +57,11 @@ impl Drop for RelaySelector {
                     self,
                 )
             }))
-            .for_each(|relay| {
-                // TODO: Derive the store name from pubkey.
-                const STORE_NAME: &str = "my_store";
+            .collect();
 
-                // TODO: Blocking on drop isn't ideal. Consider alternate patterns.
-                block_on(database::insert_or_update(STORE_NAME, relay)).unwrap_throw()
-            });
+        // TODO: Explore alternatives that don't block the main event loop.
+        // A possible option is to spin out a web worker that handles the DB writes.
+        block_on(database::insert_or_update("my_store", relays.as_slice())).unwrap_or_default()
     }
 }
 

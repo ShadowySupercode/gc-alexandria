@@ -5,7 +5,10 @@ edition = "2024"
 
 [dependencies]
 futures = "0.3.31"
-indexed_db_futures = "0.6.4"
 js-sys = "0.3.77"
 serde = "1.0.219"
 wasm-bindgen = "0.2"
+
+[dependencies.indexed_db_futures]
+version = "0.6.4"
+features = ["cursors", "serde", "streams"]

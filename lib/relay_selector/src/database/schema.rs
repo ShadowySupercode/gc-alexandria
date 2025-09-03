@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::relay;
 use crate::relay_selector;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Relay {
     url: String,
     variant: relay::Variant,
