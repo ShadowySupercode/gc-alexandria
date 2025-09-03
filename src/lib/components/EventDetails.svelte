@@ -6,7 +6,7 @@
   import { activeInboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
-  import ProfileHeader from "$components/cards/ProfileHeader.svelte";
+  import { AProfilePreview } from "$lib/a";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
@@ -423,11 +423,7 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <ProfileHeader
-      {event}
-      {profile}
-      {communityStatusMap}
-    />
+    <AProfilePreview event={event} profile={profile} communityStatusMap={communityStatusMap} />
   {/if}
 
   <!-- Raw Event JSON -->

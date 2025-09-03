@@ -8,7 +8,7 @@
     loginWithAmber,
     loginWithNpub
   } from "$lib/stores/userStore";
-  import { Avatar, Popover, Dropdown, DropdownGroup, DropdownItem, DropdownHeader } from "flowbite-svelte";
+  import { Avatar, Dropdown, DropdownGroup, DropdownItem, DropdownHeader } from "flowbite-svelte";
   import { Globe, Loader, Book, Smartphone } from "@lucide/svelte";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
@@ -468,19 +468,19 @@
       </DropdownGroup>
       <DropdownGroup>
         <DropdownItem
-          class="w-full items-start"
+          class="w-full flex items-center justify-start"
           onclick={() => goto('/profile')}
         >
           View profile
         </DropdownItem>
         <DropdownItem
-          class="w-full"
+          class="w-full flex items-center justify-start "
           onclick={() => goto('/profile/my-notes')}
         >
           My notes
         </DropdownItem>
         <DropdownItem
-          class="w-full"
+          class="w-full flex items-center justify-start"
           onclick={() => goto('/profile/notifications')}
         >
           Notifications
@@ -503,7 +503,7 @@
       <DropdownGroup>
         <DropdownItem
           id="sign-out-button"
-          class="w-full"
+          class="w-full flex items-center justify-start "
           onclick={handleSignOutClick}
           >
           Sign out

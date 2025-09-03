@@ -290,7 +290,7 @@
   });
 </script>
 
-<div class="w-full max-w-3xl flex self-center">
+<div class="w-full max-w-3xl flex flex-col self-center">
     <Heading tag="h1" class="h-leather mb-2">Contact GitCitadel</Heading>
 
     <P class="my-3">

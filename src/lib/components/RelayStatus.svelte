@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, Alert, Heading } from "flowbite-svelte";
+  import { Button, P, Heading } from "flowbite-svelte";
   import {
     ndkSignedIn,
     testRelayConnection,
@@ -117,8 +117,8 @@
   }
 </script>
 
-<div class="space-y-4 w-full max-w-3xl flex self-center">
-  <div class="flex items-center justify-between">
+<div class="space-y-4 w-full max-w-3xl flex flex-col self-center p-4">
+  <div class="flex flex-col gap-3 items-center justify-between">
     <Heading tag="h1">Relay Connection Status</Heading>
     <Button size="sm" onclick={runRelayTests} disabled={testing}>
       {testing ? "Testing..." : "Refresh"}
@@ -139,10 +139,10 @@
     {#each relayStatuses as status}
       <div class="flex flex-row items-center justify-between p-3">
         <div class="flex-1">
-          <div class="font-medium">{status.url}</div>
-          <div class="text-sm {getStatusColor(status)}">
+          <P class="font-medium">{status.url}</P>
+          <P class="text-sm {getStatusColor(status)}">
             {getStatusText(status)}
-          </div>
+          </P>
         </div>
         <div
           class="w-3 h-3 rounded-full {getStatusColor(status).replace(
@@ -156,10 +156,10 @@
 
   {#if relayStatuses.some((s) => s.requiresAuth && !$ndkSignedIn)}
     <AAlert color="orange">
-      <span class="font-medium">Authentication Required</span>
-      <p class="mt-1 text-sm">
+      <P class="font-medium">Authentication Required</P>
+      <P class="mt-1 text-sm">
         Some relays require authentication. Sign in to access these relays.
-      </p>
+      </P>
     </AAlert>
   {/if}
 </div>

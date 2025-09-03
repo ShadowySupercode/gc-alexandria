@@ -185,9 +185,9 @@
 <div class="min-h-screen flex flex-col">
   <ANavbar />
 
-  <main class="flex-1 flex-col w-full mt-[75px] self-center">
+  <div class="flex flex-1 flex-col w-full mt-[100px] self-center">
     {@render children()}
-  </main>
+  </div>
 
   <AFooter />
 </div>

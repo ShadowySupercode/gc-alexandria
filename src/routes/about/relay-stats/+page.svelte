@@ -2,6 +2,6 @@
   import RelayStatus from "$lib/components/RelayStatus.svelte";
 </script>
 
-<div class="w-full flex justify-center">
+<div class="w-full flex flex-col justify-center">
     <RelayStatus />
 </div>

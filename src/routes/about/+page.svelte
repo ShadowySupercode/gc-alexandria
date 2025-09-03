@@ -12,8 +12,8 @@
   const ndk = getNdkContext();
 </script>
 
-<div class="w-full max-w-3xl flex self-center">
-    <div class="flex justify-between items-center mb-4">
+<div class="w-full max-w-3xl flex flex-col self-center mb-3">
+    <div class="flex flex-col justify-between items-center mb-4">
       <Heading tag="h1" class="h-leather mb-2"
         >About the Library of Alexandria</Heading
       >
@@ -24,7 +24,7 @@
         >
       {/if}
     </div>
-    <Img src="./screenshots/old_books.jpg" alt="Alexandria icon" />
+    <Img src="./screenshots/old_books.jpg" alt="Alexandria icon" class="my-3"/>
 
     <P class="mb-3">
       Alexandria is a reader and writer for <A

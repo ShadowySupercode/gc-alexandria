@@ -707,7 +707,7 @@
 
   /* Table of Contents highlighting */
   .toc-highlight {
-    @apply bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600
+    @apply bg-primary-200 dark:bg-primary-700 border-s-4 border-primary-600 rounded
     dark:border-primary-400 font-medium;
     transition: all 0.2s ease-in-out;
   }

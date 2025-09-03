@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { Button } from "flowbite-svelte";
   import { userStore } from "$lib/stores/userStore.ts";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
@@ -222,6 +223,7 @@
 >
   <!-- Tag Filter Sidebar -->
   <aside class="w-full lg:w-80 flex-shrink-0 self-start">
+    <Button size="sm" class="mb-3" onclick={() => goto('/new/compose')}>Create new</Button>
     <h2 class="text-lg font-bold mb-4">Tag Type</h2>
     <div class="flex flex-wrap gap-2 mb-6">
       {#each tagTypes as type}
