@@ -262,12 +262,10 @@
   // --- Identifier helpers ---
   function getIdentifiers(
     event: NDKEvent,
-    profile: any,
+    _profile: any,
   ): { label: string; value: string; link?: string }[] {
     const ids: { label: string; value: string; link?: string }[] = [];
     if (event.kind === 0) {
-      // NIP-05
-      const nip05 = profile?.nip05 || getMatchingTags(event, "nip05")[0]?.[1];
       // npub
       const npub = toNpub(event.pubkey);
       if (npub)
@@ -331,7 +329,7 @@
     {#if toNpub(event.pubkey)}
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
-          toNpub(event.pubkey) as string,
+          toNpub(event.pubkey) || '',
           profile?.display_name || undefined,
           ndk,
         )}</span
@@ -368,54 +366,54 @@
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        {#if isRepost}
-          <!-- Repost content handling -->
-          {#if repostKinds.includes(event.kind)}
-            <!-- Kind 6 and 16 reposts - stringified JSON content -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
-              </div>
-              {@render repostContent(event.content)}
-            </div>
-          {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
-            <!-- Quote repost - kind 1 with q tag -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Quote repost:
-              </div>
-              {@render quotedContent(event, [], ndk)}
-              {#if content}
-                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Added comment:
-                  </div>
-                  {#if repostKinds.includes(kind)}
-                    {@html content}
-                  {:else}
-                    {@render basicMarkup(content, ndk)}
-                  {/if}
+        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+          {#if isRepost}
+            <!-- Repost content handling -->
+            {#if repostKinds.includes(event.kind)}
+              <!-- Kind 6 and 16 reposts - stringified JSON content -->
+              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
                 </div>
+                {@render repostContent(event.content)}
+              </div>
+            {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+              <!-- Quote repost - kind 1 with q tag -->
+              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Quote repost:
+                </div>
+                {@render quotedContent(event, [], ndk)}
+                {#if content}
+                  <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Added comment:
+                    </div>
+                    {#if repostKinds.includes(kind)}
+                      {@html content}
+                    {:else}
+                      {@render basicMarkup(content, ndk)}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          {:else}
+            <!-- Regular content -->
+            <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+              {#if repostKinds.includes(kind)}
+                {@html content}
+              {:else}
+                {@render basicMarkup(content, ndk)}
               {/if}
             </div>
-          {/if}
-        {:else}
-          <!-- Regular content -->
-          <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-            {#if repostKinds.includes(kind)}
-              {@html content}
-            {:else}
-              {@render basicMarkup(content, ndk)}
+            {#if shouldTruncate}
+              <button
+                class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+                onclick={() => (showFullContent = true)}>Show more</button
+              >
             {/if}
-          </div>
-          {#if shouldTruncate}
-            <button
-              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-              onclick={() => (showFullContent = true)}>Show more</button
-            >
           {/if}
-        {/if}
         </div>
       </div>
     </div>

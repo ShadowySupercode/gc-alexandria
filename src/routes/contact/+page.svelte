@@ -1,14 +1,5 @@
 <script lang="ts">
-  import {
-    Heading,
-    P,
-    A,
-    Button,
-    Label,
-    Textarea,
-    Input,
-    Modal,
-  } from "flowbite-svelte";
+  import { Heading, P, A } from "flowbite-svelte";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { anonymousRelays } from "$lib/consts";
@@ -20,6 +11,8 @@
   import { nip19 } from "nostr-tools";
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import AMarkupForm from "$lib/a/forms/AMarkupForm.svelte";
+  import { AAlert } from "$lib/a";
 
   const ndk = getNdkContext();
 
@@ -33,8 +26,6 @@
     subject = "";
     content = "";
     submissionError = "";
-    isExpanded = false;
-    activeTab = "write";
   }
 
   let subject = $state("");
@@ -46,9 +37,6 @@
   let submittedEvent = $state<NDKEvent | null>(null);
   let issueLink = $state("");
   let successfulRelays = $state<string[]>([]);
-  let isExpanded = $state(false);
-  let activeTab = $state("write");
-  let showConfirmDialog = $state(false);
 
   // Store form data when user needs to login
   let savedFormData = {
@@ -82,43 +70,26 @@
     return url.replace(/\/+$/, "");
   }
 
-  function toggleSize() {
-    isExpanded = !isExpanded;
-  }
-
-  async function handleSubmit(e: Event) {
-    // Prevent form submission
-    e.preventDefault();
+  /**
+   * Handle form submission from AMarkupForm
+   */
+  async function handleFormSubmit(newSubject: string, newContent: string) {
+    submissionError = "";
+    subject = newSubject;
+    content = newContent;
 
     if (!subject || !content) {
       submissionError = "Please fill in all fields";
       return;
     }
 
-    // Check if user is logged in
     if (!user.signedIn) {
-      // Save form data
-      savedFormData = {
-        subject,
-        content,
-      };
-
-      // Show login modal
+      savedFormData = { subject, content };
       showLoginModal = true;
       return;
     }
 
-    // Show confirmation dialog
-    showConfirmDialog = true;
-  }
-
-  async function confirmSubmit() {
-    showConfirmDialog = false;
     await submitIssue();
-  }
-
-  function cancelSubmit() {
-    showConfirmDialog = false;
   }
 
   /**
@@ -321,273 +292,115 @@
       an issue, that will appear on our repo page.
     </P>
 
-    <form class="space-y-4" onsubmit={handleSubmit} autocomplete="off">
-      <div>
-        <Label for="subject" class="mb-2">Subject</Label>
-        <Input
-          id="subject"
-          class="w-full bg-white dark:bg-gray-800"
-          placeholder="Issue subject"
-          bind:value={subject}
-          required
-          autofocus
-        />
-      </div>
+    <AMarkupForm
+      bind:subject={subject}
+      bind:content={content}
+      isSubmitting={isSubmitting}
+      onSubmit={handleFormSubmit}
+    />
 
-      <div class="relative">
-        <Label for="content" class="mb-2">Description</Label>
-        <div
-          class="relative border border-gray-300 dark:border-gray-600 rounded-lg {isExpanded
-            ? 'h-[800px]'
-            : 'h-[200px]'} transition-all duration-200 sm:w-[95vw] md:w-full"
+    {#if submissionSuccess && submittedEvent}
+      <div
+        class="p-6 mb-4 text-sm bg-success-200 dark:bg-success-700 border border-success-300 dark:border-success-600 rounded-lg relative"
+        role="alert"
+      >
+        <!-- Close button -->
+        <button
+          class="absolute top-2 right-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+          onclick={closeSuccessMessage}
+          aria-label="Close"
         >
-          <div class="h-full flex flex-col">
-            <div
-              class="border-b border-gray-300 dark:border-gray-600 rounded-t-lg"
-            >
-              <ul
-                class="flex flex-wrap -mb-px text-sm font-medium text-center"
-                role="tablist"
-              >
-                <li class="mr-2" role="presentation">
-                  <button
-                    type="button"
-                    class="inline-block p-4 rounded-t-lg {activeTab === 'write'
-                      ? 'border-b-2 border-primary-600 text-primary-600'
-                      : 'hover:text-gray-600 hover:border-gray-300'}"
-                    onclick={() => (activeTab = "write")}
-                    role="tab"
-                  >
-                    Write
-                  </button>
-                </li>
-                <li role="presentation">
-                  <button
-                    type="button"
-                    class="inline-block p-4 rounded-t-lg {activeTab ===
-                    'preview'
-                      ? 'border-b-2 border-primary-600 text-primary-600'
-                      : 'hover:text-gray-600 hover:border-gray-300'}"
-                    onclick={() => (activeTab = "preview")}
-                    role="tab"
-                  >
-                    Preview
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div class="flex-1 min-h-0 relative">
-              {#if activeTab === "write"}
-                <div class="absolute inset-0 overflow-hidden">
-                  <Textarea
-                    id="content"
-                    class="w-full h-full resize-none bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded-b-lg rounded-t-none shadow-none px-4 py-2 focus:border-primary-600 dark:focus:border-primary-400"
-                    bind:value={content}
-                    required
-                    placeholder="Describe your issue in detail...
-
-The following markup is supported:
-
-# Headers (1-6 levels)
-
-Header 1
-======
-
-*Bold* or **bold**
-
-_Italic_ or __italic__ text
-
-~Strikethrough~ or ~~strikethrough~~ text
-
-> Blockquotes
-
-Lists, including nested:
-* Bullets/unordered lists
-1. Numbered/ordered lists
-
-[Links](url)
-![Images](url)
-
-`Inline code`
-
-```language
-Code blocks with syntax highlighting for over 100 languages
-```
-
-| Tables | With or without headers |
-|--------|------|
-| Multiple | Rows |
-
-Footnotes[^1] and [^1]: footnote content
-
-Also renders nostr identifiers: npubs, nprofiles, nevents, notes, and naddrs. With or without the nostr: prefix."
-                  />
-                </div>
-              {:else}
-                <div
-                  class="absolute inset-0 p-4 max-w-none bg-white dark:bg-gray-800 prose-content markup-content"
-                >
-                  {#key content}
-                    {#await parseAdvancedmarkup(content)}
-                      <p>Loading preview...</p>
-                    {:then html}
-                      {@html html ||
-                        '<p class="text-gray-700 dark:text-gray-300">Nothing to preview</p>'}
-                    {:catch error}
-                      <p class="text-red-500">
-                        Error rendering preview: {error.message}
-                      </p>
-                    {/await}
-                  {/key}
-                </div>
-              {/if}
-            </div>
-          </div>
-          <Button
-            type="button"
-            size="xs"
-            class="absolute bottom-2 right-2 z-10 opacity-60 hover:opacity-100"
-            color="light"
-            onclick={toggleSize}
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            {isExpanded ? "⌃" : "⌄"}
-          </Button>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+
+        <div class="flex items-center mb-3">
+          <svg
+            class="w-5 h-5 mr-2 text-success-700 dark:text-success-300"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              clip-rule="evenodd"
+            ></path>
+          </svg>
+          <span class="font-medium text-success-800 dark:text-success-200"
+            >Issue submitted successfully!</span
+          >
         </div>
-      </div>
 
-      <div class="flex justify-end space-x-4">
-        <Button type="button" color="alternative" onclick={clearForm}>
-          Clear Form
-        </Button>
-        <Button type="submit" tabindex={0}>
-          {#if isSubmitting}
-            Submitting...
-          {:else}
-            Submit Issue
-          {/if}
-        </Button>
-      </div>
-
-      {#if submissionSuccess && submittedEvent}
         <div
-          class="p-6 mb-4 text-sm bg-success-200 dark:bg-success-700 border border-success-300 dark:border-success-600 rounded-lg relative"
-          role="alert"
+          class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-success-200 dark:border-success-600"
         >
-          <!-- Close button -->
-          <button
-            class="absolute top-2 right-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-            onclick={closeSuccessMessage}
-            aria-label="Close"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
-
-          <div class="flex items-center mb-3">
-            <svg
-              class="w-5 h-5 mr-2 text-success-700 dark:text-success-300"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clip-rule="evenodd"
-              ></path>
-            </svg>
-            <span class="font-medium text-success-800 dark:text-success-200"
-              >Issue submitted successfully!</span
+          <div class="mb-2">
+            <span class="font-semibold">Subject:</span>
+            <span
+              >{submittedEvent.tags.find((t) => t[0] === "subject")?.[1] ||
+                "No subject"}</span
             >
           </div>
-
-          <div
-            class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-success-200 dark:border-success-600"
-          >
-            <div class="mb-2">
-              <span class="font-semibold">Subject:</span>
-              <span
-                >{submittedEvent.tags.find((t) => t[0] === "subject")?.[1] ||
-                  "No subject"}</span
-              >
+          <div>
+            <span class="font-semibold">Description:</span>
+            <div class="mt-1 note-leather max-h-[400px] overflow-y-auto">
+              {#await parseAdvancedmarkup(submittedEvent.content)}
+                <p>Loading...</p>
+              {:then html}
+                {@html html}
+              {:catch error}
+                <p class="text-red-500">
+                  Error rendering markup: {error.message}
+                </p>
+              {/await}
             </div>
-            <div>
-              <span class="font-semibold">Description:</span>
-              <div class="mt-1 note-leather max-h-[400px] overflow-y-auto">
-                {#await parseAdvancedmarkup(submittedEvent.content)}
-                  <p>Loading...</p>
-                {:then html}
-                  {@html html}
-                {:catch error}
-                  <p class="text-red-500">
-                    Error rendering markup: {error.message}
-                  </p>
-                {/await}
-              </div>
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <span class="font-semibold">View your issue:</span>
-            <div class="mt-1">
-              <A
-                href={issueLink}
-                target="_blank"
-                class="hover:underline text-primary-600 dark:text-primary-500 break-all"
-              >
-                {issueLink}
-              </A>
-            </div>
-          </div>
-
-          <!-- Display successful relays -->
-          <div class="text-sm">
-            <span class="font-semibold">Successfully published to relays:</span>
-            <ul class="list-disc list-inside mt-1">
-              {#each successfulRelays as relay}
-                <li class="text-success-700 dark:text-success-300">{relay}</li>
-              {/each}
-            </ul>
           </div>
         </div>
-      {/if}
 
-      {#if submissionError}
-        <div
-          class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
-          role="alert"
-        >
-          {submissionError}
+        <div class="mb-3">
+          <span class="font-semibold">View your issue:</span>
+          <div class="mt-1">
+            <A
+              href={issueLink}
+              target="_blank"
+              class="hover:underline text-primary-600 dark:text-primary-500 break-all"
+            >
+              {issueLink}
+            </A>
+          </div>
         </div>
-      {/if}
-    </form>
+
+        <!-- Display successful relays -->
+        <div class="text-sm">
+          <span class="font-semibold">Successfully published to relays:</span>
+          <ul class="list-disc list-inside mt-1">
+            {#each successfulRelays as relay}
+              <li class="text-success-700 dark:text-success-300">{relay}</li>
+            {/each}
+          </ul>
+        </div>
+      </div>
+    {/if}
+
+    {#if submissionError}
+      <AAlert color="red">
+        {submissionError}
+      </AAlert>
+    {/if}
 </div>
-
-<!-- Confirmation Dialog -->
-<Modal bind:open={showConfirmDialog} size="sm" autoclose={false} class="w-full">
-  <div class="text-center">
-    <h3 class="mb-5 text-lg font-normal text-gray-700 dark:text-gray-300">
-      Would you like to submit the issue?
-    </h3>
-    <div class="flex justify-center gap-4">
-      <Button color="alternative" onclick={cancelSubmit}>Cancel</Button>
-      <Button color="primary" onclick={confirmSubmit}>Submit</Button>
-    </div>
-  </div>
-</Modal>
 
 <!-- Login Modal -->
 <LoginModal

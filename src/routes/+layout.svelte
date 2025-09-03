@@ -3,10 +3,10 @@
   import { onMount, setContext } from "svelte";
   import { goto } from "$app/navigation";
   import { cleanupNdk, getPersistedLogin } from "$lib/ndk";
-  import { userStore, loginMethodStorageKey } from "$lib/stores/userStore";
+  import { loginMethodStorageKey, userStore } from "$lib/stores/userStore";
   import type { LayoutProps } from "./$types";
   import { page } from "$app/state";
-  import { ANavbar, AFooter } from "$lib/a/index.js";
+  import { AFooter, ANavbar } from "$lib/a/index.js";
 
   // Define children prop for Svelte 5
   let { data, children }: LayoutProps = $props();
@@ -52,11 +52,9 @@
         // If we have a persisted pubkey and login method, restore the session
         if (persistedPubkey && loginMethod) {
           console.log("Layout: Found persisted authentication, attempting to restore...");
-          
-          const currentUserState = $userStore;
-          
+
           // Only restore if not already signed in
-          if (!currentUserState.signedIn) {
+          if (!$userStore.signedIn) {
             console.log("Layout: User not currently signed in, restoring authentication...");
             
             if (loginMethod === "extension") {

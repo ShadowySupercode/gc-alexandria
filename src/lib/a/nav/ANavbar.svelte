@@ -56,8 +56,6 @@
       <NavLi>
         <AThemeToggleMini />
       </NavLi>
-      <NavLi>
         <DarkMode />
-      </NavLi>
     </NavUl>
 </Navbar>

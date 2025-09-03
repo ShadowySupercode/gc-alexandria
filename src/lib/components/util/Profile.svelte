@@ -1,15 +1,9 @@
 <script lang="ts">
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import NetworkStatus from "$components/NetworkStatus.svelte";
-  import { 
-    logoutUser, 
-    userStore, 
-    loginWithExtension,
-    loginWithAmber,
-    loginWithNpub
-  } from "$lib/stores/userStore";
-  import { Avatar, Dropdown, DropdownGroup, DropdownItem, DropdownHeader } from "flowbite-svelte";
-  import { Globe, Loader, Book, Smartphone } from "@lucide/svelte";
+  import { loginWithAmber, loginWithExtension, loginWithNpub, logoutUser, userStore } from "$lib/stores/userStore";
+  import { Avatar, Dropdown, DropdownGroup, DropdownHeader, DropdownItem } from "flowbite-svelte";
+  import { Book, Globe, Loader, Smartphone } from "@lucide/svelte";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
@@ -112,8 +106,7 @@
   
   // Reset the refresh flag when user logs out
   $effect(() => {
-    const currentUser = userState;
-    if (!currentUser.signedIn) {
+    if (!userState.signedIn) {
       hasRefreshedProfile = false;
     }
   });

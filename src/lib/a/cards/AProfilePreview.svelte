@@ -15,7 +15,6 @@
   import { neventEncode, naddrEncode, nprofileEncode } from '$lib/utils';
   import { isPubkeyInUserLists, fetchCurrentUserLists } from '$lib/utils/user_lists';
   import type { NDKEvent } from '@nostr-dev-kit/ndk';
-  import { UserOutline } from 'flowbite-svelte-icons';
 
   type UserLite = { npub?: string | null };
   type Profile = {

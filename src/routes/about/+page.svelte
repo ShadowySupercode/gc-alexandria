@@ -2,7 +2,6 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
   import { goto } from "$app/navigation";
-  import RelayStatus from "$lib/components/RelayStatus.svelte";
   import { getNdkContext } from "$lib/ndk";
   
   // Get the git tag version from environment variables

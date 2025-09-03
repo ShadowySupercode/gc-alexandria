@@ -166,7 +166,9 @@
         spanClass="px-2 text-ellipsis"
         class={`${isVisible ? "toc-highlight" : ""} ${isLastEntry ? "pb-4" : ""}`}
         onclick={() => handleSectionClick(address)}
-      />
+      >
+        <!-- Empty for now - could add icons or labels here in the future -->
+      </SidebarItem>
     {:else}
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper

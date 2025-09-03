@@ -7,7 +7,7 @@
     SidebarGroup,
     SidebarWrapper,
     Heading,
-    CloseButton,
+    CloseButton, uiHelpers
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
@@ -143,6 +143,10 @@
   let currentBlogEvent: null | NDKEvent = $state(null);
   const isLeaf = $derived(indexEvent.kind === 30041);
 
+  const tocSidebarUi = uiHelpers();
+  const closeTocSidebar = tocSidebarUi.close;
+  const isTocOpen = $state($publicationColumnVisibility.toc);
+
   function isInnerActive() {
     return currentBlog !== null && $publicationColumnVisibility.inner;
   }
@@ -249,16 +253,21 @@
 
 <!-- Table of contents -->
 {#if publicationType !== "blog" || !isLeaf}
-  {#if $publicationColumnVisibility.toc}
     <Sidebar
+      isOpen={isTocOpen}
+      closeSidebar={closeTocSidebar}
+      class="z-50 h-full pt-6 ml-4 bg-transparent sticky top-[80px]"
+      backdrop={true}
       activeUrl={`#${activeAddress ?? ""}`}
-      asideClass="fixed md:sticky top-[130px] sm:top-[146px] h-[calc(100vh-130px)] sm:h-[calc(100vh-146px)] z-10 bg-primary-50 dark:bg-primary-1000 px-5 w-80 left-0 pt-4 md:!pr-16 overflow-y-auto border border-l-4 rounded-lg border-primary-200 dark:border-primary-800 my-4"
-      activeClass="flex items-center p-2 bg-primary-50 dark:bg-primary-800 p-2 rounded-lg"
-      nonActiveClass="flex items-center p-2 hover:bg-primary-50 dark:hover:bg-primary-800 p-2 rounded-lg"
+      classes={{
+        div: 'bg-primary-50 dark:bg-primary-1000 border border-s-4 rounded border-primary-200 dark:border-primary-800',
+        active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
+        nonactive: 'bg-primary-50 dark:bg-primary-800',
+      }}
     >
       <CloseButton
-        onclick={closeToc}
-        class="btn-leather absolute top-4 right-4 hover:bg-primary-50 dark:hover:bg-primary-800"
+        onclick={closeTocSidebar}
+        class="btn-leather hover:bg-primary-50 dark:hover:bg-primary-800"
       />
       <TableOfContents
         {rootAddress}
@@ -273,7 +282,6 @@
         }}
       />
     </Sidebar>
-  {/if}
 {/if}
 
 <!-- Default publications -->

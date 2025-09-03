@@ -598,7 +598,7 @@
   /* Footnotes */
   .footnote-ref {
     text-decoration: none;
-    color: var(--color-primary);
+    color: var(--color-primary-500);
   }
 
   .footnotes {
@@ -628,12 +628,12 @@
   .footnote-backref {
     text-decoration: none;
     margin-left: 0.5rem;
-    color: var(--color-primary);
+    color: var(--color-primary-500);
   }
 
   .note-leather .footnote-ref,
   .note-leather .footnote-backref {
-    color: var(--color-primary);
+    color: var(--color-primary-500);
   }
 
   /* Scrollable content */
