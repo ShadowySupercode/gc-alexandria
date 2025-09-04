@@ -1,19 +1,28 @@
 <script lang="ts">
   import { ChevronDownOutline } from "flowbite-svelte-icons";
-  import { Dropdown, DropdownGroup, NavLi, Radio } from "flowbite-svelte";
+  import { Button, Dropdown, DropdownGroup, Radio } from "flowbite-svelte";
+  import { onMount } from "svelte";
+  import { setTheme, theme as themeStore } from "$lib/stores/themeStore";
 
-  let theme = $state('papyrus'); // e.g. 'ocean' or '' for default
-  const apply = () => document.documentElement.setAttribute('data-theme', theme);
-  $effect(apply);
+  let theme = $state<string>("light");
+
+  onMount(() => {
+    return themeStore.subscribe((v) => (theme = String(v)));
+  });
+
+  // Persist and apply whenever the selection changes
+  $effect(() => {
+    setTheme(theme);
+  });
 </script>
 
-<NavLi>
-  Theme {theme}<ChevronDownOutline class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white" />
-</NavLi>
+<Button>
+  Theme {theme}<ChevronDownOutline class="ms-2 inline h-6 w-6" />
+</Button>
 <Dropdown simple class="w-44">
   <DropdownGroup class="space-y-3 p-3">
     <li>
-      <Radio name="group1" bind:group={theme} value="papyrus">Papyrus</Radio>
+      <Radio name="group1" bind:group={theme} value="light">Light</Radio>
     </li>
     <li>
       <Radio name="group1" bind:group={theme} value="ocean">Ocean</Radio>

@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-const KEY = 'theme';
+const KEY = 'alexandria/theme';
 
 const initial =
   (typeof localStorage !== 'undefined' && localStorage.getItem(KEY)) ||

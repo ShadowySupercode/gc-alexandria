@@ -1,11 +1,11 @@
 <script lang="ts">
   import { showTech } from '$lib/stores/techStore.ts';
-  import { Toggle } from "flowbite-svelte";
+  import { Toggle, P } from "flowbite-svelte";
   let label = 'Show technical details';
   $: checked = $showTech;
 </script>
 
-<div class="inline-flex items-center gap-2 select-none">
+<div class="inline-flex items-center gap-2 select-none my-3">
   <Toggle {checked} ontoggle={() => $showTech = checked} aria-label={label} />
-  <span class="text-sm">{label}</span>
+  <P class="text-sm">{label}</P>
 </div>

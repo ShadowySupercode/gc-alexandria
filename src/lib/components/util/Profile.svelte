@@ -2,7 +2,7 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import NetworkStatus from "$components/NetworkStatus.svelte";
   import { loginWithAmber, loginWithExtension, loginWithNpub, logoutUser, userStore } from "$lib/stores/userStore";
-  import { Avatar, Dropdown, DropdownGroup, DropdownHeader, DropdownItem } from "flowbite-svelte";
+  import { Avatar, Dropdown, DropdownGroup, DropdownHeader, DropdownItem, P } from "flowbite-svelte";
   import { Book, Globe, Loader, Smartphone } from "@lucide/svelte";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
@@ -414,16 +414,14 @@
           </span>
         </DropdownItem>
         {#if result}
-          <DropdownHeader>
-            <div
-            class="absolute right-0 top-10 z-50 bg-gray-100 p-3 rounded text-sm break-words whitespace-pre-line max-w-lg shadow-lg border border-gray-300"
-          >
-            {result}
+          <DropdownHeader class="flex gap-3">
+            <P class="text-xs">
+              {result}
+            </P>
             <button
-              class="ml-2 text-gray-500 hover:text-gray-700"
+              class="inline ml-2 text-gray-500 hover:text-gray-700"
               onclick={() => (result = null)}>✖</button
             >
-          </div>
           </DropdownHeader>
         {/if}
       </DropdownGroup>

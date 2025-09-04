@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { AAlert, AProfilePreview } from "$lib/a";
+  import { AAlert, AProfilePreview, AThemeToggleMini } from "$lib/a";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userStore } from "$lib/stores/userStore";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getNdkContext } from "$lib/ndk.ts";
+  import { Heading } from "flowbite-svelte";
+  import ATechToggle from "$lib/a/reader/ATechToggle.svelte";
 
   // State
   let user = $state($userStore);
@@ -81,6 +83,21 @@
   <div class="w-full flex justify-center">
     <div class="flex flex-col w-full max-w-5xl my-6 px-4 mx-auto gap-6">
       <AProfilePreview user={user} profile={profile} loading={loading} error={error} isOwn={!!user?.signedIn && (!profileEvent?.pubkey || profileEvent.pubkey === user.pubkey)} />
+
+      <div class="mt-6">
+        <Heading tag="h3" class="h-leather mb-4">
+          Settings
+        </Heading>
+        <!-- Theme and tech settings -->
+        <ul>
+          <li>
+            <ATechToggle />
+          </li>
+          <li>
+            <AThemeToggleMini />
+          </li>
+        </ul>
+      </div>
 
       {#if profileEvent}
         <div class="main-leather flex flex-col space-y-6">

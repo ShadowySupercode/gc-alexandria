@@ -11,7 +11,6 @@
   import Profile from "$components/util/Profile.svelte";
 
   import { ChevronDownOutline } from "flowbite-svelte-icons";
-  import { AThemeToggleMini } from "$lib/a";
 
   let menu2 = [
     { name: 'Publications', href: '/', help: 'Browse publications' },
@@ -29,12 +28,12 @@
 
 </script>
 
-<Navbar id="navi" class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-800"
+<Navbar id="navi" class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-1000"
         navContainerClass="flex-row items-center !p-0">
     <NavBrand href="/">
       <div class="flex flex-col">
-        <h1 class="text-2xl font-bold mb-0">Alexandria</h1>
-        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem] mb-0">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+        <h1 class="text-2xl font-bold mb-0 dark:text-primary-100 hover:dark:text-highlight">Alexandria</h1>
+        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem] mb-0 dark:text-primary-200 ">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
       </div>
     </NavBrand>
     <div class="flex md:order-2">
@@ -53,9 +52,6 @@
           </a>
         {/snippet}
       </MegaMenu>
-      <NavLi>
-        <AThemeToggleMini />
-      </NavLi>
-        <DarkMode />
+      <DarkMode />
     </NavUl>
 </Navbar>
