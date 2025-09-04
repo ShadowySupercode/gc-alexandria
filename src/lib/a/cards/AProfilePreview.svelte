@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Card, Heading, P, Button, Modal, Avatar } from 'flowbite-svelte';
+  import { Card, Heading, P, Button, Modal, Avatar, Dropdown, DropdownItem } from 'flowbite-svelte';
+  import { ChevronDownOutline } from 'flowbite-svelte-icons';
   import AAlert from '$lib/a/primitives/AAlert.svelte';
   import CopyToClipboard from '$lib/components/util/CopyToClipboard.svelte';
   import { goto } from '$app/navigation';
@@ -37,7 +38,7 @@
     loading?: boolean;
     error?: string | null;
     isOwn?: boolean;
-    event?: NDKEvent;
+    event: NDKEvent;
     communityStatusMap?: Record<string, boolean>;
   }>();
 
@@ -149,72 +150,46 @@
 
 <Card size="xl" class="main-leather p-0 overflow-hidden rounded-lg border border-primary-200 dark:border-primary-700">
   {#if props.profile?.banner}
-    {#if props.event}
-      <div class="w-full bg-primary-200 dark:bg-primary-800 relative">
-        <LazyImage src={props.profile.banner} alt="Profile banner" eventId={props.event.id} className="w-full h-60 object-cover" />
-      </div>
-    {:else}
-      <div class="w-full h-60 bg-primary-200 dark:bg-primary-800 relative">
-        <img src={props.profile.banner} alt="Banner" class="w-full h-full object-cover" loading="lazy" onerror={hideOnError} />
-      </div>
-    {/if}
-  {:else if props.event}
+    <div class="w-full bg-primary-200 dark:bg-primary-800 relative">
+      <LazyImage src={props.profile.banner} alt="Profile banner" eventId={props.event.id} className="w-full h-60 object-cover" />
+    </div>
+  {:else}
     <div class="w-full h-60" style={`background-color: ${generateDarkPastelColor(props.event.id)};`}></div>
   {/if}
 
-  <div class={`p-6 ${props.profile?.banner || props.event ? 'pt-6' : 'pt-6'} flex flex-col gap-4 relative`}>
-    <Avatar size="xl" border src={props.profile?.picture} alt="Avatar" class="absolute w-fit top-[-56px]" />
+  <div class={`p-6 flex flex-col gap-4 relative`}>
 
-    <div class="min-w-0 mt-14">
+    <Avatar size="xl" border src={props.profile?.picture ?? null} alt="Avatar" class="absolute w-fit top-[-56px]" />
+
+    <div class="flex flex-col gap-3 mt-14">
+      <Heading tag="h1" class="h-leather mb-2">{displayName()}</Heading>
+      {#if props.user?.npub}
+        <CopyToClipboard displayText={shortNpub()} copyText={props.user.npub} />
+      {/if}
+
       {#if props.event}
         <div class="flex items-center gap-2 min-w-0">
-          <div class="min-w-0 flex-1">
-            {@render userBadge(
-              toNpub(props.event.pubkey) as string,
-              props.profile?.displayName || props.profile?.display_name || props.profile?.name || props.event.pubkey,
-              ndk,
-            )}
-          </div>
+          {#if props.profile?.nip05}
+            <span class="px-2 py-0.5 !mb-0 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs">{props.profile.nip05}</span>
+          {/if}
           {#if communityStatus === true}
             <div class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center" title="Has posted to the community">
               <svg class="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             </div>
-          {:else if communityStatus === false}
-            <div class="flex-shrink-0 w-4 h-4"></div>
           {/if}
           {#if isInUserLists === true}
             <div class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center" title="In your lists (follows, etc.)">
               <svg class="w-3 h-3 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
             </div>
-          {:else if isInUserLists === false}
-            <div class="flex-shrink-0 w-4 h-4"></div>
           {/if}
         </div>
-      {:else}
-        <Heading tag="h1" class="h-leather mb-2">{displayName()}</Heading>
       {/if}
-
-      <div class="flex flex-row flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-1">
-        {#if props.user?.npub}
-          <CopyToClipboard displayText={shortNpub()} copyText={props.user.npub} />
-        {/if}
-        {#if props.profile?.nip05}
-          <span class="px-2 py-0.5 !mb-0 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs">{props.profile.nip05}</span>
-        {/if}
-        {#if props.profile?.lud16}
-          <Button color="alternative" class="!mb-0 !py-0.5 !px-2 rounded" size="xs" onclick={() => (lnModalOpen = true)}>⚡ {props.profile.lud16}</Button>
-        {/if}
-      </div>
     </div>
 
     {#if props.profile?.about}
-      {#if props.event}
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-          {@render basicMarkup(props.profile.about, ndk)}
-        </div>
-      {:else}
-        <P class="whitespace-pre-wrap break-words leading-relaxed">{props.profile.about}</P>
-      {/if}
+      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+        {@render basicMarkup(props.profile.about, ndk)}
+      </div>
     {/if}
 
     <div class="flex flex-wrap gap-4 text-sm">
@@ -223,35 +198,22 @@
       {/if}
     </div>
 
-    {#if props.event}
-      <div class="mt-4">
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
-        <div class="flex flex-col gap-2 min-w-0">
-          {#each getIdentifiers(props.event, props.profile) as identifier}
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
-              <div class="flex-1 min-w-0 flex items-center gap-2">
-                {#if identifier.link}
-                  <button class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left" onclick={() => navigateToIdentifier(identifier.link!)}>
-                    {identifier.value}
-                  </button>
-                {:else}
-                  <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{identifier.value}</span>
-                {/if}
-                <CopyToClipboard displayText="" copyText={identifier.value} />
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
+    <div class="flex flex-row flex-wrap justify-end gap-4 text-sm">
+      {#if props.profile?.lud16}
+        <Button color="alternative" size="xs" onclick={() => (lnModalOpen = true)}>⚡ {props.profile.lud16}</Button>
+      {/if}
+      <Button size="xs" color="alternative">Identifiers <ChevronDownOutline class="ms-2 h-6 w-6" /></Button>
+      <Dropdown simple>
+        {#each getIdentifiers(props.event, props.profile) as identifier}
+          <DropdownItem><CopyToClipboard displayText={identifier.label} copyText={identifier.value} /></DropdownItem>
+        {/each}
+      </Dropdown>
 
-    {#if props.isOwn}
-      <div class="flex flex-row justify-end gap-4 text-sm">
+      {#if props.isOwn}
         <Button class="!mb-0" size="xs" onclick={() => goto('/profile/notifications')}>Notifications</Button>
         <Button class="!mb-0" size="xs" onclick={() => goto('/profile/my-notes')}>My notes</Button>
-      </div>
-    {/if}
+      {/if}
+    </div>
 
     {#if props.loading}
       <AAlert color="primary">Loading profile…</AAlert>
@@ -268,7 +230,7 @@
       <div>
         <div class="flex flex-col items-center">
           {@render userBadge(
-            props.event ? (toNpub(props.event.pubkey) as string) : (props.user?.npub || ''),
+            props.user?.npub ?? toNpub(props.event.pubkey),
             props.profile?.displayName || props.profile?.display_name || props.profile?.name || (props.event?.pubkey || ''),
             ndk,
           )}

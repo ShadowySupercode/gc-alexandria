@@ -6,7 +6,7 @@
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getNdkContext } from "$lib/ndk.ts";
-  import { Heading } from "flowbite-svelte";
+  import { Heading, P } from "flowbite-svelte";
   import ATechToggle from "$lib/a/reader/ATechToggle.svelte";
 
   // State
@@ -82,8 +82,9 @@
 {:else}
   <div class="w-full flex justify-center">
     <div class="flex flex-col w-full max-w-5xl my-6 px-4 mx-auto gap-6">
-      <AProfilePreview user={user} profile={profile} loading={loading} error={error} isOwn={!!user?.signedIn && (!profileEvent?.pubkey || profileEvent.pubkey === user.pubkey)} />
-
+      {#if profileEvent}
+        <AProfilePreview event={profileEvent} user={user} profile={profile} loading={loading} error={error} isOwn={!!user?.signedIn && (!profileEvent?.pubkey || profileEvent.pubkey === user.pubkey)} />
+      {/if}
       <div class="mt-6">
         <Heading tag="h3" class="h-leather mb-4">
           Settings

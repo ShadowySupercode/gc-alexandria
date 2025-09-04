@@ -7,7 +7,7 @@
   const isVersionKnown = appVersion !== "development";
 </script>
 
-<div class="w-full max-w-2xl flex flex-col self-center">
+<div class="w-full max-w-3xl flex flex-col self-center mb-3 px-2">
     <Heading tag="h1" class="h-leather mb-2"
       >Getting Started with Alexandria</Heading
     >

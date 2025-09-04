@@ -11,7 +11,7 @@
   const ndk = getNdkContext();
 </script>
 
-<div class="w-full max-w-3xl flex flex-col self-center mb-3">
+<div class="w-full max-w-3xl flex flex-col self-center mb-3 px-2">
     <div class="flex flex-col justify-between items-center mb-4">
       <Heading tag="h1" class="h-leather mb-2"
         >About the Library of Alexandria</Heading

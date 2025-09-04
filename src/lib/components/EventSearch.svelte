@@ -18,6 +18,7 @@
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import { isEventId } from "$lib/utils/nostr_identifiers";
   import type { SearchType } from "$lib/models/search_type";
+  import { AAlert } from "$lib/a";
 
   // Props definition
   let {
@@ -903,21 +904,15 @@
 
   <!-- Error Display -->
   {#if showError}
-    <div
-      class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg"
-      role="alert"
-    >
+    <AAlert color="red">
       {localError || error}
-    </div>
+    </AAlert>
   {/if}
 
   <!-- Success Display -->
   {#if showSuccess}
-    <div
-      class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg"
-      role="alert"
-    >
+    <AAlert color="green">
       {getResultMessage()}
-    </div>
+    </AAlert>
   {/if}
 </div>

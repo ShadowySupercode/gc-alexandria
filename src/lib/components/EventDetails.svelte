@@ -22,6 +22,9 @@
   import { getNdkContext } from "$lib/ndk";
   import type { UserProfile } from "$lib/models/user_profile";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import ATechBlock from "$lib/a/reader/ATechBlock.svelte";
+  import { Accordion, AccordionItem, Heading } from "flowbite-svelte";
+  import RelayActions from "$components/RelayActions.svelte";
 
   const {
     event,
@@ -302,6 +305,10 @@
     return ids;
   }
 
+  function navigateToIdentifier(link: string) {
+    goto(link);
+  }
+
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
@@ -323,38 +330,38 @@
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
       {@render basicMarkup(getEventTitle(event), ndk)}
     </h2>
-  {/if}
 
-  <div class="flex items-center space-x-2 min-w-0">
-    {#if toNpub(event.pubkey)}
+    <div class="flex items-center space-x-2 min-w-0">
+      {#if toNpub(event.pubkey)}
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
-        >Author: {@render userBadge(
-          toNpub(event.pubkey) || '',
-          profile?.display_name || undefined,
-          ndk,
-        )}</span
+      >Author: {@render userBadge(
+        toNpub(event.pubkey) || '',
+        profile?.display_name || undefined,
+        ndk,
+      )}</span
       >
-    {:else}
+      {:else}
       <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-        >Author: {profile?.display_name || event.pubkey}</span
+      >Author: {profile?.display_name || event.pubkey}</span
       >
-    {/if}
-  </div>
-
-  <div class="flex items-center space-x-2 min-w-0">
-    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
-    <span class="font-mono flex-shrink-0">{event.kind}</span>
-    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
-      >({getEventTypeDisplay(event)})</span
-    >
-  </div>
-
-  <div class="flex flex-col space-y-1 min-w-0">
-    <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-      {@render basicMarkup(getEventSummary(event), ndk)}
+      {/if}
     </div>
-  </div>
+
+    <div class="flex items-center space-x-2 min-w-0">
+      <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
+      <span class="font-mono flex-shrink-0">{event.kind}</span>
+      <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
+      >({getEventTypeDisplay(event)})</span
+      >
+    </div>
+
+    <div class="flex flex-col space-y-1 min-w-0">
+      <span class="text-gray-700 dark:text-gray-300">Summary:</span>
+      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+        {@render basicMarkup(getEventSummary(event), ndk)}
+      </div>
+    </div>
+  {/if}
 
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
@@ -424,119 +431,80 @@
     <AProfilePreview event={event} profile={profile} communityStatusMap={communityStatusMap} />
   {/if}
 
-  <!-- Raw Event JSON -->
-  <details
-    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4 overflow-hidden"
-  >
-    <summary
-      class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2"
-    >
-      Show details
-    </summary>
-    
-    <!-- Identifiers Section -->
-    <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
-      <div class="flex flex-col gap-2 min-w-0">
-        {#each getIdentifiers(event, profile) as identifier}
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            {#if identifier.link}
-              <a
-                href={identifier.link}
-                class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
-                title={identifier.value}
-              >
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </a>
-            {:else}
-              <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </span>
-            {/if}
+  <ATechBlock>
+    {#snippet content()}
+      <Heading tag="h3" class="h-leather my-6">
+        Technical details
+      </Heading>
+
+      <Accordion flush class="w-full">
+        <AccordionItem open={false} >
+          {#snippet header()}Identifiers{/snippet}
+          {#if event}
+            <div class="flex flex-col gap-2">
+              {#each getIdentifiers(event, profile) as identifier}
+                <div class="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-start gap-2 min-w-0">
+                  <span class="min-w-24 text-gray-600 dark:text-gray-400">{identifier.label}:</span>
+                  <div class="min-w-0">
+                    {#if identifier.link}
+                      <button class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left"
+                              onclick={() => navigateToIdentifier(identifier.link)}>
+                        {identifier.value}
+                      </button>
+                    {:else}
+                      <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{identifier.value}</span>
+                    {/if}
+                  </div>
+                  <div class="justify-self-end">
+                    <CopyToClipboard displayText="" copyText={identifier.value} />
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </AccordionItem>
+        <!-- Event Tags Section -->
+        {#if event.tags && event.tags.length}
+          <AccordionItem open={false}>
+            {#snippet header()}
+              Tags
+            {/snippet}
+            <div class="flex flex-wrap gap-2 break-words min-w-0">
+              {#each event.tags as tag}
+                {@const tagInfo = getTagButtonInfo(tag)}
+                {#if tagInfo.text && tagInfo.gotoValue}
+                  <button
+                    onclick={() => handleTagGoto(tagInfo.gotoValue || "")}
+                    class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
+                  >
+                    {tagInfo.text}
+                  </button>
+                {/if}
+              {/each}
+            </div>
+          </AccordionItem>
+        {/if}
+
+        <AccordionItem open={false} contentClass="relative">
+          {#snippet header()}Event JSON{/snippet}
+          <div class="absolute top-5 right-0 z-10">
             <CopyToClipboard
               displayText=""
-              copyText={identifier.value}
+              copyText={JSON.stringify(event.rawEvent(), null, 2)}
             />
           </div>
-        </div>
-        {/each}
-      </div>
-    </div>
+          {#if event}
+            <pre class="p-4 wrap-break-word  bg-highlight dark:bg-primary-900">
+              <code class="text-wrap">{JSON.stringify(event.rawEvent(), null, 2)}</code>
+            </pre>
+          {/if}
+        </AccordionItem>
 
-    <!-- Event Tags Section -->
-    {#if event.tags && event.tags.length}
-      <div class="mb-4 max-w-full overflow-hidden">
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
-        <div class="flex flex-wrap gap-2 break-words min-w-0">
-          {#each event.tags as tag}
-            {@const tagInfo = getTagButtonInfo(tag)}
-            {#if tagInfo.text && tagInfo.gotoValue}
-              <button
-                onclick={() => {
-                  // Handle different types of gotoValue
-                  if (
-                    tagInfo.gotoValue!.startsWith("naddr") ||
-                    tagInfo.gotoValue!.startsWith("nevent") ||
-                    tagInfo.gotoValue!.startsWith("npub") ||
-                    tagInfo.gotoValue!.startsWith("nprofile") ||
-                    tagInfo.gotoValue!.startsWith("note")
-                  ) {
-                    // For naddr, nevent, npub, nprofile, note - navigate directly
-                    goto(`/events?id=${tagInfo.gotoValue!}`);
-                  } else if (tagInfo.gotoValue!.startsWith("/")) {
-                    // For relative URLs - navigate directly
-                    goto(tagInfo.gotoValue!);
-                  } else if (tagInfo.gotoValue!.startsWith("d:")) {
-                    // For d-tag searches - navigate to d-tag search
-                    const dTag = tagInfo.gotoValue!.substring(2);
-                    goto(`/events?d=${encodeURIComponent(dTag)}`);
-                  } else if (tagInfo.gotoValue!.startsWith("t:")) {
-                    // For t-tag searches - navigate to t-tag search
-                    const tTag = tagInfo.gotoValue!.substring(2);
-                    goto(`/events?t=${encodeURIComponent(tTag)}`);
-                  } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                    // AI-NOTE:  E-tag navigation may cause comment feed update issues
-                    // When navigating to a new event via e-tag, the CommentViewer component
-                    // may experience timing issues that result in:
-                    // - Empty comment feeds even when comments exist
-                    // - UI flashing between different thread views
-                    // - Delayed comment loading
-                    // This is likely due to race conditions between event prop changes
-                    // and comment fetching in the CommentViewer component.
-                    navigateToEvent(tagInfo.gotoValue!);
-                  } else {
-                    // For other cases, try direct navigation
-                    goto(`/events?id=${tagInfo.gotoValue!}`);
-                  }
-                }}
-                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
-              >
-                {tagInfo.text}
-              </button>
-            {/if}
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Raw Event JSON Section -->
-    <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
-      <div class="relative min-w-0">
-        <div class="absolute top-0 right-0 z-10">
-          <CopyToClipboard
-            displayText=""
-            copyText={JSON.stringify(event.rawEvent(), null, 2)}
-          />
-        </div>
-        <pre
-          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap min-w-0"
-          style="line-height: 1.7; font-size: 1rem;">
-{JSON.stringify(event.rawEvent(), null, 2)}
-        </pre>
-      </div>
-    </div>
-  </details>
+        <AccordionItem open={true}>
+          {#snippet header()}Relay Info{/snippet}
+          <RelayActions {event} />
+        </AccordionItem>
+      </Accordion>
+    {/snippet}
+  </ATechBlock>
 </div>

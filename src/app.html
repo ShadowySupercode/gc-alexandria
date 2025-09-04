@@ -1,9 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tech="off">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.png?v=2" />
     <meta name="viewport" content="width=device-width" />
+
+    <!-- Apply saved theme ASAP to avoid flash -->
+    <script>
+      try {
+        const t = localStorage.getItem('theme');
+        if (t) document.documentElement.dataset.theme = t;
+      } catch (_) {
+        /* no-op */
+      }
+    </script>
+
+    <!-- Apply saved tech toggle ASAP; default is off -->
+    <script>
+      try {
+        const v = localStorage.getItem('alexandria/showTech');
+        document.documentElement.dataset.tech = v === 'true' ? 'on' : 'off';
+      } catch (_) {
+        /* no-op */
+      }
+    </script>
 
     <!-- MathJax for math rendering -->
     <script>

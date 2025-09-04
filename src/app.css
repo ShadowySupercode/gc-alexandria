@@ -454,6 +454,10 @@
       @apply fill-primary-600 dark:fill-primary-500;
     }
   }
+
+  [data-tech="off"] .tech-detail {
+    @apply !hidden;
+  }
 }
 
 @layer components {

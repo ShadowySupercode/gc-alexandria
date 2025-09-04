@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Heading, P } from "flowbite-svelte";
+  import { Heading, P, List, Li } from "flowbite-svelte";
   import EventInput from "$components/EventInput.svelte";
   import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk.ts";
   import { userStore } from "$lib/stores/userStore.ts";
+  import { AAlert } from "$lib/a";
 
   // AI-NOTE: 2025-01-24 - Reactive effect to log relay configuration when stores change - non-blocking approach
   $effect.pre(() => {
@@ -27,18 +28,39 @@
     <div class="main-leather flex flex-col space-y-6">
       <Heading tag="h1" class="h-leather mb-2">Compose Event</Heading>
 
-      <P class="mb-3">
+      <P class="my-3">
         Use this page to compose and publish various types of events to the Nostr network.
         You can create notes, articles, and other event types depending on your needs.
       </P>
 
+      <P class="mb-4">
+        Create and publish new Nostr events to the network. This form
+        supports various event kinds including:
+      </P>
+
+      <List
+        class="mb-6 list-disc list-inside space-y-1"
+      >
+        <Li>
+          <strong>Kind 30040:</strong> Publication indexes that organize AsciiDoc
+          content into structured publications
+        </Li>
+        <Li>
+          <strong>Kind 30041:</strong> Individual section content for publications
+        </Li>
+        <Li>
+          <strong>Other kinds:</strong> Standard Nostr events with custom tags
+          and content
+        </Li>
+      </List>
+
       {#if $userStore.signedIn}
         <EventInput />
       {:else}
-        <div class="p-6 bg-gray-200 dark:bg-gray-700 rounded-lg text-center">
-          <Heading tag="h3" class="h-leather mb-4">Sign In Required</Heading>
-          <P>Please sign in to compose and publish events to the Nostr network.</P>
-        </div>
+        <AAlert color="blue">
+          {#snippet title()}Sign In Required{/snippet}
+          Please sign in to compose and publish events to the Nostr network.
+        </AAlert>
       {/if}
     </div>
   </div>
