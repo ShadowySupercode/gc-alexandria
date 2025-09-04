@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Textarea, Toolbar, ToolbarGroup, ToolbarButton, Label, Button } from "flowbite-svelte";
-  import { Bold, Italic, Strikethrough, Quote, Link2, Image, Hash, List, ListOrdered, Eye, EyeClosed } from "@lucide/svelte";
+  import { Bold, Italic, Strikethrough, Quote, Link2, Image, Hash, List, ListOrdered, Eye, PencilLine } from "@lucide/svelte";
 
   // Reusable editor with toolbar (from ACommentForm) and toolbar-only Preview
   let {
@@ -11,8 +11,9 @@
     placeholder = "",
     // async parser that returns HTML string
     parser = async (s: string) => s,
-    // optional snippet renderer (e.g., (html) => basicMarkup(html, ndk))
-    previewRenderer,
+    // snippet renderer and optional args
+    previewSnippet,
+    previewArg: previewArg = undefined,
     // extra toolbar extensions (snippet returning toolbar buttons)
     extensions,
   } = $props<{
@@ -22,7 +23,8 @@
     rows?: number;
     placeholder?: string;
     parser?: (s: string) => Promise<string> | string;
-    previewRenderer?: (html: string) => any;
+    previewSnippet?: any; // Svelte snippet
+    previewArg?: any;
     extensions?: any;
   }>();
 
@@ -93,12 +95,14 @@
           id={id}
           rows={isExpanded ? 30 : rows}
           bind:value={value}
-          class="!m-0 p-0 h-full"
-          innerClass="!m-0 !bg-transparent !dark:bg-transparent"
-          headerClass="!m-0 !bg-transparent !dark:bg-transparent"
-          footerClass="!m-0 !bg-transparent"
-          addonClass="!m-0 top-3 hidden md:flex"
-          textareaClass="!m-0 !bg-transparent !dark:bg-transparent !border-0 !rounded-none !shadow-none !focus:ring-0"
+          classes={{
+            wrapper: "!m-0 p-0 h-full",
+            inner: "!m-0 !bg-transparent !dark:bg-transparent",
+            header: "!m-0 !bg-transparent !dark:bg-transparent",
+            footer: "!m-0 !bg-transparent",
+            addon: "!m-0 top-3 hidden md:flex",
+            div: "!m-0 !bg-transparent !dark:bg-transparent !border-0 !rounded-none !shadow-none !focus:ring-0",
+          }}
           placeholder={placeholder}
         >
           {#snippet header()}
@@ -131,20 +135,20 @@
         </Button>
       </div>
     {:else}
-      <div class="absolute rounded-lg inset-0 flex flex-col bg-white">
-        <div class="py-2 px-3 border-gray-200 dark:border-gray-500 border-b">
+      <div class="absolute rounded-lg inset-0 flex flex-col bg-white dark:bg-gray-900">
+        <div class="py-2 px-3 border-gray-200 dark:border-gray-700 border-b">
           <Toolbar embedded class="flex-row !m-0 !dark:bg-transparent !bg-transparent">
             <ToolbarGroup class="flex-row flex-wrap !m-0">
               <ToolbarButton title="Back to editor" color="dark" size="md" onclick={togglePreview}>
-                <EyeClosed size={24} />
+                <PencilLine size={24} />
               </ToolbarButton>
             </ToolbarGroup>
           </Toolbar>
         </div>
-        <div class="flex-1 overflow-auto px-4 max-w-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 prose-content markup-content rounded-b-lg">
+        <div class="flex-1 overflow-auto px-4 py-2 max-w-none bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 prose-content markup-content rounded-b-lg">
           {#if preview}
-            {#if previewRenderer}
-              {@render previewRenderer(preview)}
+            {#if previewSnippet}
+              {@render previewSnippet(preview, previewArg)}
             {:else}
               {@html preview}
             {/if}

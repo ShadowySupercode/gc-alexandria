@@ -2,6 +2,8 @@
   import { Label, Input, Button, Modal } from "flowbite-svelte";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
   import { ATextareaWithPreview } from "$lib/a/index.ts";
+  import { getNdkContext } from "$lib/ndk.ts";
+  import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   let {
     subject = $bindable(""),
@@ -50,6 +52,8 @@
   function cancelSubmit() {
     showConfirmDialog = false;
   }
+
+  let ndk = getNdkContext();
 </script>
 
 <form class="space-y-4" onsubmit={handleSubmit} autocomplete="off">
@@ -72,6 +76,8 @@
       bind:value={content}
       placeholder="Describe your issue. Use the Eye toggle to preview rendered markup."
       parser={parseAdvancedmarkup}
+      previewSnippet={basicMarkup}
+      previewArg={ndk}
     />
   </div>
 

@@ -54,7 +54,8 @@
     bind:value={content}
     placeholder="Write a comment"
     parser={parseBasicMarkup}
-    previewRenderer={(html) => basicMarkup(html, ndk)}
+    previewSnippet={basicMarkup}
+    previewArg={ndk}
     {extensions}
   />
 
