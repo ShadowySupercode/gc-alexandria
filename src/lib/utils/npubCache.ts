@@ -2,6 +2,7 @@ import type { NostrProfile } from "./search_types";
 import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchEventWithFallback } from "./nostrUtils";
 import { nip19 } from "nostr-tools";
+import { parseProfileContent } from "./profile_parsing";
 
 export type NpubMetadata = NostrProfile;
 
@@ -27,13 +28,17 @@ class UnifiedProfileCache {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem(this.storageKey);
         if (stored) {
-          const data = JSON.parse(stored) as Record<string, CacheEntry>;
+          const data = JSON.parse(stored) as Record<string, Omit<CacheEntry, 'originalEvent'>>;
           const now = Date.now();
 
           // Filter out expired entries
           for (const [key, entry] of Object.entries(data)) {
             if (entry.timestamp && (now - entry.timestamp) < this.maxAge) {
-              this.cache.set(key, entry);
+              // Reconstruct CacheEntry without originalEvent
+              this.cache.set(key, {
+                ...entry,
+                originalEvent: undefined
+              });
             }
           }
         }
@@ -46,9 +51,15 @@ class UnifiedProfileCache {
   private saveToStorage(): void {
     try {
       if (typeof window !== "undefined") {
-        const data: Record<string, CacheEntry> = {};
+        const data: Record<string, Omit<CacheEntry, 'originalEvent'>> = {};
         for (const [key, entry] of this.cache.entries()) {
-          data[key] = entry;
+          // Exclude originalEvent to avoid circular reference issues
+          data[key] = {
+            profile: entry.profile,
+            timestamp: entry.timestamp,
+            pubkey: entry.pubkey,
+            relaySource: entry.relaySource
+          };
         }
         localStorage.setItem(this.storageKey, JSON.stringify(data));
       }
@@ -83,7 +94,7 @@ class UnifiedProfileCache {
    * Fetch profile from all available relays and cache it
    */
   private async fetchAndCacheProfile(identifier: string, ndk?: NDK): Promise<NpubMetadata> {
-    const fallback = { name: `${identifier.slice(0, 8)}...${identifier.slice(-4)}` };
+    const fallback = { name: [`${identifier.slice(0, 8)}...${identifier.slice(-4)}`] };
 
     try {
       if (!ndk) {
@@ -121,18 +132,9 @@ class UnifiedProfileCache {
         return fallback;
       }
 
-      const profile = JSON.parse(profileEvent.content);
-      const metadata: NostrProfile = {
-        name: profile?.name || fallback.name,
-        displayName: profile?.displayName || profile?.display_name,
-        display_name: profile?.display_name || profile?.displayName, // AI-NOTE:  Added for compatibility
-        nip05: profile?.nip05,
-        picture: profile?.picture || profile?.image,
-        about: profile?.about,
-        banner: profile?.banner,
-        website: profile?.website,
-        lud16: profile?.lud16,
-      };
+      // Use our parseProfileContent function to properly handle both content and tags
+      const parsedProfile = parseProfileContent(profileEvent);
+      const metadata: NostrProfile = parsedProfile || fallback;
 
       // Cache the fresh data including the original event
       const entry: CacheEntry = {
@@ -375,12 +377,16 @@ export const npubCache = {
 // Legacy compatibility for old profileCache functions
 export async function getDisplayName(pubkey: string, ndk: NDK): Promise<string> {
   const profile = await unifiedProfileCache.getProfile(pubkey, ndk);
-  return profile.displayName || profile.name || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+  return (profile.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
+         (profile.name && profile.name.length > 0 ? profile.name[0] : null) ||
+         `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
 }
 
 export function getDisplayNameSync(pubkey: string): string {
   const profile = unifiedProfileCache.getCached(pubkey);
-  return profile?.displayName || profile?.name || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+  return (profile?.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
+         (profile?.name && profile.name.length > 0 ? profile.name[0] : null) ||
+         `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
 }
 
 export async function batchFetchProfiles(

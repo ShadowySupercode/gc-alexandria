@@ -32,14 +32,15 @@ export const NOSTR_NOTE_REGEX =
   /(?<![\w/])((nostr:)?(note|nevent|naddr)[a-zA-Z0-9]{20,})(?![\w/])/g;
 
 export interface NostrProfile {
-  name?: string;
-  displayName?: string;
-  nip05?: string;
-  picture?: string;
-  about?: string;
-  banner?: string;
-  website?: string;
-  lud16?: string;
+  name?: string[];
+  displayName?: string[];
+  display_name?: string[];
+  nip05?: string[];
+  picture?: string[];
+  about?: string[];
+  banner?: string[];
+  website?: string[];
+  lud16?: string[];
 }
 
 /**

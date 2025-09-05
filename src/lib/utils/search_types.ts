@@ -18,15 +18,15 @@ export interface Filter {
  * Extended NostrProfile interface for search results
  */
 export interface NostrProfile {
-  name?: string;
-  displayName?: string;
-  display_name?: string; // AI-NOTE:  Added for compatibility with existing code
-  nip05?: string;
-  picture?: string;
-  about?: string;
-  banner?: string;
-  website?: string;
-  lud16?: string;
+  name?: string[];
+  displayName?: string[];
+  display_name?: string[]; // AI-NOTE:  Added for compatibility with existing code
+  nip05?: string[];
+  picture?: string[];
+  about?: string[];
+  banner?: string[];
+  website?: string[];
+  lud16?: string[];
   pubkey?: string;
   isInUserLists?: boolean;
   listKinds?: number[];
