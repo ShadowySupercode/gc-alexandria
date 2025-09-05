@@ -260,6 +260,8 @@
       });
       // hex pubkey
       ids.push({ label: "pubkey", value: event.pubkey });
+      // hex id - make it a clickable link to search for the event ID
+      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
     } else {
       // nevent
       ids.push({
