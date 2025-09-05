@@ -258,8 +258,8 @@
         value: neventEncode(event, $activeInboxRelays),
         link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
       });
-      // hex pubkey
-      ids.push({ label: "pubkey", value: event.pubkey });
+      // hex pubkey - make it clickable to search for the pubkey
+      ids.push({ label: "pubkey", value: event.pubkey, link: `/events?n=${event.pubkey}` });
       // hex id - make it a clickable link to search for the event ID
       ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
     } else {
@@ -313,13 +313,13 @@
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
-          profile?.display_name || undefined,
+          (profile?.display_name && profile.display_name.length > 0 ? profile.display_name[0] : undefined),
           ndk,
         )}</span
       >
     {:else}
       <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-        >Author: {profile?.display_name || event.pubkey}</span
+        >Author: {(profile?.display_name && profile.display_name.length > 0 ? profile.display_name[0] : event.pubkey)}</span
       >
     {/if}
   </div>

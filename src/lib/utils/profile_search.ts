@@ -454,25 +454,18 @@ async function quickRelaySearch(
             return;
           }
           
-          const displayName = profileData.displayName ||
-            profileData.display_name || "";
-          const display_name = profileData.display_name || "";
-          const name = profileData.name || "";
-          const nip05 = profileData.nip05 || "";
-          const about = profileData.about || "";
+          // Helper function to check if any value in an array matches
+          const arrayFieldMatches = (field: string[] | undefined, searchTerm: string): boolean => {
+            if (!field || field.length === 0) return false;
+            return field.some(value => fieldMatches(value, searchTerm));
+          };
 
           // Check if any field matches the search term using normalized comparison
-          const matchesDisplayName = fieldMatches(
-            displayName,
-            normalizedSearchTerm,
-          );
-          const matchesDisplay_name = fieldMatches(
-            display_name,
-            normalizedSearchTerm,
-          );
-          const matchesName = fieldMatches(name, normalizedSearchTerm);
-          const matchesNip05 = nip05Matches(nip05, normalizedSearchTerm);
-          const matchesAbout = fieldMatches(about, normalizedSearchTerm);
+          const matchesDisplayName = arrayFieldMatches(profileData.displayName, normalizedSearchTerm);
+          const matchesDisplay_name = arrayFieldMatches(profileData.display_name, normalizedSearchTerm);
+          const matchesName = arrayFieldMatches(profileData.name, normalizedSearchTerm);
+          const matchesNip05 = arrayFieldMatches(profileData.nip05, normalizedSearchTerm);
+          const matchesAbout = arrayFieldMatches(profileData.about, normalizedSearchTerm);
 
           if (
             matchesDisplayName ||

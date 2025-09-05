@@ -36,19 +36,29 @@
 
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
+  let currentLud16 = $state<string | null>(null);
   let communityStatus = $state<boolean | null>(null);
   let isInUserLists = $state<boolean | null>(null);
 
   onMount(async () => {
-    if (profile?.lud16) {
+    // Initialize currentLud16 with the first lud16 value
+    if (profile?.lud16 && profile.lud16.length > 0) {
+      currentLud16 = profile.lud16[0];
+    }
+  });
+
+  // Update lnurl when currentLud16 changes
+  $effect(() => {
+    if (currentLud16) {
       try {
         // Convert LN address to LNURL
-        const [name, domain] = profile?.lud16.split("@");
+        const [name, domain] = currentLud16.split("@");
         const url = lnurlpWellKnownUrl(domain, name);
         const words = bech32.toWords(new TextEncoder().encode(url));
         lnurl = bech32.encode("lnurl", words);
       } catch {
         console.log("Error converting LN address to LNURL");
+        lnurl = null;
       }
     }
   });
@@ -109,9 +119,9 @@
   <Card class="ArticleBox card-leather w-full max-w-2xl overflow-hidden">
     <div class="space-y-4">
       <div class="ArticleBoxImage flex col justify-center">
-        {#if profile.banner}
+        {#if profile.banner && profile.banner.length > 0}
           <LazyImage
-            src={profile.banner}
+            src={profile.banner[0]}
             alt="Profile banner"
             eventId={event.id}
             className="rounded w-full max-h-72 object-cover"
@@ -125,9 +135,9 @@
         {/if}
       </div>
       <div class="flex flex-row space-x-4 items-center min-w-0">
-        {#if profile.picture}
+        {#if profile.picture && profile.picture.length > 0}
           <img
-            src={profile.picture}
+            src={profile.picture[0]}
             alt="Profile avatar"
             class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {
@@ -147,9 +157,9 @@
           <div class="min-w-0 flex-1">
             {@render userBadge(
               toNpub(event.pubkey) as string,
-              profile.displayName ||
-                profile.display_name ||
-                profile.name ||
+              (profile.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
+                (profile.display_name && profile.display_name.length > 0 ? profile.display_name[0] : null) ||
+                (profile.name && profile.name.length > 0 ? profile.name[0] : null) ||
                 event.pubkey,
               ndk,
             )}
@@ -198,54 +208,76 @@
             {#if profile.name}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Name:</dt>
-                <dd class="min-w-0 break-words">{profile.name}</dd>
+                <dd class="min-w-0 break-words flex flex-col gap-1">
+                  {#each profile.name as name}
+                    <span>{name}</span>
+                  {/each}
+                </dd>
               </div>
             {/if}
             {#if profile.displayName}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Display Name:</dt>
-                <dd class="min-w-0 break-words">{profile.displayName}</dd>
+                <dd class="min-w-0 break-words flex flex-col gap-1">
+                  {#each profile.displayName as displayName}
+                    <span>{displayName}</span>
+                  {/each}
+                </dd>
               </div>
             {/if}
             {#if profile.about}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
-                <dd class="min-w-0 break-words">
-                  <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-                    {@render basicMarkup(profile.about, ndk)}
-                  </div>
+                <dd class="min-w-0 break-words flex flex-col gap-1">
+                  {#each profile.about as about}
+                    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+                      {@render basicMarkup(about, ndk)}
+                    </div>
+                  {/each}
                 </dd>
               </div>
             {/if}
             {#if profile.website}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Website:</dt>
-                <dd class="min-w-0 break-all">
-                  <a
-                    href={profile.website}
-                    class="underline text-primary-700 dark:text-primary-200"
-                    >{profile.website}</a
-                  >
+                <dd class="min-w-0 break-all flex flex-col gap-1">
+                  {#each profile.website as website}
+                    <a
+                      href={website}
+                      class="underline text-primary-700 dark:text-primary-200"
+                      >{website}</a
+                    >
+                  {/each}
                 </dd>
               </div>
             {/if}
             {#if profile.lud16}
-              <div class="flex items-center gap-2 mt-4 min-w-0">
+              <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Lightning:</dt>
-                <dd class="min-w-0 break-all">
-                  <Button
-                    class="btn-leather"
-                    color="primary"
-                    outline
-                    onclick={() => (lnModalOpen = true)}>{profile.lud16}</Button
-                  >
+                <dd class="min-w-0 break-all flex flex-col gap-1">
+                  {#each profile.lud16 as lud16}
+                    <Button
+                      class="btn-leather"
+                      color="primary"
+                      outline
+                      onclick={() => {
+                        // Set the current lud16 for the modal
+                        currentLud16 = lud16;
+                        lnModalOpen = true;
+                      }}>{lud16}</Button
+                    >
+                  {/each}
                 </dd>
               </div>
             {/if}
             {#if profile.nip05}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">NIP-05:</dt>
-                <dd class="min-w-0 break-all">{profile.nip05}</dd>
+                <dd class="min-w-0 break-all flex flex-col gap-1">
+                  {#each profile.nip05 as nip05}
+                    <span>{nip05}</span>
+                  {/each}
+                </dd>
               </div>
             {/if}
             {#each identifiers as id}
@@ -278,15 +310,17 @@
     outsideclose
     size="sm"
   >
-    {#if profile.lud16}
+    {#if currentLud16}
       <div>
         <div class="flex flex-col items-center">
           {@render userBadge(
             toNpub(event.pubkey) as string,
-            profile?.displayName || profile.name || event.pubkey,
+            (profile?.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
+              (profile?.name && profile.name.length > 0 ? profile.name[0] : null) ||
+              event.pubkey,
             ndk,
           )}
-          <P class="break-all">{profile.lud16}</P>
+          <P class="break-all">{currentLud16}</P>
         </div>
         <div class="flex flex-col items-center mt-3 space-y-4">
           <P>Scan the QR code or copy the address</P>

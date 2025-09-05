@@ -7,16 +7,16 @@
 import type { NDKEvent } from "$lib/utils/nostrUtils";
 
 export interface ProfileData {
-  name?: string;
-  display_name?: string;
-  displayName?: string;
-  about?: string;
-  picture?: string;
-  banner?: string;
-  website?: string;
-  nip05?: string;
-  lud16?: string;
-  pronouns?: string;
+  name?: string[];
+  display_name?: string[];
+  displayName?: string[];
+  about?: string[];
+  picture?: string[];
+  banner?: string[];
+  website?: string[];
+  nip05?: string[];
+  lud16?: string[];
+  pronouns?: string[];
   [key: string]: any;
 }
 
@@ -84,12 +84,11 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
       for (const [key, value] of Object.entries(contentProfileData)) {
         if (value !== null && value !== undefined && value !== '') {
           if (allTagValues[key]) {
-            // Field exists in tags, use first tag value for content, keep all for tags
-            const firstTagValue = allTagValues[key][0];
-            mergedProfileData[key] = firstTagValue;
+            // Field exists in tags, keep all values from tags
+            mergedProfileData[key] = allTagValues[key];
           } else {
-            // Field only exists in content
-            mergedProfileData[key] = value;
+            // Field only exists in content, wrap in array
+            mergedProfileData[key] = [value];
           }
         }
       }
@@ -98,8 +97,8 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
     // Add any tag-only fields
     for (const [key, values] of Object.entries(allTagValues)) {
       if (!mergedProfileData[key]) {
-        // Field only exists in tags, use first value for content
-        mergedProfileData[key] = values[0];
+        // Field only exists in tags, keep all values
+        mergedProfileData[key] = values;
       }
     }
     
