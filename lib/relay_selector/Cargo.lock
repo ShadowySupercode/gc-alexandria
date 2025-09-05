@@ -452,6 +452,7 @@ dependencies = [
  "js-sys",
  "serde",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
