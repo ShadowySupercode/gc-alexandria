@@ -18,6 +18,7 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
+  import { parseProfileContent } from "$lib/utils/profile_parsing";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -384,19 +385,6 @@
     return "Reference";
   }
 
-  // AI-NOTE:  Function to parse profile content from kind 0 events
-  function parseProfileContent(event: NDKEvent): UserProfile | null {
-    if (event.kind !== 0 || !event.content) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(event.content);
-    } catch (error) {
-      console.warn("Failed to parse profile content:", error);
-      return null;
-    }
-  }
 
   function getNeventUrl(event: NDKEvent): string {
     if (event.kind === 0) {

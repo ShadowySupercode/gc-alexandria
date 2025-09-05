@@ -12,6 +12,7 @@ import {
   normalizeSearchTerm,
 } from "./search_utils.ts";
 import { nip19 } from "nostr-tools";
+import { parseProfileContent } from "./profile_parsing";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
@@ -36,7 +37,7 @@ export async function searchProfiles(
     const profiles = cachedResult.events
       .map((event) => {
         try {
-          const profileData = JSON.parse(event.content);
+          const profileData = parseProfileContent(event);
           return createProfileFromEvent(event, profileData);
         } catch {
           return null;
@@ -385,8 +386,12 @@ async function quickRelaySearch(
       sub.on("event", (event: NDKEvent) => {
         eventCount++;
         try {
-          if (!event.content) return;
-          const profileData = JSON.parse(event.content);
+          // AI-NOTE: Handle both content and tags for profile events with proper aggregation
+          const profileData = parseProfileContent(event);
+          if (!profileData) {
+            return;
+          }
+          
           const displayName = profileData.displayName ||
             profileData.display_name || "";
           const display_name = profileData.display_name || "";
