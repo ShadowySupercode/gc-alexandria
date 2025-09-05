@@ -14,98 +14,9 @@ import { anonymousRelays } from "$lib/consts";
 import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { removeMetadataFromContent } from "$lib/utils/asciidoc_metadata";
 import { build30040EventSet } from "$lib/utils/event_input_utils";
+import { validateEvent, normalizeAndOrderTags, validateAndNormalizeEvent } from "$lib/utils/event_validation";
 import type { EventData, TagData, PublishResult, LoadEventResult } from "./types";
 
-/**
- * Validates an event according to NIP-01 specification
- */
-function validateEvent(event: any): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  // Validate required fields
-  if (!event.pubkey || typeof event.pubkey !== 'string') {
-    errors.push('Missing or invalid pubkey');
-  } else if (!/^[a-fA-F0-9]{64}$/.test(event.pubkey)) {
-    errors.push('Pubkey must be a 64-character lowercase hex string');
-  }
-  
-  if (typeof event.created_at !== 'number' || event.created_at <= 0) {
-    errors.push('Missing or invalid created_at timestamp');
-  }
-  
-  if (typeof event.kind !== 'number' || event.kind < 0 || event.kind > 65535) {
-    errors.push('Kind must be an integer between 0 and 65535');
-  }
-  
-  if (typeof event.content !== 'string') {
-    errors.push('Content must be a string');
-  }
-  
-  if (!Array.isArray(event.tags)) {
-    errors.push('Tags must be an array');
-  } else {
-    // Validate tags structure - tags can be empty array, but individual elements shouldn't be empty
-    for (let i = 0; i < event.tags.length; i++) {
-      const tag = event.tags[i];
-      if (!Array.isArray(tag)) {
-        errors.push(`Tag ${i} must be an array`);
-      } else {
-        // Check that all tag elements are non-null, non-empty strings
-        for (let j = 0; j < tag.length; j++) {
-          if (tag[j] === null || tag[j] === undefined) {
-            errors.push(`Tag ${i}, element ${j} cannot be null or undefined`);
-          } else if (typeof tag[j] !== 'string') {
-            errors.push(`Tag ${i}, element ${j} must be a string`);
-          } else if (tag[j] === '') {
-            errors.push(`Tag ${i}, element ${j} cannot be empty string`);
-          }
-        }
-      }
-    }
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors
-  };
-}
-
-/**
- * Normalizes and orders tags according to NIP-01 specification
- * Groups tags by type while maintaining original order of appearance
- */
-function normalizeAndOrderTags(tags: string[][]): string[][] {
-  if (!Array.isArray(tags) || tags.length === 0) {
-    return [];
-  }
-  
-  // Filter out invalid tags and ensure all elements are strings
-  const validTags = tags
-    .filter(tag => Array.isArray(tag))
-    .map(tag => tag.map(element => String(element)))
-    .filter(tag => tag.length === 0 || tag[0] !== ''); // Allow empty tags, but if not empty, first element shouldn't be empty
-  
-  // Group tags by their first element (tag type)
-  const tagGroups: { [key: string]: string[][] } = {};
-  const tagOrder: string[] = []; // Track order of first appearance
-  
-  for (const tag of validTags) {
-    const tagType = tag[0];
-    if (!tagGroups[tagType]) {
-      tagGroups[tagType] = [];
-      tagOrder.push(tagType);
-    }
-    tagGroups[tagType].push(tag);
-  }
-  
-  // Rebuild tags array in order of first appearance, with same types grouped together
-  const orderedTags: string[][] = [];
-  for (const tagType of tagOrder) {
-    orderedTags.push(...tagGroups[tagType]);
-  }
-  
-  return orderedTags;
-}
 
 /**
  * Converts TagData array to NDK-compatible format with proper validation and ordering
