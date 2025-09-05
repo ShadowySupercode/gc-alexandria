@@ -34,7 +34,7 @@ export function clearAllCaches(): void {
 export function clearProfileCaches(): void {
   console.log('[CacheManager] Clearing profile-specific caches...');
   
-  // Clear unified profile cache
+  // Clear unified profile cache (single source of truth for all profile data)
   unifiedProfileCache.clear();
   
   // Clear profile-related search results
@@ -43,6 +43,19 @@ export function clearProfileCaches(): void {
   searchCache.clear();
   
   console.log('[CacheManager] Profile caches cleared successfully');
+}
+
+/**
+ * Clears only profile search caches while preserving profile data
+ * This forces fresh profile searches but keeps individual profile data cached
+ */
+export function clearProfileSearchCaches(): void {
+  console.log('[CacheManager] Clearing profile search caches...');
+  
+  // Only clear search cache - profile data in UnifiedProfileCache remains
+  searchCache.clear();
+  
+  console.log('[CacheManager] Profile search caches cleared successfully');
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from "./search_utils.ts";
 import { nip19 } from "nostr-tools";
 import { parseProfileContent } from "./profile_parsing";
+import { unifiedProfileCache } from "./npubCache.ts";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
@@ -34,19 +35,43 @@ export async function searchProfiles(
   const cachedResult = searchCache.get("profile", normalizedSearchTerm);
   if (cachedResult) {
     console.log("Found cached result for:", normalizedSearchTerm);
-    const profiles = cachedResult.events
-      .map((event) => {
-        try {
-          const profileData = parseProfileContent(event);
-          return createProfileFromEvent(event, profileData);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean) as NostrProfile[];
+    
+    // AI-NOTE: For profile searches, resolve identifiers to actual events from UnifiedProfileCache
+    const resolvedResult = searchCache.resolveProfileEvents(cachedResult);
+    
+    // Validate that we have complete events with id fields
+    const hasIncompleteEvents = resolvedResult.events.some(event => 
+      !event.id || event.id === "" || !event.pubkey || !event.content
+    );
+    
+    if (hasIncompleteEvents) {
+      console.log("Cached profile events are incomplete (missing id or other critical fields), requerying relays...");
+      // Clear the incomplete cache entry
+      searchCache.clear(); // Clear all cache to force fresh fetch
+    } else {
+      // Process the cached events
+      const profiles = resolvedResult.events
+        .map((event) => {
+          try {
+            console.log("Processing cached event:", event.pubkey, "kind:", event.kind, "id:", event.id);
+            const profileData = parseProfileContent(event);
+            if (!profileData) {
+              console.log("Failed to parse profile data for event:", event.pubkey);
+              return null;
+            }
+            const profile = createProfileFromEvent(event, profileData);
+            console.log("Created profile from cached event:", profile);
+            return profile;
+          } catch (error) {
+            console.warn("Error processing cached event:", event.pubkey, error);
+            return null;
+          }
+        })
+        .filter(Boolean) as NostrProfile[];
 
-    console.log("Cached profiles found:", profiles.length);
-    return { profiles, Status: {} };
+      console.log("Cached profiles found:", profiles.length);
+      return { profiles, Status: {} };
+    }
   }
 
   if (!ndk) {
@@ -130,25 +155,62 @@ export async function searchProfiles(
       }
     }
 
-    // Cache the results
+    // Cache the results using centralized approach
     if (foundProfiles.length > 0) {
-      const events = foundProfiles.map((profile) => {
-        const event = new NDKEvent(ndk);
-        event.content = JSON.stringify(profile);
-        event.pubkey = profile.pubkey || "";
-        return event;
-      });
+      // AI-NOTE: Store profile identifiers instead of duplicating events
+      // This eliminates redundancy by using UnifiedProfileCache as the single source of truth
+      const profileIdentifiers: string[] = [];
+      
+      for (const profile of foundProfiles) {
+        if (profile.pubkey) {
+          // Ensure the profile is cached in UnifiedProfileCache with complete event data
+          try {
+            // Get or fetch the complete event with id field
+            let originalEvent = unifiedProfileCache.getCachedEvent(profile.pubkey);
+            
+            if (!originalEvent || !originalEvent.id) {
+              // Fetch the original event to ensure we have complete data including id
+              const fetchedEvent = await fetchEventWithFallback(ndk, {
+                kinds: [0],
+                authors: [profile.pubkey],
+              });
+              originalEvent = fetchedEvent || undefined;
+              
+              if (originalEvent && originalEvent.id) {
+                // Update the unified cache with the complete event
+                const profileData = parseProfileContent(originalEvent);
+                if (profileData) {
+                  const completeProfile = createProfileFromEvent(originalEvent, profileData);
+                  unifiedProfileCache.set(profile.pubkey, completeProfile, profile.pubkey, originalEvent.relay?.url);
+                  // Update the cache entry with the original event
+                  unifiedProfileCache.updateOriginalEvent(profile.pubkey, originalEvent);
+                }
+              }
+            }
+            
+            if (originalEvent && originalEvent.id) {
+              profileIdentifiers.push(profile.pubkey);
+              console.log("Cached profile identifier:", profile.pubkey, "with event id:", originalEvent.id);
+            }
+          } catch (error) {
+            console.warn("Error ensuring profile is cached:", profile.pubkey, error);
+          }
+        }
+      }
 
+      // Store search result with profile identifiers instead of duplicating events
       const result = {
-        events,
+        events: [], // Empty events array - will be resolved from UnifiedProfileCache
         secondOrder: [],
         tTagEvents: [],
         eventIds: new Set<string>(),
         addresses: new Set<string>(),
         searchType: "profile",
         searchTerm: normalizedSearchTerm,
+        profileIdentifiers, // Store identifiers to resolve from UnifiedProfileCache
       };
       searchCache.set("profile", normalizedSearchTerm, result);
+      console.log("Cached", profileIdentifiers.length, "profile identifiers for search term:", normalizedSearchTerm);
     }
 
     console.log("Search completed, found profiles:", foundProfiles.length);

@@ -10,6 +10,7 @@ interface CacheEntry {
   timestamp: number;
   pubkey: string;
   relaySource?: string;
+  originalEvent?: NDKEvent; // AI-NOTE: Store the original event to preserve id field
 }
 
 class UnifiedProfileCache {
@@ -133,19 +134,20 @@ class UnifiedProfileCache {
         lud16: profile?.lud16,
       };
 
-      // Cache the fresh data
+      // Cache the fresh data including the original event
       const entry: CacheEntry = {
         profile: metadata,
         timestamp: Date.now(),
         pubkey: pubkey,
         relaySource: profileEvent.relay?.url,
+        originalEvent: profileEvent, // AI-NOTE: Store the original event to preserve id field
       };
 
       this.cache.set(identifier, entry);
       this.cache.set(pubkey, entry); // Also cache by pubkey for convenience
       this.saveToStorage();
 
-      console.log("UnifiedProfileCache: Cached fresh profile:", metadata);
+      console.log("UnifiedProfileCache: Cached fresh profile:", metadata, "with event id:", profileEvent.id);
       return metadata;
 
     } catch (e) {
@@ -175,6 +177,53 @@ class UnifiedProfileCache {
   }
 
   /**
+   * Get the original cached event (including id field) without fetching
+   */
+  getCachedEvent(identifier: string): NDKEvent | undefined {
+    const cleanId = identifier.replace(/^nostr:/, "");
+    const entry = this.cache.get(cleanId);
+    
+    if (entry) {
+      const now = Date.now();
+      if ((now - entry.timestamp) < this.maxAge) {
+        return entry.originalEvent;
+      } else {
+        // Remove expired entry
+        this.cache.delete(cleanId);
+      }
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Get multiple cached events by identifiers
+   * Used by profile search to get complete events with id fields
+   */
+  getCachedEvents(identifiers: string[]): NDKEvent[] {
+    const events: NDKEvent[] = [];
+    
+    for (const identifier of identifiers) {
+      const event = this.getCachedEvent(identifier);
+      if (event) {
+        events.push(event);
+      }
+    }
+    
+    return events;
+  }
+
+  /**
+   * Check if all identifiers have cached events with complete data
+   */
+  hasCompleteEvents(identifiers: string[]): boolean {
+    return identifiers.every(identifier => {
+      const event = this.getCachedEvent(identifier);
+      return event && event.id && event.pubkey && event.content;
+    });
+  }
+
+  /**
    * Set profile data in cache
    */
   set(identifier: string, profile: NpubMetadata, pubkey?: string, relaySource?: string): void {
@@ -191,6 +240,27 @@ class UnifiedProfileCache {
       this.cache.set(pubkey, entry);
     }
     this.saveToStorage();
+  }
+
+  /**
+   * Update the original event for an existing cache entry
+   */
+  updateOriginalEvent(identifier: string, originalEvent: NDKEvent): void {
+    const cleanId = identifier.replace(/^nostr:/, "");
+    const entry = this.cache.get(cleanId);
+    
+    if (entry) {
+      entry.originalEvent = originalEvent;
+      this.cache.set(cleanId, entry);
+      
+      // Also update by pubkey if different
+      if (entry.pubkey && entry.pubkey !== cleanId) {
+        this.cache.set(entry.pubkey, entry);
+      }
+      
+      this.saveToStorage();
+      console.log("UnifiedProfileCache: Updated original event for:", cleanId, "with id:", originalEvent.id);
+    }
   }
 
   /**

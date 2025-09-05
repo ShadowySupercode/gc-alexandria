@@ -183,8 +183,39 @@ export async function loginWithExtension(ndk: NDK) {
   let profile: NostrProfile | null = null;
   try {
     console.log("Login with extension - attempting to fetch profile...");
-    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
-    console.log("Login with extension - fetched profile:", profile);
+    
+    // AI-NOTE: Add retry logic for profile fetching during login restoration
+    // This helps with timing issues where NDK might not be fully connected yet
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
+        console.log("Login with extension - fetched profile:", profile);
+        break; // Success, exit retry loop
+      } catch (retryError) {
+        retryCount++;
+        console.warn(`Login with extension - profile fetch attempt ${retryCount} failed:`, retryError);
+        
+        if (retryCount < maxRetries) {
+          // Wait a bit before retrying, especially for the first retry
+          const delay = retryCount * 1000; // 1s, 2s delays
+          console.log(`Login with extension - retrying profile fetch in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // If all retries failed, use fallback
+    if (!profile) {
+      console.warn("Login with extension - all profile fetch attempts failed, using fallback");
+      profile = {
+        name: npub.slice(0, 8) + "..." + npub.slice(-4),
+        displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+      };
+      console.log("Login with extension - using fallback profile:", profile);
+    }
   } catch (error) {
     console.warn("Failed to fetch user metadata during login:", error);
     // Continue with login even if metadata fetch fails
@@ -235,6 +266,29 @@ export async function loginWithExtension(ndk: NDK) {
       "[userStore.ts] loginWithExtension: Failed to update relay stores:",
       error,
     );
+  }
+
+  // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
+  // This helps with cases where the profile fetch failed during login but might succeed later
+  if (!profile || (!profile.picture && !profile.displayName && profile.name?.includes("..."))) {
+    console.log("Login with extension - scheduling delayed profile refresh...");
+    setTimeout(async () => {
+      try {
+        console.log("Login with extension - attempting delayed profile refresh...");
+        const refreshedProfile = await getUserMetadata(npub, ndk, true);
+        if (refreshedProfile && (refreshedProfile.picture || refreshedProfile.displayName)) {
+          console.log("Login with extension - delayed profile refresh successful:", refreshedProfile);
+          // Update the user store with the refreshed profile
+          const currentState = get(userStore);
+          userStore.set({
+            ...currentState,
+            profile: refreshedProfile,
+          });
+        }
+      } catch (error) {
+        console.warn("Login with extension - delayed profile refresh failed:", error);
+      }
+    }, 5000); // Wait 5 seconds before attempting refresh
   }
 
   clearLogin();
@@ -371,8 +425,40 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   try {
-    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
-    console.log("Login with npub - fetched profile:", profile);
+    console.log("Login with npub - attempting to fetch profile...");
+    
+    // AI-NOTE: Add retry logic for profile fetching during login restoration
+    // This helps with timing issues where NDK might not be fully connected yet
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
+        console.log("Login with npub - fetched profile:", profile);
+        break; // Success, exit retry loop
+      } catch (retryError) {
+        retryCount++;
+        console.warn(`Login with npub - profile fetch attempt ${retryCount} failed:`, retryError);
+        
+        if (retryCount < maxRetries) {
+          // Wait a bit before retrying, especially for the first retry
+          const delay = retryCount * 1000; // 1s, 2s delays
+          console.log(`Login with npub - retrying profile fetch in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // If all retries failed, use fallback
+    if (!profile) {
+      console.warn("Login with npub - all profile fetch attempts failed, using fallback");
+      profile = {
+        name: npub.slice(0, 8) + "..." + npub.slice(-4),
+        displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+      };
+      console.log("Login with npub - using fallback profile:", profile);
+    }
   } catch (error) {
     console.warn("Failed to fetch user metadata during npub login:", error);
     // Continue with login even if metadata fetch fails
@@ -399,6 +485,29 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
 
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
+
+  // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
+  // This helps with cases where the profile fetch failed during login but might succeed later
+  if (!profile || (!profile.picture && !profile.displayName && profile.name?.includes("..."))) {
+    console.log("Login with npub - scheduling delayed profile refresh...");
+    setTimeout(async () => {
+      try {
+        console.log("Login with npub - attempting delayed profile refresh...");
+        const refreshedProfile = await getUserMetadata(npub, ndk, true);
+        if (refreshedProfile && (refreshedProfile.picture || refreshedProfile.displayName)) {
+          console.log("Login with npub - delayed profile refresh successful:", refreshedProfile);
+          // Update the user store with the refreshed profile
+          const currentState = get(userStore);
+          userStore.set({
+            ...currentState,
+            profile: refreshedProfile,
+          });
+        }
+      } catch (error) {
+        console.warn("Login with npub - delayed profile refresh failed:", error);
+      }
+    }, 5000); // Wait 5 seconds before attempting refresh
+  }
 
   clearLogin();
   // Only access localStorage on client-side

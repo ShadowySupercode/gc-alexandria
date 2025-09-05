@@ -10,6 +10,8 @@ export interface SearchResult {
   searchType: string;
   searchTerm: string;
   timestamp: number;
+  // AI-NOTE: For profile searches, store identifiers instead of duplicating events
+  profileIdentifiers?: string[]; // Store npub/pubkey identifiers for profile searches
 }
 
 class SearchCache {
@@ -97,6 +99,28 @@ class SearchCache {
    */
   size(): number {
     return this.cache.size;
+  }
+
+  /**
+   * Resolve profile identifiers to actual events using UnifiedProfileCache
+   * This eliminates data duplication by using the centralized profile cache
+   */
+  resolveProfileEvents(result: SearchResult): SearchResult {
+    if (result.searchType === 'profile' && result.profileIdentifiers) {
+      // Import dynamically to avoid circular dependencies
+      const { unifiedProfileCache } = require('./npubCache.ts');
+      
+      const resolvedEvents = unifiedProfileCache.getCachedEvents(result.profileIdentifiers);
+      
+      // Update the result with resolved events
+      return {
+        ...result,
+        events: resolvedEvents,
+        profileIdentifiers: undefined, // Clear identifiers since we have resolved events
+      };
+    }
+    
+    return result;
   }
 }
 
