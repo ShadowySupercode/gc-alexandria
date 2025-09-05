@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 
 use relay_selector::RelaySelector;
 
+const STORE_NAME: &str = "relay_selector_store";
+
 thread_local! {
     /// Static lifetime, thread-local `RelaySelector` instance.
     ///

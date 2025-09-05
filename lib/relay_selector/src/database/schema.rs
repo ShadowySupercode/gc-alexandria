@@ -7,14 +7,14 @@ use crate::relay_selector;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Relay {
-    url: String,
-    variant: relay::Variant,
+    pub url: String,
+    pub variant: relay::Variant,
     requests: u32,
     successful_requests: u32,
     response_times: Vec<Duration>,
     trust_level: f32,
     vendor_score: f32,
-    weight: f32,
+    pub weight: f32,
 }
 
 impl Relay {
@@ -37,5 +37,15 @@ impl Relay {
             vendor_score: statistics.vendor_score,
             weight: selector.initial_weights[url],
         }
+    }
+
+    pub fn to_statistics(&self) -> relay::Statistics {
+        let mut statistics = relay::Statistics::new();
+        statistics.requests = self.requests;
+        statistics.successful_requests = self.successful_requests;
+        statistics.response_times = self.response_times.clone();
+        statistics.trust_level = self.trust_level;
+        statistics.vendor_score = self.vendor_score;
+        statistics
     }
 }

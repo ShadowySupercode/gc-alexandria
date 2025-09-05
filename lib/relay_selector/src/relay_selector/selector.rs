@@ -67,17 +67,38 @@ impl Drop for RelaySelector {
     }
 }
 
-// Relay management methods
 impl RelaySelector {
+    pub fn new() -> Self {
+        Self {
+            statistics: HashMap::new(),
+            initial_weights: HashMap::new(),
+            current_weights: HashMap::new(),
+            general: Vec::new(),
+            inbox: Vec::new(),
+            outbox: Vec::new(),
+            store_name: String::new(),
+        }
+    }
+
+    /// Initializes the relay selector with data from the IndexedDB store with the given name.
     pub async fn init(store_name: &str) -> Result<Self, String> {
-        let relays = database::get_all_relays(store_name).await?;
-        Ok(Self {
-            store_name,
-            general: relays,
-            inbox: relays.inbox,
-            outbox: relays.outbox,
-            statistics: relays.statistics,
-        })
+        let mut selector = Self::new();
+
+        for relay in database::get_all_relays(store_name).await? {
+            selector.insert(&relay.url, relay.variant);
+            selector
+                .statistics
+                .insert(relay.url.clone(), relay.to_statistics());
+            selector
+                .initial_weights
+                .insert(relay.url.clone(), relay.weight);
+            selector
+                .current_weights
+                .insert(relay.url.clone(), relay.weight);
+            selector.store_name = store_name.to_string();
+        }
+
+        Ok(selector)
     }
 
     /// Returns `true` if the relay with the given URL is contained in the selector.
@@ -112,10 +133,7 @@ impl RelaySelector {
         }
         self.statistics.get_mut(relay).unwrap()
     }
-}
 
-// Algorithmic ranking methods
-impl RelaySelector {
     /// Updates relay weights based on a new response time datum.
     ///
     /// # Arguments
@@ -160,10 +178,7 @@ impl RelaySelector {
         self.current_weights
             .insert(relay.to_string(), current_weight);
     }
-}
 
-// Get and return methods
-impl RelaySelector {
     /// Selects a relay based on weighted round-robin algorithm.
     ///
     /// Relays are sorted in descending order of rank. Typically, the caller should select the
