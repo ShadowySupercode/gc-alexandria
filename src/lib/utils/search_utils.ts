@@ -30,9 +30,17 @@ export function normalizeSearchTerm(term: string): string {
 
 /**
  * Helper function to check if a profile field matches the search term
+ * Handles both string and array inputs for backward compatibility
  */
-export function fieldMatches(field: string, searchTerm: string): boolean {
+export function fieldMatches(field: string | string[] | undefined, searchTerm: string): boolean {
   if (!field) return false;
+  
+  // Handle array input (new format)
+  if (Array.isArray(field)) {
+    return field.some(value => fieldMatches(value, searchTerm));
+  }
+  
+  // Handle string input (legacy format)
   const fieldLower = field.toLowerCase();
   const fieldNormalized = fieldLower.replace(/\s+/g, "");
   const searchTermLower = searchTerm.toLowerCase();
@@ -53,9 +61,17 @@ export function fieldMatches(field: string, searchTerm: string): boolean {
 
 /**
  * Helper function to check if NIP-05 address matches the search term
+ * Handles both string and array inputs for backward compatibility
  */
-export function nip05Matches(nip05: string, searchTerm: string): boolean {
+export function nip05Matches(nip05: string | string[] | undefined, searchTerm: string): boolean {
   if (!nip05) return false;
+  
+  // Handle array input (new format)
+  if (Array.isArray(nip05)) {
+    return nip05.some(value => nip05Matches(value, searchTerm));
+  }
+  
+  // Handle string input (legacy format)
   const nip05Lower = nip05.toLowerCase();
   const searchTermLower = searchTerm.toLowerCase();
   const normalizedSearchTerm = normalizeSearchTerm(searchTerm);

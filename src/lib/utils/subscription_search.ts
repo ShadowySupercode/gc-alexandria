@@ -670,40 +670,8 @@ async function createSearchFilter(
       const { searchProfiles } = await import("./profile_search.ts");
       const profileResult = await searchProfiles(normalizedSearchTerm, ndk);
       
-      // Convert profile results to events for compatibility
-      const events = profileResult.profiles.map((profile) => {
-        const event = new NDKEvent(ndk);
-        event.content = JSON.stringify(profile);
-        
-        // AI-NOTE:  Convert npub to hex public key for compatibility with nprofileEncode
-        // The profile.pubkey is an npub (bech32-encoded), but nprofileEncode expects hex-encoded public key
-        let hexPubkey = profile.pubkey || "";
-        if (profile.pubkey && profile.pubkey.startsWith("npub")) {
-          try {
-            const decoded = nip19.decode(profile.pubkey);
-            if (decoded.type === "npub") {
-              hexPubkey = decoded.data as string;
-            }
-          } catch (e) {
-            console.warn("subscription_search: Failed to decode npub:", profile.pubkey, e);
-          }
-        }
-        event.pubkey = hexPubkey;
-        event.kind = 0;
-        
-        // AI-NOTE:  Use the preserved created_at timestamp from the profile
-        // This ensures the profile cards show the actual creation date instead of "Unknown date"
-        if ((profile as any).created_at) {
-          event.created_at = (profile as any).created_at;
-          console.log("subscription_search: Using preserved timestamp:", event.created_at);
-        } else {
-          // Fallback to current timestamp if no preserved timestamp
-          event.created_at = Math.floor(Date.now() / 1000);
-          console.log("subscription_search: Using fallback timestamp:", event.created_at);
-        }
-        
-        return event;
-      });
+      // searchProfiles now returns events directly, no conversion needed
+      const events = profileResult.profiles;
       
       // Return a mock filter since we're using the profile search directly
       const nFilter = {

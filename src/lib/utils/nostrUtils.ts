@@ -543,11 +543,16 @@ export function toNpub(pubkey: string | undefined): string | null {
 
     // If it's an nprofile, decode and extract npub
     if (cleanPubkey.startsWith("nprofile")) {
-      const decoded = nip19.decode(cleanPubkey);
-      if (decoded.type === "nprofile") {
-        return decoded.data.pubkey
-          ? nip19.npubEncode(decoded.data.pubkey)
-          : null;
+      try {
+        const decoded = nip19.decode(cleanPubkey);
+        if (decoded.type === "nprofile") {
+          return decoded.data.pubkey
+            ? nip19.npubEncode(decoded.data.pubkey)
+            : null;
+        }
+      } catch (e) {
+        // Invalid nprofile format, ignore
+        return null;
       }
     }
 

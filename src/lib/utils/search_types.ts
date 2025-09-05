@@ -48,9 +48,10 @@ export interface SearchResult {
 
 /**
  * Profile search result interface
+ * Contains NDKEvent objects with profile data attached
  */
 export interface ProfileSearchResult {
-  profiles: NostrProfile[];
+  profiles: NDKEvent[];
   Status: Record<string, boolean>;
 }
 

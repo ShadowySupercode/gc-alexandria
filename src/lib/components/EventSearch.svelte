@@ -118,45 +118,15 @@
     try {
       console.log("EventSearch: Starting profile search for:", query);
       
-      // Use the profile search service to find the profile
+      // Use the profile search service to find the profile event
       const { searchProfiles } = await import("$lib/utils/profile_search");
       const result = await searchProfiles(query, ndk);
       
       if (result.profiles && result.profiles.length > 0) {
-        // Get the npub from the profile, or use the original query if profile doesn't have pubkey
-        let npub = result.profiles[0].pubkey || query;
-        
-        // Convert npub to hex pubkey
-        let hexPubkey = "";
-        try {
-          if (npub.startsWith('npub')) {
-            const decoded = nip19.decode(npub);
-            if (decoded.type === 'npub') {
-              hexPubkey = decoded.data;
-            }
-          } else {
-            hexPubkey = npub;
-          }
-        } catch (error) {
-          console.warn("Failed to decode npub to hex:", error);
-          cleanupSearch();
-          updateSearchState(false, true, 0, "profile");
-          return;
-        }
-        
-        // Fetch the actual profile event from relays
-        const profileEvent = await ndk.fetchEvent({
-          kinds: [0],
-          authors: [hexPubkey],
-        });
-        
-        if (profileEvent) {
-          handleFoundEvent(profileEvent);
-          updateSearchState(false, true, 1, "profile");
-        } else {
-          cleanupSearch();
-          updateSearchState(false, true, 0, "profile");
-        }
+        // Use the first profile event directly
+        const profileEvent = result.profiles[0];
+        handleFoundEvent(profileEvent);
+        updateSearchState(false, true, 1, "profile");
       } else {
         console.log("EventSearch: No profile found for:", query);
         cleanupSearch();

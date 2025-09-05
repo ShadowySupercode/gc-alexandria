@@ -10,7 +10,7 @@
   import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
   import { Modal, Button } from "flowbite-svelte";
-  import { searchProfiles } from "$lib/utils/search_utility";
+  import { searchProfilesForMentions } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
@@ -277,7 +277,7 @@
 
     try {
       console.log("Recipient search promise created, waiting for result...");
-      const result = await searchProfiles(recipientSearch.trim(), ndk);
+      const result = await searchProfilesForMentions(recipientSearch.trim(), ndk);
       console.log("Recipient search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);

@@ -102,7 +102,14 @@ class UnifiedProfileCache {
         return fallback;
       }
 
-      const decoded = nip19.decode(identifier);
+      let decoded;
+      try {
+        decoded = nip19.decode(identifier);
+      } catch (decodeError) {
+        console.warn("UnifiedProfileCache: Invalid identifier format:", identifier, decodeError);
+        return fallback;
+      }
+      
       if (!decoded) {
         console.warn("UnifiedProfileCache: Failed to decode identifier:", identifier);
         return fallback;

@@ -3,7 +3,7 @@
   import { UserOutline } from "flowbite-svelte-icons";
   import { nip19 } from "nostr-tools";
   import { toNpub } from "$lib/utils/nostrUtils";
-  import { searchProfiles } from "$lib/utils/search_utility";
+  import { searchProfilesForMentions } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -292,7 +292,7 @@
 
     try {
       console.log("Search promise created, waiting for result...");
-      const result = await searchProfiles(mentionSearch.trim(), ndk);
+      const result = await searchProfilesForMentions(mentionSearch.trim(), ndk);
       console.log("Search completed, found profiles:", result.profiles.length);
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
@@ -343,7 +343,7 @@
       }
     } else {
       console.warn("No pubkey in profile, falling back to display name");
-      mention = `@${profile.displayName || profile.name}`;
+      mention = `@${profile.displayName?.[0] || profile.name?.[0]}`;
     }
     insertAtCursor(mention);
     showMentionModal = false;
@@ -474,9 +474,9 @@
                 {:else}
                   <div class="flex-shrink-0 w-6 h-6"></div>
                 {/if}
-                {#if profile.picture}
+                {#if profile.picture?.[0]}
                   <img
-                    src={profile.picture}
+                    src={profile.picture[0]}
                     alt="Profile"
                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
@@ -487,9 +487,9 @@
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
-                    {profile.displayName || profile.name || "anon"}
+                    {profile.displayName?.[0] || profile.name?.[0] || "anon"}
                   </span>
-                  {#if profile.nip05}
+                  {#if profile.nip05?.[0]}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
                       <svg
                         class="inline w-4 h-4 text-primary-500"
@@ -503,7 +503,7 @@
                           d="M5 13l4 4L19 7"
                         /></svg
                       >
-                      {profile.nip05}
+                      {profile.nip05[0]}
                     </span>
                   {/if}
                   <span class="text-xs text-gray-400 font-mono truncate"
@@ -608,10 +608,10 @@
   <div class="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4">
     {#if userProfile}
       <div class="flex items-center gap-2 text-sm min-w-0 flex-shrink">
-        {#if userProfile.picture}
+        {#if userProfile.picture?.[0]}
           <img
-            src={userProfile.picture}
-            alt={userProfile.name || "Profile"}
+            src={userProfile.picture[0]}
+            alt={userProfile.name?.[0] || "Profile"}
             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
             onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />

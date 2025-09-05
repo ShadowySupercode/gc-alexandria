@@ -48,8 +48,8 @@
   // Use profile data from userStore
   let userState = $derived($userStore);
   let profile = $derived(userState.profile);
-  let pfp = $derived(profile?.picture);
-  let username = $derived(profile?.name);
+  let pfp = $derived(profile?.picture?.[0]);
+  let username = $derived(profile?.name?.[0]);
   let tag = $derived(profile?.name);
   let npub = $derived(userState.npub);
 
@@ -211,14 +211,14 @@
         
         if (userProfile) {
           const profileData = {
-            name: userProfile.name,
-            displayName: userProfile.displayName,
-            nip05: userProfile.nip05,
-            picture: userProfile.image,
-            about: userProfile.bio,
-            banner: userProfile.banner,
-            website: userProfile.website,
-            lud16: userProfile.lud16,
+            name: userProfile.name ? [userProfile.name] : undefined,
+            displayName: userProfile.displayName ? [userProfile.displayName] : undefined,
+            nip05: userProfile.nip05 ? [userProfile.nip05] : undefined,
+            picture: userProfile.image ? [userProfile.image] : undefined,
+            about: userProfile.bio ? [userProfile.bio] : undefined,
+            banner: userProfile.banner ? [userProfile.banner] : undefined,
+            website: userProfile.website ? [userProfile.website] : undefined,
+            lud16: userProfile.lud16 ? [userProfile.lud16] : undefined,
           };
           
           console.log("Converted profile data:", profileData);

@@ -17,6 +17,7 @@ import { unifiedProfileCache } from "./npubCache.ts";
 
 /**
  * Search for profiles by various criteria (display name, name, NIP-05, npub)
+ * Returns NDKEvent objects with profile data attached
  */
 export async function searchProfiles(
   searchTerm: string,
@@ -50,7 +51,7 @@ export async function searchProfiles(
       searchCache.clear(); // Clear all cache to force fresh fetch
     } else {
       // Process the cached events
-      const profiles = resolvedResult.events
+      const events = resolvedResult.events
         .map((event) => {
           try {
             console.log("Processing cached event:", event.pubkey, "kind:", event.kind, "id:", event.id);
@@ -60,17 +61,19 @@ export async function searchProfiles(
               return null;
             }
             const profile = createProfileFromEvent(event, profileData);
-            console.log("Created profile from cached event:", profile);
-            return profile;
+            // AI-NOTE: Attach profile data to the original NDKEvent object
+            (event as any).profileData = profile;
+            console.log("Attached profile data to cached event:", event.pubkey);
+            return event;
           } catch (error) {
             console.warn("Error processing cached event:", event.pubkey, error);
             return null;
           }
         })
-        .filter(Boolean) as NostrProfile[];
+        .filter(Boolean) as NDKEvent[];
 
-      console.log("Cached profiles found:", profiles.length);
-      return { profiles, Status: {} };
+      console.log("Cached profile events found:", events.length);
+      return { profiles: events, Status: {} };
     }
   }
 
@@ -81,7 +84,7 @@ export async function searchProfiles(
 
   console.log("NDK initialized, starting search logic");
 
-  let foundProfiles: NostrProfile[] = [];
+  let foundProfiles: NDKEvent[] = [];
 
   try {
     // Check if it's a valid npub/nprofile first
@@ -92,7 +95,13 @@ export async function searchProfiles(
       try {
         const metadata = await getUserMetadata(normalizedSearchTerm, ndk);
         if (metadata) {
-          foundProfiles = [metadata];
+          // Get the original event from the cache
+          const originalEvent = unifiedProfileCache.getCachedEvent(normalizedSearchTerm);
+          if (originalEvent) {
+            // Attach profile data to the original event
+            (originalEvent as any).profileData = metadata;
+            foundProfiles = [originalEvent];
+          }
         }
       } catch (error) {
         console.error("Error fetching metadata for npub:", error);
@@ -105,30 +114,13 @@ export async function searchProfiles(
         if (npub) {
           const metadata = await getUserMetadata(npub, ndk);
           
-          // AI-NOTE:  Fetch the original event timestamp to preserve created_at
-          let created_at: number | undefined = undefined;
-          try {
-            const decoded = nip19.decode(npub);
-            if (decoded.type === "npub") {
-              const pubkey = decoded.data as string;
-              const originalEvent = await fetchEventWithFallback(ndk, {
-                kinds: [0],
-                authors: [pubkey],
-              });
-              if (originalEvent && originalEvent.created_at) {
-                created_at = originalEvent.created_at;
-              }
-            }
-          } catch (e) {
-            console.warn("profile_search: Failed to fetch original event timestamp:", e);
+          // Get the original event from the cache
+          const originalEvent = unifiedProfileCache.getCachedEvent(npub);
+          if (originalEvent) {
+            // Attach profile data to the original event
+            (originalEvent as any).profileData = metadata;
+            foundProfiles = [originalEvent];
           }
-          
-          const profile: NostrProfile & { created_at?: number } = {
-            ...metadata,
-            pubkey: npub,
-            created_at: created_at,
-          };
-          foundProfiles = [profile];
         }
       } catch (e) {
         console.error("[Search] NIP-05 lookup failed:", e);
@@ -227,8 +219,8 @@ export async function searchProfiles(
 async function searchNip05Domains(
   searchTerm: string,
   ndk: NDK,
-): Promise<NostrProfile[]> {
-  const foundProfiles: NostrProfile[] = [];
+): Promise<NDKEvent[]> {
+  const foundProfiles: NDKEvent[] = [];
 
   // Enhanced list of common domains for NIP-05 lookups
   // Prioritize gitcitadel.com since we know it has profiles
@@ -271,35 +263,18 @@ async function searchNip05Domains(
       );
       const metadata = await getUserMetadata(npub, ndk);
       
-      // AI-NOTE:  Fetch the original event timestamp to preserve created_at
-      let created_at: number | undefined = undefined;
-      try {
-        const decoded = nip19.decode(npub);
-        if (decoded.type === "npub") {
-          const pubkey = decoded.data as string;
-          const originalEvent = await fetchEventWithFallback(ndk, {
-            kinds: [0],
-            authors: [pubkey],
-          });
-          if (originalEvent && originalEvent.created_at) {
-            created_at = originalEvent.created_at;
-          }
-        }
-      } catch (e) {
-        console.warn("profile_search: Failed to fetch original event timestamp:", e);
+      // Get the original event from the cache
+      const originalEvent = unifiedProfileCache.getCachedEvent(npub);
+      if (originalEvent) {
+        // Attach profile data to the original event
+        (originalEvent as any).profileData = metadata;
+        console.log(
+          "NIP-05 search: found original event for gitcitadel.com:",
+          originalEvent.id,
+        );
+        foundProfiles.push(originalEvent);
+        return foundProfiles; // Return immediately if we found it on gitcitadel.com
       }
-      
-      const profile: NostrProfile & { created_at?: number } = {
-        ...metadata,
-        pubkey: npub,
-        created_at: created_at,
-      };
-      console.log(
-        "NIP-05 search: created profile for gitcitadel.com:",
-        profile,
-      );
-      foundProfiles.push(profile);
-      return foundProfiles; // Return immediately if we found it on gitcitadel.com
     } else {
       console.log("NIP-05 search: no npub found for gitcitadel.com");
     }
@@ -367,8 +342,8 @@ async function searchNip05Domains(
   const results = await Promise.allSettled(searchPromises);
 
   for (const result of results) {
-    if (result.status === "fulfilled" && result.value) {
-      foundProfiles.push(result.value);
+    if (result.status === "fulfilled" && result.value && Array.isArray(result.value)) {
+      foundProfiles.push(...result.value);
     }
   }
 
@@ -382,7 +357,7 @@ async function searchNip05Domains(
 async function quickRelaySearch(
   searchTerm: string,
   ndk: NDK,
-): Promise<NostrProfile[]> {
+): Promise<NDKEvent[]> {
   console.log("quickRelaySearch called with:", searchTerm);
 
   // Normalize the search term for relay search
@@ -399,13 +374,13 @@ async function quickRelaySearch(
   
   // Combine ALL available relays for maximum coverage
   const allRelayUrls = [
-    ...poolRelays, // All NDK pool relays
-    ...userInboxRelays, // User's personal inbox relays
-    ...userOutboxRelays, // User's personal outbox relays
-    ...searchRelays, // Dedicated profile search relays
-    ...communityRelays, // Community relays
-    ...secondaryRelays, // Secondary relays as fallback
-    ...anonymousRelays, // Anonymous relays as additional fallback
+    ...(poolRelays || []), // All NDK pool relays
+    ...(userInboxRelays || []), // User's personal inbox relays
+    ...(userOutboxRelays || []), // User's personal outbox relays
+    ...(searchRelays || []), // Dedicated profile search relays
+    ...(communityRelays || []), // Community relays
+    ...(secondaryRelays || []), // Secondary relays as fallback
+    ...(anonymousRelays || []), // Anonymous relays as additional fallback
   ];
 
   // Deduplicate relay URLs
@@ -429,10 +404,10 @@ async function quickRelaySearch(
 
   // Search all relays in parallel with short timeout
   const searchPromises = relaySets.map((relaySet, index) => {
-    if (!relaySet) return [];
+    if (!relaySet) return Promise.resolve([]);
 
-    return new Promise<NostrProfile[]>((resolve) => {
-      const foundInRelay: NostrProfile[] = [];
+    return new Promise<NDKEvent[]>((resolve) => {
+      const foundInRelay: NDKEvent[] = [];
       let eventCount = 0;
 
       console.log(
@@ -454,18 +429,12 @@ async function quickRelaySearch(
             return;
           }
           
-          // Helper function to check if any value in an array matches
-          const arrayFieldMatches = (field: string[] | undefined, searchTerm: string): boolean => {
-            if (!field || field.length === 0) return false;
-            return field.some(value => fieldMatches(value, searchTerm));
-          };
-
           // Check if any field matches the search term using normalized comparison
-          const matchesDisplayName = arrayFieldMatches(profileData.displayName, normalizedSearchTerm);
-          const matchesDisplay_name = arrayFieldMatches(profileData.display_name, normalizedSearchTerm);
-          const matchesName = arrayFieldMatches(profileData.name, normalizedSearchTerm);
-          const matchesNip05 = arrayFieldMatches(profileData.nip05, normalizedSearchTerm);
-          const matchesAbout = arrayFieldMatches(profileData.about, normalizedSearchTerm);
+          const matchesDisplayName = fieldMatches(profileData.displayName, normalizedSearchTerm);
+          const matchesDisplay_name = fieldMatches(profileData.display_name, normalizedSearchTerm);
+          const matchesName = fieldMatches(profileData.name, normalizedSearchTerm);
+          const matchesNip05 = nip05Matches(profileData.nip05, normalizedSearchTerm);
+          const matchesAbout = fieldMatches(profileData.about, normalizedSearchTerm);
 
           if (
             matchesDisplayName ||
@@ -489,7 +458,10 @@ async function quickRelaySearch(
               (p) => p.pubkey === event.pubkey,
             );
             if (existingIndex === -1) {
-              foundInRelay.push(profile);
+              // AI-NOTE: Attach profile data to the original NDKEvent object
+              // so that EventDetails component can access both the event data and profile data
+              (event as any).profileData = profile;
+              foundInRelay.push(event);
             }
           }
         } catch {
@@ -523,20 +495,39 @@ async function quickRelaySearch(
   const results = await Promise.allSettled(searchPromises);
 
   // Combine and deduplicate results
-  const allProfiles: Record<string, NostrProfile> = {};
+  const allEvents: Record<string, NDKEvent> = {};
 
   for (const result of results) {
     if (result.status === "fulfilled") {
-      for (const profile of result.value) {
-        if (profile.pubkey) {
-          allProfiles[profile.pubkey] = profile;
+      for (const event of result.value) {
+        if (event.pubkey) {
+          allEvents[event.pubkey] = event;
         }
       }
     }
   }
 
   console.log(
-    `Total unique profiles found: ${Object.keys(allProfiles).length}`,
+    `Total unique profile events found: ${Object.keys(allEvents).length}`,
   );
-  return Object.values(allProfiles);
+  return Object.values(allEvents);
+}
+
+/**
+ * Search for profiles by various criteria (display name, name, NIP-05, npub)
+ * Returns NostrProfile objects for use in components like CommentBox
+ */
+export async function searchProfilesForMentions(
+  searchTerm: string,
+  ndk: NDK,
+): Promise<{ profiles: NostrProfile[]; Status: Record<string, boolean> }> {
+  // Use the main searchProfiles function to get events with profile data
+  const result = await searchProfiles(searchTerm, ndk);
+  
+  // Extract profile data from the events
+  const profiles: NostrProfile[] = result.profiles
+    .map((event) => (event as any).profileData)
+    .filter(Boolean);
+  
+  return { profiles, Status: result.Status };
 }

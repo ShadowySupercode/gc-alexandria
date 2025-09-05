@@ -1,5 +1,6 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { CACHE_DURATIONS, TIMEOUTS } from "./search_constants.ts";
+import { unifiedProfileCache } from "./npubCache.ts";
 
 export interface SearchResult {
   events: NDKEvent[];
@@ -107,9 +108,6 @@ class SearchCache {
    */
   resolveProfileEvents(result: SearchResult): SearchResult {
     if (result.searchType === 'profile' && result.profileIdentifiers) {
-      // Import dynamically to avoid circular dependencies
-      const { unifiedProfileCache } = require('./npubCache.ts');
-      
       const resolvedEvents = unifiedProfileCache.getCachedEvents(result.profileIdentifiers);
       
       // Update the result with resolved events

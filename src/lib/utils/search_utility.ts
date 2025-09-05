@@ -8,7 +8,7 @@ export * from "./subscription_search";
 export * from "./search_constants";
 
 // Legacy exports for backward compatibility
-export { searchProfiles } from "./profile_search";
+export { searchProfiles, searchProfilesForMentions } from "./profile_search";
 export { searchBySubscription } from "./subscription_search";
 export { searchEvent, searchNip05 } from "./event_search";
 export { checkCommunity } from "./community_checker";
