@@ -1,7 +1,7 @@
-use futures::executor::block_on;
+use futures::executor::LocalPool;
+use futures::task::LocalSpawnExt;
 use std::collections::HashMap;
 use std::time::Duration;
-
 use wasm_bindgen::UnwrapThrowExt;
 
 use crate::database;
@@ -20,12 +20,8 @@ pub struct RelaySelector {
     general: Vec<String>,
     inbox: Vec<String>,
     outbox: Vec<String>,
-}
 
-impl RelaySelector {
-    pub fn init() -> Self {
-        // TODO: Fetch data from IndexedDB.
-    }
+    store_name: String,
 }
 
 impl Drop for RelaySelector {
@@ -59,14 +55,31 @@ impl Drop for RelaySelector {
             }))
             .collect();
 
-        // TODO: Explore alternatives that don't block the main event loop.
-        // A possible option is to spin out a web worker that handles the DB writes.
-        block_on(database::insert_or_update("my_store", relays.as_slice())).unwrap_or_default()
+        let store_name = self.store_name.clone();
+        LocalPool::new()
+            .spawner()
+            .spawn_local(async move {
+                database::insert_or_update(&store_name, relays.as_slice())
+                    .await
+                    .unwrap_throw()
+            })
+            .unwrap_throw()
     }
 }
 
 // Relay management methods
 impl RelaySelector {
+    pub async fn init(store_name: &str) -> Result<Self, String> {
+        let relays = database::get_all_relays(store_name).await?;
+        Ok(Self {
+            store_name,
+            general: relays,
+            inbox: relays.inbox,
+            outbox: relays.outbox,
+            statistics: relays.statistics,
+        })
+    }
+
     /// Returns `true` if the relay with the given URL is contained in the selector.
     pub fn contains(&self, relay: &str) -> bool {
         self.general.contains(&relay.to_string())
