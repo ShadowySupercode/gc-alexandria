@@ -29,6 +29,7 @@ export interface PublishResult {
 export interface LoadEventResult {
   eventData: EventData;
   tags: TagData[];
+  validationIssues?: string[];
 }
 
 export interface EventPreview {

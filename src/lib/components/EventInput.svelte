@@ -31,6 +31,7 @@
   let error = $state<string | null>(null);
   let success = $state<string | null>(null);
   let showJsonPreview = $state(false);
+  let validationIssues = $state<string[]>([]);
 
   // Publishing state
   let publishedRelays = $state<string[]>([]);
@@ -133,9 +134,11 @@
       if (loadedEvent) {
         eventData = loadedEvent.eventData;
         tags = loadedEvent.tags;
+        validationIssues = loadedEvent.validationIssues || [];
         success = `Loaded event ${eventId.substring(0, 8)}...`;
       } else {
         error = `Event ${eventId} not found on any relay.`;
+        validationIssues = [];
       }
     } catch (err) {
       console.error("Error loading event:", err);
@@ -206,6 +209,7 @@
     tags = [];
     error = null;
     success = null;
+    validationIssues = [];
     publishedRelays = [];
     lastPublishedEventId = null;
     eventIdSearch = "";
@@ -364,6 +368,24 @@
   {/if}
   {#if error}
     <div class="mt-2 text-red-600 dark:text-red-400">{error}</div>
+  {/if}
+  {#if validationIssues.length > 0}
+    <div class="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+      <div class="text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+        ⚠️ Event Validation Issues:
+      </div>
+      <ul class="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+        {#each validationIssues as issue}
+          <li class="flex items-start">
+            <span class="mr-2">•</span>
+            <span>{issue}</span>
+          </li>
+        {/each}
+      </ul>
+      <div class="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+        These issues were found when loading the event. The event may not be fully compliant with NIP-01 specification.
+      </div>
+    </div>
   {/if}
   {#if success}
     <div class="mt-2 text-green-600 dark:text-green-400">{success}</div>
