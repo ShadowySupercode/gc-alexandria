@@ -50,8 +50,6 @@ export function validateEvent(event: any): ValidationResult {
             errors.push(`Tag ${i}, element ${j} cannot be null or undefined`);
           } else if (typeof tag[j] !== 'string') {
             errors.push(`Tag ${i}, element ${j} must be a string`);
-          } else if (tag[j] === '') {
-            errors.push(`Tag ${i}, element ${j} cannot be an empty string`);
           }
         }
       }

@@ -4,6 +4,7 @@
   import { prefixNostrAddresses } from "$lib/utils/nostrUtils";
   import { removeMetadataFromContent } from "$lib/utils/asciidoc_metadata";
   import { build30040EventSet } from "$lib/utils/event_input_utils";
+  import { parseProfileContent } from "$lib/utils/profile_parsing";
   import type { EventData, TagData, EventPreview } from "./types";
 
   // AI-NOTE:  EventPreview component shows a preview of the event that will be published
@@ -23,14 +24,8 @@
     onTogglePreview: () => void;
   } = $props();
 
-  /**
-   * Converts TagData array to NDK-compatible format
-   */
-  function convertTagsToNDKFormat(tags: TagData[]): string[][] {
-    return tags
-      .filter(tag => tag.key.trim() !== "")
-      .map(tag => [tag.key, ...tag.values]);
-  }
+  // Import the correct conversion function from eventServices
+  import { convertTagsToNDKFormat } from "./eventServices";
 
   /**
    * Generates event preview
@@ -103,6 +98,46 @@
           message: `Failed to generate 30040 preview: ${error instanceof Error ? error.message : "Unknown error"}`
         };
       }
+    } else if (Number(eventData.kind) === 0) {
+      // Special handling for profile events (kind 0)
+      let eventTags = convertTagsToNDKFormat(tags);
+      
+      // For loaded events, preserve the original content exactly as-is
+      // For new events, merge content and tags for preview
+      let finalContent = eventData.content;
+      
+      // Check if this is a loaded event (has existing content that looks like JSON)
+      const isLoadedEvent = eventData.content && eventData.content.trim().startsWith('{');
+      
+      if (!isLoadedEvent) {
+        // For new events, create a mock NDKEvent to use with parseProfileContent
+        const mockEvent = {
+          kind: 0,
+          content: eventData.content,
+          tags: eventTags,
+          pubkey: String(pubkey),
+          created_at: eventData.createdAt
+        } as any;
+        
+        // Use the existing parseProfileContent function to get merged profile data
+        const mergedProfileData = parseProfileContent(mockEvent);
+        
+        // Convert back to JSON string for the preview
+        finalContent = mergedProfileData ? JSON.stringify(mergedProfileData, null, 2) : eventData.content;
+      }
+      
+      return {
+        type: "profile_event",
+        event: {
+          id: "[will be generated]",
+          pubkey: String(pubkey),
+          created_at: eventData.createdAt,
+          kind: 0,
+          tags: eventTags,
+          content: finalContent,
+          sig: "[will be generated]"
+        }
+      };
     } else {
       // For other event types
       let eventTags = convertTagsToNDKFormat(tags);
@@ -155,7 +190,7 @@
         {:else}
           <div class="mb-2">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Event Type: {eventPreview.type === '30040_index_event' ? '30040 Publication Index' : 'Standard Event'}
+              Event Type: {eventPreview.type === '30040_index_event' ? '30040 Publication Index' : eventPreview.type === 'profile_event' ? 'Profile Event (Kind 0)' : 'Standard Event'}
             </span>
           </div>
           <div class="overflow-hidden">

@@ -15,18 +15,56 @@ import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 import { removeMetadataFromContent } from "$lib/utils/asciidoc_metadata";
 import { build30040EventSet } from "$lib/utils/event_input_utils";
 import { validateEvent, normalizeAndOrderTags, validateAndNormalizeEvent } from "$lib/utils/event_validation";
+import { prepareProfileEventForPublishing, parseProfileContent } from "$lib/utils/profile_parsing";
+
+/**
+ * Extract all values from malformed JSON content that has duplicate keys
+ * This ensures clients using only tags get complete information from content
+ */
+function extractAllValuesFromMalformedJson(content: string, profileFields: string[]): Array<{ field: string; values: string[] }> {
+  const results: Array<{ field: string; values: string[] }> = [];
+  
+  for (const field of profileFields) {
+    const values: string[] = [];
+    
+    // Use regex to find all occurrences of the field in the JSON string
+    // Pattern matches: "field":"value" or "field": "value"
+    const regex = new RegExp(`"${field}"\\s*:\\s*"([^"]*)"`, 'g');
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const value = match[1];
+      if (value && value.trim() !== '') {
+        values.push(value);
+      }
+    }
+    
+    if (values.length > 0) {
+      results.push({ field, values });
+    }
+  }
+  
+  return results;
+}
 import type { EventData, TagData, PublishResult, LoadEventResult } from "./types";
 
 
 /**
  * Converts TagData array to NDK-compatible format with proper validation and ordering
+ * For duplicate tag types, creates separate tag entries for each value
  */
-function convertTagsToNDKFormat(tags: TagData[]): string[][] {
-  const ndkTags = tags
-    .filter(tag => tag.key.trim() !== "")
-    .map(tag => [tag.key, ...tag.values]);
+export function convertTagsToNDKFormat(tags: TagData[]): string[][] {
+  const result: string[][] = [];
   
-  return normalizeAndOrderTags(ndkTags);
+  for (const tag of tags) {
+    if (tag.key.trim() !== "") {
+      // Create ONE tag entry with all values
+      // Note: Empty strings are valid in Nostr tags, so we preserve them
+      result.push([tag.key, ...tag.values]);
+    }
+  }
+  
+  return normalizeAndOrderTags(result);
 }
 
 /**
@@ -51,6 +89,7 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
 
   const baseEvent = { pubkey: pubkeyString, created_at: eventData.createdAt };
   let events: NDKEvent[] = [];
+  let eventDataForNDK: any;
 
   console.log("Publishing event with kind:", eventData.kind);
   console.log("Content length:", eventData.content.length);
@@ -104,8 +143,32 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
         error: `Failed to build 30040 event set: ${error instanceof Error ? error.message : "Unknown error"}` 
       };
     }
+  } else if (Number(eventData.kind) === 0) {
+    // Special handling for profile events (kind 0)
+    let eventTags = convertTagsToNDKFormat(tags);
+    
+    // Use the profile parsing service to prepare the event for publishing
+    const { content: finalContent, tags: comprehensiveTags } = prepareProfileEventForPublishing(
+      eventData.content,
+      eventTags
+    );
+    
+    // Update eventTags with the comprehensive tags
+    eventTags = normalizeAndOrderTags(comprehensiveTags);
+    
+    // Prefix Nostr addresses before publishing
+    const prefixedContent = prefixNostrAddresses(finalContent);
+
+    // Create event with proper serialization
+    eventDataForNDK = {
+      kind: eventData.kind,
+      content: prefixedContent,
+      tags: eventTags,
+      pubkey: pubkeyString,
+      created_at: eventData.createdAt,
+    };
   } else {
-    // Convert multi-value tags to the format expected by NDK with proper validation and ordering
+    // For other event types
     let eventTags = convertTagsToNDKFormat(tags);
 
     // For AsciiDoc events, remove metadata from content
@@ -118,25 +181,25 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
     const prefixedContent = prefixNostrAddresses(finalContent);
 
     // Create event with proper serialization
-    const eventDataForNDK = {
+    eventDataForNDK = {
       kind: eventData.kind,
       content: prefixedContent,
       tags: eventTags,
       pubkey: pubkeyString,
       created_at: eventData.createdAt,
     };
-
-    // AI-NOTE: Validate event according to NIP-01 specification before creating NDK event
-    const validation = validateEvent(eventDataForNDK);
-    if (!validation.valid) {
-      return { 
-        success: false, 
-        error: `Event validation failed: ${validation.errors.join(', ')}` 
-      };
-    }
-
-    events = [new NDKEventClass(ndk, eventDataForNDK)];
   }
+
+  // AI-NOTE: Validate event according to NIP-01 specification before creating NDK event
+  const validation = validateEvent(eventDataForNDK);
+  if (!validation.valid) {
+    return { 
+      success: false, 
+      error: `Event validation failed: ${validation.errors.join(', ')}` 
+    };
+  }
+
+  events = [new NDKEventClass(ndk, eventDataForNDK)];
 
   let atLeastOne = false;
   let relaysPublished: string[] = [];
@@ -311,10 +374,62 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     };
 
     // Convert normalized NDK tags format to our format
-    const tags: TagData[] = normalizedTags.map((tag: string[]) => ({
-      key: tag[0] || "",
-      values: tag.slice(1)
-    }));
+    // For profile events, content entries should be listed first in tags for consistency
+    const tags: TagData[] = [];
+    const seenTags = new Set<string>(); // Track seen tags to deduplicate only identical tags
+    
+    // For profile events (kind 0), extract profile data from content and add as tags FIRST
+    if (foundEvent.kind === 0) {
+      try {
+        // Profile fields that should be extracted to tags
+        const profileFields = ['name', 'display_name', 'displayName', 'about', 'picture', 'banner', 'website', 'nip05', 'lud16', 'pronouns'];
+        
+        // Extract ALL values from content (including malformed JSON with duplicate keys)
+        // This ensures clients using only tags get complete information from content
+        const allContentValues = extractAllValuesFromMalformedJson(foundEvent.content || "{}", profileFields);
+        for (const { field, values } of allContentValues) {
+          for (const value of values) {
+            if (value !== null && value !== undefined && value !== '') {
+              const tagData = {
+                key: field,
+                values: [String(value)]
+              };
+              const tagKey = JSON.stringify(tagData);
+              if (!seenTags.has(tagKey)) {
+                seenTags.add(tagKey);
+                tags.push(tagData);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to parse profile content for tag extraction:", error);
+      }
+    }
+    
+    // Then add all existing tags from the original event
+    for (const tag of normalizedTags) {
+      if (tag.length >= 2) {
+        const key = tag[0] || "";
+        // Preserve empty strings - they are valid in Nostr tags
+        const values = tag.slice(1).map(v => v === null || v === undefined ? "" : String(v));
+        
+        if (key) {
+          // ALL tags can have multiple values - add each tag as a separate entry
+          const tagData = {
+            key,
+            values: values
+          };
+          const tagKey = JSON.stringify(tagData);
+          if (!seenTags.has(tagKey)) {
+            seenTags.add(tagKey);
+            tags.push(tagData);
+          }
+        }
+      }
+    }
+    
+    // tags array is already populated above
 
     return { eventData, tags, validationIssues };
   }
@@ -322,3 +437,4 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
   console.log("loadEvent: Event not found on any relay");
   return null;
 }
+

@@ -125,7 +125,11 @@
     // Add non-preset tags (avoid duplicates)
     for (const tag of currentTags) {
       const isPresetKey = presetTags.some(p => p.key === tag.key);
-      const alreadyAdded = newTags.some(t => t.key === tag.key);
+      // Check for duplicates by comparing both key and values, not just key
+      const alreadyAdded = newTags.some(t => 
+        t.key === tag.key && 
+        JSON.stringify(t.values) === JSON.stringify(tag.values)
+      );
       
       if (!isPresetKey && !alreadyAdded) {
         newTags.push(tag);
