@@ -308,22 +308,25 @@
 
     // AI-NOTE: Detect Nostr identifiers (npub, nevent, naddr, nprofile)
     const trimmedQuery = query.trim();
-    if (trimmedQuery.startsWith("npub") || trimmedQuery.startsWith("nprofile")) {
-      return { type: "profile", term: trimmedQuery };
+    // Strip nostr: prefix if present for detection
+    const cleanQuery = trimmedQuery.replace(/^nostr:/, "");
+    
+    if (cleanQuery.startsWith("npub") || cleanQuery.startsWith("nprofile")) {
+      return { type: "profile", term: cleanQuery };
     }
 
-    if (trimmedQuery.startsWith("nevent") || trimmedQuery.startsWith("note")) {
-      return { type: "event", term: trimmedQuery };
+    if (cleanQuery.startsWith("nevent") || cleanQuery.startsWith("note")) {
+      return { type: "event", term: cleanQuery };
     }
 
-    if (trimmedQuery.startsWith("naddr")) {
-      return { type: "event", term: trimmedQuery };
+    if (cleanQuery.startsWith("naddr")) {
+      return { type: "event", term: cleanQuery };
     }
 
     // AI-NOTE: Detect hex IDs (64-character hex strings with no spaces)
     // These are likely event IDs and should be searched as events
-    if (trimmedQuery && isEventId(trimmedQuery)) {
-      return { type: "event", term: trimmedQuery };
+    if (cleanQuery && isEventId(cleanQuery)) {
+      return { type: "event", term: cleanQuery };
     }
 
     // AI-NOTE: Treat plain text searches as generic searches by default

@@ -8,6 +8,7 @@ import NDK, {
   NDKRelaySet,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
+import { getBestDisplayName, getFirstProfileValue } from "../utils/profile_parsing";
 import {
   activeInboxRelays,
   activeOutboxRelays,
@@ -211,8 +212,8 @@ export async function loginWithExtension(ndk: NDK) {
     if (!profile) {
       console.warn("Login with extension - all profile fetch attempts failed, using fallback");
       profile = {
-        name: npub.slice(0, 8) + "..." + npub.slice(-4),
-        displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+        name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
+        displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
       };
       console.log("Login with extension - using fallback profile:", profile);
     }
@@ -220,8 +221,8 @@ export async function loginWithExtension(ndk: NDK) {
     console.warn("Failed to fetch user metadata during login:", error);
     // Continue with login even if metadata fetch fails
     profile = {
-      name: npub.slice(0, 8) + "..." + npub.slice(-4),
-      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
+      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
     };
     console.log("Login with extension - using fallback profile:", profile);
   }
@@ -270,13 +271,13 @@ export async function loginWithExtension(ndk: NDK) {
 
   // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
   // This helps with cases where the profile fetch failed during login but might succeed later
-  if (!profile || (!profile.picture && !profile.displayName && profile.name?.includes("..."))) {
+  if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
     console.log("Login with extension - scheduling delayed profile refresh...");
     setTimeout(async () => {
       try {
         console.log("Login with extension - attempting delayed profile refresh...");
         const refreshedProfile = await getUserMetadata(npub, ndk, true);
-        if (refreshedProfile && (refreshedProfile.picture || refreshedProfile.displayName)) {
+        if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
           console.log("Login with extension - delayed profile refresh successful:", refreshedProfile);
           // Update the user store with the refreshed profile
           const currentState = get(userStore);
@@ -317,8 +318,8 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
     console.warn("Failed to fetch user metadata during Amber login:", error);
     // Continue with login even if metadata fetch fails
     profile = {
-      name: npub.slice(0, 8) + "..." + npub.slice(-4),
-      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
+      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
     };
     console.log("Login with Amber - using fallback profile:", profile);
   }
@@ -454,8 +455,8 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
     if (!profile) {
       console.warn("Login with npub - all profile fetch attempts failed, using fallback");
       profile = {
-        name: npub.slice(0, 8) + "..." + npub.slice(-4),
-        displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+        name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
+        displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
       };
       console.log("Login with npub - using fallback profile:", profile);
     }
@@ -463,8 +464,8 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
     console.warn("Failed to fetch user metadata during npub login:", error);
     // Continue with login even if metadata fetch fails
     profile = {
-      name: npub.slice(0, 8) + "..." + npub.slice(-4),
-      displayName: npub.slice(0, 8) + "..." + npub.slice(-4),
+      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
+      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
     };
     console.log("Login with npub - using fallback profile:", profile);
   }
@@ -488,13 +489,13 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
 
   // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
   // This helps with cases where the profile fetch failed during login but might succeed later
-  if (!profile || (!profile.picture && !profile.displayName && profile.name?.includes("..."))) {
+  if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
     console.log("Login with npub - scheduling delayed profile refresh...");
     setTimeout(async () => {
       try {
         console.log("Login with npub - attempting delayed profile refresh...");
         const refreshedProfile = await getUserMetadata(npub, ndk, true);
-        if (refreshedProfile && (refreshedProfile.picture || refreshedProfile.displayName)) {
+        if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
           console.log("Login with npub - delayed profile refresh successful:", refreshedProfile);
           // Update the user store with the refreshed profile
           const currentState = get(userStore);

@@ -5,6 +5,7 @@ import {
   nip19,
   NOSTR_PROFILE_REGEX,
 } from "../nostrUtils.ts";
+import { getBestDisplayName } from "../profile_parsing";
 
 import * as emoji from "node-emoji";
 
@@ -321,10 +322,11 @@ export async function processNostrIdentifiersInText(
     if (ndk) {
       metadata = await getUserMetadata(identifier, ndk);
     } else {
-      // Fallback when NDK is not available - just use the identifier
-      metadata = { name: identifier.slice(0, 8) + "..." + identifier.slice(-4) };
+      // Fallback when NDK is not available - just use the clean identifier
+      const cleanId = identifier.replace(/^nostr:/, "");
+      metadata = { name: [cleanId.slice(0, 8) + "..." + cleanId.slice(-4)] };
     }
-    const displayText = metadata.displayName || metadata.name;
+    const displayText = getBestDisplayName(metadata);
     const link = createProfileLink(identifier, displayText);
 
     // Replace the match in the text

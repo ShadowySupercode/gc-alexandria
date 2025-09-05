@@ -1,5 +1,6 @@
 import { get } from "svelte/store";
 import { nip19 } from "nostr-tools";
+import { getBestDisplayName } from "./profile_parsing";
 import { unifiedProfileCache } from "./npubCache.ts";
 import NDK, { NDKEvent, NDKRelaySet, NDKUser } from "@nostr-dev-kit/ndk";
 import type { NostrEvent } from "@nostr-dev-kit/ndk";
@@ -157,10 +158,7 @@ export async function createProfileLinkWithVerification(
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier = profile?.displayName ??
-    profile?.display_name ??
-    profile?.name ??
-    escapedText;
+  const displayIdentifier = getBestDisplayName(profile) || escapedText;
 
   const isVerified = await user.validateNip05(nip05);
 
@@ -237,7 +235,7 @@ export async function processNostrIdentifiers(
       identifier = "nostr:" + identifier;
     }
     const metadata = await getUserMetadata(identifier, ndk);
-    const displayText = metadata.displayName || metadata.name;
+    const displayText = getBestDisplayName(metadata);
     const link = createProfileLink(identifier, displayText);
     // Replace all occurrences of this exact match
     processedContent = processedContent.replace(
@@ -532,17 +530,20 @@ export async function fetchEventWithFallback(
 export function toNpub(pubkey: string | undefined): string | null {
   if (!pubkey) return null;
   try {
+    // Strip nostr: prefix if present
+    const cleanPubkey = pubkey.replace(/^nostr:/, "");
+    
     // If it's already an npub, return it
-    if (pubkey.startsWith("npub")) return pubkey;
+    if (cleanPubkey.startsWith("npub")) return cleanPubkey;
 
     // If it's a hex pubkey, convert to npub
-    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(pubkey)) {
-      return nip19.npubEncode(pubkey);
+    if (new RegExp(`^[a-f0-9]{${VALIDATION.HEX_LENGTH}}$`, "i").test(cleanPubkey)) {
+      return nip19.npubEncode(cleanPubkey);
     }
 
     // If it's an nprofile, decode and extract npub
-    if (pubkey.startsWith("nprofile")) {
-      const decoded = nip19.decode(pubkey);
+    if (cleanPubkey.startsWith("nprofile")) {
+      const decoded = nip19.decode(cleanPubkey);
       if (decoded.type === "nprofile") {
         return decoded.data.pubkey
           ? nip19.npubEncode(decoded.data.pubkey)

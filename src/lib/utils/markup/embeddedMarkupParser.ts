@@ -1,5 +1,6 @@
 import { postProcessBasicMarkup, preProcessBasicMarkup } from "./basicMarkupParser.ts";
 import { processNostrIdentifiersWithEmbeddedEvents } from "./markupUtils.ts";
+import type NDK from "@nostr-dev-kit/ndk";
 
 /**
  * Parse markup with support for embedded Nostr events
@@ -9,6 +10,7 @@ import { processNostrIdentifiersWithEmbeddedEvents } from "./markupUtils.ts";
 export async function parseEmbeddedMarkup(
   text: string,
   nestingLevel: number = 0,
+  ndk?: NDK,
 ): Promise<string> {
   if (!text) return "";
 
@@ -40,7 +42,7 @@ export async function parseEmbeddedMarkup(
     );
 
     // Process profile identifiers (npub, nprofile) using the regular processor
-    processedText = await postProcessBasicMarkup(processedText);
+    processedText = await postProcessBasicMarkup(processedText, ndk);
 
     return processedText;
   } catch (e: unknown) {

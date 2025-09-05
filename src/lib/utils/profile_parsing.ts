@@ -197,3 +197,28 @@ export function prepareProfileEventForPublishing(
   }
 }
 
+/**
+ * Utility function to get the first value from a profile field array
+ * @param field - The profile field array (e.g., name, displayName, etc.)
+ * @param fallback - Fallback value if field is empty or undefined
+ * @returns The first value from the array or the fallback
+ */
+export function getFirstProfileValue(field: string[] | undefined, fallback: string = ""): string {
+  return (field && field.length > 0 ? field[0] : fallback);
+}
+
+/**
+ * Utility function to get the best display name from a profile
+ * @param profile - The profile object
+ * @param fallback - Fallback value if no display name is found
+ * @returns The best available display name
+ */
+export function getBestDisplayName(profile: ProfileData | undefined, fallback: string = ""): string {
+  if (!profile) return fallback;
+  
+  return getFirstProfileValue(profile.display_name) ||
+         getFirstProfileValue(profile.displayName) ||
+         getFirstProfileValue(profile.name) ||
+         fallback;
+}
+

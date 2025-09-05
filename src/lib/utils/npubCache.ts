@@ -2,7 +2,7 @@ import type { NostrProfile } from "./search_types";
 import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchEventWithFallback } from "./nostrUtils";
 import { nip19 } from "nostr-tools";
-import { parseProfileContent } from "./profile_parsing";
+import { parseProfileContent, getBestDisplayName } from "./profile_parsing";
 
 export type NpubMetadata = NostrProfile;
 
@@ -377,16 +377,12 @@ export const npubCache = {
 // Legacy compatibility for old profileCache functions
 export async function getDisplayName(pubkey: string, ndk: NDK): Promise<string> {
   const profile = await unifiedProfileCache.getProfile(pubkey, ndk);
-  return (profile.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
-         (profile.name && profile.name.length > 0 ? profile.name[0] : null) ||
-         `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+  return getBestDisplayName(profile) || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
 }
 
 export function getDisplayNameSync(pubkey: string): string {
   const profile = unifiedProfileCache.getCached(pubkey);
-  return (profile?.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
-         (profile?.name && profile.name.length > 0 ? profile.name[0] : null) ||
-         `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+  return getBestDisplayName(profile) || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
 }
 
 export async function batchFetchProfiles(

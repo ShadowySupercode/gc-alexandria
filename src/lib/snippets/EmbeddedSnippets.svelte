@@ -7,6 +7,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { nip19 } from "nostr-tools";
   import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
+  import { parseProfileContent } from "$lib/utils/profile_parsing";
   import type NDK from "@nostr-dev-kit/ndk";
 
   export {
@@ -90,8 +91,8 @@
   /**
   * Fetches author profiles for a list of events
   */
-  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string; displayName?: string; picture?: string }>> {
-    const authorProfiles = new Map<string, { name?: string; displayName?: string; picture?: string }>();
+  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>> {
+    const authorProfiles = new Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>();
     const uniquePubkeys = new Set<string>();
     
     events.forEach(event => {
@@ -123,12 +124,14 @@
             );
 
             if (profileEvent) {
-              const profileData = JSON.parse(profileEvent.content);
-              authorProfiles.set(pubkey, {
-                name: profileData.name,
-                displayName: profileData.display_name || profileData.displayName,
-                picture: profileData.picture || profileData.image
-              });
+              const profileData = parseProfileContent(profileEvent);
+              if (profileData) {
+                authorProfiles.set(pubkey, {
+                  name: profileData.name,
+                  displayName: profileData.displayName || profileData.display_name,
+                  picture: profileData.picture
+                });
+              }
               return;
             }
           } catch (error) {
@@ -154,12 +157,14 @@
             );
 
             if (profileEvent) {
-              const profileData = JSON.parse(profileEvent.content);
-              authorProfiles.set(pubkey, {
-                name: profileData.name,
-                displayName: profileData.display_name || profileData.displayName,
-                picture: profileData.picture || profileData.image
-              });
+              const profileData = parseProfileContent(profileEvent);
+              if (profileData) {
+                authorProfiles.set(pubkey, {
+                  name: profileData.name,
+                  displayName: profileData.displayName || profileData.display_name,
+                  picture: profileData.picture
+                });
+              }
             }
           }
         } catch (error) {
@@ -274,7 +279,7 @@
       {#await findQuotedMessage(eventId, publicMessages, ndk) then quotedMessage}
         {#if quotedMessage}
           {@const quotedContent = quotedMessage.content ? quotedMessage.content.slice(0, 200) : "No content"}
-          {#await parseEmbeddedMarkup(quotedContent, 0) then parsedContent}
+          {#await parseEmbeddedMarkup(quotedContent, 0, ndk) then parsedContent}
             <div 
               class="block w-fit my-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 border-l-2 border-gray-400 dark:border-gray-500 rounded cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm text-gray-600 dark:text-gray-300" 
               onclick={() => window.dispatchEvent(new CustomEvent('jump-to-message', { detail: eventId }))} 

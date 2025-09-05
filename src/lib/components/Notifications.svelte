@@ -20,7 +20,8 @@
   } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
-  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import { NDKRelaySetFromNDK, getUserMetadata } from "$lib/utils/nostrUtils";
+  import { getBestDisplayName, getFirstProfileValue } from "$lib/utils/profile_parsing";
   import { repostContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
@@ -53,7 +54,7 @@
   let error = $state<string | null>(null);
   let isOwnProfile = $state(false);
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
-  let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
+  let authorProfiles = $state<Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>>(new Map());
   let filteredByUser = $state<string | null>(null);
   
   // AI-NOTE: Client-side pagination - fetch once, paginate locally
@@ -205,12 +206,13 @@
         const profile = authorProfiles.get(pubkey);
         return {
           pubkey: pubkey,
-          name: profile?.name || "",
-          displayName: profile?.displayName || "",
-          picture: profile?.picture || "",
-          about: "", // We don't store about in authorProfiles
-          nip05: "", // We don't store nip05 in authorProfiles
-        };
+          name: profile?.name || [""],
+          displayName: profile?.displayName || profile?.display_name || [""],
+          display_name: profile?.display_name || profile?.displayName || [""],
+          picture: profile?.picture || [""],
+          about: [""], // We don't store about in authorProfiles
+          nip05: [""], // We don't store nip05 in authorProfiles
+        } as NostrProfile;
       }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
       
       console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
@@ -335,13 +337,13 @@
   function selectRecipient(profile: NostrProfile) {
     // Check if recipient is already selected
     if (selectedRecipients.some(r => r.pubkey === profile.pubkey)) {
-      console.log("Recipient already selected:", profile.displayName || profile.name);
+      console.log("Recipient already selected:", getBestDisplayName(profile));
       return;
     }
 
     // Add recipient to selection
     selectedRecipients = [...selectedRecipients, profile];
-    console.log("Selected recipient:", profile.displayName || profile.name);
+    console.log("Selected recipient:", getBestDisplayName(profile));
     
     // Close the recipient modal (New Message modal stays open)
     closeRecipientModal();
@@ -887,7 +889,7 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}
+                  Filtered by user: @{getBestDisplayName(authorProfiles.get(filteredByUser)) || "anon"}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -909,7 +911,7 @@
                     <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
                       {#if authorProfile?.picture}
                         <img
-                          src={authorProfile.picture}
+                          src={getFirstProfileValue(authorProfile.picture)}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                           onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
@@ -921,7 +923,7 @@
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
+                          @{getBestDisplayName(authorProfile) || "anon"}
                         </span>
                       </div>
                     </div>
@@ -1072,7 +1074,7 @@
                     <div class="flex flex-col items-center gap-2">
                       {#if authorProfile?.picture}
                         <img
-                          src={authorProfile.picture}
+                          src={getFirstProfileValue(authorProfile.picture)}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                           onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
@@ -1084,7 +1086,7 @@
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
+                          @{getBestDisplayName(authorProfile) || "anon"}
                         </span>
                       </div>
                     </div>
@@ -1351,7 +1353,7 @@
                 >
                   {#if profile.picture}
                     <img
-                      src={profile.picture}
+                      src={getFirstProfileValue(profile.picture)}
                       alt="Profile"
                       class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                       onerror={(e) => {
@@ -1365,7 +1367,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      @{profile.displayName || profile.name || "anon"}
+                      @{getBestDisplayName(profile) || "anon"}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">

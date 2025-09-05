@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils.ts";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import type { NostrProfile } from "$lib/utils/search_types";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
@@ -157,9 +158,7 @@
           <div class="min-w-0 flex-1">
             {@render userBadge(
               toNpub(event.pubkey) as string,
-              (profile.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
-                (profile.display_name && profile.display_name.length > 0 ? profile.display_name[0] : null) ||
-                (profile.name && profile.name.length > 0 ? profile.name[0] : null) ||
+              getBestDisplayName(profile) ||
                 event.pubkey,
               ndk,
             )}
@@ -231,7 +230,7 @@
                 <dd class="min-w-0 break-words flex flex-col gap-1">
                   {#each profile.about as about}
                     <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-                      {@render basicMarkup(about, ndk)}
+                      {@render basicMarkup(Array.isArray(about) ? about[0] || "" : about, ndk)}
                     </div>
                   {/each}
                 </dd>
@@ -315,8 +314,7 @@
         <div class="flex flex-col items-center">
           {@render userBadge(
             toNpub(event.pubkey) as string,
-            (profile?.displayName && profile.displayName.length > 0 ? profile.displayName[0] : null) ||
-              (profile?.name && profile.name.length > 0 ? profile.name[0] : null) ||
+            getBestDisplayName(profile) ||
               event.pubkey,
             ndk,
           )}
