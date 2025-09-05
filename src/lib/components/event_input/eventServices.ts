@@ -17,12 +17,105 @@ import { build30040EventSet } from "$lib/utils/event_input_utils";
 import type { EventData, TagData, PublishResult, LoadEventResult } from "./types";
 
 /**
- * Converts TagData array to NDK-compatible format
+ * Validates an event according to NIP-01 specification
+ */
+function validateEvent(event: any): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  // Validate required fields
+  if (!event.pubkey || typeof event.pubkey !== 'string') {
+    errors.push('Missing or invalid pubkey');
+  } else if (!/^[a-fA-F0-9]{64}$/.test(event.pubkey)) {
+    errors.push('Pubkey must be a 64-character lowercase hex string');
+  }
+  
+  if (typeof event.created_at !== 'number' || event.created_at <= 0) {
+    errors.push('Missing or invalid created_at timestamp');
+  }
+  
+  if (typeof event.kind !== 'number' || event.kind < 0 || event.kind > 65535) {
+    errors.push('Kind must be an integer between 0 and 65535');
+  }
+  
+  if (typeof event.content !== 'string') {
+    errors.push('Content must be a string');
+  }
+  
+  if (!Array.isArray(event.tags)) {
+    errors.push('Tags must be an array');
+  } else {
+    // Validate tags structure - tags can be empty array, but individual elements shouldn't be empty
+    for (let i = 0; i < event.tags.length; i++) {
+      const tag = event.tags[i];
+      if (!Array.isArray(tag)) {
+        errors.push(`Tag ${i} must be an array`);
+      } else {
+        // Check that all tag elements are non-null, non-empty strings
+        for (let j = 0; j < tag.length; j++) {
+          if (tag[j] === null || tag[j] === undefined) {
+            errors.push(`Tag ${i}, element ${j} cannot be null or undefined`);
+          } else if (typeof tag[j] !== 'string') {
+            errors.push(`Tag ${i}, element ${j} must be a string`);
+          } else if (tag[j] === '') {
+            errors.push(`Tag ${i}, element ${j} cannot be empty string`);
+          }
+        }
+      }
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Normalizes and orders tags according to NIP-01 specification
+ * Groups tags by type while maintaining original order of appearance
+ */
+function normalizeAndOrderTags(tags: string[][]): string[][] {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return [];
+  }
+  
+  // Filter out invalid tags and ensure all elements are strings
+  const validTags = tags
+    .filter(tag => Array.isArray(tag))
+    .map(tag => tag.map(element => String(element)))
+    .filter(tag => tag.length === 0 || tag[0] !== ''); // Allow empty tags, but if not empty, first element shouldn't be empty
+  
+  // Group tags by their first element (tag type)
+  const tagGroups: { [key: string]: string[][] } = {};
+  const tagOrder: string[] = []; // Track order of first appearance
+  
+  for (const tag of validTags) {
+    const tagType = tag[0];
+    if (!tagGroups[tagType]) {
+      tagGroups[tagType] = [];
+      tagOrder.push(tagType);
+    }
+    tagGroups[tagType].push(tag);
+  }
+  
+  // Rebuild tags array in order of first appearance, with same types grouped together
+  const orderedTags: string[][] = [];
+  for (const tagType of tagOrder) {
+    orderedTags.push(...tagGroups[tagType]);
+  }
+  
+  return orderedTags;
+}
+
+/**
+ * Converts TagData array to NDK-compatible format with proper validation and ordering
  */
 function convertTagsToNDKFormat(tags: TagData[]): string[][] {
-  return tags
+  const ndkTags = tags
     .filter(tag => tag.key.trim() !== "")
     .map(tag => [tag.key, ...tag.values]);
+  
+  return normalizeAndOrderTags(ndkTags);
 }
 
 /**
@@ -101,7 +194,7 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
       };
     }
   } else {
-    // Convert multi-value tags to the format expected by NDK
+    // Convert multi-value tags to the format expected by NDK with proper validation and ordering
     let eventTags = convertTagsToNDKFormat(tags);
 
     // For AsciiDoc events, remove metadata from content
@@ -121,6 +214,15 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
       pubkey: pubkeyString,
       created_at: eventData.createdAt,
     };
+
+    // AI-NOTE: Validate event according to NIP-01 specification before creating NDK event
+    const validation = validateEvent(eventDataForNDK);
+    if (!validation.valid) {
+      return { 
+        success: false, 
+        error: `Event validation failed: ${validation.errors.join(', ')}` 
+      };
+    }
 
     events = [new NDKEventClass(ndk, eventDataForNDK)];
   }
@@ -151,6 +253,12 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
         content: String(event.content),
       };
       
+      // AI-NOTE: Final validation before signing according to NIP-01 specification
+      const finalValidation = validateEvent(plainEvent);
+      if (!finalValidation.valid) {
+        throw new Error(`Event validation failed before signing: ${finalValidation.errors.join(', ')}`);
+      }
+      
       if (
         typeof window !== "undefined" &&
         window.nostr &&
@@ -164,6 +272,9 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
       } else {
         await event.sign();
       }
+      
+      // AI-NOTE: Event ID should be generated during signing according to NIP-01
+      // The validation above ensures the event is properly formatted before signing
 
       // Use direct WebSocket publishing like CommentBox does
       const signedEvent = {
@@ -269,6 +380,18 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
 
   if (foundEvent) {
     console.log("loadEvent: Successfully found event:", foundEvent.id);
+    
+    // AI-NOTE: Validate and normalize the loaded event according to NIP-01 specification
+    const validation = validateEvent(foundEvent);
+    const validationIssues = validation.valid ? undefined : validation.errors;
+    
+    if (!validation.valid) {
+      console.warn("loadEvent: Event validation failed:", validation.errors);
+    }
+    
+    // Normalize and order tags according to NIP-01 specification
+    const normalizedTags = normalizeAndOrderTags(foundEvent.tags || []);
+    
     // Convert NDK event format to our format
     const eventData: EventData = {
       kind: foundEvent.kind, // Use the actual kind from the event
@@ -276,13 +399,13 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
       createdAt: Math.floor(Date.now() / 1000), // Use current time for replacement
     };
 
-    // Convert NDK tags format to our format
-    const tags: TagData[] = foundEvent.tags.map((tag: string[]) => ({
+    // Convert normalized NDK tags format to our format
+    const tags: TagData[] = normalizedTags.map((tag: string[]) => ({
       key: tag[0] || "",
       values: tag.slice(1)
     }));
 
-    return { eventData, tags };
+    return { eventData, tags, validationIssues };
   }
 
   console.log("loadEvent: Event not found on any relay");
