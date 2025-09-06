@@ -101,8 +101,10 @@
           {@render userBadge(pTag, "", ndk)}
         {:else if originalAuthor !== null}
           {@render userBadge(originalAuthor, author, ndk)}
-        {:else}
+        {:else if author && author.trim()}
           {@render userBadge(author, author, ndk)}
+        {:else}
+          unknown
         {/if}
       </h2>
       {#if version !== "1"}

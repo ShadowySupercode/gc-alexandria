@@ -78,8 +78,10 @@
               by
               {#if authorPubkey != null}
                 {@render userBadge(authorPubkey, author, ndk)}
-              {:else}
+              {:else if author && author.trim()}
                 <span class="truncate">{@render userBadge(author, author, ndk)}</span>
+              {:else}
+                <span class="truncate">unknown</span>
               {/if}
             </h3>
           </div>
