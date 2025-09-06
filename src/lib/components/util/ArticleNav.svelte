@@ -15,7 +15,6 @@
   import { page } from "$app/stores";
   import { indexKind } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const ndk = getNdkContext();
 

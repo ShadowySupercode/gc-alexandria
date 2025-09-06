@@ -65,7 +65,7 @@ describe("Event Loading and Previewing", () => {
         pubkey: "645eb808ac7689f08b5143fbe7aa7289baad2e3bf069c81d2a22a0d3b3589c18",
         created_at: 1757073988,
         kind: 0,
-        content: '{"name":"Testerin2","about":"From @Silberengel","website":"https://next-alexandria.gitcitadel.eu/","display_name":"Testerin2","displayName":"Testerin2","nip05":"testerin2@sovbit.host","banner":"","picture":"https://image.nostr.build/17c053bdf6e9f007172eaa182b8bc6c85cc07edb193785ea97ba7a5bff501285.jpg","lud16":"silberengel@minibits.cash"}',
+        content: '{"name":"Testerin2","about":"From @Silberengel","website":"https://next-alexandria.gitcitadel.eu/","display_name":"Testerin2","nip05":"testerin2@sovbit.host","banner":"","picture":"https://image.nostr.build/17c053bdf6e9f007172eaa182b8bc6c85cc07edb193785ea97ba7a5bff501285.jpg","lud16":"silberengel@minibits.cash"}',
         tags: [
           ["nip05", "testerin2@sovbit.host"],
           ["lud16", "gitcitadel@getalby.com"],
@@ -114,7 +114,7 @@ describe("Event Loading and Previewing", () => {
     it("should preserve content exactly as-is for loaded profile events", async () => {
       const { fetchEventWithFallback } = await import("$lib/utils/nostrUtils");
       
-      const originalContent = '{"name":"Testerin2","about":"From @Silberengel","website":"https://next-alexandria.gitcitadel.eu/","display_name":"Testerin2","displayName":"Testerin2","nip05":"testerin2@sovbit.host","banner":"","picture":"https://image.nostr.build/17c053bdf6e9f007172eaa182b8bc6c85cc07edb193785ea97ba7a5bff501285.jpg","lud16":"silberengel@minibits.cash"}';
+      const originalContent = '{"name":"Testerin2","about":"From @Silberengel","website":"https://next-alexandria.gitcitadel.eu/","display_name":"Testerin2","nip05":"testerin2@sovbit.host","banner":"","picture":"https://image.nostr.build/17c053bdf6e9f007172eaa182b8bc6c85cc07edb193785ea97ba7a5bff501285.jpg","lud16":"silberengel@minibits.cash"}';
       
       const profileEvent: NDKEvent = {
         id: "3954174443415e229d9c5e1cb399c882f4dc44c00ed5c06859a736b597bb5544",

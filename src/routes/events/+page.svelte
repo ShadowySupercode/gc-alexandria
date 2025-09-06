@@ -18,7 +18,7 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
-  import { parseProfileContent, getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { parseProfileContent } from "$lib/utils/profile_parsing";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -653,7 +653,7 @@
                           <span class="text-xs text-gray-600 dark:text-gray-400">
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
-                              getBestDisplayName(profileData),
+                              undefined,
                               ndk,
                             )}
                           </span>
@@ -702,13 +702,9 @@
                             </div>
                           {/if}
                           <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                            {#if getBestDisplayName(profileData)}
-                              <span
-                                class="font-medium text-gray-900 dark:text-gray-100 truncate"
-                              >
-                                {getBestDisplayName(profileData)}
-                              </span>
-                            {/if}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {@render userBadge(result.pubkey, undefined, ndk)}
+                            </span>
                             {#if profileData.about}
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
@@ -908,7 +904,7 @@
                           <span class="text-xs text-gray-600 dark:text-gray-400">
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
-                              getBestDisplayName(profileData),
+                              undefined,
                               ndk,
                             )}
                           </span>
@@ -951,21 +947,14 @@
                               <span
                                 class="text-lg font-medium text-gray-600 dark:text-gray-300"
                               >
-                                {(
-                                  getBestDisplayName(profileData) ||
-                                  result.pubkey.slice(0, 1)
-                                ).toUpperCase()}
+                                {result.pubkey.slice(0, 1).toUpperCase()}
                               </span>
                             </div>
                           {/if}
                           <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                            {#if getBestDisplayName(profileData)}
-                              <span
-                                class="font-medium text-gray-900 dark:text-gray-100 truncate"
-                              >
-                                {getBestDisplayName(profileData)}
-                              </span>
-                            {/if}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {@render userBadge(result.pubkey, undefined, ndk)}
+                            </span>
                             {#if profileData.about}
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
@@ -1160,7 +1149,7 @@
                           <span class="text-xs text-gray-600 dark:text-gray-400">
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
-                              getBestDisplayName(profileData),
+                              undefined,
                               ndk,
                             )}
                           </span>
@@ -1194,21 +1183,14 @@
                               <span
                                 class="text-lg font-medium text-gray-600 dark:text-gray-300"
                               >
-                                {(
-                                  getBestDisplayName(profileData) ||
-                                  result.pubkey.slice(0, 1)
-                                ).toUpperCase()}
+                                {result.pubkey.slice(0, 1).toUpperCase()}
                               </span>
                             </div>
                           {/if}
                           <div class="flex flex-col min-w-0 flex-1">
-                            {#if getBestDisplayName(profileData)}
-                              <span
-                                class="font-medium text-gray-900 dark:text-gray-100 truncate"
-                              >
-                                {getBestDisplayName(profileData)}
-                              </span>
-                            {/if}
+                            <span class="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {@render userBadge(result.pubkey, undefined, ndk)}
+                            </span>
                             {#if profileData.about}
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2"

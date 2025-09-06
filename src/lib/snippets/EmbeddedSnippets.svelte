@@ -7,7 +7,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { nip19 } from "nostr-tools";
   import { parseEmbeddedMarkup } from "$lib/utils/markup/embeddedMarkupParser";
-  import { parseProfileContent } from "$lib/utils/profile_parsing";
+  import { parseProfileContent, shortenNpub } from "$lib/utils/profile_parsing";
   import type NDK from "@nostr-dev-kit/ndk";
 
   export {
@@ -91,8 +91,8 @@
   /**
   * Fetches author profiles for a list of events
   */
-  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>> {
-    const authorProfiles = new Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>();
+  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string[]; display_name?: string[]; picture?: string[] }>> {
+    const authorProfiles = new Map<string, { name?: string[]; display_name?: string[]; picture?: string[] }>();
     const uniquePubkeys = new Set<string>();
     
     events.forEach(event => {
@@ -106,7 +106,7 @@
 
         // Try cache first
         let profile = await getUserMetadata(npub, ndk, false);
-        if (profile && (profile.name || profile.displayName || profile.picture)) {
+        if (profile && (profile.name || profile.display_name || profile.picture)) {
           authorProfiles.set(pubkey, profile);
           return;
         }
@@ -128,7 +128,7 @@
               if (profileData) {
                 authorProfiles.set(pubkey, {
                   name: profileData.name,
-                  displayName: profileData.displayName || profileData.display_name,
+                  display_name: profileData.display_name,
                   picture: profileData.picture
                 });
               }
@@ -161,7 +161,7 @@
               if (profileData) {
                 authorProfiles.set(pubkey, {
                   name: profileData.name,
-                  displayName: profileData.displayName || profileData.display_name,
+                  display_name: profileData.display_name,
                   picture: profileData.picture
                 });
               }
@@ -231,7 +231,7 @@
     {@const originalCreatedAt = originalEvent.created_at || 0}
     {@const originalKind = originalEvent.kind || 1}
     {@const formattedDate = originalCreatedAt ? new Date(originalCreatedAt * 1000).toLocaleDateString() : "Unknown date"}
-    {@const shortAuthor = originalAuthor ? `${originalAuthor.slice(0, 8)}...${originalAuthor.slice(-4)}` : "Unknown"}
+    {@const shortAuthor = originalAuthor ? shortenNpub(originalAuthor) : "Unknown"}
 
     <div class="embedded-repost bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-2">
       <!-- Event header -->

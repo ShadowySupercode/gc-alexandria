@@ -5,9 +5,9 @@ import {
   nip19,
   NOSTR_PROFILE_REGEX,
 } from "../nostrUtils.ts";
-import { getBestDisplayName } from "../profile_parsing";
 
 import * as emoji from "node-emoji";
+import { getBestDisplayName, shortenNpub } from "../profile_parsing";
 
 // Media URL patterns
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|gif|png|webp|svg)$/i;
@@ -324,7 +324,7 @@ export async function processNostrIdentifiersInText(
     } else {
       // Fallback when NDK is not available - just use the clean identifier
       const cleanId = identifier.replace(/^nostr:/, "");
-      metadata = { name: [cleanId.slice(0, 8) + "..." + cleanId.slice(-4)] };
+      metadata = { name: [shortenNpub(cleanId)] };
     }
     const displayText = getBestDisplayName(metadata);
     const link = createProfileLink(identifier, displayText);
@@ -410,7 +410,7 @@ export function processAllNostrIdentifiers(text: string): string {
 
     // Create shortened display text
     const identifier = fullMatch.replace('nostr:', '');
-    const displayText = `${identifier.slice(0, 8)}...${identifier.slice(-4)}`;
+    const displayText = shortenNpub(identifier);
     
     // Create clickable link
     const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
@@ -430,7 +430,7 @@ export function processAllNostrIdentifiers(text: string): string {
     const matchIndex = match.index ?? 0;
 
     // Create shortened display text
-    const displayText = `${fullMatch.slice(0, 8)}...${fullMatch.slice(-4)}`;
+    const displayText = shortenNpub(fullMatch);
     
     // Create clickable link with nostr: prefix for the href
     const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
@@ -454,7 +454,7 @@ export function processAllNostrIdentifiers(text: string): string {
 
     // Create display text for truncated identifiers
     const identifier = fullMatch.replace('nostr:', '');
-    const displayText = identifier.length > 12 ? `${identifier.slice(0, 8)}...${identifier.slice(-4)}` : identifier;
+    const displayText = identifier.length > 12 ? shortenNpub(identifier) : identifier;
     
     // Create clickable link
     const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
@@ -477,7 +477,7 @@ export function processAllNostrIdentifiers(text: string): string {
     if (fullMatch.length >= 30) continue; // Full identifiers are at least 30 chars
 
     // Create display text for truncated identifiers
-    const displayText = fullMatch.length > 12 ? `${fullMatch.slice(0, 8)}...${fullMatch.slice(-4)}` : fullMatch;
+    const displayText = fullMatch.length > 12 ? shortenNpub(fullMatch) : fullMatch;
     
     // Create clickable link
     const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;

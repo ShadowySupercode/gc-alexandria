@@ -57,7 +57,7 @@ export interface NetworkNode extends SimulationNodeDatum {
   // Person anchor specific fields
   isPersonAnchor?: boolean; // Whether this is a person anchor node
   pubkey?: string; // The person's public key
-  displayName?: string; // The person's display name from kind 0
+  display_name?: string; // The person's display name from kind 0
   isFromFollowList?: boolean; // Whether this person comes from follow lists
 }
 

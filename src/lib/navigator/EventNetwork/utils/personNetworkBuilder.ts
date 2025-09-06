@@ -245,7 +245,7 @@ export function createPersonAnchorNodes(
       level: -1,
       isPersonAnchor: true,
       pubkey,
-      displayName,
+      display_name: displayName,
       connectedNodes: Array.from(connectedEventIds),
       isFromFollowList: connection.isFromFollowList,
       x,
@@ -348,7 +348,7 @@ export function extractPersonAnchorInfo(
     const connection = personMap.get(anchor.pubkey || "");
     return {
       pubkey: anchor.pubkey || "",
-      displayName: anchor.displayName || "",
+      displayName: anchor.display_name || "",
       signedByCount: connection?.signedByEventIds.size || 0,
       referencedCount: connection?.referencedInEventIds.size || 0,
       isFromFollowList: connection?.isFromFollowList || false,

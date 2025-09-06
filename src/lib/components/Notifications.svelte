@@ -15,13 +15,13 @@
   import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
     getNotificationType, 
-    fetchAuthorProfiles,
     quotedContent,
   } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
-  import { NDKRelaySetFromNDK, getUserMetadata } from "$lib/utils/nostrUtils";
-  import { getBestDisplayName, getFirstProfileValue } from "$lib/utils/profile_parsing";
+  import { NDKRelaySetFromNDK, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
+  import { getFirstProfileValue } from "$lib/utils/profile_parsing";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { repostContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
@@ -54,7 +54,7 @@
   let error = $state<string | null>(null);
   let isOwnProfile = $state(false);
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
-  let authorProfiles = $state<Map<string, { name?: string[]; displayName?: string[]; display_name?: string[]; picture?: string[] }>>(new Map());
+  // Note: Using existing unifiedProfileCache via getUserMetadata - no need for separate cache
   let filteredByUser = $state<string | null>(null);
   
   // AI-NOTE: Client-side pagination - fetch once, paginate locally
@@ -170,8 +170,10 @@
     filteredByUser = null;
   }
 
+  // Note: Using existing unifiedProfileCache directly - no additional caching needed
+
   // AI-NOTE: New Message Modal Functions
-  function openNewMessageModal(messageToReplyTo?: NDKEvent) {
+  async function openNewMessageModal(messageToReplyTo?: NDKEvent) {
     showNewMessageModal = true;
     newMessageContent = "";
     selectedRecipients = [];
@@ -202,20 +204,30 @@
       }
       
       // Build the recipient list with profile information
-      selectedRecipients = Array.from(recipientPubkeys).map(pubkey => {
-        const profile = authorProfiles.get(pubkey);
-        return {
-          pubkey: pubkey,
-          name: profile?.name || [""],
-          displayName: profile?.displayName || profile?.display_name || [""],
-          display_name: profile?.display_name || profile?.displayName || [""],
-          picture: profile?.picture || [""],
-          about: [""], // We don't store about in authorProfiles
-          nip05: [""], // We don't store nip05 in authorProfiles
-        } as NostrProfile;
-      }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
+      selectedRecipients = await Promise.all(
+        Array.from(recipientPubkeys).map(async (pubkey) => {
+          try {
+            const npub = toNpub(pubkey);
+            if (npub) {
+              const profile = await getUserMetadata(npub, ndk, false);
+              return profile;
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch profile for ${pubkey}:`, e);
+          }
+          // Fallback to minimal profile
+          return {
+            pubkey: pubkey,
+            name: [""],
+            display_name: [""],
+            picture: [""],
+            about: [""],
+            nip05: [""],
+          } as NostrProfile;
+        })
+      );
       
-      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => getBestDisplayName(r) || r.pubkey?.slice(0, 8)));
+      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.pubkey));
     }
   }
 
@@ -337,13 +349,13 @@
   function selectRecipient(profile: NostrProfile) {
     // Check if recipient is already selected
     if (selectedRecipients.some(r => r.pubkey === profile.pubkey)) {
-      console.log("Recipient already selected:", getBestDisplayName(profile));
+      console.log("Recipient already selected:", profile.pubkey);
       return;
     }
 
     // Add recipient to selection
     selectedRecipients = [...selectedRecipients, profile];
-    console.log("Selected recipient:", getBestDisplayName(profile));
+    console.log("Selected recipient:", profile.pubkey);
     
     // Close the recipient modal (New Message modal stays open)
     closeRecipientModal();
@@ -378,8 +390,8 @@
       }
       
       // Get all recipient pubkeys for relay calculation (ensure hex format)
-      const recipientPubkeys = selectedRecipients.map(r => {
-        let pubkey = r.pubkey!;
+      const recipientPubkeys = selectedRecipients.map(recipient => {
+        let pubkey = recipient.pubkey!;
         // Convert npub to hex if needed
         if (pubkey.startsWith('npub')) {
           try {
@@ -571,8 +583,7 @@
       currentPage = 1;
       notifications = paginatedNotifications;
 
-      // Load profiles in background
-      authorProfiles = await fetchAuthorProfiles(sortedEvents, ndk);
+      // Note: Profiles are fetched on-demand via unifiedProfileCache
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -632,8 +643,7 @@
       publicMessages = paginatedPublicMessages;
       hasFetchedPublic = true;
 
-      // Load profiles in background
-      authorProfiles = await fetchAuthorProfiles(allPublicMessages, ndk);
+      // Note: Profiles are fetched on-demand via unifiedProfileCache
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -685,7 +695,7 @@
     allPublicMessages = [];
     notifications = [];
     publicMessages = [];
-    authorProfiles.clear();
+    // Note: authorProfiles is no longer used for reply functionality
   }
 
   // Check if user is viewing their own profile
@@ -773,10 +783,10 @@
   /**
    * Updates relay set asynchronously to avoid blocking the reactive system
    */
-  async function updateRelaySet(recipients: any[], senderPubkey: string) {
+  async function updateRelaySet(recipients: NostrProfile[], senderPubkey: string) {
     try {
-      const recipientPubkeys = recipients.map(r => {
-        const pubkey = r.pubkey!;
+      const recipientPubkeys = recipients.map(recipient => {
+        const pubkey = recipient.pubkey!;
         // Convert npub to hex if needed
         if (pubkey.startsWith('npub')) {
           try {
@@ -889,7 +899,7 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{getBestDisplayName(authorProfiles.get(filteredByUser))}
+                  Filtered by user: {@render userBadge(filteredByUser, undefined, ndk)}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -902,28 +912,18 @@
           {/if}
           <div class="space-y-4">
             {#each filteredMessages.slice(0, 100) as message}
-              {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
               <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-event-id="{message.id}">
                 <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
                     <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
-                      {#if authorProfile?.picture}
-                        <img
-                          src={getFirstProfileValue(authorProfile.picture)}
-                          alt="Author avatar"
-                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                        />
-                      {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        </div>
-                      {/if}
+                      <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                        <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                      </div>
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{getBestDisplayName(authorProfile)}
+                          {@render userBadge(message.pubkey, undefined, ndk)}
                         </span>
                       </div>
                     </div>
@@ -1066,27 +1066,17 @@
       {:else}
         <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
           {#each notifications.slice(0, 100) as notification}
-            {@const authorProfile = authorProfiles.get(notification.pubkey)}
             <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
                 <div class="flex items-start gap-3">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0">
                     <div class="flex flex-col items-center gap-2">
-                      {#if authorProfile?.picture}
-                        <img
-                          src={getFirstProfileValue(authorProfile.picture)}
-                          alt="Author avatar"
-                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                        />
-                      {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        </div>
-                      {/if}
+                      <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                        <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                      </div>
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{getBestDisplayName(authorProfile)}
+                          {@render userBadge(notification.pubkey, undefined, ndk)}
                         </span>
                       </div>
                     </div>
@@ -1236,7 +1226,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                @{getBestDisplayName(recipient)}
+                {@render userBadge(recipient.pubkey!, undefined, ndk)}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1367,7 +1357,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      @{getBestDisplayName(profile)}
+                      {@render userBadge(profile.pubkey!, undefined, ndk)}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">

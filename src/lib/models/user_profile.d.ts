@@ -1,7 +1,6 @@
 export interface UserProfile {
   name?: string[];
   display_name?: string[];
-  displayName?: string[];
   about?: string[];
   picture?: string[];
   banner?: string[];

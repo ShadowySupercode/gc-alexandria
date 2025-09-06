@@ -2,6 +2,7 @@
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
   import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
   import type { EventCounts } from "$lib/types";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const TAG_LEGEND_COLUMNS = 3; // Number of columns for tag anchor table
   let {
@@ -471,7 +472,7 @@
                     }}
                     onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (showPersonNodes && onPersonToggle(person.pubkey)) : null}
                     disabled={!showPersonNodes}
-                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
+                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${getBestDisplayName(null, person.pubkey)}` : `Click to hide ${getBestDisplayName(null, person.pubkey)}`}
                     aria-pressed={!isDisabled}
                   >
                     <div class="flex items-center">
@@ -480,8 +481,8 @@
                         style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
                       ></span>
                     </div>
-                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{person.displayName || person.pubkey}">
-                      {person.displayName || person.pubkey}
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{getBestDisplayName(null, person.pubkey)}">
+                      {getBestDisplayName(null, person.pubkey)}
                     </span>
                   </button>
                 {/each}

@@ -10,7 +10,6 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
@@ -226,7 +225,8 @@
     }
 
     getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
-      authorDisplayName = getBestDisplayName(profile);
+      // Note: authorDisplayName is now handled by userBadge snippet
+      authorDisplayName = undefined;
     });
   });
 
@@ -310,13 +310,13 @@
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
-          authorDisplayName || getBestDisplayName(profile),
+          authorDisplayName,
           ndk,
         )}</span
       >
     {:else}
       <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-        >Author: {authorDisplayName || getBestDisplayName(profile)}</span
+        >Author: {@render userBadge(event.pubkey, authorDisplayName, ndk)}</span
       >
     {/if}
   </div>

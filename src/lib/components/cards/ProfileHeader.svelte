@@ -3,8 +3,8 @@
   import { onMount } from "svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils.ts";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import type { NostrProfile } from "$lib/utils/search_types";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
@@ -158,7 +158,7 @@
           <div class="min-w-0 flex-1">
             {@render userBadge(
               toNpub(event.pubkey) as string,
-              getBestDisplayName(profile),
+              undefined,
               ndk,
             )}
           </div>
@@ -213,11 +213,11 @@
                 </dd>
               </div>
             {/if}
-            {#if profile.displayName}
+            {#if profile.display_name}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Display Name:</dt>
                 <dd class="min-w-0 break-words flex flex-col gap-1">
-                  {#each profile.displayName as displayName}
+                  {#each profile.display_name as displayName}
                     <span>{displayName}</span>
                   {/each}
                 </dd>
@@ -313,8 +313,7 @@
         <div class="flex flex-col items-center">
           {@render userBadge(
             toNpub(event.pubkey) as string,
-            getBestDisplayName(profile) ||
-              event.pubkey,
+            undefined,
             ndk,
           )}
           <P class="break-all">{currentLud16}</P>

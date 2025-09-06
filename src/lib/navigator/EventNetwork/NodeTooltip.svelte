@@ -9,10 +9,7 @@
   import { onMount } from "svelte";
   import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
-  import {
-    getDisplayNameSync,
-    replacePubkeysWithDisplayNames,
-  } from "$lib/utils/npubCache";
+  import { getDisplayNameSync } from "$lib/utils/npubCache";
   import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
 
   // Component props

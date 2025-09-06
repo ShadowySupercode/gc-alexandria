@@ -2,7 +2,7 @@ import type { NostrProfile } from "./search_types";
 import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchEventWithFallback } from "./nostrUtils";
 import { nip19 } from "nostr-tools";
-import { parseProfileContent, getBestDisplayName } from "./profile_parsing";
+import { parseProfileContent, shortenNpub, getBestDisplayName } from "./profile_parsing";
 
 export type NpubMetadata = NostrProfile;
 
@@ -94,7 +94,7 @@ class UnifiedProfileCache {
    * Fetch profile from all available relays and cache it
    */
   private async fetchAndCacheProfile(identifier: string, ndk?: NDK): Promise<NpubMetadata> {
-    const fallback = { name: [`${identifier.slice(0, 8)}...${identifier.slice(-4)}`] };
+    const fallback = { name: [shortenNpub(identifier)] };
 
     try {
       if (!ndk) {
@@ -381,17 +381,6 @@ export const npubCache = {
   getAll: () => unifiedProfileCache.getAll(),
 };
 
-// Legacy compatibility for old profileCache functions
-export async function getDisplayName(pubkey: string, ndk: NDK): Promise<string> {
-  const profile = await unifiedProfileCache.getProfile(pubkey, ndk);
-  return getBestDisplayName(profile) || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
-}
-
-export function getDisplayNameSync(pubkey: string): string {
-  const profile = unifiedProfileCache.getCached(pubkey);
-  return getBestDisplayName(profile) || `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
-}
-
 export async function batchFetchProfiles(
   pubkeys: string[],
   ndk: NDK,
@@ -468,11 +457,12 @@ export function clearProfileCache(): void {
   unifiedProfileCache.clear();
 }
 
-export function replacePubkeysWithDisplayNames(text: string): string {
-  // Match hex pubkeys (64 characters)
-  const pubkeyRegex = /\b[0-9a-fA-F]{64}\b/g;
-
-  return text.replace(pubkeyRegex, (match) => {
-    return getDisplayNameSync(match);
-  });
+/**
+ * Get display name synchronously from cached profile data
+ * @param pubkey - The pubkey to get display name for
+ * @returns The best available display name or shortened npub
+ */
+export function getDisplayNameSync(pubkey: string): string {
+  const profile = unifiedProfileCache.getCached(pubkey);
+  return getBestDisplayName(profile, pubkey);
 }

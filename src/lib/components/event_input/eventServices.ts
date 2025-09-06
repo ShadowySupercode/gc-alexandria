@@ -382,7 +382,7 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     if (foundEvent.kind === 0) {
       try {
         // Profile fields that should be extracted to tags
-        const profileFields = ['name', 'display_name', 'displayName', 'about', 'picture', 'banner', 'website', 'nip05', 'lud16', 'pronouns'];
+        const profileFields = ['name', 'display_name', 'about', 'picture', 'banner', 'website', 'nip05', 'lud16', 'pronouns'];
         
         // Extract ALL values from content (including malformed JSON with duplicate keys)
         // This ensures clients using only tags get complete information from content

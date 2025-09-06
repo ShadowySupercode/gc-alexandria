@@ -8,7 +8,6 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { indexKind } from "$lib/consts";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -80,7 +79,7 @@
               {#if authorPubkey != null}
                 {@render userBadge(authorPubkey, author, ndk)}
               {:else}
-                <span class="truncate">{getBestDisplayName({ name: [author] }, "unknown")}</span>
+                <span class="truncate">{@render userBadge(author, author, ndk)}</span>
               {/if}
             </h3>
           </div>

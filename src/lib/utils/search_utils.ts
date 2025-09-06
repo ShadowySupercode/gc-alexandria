@@ -114,7 +114,7 @@ export function isEmojiReaction(event: NDKEvent): boolean {
 export function createProfileFromEvent(event: NDKEvent, profileData: any): any {
   return {
     name: profileData.name,
-    displayName: profileData.displayName || profileData.display_name,
+    display_name: profileData.display_name,
     nip05: profileData.nip05,
     picture: profileData.picture,
     about: profileData.about,

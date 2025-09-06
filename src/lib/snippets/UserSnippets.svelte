@@ -7,7 +7,7 @@
   } from "$lib/utils/nostrUtils";
   import type { UserProfile } from "$lib/models/user_profile";
   import NDK from "@nostr-dev-kit/ndk";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { getBestDisplayName, shortenNpub } from "$lib/utils/profile_parsing";
 
   export { userBadge };
 </script>
@@ -23,7 +23,7 @@
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
-            @{getBestDisplayName(p) || npub.slice(0, 8) + "..." + npub.slice(-4)}
+            @{getBestDisplayName(p, identifier)}
           </button>
         </span>
       {:catch error}
@@ -33,7 +33,7 @@
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
-            @{npub.slice(0, 8) + "..." + npub.slice(-4)}
+            @{shortenNpub(npub)}
           </button>
         </span>
       {/await}

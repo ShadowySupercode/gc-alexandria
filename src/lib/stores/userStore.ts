@@ -8,7 +8,7 @@ import NDK, {
   NDKRelaySet,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { getBestDisplayName, getFirstProfileValue } from "../utils/profile_parsing";
+import { getFirstProfileValue, getBestDisplayName } from "../utils/profile_parsing";
 import {
   activeInboxRelays,
   activeOutboxRelays,
@@ -208,23 +208,13 @@ export async function loginWithExtension(ndk: NDK) {
       }
     }
     
-    // If all retries failed, use fallback
+    // If all retries failed, getUserMetadata already handles fallback automatically
     if (!profile) {
-      console.warn("Login with extension - all profile fetch attempts failed, using fallback");
-      profile = {
-        name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-        displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-      };
-      console.log("Login with extension - using fallback profile:", profile);
+      console.warn("Login with extension - all profile fetch attempts failed, getUserMetadata will handle fallback");
     }
   } catch (error) {
     console.warn("Failed to fetch user metadata during login:", error);
-    // Continue with login even if metadata fetch fails
-    profile = {
-      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-    };
-    console.log("Login with extension - using fallback profile:", profile);
+    // getUserMetadata already handles fallback automatically
   }
 
   // Fetch user's preferred relays
@@ -316,12 +306,7 @@ export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk:
     console.log("Login with Amber - fetched profile:", profile);
   } catch (error) {
     console.warn("Failed to fetch user metadata during Amber login:", error);
-    // Continue with login even if metadata fetch fails
-    profile = {
-      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-    };
-    console.log("Login with Amber - using fallback profile:", profile);
+    // getUserMetadata already handles fallback automatically
   }
 
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
@@ -451,23 +436,13 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
       }
     }
     
-    // If all retries failed, use fallback
+    // If all retries failed, getUserMetadata already handles fallback automatically
     if (!profile) {
-      console.warn("Login with npub - all profile fetch attempts failed, using fallback");
-      profile = {
-        name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-        displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-      };
-      console.log("Login with npub - using fallback profile:", profile);
+      console.warn("Login with npub - all profile fetch attempts failed, getUserMetadata will handle fallback");
     }
   } catch (error) {
     console.warn("Failed to fetch user metadata during npub login:", error);
-    // Continue with login even if metadata fetch fails
-    profile = {
-      name: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-      displayName: [npub.slice(0, 8) + "..." + npub.slice(-4)],
-    };
-    console.log("Login with npub - using fallback profile:", profile);
+    // getUserMetadata already handles fallback automatically
   }
 
   ndk.signer = undefined;

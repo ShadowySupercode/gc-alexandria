@@ -10,7 +10,6 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   
   const {
     rootId,

@@ -7,23 +7,67 @@
 import type { NDKEvent } from "$lib/utils/nostrUtils";
 
 export interface ProfileData {
+  // Core profile fields (NIP-01)
   name?: string[];
-  display_name?: string[];
-  displayName?: string[];
   about?: string[];
   picture?: string[];
-  banner?: string[];
-  website?: string[];
   nip05?: string[];
+  
+  // NIP-24 extra fields
+  display_name?: string[];
+  website?: string[];
+  banner?: string[];
+  bot?: boolean[];
+  birthday?: Array<{ year?: number; month?: number; day?: number }>;
+  
+  // Additional common fields
   lud16?: string[];
   pronouns?: string[];
+  
+  // Extended fields for search and user management
+  pubkey?: string;
+  isInUserLists?: boolean;
+  listKinds?: number[];
+  created_at?: number;
+  
+  // Extensible for future fields
   [key: string]: any;
 }
 
 
 /**
+ * Migrate deprecated profile fields to their modern equivalents according to NIP-24
+ * @param profileData - The profile data to migrate
+ * @returns Migrated profile data with deprecated fields replaced
+ */
+function migrateDeprecatedFields(profileData: any): any {
+  if (!profileData) return profileData;
+  
+  const migrated = { ...profileData };
+  
+  // NIP-24: displayName -> display_name (only if display_name doesn't already exist)
+  if (migrated.displayName && !migrated.display_name) {
+    migrated.display_name = migrated.displayName;
+    delete migrated.displayName;
+  }
+  
+  // NIP-24: username -> name (only if name doesn't already exist)
+  if (migrated.username && !migrated.name) {
+    migrated.name = migrated.username;
+    delete migrated.username;
+  }
+  
+  // Remove other deprecated fields that should be ignored
+  delete migrated.displayName; // Always remove deprecated displayName
+  delete migrated.username;    // Always remove deprecated username
+  
+  return migrated;
+}
+
+/**
  * Parse profile content from kind 0 events with proper aggregation and deduplication
  * Content field contains the first/topmost entry, tags can have multiple entries
+ * Includes NIP-24 field migration for deprecated fields
  */
 export function parseProfileContent(event: NDKEvent): ProfileData | null {
   if (event.kind !== 0) {
@@ -31,10 +75,10 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
   }
 
   try {
-    // Parse content field (legacy JSON format)
+    // Parse content field (legacy JSON format) and migrate deprecated fields
     let contentProfileData: any = null;
     if (event.content) {
-      contentProfileData = JSON.parse(event.content);
+      contentProfileData = migrateDeprecatedFields(JSON.parse(event.content));
     }
     
     // Extract profile data from tags (new format)
@@ -79,13 +123,34 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
       }
     }
     
+    // Apply migration to tag data (convert to object format for migration, then back)
+    const tagObject = Object.fromEntries(
+      Object.entries(allTagValues).map(([key, values]) => [key, values[0]]) // Use first value for migration
+    );
+    const migratedTagObject = migrateDeprecatedFields(tagObject);
+    
+    // Convert back to tag values format, preserving multiple values where appropriate
+    const migratedTagValues: { [key: string]: string[] } = {};
+    for (const [key, value] of Object.entries(migratedTagObject)) {
+      if (value !== null && value !== undefined && value !== '') {
+        migratedTagValues[key] = Array.isArray(value) ? value : [value];
+      }
+    }
+    
+    // Merge with original tag values for fields that weren't migrated
+    for (const [key, values] of Object.entries(allTagValues)) {
+      if (!migratedTagValues[key]) {
+        migratedTagValues[key] = values;
+      }
+    }
+    
     // Then, merge with content data
     if (contentProfileData) {
       for (const [key, value] of Object.entries(contentProfileData)) {
         if (value !== null && value !== undefined && value !== '') {
-          if (allTagValues[key]) {
-            // Field exists in tags, keep all values from tags
-            mergedProfileData[key] = allTagValues[key];
+          if (migratedTagValues[key]) {
+            // Field exists in tags, keep all values from migrated tags
+            mergedProfileData[key] = migratedTagValues[key];
           } else {
             // Field only exists in content, wrap in array
             mergedProfileData[key] = [value];
@@ -95,7 +160,7 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
     }
     
     // Add any tag-only fields
-    for (const [key, values] of Object.entries(allTagValues)) {
+    for (const [key, values] of Object.entries(migratedTagValues)) {
       if (!mergedProfileData[key]) {
         // Field only exists in tags, keep all values
         mergedProfileData[key] = values;
@@ -208,17 +273,24 @@ export function getFirstProfileValue(field: string[] | undefined, fallback: stri
 }
 
 /**
- * Utility function to get the best display name from a profile
- * @param profile - The profile object
- * @param fallback - Fallback value if no display name is found (defaults to "anon")
- * @returns The best available display name
+ * Utility function to create a shortened npub/pubkey for display
+ * @param identifier - The npub or pubkey to shorten
+ * @returns Shortened identifier in format "abc12345...defg"
  */
-export function getBestDisplayName(profile: ProfileData | undefined, fallback: string = "anon"): string {
-  if (!profile) return fallback;
-  
-  return getFirstProfileValue(profile.display_name) ||
-         getFirstProfileValue(profile.displayName) ||
-         getFirstProfileValue(profile.name) ||
-         fallback;
+export function shortenNpub(identifier: string | undefined | null): string {
+  if (!identifier) return "";
+  return `${identifier.slice(0, 8)}...${identifier.slice(-4)}`;
 }
 
+/**
+ * Utility function to get the best display name from a profile, replicating userBadge logic
+ * @param profile - The profile data
+ * @param pubkey - Optional pubkey to use for npub fallback
+ * @returns The best available display name or shortened npub
+ */
+export function getBestDisplayName(profile: ProfileData | undefined | null, pubkey?: string): string {
+  if (!profile) {
+    return pubkey ? shortenNpub(pubkey) : "Unknown";
+  }
+  return profile.display_name?.[0] || profile.name?.[0] || (pubkey ? shortenNpub(pubkey) : "Unknown");
+}

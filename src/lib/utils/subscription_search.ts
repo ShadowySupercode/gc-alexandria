@@ -845,7 +845,7 @@ function processProfileEvent(
 
   // For general profile searches, filter by content
   const profileData = JSON.parse(event.content);
-  const displayName = profileData.display_name || profileData.displayName || "";
+  const displayName = profileData.display_name || "";
   const name = profileData.name || "";
   const nip05 = profileData.nip05 || "";
   const username = profileData.username || "";

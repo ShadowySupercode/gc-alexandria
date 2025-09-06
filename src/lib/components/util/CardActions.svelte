@@ -13,7 +13,6 @@
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import LazyImage from "$components/util/LazyImage.svelte";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
@@ -210,7 +209,7 @@
           {#if originalAuthor}
             {@render userBadge(originalAuthor, author, ndk)}
           {:else}
-            {getBestDisplayName({ name: [author] }, "unknown")}
+            {@render userBadge(author, author, ndk)}
           {/if}
         </h2>
         {#if version}

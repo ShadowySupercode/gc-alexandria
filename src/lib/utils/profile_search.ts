@@ -430,14 +430,12 @@ async function quickRelaySearch(
           }
           
           // Check if any field matches the search term using normalized comparison
-          const matchesDisplayName = fieldMatches(profileData.displayName, normalizedSearchTerm);
           const matchesDisplay_name = fieldMatches(profileData.display_name, normalizedSearchTerm);
           const matchesName = fieldMatches(profileData.name, normalizedSearchTerm);
           const matchesNip05 = nip05Matches(profileData.nip05, normalizedSearchTerm);
           const matchesAbout = fieldMatches(profileData.about, normalizedSearchTerm);
 
           if (
-            matchesDisplayName ||
             matchesDisplay_name ||
             matchesName ||
             matchesNip05 ||

@@ -13,13 +13,15 @@
     UserOutline,
   } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { shortenNpub } from "$lib/utils/profile_parsing";
 
   const ndk = getNdkContext();
 
@@ -49,17 +51,15 @@
   // Use profile data from userStore
   let userState = $derived($userStore);
   let profile = $derived(userState.profile);
-  let pfp = $derived(profile?.picture?.[0]);
-  let username = $derived(getBestDisplayName(profile || undefined));
-  let tag = $derived(profile?.name);
   let npub = $derived(userState.npub);
+  let pfp = $derived(profile?.picture?.[0]);
+  let tag = $derived(getBestDisplayName(profile, npub || undefined));
 
   // Debug logging
   $effect(() => {
     console.log("Profile component - userState:", userState);
     console.log("Profile component - profile:", profile);
     console.log("Profile component - pfp:", pfp);
-    console.log("Profile component - username:", username);
   });
 
   // Handle user state changes with effects
@@ -102,7 +102,7 @@
     const currentUser = userState;
     
     // If user is signed in and we have an npub but no profile data, refresh it
-    if (currentUser.signedIn && currentUser.npub && !profile?.name && !isRefreshingProfile) {
+    if (currentUser.signedIn && currentUser.npub && !profile && !isRefreshingProfile) {
       console.log("Profile: User signed in but no profile data, refreshing...");
       refreshProfile();
     }
@@ -204,38 +204,8 @@
         return;
       }
       
-      // Try using NDK's built-in profile fetching first
-      if (ndk && userState.ndkUser) {
-        console.log("Using NDK's built-in profile fetching");
-        const userProfile = await userState.ndkUser.fetchProfile();
-        console.log("NDK profile fetch result:", userProfile);
-        
-        if (userProfile) {
-          const profileData = {
-            name: userProfile.name ? [userProfile.name] : undefined,
-            displayName: userProfile.displayName ? [userProfile.displayName] : undefined,
-            nip05: userProfile.nip05 ? [userProfile.nip05] : undefined,
-            picture: userProfile.image ? [userProfile.image] : undefined,
-            about: userProfile.bio ? [userProfile.bio] : undefined,
-            banner: userProfile.banner ? [userProfile.banner] : undefined,
-            website: userProfile.website ? [userProfile.website] : undefined,
-            lud16: userProfile.lud16 ? [userProfile.lud16] : undefined,
-          };
-          
-          console.log("Converted profile data:", profileData);
-          
-          // Update the userStore with fresh profile data
-          userStore.update(currentState => ({
-            ...currentState,
-            profile: profileData
-          }));
-          
-          return;
-        }
-      }
-      
-      // Fallback to getUserMetadata
-      console.log("Falling back to getUserMetadata");
+      // Use our centralized profile fetching which handles migration properly
+      console.log("Using centralized profile fetching with migration");
       const freshProfile = await getUserMetadata(userState.npub, ndk, true); // Force fresh fetch
       console.log("Fresh profile data from getUserMetadata:", freshProfile);
       
@@ -382,10 +352,6 @@
     }, 500);
   }
 
-  function shortenNpub(long: string | null | undefined) {
-    if (!long) return "";
-    return long.slice(0, 8) + "…" + long.slice(-4);
-  }
 </script>
 
 <div class="relative h-fit my-auto">
@@ -469,7 +435,7 @@
             rounded
             class="h-6 w-6 cursor-pointer"
             src={pfp}
-            alt={getBestDisplayName(profile || undefined)}
+            alt={getBestDisplayName(profile, npub || undefined) || "User"}
           />
         {/if}
       </button>
@@ -481,8 +447,8 @@
       >
         <div class="flex flex-row justify-between space-x-4">
           <div class="flex flex-col">
-            {#if username}
-              <h3 class="text-lg font-bold">{username}</h3>
+            {#if npub}
+              <h3 class="text-lg font-bold">{@render userBadge(npub, undefined, ndk)}</h3>
               {#if isNav}<h4 class="text-base">@{tag}</h4>{/if}
             {:else if !pfp}
               <h3 class="text-lg font-bold">Loading profile...</h3>

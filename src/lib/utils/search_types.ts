@@ -19,8 +19,7 @@ export interface Filter {
  */
 export interface NostrProfile {
   name?: string[];
-  displayName?: string[];
-  display_name?: string[]; // AI-NOTE:  Added for compatibility with existing code
+  display_name?: string[];
   nip05?: string[];
   picture?: string[];
   about?: string[];

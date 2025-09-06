@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button, P, Heading } from "flowbite-svelte";
   import { getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
+  import { shortenNpub, getBestDisplayName } from "$lib/utils/profile_parsing";
   import { neventEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
   import { goto } from "$app/navigation";
@@ -50,15 +51,7 @@
       console.log(`[CommentViewer] Fetched profile for ${pubkey}:`, profile);
     } catch (err) {
       console.warn(`Failed to fetch profile for ${pubkey}:`, err);
-      // Set a fallback profile to avoid repeated failed requests
-      const fallbackProfile = {
-        name: `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`,
-        displayName: `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`,
-        picture: null
-      };
-      const newProfiles = new Map(profiles);
-      newProfiles.set(pubkey, fallbackProfile);
-      profiles = newProfiles;
+      // getUserMetadata already handles fallback to shortenNpub automatically
     }
   }
 
@@ -612,9 +605,7 @@
 
   function getAuthorName(pubkey: string): string {
     const profile = profiles.get(pubkey);
-    if (profile?.displayName) return profile.displayName;
-    if (profile?.name) return profile.name;
-    return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+    return getBestDisplayName(profile, pubkey);
   }
 
   function getAuthorPicture(pubkey: string): string | null {

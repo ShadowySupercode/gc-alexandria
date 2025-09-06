@@ -7,7 +7,8 @@
   import type { NostrProfile } from "$lib/utils/search_types";
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { userBadge } from "$lib/snippets/UserSnippets.svelte";
+  import { getBestDisplayName, shortenNpub } from "$lib/utils/profile_parsing";
   import {
     extractRootEventInfo,
     extractParentEventInfo,
@@ -223,11 +224,6 @@
     }
   }
 
-  // Add a helper to shorten npub
-  function shortenNpub(npub: string | undefined) {
-    if (!npub) return "";
-    return npub.slice(0, 8) + "…" + npub.slice(-4);
-  }
 
   async function insertAtCursor(text: string) {
     const textarea = document.querySelector("textarea");
@@ -344,7 +340,7 @@
       }
     } else {
       console.warn("No pubkey in profile, falling back to display name");
-      mention = `@${getBestDisplayName(profile)}`;
+      mention = `@${getBestDisplayName(profile) || "User"}`;
     }
     insertAtCursor(mention);
     showMentionModal = false;
@@ -488,7 +484,7 @@
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
-                    {getBestDisplayName(profile)}
+                    {@render userBadge(profile.pubkey!, undefined, ndk)}
                   </span>
                   {#if profile.nip05?.[0]}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -612,7 +608,7 @@
         {#if userProfile.picture?.[0]}
           <img
             src={userProfile.picture[0]}
-            alt={getBestDisplayName(userProfile)}
+            alt={userProfile.name?.[0] || userProfile.pubkey}
             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
             onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />
@@ -622,7 +618,7 @@
           </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100 truncate">
-          {getBestDisplayName(userProfile)}
+          {@render userBadge(userProfile.pubkey!, undefined, ndk)}
         </span>
       </div>
     {/if}
