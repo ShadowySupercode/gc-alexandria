@@ -13,6 +13,7 @@
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import LazyImage from "$components/util/LazyImage.svelte";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
@@ -209,7 +210,7 @@
           {#if originalAuthor}
             {@render userBadge(originalAuthor, author, ndk)}
           {:else}
-            {author || "Unknown"}
+            {getBestDisplayName({ name: [author] }, "unknown")}
           {/if}
         </h2>
         {#if version}
@@ -230,7 +231,7 @@
 
     <div class="flex flex-row">
       <h4 class="text-base font-normal mt-2">
-        Index author: {@render userBadge(event.pubkey, author, ndk)}
+        Index author: {@render userBadge(event.pubkey, undefined, ndk)}
       </h4>
     </div>
 

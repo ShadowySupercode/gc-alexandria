@@ -226,7 +226,7 @@
     }
 
     getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
-      authorDisplayName = getBestDisplayName(profile) || event.pubkey;
+      authorDisplayName = getBestDisplayName(profile);
     });
   });
 
@@ -310,13 +310,13 @@
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
         >Author: {@render userBadge(
           toNpub(event.pubkey) as string,
-          getBestDisplayName(profile),
+          authorDisplayName || getBestDisplayName(profile),
           ndk,
         )}</span
       >
     {:else}
       <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-        >Author: {getBestDisplayName(profile) || event.pubkey}</span
+        >Author: {authorDisplayName || getBestDisplayName(profile)}</span
       >
     {/if}
   </div>

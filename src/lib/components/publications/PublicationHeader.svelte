@@ -8,6 +8,7 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { indexKind } from "$lib/consts";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const { event } = $props<{ event: NDKEvent }>();
 
@@ -37,7 +38,7 @@
 
   let title: string = $derived(event.getMatchingTags("title")[0]?.[1]);
   let author: string = $derived(
-    event.getMatchingTags("author")[0]?.[1] ?? "unknown",
+    event.getMatchingTags("author")[0]?.[1] ?? "",
   );
   let version: string = $derived(
     event.getMatchingTags("version")[0]?.[1] ?? "1",
@@ -79,7 +80,7 @@
               {#if authorPubkey != null}
                 {@render userBadge(authorPubkey, author, ndk)}
               {:else}
-                <span class="truncate">{author}</span>
+                <span class="truncate">{getBestDisplayName({ name: [author] }, "unknown")}</span>
               {/if}
             </h3>
           </div>

@@ -15,6 +15,7 @@
   import { page } from "$app/stores";
   import { indexKind } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const ndk = getNdkContext();
 
@@ -26,7 +27,7 @@
 
   let title: string = $derived(indexEvent.getMatchingTags("title")[0]?.[1]);
   let author: string = $derived(
-    indexEvent.getMatchingTags("author")[0]?.[1] ?? "unknown",
+    indexEvent.getMatchingTags("author")[0]?.[1] ?? "",
   );
   let pubkey: string = $derived(
     indexEvent.getMatchingTags("p")[0]?.[1] ?? null,

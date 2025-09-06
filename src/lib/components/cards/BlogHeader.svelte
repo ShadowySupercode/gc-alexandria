@@ -10,6 +10,7 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   
   const {
     rootId,
@@ -27,7 +28,7 @@
 
   let title: string = $derived(event.getMatchingTags("title")[0]?.[1]);
   let author: string = $derived(
-    getMatchingTags(event, "author")[0]?.[1] ?? "unknown",
+    getMatchingTags(event, "author")[0]?.[1] ?? "",
   );
   let image: string = $derived(event.getMatchingTags("image")[0]?.[1] ?? null);
   let authorPubkey: string = $derived(
