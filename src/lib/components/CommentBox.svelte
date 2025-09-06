@@ -7,6 +7,7 @@
   import type { NostrProfile } from "$lib/utils/search_types";
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import {
     extractRootEventInfo,
     extractParentEventInfo,
@@ -343,7 +344,7 @@
       }
     } else {
       console.warn("No pubkey in profile, falling back to display name");
-      mention = `@${profile.displayName?.[0] || profile.name?.[0]}`;
+      mention = `@${getBestDisplayName(profile)}`;
     }
     insertAtCursor(mention);
     showMentionModal = false;
@@ -487,7 +488,7 @@
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
                   <span class="font-semibold truncate">
-                    {profile.displayName?.[0] || profile.name?.[0] || "anon"}
+                    {getBestDisplayName(profile)}
                   </span>
                   {#if profile.nip05?.[0]}
                     <span class="text-xs text-gray-500 flex items-center gap-1">
@@ -611,7 +612,7 @@
         {#if userProfile.picture?.[0]}
           <img
             src={userProfile.picture[0]}
-            alt={userProfile.name?.[0] || "Profile"}
+            alt={getBestDisplayName(userProfile)}
             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
             onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />
@@ -621,9 +622,7 @@
           </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100 truncate">
-          {userProfile.displayName ||
-            userProfile.name ||
-            "anon"}
+          {getBestDisplayName(userProfile)}
         </span>
       </div>
     {/if}

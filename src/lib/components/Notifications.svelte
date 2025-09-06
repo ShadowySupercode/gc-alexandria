@@ -215,7 +215,7 @@
         } as NostrProfile;
       }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
       
-      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
+      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => getBestDisplayName(r) || r.pubkey?.slice(0, 8)));
     }
   }
 
@@ -889,7 +889,7 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{getBestDisplayName(authorProfiles.get(filteredByUser)) || "anon"}
+                  Filtered by user: @{getBestDisplayName(authorProfiles.get(filteredByUser))}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -923,7 +923,7 @@
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{getBestDisplayName(authorProfile) || "anon"}
+                          @{getBestDisplayName(authorProfile)}
                         </span>
                       </div>
                     </div>
@@ -1086,7 +1086,7 @@
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{getBestDisplayName(authorProfile) || "anon"}
+                          @{getBestDisplayName(authorProfile)}
                         </span>
                       </div>
                     </div>
@@ -1236,7 +1236,7 @@
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
               <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                @{recipient.displayName || recipient.name || "anon"}
+                @{getBestDisplayName(recipient)}
                 <button
                   onclick={() => {
                     selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
@@ -1367,7 +1367,7 @@
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
                     <span class="font-semibold truncate">
-                      @{getBestDisplayName(profile) || "anon"}
+                      @{getBestDisplayName(profile)}
                     </span>
                     {#if profile.nip05}
                       <span class="text-xs text-gray-500 flex items-center gap-1">

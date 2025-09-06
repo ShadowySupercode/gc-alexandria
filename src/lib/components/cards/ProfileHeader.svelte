@@ -158,8 +158,7 @@
           <div class="min-w-0 flex-1">
             {@render userBadge(
               toNpub(event.pubkey) as string,
-              getBestDisplayName(profile) ||
-                event.pubkey,
+              getBestDisplayName(profile),
               ndk,
             )}
           </div>

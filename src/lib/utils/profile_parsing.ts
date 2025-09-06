@@ -210,10 +210,10 @@ export function getFirstProfileValue(field: string[] | undefined, fallback: stri
 /**
  * Utility function to get the best display name from a profile
  * @param profile - The profile object
- * @param fallback - Fallback value if no display name is found
+ * @param fallback - Fallback value if no display name is found (defaults to "anon")
  * @returns The best available display name
  */
-export function getBestDisplayName(profile: ProfileData | undefined, fallback: string = ""): string {
+export function getBestDisplayName(profile: ProfileData | undefined, fallback: string = "anon"): string {
   if (!profile) return fallback;
   
   return getFirstProfileValue(profile.display_name) ||

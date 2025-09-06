@@ -19,6 +19,7 @@
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   const ndk = getNdkContext();
 
@@ -49,7 +50,7 @@
   let userState = $derived($userStore);
   let profile = $derived(userState.profile);
   let pfp = $derived(profile?.picture?.[0]);
-  let username = $derived(profile?.name?.[0]);
+  let username = $derived(getBestDisplayName(profile || undefined));
   let tag = $derived(profile?.name);
   let npub = $derived(userState.npub);
 
@@ -468,7 +469,7 @@
             rounded
             class="h-6 w-6 cursor-pointer"
             src={pfp}
-            alt={username || "User"}
+            alt={getBestDisplayName(profile || undefined)}
           />
         {/if}
       </button>
