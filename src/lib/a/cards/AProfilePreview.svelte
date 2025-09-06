@@ -159,7 +159,7 @@
 
   <div class={`p-6 flex flex-col gap-4 relative`}>
 
-    <Avatar size="xl" border src={props.profile?.picture ?? null} alt="Avatar" class="absolute w-fit top-[-56px]" />
+    <Avatar size="xl" src={props.profile?.picture ?? null} alt="Avatar" class="absolute w-fit top-[-56px]" />
 
     <div class="flex flex-col gap-3 mt-14">
       <Heading tag="h1" class="h-leather mb-2">{displayName()}</Heading>
