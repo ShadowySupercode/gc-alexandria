@@ -418,6 +418,10 @@
     -webkit-line-clamp: 3;
   }
 
+  .decoration-none {
+    text-decoration: none !important;
+  }
+
   /* Lists */
   .ol-leather li a,
   .ul-leather li a {
