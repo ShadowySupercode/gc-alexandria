@@ -72,10 +72,18 @@ export function normalizeAndOrderTags(tags: string[][]): string[][] {
   }
   
   // Filter out invalid tags and ensure all elements are strings
-  const validTags = tags
-    .filter(tag => Array.isArray(tag))
-    .map(tag => tag.map(element => String(element)))
-    .filter(tag => tag.length === 0 || tag[0] !== ''); // Allow empty tags, but if not empty, first element shouldn't be empty
+  const validTags: string[][] = [];
+  for (const tag of tags) {
+    if (!Array.isArray(tag)) {
+      continue;
+    }
+    // Convert all elements to strings
+    const stringTag = tag.map(element => String(element));
+    // Allow empty tags, but if not empty, first element shouldn't be empty
+    if (stringTag.length === 0 || stringTag[0] !== '') {
+      validTags.push(stringTag);
+    }
+  }
   
   // Group tags by type while maintaining order
   const tagGroups: { [key: string]: string[][] } = {};
