@@ -55,133 +55,66 @@
   let pfp = $derived(profile?.picture?.[0]);
   let tag = $derived(getBestDisplayName(profile, npub || undefined));
 
-  // Debug logging
-  $effect(() => {
-    console.log("Profile component - userState:", userState);
-    console.log("Profile component - profile:", profile);
-    console.log("Profile component - pfp:", pfp);
-  });
+  // Track if we've already refreshed the profile for this session
+  let hasRefreshedProfile = $state(false);
+  let previousLoginMethod = $state<string | null>(null);
 
-  // Handle user state changes with effects
+  // Consolidated user state effect
   $effect(() => {
     const currentUser = userState;
     
-    // Check for fallback flag when user state changes to signed in
-    if (
-      currentUser.signedIn &&
-      localStorage.getItem("alexandria/amber/fallback") === "1" &&
-      !showAmberFallback
-    ) {
-      console.log(
-        "Profile: User signed in and fallback flag found, showing modal",
-      );
+    // Reset refresh flag when user logs out
+    if (!currentUser.signedIn) {
+      hasRefreshedProfile = false;
+      previousLoginMethod = null;
+      if (fallbackCheckInterval) {
+        clearInterval(fallbackCheckInterval);
+        fallbackCheckInterval = null;
+      }
+      return;
+    }
+
+    // Check for Amber fallback flag
+    if (localStorage.getItem("alexandria/amber/fallback") === "1" && !showAmberFallback) {
+      console.log("Profile: User signed in and fallback flag found, showing modal");
       showAmberFallback = true;
     }
 
-    // Set up periodic check when user is signed in
-    if (currentUser.signedIn && !fallbackCheckInterval) {
+    // Set up periodic check for fallback flag
+    if (!fallbackCheckInterval) {
       fallbackCheckInterval = setInterval(() => {
         if (
           localStorage.getItem("alexandria/amber/fallback") === "1" &&
           !showAmberFallback
         ) {
-          console.log(
-            "Profile: Found fallback flag during periodic check, showing modal",
-          );
+          console.log("Profile: Found fallback flag during periodic check, showing modal");
           showAmberFallback = true;
         }
-      }, 500); // Check every 500ms
-    } else if (!currentUser.signedIn && fallbackCheckInterval) {
-      clearInterval(fallbackCheckInterval);
-      fallbackCheckInterval = null;
+      }, 500);
     }
-  });
 
-  // Auto-refresh profile when user signs in
-  $effect(() => {
-    const currentUser = userState;
-    
-    // If user is signed in and we have an npub but no profile data, refresh it
-    if (currentUser.signedIn && currentUser.npub && !profile && !isRefreshingProfile) {
-      console.log("Profile: User signed in but no profile data, refreshing...");
-      refreshProfile();
-    }
-  });
+    // Handle profile refresh logic
+    if (currentUser.npub && !isRefreshingProfile) {
+      const shouldRefresh = 
+        !hasRefreshedProfile || // First time login
+        (!profile && currentUser.signedIn) || // No profile data
+        (currentUser.loginMethod === "npub" && !hasRefreshedProfile) || // Switching to read-only
+        (previousLoginMethod === "amber" && currentUser.loginMethod === "npub" && !hasRefreshedProfile); // Amber to read-only
 
-  // Debug activeInboxRelays
-  $effect(() => {
-    const inboxRelays = get(activeInboxRelays);
-    console.log("Profile component - activeInboxRelays:", inboxRelays);
-  });
-
-  // Track if we've already refreshed the profile for this session
-  let hasRefreshedProfile = $state(false);
-  
-  // Reset the refresh flag when user logs out
-  $effect(() => {
-    const currentUser = userState;
-    if (!currentUser.signedIn) {
-      hasRefreshedProfile = false;
-    }
-  });
-  
-  // Manual trigger to refresh profile when user signs in (only once)
-  $effect(() => {
-    const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.npub && !isRefreshingProfile && !hasRefreshedProfile) {
-      console.log("Profile: User signed in, triggering profile refresh...");
-      hasRefreshedProfile = true;
-      // Add a small delay to ensure relays are ready
-      setTimeout(() => {
-        refreshProfile();
-      }, 1000);
-    }
-  });
-
-  // Refresh profile when login method changes (e.g., Amber to read-only)
-  $effect(() => {
-    const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.npub && currentUser.loginMethod && !isRefreshingProfile) {
-      console.log("Profile: Login method detected:", currentUser.loginMethod);
-      
-      // If switching to read-only mode (npub), refresh profile
-      if (currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
-        console.log("Profile: Switching to read-only mode, refreshing profile...");
+      if (shouldRefresh) {
+        console.log("Profile: Triggering profile refresh for:", currentUser.loginMethod);
         hasRefreshedProfile = true;
-        setTimeout(() => {
-          refreshProfile();
-        }, 500);
+        const delay = currentUser.loginMethod === "npub" ? 500 : 1000;
+        setTimeout(() => refreshProfile(), delay);
       }
     }
-  });
 
-  // Track login method changes and refresh profile when switching from Amber to npub
-  let previousLoginMethod = $state<string | null>(null);
-  
-  $effect(() => {
-    const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.loginMethod !== previousLoginMethod && !isRefreshingProfile) {
-      console.log("Profile: Login method changed from", previousLoginMethod, "to", currentUser.loginMethod);
-      
-      // If switching from Amber to npub (read-only), refresh profile
-      if (previousLoginMethod === "amber" && currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
-        console.log("Profile: Switching from Amber to read-only mode, refreshing profile...");
-        hasRefreshedProfile = true;
-        setTimeout(() => {
-          refreshProfile();
-        }, 1000);
-      }
-      
-      previousLoginMethod = currentUser.loginMethod;
-    }
+    previousLoginMethod = currentUser.loginMethod;
   });
 
   // Function to refresh profile data
   async function refreshProfile() {
-    if (!userState.signedIn || !userState.npub) return;
+    if (!userState.signedIn || !userState.npub || isRefreshingProfile) return;
     
     isRefreshingProfile = true;
     try {
@@ -205,7 +138,6 @@
       }
       
       // Use our centralized profile fetching which handles migration properly
-      console.log("Using centralized profile fetching with migration");
       const freshProfile = await getUserMetadata(userState.npub, ndk, true); // Force fresh fetch
       console.log("Fresh profile data from getUserMetadata:", freshProfile);
       

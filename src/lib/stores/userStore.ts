@@ -25,7 +25,7 @@ export interface UserState {
   relays: { inbox: string[]; outbox: string[] };
   loginMethod: "extension" | "amber" | "npub" | null;
   ndkUser: NDKUser | null;
-  signer: NDKSigner | null;
+  signer: NDKSigner | undefined;
   signedIn: boolean;
 }
 
@@ -36,7 +36,7 @@ export const userStore = writable<UserState>({
   relays: { inbox: [], outbox: [] },
   loginMethod: null,
   ndkUser: null,
-  signer: null,
+  signer: undefined,
   signedIn: false,
 });
 
@@ -169,54 +169,68 @@ function clearLogin() {
 }
 
 /**
- * Login with NIP-07 browser extension
+ * Common profile fetching logic with retry mechanism
  */
-export async function loginWithExtension(ndk: NDK) {
-  if (!ndk) throw new Error("NDK not initialized");
-  // Only clear previous login state after successful login
-  const signer = new NDKNip07Signer();
-  const user = await signer.user();
-  const npub = user.npub;
-
-  console.log("Login with extension - fetching profile for npub:", npub);
-
-  // Try to fetch user metadata, but don't fail if it times out
-  let profile: NostrProfile | null = null;
-  try {
-    console.log("Login with extension - attempting to fetch profile...");
-    
-    // AI-NOTE: Add retry logic for profile fetching during login restoration
-    // This helps with timing issues where NDK might not be fully connected yet
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
-        console.log("Login with extension - fetched profile:", profile);
-        break; // Success, exit retry loop
-      } catch (retryError) {
-        retryCount++;
-        console.warn(`Login with extension - profile fetch attempt ${retryCount} failed:`, retryError);
-        
-        if (retryCount < maxRetries) {
-          // Wait a bit before retrying, especially for the first retry
-          const delay = retryCount * 1000; // 1s, 2s delays
-          console.log(`Login with extension - retrying profile fetch in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
+async function fetchUserProfileWithRetry(npub: string, ndk: NDK, maxRetries: number = 3): Promise<NostrProfile | null> {
+  let retryCount = 0;
+  
+  while (retryCount < maxRetries) {
+    try {
+      const profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
+      console.log(`Profile fetch attempt ${retryCount + 1} successful:`, profile);
+      return profile;
+    } catch (retryError) {
+      retryCount++;
+      console.warn(`Profile fetch attempt ${retryCount} failed:`, retryError);
+      
+      if (retryCount < maxRetries) {
+        const delay = retryCount * 1000; // 1s, 2s delays
+        console.log(`Retrying profile fetch in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
-    // If all retries failed, getUserMetadata already handles fallback automatically
-    if (!profile) {
-      console.warn("Login with extension - all profile fetch attempts failed, getUserMetadata will handle fallback");
-    }
-  } catch (error) {
-    console.warn("Failed to fetch user metadata during login:", error);
-    // getUserMetadata already handles fallback automatically
   }
+  
+  console.warn("All profile fetch attempts failed, getUserMetadata will handle fallback");
+  return null;
+}
 
+/**
+ * Common user state creation logic
+ */
+function createUserState(
+  user: NDKUser,
+  profile: NostrProfile | null,
+  inboxes: Set<NDKRelay>,
+  outboxes: Set<NDKRelay>,
+  loginMethod: "extension" | "amber" | "npub",
+  signer: NDKSigner | null
+): UserState {
+  return {
+    pubkey: user.pubkey,
+    npub: user.npub,
+    profile,
+    relays: {
+      inbox: Array.from(inboxes).map((relay) => relay.url),
+      outbox: Array.from(outboxes).map((relay) => relay.url),
+    },
+    loginMethod,
+    ndkUser: user,
+    signer: signer || undefined,
+    signedIn: true,
+  };
+}
+
+/**
+ * Common login completion logic
+ */
+async function completeLogin(
+  user: NDKUser,
+  profile: NostrProfile | null,
+  ndk: NDK,
+  loginMethod: "extension" | "amber" | "npub",
+  signer: NDKSigner | null
+): Promise<void> {
   // Fetch user's preferred relays
   const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
   for (const relay of persistedInboxes) {
@@ -224,52 +238,33 @@ export async function loginWithExtension(ndk: NDK) {
   }
   const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
   persistRelays(user, inboxes, outboxes);
-  ndk.signer = signer;
+  
+  // Set NDK user and signer
+  ndk.signer = signer || undefined;
   ndk.activeUser = user;
 
-  const userState = {
-    pubkey: user.pubkey,
-    npub,
-    profile,
-    relays: {
-      inbox: Array.from(inboxes ?? persistedInboxes).map((relay) => relay.url),
-      outbox: Array.from(outboxes ?? persistedOutboxes).map(
-        (relay) => relay.url,
-      ),
-    },
-    loginMethod: "extension" as const,
-    ndkUser: user,
-    signer,
-    signedIn: true,
-  };
+  const userState = createUserState(user, profile, inboxes ?? persistedInboxes, outboxes ?? persistedOutboxes, loginMethod, signer);
 
-  console.log("Login with extension - setting userStore with:", userState);
+  console.log(`Login with ${loginMethod} - setting userStore with:`, userState);
   userStore.set(userState);
 
   // Update relay stores with the new user's relays
   try {
-    console.debug(
-      "[userStore.ts] loginWithExtension: Updating relay stores for authenticated user",
-    );
+    console.debug(`[userStore.ts] loginWith${loginMethod}: Updating relay stores for authenticated user`);
     await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
   } catch (error) {
-    console.warn(
-      "[userStore.ts] loginWithExtension: Failed to update relay stores:",
-      error,
-    );
+    console.warn(`[userStore.ts] loginWith${loginMethod}: Failed to update relay stores:`, error);
   }
 
-  // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
-  // This helps with cases where the profile fetch failed during login but might succeed later
+  // Schedule delayed profile refresh if needed
   if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
-    console.log("Login with extension - scheduling delayed profile refresh...");
+    console.log(`Login with ${loginMethod} - scheduling delayed profile refresh...`);
     setTimeout(async () => {
       try {
-        console.log("Login with extension - attempting delayed profile refresh...");
-        const refreshedProfile = await getUserMetadata(npub, ndk, true);
+        console.log(`Login with ${loginMethod} - attempting delayed profile refresh...`);
+        const refreshedProfile = await getUserMetadata(user.npub, ndk, true);
         if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
-          console.log("Login with extension - delayed profile refresh successful:", refreshedProfile);
-          // Update the user store with the refreshed profile
+          console.log(`Login with ${loginMethod} - delayed profile refresh successful:`, refreshedProfile);
           const currentState = get(userStore);
           userStore.set({
             ...currentState,
@@ -277,7 +272,7 @@ export async function loginWithExtension(ndk: NDK) {
           });
         }
       } catch (error) {
-        console.warn("Login with extension - delayed profile refresh failed:", error);
+        console.warn(`Login with ${loginMethod} - delayed profile refresh failed:`, error);
       }
     }, 5000); // Wait 5 seconds before attempting refresh
   }
@@ -287,7 +282,26 @@ export async function loginWithExtension(ndk: NDK) {
   if (typeof window !== "undefined") {
     localStorage.removeItem("alexandria/logout/flag");
   }
-  persistLogin(user, "extension");
+  persistLogin(user, loginMethod);
+}
+
+/**
+ * Login with NIP-07 browser extension
+ */
+export async function loginWithExtension(ndk: NDK) {
+  if (!ndk) throw new Error("NDK not initialized");
+  
+  const signer = new NDKNip07Signer();
+  const user = await signer.user();
+  const npub = user.npub;
+
+  console.log("Login with extension - fetching profile for npub:", npub);
+
+  // Fetch user profile with retry logic
+  const profile = await fetchUserProfileWithRetry(npub, ndk);
+  
+  // Complete the login process
+  await completeLogin(user, profile, ndk, "extension", signer);
 }
 
 /**
@@ -295,67 +309,15 @@ export async function loginWithExtension(ndk: NDK) {
  */
 export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk: NDK) {
   if (!ndk) throw new Error("NDK not initialized");
-  // Only clear previous login state after successful login
+  
   const npub = user.npub;
-
   console.log("Login with Amber - fetching profile for npub:", npub);
 
-  let profile: NostrProfile | null = null;
-  try {
-    profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
-    console.log("Login with Amber - fetched profile:", profile);
-  } catch (error) {
-    console.warn("Failed to fetch user metadata during Amber login:", error);
-    // getUserMetadata already handles fallback automatically
-  }
-
-  const [persistedInboxes, persistedOutboxes] = getPersistedRelays(user);
-  for (const relay of persistedInboxes) {
-    ndk.addExplicitRelay(relay);
-  }
-  const [inboxes, outboxes] = await getUserPreferredRelays(ndk, user);
-  persistRelays(user, inboxes, outboxes);
-  ndk.signer = amberSigner;
-  ndk.activeUser = user;
-
-  const userState = {
-    pubkey: user.pubkey,
-    npub,
-    profile,
-    relays: {
-      inbox: Array.from(inboxes ?? persistedInboxes).map((relay) => relay.url),
-      outbox: Array.from(outboxes ?? persistedOutboxes).map(
-        (relay) => relay.url,
-      ),
-    },
-    loginMethod: "amber" as const,
-    ndkUser: user,
-    signer: amberSigner,
-    signedIn: true,
-  };
-
-  console.log("Login with Amber - setting userStore with:", userState);
-  userStore.set(userState);
-
-  // Update relay stores with the new user's relays
-  try {
-    console.debug(
-      "[userStore.ts] loginWithAmber: Updating relay stores for authenticated user",
-    );
-    await updateActiveRelayStores(ndk, true); // Force update to rebuild relay set for authenticated user
-  } catch (error) {
-    console.warn(
-      "[userStore.ts] loginWithAmber: Failed to update relay stores:",
-      error,
-    );
-  }
-
-  clearLogin();
-  // Only access localStorage on client-side
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("alexandria/logout/flag");
-  }
-  persistLogin(user, "amber");
+  // Fetch user profile with retry logic
+  const profile = await fetchUserProfileWithRetry(npub, ndk);
+  
+  // Complete the login process
+  await completeLogin(user, profile, ndk, "amber", amberSigner);
 }
 
 /**
@@ -366,6 +328,7 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
     throw new Error("NDK not initialized");
   }
 
+  // Decode/encode npub
   let hexPubkey: string;
   if (pubkeyOrNpub.startsWith("npub1")) {
     try {
@@ -381,6 +344,7 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   } else {
     hexPubkey = pubkeyOrNpub;
   }
+  
   let npub: string;
   try {
     npub = nip19.npubEncode(hexPubkey);
@@ -392,59 +356,22 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   console.log("Login with npub - fetching profile for npub:", npub);
 
   const user = ndk.getUser({ npub });
-  let profile: NostrProfile | null = null;
 
-  // First, update relay stores to ensure we have relays available
+  // Update relay stores to ensure we have relays available
   try {
-    console.debug(
-      "[userStore.ts] loginWithNpub: Updating relay stores for authenticated user",
-    );
+    console.debug("[userStore.ts] loginWithNpub: Updating relay stores for authenticated user");
     await updateActiveRelayStores(ndk);
   } catch (error) {
-    console.warn(
-      "[userStore.ts] loginWithNpub: Failed to update relay stores:",
-      error,
-    );
+    console.warn("[userStore.ts] loginWithNpub: Failed to update relay stores:", error);
   }
 
   // Wait a moment for relay stores to be properly initialized
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  try {
-    console.log("Login with npub - attempting to fetch profile...");
-    
-    // AI-NOTE: Add retry logic for profile fetching during login restoration
-    // This helps with timing issues where NDK might not be fully connected yet
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        profile = await getUserMetadata(npub, ndk, true); // Force fresh fetch
-        console.log("Login with npub - fetched profile:", profile);
-        break; // Success, exit retry loop
-      } catch (retryError) {
-        retryCount++;
-        console.warn(`Login with npub - profile fetch attempt ${retryCount} failed:`, retryError);
-        
-        if (retryCount < maxRetries) {
-          // Wait a bit before retrying, especially for the first retry
-          const delay = retryCount * 1000; // 1s, 2s delays
-          console.log(`Login with npub - retrying profile fetch in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    // If all retries failed, getUserMetadata already handles fallback automatically
-    if (!profile) {
-      console.warn("Login with npub - all profile fetch attempts failed, getUserMetadata will handle fallback");
-    }
-  } catch (error) {
-    console.warn("Failed to fetch user metadata during npub login:", error);
-    // getUserMetadata already handles fallback automatically
-  }
+  // Fetch user profile with retry logic
+  const profile = await fetchUserProfileWithRetry(npub, ndk);
 
+  // Set NDK user (no signer for read-only mode)
   ndk.signer = undefined;
   ndk.activeUser = user;
 
@@ -455,15 +382,14 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
     relays: { inbox: [], outbox: [] },
     loginMethod: "npub" as const,
     ndkUser: user,
-    signer: null,
+    signer: undefined,
     signedIn: true,
   };
 
   console.log("Login with npub - setting userStore with:", userState);
   userStore.set(userState);
 
-  // AI-NOTE: Schedule a delayed profile refresh in case the initial fetch failed
-  // This helps with cases where the profile fetch failed during login but might succeed later
+  // Schedule delayed profile refresh if needed
   if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
     console.log("Login with npub - scheduling delayed profile refresh...");
     setTimeout(async () => {
@@ -472,7 +398,6 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
         const refreshedProfile = await getUserMetadata(npub, ndk, true);
         if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
           console.log("Login with npub - delayed profile refresh successful:", refreshedProfile);
-          // Update the user store with the refreshed profile
           const currentState = get(userStore);
           userStore.set({
             ...currentState,
@@ -554,7 +479,7 @@ export function logoutUser(ndk: NDK) {
     relays: { inbox: [], outbox: [] },
     loginMethod: null,
     ndkUser: null,
-    signer: null,
+    signer: undefined,
     signedIn: false,
   });
 

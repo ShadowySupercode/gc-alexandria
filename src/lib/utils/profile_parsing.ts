@@ -35,6 +35,29 @@ export interface ProfileData {
   [key: string]: any;
 }
 
+/**
+ * Extract key-value pairs from malformed JSON content with duplicate keys
+ */
+function extractKeyValuePairs(content: string): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  const keyValueRegex = /"([^"]+)"\s*:\s*"([^"]*)"/g;
+  let match;
+  
+  while ((match = keyValueRegex.exec(content)) !== null) {
+    const [, key, value] = match;
+    
+    if (value && value !== '' && value !== 'null' && value !== 'undefined') {
+      if (result[key]) {
+        result[key].push(value);
+      } else {
+        result[key] = [value];
+      }
+    }
+  }
+  
+  return result;
+}
+
 
 /**
  * Extract multiple values from malformed JSON content that has duplicate keys
@@ -46,73 +69,21 @@ function extractMultipleValuesFromMalformedJSON(content: string): any | null {
     // First try normal JSON parsing
     const parsed = JSON.parse(content);
     
-    // Even if JSON parsing succeeds, check for duplicate keys by using regex
-    // to extract all key-value pairs including duplicates
-    const result: any = {};
+    // Check if content has duplicate keys by looking for common fields
+    const hasDuplicateKeys = DEPRECATED_PROFILE_FIELDS.some(field => 
+      content.includes(`"${field}"`) || content.includes('"website"') || content.includes('"nip05"') || content.includes('"lud16"')
+    );
     
-    // Use regex to find all key-value pairs, including duplicates
-    // This regex handles string values specifically
-    const keyValueRegex = /"([^"]+)"\s*:\s*"([^"]*)"/g;
-    let match;
-    
-    while ((match = keyValueRegex.exec(content)) !== null) {
-      const key = match[1];
-      const value = match[2];
-      
-      if (value && value !== '' && value !== 'null' && value !== 'undefined') {
-        if (result[key]) {
-          if (Array.isArray(result[key])) {
-            result[key].push(value);
-          } else {
-            result[key] = [result[key], value];
-          }
-        } else {
-          result[key] = value;
-        }
-      }
+    if (hasDuplicateKeys) {
+      const extractedData = extractKeyValuePairs(content);
+      return Object.keys(extractedData).length > 0 ? extractedData : parsed;
     }
     
-    // Convert single values to arrays for consistency
-    for (const [key, value] of Object.entries(result)) {
-      if (!Array.isArray(value)) {
-        result[key] = [value];
-      }
-    }
-    
-    return Object.keys(result).length > 0 ? result : parsed;
+    return parsed;
   } catch (error) {
     // If JSON parsing fails, try to extract multiple values for duplicate keys
-    const result: any = {};
-    
-    // Use regex to find all key-value pairs, including duplicates
-    const keyValueRegex = /"([^"]+)"\s*:\s*"([^"]*)"/g;
-    let match;
-    
-    while ((match = keyValueRegex.exec(content)) !== null) {
-      const key = match[1];
-      const value = match[2];
-      
-      if (value && value !== '' && value !== 'null' && value !== 'undefined') {
-        if (result[key]) {
-          if (Array.isArray(result[key])) {
-            result[key].push(value);
-          } else {
-            result[key] = [result[key], value];
-          }
-        } else {
-          result[key] = value;
-        }
-      }
-    }
-    
-    // Convert single values to arrays for consistency
-    for (const [key, value] of Object.entries(result)) {
-      if (!Array.isArray(value)) {
-        result[key] = [value];
-      }
-    }
-    
-    return Object.keys(result).length > 0 ? result : null;
+    const extractedData = extractKeyValuePairs(content);
+    return Object.keys(extractedData).length > 0 ? extractedData : null;
   }
 }
 
@@ -191,106 +162,69 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
     }
     
     // Extract profile data from tags (new format)
-    const tagsProfileData: any = {};
-    for (const tag of event.tags || []) {
-      if (tag.length >= 2) {
-        const [key, value] = tag;
-        if (value) {
-          // Handle multiple values for the same key (e.g., multiple websites)
-          if (tagsProfileData[key]) {
-            if (Array.isArray(tagsProfileData[key])) {
-              tagsProfileData[key].push(value);
-            } else {
-              tagsProfileData[key] = [tagsProfileData[key], value];
-            }
-          } else {
-            tagsProfileData[key] = value;
-          }
-        }
-      }
-    }
-    
-    // Merge and deduplicate the two sources
-    // Content field should only contain the first/topmost entry
-    // Tags can have multiple entries for the same field type
-    const mergedProfileData: any = {};
-    const allTagValues: { [key: string]: string[] } = {};
-    
-    // First, collect all tag values (preserving order of appearance)
+    const tagsProfileData: Record<string, string[]> = {};
     for (const tag of event.tags || []) {
       if (tag.length >= 2) {
         const [key, value] = tag;
         if (value && value !== '') {
-          if (!allTagValues[key]) {
-            allTagValues[key] = [];
+          if (!tagsProfileData[key]) {
+            tagsProfileData[key] = [];
           }
-          // Only add if not already present (deduplication while preserving order)
-          if (!allTagValues[key].includes(value)) {
-            allTagValues[key].push(value);
+          if (!tagsProfileData[key].includes(value)) {
+            tagsProfileData[key].push(value);
           }
         }
       }
     }
     
-    // Start with all tag values, then apply migration
-    const migratedTagValues: { [key: string]: string[] } = {};
+    // Apply migration to tag data
+    const migratedTagValues: Record<string, string[]> = {};
     
-    // First, add all non-deprecated fields with their full values
-    for (const [key, values] of Object.entries(allTagValues)) {
+    // Process non-deprecated fields
+    for (const [key, values] of Object.entries(tagsProfileData)) {
       if (!DEPRECATED_PROFILE_FIELDS.includes(key)) {
         migratedTagValues[key] = values;
       }
     }
     
-    // Then, handle migration for deprecated fields
-    for (const [key, values] of Object.entries(allTagValues)) {
+    // Process deprecated fields with migration
+    for (const [key, values] of Object.entries(tagsProfileData)) {
       if (DEPRECATED_PROFILE_FIELDS.includes(key)) {
-        // Apply migration to the first value to determine the target field
         const tagObject = { [key]: values[0] };
         const migratedTagObject = migrateDeprecatedFields(tagObject);
         
-        // Add the migrated values to the target field
         for (const [migratedKey, migratedValue] of Object.entries(migratedTagObject)) {
           if (migratedValue !== null && migratedValue !== undefined && migratedValue !== '') {
-            if (migratedTagValues[migratedKey]) {
+            const targetKey = migratedKey;
+            if (migratedTagValues[targetKey]) {
               // Merge with existing values, avoiding duplicates
-              const existingValues = migratedTagValues[migratedKey];
+              const existingValues = migratedTagValues[targetKey];
               const newValues = Array.isArray(migratedValue) ? migratedValue : [migratedValue];
               const allValues = [...existingValues, ...newValues];
-              migratedTagValues[migratedKey] = Array.from(new Set(allValues));
+              migratedTagValues[targetKey] = Array.from(new Set(allValues));
             } else {
-              // Add all values from the deprecated field to the migrated field
-              migratedTagValues[migratedKey] = values;
+              migratedTagValues[targetKey] = values;
             }
           }
         }
       }
     }
     
-    // Then, merge with content data
+    // Merge content and tag data
+    const mergedProfileData: any = { ...migratedTagValues };
+    
     if (contentProfileData) {
       for (const [key, value] of Object.entries(contentProfileData)) {
         if (value !== null && value !== undefined && value !== '') {
-          if (migratedTagValues[key]) {
-            // Field exists in tags, merge content values with tag values
-            const contentValues = Array.isArray(value) ? value : [value];
-            const allValues = [...contentValues, ...migratedTagValues[key]];
-            // Remove duplicates while preserving order
-            const uniqueValues = Array.from(new Set(allValues));
-            mergedProfileData[key] = uniqueValues;
+          const contentValues = Array.isArray(value) ? value : [value];
+          if (mergedProfileData[key]) {
+            // Merge content values with tag values, avoiding duplicates
+            const allValues = [...contentValues, ...mergedProfileData[key]];
+            mergedProfileData[key] = Array.from(new Set(allValues));
           } else {
-            // Field only exists in content, wrap in array
-            mergedProfileData[key] = Array.isArray(value) ? value : [value];
+            mergedProfileData[key] = contentValues;
           }
         }
-      }
-    }
-    
-    // Add any tag-only fields
-    for (const [key, values] of Object.entries(migratedTagValues)) {
-      if (!mergedProfileData[key]) {
-        // Field only exists in tags, keep all values
-        mergedProfileData[key] = values;
       }
     }
     
@@ -310,17 +244,6 @@ export function prepareProfileEventForPublishing(
   tags: string[][]
 ): { content: string; tags: string[][] } {
   try {
-    // Parse content field if it's JSON
-    let contentProfileData: any = null;
-    if (content) {
-      try {
-        contentProfileData = JSON.parse(content);
-      } catch (e) {
-        // If not valid JSON, use as-is
-        contentProfileData = null;
-      }
-    }
-    
     // Create a mock NDKEvent to use with parseProfileContent
     const mockEvent = {
       kind: 0,
@@ -336,44 +259,19 @@ export function prepareProfileEventForPublishing(
     // Convert back to JSON string for content (backward compatible)
     const finalContent = mergedProfileData ? JSON.stringify(mergedProfileData) : content;
     
-    // Now create comprehensive tags that include all values from both content and tags
+    // Create comprehensive tags from merged data
     const comprehensiveTags: string[][] = [];
-    const tagMap = new Map<string, string[]>();
     
-    // First, collect all existing tag values (excluding deprecated fields)
-    for (const tag of tags) {
-      if (tag.length >= 2) {
-        const [key, value] = tag;
-        if (value && value !== '' && !DEPRECATED_PROFILE_FIELDS.includes(key)) {
-          if (!tagMap.has(key)) {
-            tagMap.set(key, []);
-          }
-          if (!tagMap.get(key)!.includes(value)) {
-            tagMap.get(key)!.push(value);
-          }
-        }
-      }
-    }
-    
-    // Then, add any values from content that aren't already in tags
-    // Use the migrated profile data instead of the original content data
     if (mergedProfileData) {
       for (const [key, value] of Object.entries(mergedProfileData)) {
         if (value !== null && value !== undefined && value !== '') {
-          if (!tagMap.has(key)) {
-            tagMap.set(key, []);
-          }
-          if (!tagMap.get(key)!.includes(String(value))) {
-            tagMap.get(key)!.push(String(value));
+          const values = Array.isArray(value) ? value : [value];
+          for (const val of values) {
+            if (val && val !== '') {
+              comprehensiveTags.push([key, String(val)]);
+            }
           }
         }
-      }
-    }
-    
-    // Convert back to tag array format
-    for (const [key, values] of tagMap) {
-      for (const value of values) {
-        comprehensiveTags.push([key, value]);
       }
     }
     
