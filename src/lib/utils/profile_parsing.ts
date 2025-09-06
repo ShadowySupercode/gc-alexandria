@@ -218,14 +218,48 @@ export function parseProfileContent(event: NDKEvent): ProfileData | null {
         if (value !== null && value !== undefined && value !== '') {
           const contentValues = Array.isArray(value) ? value : [value];
           if (mergedProfileData[key]) {
-            // Merge content values with tag values, avoiding duplicates
+            // For the about field, only use tag data to avoid duplication
+            if (key === 'about') {
+              // Skip content data for about field, keep only tag data
+              continue;
+            }
+            // For other fields, merge content values with tag values, avoiding duplicates
             const allValues = [...contentValues, ...mergedProfileData[key]];
-            mergedProfileData[key] = Array.from(new Set(allValues));
+            // Use a more robust deduplication that handles text content properly
+            const uniqueValues: string[] = [];
+            for (const val of allValues) {
+              if (typeof val === 'string') {
+                // Normalize the value by trimming and converting escaped newlines to actual newlines
+                const normalizedVal = val.trim().replace(/\\n/g, '\n');
+                if (normalizedVal && !uniqueValues.some(existing => {
+                  if (typeof existing === 'string') {
+                    const normalizedExisting = existing.trim().replace(/\\n/g, '\n');
+                    return normalizedExisting === normalizedVal;
+                  }
+                  return false;
+                })) {
+                  uniqueValues.push(normalizedVal);
+                }
+              } else if (val) {
+                // Handle non-string values
+                if (!uniqueValues.includes(val)) {
+                  uniqueValues.push(val);
+                }
+              }
+            }
+            mergedProfileData[key] = uniqueValues;
           } else {
             mergedProfileData[key] = contentValues;
           }
         }
       }
+    }
+    
+    // Normalize newlines in the about field for proper rendering
+    if (mergedProfileData.about && Array.isArray(mergedProfileData.about)) {
+      mergedProfileData.about = mergedProfileData.about.map((aboutText: any) => 
+        typeof aboutText === 'string' ? aboutText.replace(/\\n/g, '\n') : aboutText
+      );
     }
     
     return mergedProfileData;
