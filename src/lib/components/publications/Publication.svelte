@@ -252,12 +252,13 @@
 </script>
 
 <!-- Table of contents -->
-{#if publicationType !== "blog" || !isLeaf}
+{#if publicationType !== "blog" && !isLeaf}
     <Sidebar
       isOpen={isTocOpen}
       closeSidebar={closeTocSidebar}
-      class="z-50 h-full pt-6 ml-4 bg-transparent sticky top-[80px]"
-      backdrop={true}
+      class="z-50 max-h-[calc(100vh-170px)] ml-4 bg-transparent"
+      position="static"
+      backdrop={false}
       activeUrl={`#${activeAddress ?? ""}`}
       classes={{
         div: 'bg-primary-50 dark:bg-primary-1000 border border-s-4 rounded border-primary-200 dark:border-primary-800',
@@ -352,7 +353,7 @@
 {#if isInnerActive()}
   {#key currentBlog}
     <div
-      class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-146px)] sticky top-[146px]"
+      class="flex flex-col p-4 max-w-3xl overflow-auto flex-grow-2 max-h-[calc(100vh-170px)] sticky"
     >
       {#each leaves as leaf, i}
         {#if leaf && leaf.tagAddress() === currentBlog}

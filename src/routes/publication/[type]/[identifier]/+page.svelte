@@ -186,7 +186,7 @@
     indexEvent={indexEvent}
   />
 
-  <div class="publication {data.publicationType} p-4 space-y-4 overflow-auto  flex-grow-2 mt-[100px]">
+  <div class="publication flex flex-row {data.publicationType} px-4 space-y-4 overflow-auto mx-auto flex-grow-2 mt-[70px]">
     <Publication
       rootAddress={indexEvent.tagAddress()}
       publicationType={data.publicationType}
