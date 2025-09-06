@@ -20,7 +20,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
-  import { getFirstProfileValue } from "$lib/utils/profile_parsing";
+  import { getFirstProfileValue, getBestDisplayName } from "$lib/utils/profile_parsing";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { repostContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
@@ -56,6 +56,7 @@
   let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
   // Note: Using existing unifiedProfileCache via getUserMetadata - no need for separate cache
   let filteredByUser = $state<string | null>(null);
+  let profiles = $state(new Map<string, any>());
   
   // AI-NOTE: Client-side pagination - fetch once, paginate locally
   let allToMeNotifications = $state<NDKEvent[]>([]); // All fetched "to-me" notifications
@@ -171,6 +172,56 @@
   }
 
   // Note: Using existing unifiedProfileCache directly - no additional caching needed
+
+  // Simple profile fetching
+  async function fetchProfile(pubkey: string) {
+    if (profiles.has(pubkey)) return;
+    
+    try {
+      const npub = toNpub(pubkey);
+      if (!npub) return;
+      
+      // Force fetch to ensure we get the latest profile data
+      const profile = await getUserMetadata(npub, ndk, true);
+      const newProfiles = new Map(profiles);
+      newProfiles.set(pubkey, profile);
+      profiles = newProfiles;
+      
+      console.log(`[Notifications] Fetched profile for ${pubkey}:`, profile);
+    } catch (err) {
+      console.warn(`Failed to fetch profile for ${pubkey}:`, err);
+      // getUserMetadata already handles fallback to shortenNpub automatically
+    }
+  }
+
+  // Pre-fetch all profiles for notifications/messages
+  async function preFetchAllProfiles(events: NDKEvent[]) {
+    const uniquePubkeys = new Set<string>();
+    events.forEach(event => {
+      if (event.pubkey && !profiles.has(event.pubkey)) {
+        uniquePubkeys.add(event.pubkey);
+      }
+    });
+    
+    console.log(`[Notifications] Pre-fetching ${uniquePubkeys.size} profiles`);
+    
+    // Fetch profiles in parallel
+    const profilePromises = Array.from(uniquePubkeys).map(pubkey => fetchProfile(pubkey));
+    await Promise.allSettled(profilePromises);
+    
+    console.log(`[Notifications] Pre-fetching complete`);
+  }
+
+  // Utility functions for profile display
+  function getAuthorName(pubkey: string): string {
+    const profile = profiles.get(pubkey);
+    return getBestDisplayName(profile, pubkey);
+  }
+
+  function getAuthorPicture(pubkey: string): string | null {
+    const profile = profiles.get(pubkey);
+    return profile?.picture?.[0] || null;
+  }
 
   // AI-NOTE: New Message Modal Functions
   async function openNewMessageModal(messageToReplyTo?: NDKEvent) {
@@ -583,7 +634,8 @@
       currentPage = 1;
       notifications = paginatedNotifications;
 
-      // Note: Profiles are fetched on-demand via unifiedProfileCache
+      // Pre-fetch all profiles for notifications
+      await preFetchAllProfiles(sortedEvents);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
       error = err instanceof Error ? err.message : "Failed to fetch notifications";
@@ -643,7 +695,8 @@
       publicMessages = paginatedPublicMessages;
       hasFetchedPublic = true;
 
-      // Note: Profiles are fetched on-demand via unifiedProfileCache
+      // Pre-fetch all profiles for public messages
+      await preFetchAllProfiles(uniqueMessages);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
       error = err instanceof Error ? err.message : "Failed to fetch public messages";
@@ -695,6 +748,7 @@
     allPublicMessages = [];
     notifications = [];
     publicMessages = [];
+    profiles = new Map(); // Clear profiles cache
     // Note: authorProfiles is no longer used for reply functionality
   }
 
@@ -918,9 +972,20 @@
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
                     <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
-                      <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                        <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                      </div>
+                      {#if getAuthorPicture(message.pubkey)}
+                        <img
+                          src={getAuthorPicture(message.pubkey)}
+                          alt={getAuthorName(message.pubkey)}
+                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
+                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                        />
+                      {:else}
+                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity">
+                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                            {getAuthorName(message.pubkey).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
                           {@render userBadge(message.pubkey, undefined, ndk)}
@@ -1071,9 +1136,20 @@
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0">
                     <div class="flex flex-col items-center gap-2">
-                      <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                        <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                      </div>
+                      {#if getAuthorPicture(notification.pubkey)}
+                        <img
+                          src={getAuthorPicture(notification.pubkey)}
+                          alt={getAuthorName(notification.pubkey)}
+                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
+                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                        />
+                      {:else}
+                        <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity">
+                          <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+                            {getAuthorName(notification.pubkey).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
                           {@render userBadge(notification.pubkey, undefined, ndk)}
