@@ -24,8 +24,8 @@
     onTogglePreview: () => void;
   } = $props();
 
-  // Import the correct conversion function from eventServices
-  import { convertTagsToNDKFormat } from "./eventServices";
+  // Import the correct conversion function and constants from eventServices
+  import { convertTagsToNDKFormat, DEPRECATED_PROFILE_FIELDS } from "./eventServices";
 
   /**
    * Generates event preview
@@ -102,14 +102,30 @@
       // Special handling for profile events (kind 0)
       let eventTags = convertTagsToNDKFormat(tags);
       
-      // For loaded events, preserve the original content exactly as-is
+      // Filter out deprecated tags for preview
+      eventTags = eventTags.filter(tag => !DEPRECATED_PROFILE_FIELDS.includes(tag[0]));
+      
+      // For loaded events, clean deprecated fields from content
       // For new events, merge content and tags for preview
       let finalContent = eventData.content;
       
       // Check if this is a loaded event (has existing content that looks like JSON)
       const isLoadedEvent = eventData.content && eventData.content.trim().startsWith('{');
       
-      if (!isLoadedEvent) {
+      if (isLoadedEvent) {
+        // For loaded events, parse and clean deprecated fields from content
+        try {
+          const contentObj = JSON.parse(eventData.content);
+          // Remove deprecated fields
+          for (const field of DEPRECATED_PROFILE_FIELDS) {
+            delete contentObj[field];
+          }
+          finalContent = JSON.stringify(contentObj, null, 2);
+        } catch (error) {
+          // If parsing fails, use original content
+          finalContent = eventData.content;
+        }
+      } else {
         // For new events, create a mock NDKEvent to use with parseProfileContent
         const mockEvent = {
           kind: 0,

@@ -16,8 +16,8 @@ describe("Math Processing in Advanced Markup Parser", () => {
     const result = await parseAdvancedmarkup(input);
     
     expect(result).toContain('<span class="math-display">\\[\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n\\]</span>');
-    expect(result).toContain('<p class="my-4">Here is a display equation:</p>');
-    expect(result).toContain('<p class="my-4">This is after the equation.</p>');
+    expect(result).toContain('<p class="my-4 no-indent">Here is a display equation:</p>');
+    expect(result).toContain('<p class="my-4 no-indent">This is after the equation.</p>');
   });
 
   it("should process both inline and display math in the same code block", async () => {

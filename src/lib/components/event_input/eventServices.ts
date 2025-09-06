@@ -48,6 +48,9 @@ function extractAllValuesFromMalformedJson(content: string, profileFields: strin
 }
 import type { EventData, TagData, PublishResult, LoadEventResult } from "./types";
 
+// AI-NOTE: Deprecated profile fields that should be filtered out during loading and preview
+export const DEPRECATED_PROFILE_FIELDS = ['displayName', 'username'];
+
 
 /**
  * Converts TagData array to NDK-compatible format with proper validation and ordering
@@ -381,7 +384,7 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     // For profile events (kind 0), extract profile data from content and add as tags FIRST
     if (foundEvent.kind === 0) {
       try {
-        // Profile fields that should be extracted to tags
+        // Profile fields that should be extracted to tags (excluding deprecated fields)
         const profileFields = ['name', 'display_name', 'about', 'picture', 'banner', 'website', 'nip05', 'lud16', 'pronouns'];
         
         // Extract ALL values from content (including malformed JSON with duplicate keys)
@@ -407,10 +410,14 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
       }
     }
     
-    // Then add all existing tags from the original event
+    // Then add all existing tags from the original event (excluding deprecated fields)
     for (const tag of normalizedTags) {
       if (tag.length >= 2) {
         const key = tag[0] || "";
+        // Skip deprecated fields
+        if (DEPRECATED_PROFILE_FIELDS.includes(key)) {
+          continue;
+        }
         // Preserve empty strings - they are valid in Nostr tags
         const values = tag.slice(1).map(v => v === null || v === undefined ? "" : String(v));
         

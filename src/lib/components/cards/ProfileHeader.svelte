@@ -4,7 +4,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils.ts";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { getBestDisplayName, parseProfileContent } from "$lib/utils/profile_parsing";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
@@ -35,6 +35,15 @@
 
   const ndk = getNdkContext();
 
+  // AI-NOTE: Re-parse profile data from event to ensure we get all tag values
+  // instead of relying on potentially cached profile data
+  let freshProfile = $derived(() => {
+    if (event.kind === 0) {
+      return parseProfileContent(event);
+    }
+    return profile;
+  });
+
   let lnModalOpen = $state(false);
   let lnurl = $state<string | null>(null);
   let currentLud16 = $state<string | null>(null);
@@ -43,8 +52,8 @@
 
   onMount(async () => {
     // Initialize currentLud16 with the first lud16 value
-    if (profile?.lud16 && profile.lud16.length > 0) {
-      currentLud16 = profile.lud16[0];
+    if (freshProfile()?.lud16 && freshProfile().lud16.length > 0) {
+      currentLud16 = freshProfile().lud16[0];
     }
   });
 
@@ -67,8 +76,8 @@
   $effect(() => {
     if (event?.pubkey) {
       // First check if we have user list information in the profile prop
-      if (profile && typeof profile.isInUserLists === 'boolean') {
-        isInUserLists = profile.isInUserLists;
+      if (freshProfile() && typeof freshProfile().isInUserLists === 'boolean') {
+        isInUserLists = freshProfile().isInUserLists;
         console.log(`[ProfileHeader] Using profile prop user list status for ${event.pubkey}: ${isInUserLists}`);
       } else {
         // Then check if we have cached profileData with user list information
@@ -120,9 +129,9 @@
   <Card class="ArticleBox card-leather w-full max-w-2xl overflow-hidden">
     <div class="space-y-4">
       <div class="ArticleBoxImage flex col justify-center">
-        {#if profile.banner && profile.banner.length > 0}
+        {#if freshProfile().banner && freshProfile().banner.length > 0}
           <LazyImage
-            src={profile.banner[0]}
+            src={freshProfile().banner[0]}
             alt="Profile banner"
             eventId={event.id}
             className="rounded w-full max-h-72 object-cover"
@@ -136,9 +145,9 @@
         {/if}
       </div>
       <div class="flex flex-row space-x-4 items-center min-w-0">
-        {#if profile.picture && profile.picture.length > 0}
+        {#if freshProfile().picture && freshProfile().picture.length > 0}
           <img
-            src={profile.picture[0]}
+            src={freshProfile().picture[0]}
             alt="Profile avatar"
             class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {
@@ -203,31 +212,31 @@
       <div class="min-w-0">
         <div class="mt-2 flex flex-col gap-4">
           <dl class="grid grid-cols-1 gap-y-2">
-            {#if profile.name}
+            {#if freshProfile().name}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Name:</dt>
                 <dd class="min-w-0 break-words flex flex-col gap-1">
-                  {#each profile.name as name}
+                  {#each freshProfile().name as name}
                     <span>{name}</span>
                   {/each}
                 </dd>
               </div>
             {/if}
-            {#if profile.display_name}
+            {#if freshProfile().display_name}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Display Name:</dt>
                 <dd class="min-w-0 break-words flex flex-col gap-1">
-                  {#each profile.display_name as displayName}
+                  {#each freshProfile().display_name as displayName}
                     <span>{displayName}</span>
                   {/each}
                 </dd>
               </div>
             {/if}
-            {#if profile.about}
+            {#if freshProfile().about}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
                 <dd class="min-w-0 break-words flex flex-col gap-1">
-                  {#each profile.about as about}
+                  {#each freshProfile().about as about}
                     <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
                       {@render basicMarkup(Array.isArray(about) ? about[0] || "" : about, ndk)}
                     </div>
@@ -235,11 +244,11 @@
                 </dd>
               </div>
             {/if}
-            {#if profile.website}
+            {#if freshProfile().website}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Website:</dt>
                 <dd class="min-w-0 break-all flex flex-col gap-1">
-                  {#each profile.website as website}
+                  {#each freshProfile().website as website}
                     <a
                       href={website}
                       class="underline text-primary-700 dark:text-primary-200"
@@ -249,11 +258,11 @@
                 </dd>
               </div>
             {/if}
-            {#if profile.lud16}
+            {#if freshProfile().lud16}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Lightning:</dt>
                 <dd class="min-w-0 break-all flex flex-col gap-1">
-                  {#each profile.lud16 as lud16}
+                  {#each freshProfile().lud16 as lud16}
                     <Button
                       class="btn-leather"
                       color="primary"
@@ -268,11 +277,11 @@
                 </dd>
               </div>
             {/if}
-            {#if profile.nip05}
+            {#if freshProfile().nip05}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">NIP-05:</dt>
                 <dd class="min-w-0 break-all flex flex-col gap-1">
-                  {#each profile.nip05 as nip05}
+                  {#each freshProfile().nip05 as nip05}
                     <span>{nip05}</span>
                   {/each}
                 </dd>

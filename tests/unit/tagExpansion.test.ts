@@ -97,20 +97,20 @@ describe("Tag Expansion Tests", () => {
 
     // Create test publication index events (kind 30040)
     mockPublications = [
-      new MockNDKEvent("pub1", 30040, "author1", 1000, "Book 1", [
+      new MockNDKEvent("pub1", 30040, "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551", 1000, "Book 1", [
         ["t", "bitcoin"],
         ["t", "cryptocurrency"],
-        ["a", "30041:author1:chapter-1"],
-        ["a", "30041:author1:chapter-2"],
+        ["a", "30041:fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551:chapter-1"],
+        ["a", "30041:fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551:chapter-2"],
       ]),
-      new MockNDKEvent("pub2", 30040, "author2", 1100, "Book 2", [
+      new MockNDKEvent("pub2", 30040, "c17b51782c9bd5f1894537517b769b18878dd43568fbe6092f14ba1f70a3ffd8", 1100, "Book 2", [
         ["t", "bitcoin"],
         ["t", "blockchain"],
-        ["a", "30041:author2:chapter-1"],
+        ["a", "30041:c17b51782c9bd5f1894537517b769b18878dd43568fbe6092f14ba1f70a3ffd8:chapter-1"],
       ]),
-      new MockNDKEvent("pub3", 30040, "author3", 1200, "Book 3", [
+      new MockNDKEvent("pub3", 30040, "e0a5cc4b0fdad9d8297783f89df1e66a391a0df6a20704d898c40f3b08dfd69b", 1200, "Book 3", [
         ["t", "ethereum"],
-        ["a", "30041:author3:chapter-1"],
+        ["a", "30041:e0a5cc4b0fdad9d8297783f89df1e66a391a0df6a20704d898c40f3b08dfd69b:chapter-1"],
       ]),
     ];
 
@@ -119,7 +119,7 @@ describe("Tag Expansion Tests", () => {
       new MockNDKEvent(
         "content1",
         30041,
-        "author1",
+        "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551",
         1000,
         "Chapter 1 content",
         [["d", "chapter-1"]],
@@ -127,7 +127,7 @@ describe("Tag Expansion Tests", () => {
       new MockNDKEvent(
         "content2",
         30041,
-        "author1",
+        "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551",
         1100,
         "Chapter 2 content",
         [["d", "chapter-2"]],
@@ -135,7 +135,7 @@ describe("Tag Expansion Tests", () => {
       new MockNDKEvent(
         "content3",
         30041,
-        "author2",
+        "c17b51782c9bd5f1894537517b769b18878dd43568fbe6092f14ba1f70a3ffd8",
         1200,
         "Author 2 Chapter 1",
         [["d", "chapter-1"]],
@@ -143,7 +143,7 @@ describe("Tag Expansion Tests", () => {
       new MockNDKEvent(
         "content4",
         30041,
-        "author3",
+        "e0a5cc4b0fdad9d8297783f89df1e66a391a0df6a20704d898c40f3b08dfd69b",
         1300,
         "Author 3 Chapter 1",
         [["d", "chapter-1"]],
@@ -316,7 +316,7 @@ describe("Tag Expansion Tests", () => {
       const eventWithoutTags = new MockNDKEvent(
         "no-tags",
         30040,
-        "author4",
+        "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
         1000,
         "No tags",
       );
@@ -441,13 +441,13 @@ describe("Tag Expansion Tests", () => {
       const malformedPublication = new MockNDKEvent(
         "malformed",
         30040,
-        "author1",
+        "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551",
         1000,
         "Malformed",
         [
           ["t", "bitcoin"],
           ["a", "invalid-tag-format"], // Missing parts
-          ["a", "30041:author1:chapter-1"], // Valid format
+          ["a", "30041:fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551:chapter-1"], // Valid format
         ],
       );
 
@@ -473,19 +473,19 @@ describe("Tag Expansion Tests", () => {
       const publicationWithColonDTag = new MockNDKEvent(
         "colon-pub",
         30040,
-        "author1",
+        "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551",
         1000,
         "Colon d-tag",
         [
           ["t", "bitcoin"],
-          ["a", "30041:author1:chapter:with:colons"],
+          ["a", "30041:fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551:chapter:with:colons"],
         ],
       );
 
       const contentWithColonDTag = new MockNDKEvent(
         "colon-content",
         30041,
-        "author1",
+        "fafa683bb12d4693880a645ad0ff20b9fa8e7dadc253db066788e06673d90551",
         1100,
         "Content with colon d-tag",
         [

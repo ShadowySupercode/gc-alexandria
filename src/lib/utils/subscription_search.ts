@@ -317,7 +317,7 @@ export async function searchBySubscription(
   // AI-NOTE:  Check for preloaded events first (for profile searches)
   if (searchFilter.preloadedEvents && searchFilter.preloadedEvents.length > 0) {
     console.log("subscription_search: Using preloaded events:", searchFilter.preloadedEvents.length);
-    processPrimaryRelayResults(
+    await processPrimaryRelayResults(
       new Set(searchFilter.preloadedEvents),
       searchType,
       searchFilter.subscriptionType,
@@ -386,7 +386,7 @@ export async function searchBySubscription(
         primaryEvents.size,
         "events",
       );
-      processPrimaryRelayResults(
+      await processPrimaryRelayResults(
         primaryEvents,
         searchType,
         searchFilter.subscriptionType,
@@ -484,7 +484,7 @@ export async function searchBySubscription(
               "events",
             );
 
-            processPrimaryRelayResults(
+            await processPrimaryRelayResults(
               fallbackEvents,
               searchType,
               searchFilter.subscriptionType,
@@ -762,7 +762,7 @@ function createPrimaryRelaySet(
 /**
  * Process primary relay results
  */
-function processPrimaryRelayResults(
+async function processPrimaryRelayResults(
   events: Set<NDKEvent>,
   searchType: SearchSubscriptionType,
   subscriptionType: string,
@@ -796,7 +796,7 @@ function processPrimaryRelayResults(
 
     try {
       if (searchType === "n") {
-        processProfileEvent(
+        await processProfileEvent(
           event,
           subscriptionType,
           normalizedSearchTerm,
@@ -825,7 +825,7 @@ function processPrimaryRelayResults(
 /**
  * Process profile event
  */
-function processProfileEvent(
+async function processProfileEvent(
   event: NDKEvent,
   subscriptionType: string,
   normalizedSearchTerm: string,
@@ -844,14 +844,16 @@ function processProfileEvent(
   }
 
   // For general profile searches, filter by content
-  const profileData = JSON.parse(event.content);
-  const displayName = profileData.display_name || "";
-  const name = profileData.name || "";
-  const nip05 = profileData.nip05 || "";
-  const username = profileData.username || "";
-  const about = profileData.about || "";
-  const bio = profileData.bio || "";
-  const description = profileData.description || "";
+  // Use parseProfileContent to properly handle both content and tags
+  const { parseProfileContent } = await import("./profile_parsing.ts");
+  const profileData = parseProfileContent(event);
+  const displayName = profileData?.display_name?.[0] || "";
+  const name = profileData?.name?.[0] || "";
+  const nip05 = profileData?.nip05?.[0] || "";
+  const username = profileData?.username?.[0] || "";
+  const about = profileData?.about?.[0] || "";
+  const bio = profileData?.bio?.[0] || "";
+  const description = profileData?.description?.[0] || "";
 
   const matchesDisplayName = fieldMatches(displayName, normalizedSearchTerm);
   const matchesName = fieldMatches(name, normalizedSearchTerm);
@@ -1577,6 +1579,12 @@ async function attachProfileDataToEvents(events: NDKEvent[], ndk: NDK): Promise<
         const npub = await import("./nostrUtils.ts").then(m => m.toNpub(pubkey));
         
         if (npub) {
+          // Clear cached profile data to force fresh parsing with all tags
+          const { unifiedProfileCache } = await import("./npubCache.ts");
+          unifiedProfileCache.delete(pubkey);
+          unifiedProfileCache.delete(npub);
+          
+          // Force refresh profile data to ensure we get the latest parsing with all tags
           const profileData = await getUserMetadata(npub, ndk, true);
           if (profileData) {
             // Check if this pubkey is in user's lists
