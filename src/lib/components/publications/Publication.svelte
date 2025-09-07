@@ -256,10 +256,9 @@
   <!-- Table of contents -->
   {#if publicationType !== "blog" && !isLeaf}
     <Sidebar
-      /* Make sidebar sticky & independently scrollable */
       class="z-10 ml-4 bg-transparent sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto
              border border-s-4 rounded border-primary-200 dark:border-primary-800
-             bg-primary-50 dark:bg-primary-1000"
+             dark:bg-primary-1000"
       position="static"
       activeUrl={`#${activeAddress ?? ""}`}
       classes={{
@@ -365,7 +364,6 @@
   </div>
 
   {#if $publicationColumnVisibility.discussion}
-    <!-- Make discussion sidebar sticky & scrollable -->
     <Sidebar
       position="static"
       class="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto bg-primary-50 dark:bg-primary-1000
