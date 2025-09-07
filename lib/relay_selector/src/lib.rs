@@ -3,9 +3,12 @@ mod relay;
 mod relay_selector;
 mod weights;
 
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 
 use relay_selector::RelaySelector;
 
@@ -18,16 +21,31 @@ thread_local! {
     /// initialized, it loads data from persistent storage, and when it is no longer needed, it
     /// saves the data back to persistent storage. The repository data may be mutated via the
     /// functions provided in the `relay_selector` crate's API.
-    static RELAY_SELECTOR: Rc<RefCell<RelaySelector>> = Rc::new(RefCell::new(RelaySelector::new()));
+    static RELAY_SELECTOR: Rc<RefCell<Option<RelaySelector>>> = Rc::new(RefCell::new(None));
+}
+
+fn relay_selector_is_some() -> bool {
+    RELAY_SELECTOR
+        .try_with(|selector| selector.borrow().is_some())
+        .unwrap_or(false)
+}
+
+async fn init_relay_selector(store_name: &str) {
+    let selector = RelaySelector::init(store_name).await.unwrap_throw();
+    RELAY_SELECTOR.with(|rc_selector| rc_selector.borrow_mut().replace(selector));
+}
+
+fn init_relay_selector_if_none(store_name: &str) {
+    let closure_store_name = store_name.to_string();
+    if !relay_selector_is_some() {
+        spawn_local(async move {
+            init_relay_selector(&closure_store_name).await;
+        });
+    }
 }
 
 #[wasm_bindgen]
-pub fn init() {
-    // TODO: Initialize a reference-counted relay selector.
-}
-
-#[wasm_bindgen]
-pub fn record_response_time(
+pub async fn record_response_time(
     relay_url: &str,
     response_time: Option<f32>,
     relay_type: Option<String>,
@@ -39,13 +57,14 @@ pub fn record_response_time(
     let response_duration =
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
+    init_relay_selector_if_none(STORE_NAME);
     RELAY_SELECTOR.with(|selector| {
-        selector.borrow_mut().update_weights_with_response_time(
-            relay_url,
-            variant,
-            response_duration,
-        );
-    });
+        selector
+            .borrow_mut()
+            .as_mut()
+            .unwrap_throw()
+            .update_weights_with_response_time(relay_url, variant, response_duration)
+    })
 }
 
 #[wasm_bindgen]
@@ -55,11 +74,14 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
         None => relay::Variant::General,
     };
 
+    init_relay_selector_if_none(STORE_NAME);
     RELAY_SELECTOR.with(|selector| {
         selector
             .borrow_mut()
+            .as_mut()
+            .unwrap_throw()
             .update_weights_with_request(relay_url, variant, is_success);
-    });
+    })
 }
 
 /// Get a recommended relay URL based on current weights.
