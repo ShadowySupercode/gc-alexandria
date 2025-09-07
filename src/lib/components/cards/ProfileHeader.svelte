@@ -4,7 +4,7 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub } from "$lib/utils/nostrUtils.ts";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { getBestDisplayName, parseProfileContent } from "$lib/utils/profile_parsing";
+  import { parseProfileContent, getBestProfileValue } from "$lib/utils/profile_parsing";
   import QrCode from "$components/util/QrCode.svelte";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import LazyImage from "$components/util/LazyImage.svelte";
@@ -52,8 +52,8 @@
 
   onMount(async () => {
     // Initialize currentLud16 with the first lud16 value
-    if (freshProfile()?.lud16 && freshProfile().lud16.length > 0) {
-      currentLud16 = freshProfile().lud16[0];
+    if (freshProfile()?.lud16) {
+      currentLud16 = getBestProfileValue(freshProfile().lud16);
     }
   });
 
@@ -131,7 +131,7 @@
       <div class="ArticleBoxImage flex col justify-center">
         {#if freshProfile().banner && freshProfile().banner.length > 0}
           <LazyImage
-            src={freshProfile().banner[0]}
+            src={getBestProfileValue(freshProfile().banner)}
             alt="Profile banner"
             eventId={event.id}
             className="rounded w-full max-h-72 object-cover"
@@ -147,7 +147,7 @@
       <div class="flex flex-row space-x-4 items-center min-w-0">
         {#if freshProfile().picture && freshProfile().picture.length > 0}
           <img
-            src={freshProfile().picture[0]}
+            src={getBestProfileValue(freshProfile().picture)}
             alt="Profile avatar"
             class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {

@@ -18,7 +18,7 @@
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
-  import { parseProfileContent } from "$lib/utils/profile_parsing";
+  import { parseProfileContent, getBestProfileValue } from "$lib/utils/profile_parsing";
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
@@ -628,7 +628,7 @@
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
@@ -672,7 +672,7 @@
                         <div class="flex items-center gap-3 mb-2">
                           {#if profileData.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
@@ -709,7 +709,7 @@
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
                               >
-                                {profileData.about}
+                                {getBestProfileValue(profileData.about)}
                               </span>
                             {/if}
                           </div>
@@ -879,7 +879,7 @@
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
@@ -932,7 +932,7 @@
                         <div class="flex items-center gap-3 mb-2">
                           {#if profileData.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
@@ -959,7 +959,7 @@
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 break-words"
                               >
-                                {profileData.about}
+                                {getBestProfileValue(profileData.about)}
                               </span>
                             {/if}
                           </div>
@@ -1124,7 +1124,7 @@
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
@@ -1168,7 +1168,7 @@
                         <div class="flex items-center gap-3 mb-2">
                           {#if profileData.picture}
                             <img
-                              src={profileData.picture}
+                              src={getBestProfileValue(profileData.picture)}
                               alt="Profile"
                               class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                               onerror={(e) => {
@@ -1195,7 +1195,7 @@
                               <span
                                 class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
                               >
-                                {profileData.about}
+                                {getBestProfileValue(profileData.about)}
                               </span>
                             {/if}
                           </div>

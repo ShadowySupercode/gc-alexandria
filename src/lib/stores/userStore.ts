@@ -8,7 +8,7 @@ import NDK, {
   NDKRelaySet,
 } from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { getFirstProfileValue, getBestDisplayName } from "../utils/profile_parsing";
+import { getBestProfileValue, getBestDisplayName } from "../utils/profile_parsing";
 import {
   activeInboxRelays,
   activeOutboxRelays,
@@ -257,13 +257,13 @@ async function completeLogin(
   }
 
   // Schedule delayed profile refresh if needed
-  if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
+  if (!profile || (!getBestProfileValue(profile.picture) && !getBestDisplayName(profile) && getBestProfileValue(profile.name)?.includes("..."))) {
     console.log(`Login with ${loginMethod} - scheduling delayed profile refresh...`);
     setTimeout(async () => {
       try {
         console.log(`Login with ${loginMethod} - attempting delayed profile refresh...`);
         const refreshedProfile = await getUserMetadata(user.npub, ndk, true);
-        if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
+        if (refreshedProfile && (getBestProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
           console.log(`Login with ${loginMethod} - delayed profile refresh successful:`, refreshedProfile);
           const currentState = get(userStore);
           userStore.set({
@@ -390,13 +390,13 @@ export async function loginWithNpub(pubkeyOrNpub: string, ndk: NDK) {
   userStore.set(userState);
 
   // Schedule delayed profile refresh if needed
-  if (!profile || (!getFirstProfileValue(profile.picture) && !getBestDisplayName(profile) && getFirstProfileValue(profile.name)?.includes("..."))) {
+  if (!profile || (!getBestProfileValue(profile.picture) && !getBestDisplayName(profile) && getBestProfileValue(profile.name)?.includes("..."))) {
     console.log("Login with npub - scheduling delayed profile refresh...");
     setTimeout(async () => {
       try {
         console.log("Login with npub - attempting delayed profile refresh...");
         const refreshedProfile = await getUserMetadata(npub, ndk, true);
-        if (refreshedProfile && (getFirstProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
+        if (refreshedProfile && (getBestProfileValue(refreshedProfile.picture) || getBestDisplayName(refreshedProfile))) {
           console.log("Login with npub - delayed profile refresh successful:", refreshedProfile);
           const currentState = get(userStore);
           userStore.set({

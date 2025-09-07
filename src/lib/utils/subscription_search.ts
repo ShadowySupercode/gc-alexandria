@@ -845,15 +845,15 @@ async function processProfileEvent(
 
   // For general profile searches, filter by content
   // Use parseProfileContent to properly handle both content and tags
-  const { parseProfileContent } = await import("./profile_parsing.ts");
+  const { parseProfileContent, getBestProfileValue } = await import("./profile_parsing.ts");
   const profileData = parseProfileContent(event);
-  const displayName = profileData?.display_name?.[0] || "";
-  const name = profileData?.name?.[0] || "";
-  const nip05 = profileData?.nip05?.[0] || "";
-  const username = profileData?.username?.[0] || "";
-  const about = profileData?.about?.[0] || "";
-  const bio = profileData?.bio?.[0] || "";
-  const description = profileData?.description?.[0] || "";
+  const displayName = getBestProfileValue(profileData?.display_name) || "";
+  const name = getBestProfileValue(profileData?.name) || "";
+  const nip05 = getBestProfileValue(profileData?.nip05) || "";
+  const username = getBestProfileValue(profileData?.username) || "";
+  const about = getBestProfileValue(profileData?.about) || "";
+  const bio = getBestProfileValue(profileData?.bio) || "";
+  const description = getBestProfileValue(profileData?.description) || "";
 
   const matchesDisplayName = fieldMatches(displayName, normalizedSearchTerm);
   const matchesName = fieldMatches(name, normalizedSearchTerm);

@@ -13,7 +13,7 @@
     UserOutline,
   } from "flowbite-svelte-icons";
   import { Avatar, Popover } from "flowbite-svelte";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { getBestDisplayName, getBestProfileValue } from "$lib/utils/profile_parsing";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
@@ -52,7 +52,7 @@
   let userState = $derived($userStore);
   let profile = $derived(userState.profile);
   let npub = $derived(userState.npub);
-  let pfp = $derived(profile?.picture?.[0]);
+  let pfp = $derived(getBestProfileValue(profile?.picture));
   let tag = $derived(getBestDisplayName(profile, npub || undefined));
 
   // Track if we've already refreshed the profile for this session

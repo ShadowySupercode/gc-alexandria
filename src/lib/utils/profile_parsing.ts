@@ -323,13 +323,39 @@ export function prepareProfileEventForPublishing(
 }
 
 /**
- * Utility function to get the first value from a profile field array
+ * Selection strategy for profile field values
+ */
+export type ProfileValueStrategy = 'first' | 'best' | 'verified';
+
+/**
+ * Utility function to get a value from a profile field array with different selection strategies
  * @param field - The profile field array (e.g., name, displayName, etc.)
  * @param fallback - Fallback value if field is empty or undefined
- * @returns The first value from the array or the fallback
+ * @param strategy - Selection strategy: 'first' (default), 'best' (prioritize HTTPS, etc.), 'verified' (future: NIP-05 verified)
+ * @returns The selected value from the array or the fallback
  */
-export function getFirstProfileValue(field: string[] | undefined, fallback: string = ""): string {
-  return (field && field.length > 0 ? field[0] : fallback);
+export function getBestProfileValue(
+  field: string[] | undefined, 
+  fallback: string = "",
+  strategy: ProfileValueStrategy = 'first'
+): string {
+  if (!field || field.length === 0) return fallback;
+  
+  switch (strategy) {
+    case 'best':
+      // Prioritize HTTPS URLs, verified domains, etc.
+      if (field.some(url => url.startsWith('https://'))) {
+        return field.find(url => url.startsWith('https://')) || field[0];
+      }
+      return field[0];
+    case 'verified':
+      // Future: Could check NIP-05 verification status
+      // For now, just return first value
+      return field[0];
+    case 'first':
+    default:
+      return field[0];
+  }
 }
 
 /**
@@ -352,5 +378,7 @@ export function getBestDisplayName(profile: ProfileData | undefined | null, pubk
   if (!profile) {
     return pubkey ? shortenNpub(pubkey) : "Unknown";
   }
-  return profile.display_name?.[0] || profile.name?.[0] || (pubkey ? shortenNpub(pubkey) : "Unknown");
+  return getBestProfileValue(profile.display_name) || 
+         getBestProfileValue(profile.name) || 
+         (pubkey ? shortenNpub(pubkey) : "Unknown");
 }

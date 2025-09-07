@@ -8,7 +8,7 @@
   import { userStore } from "$lib/stores/userStore";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { getBestDisplayName, shortenNpub } from "$lib/utils/profile_parsing";
+  import { getBestDisplayName, shortenNpub, getBestProfileValue } from "$lib/utils/profile_parsing";
   import {
     extractRootEventInfo,
     extractParentEventInfo,
@@ -473,7 +473,7 @@
                 {/if}
                 {#if profile.picture?.[0]}
                   <img
-                    src={profile.picture[0]}
+                    src={getBestProfileValue(profile.picture)}
                     alt="Profile"
                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
@@ -607,8 +607,8 @@
       <div class="flex items-center gap-2 text-sm min-w-0 flex-shrink">
         {#if userProfile.picture?.[0]}
           <img
-            src={userProfile.picture[0]}
-            alt={userProfile.name?.[0] || userProfile.pubkey}
+            src={getBestProfileValue(userProfile.picture)}
+            alt={getBestProfileValue(userProfile.name) || userProfile.pubkey}
             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
             onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
           />

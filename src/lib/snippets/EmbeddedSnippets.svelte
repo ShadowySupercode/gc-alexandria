@@ -11,68 +11,12 @@
   import type NDK from "@nostr-dev-kit/ndk";
 
   export {
-    parsedContent,
     repostContent,
     quotedContent,
-    truncateContent,
-    truncateRenderedContent,
-    getNotificationType,
-    fetchAuthorProfiles
+    getNotificationType
   };
 
-  /**
-   * Truncates content to a specified length
-   */
-  function truncateContent(content: string, maxLength: number = 300): string {
-    if (content.length <= maxLength) return content;
-    return content.slice(0, maxLength) + "...";
-  }
-
-  /**
-   * Truncates rendered HTML content while preserving quote boxes
-   */
-  function truncateRenderedContent(renderedHtml: string, maxLength: number = 300): string {
-    if (renderedHtml.length <= maxLength) return renderedHtml;
-    
-    const hasQuoteBoxes = renderedHtml.includes('jump-to-message');
-    
-    if (hasQuoteBoxes) {
-      const quoteBoxPattern = /<div class="block w-fit my-2 px-3 py-2 bg-gray-200[^>]*onclick="window\.dispatchEvent\(new CustomEvent\('jump-to-message'[^>]*>[^<]*<\/div>/g;
-      const quoteBoxes = renderedHtml.match(quoteBoxPattern) || [];
-      
-      let textOnly = renderedHtml.replace(quoteBoxPattern, '|||QUOTEBOX|||');
-      
-      if (textOnly.length > maxLength) {
-        const availableLength = maxLength - (quoteBoxes.join('').length);
-        if (availableLength > 50) {
-          textOnly = textOnly.slice(0, availableLength) + "...";
-        } else {
-          textOnly = textOnly.slice(0, 50) + "...";
-        }
-      }
-      
-      let result = textOnly;
-      quoteBoxes.forEach(box => {
-        result = result.replace('|||QUOTEBOX|||', box);
-      });
-      
-      return result;
-    } else {
-      if (renderedHtml.includes('<')) {
-        const truncated = renderedHtml.slice(0, maxLength);
-        const lastTagStart = truncated.lastIndexOf('<');
-        const lastTagEnd = truncated.lastIndexOf('>');
-        
-        if (lastTagStart > lastTagEnd) {
-          return renderedHtml.slice(0, lastTagStart) + "...";
-        }
-        return truncated + "...";
-      } else {
-        return renderedHtml.slice(0, maxLength) + "...";
-      }
-    }
-  }
-
+  
   /**
    * Gets notification type based on event kind
    */
@@ -86,97 +30,6 @@
       case 24: return "Public Message";
       default: return `Kind ${event.kind}`;
     }
-  }
-
-  /**
-  * Fetches author profiles for a list of events
-  */
-  async function fetchAuthorProfiles(events: NDKEvent[], ndk: NDK): Promise<Map<string, { name?: string[]; display_name?: string[]; picture?: string[] }>> {
-    const authorProfiles = new Map<string, { name?: string[]; display_name?: string[]; picture?: string[] }>();
-    const uniquePubkeys = new Set<string>();
-    
-    events.forEach(event => {
-      if (event.pubkey) uniquePubkeys.add(event.pubkey);
-    });
-
-    const profilePromises = Array.from(uniquePubkeys).map(async (pubkey) => {
-      try {
-        const npub = toNpub(pubkey);
-        if (!npub) return;
-
-        // Try cache first
-        let profile = await getUserMetadata(npub, ndk, false);
-        if (profile && (profile.name || profile.display_name || profile.picture)) {
-          authorProfiles.set(pubkey, profile);
-          return;
-        }
-
-        // Try search relays
-        for (const relay of searchRelays) {
-          try {
-            if (!ndk) break;
-
-            const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relay], ndk);
-            const profileEvent = await ndk.fetchEvent(
-              { kinds: [0], authors: [pubkey] },
-              undefined,
-              relaySet
-            );
-
-            if (profileEvent) {
-              const profileData = parseProfileContent(profileEvent);
-              if (profileData) {
-                authorProfiles.set(pubkey, {
-                  name: profileData.name,
-                  display_name: profileData.display_name,
-                  picture: profileData.picture
-                });
-              }
-              return;
-            }
-          } catch (error) {
-            console.warn(`[fetchAuthorProfiles] Failed to fetch profile from ${relay}:`, error);
-          }
-        }
-
-        // Try all available relays as fallback
-        try {
-          if (!ndk) return;
-
-          const userStoreValue: UserState = get(userStore);
-          const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
-          const relaySet = await buildCompleteRelaySet(ndk, user);
-          const allRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
-          
-          if (allRelays.length > 0) {
-            const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(allRelays, ndk);
-            const profileEvent = await ndk.fetchEvent(
-              { kinds: [0], authors: [pubkey] },
-              undefined,
-              ndkRelaySet
-            );
-
-            if (profileEvent) {
-              const profileData = parseProfileContent(profileEvent);
-              if (profileData) {
-                authorProfiles.set(pubkey, {
-                  name: profileData.name,
-                  display_name: profileData.display_name,
-                  picture: profileData.picture
-                });
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(`[fetchAuthorProfiles] Failed to fetch profile from all relays:`, error);
-        }
-      } catch (error) {
-        console.warn(`[fetchAuthorProfiles] Error processing profile for ${pubkey}:`, error);
-      }
-    });
-
-    await Promise.all(profilePromises);
-    return authorProfiles;
   }
 
   async function findQuotedMessage(eventId: string, publicMessages: NDKEvent[], ndk: NDK): Promise<NDKEvent | undefined> {
@@ -209,12 +62,6 @@
     return quotedMessage;
   }
 </script>
-
-{#snippet parsedContent(content: string)}
-  {#await parseEmbeddedMarkup(content, 0) then parsed}
-    {@html parsed}
-  {/await}
-{/snippet}
 
 {#snippet repostContent(content: string)}
   {@const originalEvent = (() => {

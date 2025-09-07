@@ -20,7 +20,7 @@
   import { buildCompleteRelaySet } from "$lib/utils/relay_management";
   import { formatDate, neventEncode } from "$lib/utils";
   import { NDKRelaySetFromNDK, getUserMetadata, toNpub } from "$lib/utils/nostrUtils";
-  import { getFirstProfileValue, getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { getBestProfileValue, getBestDisplayName } from "$lib/utils/profile_parsing";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { repostContent } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
@@ -220,7 +220,7 @@
 
   function getAuthorPicture(pubkey: string): string | null {
     const profile = profiles.get(pubkey);
-    return profile?.picture?.[0] || null;
+    return getBestProfileValue(profile?.picture) || null;
   }
 
   // AI-NOTE: New Message Modal Functions
@@ -1419,7 +1419,7 @@
                 >
                   {#if profile.picture}
                     <img
-                      src={getFirstProfileValue(profile.picture)}
+                      src={getBestProfileValue(profile.picture)}
                       alt="Profile"
                       class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                       onerror={(e) => {
