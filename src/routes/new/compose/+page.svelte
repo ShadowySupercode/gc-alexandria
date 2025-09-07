@@ -2,7 +2,11 @@
   import { Heading, Button, Alert } from "flowbite-svelte";
   import ZettelEditor from "$lib/components/ZettelEditor.svelte";
   import { nip19 } from "nostr-tools";
-  import { publishSingleEvent } from "$lib/services/publisher";
+  import {
+    publishSingleEvent,
+    processPublishResults,
+    type ProcessedPublishResults,
+  } from "$lib/services/publisher";
   import { getNdkContext } from "$lib/ndk";
 
   const ndk = getNdkContext();
@@ -10,13 +14,7 @@
   let content = $state("");
   let showPreview = $state(false);
   let isPublishing = $state(false);
-  let publishResults = $state<{
-    successCount: number;
-    total: number;
-    errors: string[];
-    successfulEvents: Array<{ eventId: string; title: string }>;
-    failedEvents: Array<{ title: string; error: string; sectionIndex: number }>;
-  } | null>(null);
+  let publishResults = $state<ProcessedPublishResults | null>(null);
 
   // Handle content changes from ZettelEditor
   function handleContentChange(newContent: string) {
@@ -26,6 +24,53 @@
   // Handle preview toggle from ZettelEditor
   function handlePreviewToggle(show: boolean) {
     showPreview = show;
+  }
+
+  // Helper function to create error result
+  function createErrorResult(error: unknown): ProcessedPublishResults {
+    return {
+      successCount: 0,
+      total: 0,
+      errors: [error instanceof Error ? error.message : "Unknown error"],
+      successfulEvents: [],
+      failedEvents: [],
+    };
+  }
+
+  // Helper function to log event summaries
+  function logEventSummary(
+    events: any,
+    successfulEvents: Array<{ eventId: string; title: string }>,
+  ) {
+    console.log("\n=== Events Summary ===");
+
+    if (events.indexEvent) {
+      console.log("\nRoot Index:");
+      console.log(`Event Summary:`);
+      console.log(`  ID: ${successfulEvents[0]?.eventId || "Failed"}`);
+      console.log(`  Kind: 30040`);
+      console.log(`  Tags:`);
+      events.indexEvent.tags.forEach((tag: string[]) => {
+        console.log(`    - ${JSON.stringify(tag)}`);
+      });
+      console.log("  ---");
+    }
+
+    console.log("\nContent:");
+    events.contentEvents.forEach((event: any, index: number) => {
+      const eventId =
+        successfulEvents.find((e) => e.title === event.title)?.eventId ||
+        "Failed";
+      console.log(`\nEvent Summary:`);
+      console.log(`  ID: ${eventId}`);
+      console.log(`  Kind: 30041`);
+      console.log(`  Tags:`);
+      event.tags.forEach((tag: any) => {
+        console.log(`    - ${JSON.stringify(tag)}`);
+      });
+      console.log(`  Content preview: ${event.content.substring(0, 100)}...`);
+      console.log("  ---");
+    });
   }
 
   // Handle unified publishing from ZettelEditor
@@ -82,84 +127,18 @@
         results.push(result);
       }
 
-      // Process results
-      const successCount = results.filter((r) => r.success).length;
-      const errors = results
-        .filter((r) => !r.success && r.error)
-        .map((r) => r.error!);
-
-      // Extract successful events with their titles
-      const successfulEvents = results
-        .filter((r) => r.success && r.eventId)
-        .map((r, index) => ({
-          eventId: r.eventId!,
-          title:
-            index === 0 && events.indexEvent
-              ? "Article Index"
-              : events.contentEvents[index - (events.indexEvent ? 1 : 0)]
-                  ?.title || `Note ${index}`,
-        }));
-
-      // Extract failed events with their titles and errors
-      const failedEvents = results
-        .map((r, index) => ({ result: r, index }))
-        .filter(({ result }) => !result.success)
-        .map(({ result, index }) => ({
-          title:
-            index === 0 && events.indexEvent
-              ? "Article Index"
-              : events.contentEvents[index - (events.indexEvent ? 1 : 0)]
-                  ?.title || `Note ${index}`,
-          error: result.error || "Unknown error",
-          sectionIndex: index,
-        }));
-
-      publishResults = {
-        successCount,
-        total: results.length,
-        errors,
-        successfulEvents,
-        failedEvents,
-      };
+      // Process results using shared utility
+      publishResults = processPublishResults(
+        results,
+        events,
+        !!events.indexEvent,
+      );
 
       // Show summary
-      console.log("\n=== Events Summary ===");
-      if (events.indexEvent) {
-        console.log("\nRoot Index:");
-        console.log(`Event Summary:`);
-        console.log(`  ID: ${successfulEvents[0]?.eventId || "Failed"}`);
-        console.log(`  Kind: 30040`);
-        console.log(`  Tags:`);
-        events.indexEvent.tags.forEach((tag: string[]) => {
-          console.log(`    - ${JSON.stringify(tag)}`);
-        });
-        console.log("  ---");
-      }
-
-      console.log("\nContent:");
-      events.contentEvents.forEach((event: any, index: number) => {
-        const eventId =
-          successfulEvents.find((e) => e.title === event.title)?.eventId ||
-          "Failed";
-        console.log(`\nEvent Summary:`);
-        console.log(`  ID: ${eventId}`);
-        console.log(`  Kind: 30041`);
-        console.log(`  Tags:`);
-        event.tags.forEach((tag: any) => {
-          console.log(`    - ${JSON.stringify(tag)}`);
-        });
-        console.log(`  Content preview: ${event.content.substring(0, 100)}...`);
-        console.log("  ---");
-      });
+      logEventSummary(events, publishResults.successfulEvents);
     } catch (error) {
       console.error("Publishing failed:", error);
-      publishResults = {
-        successCount: 0,
-        total: 0,
-        errors: [error instanceof Error ? error.message : "Unknown error"],
-        successfulEvents: [],
-        failedEvents: [],
-      };
+      publishResults = createErrorResult(error);
     }
 
     isPublishing = false;
@@ -193,64 +172,14 @@
         results.push(result);
       }
 
-      // Process results
-      const successCount = results.filter((r) => r.success).length;
-      const errors = results
-        .filter((r) => !r.success && r.error)
-        .map((r) => r.error!);
-
-      // Extract successful events with their titles
-      const successfulEvents = results
-        .filter((r) => r.success && r.eventId)
-        .map((r, index) => ({
-          eventId: r.eventId!,
-          title: events.contentEvents[index]?.title || `Note ${index + 1}`,
-        }));
-
-      // Extract failed events with their titles and errors
-      const failedEvents = results
-        .map((r, index) => ({ result: r, index }))
-        .filter(({ result }) => !result.success)
-        .map(({ result, index }) => ({
-          title: events.contentEvents[index]?.title || `Note ${index + 1}`,
-          error: result.error || "Unknown error",
-          sectionIndex: index,
-        }));
-
-      publishResults = {
-        successCount,
-        total: results.length,
-        errors,
-        successfulEvents,
-        failedEvents,
-      };
+      // Process results using shared utility
+      publishResults = processPublishResults(results, events, false);
 
       // Show summary
-      console.log("\n=== Events Summary ===");
-      console.log("\nContent:");
-      events.contentEvents.forEach((event: any, index: number) => {
-        const eventId =
-          successfulEvents.find((e) => e.title === event.title)?.eventId ||
-          "Failed";
-        console.log(`\nEvent Summary:`);
-        console.log(`  ID: ${eventId}`);
-        console.log(`  Kind: 30041`);
-        console.log(`  Tags:`);
-        event.tags.forEach((tag: any) => {
-          console.log(`    - ${JSON.stringify(tag)}`);
-        });
-        console.log(`  Content preview: ${event.content.substring(0, 100)}...`);
-        console.log("  ---");
-      });
+      logEventSummary(events, publishResults.successfulEvents);
     } catch (error) {
       console.error("Publishing failed:", error);
-      publishResults = {
-        successCount: 0,
-        total: 0,
-        errors: [error instanceof Error ? error.message : "Unknown error"],
-        successfulEvents: [],
-        failedEvents: [],
-      };
+      publishResults = createErrorResult(error);
     }
 
     isPublishing = false;
