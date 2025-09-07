@@ -149,7 +149,7 @@
           <img
             src={getBestProfileValue(freshProfile().picture)}
             alt="Profile avatar"
-            class="w-16 h-16 rounded-full border flex-shrink-0"
+            class="w-16 h-16 rounded-full object-cover border flex-shrink-0"
             onerror={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
               (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
