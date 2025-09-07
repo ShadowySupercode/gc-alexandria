@@ -46,6 +46,7 @@
   import { visualizationConfig } from "$lib/stores/visualizationConfig";
   import { get } from "svelte/store";
   import type { EventCounts } from "$lib/types";
+  import { getNdkContext } from "$lib/ndk";
 
   // Type alias for D3 selections
   type Selection = any;
@@ -66,6 +67,9 @@
       console.log("[EventNetwork]", ...args);
     }
   }
+
+  // Get NDK instance
+  const ndk = getNdkContext();
 
   // Component props
   let { 
@@ -168,7 +172,19 @@
   let totalPersonCount = $state(0);
   let displayedPersonCount = $state(0);
   let hasInitializedPersons = $state(false);
+  let currentPersonAnchors = $state<NetworkNode[]>([]);
   let hasInitializedTags = $state(new Map<string, boolean>());
+
+  // Reactive function to update person anchor info when anchors change
+  $effect(() => {
+    if (currentPersonAnchors.length > 0) {
+      extractPersonAnchorInfo(currentPersonAnchors, personMap, ndk).then(info => {
+        personAnchorInfo = info;
+      });
+    } else {
+      personAnchorInfo = [];
+    }
+  });
 
 
   // Update dimensions when container changes
@@ -330,12 +346,17 @@
         width, 
         height, 
         showSignedBy, 
-        showReferenced
+        showReferenced,
+        undefined, // limit (use default)
+        ndk
       );
       
       const personAnchors = personResult.nodes;
       totalPersonCount = personResult.totalCount;
       displayedPersonCount = personAnchors.length;
+      
+      // Store person anchors for reactive legend updates
+      currentPersonAnchors = personAnchors;
       
       // Create links between person anchors and their events
       const personLinks = createPersonLinks(personAnchors, graphData.nodes, personMap);
@@ -343,9 +364,6 @@
       // Add person anchors to the graph
       graphData.nodes = [...graphData.nodes, ...personAnchors];
       graphData.links = [...graphData.links, ...personLinks];
-      
-      // Extract person info for legend
-      personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
       
       // Auto-disable all person nodes by default (only on first time showing)
       if (!hasInitializedPersons && personAnchors.length > 0) {
@@ -364,9 +382,9 @@
         showReferenced
       });
     } else {
-      personAnchorInfo = [];
+      currentPersonAnchors = [];
       // Reset initialization flag when person nodes are hidden
-      if (hasInitializedPersons && personAnchorInfo.length === 0) {
+      if (hasInitializedPersons && currentPersonAnchors.length === 0) {
         hasInitializedPersons = false;
         disabledPersons.clear();
       }

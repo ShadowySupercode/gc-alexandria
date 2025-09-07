@@ -6,7 +6,9 @@
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { NetworkLink, NetworkNode } from "../types";
-import { getDisplayNameSync } from "$lib/utils/npubCache";
+import { getDisplayNameSync, batchFetchProfiles } from "$lib/utils/npubCache";
+import { getBestDisplayName } from "$lib/utils/profile_parsing";
+import { getUserMetadata } from "$lib/utils/nostrUtils";
 import { createDebugFunction, SeededRandom } from "./common";
 
 const PERSON_ANCHOR_RADIUS = 15;
@@ -192,14 +194,15 @@ function getEligiblePersons(
 /**
  * Creates person anchor nodes
  */
-export function createPersonAnchorNodes(
+export async function createPersonAnchorNodes(
   personMap: Map<string, PersonConnection>,
   width: number,
   height: number,
   showSignedBy: boolean,
   showReferenced: boolean,
   limit: number = MAX_PERSON_NODES,
-): { nodes: NetworkNode[]; totalCount: number } {
+  ndk?: any,
+): Promise<{ nodes: NetworkNode[]; totalCount: number }> {
   const anchorNodes: NetworkNode[] = [];
 
   const centerX = width / 2;
@@ -212,6 +215,17 @@ export function createPersonAnchorNodes(
     showReferenced,
     limit,
   );
+
+  // Preload profile data for better display names
+  if (ndk && eligiblePersons.length > 0) {
+    const pubkeys = eligiblePersons.map(p => p.pubkey);
+    debug("Preloading profiles for person anchors", { pubkeyCount: pubkeys.length });
+    try {
+      await batchFetchProfiles(pubkeys, ndk);
+    } catch (error) {
+      console.warn("Failed to preload some profiles for person anchors:", error);
+    }
+  }
 
   // Create nodes for the limited set
   debug("Creating person anchor nodes", {
@@ -232,20 +246,20 @@ export function createPersonAnchorNodes(
     const y = centerY + distance * Math.sin(angle);
 
     // Get display name
-    const displayName = getDisplayNameSync(pubkey);
+    const display_name = getDisplayNameSync(pubkey);
 
     const anchorNode: NetworkNode = {
       id: `person-anchor-${pubkey}`,
-      title: displayName,
+      title: display_name,
       content:
         `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
       author: "",
       kind: 0, // Special kind for anchors
       type: "PersonAnchor",
+      display_name: display_name,
       level: -1,
       isPersonAnchor: true,
       pubkey,
-      display_name: displayName,
       connectedNodes: Array.from(connectedEventIds),
       isFromFollowList: connection.isFromFollowList,
       x,
@@ -340,18 +354,42 @@ export interface PersonAnchorInfo {
 /**
  * Extracts person info for Legend display
  */
-export function extractPersonAnchorInfo(
+export async function extractPersonAnchorInfo(
   personAnchors: NetworkNode[],
   personMap: Map<string, PersonConnection>,
-): PersonAnchorInfo[] {
-  return personAnchors.map((anchor) => {
+  ndk?: any,
+): Promise<PersonAnchorInfo[]> {
+  const results: PersonAnchorInfo[] = [];
+  
+  for (const anchor of personAnchors) {
     const connection = personMap.get(anchor.pubkey || "");
-    return {
+    // Use getDisplayNameSync which handles cached profile data and fallback to shortened npub
+    let displayName = getDisplayNameSync(anchor.pubkey || "");
+    
+    // Try to get better display name from fresh profile data if available
+    if (ndk && anchor.pubkey) {
+      try {
+        const profile = await getUserMetadata(anchor.pubkey, ndk);
+        if (profile) {
+          const betterName = getBestDisplayName(profile, anchor.pubkey);
+          if (betterName && betterName !== displayName) {
+            displayName = betterName;
+          }
+        }
+      } catch (error) {
+        // Fall back to cached display name from getDisplayNameSync
+        console.warn("Failed to load profile for legend:", error);
+      }
+    }
+    
+    results.push({
       pubkey: anchor.pubkey || "",
-      displayName: anchor.display_name || "",
+      displayName,
       signedByCount: connection?.signedByEventIds.size || 0,
       referencedCount: connection?.referencedInEventIds.size || 0,
       isFromFollowList: connection?.isFromFollowList || false,
-    };
-  });
+    });
+  }
+  
+  return results;
 }

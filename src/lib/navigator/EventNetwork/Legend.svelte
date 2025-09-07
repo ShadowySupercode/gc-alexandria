@@ -472,7 +472,7 @@
                     }}
                     onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (showPersonNodes && onPersonToggle(person.pubkey)) : null}
                     disabled={!showPersonNodes}
-                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${getBestDisplayName(null, person.pubkey)}` : `Click to hide ${getBestDisplayName(null, person.pubkey)}`}
+                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || getBestDisplayName(null, person.pubkey)}` : `Click to hide ${person.displayName || getBestDisplayName(null, person.pubkey)}`}
                     aria-pressed={!isDisabled}
                   >
                     <div class="flex items-center">
@@ -481,8 +481,8 @@
                         style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
                       ></span>
                     </div>
-                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{getBestDisplayName(null, person.pubkey)}">
-                      {getBestDisplayName(null, person.pubkey)}
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{person.displayName || getBestDisplayName(null, person.pubkey)}">
+                      {person.displayName || getBestDisplayName(null, person.pubkey)}
                     </span>
                   </button>
                 {/each}

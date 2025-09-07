@@ -7,10 +7,13 @@
 <script lang="ts">
   import type { NetworkNode } from "./types";
   import { onMount } from "svelte";
-  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
+  import { getMatchingTags, toNpub, getUserMetadata } from "$lib/utils/nostrUtils";
   import { getEventKindName } from "$lib/utils/eventColors";
   import { getDisplayNameSync } from "$lib/utils/npubCache";
+  import { getBestDisplayName, getBestProfileValue, shortenNpub } from "$lib/utils/profile_parsing";
   import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
+  import { getNdkContext } from "$lib/ndk";
+  import { nip19 } from "nostr-tools";
 
   // Component props
   let {
@@ -29,13 +32,37 @@
     starMode?: boolean; // Whether we're in star visualization mode
   }>();
 
+  // Get NDK instance
+  const ndk = getNdkContext();
+
   // DOM reference and positioning
   let tooltipElement: HTMLDivElement;
   let tooltipX = $state(x + 10); // Add offset to avoid cursor overlap
   let tooltipY = $state(y - 10);
 
+  // Profile loading state for person anchors
+  let profileData = $state<any>(null);
+  let isLoadingProfile = $state(false);
+
+  // Clear profile data when node changes
+  $effect(() => {
+    if (node) {
+      // Always clear profile data when switching nodes
+      profileData = null;
+      isLoadingProfile = false;
+    }
+  });
+
   // Maximum content length to display
   const MAX_CONTENT_LENGTH = 200;
+
+  /**
+   * Shortens a nevent identifier for display
+   */
+  function shortenNevent(nevent: string): string {
+    if (!nevent) return "";
+    return `${nevent.slice(0, 8)}...${nevent.slice(-4)}`;
+  }
 
   // Publication event kinds (text/article based)
   const PUBLICATION_KINDS = [wikiKind, indexKind, ...zettelKinds];
@@ -104,6 +131,16 @@
     }
     // For tag anchor nodes, only create URLs for supported tag types
     if (node.isTagAnchor && node.tagType && node.tagValue) {
+      // For event anchor nodes (tag type "e"), create nevent URL
+      if (node.tagType === 'e') {
+        try {
+          const nevent = nip19.neventEncode({ id: node.tagValue });
+          return `/events?id=${nevent}`;
+        } catch (error) {
+          // Fallback to raw event ID if nevent encoding fails
+          return `/events?id=${node.tagValue}`;
+        }
+      }
       // Only create URLs for supported parameters: t, n, d
       if (node.tagType === 't' || node.tagType === 'n' || node.tagType === 'd') {
         return `/events?${node.tagType}=${encodeURIComponent(node.tagValue)}`;
@@ -131,6 +168,20 @@
     if (isPublicationEvent(node.kind)) {
       return node.title || "Untitled Publication";
     }
+    // For event anchor nodes (tag type "e"), show shortened nevent ID
+    if (node.isTagAnchor && node.tagType === "e" && node.tagValue) {
+      try {
+        const nevent = nip19.neventEncode({ id: node.tagValue });
+        return shortenNevent(nevent);
+      } catch (error) {
+        // Fallback to truncated tag value if nevent encoding fails
+        return truncateContent(node.tagValue, 500);
+      }
+    }
+    // For other tag anchor nodes, truncate the title to prevent explosion
+    if (node.isTagAnchor && node.title) {
+      return truncateContent(node.title, 500);
+    }
     // For arbitrary events, show event kind name
     return node.title || `Event ${node.kind}`;
   }
@@ -148,6 +199,23 @@
   }
 
   /**
+   * Loads profile data for person anchor nodes
+   */
+  async function loadProfileData() {
+    if (!node.isPersonAnchor || !node.pubkey || !ndk) return;
+    
+    isLoadingProfile = true;
+    try {
+      profileData = await getUserMetadata(node.pubkey, ndk);
+    } catch (error) {
+      console.warn("Failed to load profile data:", error);
+      profileData = null;
+    } finally {
+      isLoadingProfile = false;
+    }
+  }
+
+  /**
    * Closes the tooltip
    */
   function closeTooltip() {
@@ -155,9 +223,14 @@
   }
 
   /**
-   * Ensures tooltip is fully visible on screen
+   * Ensures tooltip is fully visible on screen and loads profile data if needed
    */
   onMount(() => {
+    // Load profile data for person anchors
+    if (node.isPersonAnchor) {
+      loadProfileData();
+    }
+
     if (tooltipElement) {
       const rect = tooltipElement.getBoundingClientRect();
       const windowWidth = window.innerWidth;
@@ -224,6 +297,10 @@
     <div class="tooltip-metadata">
       {#if isPublicationEvent(node.kind)}
         {node.type} (kind: {node.kind})
+      {:else if node.isTagAnchor}
+        Tag Anchor ({node.tagType})
+      {:else if node.isPersonAnchor}
+        Person Anchor
       {:else}
         {getEventKindName(node.kind)}
         {#if node.event?.created_at}
@@ -232,24 +309,58 @@
       {/if}
     </div>
 
-    <!-- Pub Author -->
-    {#if !node.isPersonAnchor}
+    <!-- Pub Author - only show for regular event nodes, not tag anchors -->
+    {#if !node.isPersonAnchor && !node.isTagAnchor}
       <div class="tooltip-metadata">
         Pub Author: {getAuthorTag(node)}
       </div>
     {/if}
 
-    <!-- Published by (from node.author) -->
+    <!-- Person anchor profile information -->
     {#if node.isPersonAnchor}
       <div class="tooltip-metadata">
-        Person: {getAuthorTag(node)}
+        {node.pubkey ? shortenNpub(toNpub(node.pubkey)) : "Unknown"}
       </div>
-    {:else if node.author}
+      
+      {#if isLoadingProfile}
+        <div class="tooltip-metadata text-gray-500">
+          Loading profile...
+        </div>
+      {:else if profileData}
+        <!-- Display name -->
+        {#if getBestDisplayName(profileData)}
+          <div class="tooltip-metadata">
+            <strong>Name:</strong> {getBestDisplayName(profileData)}
+          </div>
+        {/if}
+        
+        <!-- NIP-05 verification -->
+        {#if getBestProfileValue(profileData.nip05)}
+          <div class="tooltip-metadata">
+            <strong>Verified:</strong> {getBestProfileValue(profileData.nip05)}
+          </div>
+        {/if}
+        
+        <!-- Bio/About -->
+        {#if getBestProfileValue(profileData.about)}
+          <div class="tooltip-summary">
+            <strong>About:</strong> {truncateContent(getBestProfileValue(profileData.about), 150)}
+          </div>
+        {/if}
+        
+        <!-- Connection counts -->
+        {#if node.content}
+          <div class="tooltip-metadata">
+            <strong>Connections:</strong> {node.content}
+          </div>
+        {/if}
+      {/if}
+    {:else if node.author && !node.isTagAnchor}
       <div class="tooltip-metadata">
         published_by: {node.author}
       </div>
-    {:else}
-      <!-- Fallback to author tag -->
+    {:else if !node.isTagAnchor}
+      <!-- Fallback to author tag - only for non-tag anchor nodes -->
       <div class="tooltip-metadata">
         published_by: {getAuthorTag(node)}
       </div>
