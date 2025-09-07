@@ -70,7 +70,7 @@ import Asciidoctor from "asciidoctor";
   });
 
   // Effect to create PublicationTree when content changes
-  // Uses tree processor extension as Michael envisioned:
+  // Uses tree processor:
   // "register a tree processor extension in our Asciidoctor instance"
   // "use the AST that Asciidoctor generates during parsing"
   // "publication tree side-loads into memory as AsciiDoc is parsed"
@@ -93,6 +93,16 @@ import Asciidoctor from "asciidoctor";
         return exportEventsFromTree(result);
       })
       .then(events => {
+        // Debug: Check what we're getting from exportEventsFromTree
+        console.log("Events from exportEventsFromTree:", events);
+        console.log("Event keys:", Object.keys(events));
+        if (events.indexEvent) {
+          console.log("Index event keys:", Object.keys(events.indexEvent));
+        }
+        if (events.contentEvents?.[0]) {
+          console.log("First content event keys:", Object.keys(events.contentEvents[0]));
+        }
+        
         generatedEvents = events;
         
         console.log("Tree factory result:", {
@@ -225,15 +235,35 @@ import Asciidoctor from "asciidoctor";
   function handlePublish() {
     if (!generatedEvents) return;
     
-    if (contentType === 'article' && generatedEvents.indexEvent) {
-      // Full article: publish both index event (30040) and content events (30041)
-      onPublishArticle(generatedEvents);
-    } else if (contentType === 'scattered-notes') {
-      // Only notes: publish just the content events (30041)
-      const notesOnly = {
-        contentEvents: generatedEvents.contentEvents
-      };
-      onPublishScatteredNotes(notesOnly);
+    try {
+      // Deep clone the events to ensure they're fully serializable
+      // This prevents postMessage cloning errors
+      const serializableEvents = JSON.parse(JSON.stringify(generatedEvents));
+      
+      if (contentType === 'article' && serializableEvents.indexEvent) {
+        // Full article: publish both index event (30040) and content events (30041)
+        onPublishArticle(serializableEvents);
+      } else if (contentType === 'scattered-notes') {
+        // Only notes: publish just the content events (30041)
+        const notesOnly = {
+          contentEvents: serializableEvents.contentEvents
+        };
+        onPublishScatteredNotes(notesOnly);
+      }
+    } catch (error) {
+      console.error("Failed to serialize events:", error);
+      console.error("generatedEvents structure:", generatedEvents);
+      // Try to identify the non-serializable part
+      if (generatedEvents) {
+        console.error("Keys in generatedEvents:", Object.keys(generatedEvents));
+        if (generatedEvents.indexEvent) {
+          console.error("indexEvent type:", typeof generatedEvents.indexEvent, generatedEvents.indexEvent?.constructor?.name);
+        }
+        if (generatedEvents.contentEvents?.[0]) {
+          console.error("First contentEvent type:", typeof generatedEvents.contentEvents[0], generatedEvents.contentEvents[0]?.constructor?.name);
+        }
+      }
+      alert("Error: Events contain non-serializable data. Check console for details.");
     }
   }
 

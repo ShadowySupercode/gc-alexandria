@@ -109,23 +109,27 @@ async function buildTreeRelationships(result: ProcessorResult): Promise<void> {
 export function exportEventsFromTree(result: PublicationTreeResult) {
   return {
     indexEvent: result.indexEvent ? eventToPublishableObject(result.indexEvent) : undefined,
-    contentEvents: result.contentEvents.map(eventToPublishableObject),
-    tree: result.tree
+    contentEvents: result.contentEvents.map(eventToPublishableObject)
+    // Note: Deliberately omitting 'tree' to ensure the object is serializable for postMessage
   };
 }
 
 /**
  * Convert NDKEvent to publishable object format
+ * Ensures all properties are serializable for postMessage
  */
 function eventToPublishableObject(event: any) {
+  // Extract only primitive values to ensure serializability
   return {
-    kind: event.kind,
-    content: event.content,
-    tags: event.tags,
-    created_at: event.created_at,
-    pubkey: event.pubkey,
-    id: event.id,
-    title: event.tags.find((t: string[]) => t[0] === "title")?.[1] || "Untitled"
+    kind: Number(event.kind),
+    content: String(event.content || ''),
+    tags: Array.isArray(event.tags) ? event.tags.map((tag: any) => 
+      Array.isArray(tag) ? tag.map(t => String(t)) : []
+    ) : [],
+    created_at: Number(event.created_at || Math.floor(Date.now() / 1000)),
+    pubkey: String(event.pubkey || ''),
+    id: String(event.id || ''),
+    title: event.tags?.find?.((t: string[]) => t[0] === "title")?.[1] || "Untitled"
   };
 }
 
