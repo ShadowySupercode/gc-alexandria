@@ -600,7 +600,8 @@ function createIndexEvent(
   
   event.tags = tags;
   console.log(`[TreeProcessor] Index event tags:`, tags.slice(0, 10));
-  event.content = generateIndexContent(title, segments);
+  // NKBIP-01: Index events must have empty content
+  event.content = "";
   
   return event;
 }
@@ -823,7 +824,8 @@ function createIndexEventForSection(section: HierarchicalSegment, ndk: NDK): NDK
   });
   
   event.tags = tags;
-  event.content = `${section.content}\n\n${section.children.length} subsections available.`;
+  // NKBIP-01: Index events must have empty content
+  event.content = "";
   
   return event;
 }
