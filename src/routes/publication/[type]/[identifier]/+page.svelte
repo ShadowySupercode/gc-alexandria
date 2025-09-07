@@ -186,7 +186,6 @@
     indexEvent={indexEvent}
   />
 
-  <div class="publication flex flex-row {data.publicationType} px-4 space-y-4 overflow-auto mx-auto flex-grow-2 mt-[70px]">
     <Publication
       rootAddress={indexEvent.tagAddress()}
       publicationType={data.publicationType}
@@ -194,7 +193,6 @@
       publicationTree={publicationTree}
       toc={toc}
     />
-  </div>
 {:else if loading}
   <main class="publication">
     <div class="flex items-center justify-center min-h-screen">
