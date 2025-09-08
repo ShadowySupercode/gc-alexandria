@@ -70,7 +70,7 @@
   let allFromMeNotifications = $state<NDKEvent[]>([]); // All fetched "from-me" notifications
   let allPublicMessages = $state<NDKEvent[]>([]); // All fetched public messages
   let currentPage = $state(1);
-  let itemsPerPage = 20; // Show 20 items per page
+  let itemsPerPage = 10; // Show 20 items per page
   let hasFetchedToMe = $state(false); // Track if we've already fetched "to-me" data
   let hasFetchedFromMe = $state(false); // Track if we've already fetched "from-me" data
   let hasFetchedPublic = $state(false); // Track if we've already fetched public messages
@@ -650,27 +650,13 @@
     }
   }
 
-  // AI-NOTE: Pagination navigation functions
-  function nextPage() {
-    if (hasNextPage) {
-      currentPage++;
-      updateDisplayedItems();
-    }
-  }
-
-  function previousPage() {
-    if (hasPreviousPage) {
-      currentPage--;
-      updateDisplayedItems();
-    }
-  }
-
-  function goToPage(page: number) {
-    if (page >= 1 && page <= totalPages) {
-      currentPage = page;
-      updateDisplayedItems();
-    }
-  }
+  // Pagination navigation
+  $effect (() => {
+    console.log(`[Pagination] Mode: ${notificationMode}, Current Page: ${currentPage}, Total Pages: ${totalPages}`);
+    updateDisplayedItems();
+    // scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   // AI-NOTE: Update displayed items based on current page
   function updateDisplayedItems() {
@@ -845,36 +831,33 @@
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
-  <div class="mb-6 w-full">
-    <div class="flex items-center justify-between mb-4">
-      <Heading tag="h3" class="h-leather">Notifications</Heading>
-      
-      <div class="flex flex-row items-center gap-3">
-        <!-- New Message Button -->
-        <Button
-          color="primary"
-          size="sm"
-          onclick={() => openNewMessageModal()}
-          class="flex !mb-0 items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+    <Heading tag="h3" class="h-leather">Notifications</Heading>
+
+    <div class="flex flex-row items-center gap-3">
+      <!-- New Message Button -->
+      <Button
+        color="primary"
+        size="sm"
+        onclick={() => openNewMessageModal()}
+        class="flex !mb-0 items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+      >
+        New Message
+      </Button>
+
+    <!-- Mode toggle -->
+    <div class="flex flex-row bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
+      {#each modes as mode}
+        {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
+        <button
+          class={`mode-toggle-button px-3 py-1 text-sm !mb-0 font-medium rounded-md ${notificationMode === mode ? 'active' : 'inactive'}`}
+          onclick={() => setNotificationMode(mode)}
         >
-          New Message
-        </Button>
-      
-      <!-- Mode toggle -->
-      <div class="flex flex-row bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
-        {#each modes as mode}
-          {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
-          <button
-            class={`mode-toggle-button px-3 py-1 text-sm !mb-0 font-medium rounded-md ${notificationMode === mode ? 'active' : 'inactive'}`}
-            onclick={() => setNotificationMode(mode)}
-          >
-            {modeLabel}
-          </button>
-        {/each}
-        </div>
+          {modeLabel}
+        </button>
+      {/each}
       </div>
     </div>
-    
+
     {#if loading}
       <div class="flex items-center justify-center py-8 min-h-96">
         <div class="notifications-loading-spinner rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -1038,11 +1021,11 @@
       {/if}
     {:else}
       {#if notifications.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
+        <AAlert color="blue">
           <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
-        </div>
+        </AAlert>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
+        <div class="space-y-4">
           {#each notifications.slice(0, 100) as notification}
             {@const authorProfile = authorProfiles.get(notification.pubkey)}
             <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -1147,8 +1130,7 @@
         </div>
       {/if}
     {/if}
-  </div>
-  
+
   <!-- New Message Modal -->
   <Modal bind:open={showNewMessageModal} size="lg" class="w-full">
     <div class="modal-content p-6">

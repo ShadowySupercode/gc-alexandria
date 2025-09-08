@@ -23,6 +23,7 @@
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
+  import ArticleNav from "$components/util/ArticleNav.svelte";
 
   let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
     rootAddress: string;
@@ -252,164 +253,169 @@
 </script>
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
-<div class="grid grid-cols-[1fr_3fr_1fr] gap-4 items-start">
-  <!-- Table of contents -->
-  {#if publicationType !== "blog" && !isLeaf}
-    <Sidebar
-      class="z-10 ml-4 bg-transparent sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto
-             border border-s-4 rounded border-primary-200 dark:border-primary-800
-             dark:bg-primary-1000"
-      position="static"
-      activeUrl={`#${activeAddress ?? ""}`}
-      classes={{
-        div: 'bg-transparent', /* inner wrapper neutral */
-        active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
-        nonactive: 'bg-primary-50 dark:bg-primary-800',
-      }}
-    >
-      <CloseButton
-        onclick={closeTocSidebar}
-        class="btn-leather hover:bg-primary-50 dark:hover:bg-primary-800"
-      />
-      <TableOfContents
-        {rootAddress}
-        {toc}
-        depth={2}
-        onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
-        onLoadMore={() => {
-          if (!isLoading && !isDone && publicationTree) {
-            loadMore(4);
-          }
+<div class="grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]">
+  <!-- Full-width ArticleNav row -->
+    <ArticleNav
+      publicationType={publicationType}
+      rootId={indexEvent.id}
+      indexEvent={indexEvent}
+    />
+  <!-- Three-column row -->
+  <div class="contents">
+    <!-- Table of contents -->
+    {#if publicationType !== "blog" && !isLeaf}
+      <Sidebar
+        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto
+               border border-s-4 rounded border-primary-200 dark:border-primary-800
+               dark:bg-primary-1000"
+        activeUrl={`#${activeAddress ?? ""}`}
+        classes={{
+          div: 'bg-transparent',
+          active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
+          nonactive: 'bg-primary-50 dark:bg-primary-800',
         }}
-      />
-    </Sidebar>
-  {/if}
-
-  <div>
-    <!-- Default publications -->
-    {#if $publicationColumnVisibility.main}
-      <!-- Remove overflow-auto so page scroll drives it -->
-      <div class="flex flex-col p-4 space-y-4 max-w-2xl flex-grow-2">
-        <div
-          class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
-        >
-          <Details event={indexEvent} />
-        </div>
-        <!-- Publication sections/cards -->
-        {#each leaves as leaf, i}
-          {#if leaf == null}
-            <Alert class="flex space-x-2">
-              <ExclamationCircleOutline class="w-5 h-5" />
-              Error loading content. One or more events could not be loaded.
-            </Alert>
-          {:else}
-            {@const address = leaf.tagAddress()}
-            <PublicationSection
-              {rootAddress}
-              {leaves}
-              {address}
-              {publicationTree}
-              {toc}
-              ref={(el) => onPublicationSectionMounted(el, address)}
-            />
-          {/if}
-        {/each}
-        <div class="flex justify-center my-4">
-          {#if isLoading}
-            <Button disabled color="primary">Loading...</Button>
-          {:else if !isDone}
-            <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
-          {:else}
-            <p class="text-gray-500 dark:text-gray-400">
-              You've reached the end of the publication.
-            </p>
-          {/if}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Blog list -->
-    {#if $publicationColumnVisibility.blog}
-      <!-- Remove overflow-auto -->
-      <div
-        class={`flex flex-col p-4 space-y-4 max-w-xl flex-grow-1 ${isInnerActive() ? "discreet" : ""}`}
       >
-        <div
-          class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
-        >
-          <Details event={indexEvent} />
-        </div>
-        <!-- List blog excerpts -->
-        {#each leaves as leaf, i}
-          {#if leaf}
-            <BlogHeader
-              rootId={leaf.tagAddress()}
-              event={leaf}
-              onBlogUpdate={loadBlog}
-              active={!isInnerActive()}
+        <SidebarWrapper>
+          <TableOfContents
+            {rootAddress}
+            {toc}
+            depth={2}
+            onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
+            onLoadMore={() => {
+            if (!isLoading && !isDone && publicationTree) {
+              loadMore(4);
+            }
+          }}
             />
-          {/if}
-        {/each}
-      </div>
+        </SidebarWrapper>
+      </Sidebar>
     {/if}
 
-    {#if isInnerActive()}
-      {#key currentBlog}
-        <!-- Remove overflow-auto & sticky; allow page scroll -->
-        <div class="flex flex-col p-4 max-w-3xl flex-grow-2">
-          <!-- ...existing code... -->
-        </div>
-      {/key}
-    {/if}
-  </div>
-
-  {#if $publicationColumnVisibility.discussion}
-    <Sidebar
-      position="static"
-      class="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto bg-primary-50 dark:bg-primary-1000
-             border border-primary-200 dark:border-primary-800 rounded"
-    >
-      <SidebarWrapper>
-        <SidebarGroup>
-          <div class="flex justify-between items-baseline">
-            <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading>
-            <Button
-              class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-gray-800"
-              outline
-              onclick={closeDiscussion}
-            >
-              <CloseOutline />
-            </Button>
+    <div class="mt-[70px]">
+      <!-- Default publications -->
+      {#if $publicationColumnVisibility.main}
+        <!-- Remove overflow-auto so page scroll drives it -->
+        <div class="flex flex-col p-4 space-y-4 max-w-2xl flex-grow-2">
+          <div
+            class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+          >
+            <Details event={indexEvent} />
           </div>
-          <div class="flex flex-col space-y-4">
-            <!-- TODO
-                  alternative for other publications and
-                  when blog is not opened, but discussion is opened from the list
-            -->
-            {#if showBlogHeader() && currentBlog && currentBlogEvent}
-              <BlogHeader
-                rootId={currentBlog}
-                event={currentBlogEvent}
-                onBlogUpdate={loadBlog}
-                active={true}
+          <!-- Publication sections/cards -->
+          {#each leaves as leaf, i}
+            {#if leaf == null}
+              <Alert class="flex space-x-2">
+                <ExclamationCircleOutline class="w-5 h-5" />
+                Error loading content. One or more events could not be loaded.
+              </Alert>
+            {:else}
+              {@const address = leaf.tagAddress()}
+              <PublicationSection
+                {rootAddress}
+                {leaves}
+                {address}
+                {publicationTree}
+                {toc}
+                ref={(el) => onPublicationSectionMounted(el, address)}
               />
             {/if}
-            <div class="flex flex-col w-full space-y-4">
-              <Card class="ArticleBox card-leather w-full grid max-w-xl">
-                <div class="flex flex-col my-2">
-                  <span>Unknown</span>
-                  <span class="text-gray-500">1.1.1970</span>
-                </div>
-                <div class="flex flex-col flex-grow space-y-4">
-                  This is a very intelligent comment placeholder that applies to
-                  all the content equally well.
-                </div>
-              </Card>
-            </div>
+          {/each}
+          <div class="flex justify-center my-4">
+            {#if isLoading}
+              <Button disabled color="primary">Loading...</Button>
+            {:else if !isDone}
+              <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
+            {:else}
+              <p class="text-gray-500 dark:text-gray-400">
+                You've reached the end of the publication.
+              </p>
+            {/if}
           </div>
-        </SidebarGroup>
-      </SidebarWrapper>
-    </Sidebar>
-  {/if}
+        </div>
+      {/if}
 
+      <!-- Blog list -->
+      {#if $publicationColumnVisibility.blog}
+        <!-- Remove overflow-auto -->
+        <div
+          class={`flex flex-col p-4 space-y-4 max-w-xl flex-grow-1 ${isInnerActive() ? "discreet" : ""}`}
+        >
+          <div
+            class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+          >
+            <Details event={indexEvent} />
+          </div>
+          <!-- List blog excerpts -->
+          {#each leaves as leaf, i}
+            {#if leaf}
+              <BlogHeader
+                rootId={leaf.tagAddress()}
+                event={leaf}
+                onBlogUpdate={loadBlog}
+                active={!isInnerActive()}
+              />
+            {/if}
+          {/each}
+        </div>
+      {/if}
+
+      {#if isInnerActive()}
+        {#key currentBlog}
+          <!-- Remove overflow-auto & sticky; allow page scroll -->
+          <div class="flex flex-col p-4 max-w-3xl flex-grow-2">
+            <!-- ...existing code... -->
+          </div>
+        {/key}
+      {/if}
+    </div>
+
+    {#if $publicationColumnVisibility.discussion}
+      <Sidebar
+        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto
+               border border-s-4 rounded border-primary-200 dark:border-primary-800
+               dark:bg-primary-1000"
+      >
+        <SidebarWrapper>
+          <SidebarGroup>
+            <div class="flex justify-between items-baseline">
+              <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading>
+              <Button
+                class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-gray-800"
+                outline
+                onclick={closeDiscussion}
+              >
+                <CloseOutline />
+              </Button>
+            </div>
+            <div class="flex flex-col space-y-4">
+              <!-- TODO
+                    alternative for other publications and
+                    when blog is not opened, but discussion is opened from the list
+              -->
+              {#if showBlogHeader() && currentBlog && currentBlogEvent}
+                <BlogHeader
+                  rootId={currentBlog}
+                  event={currentBlogEvent}
+                  onBlogUpdate={loadBlog}
+                  active={true}
+                />
+              {/if}
+              <div class="flex flex-col w-full space-y-4">
+                <Card class="ArticleBox card-leather w-full grid max-w-xl">
+                  <div class="flex flex-col my-2">
+                    <span>Unknown</span>
+                    <span class="text-gray-500">1.1.1970</span>
+                  </div>
+                  <div class="flex flex-col flex-grow space-y-4">
+                    This is a very intelligent comment placeholder that applies to
+                    all the content equally well.
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </SidebarGroup>
+        </SidebarWrapper>
+      </Sidebar>
+    {/if}
+  </div>
 </div>

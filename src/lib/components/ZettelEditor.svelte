@@ -53,7 +53,8 @@
       ta.selectionStart = ta.selectionEnd = pos;
     });
   }
-  const newNoteTemplate = `\n== Note Title\n:author: \n:version: 1.0\n:published_on: 2024-01-01\n:published_by: Alexandria\n:summary: \n:tags: \n:image: \n\nNote content here...\n`;
+  const today = new Date().toISOString().split('T')[0];
+  const newNoteTemplate = `\n== Note Title\n:author: \n:version: 1.0\n:published_on: ${today}\n:published_by: Alexandria\n:summary: \n:tags: \n:image: \n\nNote content here...\n`;
   function insertNoteTemplate() {
     const ta = getTextarea();
     if (!ta || ta.disabled) return;
@@ -191,7 +192,7 @@
     </div>
   {:else}
     <!-- Informative text about ZettelEditor purpose -->
-    <AAlert color="blue" classes="max-w-lg self-center">
+    <AAlert color="blue" classes="w-full self-center">
       {#snippet title()}Note-Taking Tool{/snippet}
       <p class="text-sm mb-3">
         This editor is for creating individual notes (30041 events) only. Each section becomes a separate note event.

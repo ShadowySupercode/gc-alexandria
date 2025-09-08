@@ -4,7 +4,7 @@ import { AAlert } from "$lib/a";
 import { userStore } from "$lib/stores/userStore";
 </script>
 
-<div class="w-full max-w-3xl mx-auto mt-10 px-4">
+<div class="flex flex-col w-full max-w-3xl mx-auto px-2 items-center gap-4">
 {#if $userStore?.signedIn}
   <Notifications />
 {:else}
