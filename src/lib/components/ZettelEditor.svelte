@@ -4,8 +4,7 @@
   import { EditorView, basicSetup } from "codemirror";
   import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
-  import { oneDark } from "@codemirror/theme-one-dark";
-  import { ViewPlugin, Decoration, type DecorationSet } from "@codemirror/view";
+  import { Decoration, type DecorationSet } from "@codemirror/view";
   import { RangeSet } from "@codemirror/state";
   import { onMount } from "svelte";
   import {
@@ -91,27 +90,6 @@ import Asciidoctor from "asciidoctor";
         
         // Export events for publishing workflow
         return exportEventsFromTree(result);
-      })
-      .then(events => {
-        // Debug: Check what we're getting from exportEventsFromTree
-        console.log("Events from exportEventsFromTree:", events);
-        console.log("Event keys:", Object.keys(events));
-        if (events.indexEvent) {
-          console.log("Index event keys:", Object.keys(events.indexEvent));
-        }
-        if (events.contentEvents?.[0]) {
-          console.log("First content event keys:", Object.keys(events.contentEvents[0]));
-        }
-        
-        generatedEvents = events;
-        
-        console.log("Tree factory result:", {
-          contentType,
-          indexEvent: !!events.indexEvent,
-          contentEvents: events.contentEvents.length,
-          parseLevel: parseLevel
-        });
-        
       })
       .catch(error => {
         console.error("Tree factory error:", error);

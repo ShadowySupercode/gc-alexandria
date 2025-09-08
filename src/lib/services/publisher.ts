@@ -191,21 +191,8 @@ export async function publishSingleEvent(
     const publishedToRelays = await ndkEvent.publish(relaySet);
 
     if (publishedToRelays.size > 0) {
-      // Debug: Log the event structure in a clean, concise format
-      const dTagEntry = tags.find((t) => t[0] === "d");
-      const dTag = dTagEntry ? dTagEntry[1] : "";
-      const titleTag = tags.find((t) => t[0] === "title");
-      const title = titleTag ? titleTag[1] : "Untitled";
-
-      console.log(`Event verified: ${ndkEvent.id}`);
-
       return { success: true, eventId: ndkEvent.id };
     } else {
-      const titleTag = tags.find((t) => t[0] === "title");
-      const title = titleTag ? titleTag[1] : "Untitled";
-      console.error(
-        `Failed to publish event: ${title} (${kind}) - no relays responded`,
-      );
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
@@ -290,25 +277,6 @@ export async function publishMultipleZettels(
         results.push({ success: false, error: errorMessage });
       }
     }
-    // Debug: extract and log 'e' and 'a' tags from all published events
-    publishedEvents.forEach((ev) => {
-      // Extract d-tag from tags
-      const dTagEntry = ev.tags.find((t) => t[0] === "d");
-      const dTag = dTagEntry ? dTagEntry[1] : "";
-      const aTag = `${ev.kind}:${ev.pubkey}:${dTag}`;
-      console.log(`Event ${ev.id} tags:`);
-      console.log("  e:", ev.id);
-      console.log("  a:", aTag);
-      // Print nevent and naddr using nip19
-      const nevent = nip19.neventEncode({ id: ev.id });
-      const naddr = nip19.naddrEncode({
-        kind: ev.kind,
-        pubkey: ev.pubkey,
-        identifier: dTag,
-      });
-      console.log("  nevent:", nevent);
-      console.log("  naddr:", naddr);
-    });
     return results;
   } catch (error) {
     const errorMessage =
