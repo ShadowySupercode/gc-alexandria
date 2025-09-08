@@ -330,8 +330,34 @@ function parseSegmentContent(
     }
   }
 
-  // Extract content (everything after attributes)
-  const content = sectionLines.slice(contentStartIdx).join("\n").trim();
+  // Extract content (everything after attributes, but stop at child sections)
+  const contentLines = sectionLines.slice(contentStartIdx);
+  
+  // Find where child sections start (deeper level headers)
+  let contentEndIdx = contentLines.length;
+  const currentSectionLevel = sectionLines[0].match(/^(=+)/)?.[1].length || 2;
+  
+  for (let i = 0; i < contentLines.length; i++) {
+    const line = contentLines[i];
+    const headerMatch = line.match(/^(=+)\s+/);
+    if (headerMatch && headerMatch[1].length > currentSectionLevel) {
+      // Found a child section header - stop content extraction here
+      contentEndIdx = i;
+      break;
+    }
+  }
+  
+  const content = contentLines.slice(0, contentEndIdx).join("\n").trim();
+
+  // Debug logging for content extraction
+  if (sectionLines[0].includes("Chapter 1")) {
+    console.log("[DEBUG] Chapter 1 content extraction in parseSegmentContent:");
+    console.log("  sectionLines:", sectionLines);
+    console.log("  contentStartIdx:", contentStartIdx);
+    console.log("  contentLines:", contentLines);
+    console.log("  contentEndIdx:", contentEndIdx);
+    console.log("  extracted content:", JSON.stringify(content));
+  }
 
   return { attributes, content };
 }
@@ -621,6 +647,15 @@ function createContentEvent(segment: ContentSegment, ndk: NDK): NDKEvent {
 
   event.tags = tags;
   event.content = segment.content;
+
+  // Debug logging for Chapter 1 content events
+  if (segment.title === "Chapter 1") {
+    console.log("[DEBUG] Creating content event for Chapter 1:");
+    console.log("  segment.title:", segment.title);
+    console.log("  segment.content:", JSON.stringify(segment.content));
+    console.log("  segment.level:", segment.level);
+    console.log("  event.content:", JSON.stringify(event.content));
+  }
 
   return event;
 }
