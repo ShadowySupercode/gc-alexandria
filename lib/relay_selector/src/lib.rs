@@ -112,28 +112,14 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
         None => 0,
     } as usize;
 
+    init_relay_selector_if_none(STORE_NAME);
     RELAY_SELECTOR.with(|selector| {
         let url = selector
             .borrow_mut()
+            .as_mut()
+            .unwrap_throw()
             .get_relay_by_weighted_round_robin(variant, rank)
             .unwrap_throw();
-        Ok(relay::RelayHandle::new(url, &selector))
+        Ok(relay::RelayHandle::new(url, variant, selector))
     })
-}
-
-/// Return a relay URL to indicate it that relay is no longer in use.
-///
-/// # Arguments
-///
-/// * `relay_url` - The URL of the relay to return.
-///
-/// # Errors
-///
-/// Throws an error if the caller attempts to return a relay URL that is not currently in use.
-#[wasm_bindgen]
-pub fn return_relay(relay_url: &str) -> Result<(), String> {
-    // TODO: Determine variant, then return
-    let variant: relay::Variant = relay::Variant::General;
-    RELAY_SELECTOR.with(|selector| selector.borrow_mut().return_relay(relay_url, variant));
-    Ok(())
 }
