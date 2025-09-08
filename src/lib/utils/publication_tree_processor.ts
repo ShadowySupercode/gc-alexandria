@@ -522,6 +522,7 @@ function buildLevel2Structure(
 
 /**
  * Build hierarchical structure for Level 3+: Mix of 30040 and 30041 events
+ * NKBIP-01: Sections with children become BOTH 30040 indices AND 30041 content events
  */
 function buildHierarchicalStructure(
   segments: ContentSegment[],
@@ -540,64 +541,27 @@ function buildHierarchicalStructure(
   const eventStructure: EventStructureNode[] = [];
 
   // Add root index to structure
-  eventStructure.push({
+  const rootNode: EventStructureNode = {
     title,
     level: 1,
     eventType: "index",
     eventKind: 30040,
     dTag: generateDTag(title),
     children: [],
-  });
+  };
+  eventStructure.push(rootNode);
 
-  // Build hierarchical structure
-  const hierarchy = buildSegmentHierarchy(segments);
+  // Build hierarchical segment groups based on parse level
+  const hierarchicalGroups = buildHierarchicalGroups(segments, parseLevel);
 
-  for (const level2Section of hierarchy) {
-    if (level2Section.hasChildren) {
-      // Create 30040 for level 2 section with children
-      const level2Index = createIndexEventForSection(level2Section, ndk);
-      contentEvents.push(level2Index);
-
-      const level2Node: EventStructureNode = {
-        title: level2Section.title,
-        level: level2Section.level,
-        eventType: "index",
-        eventKind: 30040,
-        dTag: generateDTag(level2Section.title),
-        children: [],
-      };
-
-      // Add children as 30041 content events
-      for (const child of level2Section.children) {
-        const childEvent = createContentEvent(child, ndk);
-        contentEvents.push(childEvent);
-
-        level2Node.children.push({
-          title: child.title,
-          level: child.level,
-          eventType: "content",
-          eventKind: 30041,
-          dTag: generateDTag(child.title),
-          children: [],
-        });
-      }
-
-      eventStructure[0].children.push(level2Node);
-    } else {
-      // Create 30041 for level 2 section without children
-      const contentEvent = createContentEvent(level2Section, ndk);
-      contentEvents.push(contentEvent);
-
-      eventStructure[0].children.push({
-        title: level2Section.title,
-        level: level2Section.level,
-        eventType: "content",
-        eventKind: 30041,
-        dTag: generateDTag(level2Section.title),
-        children: [],
-      });
-    }
-  }
+  // Process each group recursively
+  processHierarchicalGroup(
+    hierarchicalGroups,
+    rootNode,
+    contentEvents,
+    ndk,
+    parseLevel
+  );
 
   return { tree, indexEvent, contentEvents, eventStructure };
 }
@@ -844,6 +808,193 @@ function groupSegmentsByLevel2(segments: ContentSegment[]): ContentSegment[] {
 
   return level2Groups;
 }
+
+/**
+ * Build hierarchical groups for proper event generation
+ * This creates a tree structure that reflects which sections should become indices vs content
+ */
+function buildHierarchicalGroups(
+  segments: ContentSegment[],
+  parseLevel: number
+): HierarchicalNode[] {
+  const groups: HierarchicalNode[] = [];
+  
+  // Group segments by their parent-child relationships
+  const segmentsByLevel: Map<number, ContentSegment[]> = new Map();
+  for (let level = 2; level <= parseLevel; level++) {
+    segmentsByLevel.set(level, segments.filter(s => s.level === level));
+  }
+  
+  // Build the hierarchy from level 2 down to parseLevel
+  for (const segment of segmentsByLevel.get(2) || []) {
+    const node = buildNodeHierarchy(segment, segments, parseLevel);
+    groups.push(node);
+  }
+  
+  return groups;
+}
+
+/**
+ * Build a hierarchical node for a segment and its descendants
+ */
+function buildNodeHierarchy(
+  segment: ContentSegment,
+  allSegments: ContentSegment[],
+  parseLevel: number
+): HierarchicalNode {
+  // Find direct children (one level deeper)
+  const directChildren = allSegments.filter(s => {
+    if (s.level !== segment.level + 1) return false;
+    if (s.startLine <= segment.startLine) return false;
+    
+    // Check if this segment is within our section's bounds
+    const nextSibling = allSegments.find(
+      next => next.level <= segment.level && next.startLine > segment.startLine
+    );
+    const endLine = nextSibling?.startLine || Infinity;
+    
+    return s.startLine < endLine;
+  });
+  
+  // Recursively build child nodes
+  const childNodes: HierarchicalNode[] = [];
+  for (const child of directChildren) {
+    if (child.level < parseLevel) {
+      // This child might have its own children
+      childNodes.push(buildNodeHierarchy(child, allSegments, parseLevel));
+    } else {
+      // This is a leaf node at parse level
+      childNodes.push({
+        segment: child,
+        children: [],
+        hasChildren: false
+      });
+    }
+  }
+  
+  return {
+    segment,
+    children: childNodes,
+    hasChildren: childNodes.length > 0
+  };
+}
+
+interface HierarchicalNode {
+  segment: ContentSegment;
+  children: HierarchicalNode[];
+  hasChildren: boolean;
+}
+
+/**
+ * Process hierarchical groups to generate events
+ */
+function processHierarchicalGroup(
+  nodes: HierarchicalNode[],
+  parentStructureNode: EventStructureNode,
+  contentEvents: NDKEvent[],
+  ndk: NDK,
+  parseLevel: number
+): void {
+  for (const node of nodes) {
+    if (node.hasChildren && node.segment.level < parseLevel) {
+      // This section has children and is not at parse level
+      // Create BOTH an index event AND a content event
+      
+      // 1. Create the index event (30040)
+      const indexEvent = createIndexEventForHierarchicalNode(node, ndk);
+      contentEvents.push(indexEvent);
+      
+      // 2. Create the content event (30041) for the section's own content
+      const contentEvent = createContentEvent(node.segment, ndk);
+      contentEvents.push(contentEvent);
+      
+      // 3. Add index node to structure
+      const indexNode: EventStructureNode = {
+        title: node.segment.title,
+        level: node.segment.level,
+        eventType: "index",
+        eventKind: 30040,
+        dTag: generateDTag(node.segment.title),
+        children: [],
+      };
+      parentStructureNode.children.push(indexNode);
+      
+      // 4. Add content node as first child of index
+      indexNode.children.push({
+        title: node.segment.title,
+        level: node.segment.level,
+        eventType: "content",
+        eventKind: 30041,
+        dTag: generateDTag(node.segment.title),
+        children: [],
+      });
+      
+      // 5. Process children recursively
+      processHierarchicalGroup(
+        node.children,
+        indexNode,
+        contentEvents,
+        ndk,
+        parseLevel
+      );
+    } else {
+      // This is either a leaf node or at parse level - just create content event
+      const contentEvent = createContentEvent(node.segment, ndk);
+      contentEvents.push(contentEvent);
+      
+      parentStructureNode.children.push({
+        title: node.segment.title,
+        level: node.segment.level,
+        eventType: "content",
+        eventKind: 30041,
+        dTag: generateDTag(node.segment.title),
+        children: [],
+      });
+    }
+  }
+}
+
+/**
+ * Create a 30040 index event for a hierarchical node
+ */
+function createIndexEventForHierarchicalNode(
+  node: HierarchicalNode,
+  ndk: NDK
+): NDKEvent {
+  const event = new NDKEvent(ndk);
+  event.kind = 30040;
+  event.created_at = Math.floor(Date.now() / 1000);
+  event.pubkey = ndk.activeUser?.pubkey || "preview-placeholder-pubkey";
+
+  const dTag = generateDTag(node.segment.title);
+  const [mTag, MTag] = getMimeTags(30040);
+
+  const tags: string[][] = [["d", dTag], mTag, MTag, ["title", node.segment.title]];
+
+  // Add section attributes as tags
+  addSectionAttributesToTags(tags, node.segment.attributes);
+
+  // Add a-tags for the section's own content event
+  tags.push(["a", `30041:${event.pubkey}:${dTag}`]);
+  
+  // Add a-tags for each child section
+  for (const child of node.children) {
+    const childDTag = generateDTag(child.segment.title);
+    if (child.hasChildren && child.segment.level < node.segment.level + 1) {
+      // Child will be an index
+      tags.push(["a", `30040:${event.pubkey}:${childDTag}`]);
+    } else {
+      // Child will be content
+      tags.push(["a", `30041:${event.pubkey}:${childDTag}`]);
+    }
+  }
+
+  event.tags = tags;
+  event.content = "";  // NKBIP-01: Index events must have empty content
+
+  return event;
+}
+
 
 /**
  * Build hierarchical segment structure for Level 3+ parsing
