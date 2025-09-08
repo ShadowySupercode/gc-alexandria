@@ -147,11 +147,22 @@ import Asciidoctor from "asciidoctor";
       keys: Object.keys(publicationResult)
     });
     
+    // Helper to get d-tag from event (works with both NDK events and serialized events)
+    const getEventDTag = (event: any) => {
+      if (event?.tagValue) {
+        // NDK event
+        return event.tagValue('d');
+      } else if (event?.tags) {
+        // Serialized event
+        return event.tags.find((t: string[]) => t[0] === 'd')?.[1];
+      }
+      return null;
+    };
+
     // Helper to find event by dTag
     const findEventByDTag = (events: any[], dTag: string) => {
       return events.find(event => {
-        const eventDTag = event.tags.find((t: string[]) => t[0] === 'd')?.[1];
-        return eventDTag === dTag;
+        return getEventDTag(event) === dTag;
       });
     };
     
@@ -175,7 +186,7 @@ import Asciidoctor from "asciidoctor";
     return flatNodes.map((node: any) => {
       // For the root index, use indexEvent. For others, find in contentEvents
       let event;
-      if (node.dTag === publicationResult.indexEvent?.tagValue('d')) {
+      if (publicationResult.indexEvent && node.dTag === getEventDTag(publicationResult.indexEvent)) {
         event = publicationResult.indexEvent;
       } else {
         // contentEvents can contain both 30040 and 30041 events at parse level 3+
@@ -305,6 +316,9 @@ import Asciidoctor from "asciidoctor";
     const content = doc.toString();
     const lines = content.split('\n');
     
+    // Analyze document structure for ambiguity detection
+    const documentStructure = analyzeDocumentStructure(lines);
+    
     // Create a map of header text to section info for fast lookup
     const sectionMap = new Map();
     if (sections) {
@@ -345,11 +359,13 @@ import Asciidoctor from "asciidoctor";
             className = 'cm-header-event-title';
           }
         } else {
-          // Regular subheader within content
-          if (level <= parseLevel) {
-            className = 'cm-header-potential-event';
+          // Check for ambiguous syntax patterns
+          if (isAmbiguousHeader(level, headerText, documentStructure, parseLevel)) {
+            className = 'cm-header-potential-event'; // Amber for ambiguous
+          } else if (level <= parseLevel) {
+            className = 'cm-header-potential-event'; // Amber for at parse level but not extracted
           } else {
-            className = 'cm-header-subcontent';
+            className = 'cm-header-subcontent'; // Gray for subheaders
           }
         }
         
@@ -365,6 +381,72 @@ import Asciidoctor from "asciidoctor";
     
     console.log(`Created ${ranges.length} header decorations`);
     return RangeSet.of(ranges.map(r => r.decoration.range(r.from, r.to)));
+  }
+
+  // Analyze document structure to detect ambiguous patterns
+  function analyzeDocumentStructure(lines: string[]) {
+    let hasDocumentTitle = false;
+    let level1Headers = 0;
+    let level2Headers = 0;
+    let level3PlusHeaders = 0;
+    
+    for (const line of lines) {
+      const headerMatch = line.match(/^(=+)\s+(.+)$/);
+      if (headerMatch) {
+        const level = headerMatch[1].length;
+        if (level === 1) {
+          hasDocumentTitle = true;
+          level1Headers++;
+        } else if (level === 2) {
+          level2Headers++;
+        } else if (level >= 3) {
+          level3PlusHeaders++;
+        }
+      }
+    }
+    
+    return {
+      hasDocumentTitle,
+      level1Headers,
+      level2Headers,
+      level3PlusHeaders,
+      contentType: hasDocumentTitle && level2Headers > 0 ? 'article' : level2Headers > 0 ? 'scattered-notes' : 'none'
+    };
+  }
+
+  // Check if a header represents ambiguous syntax
+  function isAmbiguousHeader(
+    level: number, 
+    headerText: string, 
+    structure: any, 
+    parseLevel: number
+  ): boolean {
+    // Case 1: Document has title (=) but user might expect level 2 headers to be top-level notes
+    if (level === 2 && structure.hasDocumentTitle && structure.level2Headers > 0) {
+      // This is actually correct for articles, not ambiguous
+      return false;
+    }
+    
+    // Case 2: Multiple level 1 headers (ambiguous document structure)
+    if (level === 1 && structure.level1Headers > 1) {
+      return true; // Multiple document titles are ambiguous
+    }
+    
+    // Case 3: Headers at parse level that aren't being extracted due to structural issues
+    if (level === parseLevel) {
+      // If this header level should be extracted but isn't in the event structure,
+      // it might be ambiguous (this requires checking against publicationResult)
+      if (structure.contentType === 'none' && level === 2) {
+        return true; // Level 2 headers with no clear structure
+      }
+    }
+    
+    // Case 4: Orphaned high-level headers (e.g., === without ==)
+    if (level === 3 && structure.level2Headers === 0 && structure.hasDocumentTitle) {
+      return true; // Level 3 without level 2 parent in article structure
+    }
+    
+    return false;
   }
 
   // Initialize CodeMirror editor
