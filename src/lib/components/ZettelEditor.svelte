@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from "flowbite-svelte";
-  import { EyeOutline, QuestionCircleOutline } from "flowbite-svelte-icons";
+  import { EyeOutline, QuestionCircleOutline, ChartPieOutline } from "flowbite-svelte-icons";
   import { EditorView, basicSetup } from "codemirror";
   import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
@@ -89,7 +89,11 @@ import Asciidoctor from "asciidoctor";
         contentType = result.metadata.contentType;
         
         // Export events for publishing workflow
-        return exportEventsFromTree(result);
+        const events = exportEventsFromTree(result);
+        generatedEvents = events;
+        console.log("Generated events:", events);
+        console.log("Event structure:", result.metadata.eventStructure);
+        return events;
       })
       .catch(error => {
         console.error("Tree factory error:", error);
@@ -247,6 +251,9 @@ import Asciidoctor from "asciidoctor";
 
   // Tutorial sidebar state
   let showTutorial = $state(false);
+  
+  // Structure preview sidebar state
+  let showStructurePreview = $state(false);
 
   // Toggle preview panel
   function togglePreview() {
@@ -257,6 +264,11 @@ import Asciidoctor from "asciidoctor";
   // Toggle tutorial sidebar
   function toggleTutorial() {
     showTutorial = !showTutorial;
+  }
+  
+  // Toggle structure preview sidebar
+  function toggleStructurePreview() {
+    showStructurePreview = !showStructurePreview;
   }
 
   // CodeMirror editor state
@@ -516,6 +528,19 @@ import Asciidoctor from "asciidoctor";
         </div>
         
       </div>
+      
+      <!-- Button on the right side of publisher -->
+      {#if publicationResult?.metadata?.eventStructure && generatedEvents}
+        <Button
+          color="light"
+          size="xs"
+          onclick={toggleStructurePreview}
+          class="flex items-center space-x-1 ml-4"
+        >
+          <ChartPieOutline class="w-3 h-3" />
+          <span class="text-xs">Structure</span>
+        </Button>
+      {/if}
     </div>
   </div>
 
@@ -565,7 +590,7 @@ import Asciidoctor from "asciidoctor";
 
   <div class="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-6 h-[60vh] min-h-[400px] max-h-[800px]">
     <!-- Editor Panel -->
-    <div class="{showPreview && showTutorial ? 'lg:w-1/3' : showPreview || showTutorial ? 'lg:w-1/2' : 'w-full'} flex flex-col">
+    <div class="{(showPreview && (showTutorial || showStructurePreview)) || (showTutorial && showStructurePreview) ? 'lg:w-1/3' : showPreview || showTutorial || showStructurePreview ? 'lg:w-1/2' : 'w-full'} flex flex-col">
       <div class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900" style="overflow: hidden;">
         <!-- CodeMirror Editor Container -->
         <div
@@ -577,7 +602,7 @@ import Asciidoctor from "asciidoctor";
 
     <!-- Preview Panel -->
     {#if showPreview}
-      <div class="{showTutorial ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
+      <div class="{showTutorial || showStructurePreview ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
           <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -740,7 +765,7 @@ import Asciidoctor from "asciidoctor";
 
     <!-- Tutorial Sidebar -->
     {#if showTutorial}
-      <div class="{showPreview ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
+      <div class="{showPreview || showStructurePreview ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
           <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -829,6 +854,120 @@ Understanding the nature of knowledge...
                 <li><strong>Notes:</strong> Just == sections, creates individual content events</li>
               </ul>
             </div>
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    <!-- Structure Preview Sidebar -->
+    {#if showStructurePreview}
+      <div class="{showPreview || showTutorial ? 'lg:w-1/3' : 'lg:w-1/2'} flex flex-col">
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Event Structure
+            </h3>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-4 text-sm text-gray-700 dark:text-gray-300">
+            {#if publicationResult?.metadata?.eventStructure && publicationResult.metadata.eventStructure.length > 0}
+              <!-- Event counts summary -->
+              <div class="mb-4 grid grid-cols-2 gap-2">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg">📁</span>
+                    <div>
+                      <div class="text-xs font-medium text-blue-800 dark:text-blue-200">Index Events</div>
+                      <div class="text-xs text-blue-600 dark:text-blue-400">
+                        {publicationResult.metadata.eventStructure.filter((n: any) => n.eventKind === 30040).length +
+                         publicationResult.metadata.eventStructure.reduce((acc: number, n: any) => 
+                           acc + (n.children?.filter?.((c: any) => c.eventKind === 30040)?.length || 0), 0)} × 30040
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg">📄</span>
+                    <div>
+                      <div class="text-xs font-medium text-green-800 dark:text-green-200">Content Events</div>
+                      <div class="text-xs text-green-600 dark:text-green-400">
+                        {generatedEvents.contentEvents.length} × 30041
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Hierarchical structure -->
+              <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                <div class="font-mono text-xs space-y-1">
+                  {#snippet renderEventNode(node, depth = 0)}
+                    <div class="py-0.5" style="margin-left: {depth * 1}rem;">
+                      {node.eventKind === 30040 ? '📁' : '📄'} 
+                      [{node.eventKind}] {node.title || 'Untitled'}
+                    </div>
+                    {#if node.children && node.children.length > 0}
+                      {#each node.children as child}
+                        {@render renderEventNode(child, depth + 1)}
+                      {/each}
+                    {/if}
+                  {/snippet}
+                  
+                  {#each publicationResult.metadata.eventStructure as node}
+                    {@render renderEventNode(node, 0)}
+                  {/each}
+                </div>
+              </div>
+              
+              <!-- Parse level info -->
+              <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded text-xs">
+                <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Parse Level {parseLevel}
+                </div>
+                <div class="text-gray-600 dark:text-gray-400">
+                  {#if parseLevel === 2}
+                    Each == section becomes a 30041 event with all nested content.
+                  {:else if parseLevel === 3}
+                    Level 2 sections with children → 30040 indices<br>
+                    Level 3 sections → 30041 content events
+                  {:else}
+                    Sections with children → 30040 indices<br>
+                    Level {parseLevel} sections → 30041 content events
+                  {/if}
+                </div>
+              </div>
+              
+              <!-- Legend -->
+              <div class="mt-4 text-xs text-gray-500 dark:text-gray-400 border-t pt-3">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span>📁</span>
+                    <span>Index - references other events</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span>📄</span>
+                    <span>Content - contains article text</span>
+                  </div>
+                </div>
+              </div>
+            {:else}
+              <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+                <div>Add content to see event structure</div>
+                <!-- Debug info -->
+                <div class="text-xs mt-2">
+                  Debug: {JSON.stringify({
+                    hasResult: !!publicationResult,
+                    hasMetadata: !!publicationResult?.metadata,
+                    hasStructure: !!publicationResult?.metadata?.eventStructure,
+                    structureLength: publicationResult?.metadata?.eventStructure?.length || 0,
+                    hasEvents: !!generatedEvents,
+                    contentLength: generatedEvents?.contentEvents?.length || 0
+                  }, null, 2)}
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
       </div>

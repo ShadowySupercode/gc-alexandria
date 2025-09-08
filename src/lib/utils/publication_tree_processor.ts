@@ -498,19 +498,23 @@ function buildLevel2Structure(
 
   // Group segments by level 2 sections
   const level2Groups = groupSegmentsByLevel2(segments);
+  console.log(`[TreeProcessor] Level 2 groups:`, level2Groups.length, level2Groups.map(g => g.title));
 
   for (const group of level2Groups) {
     const contentEvent = createContentEvent(group, ndk);
     contentEvents.push(contentEvent);
 
-    eventStructure[0].children.push({
+    const childNode = {
       title: group.title,
       level: group.level,
-      eventType: "content",
-      eventKind: 30041,
+      eventType: "content" as const,
+      eventKind: 30041 as const,
       dTag: generateDTag(group.title),
       children: [],
-    });
+    };
+    
+    console.log(`[TreeProcessor] Adding child node:`, childNode.title);
+    eventStructure[0].children.push(childNode);
   }
 
   return { tree, indexEvent, contentEvents, eventStructure };
