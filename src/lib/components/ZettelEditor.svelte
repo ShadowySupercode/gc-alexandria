@@ -749,10 +749,12 @@ import Asciidoctor from "asciidoctor";
               >
                 <strong>Event Count:</strong>
                 {#if generatedEvents}
-                  {generatedEvents.contentEvents.length + (generatedEvents.indexEvent ? 1 : 0)} event{(generatedEvents.contentEvents.length + (generatedEvents.indexEvent ? 1 : 0)) !== 1
-                    ? "s"
-                    : ""}
-                  ({generatedEvents.indexEvent ? '1 index + ' : ''}{generatedEvents.contentEvents.length} content)
+                  {@const indexEvents = generatedEvents.contentEvents.filter((e: any) => e.kind === 30040)}
+                  {@const contentOnlyEvents = generatedEvents.contentEvents.filter((e: any) => e.kind === 30041)}
+                  {@const totalIndexEvents = indexEvents.length + (generatedEvents.indexEvent ? 1 : 0)}
+                  {@const totalEvents = totalIndexEvents + contentOnlyEvents.length}
+                  {totalEvents} event{totalEvents !== 1 ? "s" : ""}
+                  ({totalIndexEvents} index{totalIndexEvents !== 1 ? " events" : ""} + {contentOnlyEvents.length} content{contentOnlyEvents.length !== 1 ? " events" : ""})
                 {:else}
                   0 events
                 {/if}
