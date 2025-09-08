@@ -57,11 +57,11 @@ import Asciidoctor from "asciidoctor";
   // Note: updateEditorContent() is only called manually when needed
   // The automatic effect was causing feedback loops with user typing
 
-  // Effect to update syntax highlighting when parsedSections change
+  // Effect to update syntax highlighting when parsing results change
   $effect(() => {
-    if (editorView && parsedSections) {
+    if (editorView && (parsedSections || publicationResult?.metadata?.eventStructure)) {
       editorView.dispatch({
-        effects: updateHighlighting.of(parsedSections)
+        effects: updateHighlighting.of(parsedSections || [])
       });
     }
   });
@@ -317,16 +317,37 @@ import Asciidoctor from "asciidoctor";
     // Analyze document structure for ambiguity detection
     const documentStructure = analyzeDocumentStructure(lines);
     
-    // Create a map of header text to section info for fast lookup
+    // Create a map of header text to section info for fast lookup from actual event structure
     const sectionMap = new Map();
-    if (sections) {
-      sections.forEach(section => {
-        if (section.title) {
-          sectionMap.set(section.title.toLowerCase().trim(), {
-            level: section.level,
+    if (publicationResult?.metadata?.eventStructure) {
+      // Flatten the event structure to get all nodes with their actual event types
+      const flattenEventStructure = (nodes: any[], result: any[] = []): any[] => {
+        for (const node of nodes) {
+          result.push(node);
+          if (node.children && node.children.length > 0) {
+            flattenEventStructure(node.children, result);
+          }
+        }
+        return result;
+      };
+
+      const allEventNodes = flattenEventStructure(publicationResult.metadata.eventStructure);
+      
+      // Debug: log the event structure
+      console.log('Event structure nodes for highlighting:', allEventNodes.map(n => ({
+        title: n.title,
+        level: n.level,
+        eventType: n.eventType,
+        eventKind: n.eventKind
+      })));
+      
+      allEventNodes.forEach(node => {
+        if (node.title) {
+          sectionMap.set(node.title.toLowerCase().trim(), {
+            level: node.level,
             isEventTitle: true,
-            eventType: section.eventType,
-            eventKind: section.eventKind
+            eventType: node.eventType,
+            eventKind: node.eventKind
           });
         }
       });
@@ -347,24 +368,28 @@ import Asciidoctor from "asciidoctor";
         const sectionInfo = sectionMap.get(headerText);
         let className: string;
         
-        if (sectionInfo && sectionInfo.isEventTitle) {
-          // Event title - different colors based on event type
-          if (sectionInfo.eventKind === 30040) {
-            className = 'cm-header-index-event';
-          } else if (sectionInfo.eventKind === 30041) {
-            className = 'cm-header-content-event';
+        // Determine highlighting based on structural analysis first
+        if (level === 1) {
+          // Document title is always an index event (blue)
+          className = 'cm-header-index-event';
+        } else if (level === parseLevel) {
+          // Headers at parse level are content events (green)
+          className = 'cm-header-content-event';
+        } else if (level < parseLevel) {
+          // Headers above parse level that could have children are index events (blue)
+          // Check if this header has children by looking ahead in the document
+          const hasChildren = headerHasChildren(lines, i, level);
+          if (hasChildren) {
+            className = 'cm-header-index-event'; // Blue for sections with children
           } else {
-            className = 'cm-header-event-title';
+            className = 'cm-header-content-event'; // Green for sections without children
           }
+        } else if (isAmbiguousHeader(level, headerText, documentStructure, parseLevel)) {
+          className = 'cm-header-potential-event'; // Amber for ambiguous
+        } else if (level > parseLevel) {
+          className = 'cm-header-subcontent'; // Gray for subheaders below parse level
         } else {
-          // Check for ambiguous syntax patterns
-          if (isAmbiguousHeader(level, headerText, documentStructure, parseLevel)) {
-            className = 'cm-header-potential-event'; // Amber for ambiguous
-          } else if (level <= parseLevel) {
-            className = 'cm-header-potential-event'; // Amber for at parse level but not extracted
-          } else {
-            className = 'cm-header-subcontent'; // Gray for subheaders
-          }
+          className = 'cm-header-potential-event'; // Amber for unclear cases
         }
         
         ranges.push({
@@ -410,6 +435,30 @@ import Asciidoctor from "asciidoctor";
       level3PlusHeaders,
       contentType: hasDocumentTitle && level2Headers > 0 ? 'article' : level2Headers > 0 ? 'scattered-notes' : 'none'
     };
+  }
+
+  // Check if a header has children by looking ahead in the document
+  function headerHasChildren(lines: string[], headerIndex: number, headerLevel: number): boolean {
+    // Look ahead to see if there are any headers at a deeper level
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      const headerMatch = line.match(/^(=+)\s+(.+)$/);
+      
+      if (headerMatch) {
+        const nextLevel = headerMatch[1].length;
+        
+        if (nextLevel > headerLevel) {
+          // Found a deeper header - this header has children
+          return true;
+        } else if (nextLevel <= headerLevel) {
+          // Found a header at the same or higher level - no children
+          return false;
+        }
+      }
+    }
+    
+    // Reached end of document with no headers found - no children
+    return false;
   }
 
   // Check if a header represents ambiguous syntax
