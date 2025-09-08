@@ -54,10 +54,8 @@ import Asciidoctor from "asciidoctor";
   let contentType = $state<'article' | 'scattered-notes' | 'none'>('none');
   
 
-  // Update editor when content changes externally
-  $effect(() => {
-    updateEditorContent();
-  });
+  // Note: updateEditorContent() is only called manually when needed
+  // The automatic effect was causing feedback loops with user typing
 
   // Effect to update syntax highlighting when parsedSections change
   $effect(() => {
