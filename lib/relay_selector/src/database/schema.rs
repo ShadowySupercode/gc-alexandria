@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::relay;
 use crate::relay_selector;
 
+/// A serializable representation of a relay suitable for storage in a database.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Relay {
     pub url: String,
@@ -18,6 +19,7 @@ pub struct Relay {
 }
 
 impl Relay {
+    /// Makes a new [`Relay`] instance from the in-memory repositories.
     pub fn from_repositories(
         url: &str,
         variant: relay::Variant,
@@ -39,6 +41,7 @@ impl Relay {
         }
     }
 
+    /// Makes a new [`relay::Statistics`] repository instance from the serializable representation.
     pub fn to_statistics(&self) -> relay::Statistics {
         let mut statistics = relay::Statistics::new();
         statistics.requests = self.requests;

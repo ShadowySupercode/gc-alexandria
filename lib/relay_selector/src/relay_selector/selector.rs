@@ -186,8 +186,7 @@ impl RelaySelector {
     /// requested rank is out of bounds.
     ///
     /// When this method is invoked, the returned relay is "checked out" from the selector.
-    /// Checked-out relays are deprioritized in subsequent selections. When the caller is no longer
-    /// using the relay, it should return the relay via the [`RelaySelector::return_relay`] method.
+    /// Checked-out relays are deprioritized in subsequent selections.
     ///
     /// # Arguments
     ///
@@ -249,10 +248,10 @@ impl RelaySelector {
 
     /// Returns a relay to the selector.
     ///
-    /// Users of the [`RelaySelector`] are expected to call this method when they are done using a
-    /// relay, i.e., all active connections to that relay have been closed. Returning a relay
-    /// increases its weight, making it more likely to be selected in subsequent calls to
-    /// [`RelaySelector::select_relay`].
+    /// Returning a relay increases its weight, making it more likely to be selected in subsequent
+    /// calls to [`RelaySelector::select_relay`].
+    ///
+    /// Relay returns are performed automatically when a [`relay::Handle`] is dropped.
     ///
     /// # Arguments
     ///

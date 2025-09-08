@@ -28,7 +28,7 @@ pub async fn insert_or_update(store_name: &str, relays: &[schema::Relay]) -> Res
     let store = get_object_store(&tx, store_name).await?;
 
     for relay in relays {
-        store.put(relay);
+        let _ = store.put(relay);
     }
 
     commit_transaction(tx).await

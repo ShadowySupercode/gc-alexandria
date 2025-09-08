@@ -94,16 +94,13 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
 ///
 /// # Returns
 ///
-/// A relay URL.
+/// A relay handle containing the relay URL, its variant, and a private pointer to the selector.
+/// When this handle is dropped, it will notify the selector to indicate the relay is no longer in
+/// use, and the selector will update the weights accordingly.
 ///
 /// # Errors
 ///
 /// Throws an error if the relay type is invalid, or if an error occurs while selecting the relay.
-///
-/// # Remarks
-///
-/// When the relay indicated by the returned URL is no longer in use, it should be returned with
-/// [`return_relay`] to prevent memory leaks.
 #[wasm_bindgen]
 pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::RelayHandle, String> {
     let variant = relay::Variant::from_str(relay_type).unwrap_throw();
