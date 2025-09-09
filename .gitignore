@@ -17,3 +17,7 @@ vite.config.ts.timestamp-*
 /.deno/
 /deno_dir/
 /import_map.lock.json
+
+# IDEs
+.zed/
+.vscode/
