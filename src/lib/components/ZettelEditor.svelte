@@ -155,6 +155,13 @@
       keys: Object.keys(publicationResult),
     });
 
+    console.log("Event structure details:", JSON.stringify(publicationResult.metadata.eventStructure, null, 2));
+    console.log("Content events details:", publicationResult.contentEvents?.map(e => ({
+      dTag: e.tags?.find(t => t[0] === 'd')?.[1],
+      title: e.tags?.find(t => t[0] === 'title')?.[1],
+      content: e.content?.substring(0, 100) + '...'
+    })));
+
     // Helper to get d-tag from event (works with both NDK events and serialized events)
     const getEventDTag = (event: any) => {
       if (event?.tagValue) {
@@ -216,43 +223,25 @@
       const titleTag = event?.tags.find((t: string[]) => t[0] === "title");
       const eventTitle = titleTag ? titleTag[1] : node.title;
 
-      // Debug logging for Chapter 1 event finding
-      if (node.title === "Chapter 1") {
-        console.log("[DEBUG] Chapter 1 preview processing:");
-        console.log("  node.title:", node.title);
-        console.log("  node.dTag:", node.dTag);
-        console.log("  node.eventType:", node.eventType);
-        console.log("  node.eventKind:", node.eventKind);
-        console.log("  found event:", !!event);
-        console.log("  event?.content:", JSON.stringify(event?.content));
-        if (event) {
-          console.log("  event d-tag:", getEventDTag(event));
-          console.log("  event tags:", event.tags);
-        }
-        console.log("  contentEvents available:", publicationResult.contentEvents?.map(e => ({
-          dTag: getEventDTag(e),
-          content: e.content?.substring(0, 50) + "..."
-        })));
-      }
 
       // For content events, remove the first heading from content since we'll use the title tag
       let processedContent = event?.content || "";
       if (event && node.eventType === "content") {
-        // Remove the first heading line (which should match the title)
+        // Remove the heading line that matches this section's title and level (if present)
+        // This is important because content events should not include their own title heading
+        // since the title is displayed separately from the "title" tag
         const lines = processedContent.split("\n");
-        const firstHeadingIndex = lines.findIndex((line: string) =>
-          line.match(/^=+\s+/),
+        const expectedHeading = `${"=".repeat(node.level)} ${node.title}`;
+        const titleHeadingIndex = lines.findIndex((line: string) =>
+          line.trim() === expectedHeading.trim(),
         );
-        if (firstHeadingIndex !== -1) {
-          // Remove the heading line and join back
-          lines.splice(firstHeadingIndex, 1);
+        if (titleHeadingIndex !== -1) {
+          // Remove only the specific title heading line
+          lines.splice(titleHeadingIndex, 1);
           processedContent = lines.join("\n").trim();
         }
       }
 
-      if (node.title === "Chapter 1") {
-        console.log("  final processedContent:", JSON.stringify(processedContent));
-      }
 
       return {
         title: eventTitle,
@@ -1067,13 +1056,54 @@
                           <div
                             class="prose prose-sm dark:prose-invert max-w-none mt-4"
                           >
-                            {@html asciidoctor.convert(section.content, {
-                              standalone: false,
-                              attributes: {
-                                showtitle: false,
-                                sectids: false,
-                              },
-                            })}
+                            {@html (() => {
+                              // Check if content contains nested headers
+                              const hasNestedHeaders = section.content.includes('\n===') || section.content.includes('\n====');
+                              
+                              if (hasNestedHeaders) {
+                                // For proper nested header parsing, we need full document context
+                                // Create a complete AsciiDoc document structure
+                                // Important: Ensure proper level sequence for nested headers
+                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${section.content}`;
+                                
+                                
+                                const rendered = asciidoctor.convert(fullDoc, {
+                                  standalone: false,
+                                  attributes: {
+                                    showtitle: false,
+                                    sectids: false,
+                                  },
+                                });
+                                
+                                
+                                // Extract just the content we want (remove the temporary structure)
+                                // Find the section we care about
+                                const sectionStart = rendered.indexOf(`<h${section.level}`);
+                                if (sectionStart !== -1) {
+                                  const nextSectionStart = rendered.indexOf(`</h${section.level}>`, sectionStart);
+                                  if (nextSectionStart !== -1) {
+                                    // Get everything after our section header
+                                    const afterHeader = rendered.substring(nextSectionStart + `</h${section.level}>`.length);
+                                    // Find where the section ends (at the closing div)
+                                    const sectionEnd = afterHeader.lastIndexOf('</div>');
+                                    if (sectionEnd !== -1) {
+                                      const extracted = afterHeader.substring(0, sectionEnd);
+                                      return extracted;
+                                    }
+                                  }
+                                }
+                                return rendered;
+                              } else {
+                                // Simple content without nested headers
+                                return asciidoctor.convert(section.content, {
+                                  standalone: false,
+                                  attributes: {
+                                    showtitle: false,
+                                    sectids: false,
+                                  },
+                                });
+                              }
+                            })()}
                           </div>
                         {/if}
                       </div>
