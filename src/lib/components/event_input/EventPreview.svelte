@@ -6,7 +6,7 @@
   import { build30040EventSet } from "$lib/utils/event_input_utils";
   import type { EventData, TagData, EventPreview } from "./types";
 
-  // AI-NOTE: 2025-01-24 - EventPreview component shows a preview of the event that will be published
+  // AI-NOTE:  EventPreview component shows a preview of the event that will be published
   // This component generates a preview based on the current form data
 
   let {

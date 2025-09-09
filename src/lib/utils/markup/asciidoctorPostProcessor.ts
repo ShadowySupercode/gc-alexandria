@@ -1,56 +1,10 @@
+import NDK from "@nostr-dev-kit/ndk";
 import {
   processAsciiDocAnchors,
   processImageWithReveal,
   processNostrIdentifiersInText,
   processWikilinks,
-} from "./markupServices.ts";
-
-/**
- * Processes nostr addresses in HTML content, but skips addresses that are
- * already within hyperlink tags.
- */
-async function processNostrAddresses(html: string): Promise<string> {
-  // Helper to check if a match is within an existing <a> tag
-  function isWithinLink(text: string, index: number): boolean {
-    // Look backwards from the match position to find the nearest <a> tag
-    const before = text.slice(0, index);
-    const lastOpenTag = before.lastIndexOf("<a");
-    const lastCloseTag = before.lastIndexOf("</a>");
-
-    // If we find an opening <a> tag after the last closing </a> tag, we're inside a link
-    return lastOpenTag > lastCloseTag;
-  }
-
-  // Process nostr addresses that are not within existing links
-  const nostrPattern =
-    /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{20,}/g;
-  let processedHtml = html;
-
-  // Find all nostr addresses
-  const matches = Array.from(processedHtml.matchAll(nostrPattern));
-
-  // Process them in reverse order to avoid index shifting issues
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const match = matches[i];
-    const [fullMatch] = match;
-    const matchIndex = match.index ?? 0;
-
-    // Skip if already within a link
-    if (isWithinLink(processedHtml, matchIndex)) {
-      continue;
-    }
-
-    // Process the nostr identifier
-    const processedMatch = await processNostrIdentifiersInText(fullMatch);
-
-    // Replace the match in the HTML
-    processedHtml = processedHtml.slice(0, matchIndex) +
-      processedMatch +
-      processedHtml.slice(matchIndex + fullMatch.length);
-  }
-
-  return processedHtml;
-}
+} from "./markupUtils.ts";
 
 /**
  * Processes AsciiDoc image blocks to add reveal/enlarge functionality
@@ -101,6 +55,7 @@ function fixStemBlocks(html: string): string {
  */
 export async function postProcessAsciidoctorHtml(
   html: string,
+  ndk?: NDK,
 ): Promise<string> {
   if (!html) return html;
 
@@ -110,7 +65,7 @@ export async function postProcessAsciidoctorHtml(
     // Then process wikilinks in [[...]] format (if any remain)
     processedHtml = processWikilinks(processedHtml);
     // Then process nostr addresses (but not those already in links)
-    processedHtml = await processNostrIdentifiersInText(processedHtml);
+    processedHtml = await processNostrIdentifiersInText(processedHtml, ndk);
     processedHtml = fixStemBlocks(processedHtml); // Fix math blocks for MathJax
     // Process image blocks to add reveal/enlarge functionality
     processedHtml = processImageBlocks(processedHtml);

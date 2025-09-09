@@ -3,7 +3,7 @@
   import type { EventData, TagData, ValidationResult } from "./types";
   import { validateEvent } from "./validation";
 
-  // AI-NOTE: 2025-01-24 - EventForm component handles basic form inputs and validation
+  // AI-NOTE:  EventForm component handles basic form inputs and validation
   // This component focuses on event kind and content, with validation feedback
 
   let {

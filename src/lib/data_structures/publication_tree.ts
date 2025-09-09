@@ -70,7 +70,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   #bookmark?: string;
 
   /**
-   * AI-NOTE: 2025-01-24 - Track visited nodes to prevent duplicate iteration
+   * AI-NOTE:  Track visited nodes to prevent duplicate iteration
    * This ensures that each node is only yielded once during iteration
    */
   #visitedNodes: Set<string> = new Set();
@@ -234,7 +234,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * AI-NOTE: 2025-01-24 - Reset the cursor to the beginning of the tree
+   * AI-NOTE:  Reset the cursor to the beginning of the tree
    * This is useful when the component state is reset and we want to start iteration from the beginning
    */
   resetCursor() {
@@ -243,7 +243,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * AI-NOTE: 2025-01-24 - Reset the iterator state to start from the beginning
+   * AI-NOTE:  Reset the iterator state to start from the beginning
    * This ensures that when the component resets, the iterator starts fresh
    */
   resetIterator() {
@@ -499,7 +499,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     
     const address = this.#cursor.target.address;
     
-    // AI-NOTE: 2025-01-24 - Check if this node has already been visited
+    // AI-NOTE:  Check if this node has already been visited
     if (this.#visitedNodes.has(address)) {
       console.debug(`[PublicationTree] Skipping already visited node: ${address}`);
       return { done: false, value: null };
@@ -761,7 +761,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #addNode(address: string, parentNode: PublicationTreeNode) {
-    // AI-NOTE: 2025-01-24 - Add debugging to track node addition
+    // AI-NOTE:  Add debugging to track node addition
     console.debug(`[PublicationTree] Adding node ${address} to parent ${parentNode.address}`);
     
     const lazyNode = new Lazy<PublicationTreeNode>(() =>
@@ -792,7 +792,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     if (!event) {
       const [kind, pubkey, dTag] = address.split(":");
 
-      // AI-NOTE: 2025-01-24 - Enhanced event fetching with comprehensive fallback
+      // AI-NOTE:  Enhanced event fetching with comprehensive fallback
       // First try to fetch using the enhanced fetchEventWithFallback function
       // which includes search relay fallback logic
       return fetchEventWithFallback(this.#ndk, {
@@ -845,7 +845,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * AI-NOTE: 2025-01-24 - Aggressive search relay fallback for publication events
+   * AI-NOTE:  Aggressive search relay fallback for publication events
    * This method tries to find events on search relays when they're not found on primary relays
    */
   async #trySearchRelayFallback(
@@ -942,7 +942,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   /**
-   * AI-NOTE: 2025-01-24 - Helper method to build a node from an event
+   * AI-NOTE:  Helper method to build a node from an event
    * This extracts the common logic for building nodes from events
    */
   async #buildNodeFromEvent(
@@ -1014,7 +1014,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
         }
       });
 
-      // AI-NOTE: 2025-01-24 - Remove e-tag processing from synchronous method
+      // AI-NOTE:  Remove e-tag processing from synchronous method
       // E-tags should be resolved asynchronously in #resolveNode method
       // Adding raw event IDs here causes duplicate processing
       console.debug(`[PublicationTree] Found ${eTags.length} e-tags but skipping processing in buildNodeFromEvent`);
@@ -1028,7 +1028,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       children: [],
     };
 
-    // AI-NOTE: 2025-01-24 - Fixed child node addition in buildNodeFromEvent
+    // AI-NOTE:  Fixed child node addition in buildNodeFromEvent
     // Previously called addEventByAddress which expected parent to be in tree
     // Now directly adds child nodes to current node's children array
     // Add children in the order they appear in the a-tags to preserve section order
@@ -1054,7 +1054,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
   }
 
   #getNodeType(event: NDKEvent): PublicationTreeNodeType {
-    // AI-NOTE: 2025-01-24 - Show nested 30040s and their zettel kind leaves
+    // AI-NOTE:  Show nested 30040s and their zettel kind leaves
     // Only 30040 events with children should be branches
     // Zettel kinds (30041, 30818, 30023) are always leaves
     if (event.kind === 30040) {

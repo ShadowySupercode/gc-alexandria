@@ -147,7 +147,7 @@ async function getUserPreferredRelays(
 
 // --- Unified login/logout helpers ---
 
-// AI-NOTE: 2025-01-24 - Authentication persistence system
+// AI-NOTE:  Authentication persistence system
 // The application stores login information in localStorage to persist authentication across page refreshes.
 // The layout component automatically restores this authentication state on page load.
 // This prevents users from being logged out when refreshing the page.

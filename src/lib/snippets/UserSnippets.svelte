@@ -6,28 +6,30 @@
     getUserMetadata,
   } from "$lib/utils/nostrUtils";
   import type { UserProfile } from "$lib/models/user_profile";
+  import NDK from "@nostr-dev-kit/ndk";
 
   export { userBadge };
 </script>
 
-{#snippet userBadge(identifier: string, displayText: string | undefined)}
+{#snippet userBadge(identifier: string, displayText: string | undefined, ndk?: NDK)}
   {@const npub = toNpub(identifier)}
   {#if npub}
     {#if !displayText || displayText.trim().toLowerCase() === "unknown"}
-      {#await getUserMetadata(npub, undefined, false) then profile}
+      {#await getUserMetadata(npub, ndk, false) then profile}
         {@const p = profile as UserProfile}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
-            @{p.display_name ||
+            @{p.displayName ||
               p.display_name ||
               p.name ||
               npub.slice(0, 8) + "..." + npub.slice(-4)}
           </button>
         </span>
-      {:catch}
+      {:catch error}
+        {@const debugError = console.error("Error fetching profile for", npub, ":", error)}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
@@ -38,7 +40,7 @@
         </span>
       {/await}
     {:else}
-      {#await createProfileLinkWithVerification(npub as string, displayText, undefined)}
+      {#await createProfileLinkWithVerification(npub as string, displayText, ndk)}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"

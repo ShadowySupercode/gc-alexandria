@@ -44,7 +44,7 @@
       addresses: Set<string>,
       searchType?: string,
       searchTerm?: string,
-      loading?: boolean, // AI-NOTE: 2025-01-24 - Add loading parameter for second-order search message logic
+      loading?: boolean, // AI-NOTE:  Add loading parameter for second-order search message logic
     ) => void;
     event: NDKEvent | null;
     onClear?: () => void;
@@ -399,7 +399,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Effects organized for better readability
+  // AI-NOTE:  Effects organized for better readability
   $effect(() => {
     if (searching || isResetting || isUserEditing) {
       return;
@@ -507,7 +507,7 @@
     }
   });
 
-  // AI-NOTE: 2025-01-24 - Utility functions for event matching and state management
+  // AI-NOTE:  Utility functions for event matching and state management
   function isCurrentEventMatch(searchValue: string, event: NDKEvent): boolean {
     const currentEventId = event.id;
     let currentNaddr: string | null = null;
@@ -810,7 +810,7 @@
     }
   }
 
-  // AI-NOTE: 2025-01-24 - Background profile search is now handled by centralized searchProfiles function
+  // AI-NOTE:  Background profile search is now handled by centralized searchProfiles function
   // This function is no longer needed as profile searches go through subscription_search.ts
   // which delegates to the centralized profile_search.ts
 

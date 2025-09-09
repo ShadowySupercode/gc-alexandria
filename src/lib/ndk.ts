@@ -44,7 +44,7 @@ export function setNdkContext(ndk: NDK): void {
   setContext(NDK_CONTEXT_KEY, ndk);
 }
 
-// AI-NOTE: 2025-01-08 - Persistent relay storage to avoid recalculation
+// AI-NOTE:  Persistent relay storage to avoid recalculation
 let persistentRelaySet:
   | { inboxRelays: string[]; outboxRelays: string[] }
   | null = null;
@@ -532,7 +532,7 @@ export async function updateActiveRelayStores(
   forceUpdate: boolean = false,
 ): Promise<void> {
   try {
-    // AI-NOTE: 2025-01-08 - Use persistent relay set to avoid recalculation
+    // AI-NOTE:  Use persistent relay set to avoid recalculation
     const now = Date.now();
     const cacheExpired = now - relaySetLastUpdated > RELAY_SET_CACHE_DURATION;
 
@@ -869,7 +869,7 @@ export function logout(user: NDKUser): void {
   activeInboxRelays.set([]);
   activeOutboxRelays.set([]);
 
-  // AI-NOTE: 2025-01-08 - Clear persistent relay set on logout
+  // AI-NOTE:  Clear persistent relay set on logout
   persistentRelaySet = null;
   relaySetLastUpdated = 0;
   clearPersistentRelaySet(); // Clear persistent storage

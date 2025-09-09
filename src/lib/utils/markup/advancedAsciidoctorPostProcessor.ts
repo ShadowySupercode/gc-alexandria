@@ -1,3 +1,4 @@
+import NDK from "@nostr-dev-kit/ndk";
 import { postProcessAsciidoctorHtml } from "./asciidoctorPostProcessor.ts";
 import plantumlEncoder from "plantuml-encoder";
 
@@ -10,11 +11,12 @@ import plantumlEncoder from "plantuml-encoder";
  */
 export async function postProcessAdvancedAsciidoctorHtml(
   html: string,
+  ndk?: NDK,
 ): Promise<string> {
   if (!html) return html;
   try {
     // First apply the basic post-processing (wikilinks, nostr addresses)
-    let processedHtml = await postProcessAsciidoctorHtml(html);
+    let processedHtml = await postProcessAsciidoctorHtml(html, ndk);
     // Unified math block processing
     processedHtml = fixAllMathBlocks(processedHtml);
     // Process PlantUML blocks

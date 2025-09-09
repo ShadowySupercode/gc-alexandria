@@ -7,6 +7,9 @@
   import { goto } from "$app/navigation";
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import { getNdkContext } from "$lib/ndk";
+
+  const ndk = getNdkContext();
 
   // isModal
   //  - don't show interactions in modal view
@@ -62,7 +65,7 @@
     <div class="flex flex-row justify-between items-center">
       <!-- Index author badge -->
       <P class="text-base font-normal"
-        >{@render userBadge(event.pubkey, undefined)}</P
+        >{@render userBadge(event.pubkey, undefined, ndk)}</P
       >
       <CardActions {event}></CardActions>
     </div>
@@ -91,13 +94,13 @@
       <h2 class="text-base font-bold">
         by
         {#if authorTag && pTag && isValidNostrPubkey(pTag)}
-          {authorTag} {@render userBadge(pTag, "")}
+          {authorTag} {@render userBadge(pTag, "", ndk)}
         {:else if authorTag}
           {authorTag}
         {:else if pTag && isValidNostrPubkey(pTag)}
-          {@render userBadge(pTag, "")}
+          {@render userBadge(pTag, "", ndk)}
         {:else if originalAuthor !== null}
-          {@render userBadge(originalAuthor, author)}
+          {@render userBadge(originalAuthor, author, ndk)}
         {:else}
           unknown
         {/if}
@@ -139,7 +142,7 @@
       {:else}
         <span>Author:</span>
       {/if}
-      {@render userBadge(event.pubkey, "")}
+      {@render userBadge(event.pubkey, "", ndk)}
     </h4>
   </div>
 

@@ -14,6 +14,9 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { indexKind } from "$lib/consts";
+  import { getNdkContext } from "$lib/ndk";
+
+  const ndk = getNdkContext();
 
   let { publicationType, indexEvent } = $props<{
     rootId: any;
@@ -114,7 +117,18 @@
   });
 
   function visualizePublication() {
+    // Use the event ID directly, but also try to get the tagAddress as a fallback
     const eventId = indexEvent.id;
+    const tagAddress = indexEvent.tagAddress();
+    
+    // For debugging, log both identifiers
+    console.log("[ArticleNav] Visualizing publication:", {
+      eventId,
+      tagAddress,
+      kind: indexEvent.kind,
+      pubkey: indexEvent.pubkey
+    });
+    
     goto(`/visualize?event=${eventId}`);
   }
 
@@ -182,7 +196,7 @@
       </p>
       <p>
         <span class="whitespace-nowrap"
-          >by {@render userBadge(pubkey, author)}</span
+          >by {@render userBadge(pubkey, author, ndk)}</span
         >
       </p>
     </div>

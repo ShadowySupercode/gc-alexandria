@@ -502,7 +502,7 @@
                 >
                   <UserOutline
                     class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
-                  /><span class="underline">View profile</span>
+                  /><span class="underline">View notifications</span>
                 </button>
               </li>
 

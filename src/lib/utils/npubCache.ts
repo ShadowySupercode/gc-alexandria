@@ -124,6 +124,7 @@ class UnifiedProfileCache {
       const metadata: NostrProfile = {
         name: profile?.name || fallback.name,
         displayName: profile?.displayName || profile?.display_name,
+        display_name: profile?.display_name || profile?.displayName, // AI-NOTE:  Added for compatibility
         nip05: profile?.nip05,
         picture: profile?.picture || profile?.image,
         about: profile?.about,

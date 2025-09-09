@@ -65,6 +65,7 @@
         });
         renderedContent[event.id] = await postProcessAsciidoctorHtml(
           html as string,
+          ndk,
         );
       }
       // Collect unique tags by type

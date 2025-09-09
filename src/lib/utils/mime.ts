@@ -62,6 +62,18 @@ export function getMimeTags(kind: number): [string, string][] {
       MTag = ["M", `note/microblog/${replaceability}`];
       break;
 
+    // Repost (NIP-18)
+    case 6:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `note/repost/${replaceability}`];
+      break;
+
+    // Generic repost (NIP-18)
+    case 16:
+      mTag = ["m", "application/json"];
+      MTag = ["M", `note/generic-repost/${replaceability}`];
+      break;
+
     // Generic reply
     case 1111:
       mTag = ["m", "text/plain"];

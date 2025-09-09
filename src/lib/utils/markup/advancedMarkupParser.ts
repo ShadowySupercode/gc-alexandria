@@ -1,4 +1,4 @@
-import { parseBasicmarkup } from "./basicMarkupParser.ts";
+import { parseBasicMarkup } from "./basicMarkupParser.ts";
 import hljs from "highlight.js";
 import "highlight.js/lib/common"; // Import common languages
 import "highlight.js/styles/github-dark.css"; // Dark theme only
@@ -443,8 +443,8 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
     processedText = processInlineCodeMath(processedText);
 
     // Step 4: Process block-level elements (tables, headings, horizontal rules)
-    // AI-NOTE: 2025-01-24 - Removed duplicate processBlockquotes call to fix image rendering issues
-    // Blockquotes are now processed only by parseBasicmarkup to avoid double-processing conflicts
+    // AI-NOTE:  Removed duplicate processBlockquotes call to fix image rendering issues
+    // Blockquotes are now processed only by parseBasicMarkup to avoid double-processing conflicts
     processedText = processTables(processedText);
     processedText = processHeadings(processedText);
     processedText = processHorizontalRules(processedText);
@@ -454,7 +454,7 @@ export async function parseAdvancedmarkup(text: string): Promise<string> {
 
     // Step 6: Process basic markup (which will also handle Nostr identifiers)
     // This includes paragraphs, inline code, links, lists, etc.
-    processedText = await parseBasicmarkup(processedText);
+    processedText = await parseBasicMarkup(processedText);
 
     // Step 7: Restore code blocks
     processedText = restoreCodeBlocks(processedText, blocks);
