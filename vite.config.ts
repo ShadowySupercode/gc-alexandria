@@ -29,6 +29,7 @@ export default defineConfig({
     alias: {
       $lib: "./src/lib",
       $components: "./src/components",
+      $relay_selector: "./lib/relay_selector/pkg/bundler",
     },
   },
   build: {
@@ -36,6 +37,7 @@ export default defineConfig({
       // Removed bech32 from externals since it's needed on client side
     },
   },
+  assetsInclude: ["**/*.wasm"],
   test: {
     include: ["./tests/unit/**/*.test.ts", "./tests/integration/**/*.test.ts"],
   },
