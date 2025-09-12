@@ -10,9 +10,8 @@ hljs.configure({
 
 // Escapes HTML characters for safe display
 function escapeHtml(text: string): string {
-  const div = typeof document !== "undefined"
-    ? document.createElement("div")
-    : null;
+  const div =
+    typeof document !== "undefined" ? document.createElement("div") : null;
   if (div) {
     div.textContent = text;
     return div.innerHTML;
@@ -102,8 +101,8 @@ function processTables(content: string): string {
         };
 
         // Check if second row is a delimiter row (only hyphens)
-        const hasHeader = rows.length > 1 &&
-          rows[1].trim().match(/^\|[-\s|]+\|$/);
+        const hasHeader =
+          rows.length > 1 && rows[1].trim().match(/^\|[-\s|]+\|$/);
 
         // Extract header and body rows
         let headerCells: string[] = [];
@@ -126,8 +125,7 @@ function processTables(content: string): string {
         if (hasHeader) {
           html += "<thead>\n<tr>\n";
           headerCells.forEach((cell) => {
-            html +=
-              `<th class="py-2 px-4 text-left border-b-2 border-gray-200 dark:border-gray-700 font-semibold">${cell}</th>\n`;
+            html += `<th class="py-2 px-4 text-left border-b-2 border-gray-200 dark:border-gray-700 font-semibold">${cell}</th>\n`;
           });
           html += "</tr>\n</thead>\n";
         }
@@ -138,8 +136,7 @@ function processTables(content: string): string {
           const cells = processCells(row);
           html += "<tr>\n";
           cells.forEach((cell) => {
-            html +=
-              `<td class="py-2 px-4 text-left border-b border-gray-200 dark:border-gray-700">${cell}</td>\n`;
+            html += `<td class="py-2 px-4 text-left border-b border-gray-200 dark:border-gray-700">${cell}</td>\n`;
           });
           html += "</tr>\n";
         });
@@ -229,8 +226,7 @@ function processFootnotes(content: string): string {
           .join(" ");
         // If label is not a number, show it after all backrefs
         const labelSuffix = isNaN(Number(label)) ? ` ${label}` : "";
-        processedContent +=
-          `<li id=\"fn-${id}\"><span class=\"marker\">${text}</span> ${backrefs}${labelSuffix}</li>\n`;
+        processedContent += `<li id=\"fn-${id}\"><span class=\"marker\">${text}</span> ${backrefs}${labelSuffix}</li>\n`;
       }
       processedContent += "</ol>";
     }
@@ -364,8 +360,7 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
             language,
             ignoreIllegals: true,
           }).value;
-          html =
-            `<pre class="code-block"><code class="hljs language-${language}">${highlighted}</code></pre>`;
+          html = `<pre class="code-block"><code class="hljs language-${language}">${highlighted}</code></pre>`;
         } catch (e: unknown) {
           console.warn("Failed to highlight code block:", e);
           html = `<pre class="code-block"><code class="hljs ${
@@ -373,8 +368,7 @@ function restoreCodeBlocks(text: string, blocks: Map<string, string>): string {
           }">${code}</code></pre>`;
         }
       } else {
-        html =
-          `<pre class="code-block"><code class="hljs">${code}</code></pre>`;
+        html = `<pre class="code-block"><code class="hljs">${code}</code></pre>`;
       }
 
       result = result.replace(id, html);
@@ -399,31 +393,37 @@ function processInlineCodeMath(content: string): string {
     // Check if the code content contains math expressions
     const hasInlineMath = /\$((?:[^$\\]|\\.)*?)\$/.test(codeContent);
     const hasDisplayMath = /\$\$[\s\S]*?\$\$/.test(codeContent);
-    
+
     if (!hasInlineMath && !hasDisplayMath) {
       // No math found, return the original inline code
       return match;
     }
-    
-      // Process display math ($$...$$) first to avoid conflicts with inline math
-  let processedContent = codeContent.replace(/\$\$([\s\S]*?)\$\$/g, (mathMatch: string, mathContent: string) => {
-    // Skip empty math expressions
-    if (!mathContent.trim()) {
-      return mathMatch;
-    }
-    return `<span class="math-display">\\[${mathContent}\\]</span>`;
-  });
-  
-  // Process inline math ($...$) after display math
-  // Use a more sophisticated regex that handles escaped dollar signs
-  processedContent = processedContent.replace(/\$((?:[^$\\]|\\.)*?)\$/g, (mathMatch: string, mathContent: string) => {
-    // Skip empty math expressions
-    if (!mathContent.trim()) {
-      return mathMatch;
-    }
-    return `<span class="math-inline">\\(${mathContent}\\)</span>`;
-  });
-    
+
+    // Process display math ($$...$$) first to avoid conflicts with inline math
+    let processedContent = codeContent.replace(
+      /\$\$([\s\S]*?)\$\$/g,
+      (mathMatch: string, mathContent: string) => {
+        // Skip empty math expressions
+        if (!mathContent.trim()) {
+          return mathMatch;
+        }
+        return `<span class="math-display">\\[${mathContent}\\]</span>`;
+      },
+    );
+
+    // Process inline math ($...$) after display math
+    // Use a more sophisticated regex that handles escaped dollar signs
+    processedContent = processedContent.replace(
+      /\$((?:[^$\\]|\\.)*?)\$/g,
+      (mathMatch: string, mathContent: string) => {
+        // Skip empty math expressions
+        if (!mathContent.trim()) {
+          return mathMatch;
+        }
+        return `<span class="math-inline">\\(${mathContent}\\)</span>`;
+      },
+    );
+
     return `\`${processedContent}\``;
   });
 }

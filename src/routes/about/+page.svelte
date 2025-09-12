@@ -4,7 +4,7 @@
   import { goto } from "$app/navigation";
   import RelayStatus from "$lib/components/RelayStatus.svelte";
   import { getNdkContext } from "$lib/ndk";
-  
+
   // Get the git tag version from environment variables
   const appVersion = import.meta.env.APP_VERSION || "development";
   const isVersionKnown = appVersion !== "development";

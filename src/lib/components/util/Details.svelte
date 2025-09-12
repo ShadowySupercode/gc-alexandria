@@ -82,11 +82,10 @@
           className="w-full md:max-w-48 object-contain rounded"
         />
       {:else}
-        <div 
+        <div
           class="w-full md:max-w-48 h-32 object-contain rounded"
           style="background-color: {generateDarkPastelColor(event.id)};"
-        >
-        </div>
+        ></div>
       {/if}
     </div>
     <div class="space-y-4 my-4">

@@ -7,9 +7,9 @@ import type { Filter } from "./search_types.ts";
 import {
   anonymousRelays,
   communityRelays,
+  localRelays,
   searchRelays,
   secondaryRelays,
-  localRelays,
 } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
@@ -162,7 +162,8 @@ export async function createProfileLinkWithVerification(
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier = profile?.displayName ??
+  const displayIdentifier =
+    profile?.displayName ??
     profile?.display_name ??
     profile?.name ??
     escapedText;
@@ -211,22 +212,22 @@ export async function processNostrIdentifiers(
     if (/https?:\/\/$|www\.$/i.test(before)) {
       return true;
     }
-    
+
     // Check if the match is part of a larger URL structure
     // Look for common URL patterns that might contain nostr identifiers
     const beforeContext = text.slice(Math.max(0, index - 50), index);
     const afterContext = text.slice(index, Math.min(text.length, index + 50));
-    
+
     // Check if there's a URL-like structure around the match
     const urlPatterns = [
-      /https?:\/\/[^\s]*$/i,  // URL starting with http(s)://
-      /www\.[^\s]*$/i,        // URL starting with www.
-      /[^\s]*\.(com|org|net|io|eu|co|me|app|dev)[^\s]*$/i,  // Common TLDs
-      /[^\s]*\/[^\s]*$/i,     // Path-like structures
+      /https?:\/\/[^\s]*$/i, // URL starting with http(s)://
+      /www\.[^\s]*$/i, // URL starting with www.
+      /[^\s]*\.(com|org|net|io|eu|co|me|app|dev)[^\s]*$/i, // Common TLDs
+      /[^\s]*\/[^\s]*$/i, // Path-like structures
     ];
-    
+
     const combinedContext = beforeContext + afterContext;
-    return urlPatterns.some(pattern => pattern.test(combinedContext));
+    return urlPatterns.some((pattern) => pattern.test(combinedContext));
   }
 
   // Process profiles (npub and nprofile)
@@ -373,7 +374,7 @@ export function withTimeout<T>(
     return Promise.race([
       promise,
       new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+        setTimeout(() => reject(new Error("Timeout")), timeoutMs),
       ),
     ]);
   }
@@ -384,7 +385,7 @@ export function withTimeout<T>(
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+      setTimeout(() => reject(new Error("Timeout")), timeoutMs),
     ),
   ]);
 }

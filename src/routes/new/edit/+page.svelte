@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    Heading,
-    Textarea,
-    Toolbar,
-    ToolbarButton,
-  } from "flowbite-svelte";
+  import { Heading, Textarea, Toolbar, ToolbarButton } from "flowbite-svelte";
   import {
     CodeOutline,
     EyeSolid,
@@ -14,7 +9,7 @@
   import Pharos, { pharosInstance } from "$lib/parser";
   import { goto } from "$app/navigation";
   import { getNdkContext } from "$lib/ndk";
-  
+
   const ndk = getNdkContext();
 
   let someIndexValue = 0;

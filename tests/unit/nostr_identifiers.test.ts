@@ -31,9 +31,9 @@ describe("Nostr Identifier Validation", () => {
       const validCoordinate = `30040:${"a".repeat(64)}:chapter-1`;
       expect(isCoordinate(validCoordinate)).toBe(true);
 
-      const coordinateWithColonsInDTag = `30041:${
-        "b".repeat(64)
-      }:chapter:with:colons`;
+      const coordinateWithColonsInDTag = `30041:${"b".repeat(
+        64,
+      )}:chapter:with:colons`;
       expect(isCoordinate(coordinateWithColonsInDTag)).toBe(true);
     });
 

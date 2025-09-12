@@ -15,7 +15,10 @@
   import { bech32 } from "bech32";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { goto } from "$app/navigation";
-  import { isPubkeyInUserLists, fetchCurrentUserLists } from "$lib/utils/user_lists";
+  import {
+    isPubkeyInUserLists,
+    fetchCurrentUserLists,
+  } from "$lib/utils/user_lists";
   import { UserOutline } from "flowbite-svelte-icons";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
   import { getNdkContext } from "$lib/ndk";
@@ -56,28 +59,47 @@
   $effect(() => {
     if (event?.pubkey) {
       // First check if we have user list information in the profile prop
-      if (profile && typeof profile.isInUserLists === 'boolean') {
+      if (profile && typeof profile.isInUserLists === "boolean") {
         isInUserLists = profile.isInUserLists;
-        console.log(`[ProfileHeader] Using profile prop user list status for ${event.pubkey}: ${isInUserLists}`);
+        console.log(
+          `[ProfileHeader] Using profile prop user list status for ${event.pubkey}: ${isInUserLists}`,
+        );
       } else {
         // Then check if we have cached profileData with user list information
         const cachedProfileData = (event as any).profileData;
-        console.log(`[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`, cachedProfileData);
-        
-        if (cachedProfileData && typeof cachedProfileData.isInUserLists === 'boolean') {
+        console.log(
+          `[ProfileHeader] Checking user list status for ${event.pubkey}, cached profileData:`,
+          cachedProfileData,
+        );
+
+        if (
+          cachedProfileData &&
+          typeof cachedProfileData.isInUserLists === "boolean"
+        ) {
           isInUserLists = cachedProfileData.isInUserLists;
-          console.log(`[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`);
+          console.log(
+            `[ProfileHeader] Using cached user list status for ${event.pubkey}: ${isInUserLists}`,
+          );
         } else {
-          console.log(`[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`);
+          console.log(
+            `[ProfileHeader] No cached user list data, fetching for ${event.pubkey}`,
+          );
           // Fallback to fetching user lists
           fetchCurrentUserLists()
             .then((userLists) => {
-              console.log(`[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`);
+              console.log(
+                `[ProfileHeader] Fetched ${userLists.length} user lists for ${event.pubkey}`,
+              );
               isInUserLists = isPubkeyInUserLists(event.pubkey, userLists);
-              console.log(`[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`);
+              console.log(
+                `[ProfileHeader] Final user list status for ${event.pubkey}: ${isInUserLists}`,
+              );
             })
             .catch((error) => {
-              console.error(`[ProfileHeader] Error fetching user lists for ${event.pubkey}:`, error);
+              console.error(
+                `[ProfileHeader] Error fetching user lists for ${event.pubkey}:`,
+                error,
+              );
               isInUserLists = false;
             });
         }
@@ -86,7 +108,9 @@
       // Check community status - use cached data if available
       if (communityStatusMap[event.pubkey] !== undefined) {
         communityStatus = communityStatusMap[event.pubkey];
-        console.log(`[ProfileHeader] Using cached community status for ${event.pubkey}: ${communityStatus}`);
+        console.log(
+          `[ProfileHeader] Using cached community status for ${event.pubkey}: ${communityStatus}`,
+        );
       } else {
         // Fallback to checking community status
         checkCommunity(event.pubkey)
@@ -117,11 +141,10 @@
             className="rounded w-full max-h-72 object-cover"
           />
         {:else}
-          <div 
+          <div
             class="rounded w-full max-h-72"
             style="background-color: {generateDarkPastelColor(event.id)};"
-          >
-          </div>
+          ></div>
         {/if}
       </div>
       <div class="flex flex-row space-x-4 items-center min-w-0">
@@ -131,15 +154,21 @@
             alt="Profile avatar"
             class="w-16 h-16 rounded-full border flex-shrink-0"
             onerror={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+              (e.target as HTMLImageElement).style.display = "none";
+              (
+                e.target as HTMLImageElement
+              ).nextElementSibling?.classList.remove("hidden");
             }}
           />
-          <div class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center hidden">
+          <div
+            class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center hidden"
+          >
             <UserOutline class="w-8 h-8 text-gray-600 dark:text-gray-300" />
           </div>
         {:else}
-          <div class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+          <div
+            class="w-16 h-16 rounded-full border flex-shrink-0 bg-gray-300 dark:bg-gray-600 flex items-center justify-center"
+          >
             <UserOutline class="w-8 h-8 text-gray-600 dark:text-gray-300" />
           </div>
         {/if}
@@ -203,15 +232,21 @@
             {/if}
             {#if profile.displayName}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">Display Name:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  Display Name:
+                </dt>
                 <dd class="min-w-0 break-words">{profile.displayName}</dd>
               </div>
             {/if}
             {#if profile.about}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">About:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  About:
+                </dt>
                 <dd class="min-w-0 break-words">
-                  <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+                  <div
+                    class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0"
+                  >
                     {@render basicMarkup(profile.about, ndk)}
                   </div>
                 </dd>
@@ -219,7 +254,9 @@
             {/if}
             {#if profile.website}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">Website:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  Website:
+                </dt>
                 <dd class="min-w-0 break-all">
                   <a
                     href={profile.website}
@@ -231,7 +268,9 @@
             {/if}
             {#if profile.lud16}
               <div class="flex items-center gap-2 mt-4 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">Lightning:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  Lightning:
+                </dt>
                 <dd class="min-w-0 break-all">
                   <Button
                     class="btn-leather"
@@ -244,13 +283,17 @@
             {/if}
             {#if profile.nip05}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">NIP-05:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  NIP-05:
+                </dt>
                 <dd class="min-w-0 break-all">{profile.nip05}</dd>
               </div>
             {/if}
             {#each identifiers as id}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">{id.label}:</dt>
+                <dt class="font-semibold min-w-[120px] flex-shrink-0">
+                  {id.label}:
+                </dt>
                 <dd class="min-w-0 break-all">
                   {#if id.link}
                     <button

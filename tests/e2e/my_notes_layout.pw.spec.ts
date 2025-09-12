@@ -15,7 +15,9 @@ test.describe("My Notes Layout", () => {
     await page.waitForSelector('h1:text("My Notes")');
   });
 
-  test("no horizontal scroll bar for all tag type and tag filter combinations", async ({ page }) => {
+  test("no horizontal scroll bar for all tag type and tag filter combinations", async ({
+    page,
+  }) => {
     // Helper to check scroll for current state
     async function assertNoScroll() {
       const hasScroll = await hasHorizontalScroll(page, "main, body, html");
@@ -28,9 +30,9 @@ test.describe("My Notes Layout", () => {
     // Get all tag type buttons
     const tagTypeButtons = await page.locator("aside button").all();
     // Only consider tag type buttons (first N)
-    const tagTypeCount = await page.locator(
-      "aside > div.flex.flex-wrap.gap-2.mb-6 > button",
-    ).count();
+    const tagTypeCount = await page
+      .locator("aside > div.flex.flex-wrap.gap-2.mb-6 > button")
+      .count();
     // For each single tag type
     for (let i = 0; i < tagTypeCount; i++) {
       // Click tag type button
@@ -38,9 +40,9 @@ test.describe("My Notes Layout", () => {
       await page.waitForTimeout(100); // Wait for UI update
       await assertNoScroll();
       // Get tag filter buttons (after tag type buttons)
-      const tagFilterButtons = await page.locator(
-        "aside > div.flex.flex-wrap.gap-2.mb-4 > button",
-      ).all();
+      const tagFilterButtons = await page
+        .locator("aside > div.flex.flex-wrap.gap-2.mb-4 > button")
+        .all();
       // Try all single tag filter selections
       for (let j = 0; j < tagFilterButtons.length; j++) {
         await tagFilterButtons[j].click();
@@ -76,9 +78,9 @@ test.describe("My Notes Layout", () => {
         await page.waitForTimeout(100);
         await assertNoScroll();
         // Get tag filter buttons for this combination
-        const tagFilterButtons = await page.locator(
-          "aside > div.flex.flex-wrap.gap-2.mb-4 > button",
-        ).all();
+        const tagFilterButtons = await page
+          .locator("aside > div.flex.flex-wrap.gap-2.mb-4 > button")
+          .all();
         // Try all single tag filter selections
         for (let k = 0; k < tagFilterButtons.length; k++) {
           await tagFilterButtons[k].click();

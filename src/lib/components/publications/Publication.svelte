@@ -24,13 +24,14 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
 
-  let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
-    rootAddress: string;
-    publicationType: string;
-    indexEvent: NDKEvent;
-    publicationTree: SveltePublicationTree;
-    toc: TocType;
-  }>();
+  let { rootAddress, publicationType, indexEvent, publicationTree, toc } =
+    $props<{
+      rootAddress: string;
+      publicationType: string;
+      indexEvent: NDKEvent;
+      publicationTree: SveltePublicationTree;
+      toc: TocType;
+    }>();
 
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
@@ -48,9 +49,11 @@
       console.warn("[Publication] publicationTree is not available");
       return;
     }
-    
-    console.log(`[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
-    
+
+    console.log(
+      `[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
+    );
+
     isLoading = true;
 
     try {
@@ -83,7 +86,9 @@
       console.error("[Publication] Error loading more content:", error);
     } finally {
       isLoading = false;
-      console.log(`[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
+      console.log(
+        `[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
+      );
     }
   }
 
@@ -120,12 +125,12 @@
       lastElementRef = null;
       loadedAddresses = new Set();
       hasInitialized = false;
-      
+
       // Reset the publication tree iterator to prevent duplicate events
-      if (typeof publicationTree.resetIterator === 'function') {
+      if (typeof publicationTree.resetIterator === "function") {
         publicationTree.resetIterator();
       }
-      
+
       // AI-NOTE:  Use setTimeout to ensure iterator reset completes before loading
       // This prevents race conditions where loadMore is called before the iterator is fully reset
       setTimeout(() => {
@@ -227,14 +232,19 @@
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isLoading && !isDone && publicationTree) {
+          if (
+            entry.isIntersecting &&
+            !isLoading &&
+            !isDone &&
+            publicationTree
+          ) {
             loadMore(1);
           }
         });
       },
       { threshold: 0.5 },
     );
-    
+
     // AI-NOTE:  Removed duplicate loadMore call
     // Initial content loading is handled by the $effect that watches publicationTree
     // This prevents duplicate loading when both onMount and $effect trigger

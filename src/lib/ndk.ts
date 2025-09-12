@@ -45,9 +45,10 @@ export function setNdkContext(ndk: NDK): void {
 }
 
 // AI-NOTE:  Persistent relay storage to avoid recalculation
-let persistentRelaySet:
-  | { inboxRelays: string[]; outboxRelays: string[] }
-  | null = null;
+let persistentRelaySet: {
+  inboxRelays: string[];
+  outboxRelays: string[];
+} | null = null;
 let relaySetLastUpdated: number = 0;
 const RELAY_SET_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const RELAY_SET_STORAGE_KEY = "alexandria/relay_set_cache";
@@ -86,9 +87,10 @@ function loadPersistentRelaySet(): {
 /**
  * Save persistent relay set to localStorage
  */
-function savePersistentRelaySet(
-  relaySet: { inboxRelays: string[]; outboxRelays: string[] },
-): void {
+function savePersistentRelaySet(relaySet: {
+  inboxRelays: string[];
+  outboxRelays: string[];
+}): void {
   // Only save to localStorage on client-side
   if (typeof window === "undefined") return;
 
@@ -247,7 +249,8 @@ class CustomRelayAuthPolicy {
 export function checkEnvironmentForWebSocketDowngrade(): void {
   console.debug("[NDK.ts] Environment Check for WebSocket Protocol:");
 
-  const isLocalhost = globalThis.location.hostname === "localhost" ||
+  const isLocalhost =
+    globalThis.location.hostname === "localhost" ||
     globalThis.location.hostname === "127.0.0.1";
   const isHttp = globalThis.location.protocol === "http:";
   const isHttps = globalThis.location.protocol === "https:";
@@ -286,12 +289,17 @@ export function checkWebSocketSupport(): void {
 
   // Test if secure WebSocket is supported
   try {
-    WebSocketPool.instance.acquire("wss://echo.websocket.org").then((ws) => {
-      console.debug("[NDK.ts] ✓ Secure WebSocket (wss://) is supported");
-      WebSocketPool.instance.release(ws);
-    }).catch((_) => {
-      console.warn("[NDK.ts] ✗ Secure WebSocket (wss://) may not be supported");
-    });
+    WebSocketPool.instance
+      .acquire("wss://echo.websocket.org")
+      .then((ws) => {
+        console.debug("[NDK.ts] ✓ Secure WebSocket (wss://) is supported");
+        WebSocketPool.instance.release(ws);
+      })
+      .catch((_) => {
+        console.warn(
+          "[NDK.ts] ✗ Secure WebSocket (wss://) may not be supported",
+        );
+      });
   } catch {
     console.warn("[NDK.ts] ✗ WebSocket test failed");
   }
@@ -402,7 +410,8 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
       try {
         // Only log connection timeouts if debug mode is enabled
         if (
-          process.env.NODE_ENV === "development" && process.env.DEBUG_RELAYS
+          process.env.NODE_ENV === "development" &&
+          process.env.DEBUG_RELAYS
         ) {
           console.debug(`[NDK.ts] Connection timeout for ${secureUrl}`);
         }
@@ -419,7 +428,8 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
         try {
           // Only log successful connections if debug mode is enabled
           if (
-            process.env.NODE_ENV === "development" && process.env.DEBUG_RELAYS
+            process.env.NODE_ENV === "development" &&
+            process.env.DEBUG_RELAYS
           ) {
             console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
           }
@@ -434,7 +444,8 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
         try {
           // Only log successful connections if debug mode is enabled
           if (
-            process.env.NODE_ENV === "development" && process.env.DEBUG_RELAYS
+            process.env.NODE_ENV === "development" &&
+            process.env.DEBUG_RELAYS
           ) {
             console.debug(`[NDK.ts] Relay connected: ${secureUrl}`);
           }
@@ -463,8 +474,8 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
     );
 
     // Find an anonymous relay that's not the same as the failed URL
-    const fallbackUrl = anonymousRelays.find((relay) => relay !== url) ||
-      anonymousRelays[0];
+    const fallbackUrl =
+      anonymousRelays.find((relay) => relay !== url) || anonymousRelays[0];
 
     if (fallbackUrl) {
       console.debug(
@@ -679,8 +690,8 @@ export function startNetworkMonitoringForRelays(): void {
  * @returns NDKRelaySet
  */
 function createRelaySetFromUrls(relayUrls: string[], ndk: NDK): NDKRelaySet {
-  const relays = relayUrls.map((url) =>
-    new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk)
+  const relays = relayUrls.map(
+    (url) => new NDKRelay(url, NDKRelayAuthPolicies.signIn({ ndk }), ndk),
   );
 
   return new NDKRelaySet(new Set(relays), ndk);

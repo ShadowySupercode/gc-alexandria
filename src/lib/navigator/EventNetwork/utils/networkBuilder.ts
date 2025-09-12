@@ -44,8 +44,8 @@ export function createNetworkNode(
   const nodeType = isContainer
     ? "Index"
     : event.kind === CONTENT_EVENT_KIND || event.kind === 30818
-    ? "Content"
-    : `Kind ${event.kind}`;
+      ? "Content"
+      : `Kind ${event.kind}`;
 
   // Create the base node with essential properties
   const node: NetworkNode = {
@@ -301,10 +301,7 @@ export function processIndexEvent(
  * @param maxLevel - Maximum hierarchy level to process
  * @returns Complete graph data for visualization
  */
-export function generateGraph(
-  events: NDKEvent[],
-  maxLevel: number,
-): GraphData {
+export function generateGraph(events: NDKEvent[], maxLevel: number): GraphData {
   debug("Generating graph", { eventCount: events.length, maxLevel });
 
   // Initialize the graph state
@@ -314,12 +311,11 @@ export function generateGraph(
   const publicationKinds = [30040, 30041, 30818];
   const rootEvents = events.filter(
     (e) =>
-      e.id && (
-        // Index events not referenced by others
-        (e.kind === INDEX_EVENT_KIND && !state.referencedIds.has(e.id)) ||
+      e.id &&
+      // Index events not referenced by others
+      ((e.kind === INDEX_EVENT_KIND && !state.referencedIds.has(e.id)) ||
         // All non-publication events are treated as roots
-        (e.kind !== undefined && !publicationKinds.includes(e.kind))
-      ),
+        (e.kind !== undefined && !publicationKinds.includes(e.kind))),
   );
 
   debug("Found root events", {

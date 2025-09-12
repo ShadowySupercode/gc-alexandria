@@ -96,9 +96,8 @@ export async function publishZettel(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -133,8 +132,8 @@ export async function publishMultipleZettels(
       throw new Error("No valid sections found in content");
     }
 
-    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map((r) =>
-      r.url
+    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map(
+      (r) => r.url,
     );
     if (allRelayUrls.length === 0) {
       throw new Error("No relays available in NDK pool");
@@ -172,9 +171,8 @@ export async function publishMultipleZettels(
           });
         }
       } catch (err) {
-        const errorMessage = err instanceof Error
-          ? err.message
-          : "Unknown error";
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error";
         results.push({ success: false, error: errorMessage });
       }
     }
@@ -199,9 +197,8 @@ export async function publishMultipleZettels(
     });
     return results;
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     onError?.(errorMessage);
     return [{ success: false, error: errorMessage }];
   }

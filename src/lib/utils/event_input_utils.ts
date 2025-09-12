@@ -88,10 +88,11 @@ export function validate30040EventSet(content: string): {
   const lines = content.split(/\r?\n/);
   const { metadata } = extractDocumentMetadata(content);
   const documentTitle = metadata.title;
-  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
-    line.trim()
-  );
-  const isIndexCardFormat = documentTitle &&
+  const nonEmptyLines = lines
+    .filter((line) => line.trim() !== "")
+    .map((line) => line.trim());
+  const isIndexCardFormat =
+    documentTitle &&
     nonEmptyLines.length === 2 &&
     nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";
@@ -147,8 +148,8 @@ export function validate30040EventSet(content: string): {
   }
 
   // Check for empty sections
-  const emptySections = parsed.sections.filter((section: any) =>
-    section.content.trim() === ""
+  const emptySections = parsed.sections.filter(
+    (section: any) => section.content.trim() === "",
   );
   if (emptySections.length > 0) {
     return {
@@ -168,18 +169,20 @@ export function validate30040EventSet(content: string): {
  * Normalize a string for use as a d-tag: lowercase, hyphens, alphanumeric only.
  */
 function normalizeDTagValue(header: string): string {
-  return header
-    .toLowerCase()
-    // Decode common HTML entities first
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    // Then normalize as before
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+  return (
+    header
+      .toLowerCase()
+      // Decode common HTML entities first
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&nbsp;/g, " ")
+      // Then normalize as before
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "")
+  );
 }
 
 /**
@@ -204,7 +207,6 @@ function extractMarkdownTopHeader(content: string): string | null {
 // Event Construction
 // =========================
 
-
 /**
  * Builds a set of events for a 30040 publication: one 30040 index event and one 30041 event per section.
  * Each 30041 gets a d-tag (normalized section header) and a title tag (raw section header).
@@ -225,10 +227,11 @@ export function build30040EventSet(
   const documentTitle = parsed.metadata.title;
 
   // For index card format, the content should be exactly: title + "index card"
-  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
-    line.trim()
-  );
-  const isIndexCardFormat = documentTitle &&
+  const nonEmptyLines = lines
+    .filter((line) => line.trim() !== "")
+    .map((line) => line.trim());
+  const isIndexCardFormat =
+    documentTitle &&
     nonEmptyLines.length === 2 &&
     nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";
@@ -261,31 +264,33 @@ export function build30040EventSet(
   console.log("Index event:", { documentTitle, indexDTag });
 
   // Create section events with their metadata
-  const sectionEvents: NDKEvent[] = parsed.sections.map((section: any, i: number) => {
-    const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
-    console.log(`Creating section ${i}:`, {
-      title: section.title,
-      dTag: sectionDTag,
-      content: section.content,
-      metadata: section.metadata,
-    });
+  const sectionEvents: NDKEvent[] = parsed.sections.map(
+    (section: any, i: number) => {
+      const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
+      console.log(`Creating section ${i}:`, {
+        title: section.title,
+        dTag: sectionDTag,
+        content: section.content,
+        metadata: section.metadata,
+      });
 
-    // Convert section metadata to tags
-    const sectionMetadataTags = metadataToTags(section.metadata);
+      // Convert section metadata to tags
+      const sectionMetadataTags = metadataToTags(section.metadata);
 
-    return new NDKEventClass(ndk, {
-      kind: 30041,
-      content: section.content,
-      tags: [
-        ...tags,
-        ...sectionMetadataTags,
-        ["d", sectionDTag],
-        ["title", section.title],
-      ],
-      pubkey: baseEvent.pubkey,
-      created_at: baseEvent.created_at,
-    });
-  });
+      return new NDKEventClass(ndk, {
+        kind: 30041,
+        content: section.content,
+        tags: [
+          ...tags,
+          ...sectionMetadataTags,
+          ["d", sectionDTag],
+          ["title", section.title],
+        ],
+        pubkey: baseEvent.pubkey,
+        created_at: baseEvent.created_at,
+      });
+    },
+  );
 
   // Create proper a tags with format: kind:pubkey:d-tag
   const aTags = sectionEvents.map((event) => {

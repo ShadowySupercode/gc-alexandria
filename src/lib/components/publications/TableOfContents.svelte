@@ -52,18 +52,20 @@
     const element = document.getElementById(address);
     if (element) {
       element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
+        behavior: "smooth",
+        block: "start",
       });
     }
-    
+
     onSectionFocused?.(address);
-    
+
     // Check if this is the last entry and trigger loading more events
     const currentEntries = entries;
     const lastEntry = currentEntries[currentEntries.length - 1];
     if (lastEntry && lastEntry.address === address) {
-      console.debug('[TableOfContents] Last entry clicked, triggering load more');
+      console.debug(
+        "[TableOfContents] Last entry clicked, triggering load more",
+      );
       onLoadMore?.();
     }
   }
@@ -82,25 +84,31 @@
         let mostVisibleSection: string | null = null;
 
         entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > maxIntersectionRatio) {
+          if (
+            entry.isIntersecting &&
+            entry.intersectionRatio > maxIntersectionRatio
+          ) {
             maxIntersectionRatio = entry.intersectionRatio;
             mostVisibleSection = entry.target.id;
           }
         });
 
-        if (mostVisibleSection && mostVisibleSection !== currentVisibleSection) {
+        if (
+          mostVisibleSection &&
+          mostVisibleSection !== currentVisibleSection
+        ) {
           currentVisibleSection = mostVisibleSection;
         }
       },
       {
         threshold: [0, 0.25, 0.5, 0.75, 1],
         rootMargin: "-20% 0px -20% 0px", // Consider section visible when it's in the middle 60% of the viewport
-      }
+      },
     );
 
     // Function to observe all section elements
     function observeSections() {
-      const sections = document.querySelectorAll('section[id]');
+      const sections = document.querySelectorAll("section[id]");
       sections.forEach((section) => {
         observer.observe(section);
       });
@@ -116,11 +124,11 @@
           if (node.nodeType === Node.ELEMENT_NODE) {
             const element = node as Element;
             // Check if the added node is a section with an id
-            if (element.tagName === 'SECTION' && element.id) {
+            if (element.tagName === "SECTION" && element.id) {
               observer.observe(element);
             }
             // Check if the added node contains sections
-            const sections = element.querySelectorAll?.('section[id]');
+            const sections = element.querySelectorAll?.("section[id]");
             if (sections) {
               sections.forEach((section) => {
                 observer.observe(section);
@@ -171,10 +179,18 @@
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} {isLastEntry ? 'pb-4' : ''}"
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible
+          ? 'toc-highlight'
+          : ''} {isLastEntry ? 'pb-4' : ''}"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} />
+        <Self
+          rootAddress={address}
+          depth={childDepth}
+          {toc}
+          {onSectionFocused}
+          {onLoadMore}
+        />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

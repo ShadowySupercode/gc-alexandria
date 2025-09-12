@@ -36,13 +36,13 @@ export async function getKind24RelaySet(
 
     // Prioritize common relays for better privacy
     const commonRelays = senderOutboxRelays.filter((relay: any) =>
-      recipientInboxRelays.includes(relay)
+      recipientInboxRelays.includes(relay),
     );
-    const senderOnlyRelays = senderOutboxRelays.filter((relay: any) =>
-      !recipientInboxRelays.includes(relay)
+    const senderOnlyRelays = senderOutboxRelays.filter(
+      (relay: any) => !recipientInboxRelays.includes(relay),
     );
-    const recipientOnlyRelays = recipientInboxRelays.filter((relay: any) =>
-      !senderOutboxRelays.includes(relay)
+    const recipientOnlyRelays = recipientInboxRelays.filter(
+      (relay: any) => !senderOutboxRelays.includes(relay),
     );
 
     // Prioritize: common relays first, then sender outbox, then recipient inbox
@@ -78,9 +78,12 @@ export async function createKind24Reply(
   recipientPubkey: string,
   ndk: NDK,
   originalEvent?: NDKEvent,
-): Promise<
-  { success: boolean; eventId?: string; error?: string; relays?: string[] }
-> {
+): Promise<{
+  success: boolean;
+  eventId?: string;
+  error?: string;
+  relays?: string[];
+}> {
   if (!ndk?.activeUser) {
     return { success: false, error: "Not logged in" };
   }

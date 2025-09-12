@@ -1,13 +1,11 @@
 import NDK from "@nostr-dev-kit/ndk";
 import {
-processBasicFormatting,
+  processBasicFormatting,
   processBlockquotes,
   processEmojiShortcodes,
   processNostrIdentifiersInText,
   processWikilinks,
 } from "./markupUtils.ts";
-
-
 
 export function preProcessBasicMarkup(text: string): string {
   try {
@@ -26,7 +24,10 @@ export function preProcessBasicMarkup(text: string): string {
   }
 }
 
-export async function postProcessBasicMarkup(text: string, ndk?: NDK): Promise<string> {
+export async function postProcessBasicMarkup(
+  text: string,
+  ndk?: NDK,
+): Promise<string> {
   try {
     // Process Nostr identifiers last
     let processedText = await processNostrIdentifiersInText(text, ndk);
@@ -40,7 +41,10 @@ export async function postProcessBasicMarkup(text: string, ndk?: NDK): Promise<s
   }
 }
 
-export async function parseBasicMarkup(text: string, ndk?: NDK): Promise<string> {
+export async function parseBasicMarkup(
+  text: string,
+  ndk?: NDK,
+): Promise<string> {
   if (!text) return "";
 
   try {
@@ -56,10 +60,9 @@ export async function parseBasicMarkup(text: string, ndk?: NDK): Promise<string>
         // AI-NOTE:  Added img tag to skip wrapping to prevent image rendering issues
         // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
-          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i
-            .test(
-              para,
-            )
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i.test(
+            para,
+          )
         ) {
           return para;
         }

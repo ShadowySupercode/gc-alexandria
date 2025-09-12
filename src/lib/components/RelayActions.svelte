@@ -1,13 +1,13 @@
 <script lang="ts">
   import { Modal } from "flowbite-svelte";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
   import {
-    createRelaySetFromUrls,
-  } from "$lib/utils/nostrUtils";
-  import RelayDisplay, {
-    getEventRelays,
-  } from "./RelayDisplay.svelte";
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
+  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { createRelaySetFromUrls } from "$lib/utils/nostrUtils";
+  import RelayDisplay, { getEventRelays } from "./RelayDisplay.svelte";
 
   const { event } = $props<{
     event: NDKEvent;
@@ -33,9 +33,11 @@
     const userRelays = Array.from(ndk?.pool?.relays.values() || []).map(
       (r) => r.url,
     );
-    allRelays = [...$activeInboxRelays, ...$activeOutboxRelays, ...userRelays].filter(
-      (url, idx, arr) => arr.indexOf(url) === idx,
-    );
+    allRelays = [
+      ...$activeInboxRelays,
+      ...$activeOutboxRelays,
+      ...userRelays,
+    ].filter((url, idx, arr) => arr.indexOf(url) === idx);
     relaySearchResults = Object.fromEntries(
       allRelays.map((r: string) => [r, "pending"]),
     );

@@ -46,9 +46,11 @@ export class EventSearchService {
     let currentNprofile = null;
 
     try {
-      const { neventEncode, naddrEncode, nprofileEncode } = require(
-        "$lib/utils",
-      );
+      const {
+        neventEncode,
+        naddrEncode,
+        nprofileEncode,
+      } = require("$lib/utils");
       const { getMatchingTags, toNpub } = require("$lib/utils/nostrUtils");
 
       currentNevent = neventEncode(event, relays);

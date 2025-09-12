@@ -9,11 +9,11 @@ import {
 import type { NostrEvent } from "../../../../lib/utils/websocket_utils.ts";
 import { browser } from "$app/environment";
 
-export const load: PageLoad = async (
-  { params }: {
-    params: { type: string; identifier: string };
-  },
-) => {
+export const load: PageLoad = async ({
+  params,
+}: {
+  params: { type: string; identifier: string };
+}) => {
   const { type, identifier } = params;
 
   // AI-NOTE: Only fetch client-side since server-side fetch fails due to missing relay connections
@@ -49,7 +49,8 @@ export const load: PageLoad = async (
 
   // AI-NOTE: Return null for indexEvent during SSR or when fetch fails
   // The component will handle client-side loading and error states
-  const publicationType = indexEvent?.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
+  const publicationType =
+    indexEvent?.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
   const result = {
     publicationType,

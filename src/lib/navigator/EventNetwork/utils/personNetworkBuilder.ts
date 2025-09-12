@@ -177,7 +177,7 @@ function getEligiblePersons(
     }
     if (showReferenced) {
       connection.referencedInEventIds.forEach((id) =>
-        connectedEventIds.add(id)
+        connectedEventIds.add(id),
       );
     }
 
@@ -237,8 +237,7 @@ export function createPersonAnchorNodes(
     const anchorNode: NetworkNode = {
       id: `person-anchor-${pubkey}`,
       title: displayName,
-      content:
-        `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
+      content: `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
       author: "",
       kind: 0, // Special kind for anchors
       type: "PersonAnchor",
@@ -298,28 +297,30 @@ export function createPersonLinks(
       return [];
     }
 
-    return anchor.connectedNodes.map((nodeId) => {
-      const node = nodeMap.get(nodeId);
-      if (!node) {
-        return undefined;
-      }
+    return anchor.connectedNodes
+      .map((nodeId) => {
+        const node = nodeMap.get(nodeId);
+        if (!node) {
+          return undefined;
+        }
 
-      let connectionType: "signed-by" | "referenced" | undefined;
-      if (connection.signedByEventIds.has(nodeId)) {
-        connectionType = "signed-by";
-      } else if (connection.referencedInEventIds.has(nodeId)) {
-        connectionType = "referenced";
-      }
+        let connectionType: "signed-by" | "referenced" | undefined;
+        if (connection.signedByEventIds.has(nodeId)) {
+          connectionType = "signed-by";
+        } else if (connection.referencedInEventIds.has(nodeId)) {
+          connectionType = "referenced";
+        }
 
-      const link: PersonLink = {
-        source: anchor,
-        target: node,
-        isSequential: false,
-        connectionType,
-      };
+        const link: PersonLink = {
+          source: anchor,
+          target: node,
+          isSequential: false,
+          connectionType,
+        };
 
-      return link;
-    }).filter((link): link is PersonLink => link !== undefined); // Remove undefineds and type guard
+        return link;
+      })
+      .filter((link): link is PersonLink => link !== undefined); // Remove undefineds and type guard
   });
 
   debug("Created person links", { linkCount: links.length });

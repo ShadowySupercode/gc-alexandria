@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { extractSmartMetadata, metadataToTags } from "$lib/utils/asciidoc_metadata";
+  import {
+    extractSmartMetadata,
+    metadataToTags,
+  } from "$lib/utils/asciidoc_metadata";
   import { titleToDTag, requiresDTag } from "$lib/utils/event_input_utils";
   import type { TagData, PresetTag } from "./types";
 
@@ -32,7 +35,7 @@
         defaultValue: "1",
         required: true,
         autoUpdate: false,
-        description: "Publication version"
+        description: "Publication version",
       });
     }
 
@@ -43,7 +46,7 @@
         defaultValue: "default-title",
         required: true,
         autoUpdate: true,
-        description: "Document identifier (derived from title)"
+        description: "Document identifier (derived from title)",
       });
 
       presets.push({
@@ -51,7 +54,7 @@
         defaultValue: "Default Title",
         required: true,
         autoUpdate: true,
-        description: "Document title (extracted from content)"
+        description: "Document title (extracted from content)",
       });
     }
 
@@ -74,12 +77,12 @@
     if (content === lastContent && kind === lastKind) {
       return; // Skip if nothing has changed
     }
-    
+
     lastContent = content;
     lastKind = kind;
-    
+
     const currentTags = [...tags]; // Create a copy to avoid mutation
-    
+
     const newTags: TagData[] = [];
 
     // Add preset tags
@@ -87,7 +90,7 @@
       if (removedTags.has(preset.key)) continue;
 
       let value = preset.defaultValue;
-      
+
       // Auto-update values based on content
       if (preset.autoUpdate && content.trim()) {
         if (preset.key === "title") {
@@ -100,33 +103,33 @@
       }
 
       // Find existing tag or create new one
-      const existingTag = currentTags.find(t => t.key === preset.key);
+      const existingTag = currentTags.find((t) => t.key === preset.key);
       if (existingTag) {
         // For preset tags, always ensure exactly one value
         if (preset.autoUpdate) {
           newTags.push({
             key: preset.key,
-            values: [value] // Only keep the first (primary) value
+            values: [value], // Only keep the first (primary) value
           });
         } else {
           newTags.push({
             key: preset.key,
-            values: [existingTag.values[0] || preset.defaultValue] // Keep user value or default
+            values: [existingTag.values[0] || preset.defaultValue], // Keep user value or default
           });
         }
       } else {
         newTags.push({
           key: preset.key,
-          values: [value]
+          values: [value],
         });
       }
     }
 
     // Add non-preset tags (avoid duplicates)
     for (const tag of currentTags) {
-      const isPresetKey = presetTags.some(p => p.key === tag.key);
-      const alreadyAdded = newTags.some(t => t.key === tag.key);
-      
+      const isPresetKey = presetTags.some((p) => p.key === tag.key);
+      const alreadyAdded = newTags.some((t) => t.key === tag.key);
+
       if (!isPresetKey && !alreadyAdded) {
         newTags.push(tag);
       }
@@ -156,11 +159,11 @@
    */
   function removeTag(index: number): void {
     const tagKey = tags[index]?.key;
-    
+
     if (tagKey) {
       removedTags.add(tagKey);
     }
-    
+
     tags = tags.filter((_, i) => i !== index);
   }
 
@@ -204,7 +207,11 @@
   /**
    * Updates a tag value
    */
-  function updateTagValue(tagIndex: number, valueIndex: number, newValue: string): void {
+  function updateTagValue(
+    tagIndex: number,
+    valueIndex: number,
+    newValue: string,
+  ): void {
     tags = tags.map((tag, i) => {
       if (i === tagIndex) {
         const newValues = [...tag.values];
@@ -219,22 +226,25 @@
    * Checks if a tag is a preset tag
    */
   function isPresetTag(tagKey: string): boolean {
-    return presetTags.some(p => p.key === tagKey);
+    return presetTags.some((p) => p.key === tagKey);
   }
 
   /**
    * Gets preset tag info
    */
   function getPresetTagInfo(tagKey: string): PresetTag | undefined {
-    return presetTags.find(p => p.key === tagKey);
+    return presetTags.find((p) => p.key === tagKey);
   }
 </script>
 
 <div class="space-y-4">
-  <label for="tags-container" class="block font-medium mb-1 text-gray-700 dark:text-gray-300">
+  <label
+    for="tags-container"
+    class="block font-medium mb-1 text-gray-700 dark:text-gray-300"
+  >
     Tags
   </label>
-  
+
   <!-- Extracted Metadata Section -->
   {#if extractedMetadata.length > 0}
     <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -242,27 +252,35 @@
         Extracted Metadata (from AsciiDoc header)
       </h4>
       <div class="text-sm text-blue-700 dark:text-blue-300">
-        {extractedMetadata.map(([key, value]) => `${key}: ${value}`).join(', ')}
+        {extractedMetadata.map(([key, value]) => `${key}: ${value}`).join(", ")}
       </div>
     </div>
   {/if}
-  
+
   <!-- Tags Container -->
   <div id="tags-container" class="space-y-2">
     {#each tags as tag, i}
-      <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2">
+      <div
+        class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2"
+      >
         <!-- Tag Key Row -->
         <div class="flex gap-2 items-center">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">Tag:</span>
+          <span
+            class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]"
+            >Tag:</span
+          >
           <input
             type="text"
             class="input input-bordered flex-1"
             placeholder="tag key (e.g., q, p, e)"
             value={tag.key}
-            oninput={(e) => updateTagKey(i, (e.target as HTMLInputElement).value)}
+            oninput={(e) =>
+              updateTagKey(i, (e.target as HTMLInputElement).value)}
           />
           {#if isPresetTag(tag.key)}
-            <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+            <span
+              class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded"
+            >
               Preset
             </span>
           {/if}
@@ -274,7 +292,7 @@
             ×
           </button>
         </div>
-        
+
         <!-- Preset Tag Description -->
         {#if isPresetTag(tag.key)}
           {@const presetInfo = getPresetTagInfo(tag.key)}
@@ -287,11 +305,14 @@
             </div>
           {/if}
         {/if}
-        
+
         <!-- Tag Values -->
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">Values:</span>
+            <span
+              class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]"
+              >Values:</span
+            >
             <button
               type="button"
               class="btn btn-sm btn-outline btn-primary"
@@ -300,18 +321,25 @@
               Add Value
             </button>
           </div>
-          
+
           {#each tag.values as value, valueIndex}
             <div class="flex gap-2 items-center">
-              <span class="text-xs text-gray-500 dark:text-gray-400 min-w-[40px]">
+              <span
+                class="text-xs text-gray-500 dark:text-gray-400 min-w-[40px]"
+              >
                 {valueIndex + 1}:
               </span>
               <input
                 type="text"
                 class="input input-bordered flex-1"
                 placeholder="value"
-                value={value}
-                oninput={(e) => updateTagValue(i, valueIndex, (e.target as HTMLInputElement).value)}
+                {value}
+                oninput={(e) =>
+                  updateTagValue(
+                    i,
+                    valueIndex,
+                    (e.target as HTMLInputElement).value,
+                  )}
               />
               {#if tag.values.length > 1}
                 <button
@@ -327,7 +355,7 @@
         </div>
       </div>
     {/each}
-    
+
     <!-- Add Tag Button -->
     <div class="flex justify-end">
       <button

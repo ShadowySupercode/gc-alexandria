@@ -130,7 +130,7 @@ export function applyConnectedGravity(
   // Find all nodes connected to this node (excluding tag anchors and person anchors)
   const connectedNodes = links
     .filter((link) => link.source.id === node.id || link.target.id === node.id)
-    .map((link) => link.source.id === node.id ? link.target : link.source)
+    .map((link) => (link.source.id === node.id ? link.target : link.source))
     .filter((n) => !n.isTagAnchor && !n.isPersonAnchor);
 
   if (connectedNodes.length === 0) return;
@@ -251,7 +251,8 @@ export function createSimulation(
       .forceSimulation(nodes)
       .force(
         "link",
-        d3.forceLink(links)
+        d3
+          .forceLink(links)
           .id((d: NetworkNode) => d.id)
           .distance(linkDistance * 0.1),
       )

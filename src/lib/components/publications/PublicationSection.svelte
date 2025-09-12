@@ -56,7 +56,7 @@
   let leafContent: Promise<string | Document> = $derived.by(async () => {
     const event = await leafEvent;
     const content = event?.content ?? "";
-    
+
     // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
     // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
     if (event?.kind === 30023) {
@@ -64,7 +64,10 @@
     } else {
       // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
       const converted = asciidoctor.convert(content);
-      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString(), ndk);
+      const processed = await postProcessAdvancedAsciidoctorHtml(
+        converted.toString(),
+        ndk,
+      );
       return processed;
     }
   });

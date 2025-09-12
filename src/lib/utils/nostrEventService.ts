@@ -94,21 +94,21 @@ export function extractRootEventInfo(parent: NDKEvent): RootEventInfo {
     rootInfo.rootId = rootE[1];
     rootInfo.rootRelay = getRelayString(rootE[2]);
     rootInfo.rootPubkey = getPubkeyString(rootE[3] || rootInfo.rootPubkey);
-    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
-      rootInfo.rootKind;
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   } else if (rootA) {
     rootInfo.rootAddress = rootA[1];
     rootInfo.rootRelay = getRelayString(rootA[2]);
     rootInfo.rootPubkey = getPubkeyString(
       getTagValue(parent.tags, "P") || rootInfo.rootPubkey,
     );
-    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
-      rootInfo.rootKind;
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   } else if (rootI) {
     rootInfo.rootIValue = rootI[1];
     rootInfo.rootIRelay = getRelayString(rootI[2]);
-    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
-      rootInfo.rootKind;
+    rootInfo.rootKind =
+      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
   }
 
   return rootInfo;
@@ -135,9 +135,7 @@ export function extractParentEventInfo(parent: NDKEvent): ParentEventInfo {
 /**
  * Build root scope tags for NIP-22 threading
  */
-function buildRootScopeTags(
-  rootInfo: RootEventInfo,
-): string[][] {
+function buildRootScopeTags(rootInfo: RootEventInfo): string[][] {
   const tags: string[][] = [];
 
   if (rootInfo.rootAddress) {
@@ -222,8 +220,7 @@ export function buildReplyTags(
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
-        const parentAddress =
-          `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
+        const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
         addTags(tags, createTag("a", parentAddress, "", "root"));
       }
     }
@@ -232,8 +229,7 @@ export function buildReplyTags(
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
-        const parentAddress =
-          `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
+        const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
 
         if (isReplyToComment) {
           // Root scope (uppercase) - use the original article
@@ -347,7 +343,8 @@ export async function createSignedEvent(
 
   let sig, id;
   if (
-    typeof window !== "undefined" && globalThis.nostr &&
+    typeof window !== "undefined" &&
+    globalThis.nostr &&
     globalThis.nostr.signEvent
   ) {
     const signed = await globalThis.nostr.signEvent(eventToSign);

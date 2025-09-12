@@ -24,7 +24,7 @@
   const href = $derived.by(() => {
     const dTag = event.getMatchingTags("d")[0]?.[1];
     const isIndexEvent = event.kind === indexKind;
-    
+
     if (dTag != null && isIndexEvent) {
       // For index events with d tag, use naddr encoding
       const naddr = naddrEncode(event, relays);
@@ -49,31 +49,40 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class="ArticleBox card-leather w-full h-48 flex flex-row space-x-2 relative">
+  <Card
+    class="ArticleBox card-leather w-full h-48 flex flex-row space-x-2 relative"
+  >
     <div
       class="flex-shrink-0 w-40 h-40 overflow-hidden rounded flex items-center justify-center p-2 -mt-2"
     >
       {#if image}
-        <LazyImage 
-          src={image} 
+        <LazyImage
+          src={image}
           alt={title || "Publication image"}
           eventId={event.id}
           className="w-full h-full object-cover"
         />
       {:else}
-        <div 
+        <div
           class="w-full h-full rounded"
           style="background-color: {generateDarkPastelColor(event.id)};"
-        >
-        </div>
+        ></div>
       {/if}
     </div>
-    
+
     <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
       <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
-        <a href="/{href}" class="flex flex-col space-y-2 h-full min-w-0 overflow-hidden">
+        <a
+          href="/{href}"
+          class="flex flex-col space-y-2 h-full min-w-0 overflow-hidden"
+        >
           <div class="flex-grow pt-2 min-w-0 overflow-hidden">
-            <h2 class="text-lg font-bold line-clamp-2 break-words overflow-hidden" {title}>{title}</h2>
+            <h2
+              class="text-lg font-bold line-clamp-2 break-words overflow-hidden"
+              {title}
+            >
+              {title}
+            </h2>
             <h3 class="text-base font-normal mt-2 break-words overflow-hidden">
               by
               {#if authorPubkey != null}
@@ -84,12 +93,16 @@
             </h3>
           </div>
           {#if version != "1"}
-            <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden">version: {version}</h3>
+            <h3
+              class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden"
+            >
+              version: {version}
+            </h3>
           {/if}
         </a>
       </div>
     </div>
-    
+
     <!-- Position CardActions at bottom-right -->
     <div class="absolute bottom-2 right-2">
       <CardActions {event} />

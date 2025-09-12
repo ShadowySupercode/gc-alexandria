@@ -16,7 +16,11 @@
   } from "$lib/utils/nostrEventService";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
 
   const props = $props<{
@@ -132,7 +136,6 @@
     }, 0);
   }
 
-
   function clearForm() {
     content = "";
     error = null;
@@ -196,7 +199,7 @@
 
       // Publish the event using the new relay system
       let relays = $activeOutboxRelays;
-      
+
       if (useOtherRelays && !useSecondaryRelays) {
         relays = [...$activeOutboxRelays, ...$activeInboxRelays];
       } else if (useSecondaryRelays) {
@@ -481,8 +484,12 @@
                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
                 {:else}
-                  <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
-                    <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  <div
+                    class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center"
+                  >
+                    <UserOutline
+                      class="w-4 h-4 text-gray-600 dark:text-gray-300"
+                    />
                   </div>
                 {/if}
                 <div class="flex flex-col text-left min-w-0 flex-1">
@@ -546,8 +553,7 @@
       class="mb-4"
     />
     <div class="flex justify-end gap-2">
-      <Button size="xs" color="primary" onclick={insertWikilink}>Insert</Button
-      >
+      <Button size="xs" color="primary" onclick={insertWikilink}>Insert</Button>
       <Button
         size="xs"
         color="alternative"
@@ -583,10 +589,8 @@
         >
       {/if}
       {#if showSecondaryRelays}
-        <Button
-          size="xs"
-          class="mt-2"
-          onclick={() => handleSubmit(false, true)}>Try Fallback Relays</Button
+        <Button size="xs" class="mt-2" onclick={() => handleSubmit(false, true)}
+          >Try Fallback Relays</Button
         >
       {/if}
     </Alert>
@@ -605,7 +609,9 @@
     </Alert>
   {/if}
 
-  <div class="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4">
+  <div
+    class="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4"
+  >
     {#if userProfile}
       <div class="flex items-center gap-2 text-sm min-w-0 flex-shrink">
         {#if userProfile.picture}
@@ -613,17 +619,18 @@
             src={userProfile.picture}
             alt={userProfile.name || "Profile"}
             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-            onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+            onerror={(e) =>
+              ((e.target as HTMLImageElement).style.display = "none")}
           />
         {:else}
-          <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+          <div
+            class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0"
+          >
             <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </div>
         {/if}
         <span class="text-gray-900 dark:text-gray-100 truncate">
-          {userProfile.displayName ||
-            userProfile.name ||
-            "anon"}
+          {userProfile.displayName || userProfile.name || "anon"}
         </span>
       </div>
     {/if}

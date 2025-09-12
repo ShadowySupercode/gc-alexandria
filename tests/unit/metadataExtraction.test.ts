@@ -227,9 +227,8 @@ Content here.`;
 
 Content here.`;
 
-    const { metadata: summaryMetadata } = extractDocumentMetadata(
-      contentWithSummary,
-    );
+    const { metadata: summaryMetadata } =
+      extractDocumentMetadata(contentWithSummary);
     const { metadata: descriptionMetadata } = extractDocumentMetadata(
       contentWithDescription,
     );

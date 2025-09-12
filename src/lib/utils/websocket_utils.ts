@@ -64,10 +64,7 @@ function handleMessage(
   resolve(event);
 }
 
-function handleError(
-  ev: Event,
-  reject: (reason: any) => void,
-) {
+function handleError(ev: Event, reject: (reason: any) => void) {
   reject(ev);
 }
 

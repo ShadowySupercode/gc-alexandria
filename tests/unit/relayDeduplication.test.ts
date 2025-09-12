@@ -415,56 +415,48 @@ describe("Real Relay Deduplication Tests", () => {
   // These tests actually query real relays to see if they deduplicate
   // Note: These are integration tests and may be flaky due to network conditions
 
-  it(
-    "should detect if relays are returning duplicate replaceable events",
-    async () => {
-      // This test queries real relays to see if they return duplicates
-      // We'll use a known author who has published multiple versions of content
+  it("should detect if relays are returning duplicate replaceable events", async () => {
+    // This test queries real relays to see if they return duplicates
+    // We'll use a known author who has published multiple versions of content
 
-      // Known author with multiple publication content events
-      const testAuthor =
-        "npub1z4m7gkva6yxgvdyclc7zp0qt69x9zgn8lu8sllg06wx6432h77qs0k97ks";
+    // Known author with multiple publication content events
+    const testAuthor =
+      "npub1z4m7gkva6yxgvdyclc7zp0qt69x9zgn8lu8sllg06wx6432h77qs0k97ks";
 
-      // Query for publication content events (kind 30041) from this author
-      // We expect relays to return only the most recent version of each d-tag
+    // Query for publication content events (kind 30041) from this author
+    // We expect relays to return only the most recent version of each d-tag
 
-      // This is a placeholder - in a real test, we would:
-      // 1. Query multiple relays for the same author's 30041 events
-      // 2. Check if any relay returns multiple events with the same d-tag
-      // 3. Verify that if duplicates exist, our deduplication logic handles them
+    // This is a placeholder - in a real test, we would:
+    // 1. Query multiple relays for the same author's 30041 events
+    // 2. Check if any relay returns multiple events with the same d-tag
+    // 3. Verify that if duplicates exist, our deduplication logic handles them
 
-      console.log(
-        "Note: This test would require actual relay queries to verify deduplication behavior",
-      );
-      console.log("To run this test properly, we would need to:");
-      console.log("1. Query real relays for replaceable events");
-      console.log("2. Check if relays return duplicates");
-      console.log("3. Verify our deduplication logic works on real data");
+    console.log(
+      "Note: This test would require actual relay queries to verify deduplication behavior",
+    );
+    console.log("To run this test properly, we would need to:");
+    console.log("1. Query real relays for replaceable events");
+    console.log("2. Check if relays return duplicates");
+    console.log("3. Verify our deduplication logic works on real data");
 
-      // For now, we'll just assert that our logic is ready to handle real data
-      expect(true).toBe(true);
-    },
-    30000,
-  ); // 30 second timeout for network requests
+    // For now, we'll just assert that our logic is ready to handle real data
+    expect(true).toBe(true);
+  }, 30000); // 30 second timeout for network requests
 
-  it(
-    "should verify that our deduplication logic works on real relay data",
-    async () => {
-      // This test would:
-      // 1. Fetch real events from relays
-      // 2. Apply our deduplication logic
-      // 3. Verify that the results are correct
+  it("should verify that our deduplication logic works on real relay data", async () => {
+    // This test would:
+    // 1. Fetch real events from relays
+    // 2. Apply our deduplication logic
+    // 3. Verify that the results are correct
 
-      console.log("Note: This test would require actual relay queries");
-      console.log("To implement this test, we would need to:");
-      console.log("1. Set up NDK with real relays");
-      console.log("2. Fetch events for a known author with multiple versions");
-      console.log("3. Apply deduplication and verify results");
+    console.log("Note: This test would require actual relay queries");
+    console.log("To implement this test, we would need to:");
+    console.log("1. Set up NDK with real relays");
+    console.log("2. Fetch events for a known author with multiple versions");
+    console.log("3. Apply deduplication and verify results");
 
-      expect(true).toBe(true);
-    },
-    30000,
-  );
+    expect(true).toBe(true);
+  }, 30000);
 });
 
 describe("Practical Relay Behavior Analysis", () => {

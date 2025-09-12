@@ -11,7 +11,11 @@
   export { userBadge };
 </script>
 
-{#snippet userBadge(identifier: string, displayText: string | undefined, ndk?: NDK)}
+{#snippet userBadge(
+  identifier: string,
+  displayText: string | undefined,
+  ndk?: NDK,
+)}
   {@const npub = toNpub(identifier)}
   {#if npub}
     {#if !displayText || displayText.trim().toLowerCase() === "unknown"}
@@ -29,7 +33,12 @@
           </button>
         </span>
       {:catch error}
-        {@const debugError = console.error("Error fetching profile for", npub, ":", error)}
+        {@const debugError = console.error(
+          "Error fetching profile for",
+          npub,
+          ":",
+          error,
+        )}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"

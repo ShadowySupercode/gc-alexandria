@@ -11,10 +11,11 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import { getNdkContext } from "$lib/ndk";
 
-  const {
-    rootId,
-    direction = "row",
-  } = $props<{ rootId: string; event?: NDKEvent; direction?: string }>();
+  const { rootId, direction = "row" } = $props<{
+    rootId: string;
+    event?: NDKEvent;
+    direction?: string;
+  }>();
 
   const ndk = getNdkContext();
 

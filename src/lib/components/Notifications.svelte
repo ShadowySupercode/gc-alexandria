@@ -12,9 +12,13 @@
   import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
-  import { 
-    getNotificationType, 
+  import {
+    PlusOutline,
+    ReplyOutline,
+    UserOutline,
+  } from "flowbite-svelte-icons";
+  import {
+    getNotificationType,
     fetchAuthorProfiles,
     quotedContent,
   } from "$lib/snippets/EmbeddedSnippets.svelte";
@@ -32,16 +36,16 @@
 
   // Handle navigation events from quoted messages
   $effect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const handleJumpToMessage = (e: Event) => {
         const customEvent = e as CustomEvent;
         jumpToMessageInFeed(customEvent.detail);
       };
-      
-      window.addEventListener('jump-to-message', handleJumpToMessage);
-      
+
+      window.addEventListener("jump-to-message", handleJumpToMessage);
+
       return () => {
-        window.removeEventListener('jump-to-message', handleJumpToMessage);
+        window.removeEventListener("jump-to-message", handleJumpToMessage);
       };
     }
   });
@@ -52,10 +56,14 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
   let isOwnProfile = $state(false);
-  let notificationMode = $state<"to-me" | "from-me" | "public-messages">("to-me");
-  let authorProfiles = $state<Map<string, { name?: string; displayName?: string; picture?: string }>>(new Map());
+  let notificationMode = $state<"to-me" | "from-me" | "public-messages">(
+    "to-me",
+  );
+  let authorProfiles = $state<
+    Map<string, { name?: string; displayName?: string; picture?: string }>
+  >(new Map());
   let filteredByUser = $state<string | null>(null);
-  
+
   // AI-NOTE: Client-side pagination - fetch once, paginate locally
   let allToMeNotifications = $state<NDKEvent[]>([]); // All fetched "to-me" notifications
   let allFromMeNotifications = $state<NDKEvent[]>([]); // All fetched "from-me" notifications
@@ -65,7 +73,7 @@
   let hasFetchedToMe = $state(false); // Track if we've already fetched "to-me" data
   let hasFetchedFromMe = $state(false); // Track if we've already fetched "from-me" data
   let hasFetchedPublic = $state(false); // Track if we've already fetched public messages
-  
+
   // New Message Modal state
   let showNewMessageModal = $state(false);
   let newMessageContent = $state<string>("");
@@ -73,7 +81,7 @@
   let newMessageRelays = $state<string[]>([]);
   let isComposingMessage = $state(false);
   let replyToMessage = $state<NDKEvent | null>(null);
-  
+
   // Recipient Selection Modal state
   let showRecipientModal = $state(false);
   let recipientSearch = $state("");
@@ -87,9 +95,13 @@
   // Derived state for filtered messages
   let filteredMessages = $derived.by(() => {
     if (!filteredByUser) return publicMessages;
-    return publicMessages.filter(message => 
-      message.pubkey === filteredByUser || 
-      (message.pubkey === $userStore.pubkey && message.getMatchingTags("p").some(tag => tag[1] === filteredByUser))
+    return publicMessages.filter(
+      (message) =>
+        message.pubkey === filteredByUser ||
+        (message.pubkey === $userStore.pubkey &&
+          message
+            .getMatchingTags("p")
+            .some((tag) => tag[1] === filteredByUser)),
     );
   });
 
@@ -107,16 +119,19 @@
   function jumpToMessageInFeed(eventIdOrNevent: string) {
     // Switch to public messages tab and scroll to the specific message
     notificationMode = "public-messages";
-    
+
     // Try to find and scroll to the specific message
     setTimeout(() => {
       let eventId = eventIdOrNevent;
-      
+
       // If it's a nevent URL, try to extract the event ID
-      if (eventIdOrNevent.startsWith('nostr:nevent') || eventIdOrNevent.startsWith('nevent')) {
+      if (
+        eventIdOrNevent.startsWith("nostr:nevent") ||
+        eventIdOrNevent.startsWith("nevent")
+      ) {
         try {
           const decoded = nip19.decode(eventIdOrNevent);
-          if (decoded.type === 'nevent' && decoded.data.id) {
+          if (decoded.type === "nevent" && decoded.data.id) {
             eventId = decoded.data.id;
           }
         } catch (error) {
@@ -125,36 +140,44 @@
           if (hexMatch) {
             eventId = hexMatch[0];
           } else {
-            console.warn('Failed to extract event ID from nevent:', eventIdOrNevent);
+            console.warn(
+              "Failed to extract event ID from nevent:",
+              eventIdOrNevent,
+            );
             return;
           }
         }
       }
-      
+
       // Find the message in our public messages
-      const targetMessage = publicMessages.find(msg => msg.id === eventId);
+      const targetMessage = publicMessages.find((msg) => msg.id === eventId);
       if (targetMessage) {
         // Try to find the element in the DOM
         const element = document.querySelector(`[data-event-id="${eventId}"]`);
         if (element) {
           // Check if element is in viewport
           const rect = element.getBoundingClientRect();
-          const isInView = (
+          const isInView =
             rect.top >= 0 &&
             rect.left >= 0 &&
-            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-          );
-          
+            rect.bottom <=
+              (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <=
+              (window.innerWidth || document.documentElement.clientWidth);
+
           // Only scroll if not in view
           if (!isInView) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
           }
-          
+
           // ALWAYS highlight the message in blue
-          element.classList.add('message-highlight', 'ring-2', 'ring-blue-500');
+          element.classList.add("message-highlight", "ring-2", "ring-blue-500");
           setTimeout(() => {
-            element.classList.remove('message-highlight', 'ring-2', 'ring-blue-500');
+            element.classList.remove(
+              "message-highlight",
+              "ring-2",
+              "ring-blue-500",
+            );
           }, 2000);
         }
       }
@@ -177,43 +200,50 @@
     newMessageRelays = [];
     isComposingMessage = false;
     replyToMessage = messageToReplyTo || null;
-    
+
     // If replying, set up the quote and pre-select all original recipients plus sender
-    if (messageToReplyTo) {    
+    if (messageToReplyTo) {
       // Collect all recipients: original sender + all p-tag recipients
       const recipientPubkeys = new Set<string>();
-      
+
       // Add the original sender
       recipientPubkeys.add(messageToReplyTo.pubkey);
-      
+
       // Add all p-tag recipients from the original message
       const pTags = messageToReplyTo.getMatchingTags("p");
-      pTags.forEach(tag => {
+      pTags.forEach((tag) => {
         if (tag[1]) {
           recipientPubkeys.add(tag[1]);
         }
       });
-      
+
       // Remove the current user from recipients (don't reply to yourself)
       const currentUserPubkey = $userStore.pubkey;
       if (currentUserPubkey) {
         recipientPubkeys.delete(currentUserPubkey);
       }
-      
+
       // Build the recipient list with profile information
-      selectedRecipients = Array.from(recipientPubkeys).map(pubkey => {
-        const profile = authorProfiles.get(pubkey);
-        return {
-          pubkey: pubkey,
-          name: profile?.name || "",
-          displayName: profile?.displayName || "",
-          picture: profile?.picture || "",
-          about: "", // We don't store about in authorProfiles
-          nip05: "", // We don't store nip05 in authorProfiles
-        };
-      }).filter(recipient => recipient.pubkey); // Ensure we have valid pubkeys
-      
-      console.log(`Pre-loaded ${selectedRecipients.length} recipients for reply:`, selectedRecipients.map(r => r.displayName || r.name || r.pubkey?.slice(0, 8)));
+      selectedRecipients = Array.from(recipientPubkeys)
+        .map((pubkey) => {
+          const profile = authorProfiles.get(pubkey);
+          return {
+            pubkey: pubkey,
+            name: profile?.name || "",
+            displayName: profile?.displayName || "",
+            picture: profile?.picture || "",
+            about: "", // We don't store about in authorProfiles
+            nip05: "", // We don't store nip05 in authorProfiles
+          };
+        })
+        .filter((recipient) => recipient.pubkey); // Ensure we have valid pubkeys
+
+      console.log(
+        `Pre-loaded ${selectedRecipients.length} recipients for reply:`,
+        selectedRecipients.map(
+          (r) => r.displayName || r.name || r.pubkey?.slice(0, 8),
+        ),
+      );
     }
   }
 
@@ -247,7 +277,7 @@
     recipientLoading = false;
     recipientCommunityStatus = {};
     isRecipientSearching = false;
-    
+
     // Clear any pending search timeout
     if (recipientSearchTimeout) {
       clearTimeout(recipientSearchTimeout);
@@ -276,7 +306,10 @@
     try {
       console.log("Recipient search promise created, waiting for result...");
       const result = await searchProfiles(recipientSearch.trim(), ndk);
-      console.log("Recipient search completed, found profiles:", result.profiles.length);
+      console.log(
+        "Recipient search completed, found profiles:",
+        result.profiles.length,
+      );
       console.log("Profile details:", result.profiles);
       console.log("Community status:", result.Status);
 
@@ -334,15 +367,18 @@
 
   function selectRecipient(profile: NostrProfile) {
     // Check if recipient is already selected
-    if (selectedRecipients.some(r => r.pubkey === profile.pubkey)) {
-      console.log("Recipient already selected:", profile.displayName || profile.name);
+    if (selectedRecipients.some((r) => r.pubkey === profile.pubkey)) {
+      console.log(
+        "Recipient already selected:",
+        profile.displayName || profile.name,
+      );
       return;
     }
 
     // Add recipient to selection
     selectedRecipients = [...selectedRecipients, profile];
     console.log("Selected recipient:", profile.displayName || profile.name);
-    
+
     // Close the recipient modal (New Message modal stays open)
     closeRecipientModal();
   }
@@ -352,15 +388,15 @@
 
     try {
       isComposingMessage = true;
-      
+
       // Create p-tags for all recipients (ensure hex format)
-      const pTags = selectedRecipients.map(recipient => {
+      const pTags = selectedRecipients.map((recipient) => {
         let pubkey = recipient.pubkey!;
         // Convert npub to hex if needed
-        if (pubkey.startsWith('npub')) {
+        if (pubkey.startsWith("npub")) {
           try {
             const decoded = nip19.decode(pubkey);
-            if (decoded.type === 'npub') {
+            if (decoded.type === "npub") {
               pubkey = decoded.data;
             }
           } catch (e) {
@@ -369,65 +405,75 @@
         }
         return ["p", pubkey];
       });
-      
+
       // Add q tag if replying to a message (for jump-to functionality)
       if (replyToMessage) {
-        pTags.push(["q", replyToMessage.id, newMessageRelays[0] || anonymousRelays[0]]);
+        pTags.push([
+          "q",
+          replyToMessage.id,
+          newMessageRelays[0] || anonymousRelays[0],
+        ]);
       }
-      
+
       // Get all recipient pubkeys for relay calculation (ensure hex format)
-      const recipientPubkeys = selectedRecipients.map(r => {
+      const recipientPubkeys = selectedRecipients.map((r) => {
         let pubkey = r.pubkey!;
         // Convert npub to hex if needed
-        if (pubkey.startsWith('npub')) {
+        if (pubkey.startsWith("npub")) {
           try {
             const decoded = nip19.decode(pubkey);
-            if (decoded.type === 'npub') {
+            if (decoded.type === "npub") {
               pubkey = decoded.data;
             }
           } catch (e) {
-            console.warn("[Send Message Relay Calc] Failed to decode npub:", pubkey, e);
+            console.warn(
+              "[Send Message Relay Calc] Failed to decode npub:",
+              pubkey,
+              e,
+            );
           }
         }
         return pubkey;
       });
-      
+
       // Calculate relay set using the same logic as kind24_utils
       const senderPubkey = $userStore.pubkey;
       if (!senderPubkey) {
         throw new Error("No sender pubkey available");
       }
-      
+
       // Get relay sets for all recipients and combine them
-      const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
+      const relaySetPromises = recipientPubkeys.map((recipientPubkey) =>
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk),
       );
       const relaySets = await Promise.all(relaySetPromises);
-      
+
       // Combine and deduplicate all relay sets
       const allRelays = relaySets.flat();
       const uniqueRelays = [...new Set(allRelays)];
       newMessageRelays = uniqueRelays;
-      
+
       // Use the content as-is, quoted content is handled via q tag
       const finalContent = newMessageContent;
-      
+
       // Create and sign the event using the unified function (includes expiration tag)
       const { event: signedEvent } = await createSignedEvent(
         finalContent,
-        $userStore.pubkey || '',
+        $userStore.pubkey || "",
         24,
-        pTags
+        pTags,
       );
 
       // Publish to relays using WebSocket pool like other components
-      const { WebSocketPool } = await import("$lib/data_structures/websocket_pool");
+      const { WebSocketPool } = await import(
+        "$lib/data_structures/websocket_pool"
+      );
       let publishedToAny = false;
 
       for (const relayUrl of newMessageRelays) {
         try {
           const ws = await WebSocketPool.instance.acquire(relayUrl);
-          
+
           await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
               WebSocketPool.instance.release(ws);
@@ -475,7 +521,10 @@
   let paginatedNotifications = $derived.by(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const currentNotifications = notificationMode === "to-me" ? allToMeNotifications : allFromMeNotifications;
+    const currentNotifications =
+      notificationMode === "to-me"
+        ? allToMeNotifications
+        : allFromMeNotifications;
     return currentNotifications.slice(startIndex, endIndex);
   });
 
@@ -505,12 +554,20 @@
     if (!$userStore.pubkey || !isOwnProfile || isFetching) return;
 
     // Check if we've already fetched data for this specific mode
-    if (notificationMode === "to-me" && hasFetchedToMe && allToMeNotifications.length > 0) {
+    if (
+      notificationMode === "to-me" &&
+      hasFetchedToMe &&
+      allToMeNotifications.length > 0
+    ) {
       currentPage = 1;
       notifications = paginatedNotifications;
       return;
     }
-    if (notificationMode === "from-me" && hasFetchedFromMe && allFromMeNotifications.length > 0) {
+    if (
+      notificationMode === "from-me" &&
+      hasFetchedFromMe &&
+      allFromMeNotifications.length > 0
+    ) {
       currentPage = 1;
       notifications = paginatedNotifications;
       return;
@@ -522,39 +579,44 @@
 
     try {
       if (!ndk) throw new Error("No NDK instance available");
-      
+
       const userStoreValue = get(userStore);
-      const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+      const user =
+        userStoreValue.signedIn && userStoreValue.pubkey
+          ? ndk.getUser({ pubkey: userStoreValue.pubkey })
+          : null;
       const relaySet = await buildCompleteRelaySet(ndk, user);
       const relays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
       if (relays.length === 0) throw new Error("No relays available");
 
       const filter = {
         kinds: [1, 1111, 9802, 6, 16],
-        ...(notificationMode === "to-me" 
+        ...(notificationMode === "to-me"
           ? { "#p": [$userStore.pubkey] }
-          : { authors: [$userStore.pubkey] }
-        ),
+          : { authors: [$userStore.pubkey] }),
         limit: 500, // Fetch more data once to avoid multiple relay calls
       };
 
       const ndkRelaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
       const events = await ndk.fetchEvents(filter, undefined, ndkRelaySet);
       const eventArray = Array.from(events);
-      
+
       // Filter out self-referential events
-      const filteredEvents = eventArray.filter(event => {
+      const filteredEvents = eventArray.filter((event) => {
         if (notificationMode === "to-me") {
           return event.pubkey !== $userStore.pubkey;
         } else {
           const pTags = event.getMatchingTags("p");
-          const isUserMentioned = pTags.some(tag => tag[1] === $userStore.pubkey);
+          const isUserMentioned = pTags.some(
+            (tag) => tag[1] === $userStore.pubkey,
+          );
           return !isUserMentioned;
         }
       });
-      
-      const sortedEvents = filteredEvents
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+      const sortedEvents = filteredEvents.sort(
+        (a, b) => (b.created_at || 0) - (a.created_at || 0),
+      );
 
       // Store in the appropriate array based on mode
       if (notificationMode === "to-me") {
@@ -573,7 +635,8 @@
       authorProfiles = await fetchAuthorProfiles(sortedEvents, ndk);
     } catch (err) {
       console.error("[Notifications] Error fetching notifications:", err);
-      error = err instanceof Error ? err.message : "Failed to fetch notifications";
+      error =
+        err instanceof Error ? err.message : "Failed to fetch notifications";
     } finally {
       loading = false;
       isFetching = false;
@@ -596,8 +659,11 @@
       if (!ndk) throw new Error("No NDK instance available");
 
       const userStoreValue = get(userStore);
-      const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
-      
+      const user =
+        userStoreValue.signedIn && userStoreValue.pubkey
+          ? ndk.getUser({ pubkey: userStoreValue.pubkey })
+          : null;
+
       // AI-NOTE: Cache relay set to prevent excessive calls
       console.log("[PublicMessages] Building relay set for public messages...");
       const relaySet = await buildCompleteRelaySet(ndk, user);
@@ -608,22 +674,32 @@
 
       // Fetch only kind 24 messages
       const [messagesEvents, userMessagesEvents] = await Promise.all([
-        ndk.fetchEvents({ kinds: [24 as any], "#p": [$userStore.pubkey], limit: 500 }, undefined, ndkRelaySet),
-        ndk.fetchEvents({ kinds: [24 as any], authors: [$userStore.pubkey], limit: 500 }, undefined, ndkRelaySet)
+        ndk.fetchEvents(
+          { kinds: [24 as any], "#p": [$userStore.pubkey], limit: 500 },
+          undefined,
+          ndkRelaySet,
+        ),
+        ndk.fetchEvents(
+          { kinds: [24 as any], authors: [$userStore.pubkey], limit: 500 },
+          undefined,
+          ndkRelaySet,
+        ),
       ]);
 
       const allMessages = [
         ...Array.from(messagesEvents),
-        ...Array.from(userMessagesEvents)
+        ...Array.from(userMessagesEvents),
       ];
 
       // Deduplicate and sort
-      const uniqueMessages = allMessages.filter((event, index, self) => 
-        index === self.findIndex(e => e.id === event.id)
+      const uniqueMessages = allMessages.filter(
+        (event, index, self) =>
+          index === self.findIndex((e) => e.id === event.id),
       );
 
-      allPublicMessages = uniqueMessages
-        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      allPublicMessages = uniqueMessages.sort(
+        (a, b) => (b.created_at || 0) - (a.created_at || 0),
+      );
 
       // Set current page to 1 and update displayed messages
       currentPage = 1;
@@ -634,7 +710,8 @@
       authorProfiles = await fetchAuthorProfiles(allPublicMessages, ndk);
     } catch (err) {
       console.error("[PublicMessages] Error fetching public messages:", err);
-      error = err instanceof Error ? err.message : "Failed to fetch public messages";
+      error =
+        err instanceof Error ? err.message : "Failed to fetch public messages";
     } finally {
       loading = false;
       isFetching = false;
@@ -689,14 +766,17 @@
   // Check if user is viewing their own profile
   $effect(() => {
     if ($userStore.signedIn && $userStore.pubkey && event.pubkey) {
-      isOwnProfile = $userStore.pubkey.toLowerCase() === event.pubkey.toLowerCase();
+      isOwnProfile =
+        $userStore.pubkey.toLowerCase() === event.pubkey.toLowerCase();
     } else {
       isOwnProfile = false;
     }
   });
 
   // AI-NOTE: Track previous state to prevent unnecessary refetches
-  let previousMode = $state<"to-me" | "from-me" | "public-messages" | null>(null);
+  let previousMode = $state<"to-me" | "from-me" | "public-messages" | null>(
+    null,
+  );
   let previousPubkey = $state<string | null>(null);
   let previousIsOwnProfile = $state(false);
   let isFetching = $state(false); // Guard against concurrent fetches
@@ -706,19 +786,30 @@
     const currentMode = notificationMode;
     const currentPubkey = $userStore.pubkey;
     const currentIsOwnProfile = isOwnProfile;
-    
+
     // Only proceed if something actually changed and we're not already fetching
-    if (currentIsOwnProfile && currentPubkey && $userStore.signedIn && !isFetching) {
-      if (previousMode !== currentMode || previousPubkey !== currentPubkey || previousIsOwnProfile !== currentIsOwnProfile) {
+    if (
+      currentIsOwnProfile &&
+      currentPubkey &&
+      $userStore.signedIn &&
+      !isFetching
+    ) {
+      if (
+        previousMode !== currentMode ||
+        previousPubkey !== currentPubkey ||
+        previousIsOwnProfile !== currentIsOwnProfile
+      ) {
         console.log("[Notifications] Mode or user changed, fetching data...");
-        
+
         // Reset pagination when mode changes
         if (currentMode === "public-messages" && !hasFetchedPublic) {
           resetPagination();
           fetchPublicMessages();
-        } else if (currentMode !== "public-messages" && 
-                  ((currentMode === "to-me" && !hasFetchedToMe) || 
-                   (currentMode === "from-me" && !hasFetchedFromMe))) {
+        } else if (
+          currentMode !== "public-messages" &&
+          ((currentMode === "to-me" && !hasFetchedToMe) ||
+            (currentMode === "from-me" && !hasFetchedFromMe))
+        ) {
           resetPagination();
           fetchNotifications();
         } else {
@@ -726,13 +817,16 @@
           currentPage = 1;
           updateDisplayedItems();
         }
-        
+
         // Update previous state
         previousMode = currentMode;
         previousPubkey = currentPubkey;
         previousIsOwnProfile = currentIsOwnProfile;
       }
-    } else if ((previousIsOwnProfile || previousPubkey) && !currentIsOwnProfile) {
+    } else if (
+      (previousIsOwnProfile || previousPubkey) &&
+      !currentIsOwnProfile
+    ) {
       // Clear notifications when user logs out or is not viewing own profile
       console.log("[Notifications] User logged out, clearing data...");
       resetPagination();
@@ -757,8 +851,13 @@
   // Calculate relay set when recipients change - non-blocking approach
   $effect(() => {
     const senderPubkey = $userStore.pubkey;
-    console.log("[Relay Effect] Recipients changed:", selectedRecipients.length, "Sender:", senderPubkey?.slice(0, 8));
-    
+    console.log(
+      "[Relay Effect] Recipients changed:",
+      selectedRecipients.length,
+      "Sender:",
+      senderPubkey?.slice(0, 8),
+    );
+
     if (selectedRecipients.length > 0 && senderPubkey) {
       // Start async relay set calculation without blocking the effect
       updateRelaySet(selectedRecipients, senderPubkey);
@@ -773,13 +872,16 @@
    */
   async function updateRelaySet(recipients: any[], senderPubkey: string) {
     try {
-      const recipientPubkeys = recipients.map(r => {
+      const recipientPubkeys = recipients.map((r) => {
         const pubkey = r.pubkey!;
         // Convert npub to hex if needed
-        if (pubkey.startsWith('npub')) {
+        if (pubkey.startsWith("npub")) {
           try {
-            const decoded = nip19.decode(pubkey) as unknown as { type: string; data: string };
-            if (decoded.type === 'npub') {
+            const decoded = nip19.decode(pubkey) as unknown as {
+              type: string;
+              data: string;
+            };
+            if (decoded.type === "npub") {
               return decoded.data;
             }
           } catch (e) {
@@ -788,29 +890,38 @@
         }
         return pubkey;
       });
-      console.log("[Relay Effect] Getting relay sets for recipients (hex):", recipientPubkeys.map(p => p.slice(0, 8)));
-      
-      // Get relay sets for all recipients and combine them
-      const relaySetPromises = recipientPubkeys.map(recipientPubkey => 
-        getKind24RelaySet(senderPubkey, recipientPubkey, ndk)
+      console.log(
+        "[Relay Effect] Getting relay sets for recipients (hex):",
+        recipientPubkeys.map((p) => p.slice(0, 8)),
       );
-      
+
+      // Get relay sets for all recipients and combine them
+      const relaySetPromises = recipientPubkeys.map((recipientPubkey) =>
+        getKind24RelaySet(senderPubkey, recipientPubkey, ndk),
+      );
+
       const relaySets = await Promise.all(relaySetPromises);
       console.log("[Relay Effect] Received relay sets:", relaySets);
-      
+
       // Combine and deduplicate all relay sets
       const allRelays = relaySets.flat();
       const uniqueRelays = [...new Set(allRelays)];
       console.log("[Relay Effect] Final relay list:", uniqueRelays);
-      
+
       // If no relays found from NIP-65, use fallback relays
       if (uniqueRelays.length === 0) {
         console.log("[Relay Effect] No NIP-65 relays found, using fallback");
         if (ndk) {
           const userStoreValue = get(userStore);
-          const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+          const user =
+            userStoreValue.signedIn && userStoreValue.pubkey
+              ? ndk.getUser({ pubkey: userStoreValue.pubkey })
+              : null;
           const relaySet = await buildCompleteRelaySet(ndk, user);
-          const fallbackRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
+          const fallbackRelays = [
+            ...relaySet.inboxRelays,
+            ...relaySet.outboxRelays,
+          ];
           newMessageRelays = fallbackRelays.slice(0, 5); // Limit to first 5 for performance
         } else {
           newMessageRelays = [];
@@ -823,9 +934,15 @@
       console.log("[Relay Effect] Using fallback relays due to error");
       if (ndk) {
         const userStoreValue = get(userStore);
-        const user = userStoreValue.signedIn && userStoreValue.pubkey ? ndk.getUser({ pubkey: userStoreValue.pubkey }) : null;
+        const user =
+          userStoreValue.signedIn && userStoreValue.pubkey
+            ? ndk.getUser({ pubkey: userStoreValue.pubkey })
+            : null;
         const relaySet = await buildCompleteRelaySet(ndk, user);
-        const fallbackRelays = [...relaySet.inboxRelays, ...relaySet.outboxRelays];
+        const fallbackRelays = [
+          ...relaySet.inboxRelays,
+          ...relaySet.outboxRelays,
+        ];
         newMessageRelays = fallbackRelays.slice(0, 5);
       } else {
         newMessageRelays = [];
@@ -838,7 +955,7 @@
   <div class="mb-6 w-full overflow-x-hidden">
     <div class="flex items-center justify-between mb-4">
       <Heading tag="h3" class="h-leather">Notifications</Heading>
-      
+
       <div class="flex items-center gap-3">
         <!-- New Message Button -->
         <Button
@@ -849,36 +966,60 @@
         >
           New Message
         </Button>
-      
-      <!-- Mode toggle -->
-      <div class="flex bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
-        {#each ["to-me", "from-me", "public-messages"] as mode}
-          {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
-          <button
-            class="mode-toggle-button px-3 py-1 text-sm font-medium rounded-md {notificationMode === mode ? 'active' : 'inactive'}"
-            onclick={() => notificationMode = mode as "to-me" | "from-me" | "public-messages"}
-          >
-            {modeLabel}
-          </button>
-        {/each}
+
+        <!-- Mode toggle -->
+        <div class="flex bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
+          {#each ["to-me", "from-me", "public-messages"] as mode}
+            {@const modeLabel =
+              mode === "to-me"
+                ? "To Me"
+                : mode === "from-me"
+                  ? "From Me"
+                  : "Public Messages"}
+            <button
+              class="mode-toggle-button px-3 py-1 text-sm font-medium rounded-md {notificationMode ===
+              mode
+                ? 'active'
+                : 'inactive'}"
+              onclick={() =>
+                (notificationMode = mode as
+                  | "to-me"
+                  | "from-me"
+                  | "public-messages")}
+            >
+              {modeLabel}
+            </button>
+          {/each}
         </div>
       </div>
     </div>
-    
+
     {#if loading}
       <div class="flex items-center justify-center py-8 min-h-96">
-        <div class="notifications-loading-spinner rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div
+          class="notifications-loading-spinner rounded-full h-8 w-8 border-b-2 border-primary-600"
+        ></div>
         <span class="ml-2 text-gray-600 dark:text-gray-400">
-          Loading {notificationMode === "public-messages" ? "public messages" : "notifications"}...
+          Loading {notificationMode === "public-messages"
+            ? "public messages"
+            : "notifications"}...
         </span>
       </div>
     {:else if error}
-      <div class="p-4 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg">
-        <P>Error loading {notificationMode === "public-messages" ? "public messages" : "notifications"}: {error}</P>
+      <div
+        class="p-4 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg"
+      >
+        <P
+          >Error loading {notificationMode === "public-messages"
+            ? "public messages"
+            : "notifications"}: {error}</P
+        >
       </div>
     {:else if notificationMode === "public-messages"}
       {#if publicMessages.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
+        <div
+          class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg"
+        >
           <P>No public messages found.</P>
         </div>
       {:else}
@@ -887,7 +1028,10 @@
             <div class="filter-indicator mb-4 p-3 rounded-lg">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}
+                  Filtered by user: @{authorProfiles.get(filteredByUser)
+                    ?.displayName ||
+                    authorProfiles.get(filteredByUser)?.name ||
+                    "anon"}
                 </span>
                 <button
                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
@@ -902,30 +1046,51 @@
             {#each filteredMessages.slice(0, 100) as message}
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
-              <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-event-id="{message.id}">
-                <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
+              <div
+                class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm"
+                data-event-id={message.id}
+              >
+                <div
+                  class="flex items-start gap-3 {isFromUser
+                    ? 'flex-row-reverse'
+                    : ''}"
+                >
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
+                    <div
+                      class="flex flex-col items-center gap-2 {isFromUser
+                        ? 'items-end'
+                        : 'items-start'}"
+                    >
                       {#if authorProfile?.picture}
                         <img
                           src={authorProfile.picture}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                          onerror={(e) =>
+                            ((e.target as HTMLImageElement).style.display =
+                              "none")}
                         />
                       {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                        <div
+                          class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                        >
+                          <UserOutline
+                            class="w-5 h-5 text-gray-600 dark:text-gray-300"
+                          />
                         </div>
                       {/if}
                       <div class="w-24 text-center">
-                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
+                        <span
+                          class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words"
+                        >
+                          @{authorProfile?.displayName ||
+                            authorProfile?.name ||
+                            "anon"}
                         </span>
                       </div>
                     </div>
-                    
+
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
                       <div class="mt-2 flex justify-center gap-1">
@@ -944,27 +1109,50 @@
                         </button>
                         <!-- Filter button -->
                         <button
-                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}"
+                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser ===
+                          message.pubkey
+                            ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400'
+                            : ''}"
                           onclick={() => filterByUser(message.pubkey)}
                           title="Filter by this user"
                           aria-label="Filter by this user"
                         >
-                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
+                          <svg
+                            class="w-3 h-3"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+                              clip-rule="evenodd"
+                            />
                           </svg>
                         </button>
                       </div>
                     {/if}
                   </div>
-                  
+
                   <!-- Message Content -->
-                  <div class="message-content flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
-                    <div class="flex items-center gap-2 mb-2 {isFromUser ? 'justify-end' : ''}">
-                      <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
-                        {isFromUser ? 'Your Message' : 'Public Message'}
+                  <div
+                    class="message-content flex-1 min-w-0 {isFromUser
+                      ? 'text-right'
+                      : ''}"
+                  >
+                    <div
+                      class="flex items-center gap-2 mb-2 {isFromUser
+                        ? 'justify-end'
+                        : ''}"
+                    >
+                      <span
+                        class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded"
+                      >
+                        {isFromUser ? "Your Message" : "Public Message"}
                       </span>
                       <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {message.created_at ? formatDate(message.created_at) : "Unknown date"}
+                        {message.created_at
+                          ? formatDate(message.created_at)
+                          : "Unknown date"}
                       </span>
                       <button
                         class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
@@ -974,36 +1162,56 @@
                         {getNeventUrl(message).slice(0, 16)}...
                       </button>
                     </div>
-                    
 
-                    
                     {#if message.getMatchingTags("q").length > 0}
-                      <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
+                      <div
+                        class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed"
+                      >
                         {@render quotedContent(message, publicMessages, ndk)}
                       </div>
                     {/if}
                     {#if message.content}
-                      <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
+                      <div
+                        class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed"
+                      >
                         <div class="px-2">
                           <div class="text-sm text-gray-700 dark:text-gray-300">
                             {#if repostKinds.includes(message.kind)}
                               <!-- Repost content - parse stringified JSON -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  {message.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
+                                  {message.kind === 6
+                                    ? "Repost:"
+                                    : "Generic repost:"}
                                 </div>
                                 {@render repostContent(message.content)}
                               </div>
                             {:else if message.kind === 1 && message.getMatchingTags("q").length > 0}
                               <!-- Quote repost content -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
                                   Quote repost:
                                 </div>
-                                {@render quotedContent(message, publicMessages, ndk)}
+                                {@render quotedContent(
+                                  message,
+                                  publicMessages,
+                                  ndk,
+                                )}
                                 {#if message.content && message.content.trim()}
-                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  <div
+                                    class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                  >
+                                    <div
+                                      class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                    >
                                       Comment:
                                     </div>
                                     {@render basicMarkup(message.content, ndk)}
@@ -1012,26 +1220,29 @@
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {@render basicMarkup(message.content || "No content", ndk)}
+                              {@render basicMarkup(
+                                message.content || "No content",
+                                ndk,
+                              )}
                             {/if}
                           </div>
                         </div>
                       </div>
                     {/if}
-                    
-
                   </div>
                 </div>
-                
               </div>
-          {/each}
+            {/each}
           </div>
-          
+
           <!-- Pagination Controls -->
           {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div
+              class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+            >
               <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({allPublicMessages.length} total messages)
+                Page {currentPage} of {totalPages} ({allPublicMessages.length} total
+                messages)
               </div>
               <div class="flex items-center gap-2">
                 <button
@@ -1056,161 +1267,207 @@
           {/if}
         </div>
       {/if}
+    {:else if notifications.length === 0}
+      <div
+        class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg"
+      >
+        <P
+          >No notifications {notificationMode === "to-me" ? "received" : "sent"}
+          found.</P
+        >
+      </div>
     {:else}
-      {#if notifications.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-          <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
-        </div>
-      {:else}
-        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
-          {#each notifications.slice(0, 100) as notification}
-            {@const authorProfile = authorProfiles.get(notification.pubkey)}
-            <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-                <div class="flex items-start gap-3">
-                  <!-- Author Profile Picture and Name -->
-                  <div class="flex-shrink-0">
-                    <div class="flex flex-col items-center gap-2">
-                      {#if authorProfile?.picture}
-                        <img
-                          src={authorProfile.picture}
-                          alt="Author avatar"
-                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                        />
-                      {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        </div>
-                      {/if}
-                      <div class="w-24 text-center">
-                        <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
-                          @{authorProfile?.displayName || authorProfile?.name || "anon"}
-                        </span>
-                      </div>
+      <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
+        {#each notifications.slice(0, 100) as notification}
+          {@const authorProfile = authorProfiles.get(notification.pubkey)}
+          <div
+            class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm"
+          >
+            <div class="flex items-start gap-3">
+              <!-- Author Profile Picture and Name -->
+              <div class="flex-shrink-0">
+                <div class="flex flex-col items-center gap-2">
+                  {#if authorProfile?.picture}
+                    <img
+                      src={authorProfile.picture}
+                      alt="Author avatar"
+                      class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                      onerror={(e) =>
+                        ((e.target as HTMLImageElement).style.display = "none")}
+                    />
+                  {:else}
+                    <div
+                      class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600"
+                    >
+                      <UserOutline
+                        class="w-5 h-5 text-gray-600 dark:text-gray-300"
+                      />
                     </div>
-                  </div>
-                  
-                  <!-- Notification Content -->
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-2">
-                      <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
-                        {getNotificationType(notification)}
-                      </span>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {notification.created_at ? formatDate(notification.created_at) : "Unknown date"}
-                      </span>
-                      <button
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
-                        onclick={() => navigateToEvent(getNeventUrl(notification))}
-                        title="Click to view event"
-                      >
-                        {getNeventUrl(notification).slice(0, 16)}...
-                      </button>
-                    </div>
-                    
-
-                    
-                    {#if notification.content}
-                      <div class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed">
-                        <div class="px-2">
-                          <div class="text-sm text-gray-700 dark:text-gray-300">
-                            {#if repostKinds.includes(notification.kind)}
-                              <!-- Repost content - parse stringified JSON -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  {notification.kind === 6 ? 'Repost:' : 'Generic repost:'}
-                                </div>
-                                {@render repostContent(notification.content)}
-                              </div>
-                            {:else if notification.kind === 1 && notification.getMatchingTags("q").length > 0}
-                              <!-- Quote repost content -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  Quote repost:
-                                </div>
-                                {@render quotedContent(notification, notifications, ndk)}
-                                {#if notification.content && notification.content.trim()}
-                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                      Comment:
-                                    </div>
-                                    {@render basicMarkup(notification.content, ndk)}
-                                  </div>
-                                {/if}
-                              </div>
-                            {:else}
-                              <!-- Regular content -->
-                              {@render basicMarkup(notification.content || "No content", ndk)}
-                            {/if}
-                          </div>
-                        </div>
-                      </div>
-                    {/if}
-                    
-
+                  {/if}
+                  <div class="w-24 text-center">
+                    <span
+                      class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words"
+                    >
+                      @{authorProfile?.displayName ||
+                        authorProfile?.name ||
+                        "anon"}
+                    </span>
                   </div>
                 </div>
-            </div>
-          {/each}
-          
-          <!-- Pagination Controls -->
-          {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({notificationMode === "to-me" ? allToMeNotifications.length : allFromMeNotifications.length} total notifications)
               </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={previousPage}
-                  disabled={!hasPreviousPage}
-                >
-                  Previous
-                </button>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={nextPage}
-                  disabled={!hasNextPage}
-                >
-                  Next
-                </button>
+
+              <!-- Notification Content -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-2">
+                  <span
+                    class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded"
+                  >
+                    {getNotificationType(notification)}
+                  </span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">
+                    {notification.created_at
+                      ? formatDate(notification.created_at)
+                      : "Unknown date"}
+                  </span>
+                  <button
+                    class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
+                    onclick={() => navigateToEvent(getNeventUrl(notification))}
+                    title="Click to view event"
+                  >
+                    {getNeventUrl(notification).slice(0, 16)}...
+                  </button>
+                </div>
+
+                {#if notification.content}
+                  <div
+                    class="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed"
+                  >
+                    <div class="px-2">
+                      <div class="text-sm text-gray-700 dark:text-gray-300">
+                        {#if repostKinds.includes(notification.kind)}
+                          <!-- Repost content - parse stringified JSON -->
+                          <div
+                            class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                          >
+                            <div
+                              class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                            >
+                              {notification.kind === 6
+                                ? "Repost:"
+                                : "Generic repost:"}
+                            </div>
+                            {@render repostContent(notification.content)}
+                          </div>
+                        {:else if notification.kind === 1 && notification.getMatchingTags("q").length > 0}
+                          <!-- Quote repost content -->
+                          <div
+                            class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                          >
+                            <div
+                              class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                            >
+                              Quote repost:
+                            </div>
+                            {@render quotedContent(
+                              notification,
+                              notifications,
+                              ndk,
+                            )}
+                            {#if notification.content && notification.content.trim()}
+                              <div
+                                class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
+                                  Comment:
+                                </div>
+                                {@render basicMarkup(notification.content, ndk)}
+                              </div>
+                            {/if}
+                          </div>
+                        {:else}
+                          <!-- Regular content -->
+                          {@render basicMarkup(
+                            notification.content || "No content",
+                            ndk,
+                          )}
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                {/if}
               </div>
             </div>
-          {/if}
-        </div>
-      {/if}
+          </div>
+        {/each}
+
+        <!-- Pagination Controls -->
+        {#if totalPages > 1}
+          <div
+            class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+          >
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+              Page {currentPage} of {totalPages} ({notificationMode === "to-me"
+                ? allToMeNotifications.length
+                : allFromMeNotifications.length} total notifications)
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick={previousPage}
+                disabled={!hasPreviousPage}
+              >
+                Previous
+              </button>
+              <span class="text-sm text-gray-600 dark:text-gray-400">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick={nextPage}
+                disabled={!hasNextPage}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
-  
+
   <!-- New Message Modal -->
   <Modal bind:open={showNewMessageModal} size="lg" class="w-full">
     <div class="modal-content p-6">
       <div class="mb-4">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {replyToMessage ? 'Reply to Message' : 'New Public Message'}
+          {replyToMessage ? "Reply to Message" : "New Public Message"}
         </h3>
       </div>
-      
+
       <!-- Quoted Content Display -->
       {#if replyToMessage}
         <div class="quoted-content mb-4 p-3 rounded-r-lg">
-          <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">Replying to:</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            Replying to:
+          </div>
           <div class="text-sm text-gray-800 dark:text-gray-200">
             <div class="text-sm text-gray-700 dark:text-gray-300">
               {@render basicMarkup(replyToMessage.content || "No content", ndk)}
             </div>
           </div>
-  </div>
+        </div>
       {/if}
-      
+
       <!-- Recipients Section -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Sending to {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''}:
+            Sending to {selectedRecipients.length} recipient{selectedRecipients.length !==
+            1
+              ? "s"
+              : ""}:
           </span>
           <button
             class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
@@ -1223,7 +1480,7 @@
             Edit Recipients
           </button>
         </div>
-        
+
         {#if selectedRecipients.length === 0}
           <div class="recipient-selection p-3 rounded-lg">
             <p class="text-sm text-yellow-700 dark:text-yellow-300">
@@ -1233,11 +1490,15 @@
         {:else}
           <div class="flex flex-wrap gap-2">
             {#each selectedRecipients as recipient}
-              <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm">
+              <span
+                class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm"
+              >
                 @{recipient.displayName || recipient.name || "anon"}
                 <button
                   onclick={() => {
-                    selectedRecipients = selectedRecipients.filter(r => r.pubkey !== recipient.pubkey);
+                    selectedRecipients = selectedRecipients.filter(
+                      (r) => r.pubkey !== recipient.pubkey,
+                    );
                   }}
                   class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
@@ -1248,14 +1509,21 @@
           </div>
         {/if}
       </div>
-      
+
       <!-- Relay Information -->
       {#if selectedRecipients.length > 0 && newMessageRelays.length > 0}
         <div class="mb-4">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-            Publishing to {newMessageRelays.length} relay{newMessageRelays.length !== 1 ? 's' : ''}:
+          <span
+            class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block"
+          >
+            Publishing to {newMessageRelays.length} relay{newMessageRelays.length !==
+            1
+              ? "s"
+              : ""}:
           </span>
-          <div class="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div
+            class="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+          >
             <div class="space-y-1">
               {#each newMessageRelays as relay}
                 <div class="text-xs font-mono text-gray-600 dark:text-gray-400">
@@ -1266,10 +1534,13 @@
           </div>
         </div>
       {/if}
-      
+
       <!-- Message Content -->
       <div class="mb-4">
-        <label for="new-message-content" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+        <label
+          for="new-message-content"
+          class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block"
+        >
           Message:
         </label>
         <textarea
@@ -1280,14 +1551,20 @@
           rows="6"
           onkeydown={(e) => {
             // Allow Enter for new lines, Ctrl+Enter to send
-            if (e.key === 'Enter' && e.ctrlKey && !isComposingMessage && selectedRecipients.length > 0 && newMessageContent.trim()) {
+            if (
+              e.key === "Enter" &&
+              e.ctrlKey &&
+              !isComposingMessage &&
+              selectedRecipients.length > 0 &&
+              newMessageContent.trim()
+            ) {
               e.preventDefault();
               sendNewMessage();
             }
           }}
         ></textarea>
       </div>
-      
+
       <!-- Action Buttons -->
       <div class="flex justify-end gap-3">
         <Button
@@ -1300,25 +1577,38 @@
         <Button
           color="primary"
           onclick={sendNewMessage}
-          disabled={isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim()}
-          class="flex items-center gap-2 {isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}"
+          disabled={isComposingMessage ||
+            selectedRecipients.length === 0 ||
+            !newMessageContent.trim()}
+          class="flex items-center gap-2 {isComposingMessage ||
+          selectedRecipients.length === 0 ||
+          !newMessageContent.trim()
+            ? 'button-disabled'
+            : ''}"
         >
           {#if isComposingMessage}
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <div
+              class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+            ></div>
           {/if}
-          Send to {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''}
+          Send to {selectedRecipients.length} recipient{selectedRecipients.length !==
+          1
+            ? "s"
+            : ""}
         </Button>
       </div>
     </div>
   </Modal>
-  
+
   <!-- Recipient Selection Modal -->
   <Modal bind:open={showRecipientModal} size="lg" class="w-full">
     <div class="modal-content p-6">
       <div class="mb-4">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Select Recipients</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Select Recipients
+        </h3>
       </div>
-      
+
       <div class="space-y-4">
         <div class="relative">
           <input
@@ -1326,11 +1616,15 @@
             placeholder="Search display name, name, NIP-05, or npub..."
             bind:value={recipientSearch}
             bind:this={recipientSearchInput}
-            class="search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 p-2.5 {recipientLoading ? 'pr-10' : ''}"
+            class="search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 p-2.5 {recipientLoading
+              ? 'pr-10'
+              : ''}"
           />
           {#if recipientLoading}
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+              <div
+                class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"
+              ></div>
             </div>
           {/if}
         </div>
@@ -1339,7 +1633,9 @@
           <div class="recipient-results">
             <ul class="space-y-2">
               {#each recipientResults as profile}
-                {@const isAlreadySelected = selectedRecipients.some(r => r.pubkey === profile.pubkey)}
+                {@const isAlreadySelected = selectedRecipients.some(
+                  (r) => r.pubkey === profile.pubkey,
+                )}
                 <button
                   onclick={(e) => {
                     e.preventDefault();
@@ -1347,7 +1643,9 @@
                     selectRecipient(profile);
                   }}
                   disabled={isAlreadySelected}
-                  class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
+                  class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''}"
                 >
                   {#if profile.picture}
                     <img
@@ -1355,12 +1653,16 @@
                       alt="Profile"
                       class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                       onerror={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
                   {:else}
-                    <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
-                      <UserOutline class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    <div
+                      class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center"
+                    >
+                      <UserOutline
+                        class="w-4 h-4 text-gray-600 dark:text-gray-300"
+                      />
                     </div>
                   {/if}
                   <div class="flex flex-col text-left min-w-0 flex-1">
@@ -1368,7 +1670,9 @@
                       @{profile.displayName || profile.name || "anon"}
                     </span>
                     {#if profile.nip05}
-                      <span class="text-xs text-gray-500 flex items-center gap-1">
+                      <span
+                        class="text-xs text-gray-500 flex items-center gap-1"
+                      >
                         <svg
                           class="inline w-4 h-4 text-primary-500"
                           fill="none"
@@ -1385,7 +1689,9 @@
                       </span>
                     {/if}
                     {#if profile.about}
-                      <span class="text-xs text-gray-500 truncate">{profile.about}</span>
+                      <span class="text-xs text-gray-500 truncate"
+                        >{profile.about}</span
+                      >
                     {/if}
                   </div>
                   {#if recipientCommunityStatus[profile.pubkey || ""]}
@@ -1407,7 +1713,10 @@
                     <div class="flex-shrink-0 w-4 h-4"></div>
                   {/if}
                   {#if isAlreadySelected}
-                    <span class="text-xs text-green-600 dark:text-green-400 font-medium">Selected</span>
+                    <span
+                      class="text-xs text-green-600 dark:text-green-400 font-medium"
+                      >Selected</span
+                    >
                   {/if}
                 </button>
               {/each}
@@ -1423,4 +1732,4 @@
       </div>
     </div>
   </Modal>
-{/if} 
+{/if}

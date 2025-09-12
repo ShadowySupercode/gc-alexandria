@@ -9,7 +9,11 @@
     Input,
     Modal,
   } from "flowbite-svelte";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { anonymousRelays } from "$lib/consts";
   import type NDK from "@nostr-dev-kit/ndk";
@@ -211,9 +215,7 @@
         ...allRelays.map(normalizeRelayUrl),
         ...(ndk.pool
           ? Array.from(ndk.pool.relays.values())
-              .filter(
-                (relay) => relay.url,
-              )
+              .filter((relay) => relay.url)
               .map((relay) => normalizeRelayUrl(relay.url))
           : []),
       ]);

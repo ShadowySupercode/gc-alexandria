@@ -158,7 +158,7 @@ describe("Tag Expansion Tests", () => {
     it("should fetch publications with matching tags from relays", async () => {
       // Mock the NDK fetch to return publications with 'bitcoin' tag
       const bitcoinPublications = mockPublications.filter((pub) =>
-        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin")
+        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin"),
       );
       mockNDK.fetchEvents.mockResolvedValueOnce(
         new Set(bitcoinPublications as NDKEvent[]),
@@ -335,7 +335,9 @@ describe("Tag Expansion Tests", () => {
       );
 
       // Should not include events without tags
-      expect(result.publications.map((p: any) => p.id)).not.toContain("no-tags");
+      expect(result.publications.map((p: any) => p.id)).not.toContain(
+        "no-tags",
+      );
     });
   });
 
@@ -385,7 +387,7 @@ describe("Tag Expansion Tests", () => {
 
       // Step 1: Mock relay fetch for 'bitcoin' tag
       const bitcoinPublications = mockPublications.filter((pub) =>
-        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin")
+        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin"),
       );
       mockNDK.fetchEvents.mockResolvedValueOnce(
         new Set(bitcoinPublications as NDKEvent[]),
@@ -488,9 +490,7 @@ describe("Tag Expansion Tests", () => {
         "author1",
         1100,
         "Content with colon d-tag",
-        [
-          ["d", "chapter:with:colons"],
-        ],
+        [["d", "chapter:with:colons"]],
       );
 
       const allEventsWithColons = [
@@ -512,7 +512,9 @@ describe("Tag Expansion Tests", () => {
 
       // Should handle d-tags with colons correctly
       expect(result.publications).toHaveLength(3);
-      expect(result.contentEvents.map((c: any) => c.id)).toContain("colon-content");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain(
+        "colon-content",
+      );
     });
   });
 });

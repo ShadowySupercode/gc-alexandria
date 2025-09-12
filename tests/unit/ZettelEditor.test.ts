@@ -35,7 +35,8 @@ vi.mock("asciidoctor", () => ({
   default: vi.fn(() => ({
     convert: vi.fn((content, options) => {
       // Mock AsciiDoctor conversion - return simple HTML
-      return content.replace(/^==\s+(.+)$/gm, "<h2>$1</h2>")
+      return content
+        .replace(/^==\s+(.+)$/gm, "<h2>$1</h2>")
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.+?)\*/g, "<em>$1</em>");
     }),
@@ -151,9 +152,9 @@ describe("ZettelEditor Component Logic", () => {
       expect(hasDocumentHeader).toBeFalsy(); // This content doesn't have a document header
 
       // Test section splitting logic
-      const sectionStrings = content.split(/(?=^==\s+)/gm).filter((
-        section: string,
-      ) => section.trim());
+      const sectionStrings = content
+        .split(/(?=^==\s+)/gm)
+        .filter((section: string) => section.trim());
       expect(sectionStrings).toHaveLength(1);
       expect(sectionStrings[0]).toContain("== Section 1");
     });
@@ -166,9 +167,9 @@ describe("ZettelEditor Component Logic", () => {
       expect(hasDocumentHeader).toBeFalsy();
 
       // Test section splitting logic
-      const sectionStrings = content.split(/(?=^==\s+)/gm).filter((
-        section: string,
-      ) => section.trim());
+      const sectionStrings = content
+        .split(/(?=^==\s+)/gm)
+        .filter((section: string) => section.trim());
       expect(sectionStrings).toHaveLength(1);
       expect(sectionStrings[0]).toContain("== Section 1");
     });
@@ -275,10 +276,9 @@ describe("ZettelEditor Component Logic", () => {
   describe("Tag Processing Logic", () => {
     it("should process tags correctly", () => {
       // Mock the metadataToTags function
-      const mockMetadataToTags = vi.fn().mockReturnValue([[
-        "author",
-        "Test Author",
-      ]]);
+      const mockMetadataToTags = vi
+        .fn()
+        .mockReturnValue([["author", "Test Author"]]);
 
       const mockMetadata = {
         title: "Section 1",
@@ -305,7 +305,8 @@ describe("ZettelEditor Component Logic", () => {
     it("should process AsciiDoc content correctly", () => {
       // Mock the asciidoctor conversion
       const mockConvert = vi.fn((content, options) => {
-        return content.replace(/^==\s+(.+)$/gm, "<h2>$1</h2>")
+        return content
+          .replace(/^==\s+(.+)$/gm, "<h2>$1</h2>")
           .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
           .replace(/\*(.+?)\*/g, "<em>$1</em>");
       });
@@ -374,9 +375,11 @@ describe("ZettelEditor Component Logic", () => {
   describe("Utility Function Integration", () => {
     it("should integrate with ZettelParser utilities", () => {
       // Mock the parseAsciiDocSections function
-      const mockParseAsciiDocSections = vi.fn().mockReturnValue([
-        { title: "Section 1", content: "Content 1", tags: [] },
-      ]);
+      const mockParseAsciiDocSections = vi
+        .fn()
+        .mockReturnValue([
+          { title: "Section 1", content: "Content 1", tags: [] },
+        ]);
 
       const content = "== Section 1\nContent 1";
       const sections = mockParseAsciiDocSections(content, 2);
@@ -416,12 +419,12 @@ describe("ZettelEditor Component Logic", () => {
       const invalidContent = "Just some text without sections";
 
       // Test section detection
-      const validSections = validContent.split(/(?=^==\s+)/gm).filter((
-        section: string,
-      ) => section.trim());
-      const invalidSections = invalidContent.split(/(?=^==\s+)/gm).filter((
-        section: string,
-      ) => section.trim());
+      const validSections = validContent
+        .split(/(?=^==\s+)/gm)
+        .filter((section: string) => section.trim());
+      const invalidSections = invalidContent
+        .split(/(?=^==\s+)/gm)
+        .filter((section: string) => section.trim());
 
       expect(validSections.length).toBeGreaterThan(0);
       // The invalid content will have one section (the entire content) since it doesn't start with ==
@@ -437,9 +440,9 @@ describe("ZettelEditor Component Logic", () => {
       expect(hasDocumentHeader).toBeTruthy();
 
       // Test section extraction
-      const sections = mixedContent.split(/(?=^==\s+)/gm).filter((
-        section: string,
-      ) => section.trim());
+      const sections = mixedContent
+        .split(/(?=^==\s+)/gm)
+        .filter((section: string) => section.trim());
       expect(sections.length).toBeGreaterThan(0);
     });
   });

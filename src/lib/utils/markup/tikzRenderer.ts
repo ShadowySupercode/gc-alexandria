@@ -44,9 +44,9 @@ function createBasicSVG(tikzCode: string): string {
     </text>
     <foreignObject x="10" y="60" width="${width - 20}" height="${height - 70}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: monospace; font-size: 10px; color: #666; overflow: hidden;">
-        <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">${
-    escapeHtml(tikzCode)
-  }</pre>
+        <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(
+          tikzCode,
+        )}</pre>
       </div>
     </foreignObject>
   </svg>`;

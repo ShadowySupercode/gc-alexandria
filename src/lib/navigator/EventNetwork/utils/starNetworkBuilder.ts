@@ -131,8 +131,9 @@ export function createStarNetworks(
   // Find all index events and non-publication events
   const publicationKinds = [wikiKind, indexKind, ...zettelKinds];
   const indexEvents = events.filter((event) => event.kind === indexKind);
-  const nonPublicationEvents = events.filter((event) =>
-    event.kind !== undefined && !publicationKinds.includes(event.kind)
+  const nonPublicationEvents = events.filter(
+    (event) =>
+      event.kind !== undefined && !publicationKinds.includes(event.kind),
   );
 
   debug("Found index events", { count: indexEvents.length });
@@ -200,8 +201,8 @@ export function createInterStarConnections(
     star.peripheralNodes.forEach((peripheralNode) => {
       // If this peripheral node is the center of another star, create an inter-star link
       if (peripheralNode.isContainer && centerNodeMap.has(peripheralNode.id)) {
-        const targetStar = starNetworks.find((s) =>
-          s.center.id === peripheralNode.id
+        const targetStar = starNetworks.find(
+          (s) => s.center.id === peripheralNode.id,
         );
         if (targetStar) {
           interStarLinks.push({
@@ -267,8 +268,8 @@ export function applyStarLayout(
   // For multiple stars, arrange them in a grid or circle
   const starsPerRow = Math.ceil(Math.sqrt(starNetworks.length));
   const starSpacingX = width / (starsPerRow + 1);
-  const starSpacingY = height /
-    (Math.ceil(starNetworks.length / starsPerRow) + 1);
+  const starSpacingY =
+    height / (Math.ceil(starNetworks.length / starsPerRow) + 1);
 
   starNetworks.forEach((star, index) => {
     const row = Math.floor(index / starsPerRow);

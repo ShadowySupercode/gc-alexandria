@@ -6,8 +6,12 @@
     checkWebSocketSupport,
     checkEnvironmentForWebSocketDowngrade,
   } from "$lib/ndk";
-  import {  onMount } from "svelte";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import { onMount } from "svelte";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
 
   const ndk = getNdkContext();
 

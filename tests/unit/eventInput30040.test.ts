@@ -625,8 +625,7 @@ Content here.`;
     });
 
     it("should handle document with very long title", () => {
-      const content =
-        `= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality
+      const content = `= This is a very long document title that should be handled properly by the system and should not cause any issues with the d-tag generation or any other functionality
 :summary: This document has a very long title
 
 == Section 1

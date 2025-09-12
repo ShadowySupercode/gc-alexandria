@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { generateDarkPastelColor } from '$lib/utils/image_utils';
-  import { fade } from 'svelte/transition';
-  import { quintOut } from 'svelte/easing';
+  import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import { fade } from "svelte/transition";
+  import { quintOut } from "svelte/easing";
 
   let {
     src,
     alt,
     eventId,
-    className = 'w-full h-full object-cover',
-    placeholderClassName = '',
+    className = "w-full h-full object-cover",
+    placeholderClassName = "",
   }: {
     src: string;
     alt: string;
@@ -25,18 +25,18 @@
 
   function loadImage() {
     if (!imgElement) return;
-    
+
     imgElement.onload = () => {
       // Small delay to ensure smooth transition
       setTimeout(() => {
         imageLoaded = true;
       }, 100);
     };
-    
+
     imgElement.onerror = () => {
       imageError = true;
     };
-    
+
     // Set src after setting up event handlers
     imgElement.src = src;
   }
@@ -50,12 +50,11 @@
 
 <div class="relative w-full h-full">
   <!-- Placeholder -->
-  <div 
+  <div
     class="absolute inset-0 {placeholderClassName}"
     style="background-color: {placeholderColor};"
     class:hidden={imageLoaded}
-  >
-  </div>
+  ></div>
 
   <!-- Image -->
   <img
@@ -79,12 +78,10 @@
 
   <!-- Error state -->
   {#if imageError}
-    <div 
+    <div
       class="absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 {placeholderClassName}"
     >
-      <div class="text-gray-500 dark:text-gray-400 text-xs">
-        Failed to load
-      </div>
+      <div class="text-gray-500 dark:text-gray-400 text-xs">Failed to load</div>
     </div>
   {/if}
-</div> 
+</div>

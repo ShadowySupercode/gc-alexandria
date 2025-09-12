@@ -113,28 +113,31 @@
   // Check if user came from visualization page
   let cameFromVisualization = $derived.by(() => {
     const url = $page.url;
-    return url.searchParams.has('from') && url.searchParams.get('from') === 'visualize';
+    return (
+      url.searchParams.has("from") &&
+      url.searchParams.get("from") === "visualize"
+    );
   });
 
   function visualizePublication() {
     // Use the event ID directly, but also try to get the tagAddress as a fallback
     const eventId = indexEvent.id;
     const tagAddress = indexEvent.tagAddress();
-    
+
     // For debugging, log both identifiers
     console.log("[ArticleNav] Visualizing publication:", {
       eventId,
       tagAddress,
       kind: indexEvent.kind,
-      pubkey: indexEvent.pubkey
+      pubkey: indexEvent.pubkey,
     });
-    
+
     goto(`/visualize?event=${eventId}`);
   }
 
   function returnToVisualization() {
     // Go back to visualization page
-    goto('/visualize');
+    goto("/visualize");
   }
 
   let unsubscribe: () => void;

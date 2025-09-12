@@ -32,7 +32,7 @@
   // AI-NOTE: Initialize with server-side data if available
   $effect(() => {
     if (initialized) return; // Prevent re-initialization
-    
+
     if (data.indexEvent && data.ndk) {
       const serverEvent = createNDKEvent(data.ndk, data.indexEvent);
       indexEvent = serverEvent;
@@ -90,9 +90,12 @@
 
   function initializePublicationComponents(event: NDKEvent) {
     if (!data.ndk) return;
-    
-    console.log("[Publication] Initializing publication components for event:", event.tagAddress());
-    
+
+    console.log(
+      "[Publication] Initializing publication components for event:",
+      event.tagAddress(),
+    );
+
     publicationTree = new SveltePublicationTree(event, data.ndk);
     toc = new TableOfContents(
       event.tagAddress(),
@@ -179,20 +182,23 @@
 
 {#if indexEvent && publicationTree && toc}
   {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
-  {@const debugElement = console.debug('[Publication] Rendering publication with:', debugInfo)}
+  {@const debugElement = console.debug(
+    "[Publication] Rendering publication with:",
+    debugInfo,
+  )}
   <ArticleNav
     publicationType={data.publicationType}
     rootId={indexEvent.id}
-    indexEvent={indexEvent}
+    {indexEvent}
   />
 
   <main class="publication {data.publicationType}">
     <Publication
       rootAddress={indexEvent.tagAddress()}
       publicationType={data.publicationType}
-      indexEvent={indexEvent}
-      publicationTree={publicationTree}
-      toc={toc}
+      {indexEvent}
+      {publicationTree}
+      {toc}
     />
   </main>
 {:else if loading}
@@ -205,9 +211,11 @@
   <main class="publication">
     <div class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <p class="text-red-600 dark:text-red-400 mb-4">Failed to load publication</p>
+        <p class="text-red-600 dark:text-red-400 mb-4">
+          Failed to load publication
+        </p>
         <p class="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-        <button 
+        <button
           class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           onclick={loadEventClientSide}
         >
@@ -218,10 +226,13 @@
   </main>
 {:else}
   {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
-  {@const debugElement = console.debug('[Publication] NOT rendering publication with:', debugInfo)}
+  {@const debugElement = console.debug(
+    "[Publication] NOT rendering publication with:",
+    debugInfo,
+  )}
   <main class="publication">
     <div class="flex items-center justify-center min-h-screen">
       <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>
     </div>
   </main>
-{/if} 
+{/if}

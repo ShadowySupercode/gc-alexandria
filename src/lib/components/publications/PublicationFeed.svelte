@@ -1,14 +1,15 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
   import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
   import ArticleHeader from "./PublicationHeader.svelte";
   import { onMount, onDestroy } from "svelte";
-  import {
-    getMatchingTags,
-    toNpub,
-  } from "$lib/utils/nostrUtils";
+  import { getMatchingTags, toNpub } from "$lib/utils/nostrUtils";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
   import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
   import { searchCache } from "$lib/utils/searchCache";
@@ -29,7 +30,9 @@
   let eventsInView: NDKEvent[] = $state([]);
   let loadingMore: boolean = $state(false);
   let endOfFeed: boolean = $state(false);
-  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>({});
+  let relayStatuses = $state<Record<string, "pending" | "found" | "notfound">>(
+    {},
+  );
   let loading: boolean = $state(true);
   let hasInitialized = $state(false);
   let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -47,29 +50,31 @@
 
   // Update column count and publications when window resizes
   $effect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const width = window.innerWidth;
       let newColumnCount = 1;
-      if (width >= 1280) newColumnCount = 4; // xl:grid-cols-4
-      else if (width >= 1024) newColumnCount = 3; // lg:grid-cols-3
+      if (width >= 1280)
+        newColumnCount = 4; // xl:grid-cols-4
+      else if (width >= 1024)
+        newColumnCount = 3; // lg:grid-cols-3
       else if (width >= 768) newColumnCount = 2; // md:grid-cols-2
-      
+
       if (columnCount !== newColumnCount) {
         columnCount = newColumnCount;
         publicationsToDisplay = newColumnCount * 10;
-        
+
         // Update the view immediately when column count changes
         if (allIndexEvents.length > 0) {
           let source = allIndexEvents;
-          
+
           // Apply user filter first
           source = filterEventsByUser(source);
-          
+
           // Then apply search filter if query exists
           if (props.searchQuery?.trim()) {
             source = filterEventsBySearch(source);
           }
-          
+
           eventsInView = source.slice(0, publicationsToDisplay);
           endOfFeed = eventsInView.length >= source.length;
         }
@@ -82,7 +87,7 @@
   // It ensures that events are fetched from the current set of active relays
   async function initializeAndFetch() {
     if (!ndk) {
-      console.debug('[PublicationFeed] No NDK instance available');
+      console.debug("[PublicationFeed] No NDK instance available");
       return;
     }
 
@@ -91,19 +96,21 @@
     const outboxRelays = $activeOutboxRelays;
     const newRelays = [...inboxRelays, ...outboxRelays];
 
-    console.debug('[PublicationFeed] Available relays:', {
+    console.debug("[PublicationFeed] Available relays:", {
       inboxCount: inboxRelays.length,
       outboxCount: outboxRelays.length,
       totalCount: newRelays.length,
-      relays: newRelays
+      relays: newRelays,
     });
 
     if (newRelays.length === 0) {
-      console.debug('[PublicationFeed] No relays available, waiting...');
+      console.debug("[PublicationFeed] No relays available, waiting...");
       // Set up a retry mechanism when relays become available
       const unsubscribe = activeInboxRelays.subscribe((relays) => {
         if (relays.length > 0 && !hasInitialized) {
-          console.debug('[PublicationFeed] Relays now available, retrying initialization');
+          console.debug(
+            "[PublicationFeed] Relays now available, retrying initialization",
+          );
           unsubscribe();
           setTimeout(() => {
             hasInitialized = true;
@@ -115,12 +122,12 @@
     }
 
     // Update allRelays if different
-    const currentRelaysString = allRelays.sort().join(',');
-    const newRelaysString = newRelays.sort().join(',');
-    
+    const currentRelaysString = allRelays.sort().join(",");
+    const newRelaysString = newRelays.sort().join(",");
+
     if (currentRelaysString !== newRelaysString) {
       allRelays = newRelays;
-      console.debug('[PublicationFeed] Relays updated, fetching events');
+      console.debug("[PublicationFeed] Relays updated, fetching events");
       await fetchAllIndexEventsFromRelays();
     }
   }
@@ -133,7 +140,7 @@
     const userState = $userStore;
 
     if (newRelays.length > 0 && !hasInitialized) {
-      console.debug('[PublicationFeed] Relays available, initializing');
+      console.debug("[PublicationFeed] Relays available, initializing");
       hasInitialized = true;
       if (fallbackTimeout) {
         clearTimeout(fallbackTimeout);
@@ -141,10 +148,12 @@
       }
       setTimeout(() => initializeAndFetch(), 0);
     } else if (newRelays.length === 0 && !hasInitialized) {
-      console.debug('[PublicationFeed] No relays available, setting up fallback');
+      console.debug(
+        "[PublicationFeed] No relays available, setting up fallback",
+      );
       if (!fallbackTimeout) {
         fallbackTimeout = setTimeout(() => {
-          console.debug('[PublicationFeed] Fallback timeout reached, retrying');
+          console.debug("[PublicationFeed] Fallback timeout reached, retrying");
           hasInitialized = true;
           initializeAndFetch();
         }, 3000);
@@ -152,11 +161,13 @@
     } else if (hasInitialized && newRelays.length > 0) {
       // AI-NOTE: Re-fetch events when user authentication state changes or relays are updated
       // This ensures that when a user logs in and their relays are loaded, we fetch events from those relays
-      const currentRelaysString = allRelays.sort().join(',');
-      const newRelaysString = newRelays.sort().join(',');
-      
+      const currentRelaysString = allRelays.sort().join(",");
+      const newRelaysString = newRelays.sort().join(",");
+
       if (currentRelaysString !== newRelaysString) {
-        console.debug('[PublicationFeed] Relay configuration changed, re-fetching events');
+        console.debug(
+          "[PublicationFeed] Relay configuration changed, re-fetching events",
+        );
         // Clear cache to force fresh fetch from new relays
         indexEventCache.clear();
         setTimeout(() => initializeAndFetch(), 0);
@@ -165,19 +176,22 @@
   });
 
   async function fetchAllIndexEventsFromRelays() {
-    console.debug('[PublicationFeed] fetchAllIndexEventsFromRelays called with relays:', {
-      allRelaysCount: allRelays.length,
-      allRelays: allRelays
-    });
-    
+    console.debug(
+      "[PublicationFeed] fetchAllIndexEventsFromRelays called with relays:",
+      {
+        allRelaysCount: allRelays.length,
+        allRelays: allRelays,
+      },
+    );
+
     if (!ndk) {
-      console.error('[PublicationFeed] No NDK instance available');
+      console.error("[PublicationFeed] No NDK instance available");
       loading = false;
       return;
     }
 
     if (allRelays.length === 0) {
-      console.debug('[PublicationFeed] No relays available for fetching');
+      console.debug("[PublicationFeed] No relays available for fetching");
       loading = false;
       return;
     }
@@ -206,19 +220,19 @@
     async function fetchFromRelay(relay: string): Promise<void> {
       try {
         console.debug(`[PublicationFeed] Fetching from relay: ${relay}`);
-        
+
         // Use WebSocketPool to get a pooled connection
         const ws = await WebSocketPool.instance.acquire(relay);
         const subId = crypto.randomUUID();
-        
+
         // Create a promise that resolves with the events
         const eventPromise = new Promise<Set<NDKEvent>>((resolve, reject) => {
           const events = new Set<NDKEvent>();
-          
+
           const messageHandler = (ev: MessageEvent) => {
             try {
               const data = JSON.parse(ev.data);
-              
+
               if (data[0] === "EVENT" && data[1] === subId) {
                 const event = new NDKEvent(ndk, data[2]);
                 events.add(event);
@@ -226,24 +240,25 @@
                 resolve(events);
               }
             } catch (error) {
-              console.error(`[PublicationFeed] Error parsing message from ${relay}:`, error);
+              console.error(
+                `[PublicationFeed] Error parsing message from ${relay}:`,
+                error,
+              );
             }
           };
-          
+
           const errorHandler = (ev: Event) => {
             reject(new Error(`WebSocket error for ${relay}: ${ev}`));
           };
-          
+
           ws.addEventListener("message", messageHandler);
           ws.addEventListener("error", errorHandler);
-          
+
           // Send the subscription request
-          ws.send(JSON.stringify([
-            "REQ", 
-            subId, 
-            { kinds: [indexKind], limit: 1000 }
-          ]));
-          
+          ws.send(
+            JSON.stringify(["REQ", subId, { kinds: [indexKind], limit: 1000 }]),
+          );
+
           // Set up cleanup
           setTimeout(() => {
             ws.removeEventListener("message", messageHandler);
@@ -252,15 +267,21 @@
             resolve(events);
           }, 5000);
         });
-        
+
         let eventSet = await eventPromise;
-        
-        console.debug(`[PublicationFeed] Raw events from ${relay}:`, eventSet.size);
+
+        console.debug(
+          `[PublicationFeed] Raw events from ${relay}:`,
+          eventSet.size,
+        );
         eventSet = filterValidIndexEvents(eventSet);
-        console.debug(`[PublicationFeed] Valid events from ${relay}:`, eventSet.size);
-        
+        console.debug(
+          `[PublicationFeed] Valid events from ${relay}:`,
+          eventSet.size,
+        );
+
         relayStatuses = { ...relayStatuses, [relay]: "found" };
-        
+
         // Add new events to the map and update the view immediately
         const newEvents: NDKEvent[] = [];
         for (const event of eventSet) {
@@ -270,36 +291,46 @@
             newEvents.push(event);
           }
         }
-        
+
         if (newEvents.length > 0) {
           // Update allIndexEvents with new events
           allIndexEvents = Array.from(eventMap.values());
           // Sort by created_at descending
           allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
-          
+
           // Update the view immediately with new events
           eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
           endOfFeed = allIndexEvents.length <= publicationsToDisplay;
-          
-          console.debug(`[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`);
+
+          console.debug(
+            `[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`,
+          );
         }
       } catch (err) {
-        console.error(`[PublicationFeed] Error fetching from relay ${relay}:`, err);
+        console.error(
+          `[PublicationFeed] Error fetching from relay ${relay}:`,
+          err,
+        );
         relayStatuses = { ...relayStatuses, [relay]: "notfound" };
       }
     }
 
     // Fetch from all relays in parallel, return events as they arrive
-    console.debug(`[PublicationFeed] Starting fetch from ${allRelays.length} relays`);
-    
+    console.debug(
+      `[PublicationFeed] Starting fetch from ${allRelays.length} relays`,
+    );
+
     // Start all relay fetches in parallel
     const fetchPromises = allRelays.map(fetchFromRelay);
-    
+
     // Wait for all to complete (but events are shown as they arrive)
     await Promise.allSettled(fetchPromises);
-    
-    console.debug(`[PublicationFeed] All relays completed, final event count:`, allIndexEvents.length);
-    
+
+    console.debug(
+      `[PublicationFeed] All relays completed, final event count:`,
+      allIndexEvents.length,
+    );
+
     // Cache the fetched events
     indexEventCache.set(allRelays, allIndexEvents);
 
@@ -322,25 +353,30 @@
   const filterEventsByNpub = (events: NDKEvent[], npub: string): NDKEvent[] => {
     try {
       const decoded = nip19.decode(npub);
-      if (decoded.type !== 'npub') {
+      if (decoded.type !== "npub") {
         console.debug("[PublicationFeed] Invalid npub format:", npub);
         return events;
       }
-      
+
       const pubkey = decoded.data.toLowerCase();
-      console.debug("[PublicationFeed] Filtering events for npub:", npub, "pubkey:", pubkey);
-      
+      console.debug(
+        "[PublicationFeed] Filtering events for npub:",
+        npub,
+        "pubkey:",
+        pubkey,
+      );
+
       const filtered = events.filter((event) => {
         // Check if user is the author of the event
         const eventPubkey = event.pubkey.toLowerCase();
         const isAuthor = eventPubkey === pubkey;
-        
+
         // Check if user is listed in "p" tags (participants/contributors)
         const pTags = getMatchingTags(event, "p");
-        const isInPTags = pTags.some(tag => tag[1]?.toLowerCase() === pubkey);
-        
+        const isInPTags = pTags.some((tag) => tag[1]?.toLowerCase() === pubkey);
+
         const matches = isAuthor || isInPTags;
-        
+
         if (matches) {
           console.debug("[PublicationFeed] Event matches npub filter:", {
             id: event.id,
@@ -348,13 +384,16 @@
             searchPubkey: pubkey,
             isAuthor,
             isInPTags,
-            pTags: pTags.map(tag => tag[1])
+            pTags: pTags.map((tag) => tag[1]),
           });
         }
         return matches;
       });
-      
-      console.debug("[PublicationFeed] Events after npub filtering:", filtered.length);
+
+      console.debug(
+        "[PublicationFeed] Events after npub filtering:",
+        filtered.length,
+      );
       return filtered;
     } catch (error) {
       console.debug("[PublicationFeed] Error filtering by npub:", npub, error);
@@ -365,27 +404,31 @@
   // Function to filter events by current user's pubkey
   const filterEventsByUser = (events: NDKEvent[]) => {
     if (!props.showOnlyMyPublications) return events;
-    
+
     const currentUser = $userStore;
     if (!currentUser.signedIn || !currentUser.pubkey) {
-      console.debug("[PublicationFeed] User not signed in or no pubkey, showing all events");
+      console.debug(
+        "[PublicationFeed] User not signed in or no pubkey, showing all events",
+      );
       return events;
     }
-    
+
     const userPubkey = currentUser.pubkey.toLowerCase();
     console.debug("[PublicationFeed] Filtering events for user:", userPubkey);
-    
+
     const filtered = events.filter((event) => {
       // Check if user is the author of the event
       const eventPubkey = event.pubkey.toLowerCase();
       const isAuthor = eventPubkey === userPubkey;
-      
+
       // Check if user is listed in "p" tags (participants/contributors)
       const pTags = getMatchingTags(event, "p");
-      const isInPTags = pTags.some(tag => tag[1]?.toLowerCase() === userPubkey);
-      
+      const isInPTags = pTags.some(
+        (tag) => tag[1]?.toLowerCase() === userPubkey,
+      );
+
       const matches = isAuthor || isInPTags;
-      
+
       if (matches) {
         console.debug("[PublicationFeed] Event matches user filter:", {
           id: event.id,
@@ -393,13 +436,16 @@
           userPubkey,
           isAuthor,
           isInPTags,
-          pTags: pTags.map(tag => tag[1])
+          pTags: pTags.map((tag) => tag[1]),
         });
       }
       return matches;
     });
-    
-    console.debug("[PublicationFeed] Events after user filtering:", filtered.length);
+
+    console.debug(
+      "[PublicationFeed] Events after user filtering:",
+      filtered.length,
+    );
     return filtered;
   };
 
@@ -426,9 +472,12 @@
     // AI-NOTE: Check if the query is a Nostr identifier (npub, hex, nprofile)
     const npub = convertToNpub(query);
     if (npub) {
-      console.debug("[PublicationFeed] Query is a Nostr identifier, filtering by npub:", npub);
+      console.debug(
+        "[PublicationFeed] Query is a Nostr identifier, filtering by npub:",
+        npub,
+      );
       const filtered = filterEventsByNpub(events, npub);
-      
+
       // Cache the filtered results
       const result = {
         events: filtered,
@@ -440,7 +489,7 @@
         searchTerm: query,
       };
       searchCache.set("publication", query, result);
-      
+
       return filtered;
     }
 
@@ -507,17 +556,20 @@
 
   // Debounced search function
   const debouncedSearch = debounceAsync(async (query: string) => {
-    console.debug("[PublicationFeed] Search query or user filter changed:", query);
+    console.debug(
+      "[PublicationFeed] Search query or user filter changed:",
+      query,
+    );
     let filtered = allIndexEvents;
-    
+
     // Apply user filter first
     filtered = filterEventsByUser(filtered);
-    
+
     // Then apply search filter if query exists
     if (query && query.trim()) {
       filtered = filterEventsBySearch(filtered);
     }
-    
+
     eventsInView = filtered.slice(0, publicationsToDisplay);
     endOfFeed = filtered.length <= publicationsToDisplay;
   }, 300);
@@ -532,20 +584,24 @@
   // AI-NOTE: Watch for user authentication state changes to re-fetch events when user logs in/out
   $effect(() => {
     const userState = $userStore;
-    
+
     if (hasInitialized && userState.signedIn) {
-      console.debug('[PublicationFeed] User signed in, checking if we need to re-fetch events');
+      console.debug(
+        "[PublicationFeed] User signed in, checking if we need to re-fetch events",
+      );
       // Check if we have user-specific relays that we haven't fetched from yet
       const inboxRelays = $activeInboxRelays;
       const outboxRelays = $activeOutboxRelays;
       const newRelays = [...inboxRelays, ...outboxRelays];
-      
+
       if (newRelays.length > 0) {
-        const currentRelaysString = allRelays.sort().join(',');
-        const newRelaysString = newRelays.sort().join(',');
-        
+        const currentRelaysString = allRelays.sort().join(",");
+        const newRelaysString = newRelays.sort().join(",");
+
         if (currentRelaysString !== newRelaysString) {
-          console.debug('[PublicationFeed] User logged in with new relays, re-fetching events');
+          console.debug(
+            "[PublicationFeed] User logged in with new relays, re-fetching events",
+          );
           // Clear cache to force fresh fetch from user's relays
           indexEventCache.clear();
           setTimeout(() => initializeAndFetch(), 0);
@@ -568,7 +624,7 @@
     if (props.onEventCountUpdate) {
       props.onEventCountUpdate({
         displayed: eventsInView.length,
-        total: allIndexEvents.length
+        total: allIndexEvents.length,
       });
     }
   });
@@ -577,15 +633,15 @@
     loadingMore = true;
     const current = eventsInView.length;
     let source = allIndexEvents;
-    
+
     // Apply user filter first
     source = filterEventsByUser(source);
-    
+
     // Then apply search filter if query exists
     if (props.searchQuery.trim()) {
       source = filterEventsBySearch(source);
     }
-    
+
     eventsInView = source.slice(0, current + publicationsToDisplay);
     endOfFeed = eventsInView.length >= source.length;
     loadingMore = false;
@@ -593,10 +649,10 @@
 
   function getSkeletonIds(): string[] {
     // Only access window on client-side
-    if (typeof window === 'undefined') {
-      return ['skeleton-0', 'skeleton-1', 'skeleton-2']; // Default fallback for SSR
+    if (typeof window === "undefined") {
+      return ["skeleton-0", "skeleton-1", "skeleton-2"]; // Default fallback for SSR
     }
-    
+
     const skeletonHeight = 192; // The height of the card component in pixels (h-48 = 12rem = 192px).
     const skeletonCount = Math.floor(window.innerHeight / skeletonHeight) - 2;
     const skeletonIds = [];
@@ -626,49 +682,51 @@
   });
 
   onMount(() => {
-    console.debug('[PublicationFeed] onMount called');
+    console.debug("[PublicationFeed] onMount called");
     // The effect will handle fetching when relays become available
-    
+
     // Add window resize listener for responsive updates
     const handleResize = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         const width = window.innerWidth;
         let newColumnCount = 1;
-        if (width >= 1280) newColumnCount = 4; // xl:grid-cols-4
-        else if (width >= 1024) newColumnCount = 3; // lg:grid-cols-3
+        if (width >= 1280)
+          newColumnCount = 4; // xl:grid-cols-4
+        else if (width >= 1024)
+          newColumnCount = 3; // lg:grid-cols-3
         else if (width >= 768) newColumnCount = 2; // md:grid-cols-2
-        
+
         if (columnCount !== newColumnCount) {
           columnCount = newColumnCount;
           publicationsToDisplay = newColumnCount * 10;
-          
+
           // Update the view immediately when column count changes
           if (allIndexEvents.length > 0) {
             let source = allIndexEvents;
-            
+
             // Apply user filter first
             source = filterEventsByUser(source);
-            
+
             // Then apply search filter if query exists
             if (props.searchQuery?.trim()) {
               source = filterEventsBySearch(source);
             }
-            
+
             eventsInView = source.slice(0, publicationsToDisplay);
             endOfFeed = eventsInView.length >= source.length;
           }
         }
       }
     };
-    
-    window.addEventListener('resize', handleResize);
-    
+
+    window.addEventListener("resize", handleResize);
+
     // Initial calculation
     handleResize();
-    
+
     // Cleanup function
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
     };
   });
 </script>

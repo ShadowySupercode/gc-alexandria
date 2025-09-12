@@ -32,7 +32,7 @@ export interface LoadEventResult {
 }
 
 export interface EventPreview {
-  type: 'standard_event' | '30040_index_event' | 'error';
+  type: "standard_event" | "30040_index_event" | "error";
   event?: {
     id: string;
     pubkey: string;

@@ -38,7 +38,10 @@
         if (coordMatch) {
           const [_, kind, pubkey, dTag] = coordMatch;
           try {
-            return naddrEncode({ kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent, $activeInboxRelays);
+            return naddrEncode(
+              { kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent,
+              $activeInboxRelays,
+            );
           } catch {
             return null;
           }
@@ -57,7 +60,10 @@
       if (coordMatch) {
         const [_, kind, pubkey, dTag] = coordMatch;
         try {
-          return naddrEncode({ kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent, $activeInboxRelays);
+          return naddrEncode(
+            { kind: Number(kind), pubkey, tags: [["d", dTag]] } as NDKEvent,
+            $activeInboxRelays,
+          );
         } catch {
           return null;
         }

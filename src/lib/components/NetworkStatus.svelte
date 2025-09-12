@@ -1,44 +1,48 @@
 <script lang="ts">
-  import { networkCondition, isNetworkChecking, startNetworkStatusMonitoring } from '$lib/stores/networkStore';
-  import { NetworkCondition } from '$lib/utils/network_detection';
-  import { onMount } from 'svelte';
+  import {
+    networkCondition,
+    isNetworkChecking,
+    startNetworkStatusMonitoring,
+  } from "$lib/stores/networkStore";
+  import { NetworkCondition } from "$lib/utils/network_detection";
+  import { onMount } from "svelte";
 
   function getStatusColor(): string {
     switch ($networkCondition) {
       case NetworkCondition.ONLINE:
-        return 'text-green-600 dark:text-green-400';
+        return "text-green-600 dark:text-green-400";
       case NetworkCondition.SLOW:
-        return 'text-yellow-600 dark:text-yellow-400';
+        return "text-yellow-600 dark:text-yellow-400";
       case NetworkCondition.OFFLINE:
-        return 'text-red-600 dark:text-red-400';
+        return "text-red-600 dark:text-red-400";
       default:
-        return 'text-gray-600 dark:text-gray-400';
+        return "text-gray-600 dark:text-gray-400";
     }
   }
 
   function getStatusIcon(): string {
     switch ($networkCondition) {
       case NetworkCondition.ONLINE:
-        return '🟢';
+        return "🟢";
       case NetworkCondition.SLOW:
-        return '🟡';
+        return "🟡";
       case NetworkCondition.OFFLINE:
-        return '🔴';
+        return "🔴";
       default:
-        return '⚪';
+        return "⚪";
     }
   }
 
   function getStatusText(): string {
     switch ($networkCondition) {
       case NetworkCondition.ONLINE:
-        return 'Online';
+        return "Online";
       case NetworkCondition.SLOW:
-        return 'Slow Connection';
+        return "Slow Connection";
       case NetworkCondition.OFFLINE:
-        return 'Offline';
+        return "Offline";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   }
 
@@ -56,4 +60,4 @@
     <span class="text-lg">{getStatusIcon()}</span>
     <span>{getStatusText()}</span>
   {/if}
-</div> 
+</div>

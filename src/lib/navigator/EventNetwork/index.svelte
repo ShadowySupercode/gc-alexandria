@@ -68,15 +68,15 @@
   }
 
   // Component props
-  let { 
-    events = [], 
+  let {
+    events = [],
     followListEvents = [],
     totalCount = 0,
-    onupdate, 
+    onupdate,
     onclear = () => {},
     onTagExpansionChange,
     profileStats = { totalFetched: 0, displayLimit: 50 },
-    allEventCounts = {}
+    allEventCounts = {},
   } = $props<{
     events?: NDKEvent[];
     followListEvents?: NDKEvent[];
@@ -119,9 +119,12 @@
   let svgGroup: Selection;
   let zoomBehavior: any;
   let svgElement: Selection;
-  
+
   // Position cache to preserve node positions across updates
-  let nodePositions = new Map<string, { x: number; y: number; vx?: number; vy?: number }>();
+  let nodePositions = new Map<
+    string,
+    { x: number; y: number; vx?: number; vy?: number }
+  >();
 
   // Track current render level
   let currentLevels = $derived(levelsToRender);
@@ -133,11 +136,11 @@
   let showTagAnchors = $state(false);
   let selectedTagType = $state("t"); // Default to hashtags
   let tagAnchorInfo = $state<any[]>([]);
-  
+
   // Store initial state to detect if component is being recreated
   let componentId = Math.random();
   debug("Component created with ID:", componentId);
-  
+
   // Event counts by kind - derived from events
   let eventCounts = $derived.by(() => {
     const counts: { [kind: number]: number } = {};
@@ -148,16 +151,16 @@
     });
     return counts;
   });
-  
+
   // Disabled tags state for interactive legend
   let disabledTags = $state(new Set<string>());
-  
+
   // Track if we've auto-disabled tags
   let autoDisabledTags = $state(false);
-  
+
   // Maximum number of tag anchors before auto-disabling
   const MAX_TAG_ANCHORS = 50;
-  
+
   // Person nodes state
   let showPersonNodes = $state(false);
   let personAnchorInfo = $state<any[]>([]);
@@ -169,7 +172,6 @@
   let displayedPersonCount = $state(0);
   let hasInitializedPersons = $state(false);
   let hasInitializedTags = $state(new Map<string, boolean>());
-
 
   // Update dimensions when container changes
   $effect(() => {
@@ -232,7 +234,6 @@
       .attr("stroke-width", 1);
   }
 
-
   /**
    * Validates that required elements are available for graph rendering
    */
@@ -271,12 +272,12 @@
         selectedTagType,
         eventCount: events.length,
         width,
-        height
+        height,
       });
-      
+
       // Get the display limit based on tag type
       let displayLimit: number | undefined;
-      
+
       graphData = enhanceGraphWithTags(
         graphData,
         events,
@@ -288,23 +289,23 @@
 
       // Extract tag anchor info for legend
       const tagAnchors = graphData.nodes.filter((n) => n.isTagAnchor);
-      
+
       debug("Tag anchors created", {
         count: tagAnchors.length,
-        anchors: tagAnchors
+        anchors: tagAnchors,
       });
-      
+
       tagAnchorInfo = tagAnchors.map((n) => ({
-          type: n.tagType,
-          label: n.title,
-          count: n.connectedNodes?.length || 0,
-          color: getTagAnchorColor(n.tagType || ""),
-          value: `${n.tagType}-${n.title}`, // Use the correct tag ID format for toggling
-        }));
-        
+        type: n.tagType,
+        label: n.title,
+        count: n.connectedNodes?.length || 0,
+        color: getTagAnchorColor(n.tagType || ""),
+        value: `${n.tagType}-${n.title}`, // Use the correct tag ID format for toggling
+      }));
+
       // Auto-disable all tag anchors by default (only on first time showing this tag type)
       if (!hasInitializedTags.get(selectedTagType) && tagAnchors.length > 0) {
-        tagAnchorInfo.forEach(anchor => {
+        tagAnchorInfo.forEach((anchor) => {
           disabledTags.add(anchor.value);
         });
         hasInitializedTags.set(selectedTagType, true);
@@ -312,7 +313,10 @@
     } else {
       tagAnchorInfo = [];
       // Reset initialization flag for this tag type when tag anchors are hidden
-      if (hasInitializedTags.get(selectedTagType) && tagAnchorInfo.length === 0) {
+      if (
+        hasInitializedTags.get(selectedTagType) &&
+        tagAnchorInfo.length === 0
+      ) {
         hasInitializedTags.set(selectedTagType, false);
       }
     }
@@ -320,48 +324,52 @@
     // Add person nodes if enabled
     if (showPersonNodes) {
       debug("Creating person anchor nodes");
-      
+
       // Extract unique persons from events and follow lists
       personMap = extractUniquePersons(events, followListEvents);
-      
+
       // Create person anchor nodes based on filters
       const personResult = await createPersonAnchorNodes(
-        personMap, 
-        width, 
-        height, 
-        showSignedBy, 
-        showReferenced
+        personMap,
+        width,
+        height,
+        showSignedBy,
+        showReferenced,
       );
-      
+
       const personAnchors = personResult.nodes;
       totalPersonCount = personResult.totalCount;
       displayedPersonCount = personAnchors.length;
-      
+
       // Create links between person anchors and their events
-      const personLinks = createPersonLinks(personAnchors, graphData.nodes, personMap);
-      
+      const personLinks = createPersonLinks(
+        personAnchors,
+        graphData.nodes,
+        personMap,
+      );
+
       // Add person anchors to the graph
       graphData.nodes = [...graphData.nodes, ...personAnchors];
       graphData.links = [...graphData.links, ...personLinks];
-      
+
       // Extract person info for legend
       personAnchorInfo = extractPersonAnchorInfo(personAnchors, personMap);
-      
+
       // Auto-disable all person nodes by default (only on first time showing)
       if (!hasInitializedPersons && personAnchors.length > 0) {
-        personAnchors.forEach(anchor => {
+        personAnchors.forEach((anchor) => {
           if (anchor.pubkey) {
             disabledPersons.add(anchor.pubkey);
           }
         });
         hasInitializedPersons = true;
       }
-      
+
       debug("Person anchors created", {
         count: personAnchors.length,
         disabled: disabledPersons.size,
         showSignedBy,
-        showReferenced
+        showReferenced,
       });
     } else {
       personAnchorInfo = [];
@@ -378,12 +386,18 @@
   /**
    * Filters nodes and links based on disabled tags and persons
    */
-  function filterNodesAndLinks(graphData: { nodes: NetworkNode[]; links: NetworkLink[] }) {
+  function filterNodesAndLinks(graphData: {
+    nodes: NetworkNode[];
+    links: NetworkLink[];
+  }) {
     let nodes = graphData.nodes;
     let links = graphData.links;
-    
+
     // Filter out disabled tag anchors and person nodes from nodes and links
-    if ((showTagAnchors && disabledTags.size > 0) || (showPersonNodes && disabledPersons.size > 0)) {
+    if (
+      (showTagAnchors && disabledTags.size > 0) ||
+      (showPersonNodes && disabledPersons.size > 0)
+    ) {
       // Filter out disabled nodes
       nodes = nodes.filter((node: NetworkNode) => {
         if (node.isTagAnchor) {
@@ -395,12 +409,12 @@
         }
         return true;
       });
-      
+
       // Filter out links to disabled nodes
       links = links.filter((link: NetworkLink) => {
         const source = link.source as NetworkNode;
         const target = link.target as NetworkNode;
-        
+
         // Check if either node is disabled
         if (source.isTagAnchor) {
           const tagId = `${source.tagType}-${source.title}`;
@@ -416,14 +430,14 @@
         if (target.isPersonAnchor && target.pubkey) {
           if (disabledPersons.has(target.pubkey)) return false;
         }
-        
+
         return true;
       });
-      
+
       debug("Filtered links for disabled tags", {
         originalCount: graphData.links.length,
         filteredCount: links.length,
-        disabledTags: Array.from(disabledTags)
+        disabledTags: Array.from(disabledTags),
       });
     }
 
@@ -435,13 +449,13 @@
    */
   function saveNodePositions(nodes: NetworkNode[]) {
     if (simulation && nodes.length > 0) {
-      nodes.forEach(node => {
+      nodes.forEach((node) => {
         if (node.x != null && node.y != null) {
-          nodePositions.set(node.id, { 
-            x: node.x, 
+          nodePositions.set(node.id, {
+            x: node.x,
             y: node.y,
             vx: node.vx,
-            vy: node.vy
+            vy: node.vy,
           });
         }
       });
@@ -454,15 +468,21 @@
    */
   function restoreNodePositions(nodes: NetworkNode[]): number {
     let restoredCount = 0;
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       const savedPos = nodePositions.get(node.id);
-      if (savedPos && !node.isTagAnchor) { // Don't restore tag anchor positions as they're fixed
+      if (savedPos && !node.isTagAnchor) {
+        // Don't restore tag anchor positions as they're fixed
         node.x = savedPos.x;
         node.y = savedPos.y;
         node.vx = savedPos.vx || 0;
         node.vy = savedPos.vy || 0;
         restoredCount++;
-      } else if (!node.x && !node.y && !node.isTagAnchor && !node.isPersonAnchor) {
+      } else if (
+        !node.x &&
+        !node.y &&
+        !node.isTagAnchor &&
+        !node.isPersonAnchor
+      ) {
         // Give disconnected nodes (like kind 0) random initial positions
         node.x = width / 2 + (Math.random() - 0.5) * width * 0.5;
         node.y = height / 2 + (Math.random() - 0.5) * height * 0.5;
@@ -476,7 +496,11 @@
   /**
    * Sets up the D3 force simulation and drag handlers
    */
-  function setupSimulation(nodes: NetworkNode[], links: NetworkLink[], restoredCount: number) {
+  function setupSimulation(
+    nodes: NetworkNode[],
+    links: NetworkLink[],
+    restoredCount: number,
+  ) {
     // Stop any existing simulation
     if (simulation) {
       debug("Stopping existing simulation");
@@ -487,7 +511,7 @@
     debug("Creating new simulation");
     const hasRestoredPositions = restoredCount > 0;
     let newSimulation: Simulation<NetworkNode, NetworkLink>;
-    
+
     if (starVisualization) {
       // Use star-specific simulation
       newSimulation = createStarSimulation(nodes, links, width, height);
@@ -497,23 +521,36 @@
       }
     } else {
       // Use regular simulation
-      newSimulation = createSimulation(nodes, links, NODE_RADIUS, LINK_DISTANCE);
-      
+      newSimulation = createSimulation(
+        nodes,
+        links,
+        NODE_RADIUS,
+        LINK_DISTANCE,
+      );
+
       // Add center force for disconnected nodes (like kind 0)
-      newSimulation.force("center", d3.forceCenter(width / 2, height / 2).strength(0.05));
-      
+      newSimulation.force(
+        "center",
+        d3.forceCenter(width / 2, height / 2).strength(0.05),
+      );
+
       // Add radial force to keep disconnected nodes in view
-      newSimulation.force("radial", d3.forceRadial(Math.min(width, height) / 3, width / 2, height / 2)
-        .strength((d: NetworkNode) => {
-          // Apply radial force only to nodes without links (disconnected nodes)
-          const hasLinks = links.some(l => 
-            (l.source as NetworkNode).id === d.id || 
-            (l.target as NetworkNode).id === d.id
-          );
-          return hasLinks ? 0 : 0.1;
-        }));
+      newSimulation.force(
+        "radial",
+        d3
+          .forceRadial(Math.min(width, height) / 3, width / 2, height / 2)
+          .strength((d: NetworkNode) => {
+            // Apply radial force only to nodes without links (disconnected nodes)
+            const hasLinks = links.some(
+              (l) =>
+                (l.source as NetworkNode).id === d.id ||
+                (l.target as NetworkNode).id === d.id,
+            );
+            return hasLinks ? 0 : 0.1;
+          }),
+      );
     }
-    
+
     // Use gentler alpha for updates with restored positions
     if (hasRestoredPositions) {
       newSimulation.alpha(0.3); // Gentler restart
@@ -558,15 +595,16 @@
             })
             .attr("stroke-width", 2)
             .attr("marker-end", "url(#arrowhead)"),
-        (update: any) => update.attr("class", (d: any) => {
-          let classes = "link network-link-leather";
-          if (d.connectionType === "signed-by") {
-            classes += " person-link-signed";
-          } else if (d.connectionType === "referenced") {
-            classes += " person-link-referenced";
-          }
-          return classes;
-        }),
+        (update: any) =>
+          update.attr("class", (d: any) => {
+            let classes = "link network-link-leather";
+            if (d.connectionType === "signed-by") {
+              classes += " person-link-signed";
+            } else if (d.connectionType === "referenced") {
+              classes += " person-link-referenced";
+            }
+            return classes;
+          }),
         (exit: any) => exit.remove(),
       );
   }
@@ -576,51 +614,51 @@
    */
   function createNodeGroup(enter: any, dragHandler: any) {
     const nodeEnter = enter
-      .append('g')
-      .attr('class', 'node network-node-leather')
+      .append("g")
+      .attr("class", "node network-node-leather")
       .call(dragHandler);
 
     // Larger transparent circle for better drag handling
     nodeEnter
-      .append('circle')
-      .attr('class', 'drag-circle')
-      .attr('r', NODE_RADIUS * 2.5)
-      .attr('fill', 'transparent')
-      .attr('stroke', 'transparent')
-      .style('cursor', 'move');
+      .append("circle")
+      .attr("class", "drag-circle")
+      .attr("r", NODE_RADIUS * 2.5)
+      .attr("fill", "transparent")
+      .attr("stroke", "transparent")
+      .style("cursor", "move");
 
     // Add shape based on node type
     nodeEnter.each(function (this: SVGGElement, d: NetworkNode) {
       const g = d3.select(this);
       if (d.isPersonAnchor) {
         // Diamond shape for person anchors
-        g.append('rect')
-          .attr('class', 'visual-shape visual-diamond')
-          .attr('width', NODE_RADIUS * 1.5)
-          .attr('height', NODE_RADIUS * 1.5)
-          .attr('x', -NODE_RADIUS * 0.75)
-          .attr('y', -NODE_RADIUS * 0.75)
-          .attr('transform', 'rotate(45)')
-          .attr('stroke-width', 2);
+        g.append("rect")
+          .attr("class", "visual-shape visual-diamond")
+          .attr("width", NODE_RADIUS * 1.5)
+          .attr("height", NODE_RADIUS * 1.5)
+          .attr("x", -NODE_RADIUS * 0.75)
+          .attr("y", -NODE_RADIUS * 0.75)
+          .attr("transform", "rotate(45)")
+          .attr("stroke-width", 2);
       } else {
         // Circle for other nodes
-        g.append('circle')
-          .attr('class', 'visual-shape visual-circle')
-          .attr('r', NODE_RADIUS)
-          .attr('stroke-width', 2);
+        g.append("circle")
+          .attr("class", "visual-shape visual-circle")
+          .attr("r", NODE_RADIUS)
+          .attr("stroke-width", 2);
       }
     });
 
     // Node label
     nodeEnter
-      .append('text')
-      .attr('dy', '0.35em')
-      .attr('text-anchor', 'middle')
-      .attr('fill', 'black')
-      .attr('font-size', '12px')
-      .attr('stroke', 'none')
-      .attr('font-weight', 'bold')
-      .style('pointer-events', 'none');
+      .append("text")
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "middle")
+      .attr("fill", "black")
+      .attr("font-size", "12px")
+      .attr("stroke", "none")
+      .attr("font-weight", "bold")
+      .style("pointer-events", "none");
 
     return nodeEnter;
   }
@@ -630,9 +668,11 @@
    */
   function updateNodeAppearance(node: any) {
     node
-      .select('.visual-shape')
-      .attr('class', (d: NetworkNode) => {
-        const shapeClass = d.isPersonAnchor ? 'visual-diamond' : 'visual-circle';
+      .select(".visual-shape")
+      .attr("class", (d: NetworkNode) => {
+        const shapeClass = d.isPersonAnchor
+          ? "visual-diamond"
+          : "visual-circle";
         const baseClasses = `visual-shape ${shapeClass} network-node-leather`;
         if (d.isPersonAnchor) {
           return `${baseClasses} person-anchor-node`;
@@ -648,21 +688,21 @@
         }
         return baseClasses;
       })
-      .style('fill', (d: NetworkNode) => {
+      .style("fill", (d: NetworkNode) => {
         if (d.isPersonAnchor) {
           if (d.isFromFollowList) {
             return getEventKindColor(3);
           }
-          return '#10B981';
+          return "#10B981";
         }
         if (d.isTagAnchor) {
-          return getTagAnchorColor(d.tagType || '');
+          return getTagAnchorColor(d.tagType || "");
         }
         const color = getEventKindColor(d.kind);
         return color;
       })
-      .attr('opacity', 1)
-      .attr('r', (d: NetworkNode) => {
+      .attr("opacity", 1)
+      .attr("r", (d: NetworkNode) => {
         if (d.isPersonAnchor) return null;
         if (d.isTagAnchor) {
           return NODE_RADIUS * 0.75;
@@ -672,23 +712,23 @@
         }
         return NODE_RADIUS;
       })
-      .attr('width', (d: NetworkNode) => {
+      .attr("width", (d: NetworkNode) => {
         if (!d.isPersonAnchor) return null;
         return NODE_RADIUS * 1.5;
       })
-      .attr('height', (d: NetworkNode) => {
+      .attr("height", (d: NetworkNode) => {
         if (!d.isPersonAnchor) return null;
         return NODE_RADIUS * 1.5;
       })
-      .attr('x', (d: NetworkNode) => {
+      .attr("x", (d: NetworkNode) => {
         if (!d.isPersonAnchor) return null;
         return -NODE_RADIUS * 0.75;
       })
-      .attr('y', (d: NetworkNode) => {
+      .attr("y", (d: NetworkNode) => {
         if (!d.isPersonAnchor) return null;
         return -NODE_RADIUS * 0.75;
       })
-      .attr('stroke-width', (d: NetworkNode) => {
+      .attr("stroke-width", (d: NetworkNode) => {
         if (d.isPersonAnchor) {
           return 3;
         }
@@ -704,45 +744,45 @@
    */
   function updateNodeLabels(node: any) {
     node
-      .select('text')
+      .select("text")
       .text((d: NetworkNode) => {
         if (d.isTagAnchor) {
-          return d.tagType === 't' ? '#' : 'T';
+          return d.tagType === "t" ? "#" : "T";
         }
-        return '';
+        return "";
       })
-      .attr('font-size', (d: NetworkNode) => {
+      .attr("font-size", (d: NetworkNode) => {
         if (d.isTagAnchor) {
-          return '10px';
+          return "10px";
         }
         if (starVisualization && d.isContainer && d.kind === 30040) {
-          return '14px';
+          return "14px";
         }
-        return '12px';
+        return "12px";
       })
-      .attr('fill', (d: NetworkNode) => {
+      .attr("fill", (d: NetworkNode) => {
         if (d.isTagAnchor) {
-          return 'white';
+          return "white";
         }
-        return 'black';
+        return "black";
       })
-      .style('fill', (d: NetworkNode) => {
+      .style("fill", (d: NetworkNode) => {
         if (d.isTagAnchor) {
-          return 'white';
+          return "white";
         }
         return null;
       })
-      .attr('stroke', 'none')
-      .style('stroke', 'none');
+      .attr("stroke", "none")
+      .style("stroke", "none");
   }
 
   /**
    * Renders nodes in the SVG (refactored for clarity)
    */
   function renderNodes(nodes: NetworkNode[], dragHandler: any) {
-    debug('Updating nodes');
+    debug("Updating nodes");
     const node = svgGroup
-      .selectAll('g.node')
+      .selectAll("g.node")
       .data(nodes, (d: NetworkNode) => d.id)
       .join(
         (enter: any) => createNodeGroup(enter, dragHandler),
@@ -810,7 +850,7 @@
     nodes: NetworkNode[],
     links: NetworkLink[],
     link: any,
-    node: any
+    node: any,
   ) {
     debug("Setting up simulation tick handler");
     if (simulation) {
@@ -839,15 +879,11 @@
 
           // Calculate start and end points with offsets for node radius
           const sourceRadius =
-            starVisualization &&
-            d.source.isContainer &&
-            d.source.kind === 30040
+            starVisualization && d.source.isContainer && d.source.kind === 30040
               ? NODE_RADIUS * 1.5
               : NODE_RADIUS;
           const targetRadius =
-            starVisualization &&
-            d.target.isContainer &&
-            d.target.kind === 30040
+            starVisualization && d.target.isContainer && d.target.kind === 30040
               ? NODE_RADIUS * 1.5
               : NODE_RADIUS;
 
@@ -863,10 +899,7 @@
         });
 
         // Update node positions
-        node.attr(
-          "transform",
-          (d: NetworkNode) => `translate(${d.x},${d.y})`,
-        );
+        node.attr("transform", (d: NetworkNode) => `translate(${d.x},${d.y})`);
       });
     }
   }
@@ -889,30 +922,34 @@
       starVisualization,
       showTagAnchors,
       selectedTagType,
-      disabledTagsCount: disabledTags.size
+      disabledTagsCount: disabledTags.size,
     });
     errorMessage = null;
 
     try {
       validateGraphElements();
       const graphData = await generateGraphData();
-      
+
       // Save current positions before filtering
       saveNodePositions(graphData.nodes);
-      
+
       const { nodes, links } = filterNodesAndLinks(graphData);
       const restoredCount = restoreNodePositions(nodes);
-      
+
       if (!nodes.length) {
         throw new Error("No nodes to render");
       }
-      
-      const { simulation: newSimulation, dragHandler } = setupSimulation(nodes, links, restoredCount);
+
+      const { simulation: newSimulation, dragHandler } = setupSimulation(
+        nodes,
+        links,
+        restoredCount,
+      );
       simulation = newSimulation;
-      
+
       const link = renderLinks(links);
       const node = renderNodes(nodes, dragHandler);
-      
+
       setupNodeInteractions(node);
       setupSimulationTickHandler(simulation, nodes, links, link, node);
     } catch (error) {
@@ -1012,7 +1049,7 @@
    */
   let isUpdating = false;
   let updateTimer: ReturnType<typeof setTimeout> | null = null;
-  
+
   // Create a derived state that combines all dependencies
   const graphDependencies = $derived({
     levels: currentLevels,
@@ -1024,15 +1061,15 @@
     disabledPersons: disabledPersons.size,
     showSignedBy,
     showReferenced,
-    eventsLength: events?.length || 0
+    eventsLength: events?.length || 0,
   });
-  
+
   // Debounced update function
   async function scheduleGraphUpdate() {
     if (updateTimer) {
       clearTimeout(updateTimer);
     }
-    
+
     updateTimer = setTimeout(async () => {
       if (!isUpdating && svg && events?.length > 0) {
         debug("Scheduled graph update executing", graphDependencies);
@@ -1049,11 +1086,11 @@
       }
     }, 100); // 100ms debounce
   }
-  
+
   $effect(() => {
     // Just track the dependencies and schedule update
     const deps = graphDependencies;
-    
+
     if (svg && events?.length > 0) {
       scheduleGraphUpdate();
     }
@@ -1062,28 +1099,28 @@
   // Track previous values to avoid unnecessary calls
   let previousTagType = $state<string | undefined>(undefined);
   let isInitialized = $state(false);
-  
+
   // Mark as initialized after first render
   $effect(() => {
     if (!isInitialized && svg) {
       isInitialized = true;
     }
   });
-  
+
   /**
    * Watch for tag expansion changes
    */
   $effect(() => {
     // Skip if not initialized or no callback
     if (!isInitialized || !onTagExpansionChange) return;
-    
+
     // Check if we need to trigger expansion
     const tagTypeChanged = selectedTagType !== previousTagType;
     const shouldExpand = showTagAnchors && tagTypeChanged;
-    
+
     if (shouldExpand) {
       previousTagType = selectedTagType;
-      
+
       // Extract unique tags from current events
       const tags = new Set<string>();
       events.forEach((event: NDKEvent) => {
@@ -1092,56 +1129,61 @@
           if (tag[1]) tags.add(tag[1]);
         });
       });
-      
+
       debug("Tag expansion requested", {
         tagType: selectedTagType,
         tags: Array.from(tags),
-        tagTypeChanged
+        tagTypeChanged,
       });
-      
+
       onTagExpansionChange(Array.from(tags));
     }
   });
-  
+
   /**
    * Watch for tag anchor count and auto-disable if exceeds threshold
    */
   let autoDisableTimer: ReturnType<typeof setTimeout> | null = null;
-  
+
   $effect(() => {
     // Clear any pending timer
     if (autoDisableTimer) {
       clearTimeout(autoDisableTimer);
       autoDisableTimer = null;
     }
-    
+
     // Only check when tag anchors are shown and we have tags
     if (showTagAnchors && tagAnchorInfo.length > 0) {
-      
       // If we have more than MAX_TAG_ANCHORS and haven't auto-disabled yet
       if (tagAnchorInfo.length > MAX_TAG_ANCHORS && !autoDisabledTags) {
         // Defer the state update to break the sync cycle
         autoDisableTimer = setTimeout(() => {
-          debug(`Auto-disabling excess tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`);
-          
+          debug(
+            `Auto-disabling excess tags: ${tagAnchorInfo.length} exceeds maximum of ${MAX_TAG_ANCHORS}`,
+          );
+
           // Sort tags by count (most connected first) and disable the excess ones
-          const sortedTags = [...tagAnchorInfo].sort((a, b) => b.count - a.count);
+          const sortedTags = [...tagAnchorInfo].sort(
+            (a, b) => b.count - a.count,
+          );
           const tagsToDisable = sortedTags.slice(MAX_TAG_ANCHORS);
-          
+
           const newDisabledTags = new Set<string>();
-          tagsToDisable.forEach(anchor => {
+          tagsToDisable.forEach((anchor) => {
             const tagId = `${anchor.type}-${anchor.label}`;
             newDisabledTags.add(tagId);
           });
-          
+
           disabledTags = newDisabledTags;
           autoDisabledTags = true;
-          
+
           // Optional: Show a notification to the user
-          console.info(`[EventNetwork] Auto-disabled ${tagsToDisable.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`);
+          console.info(
+            `[EventNetwork] Auto-disabled ${tagsToDisable.length} tag anchors to prevent graph overload. Click individual tags in the legend to enable them.`,
+          );
         }, 0);
       }
-      
+
       // Reset auto-disabled flag if tag count goes back down
       if (tagAnchorInfo.length <= MAX_TAG_ANCHORS && autoDisabledTags) {
         autoDisableTimer = setTimeout(() => {
@@ -1151,7 +1193,7 @@
         }, 0);
       }
     }
-    
+
     // Reset when tag anchors are hidden
     if (!showTagAnchors && autoDisabledTags) {
       autoDisableTimer = setTimeout(() => {
@@ -1175,7 +1217,7 @@
     }
     // Update graph will be triggered by the effect
   }
-  
+
   /**
    * Handles toggling person node visibility
    */
@@ -1206,16 +1248,19 @@
   function centerGraph() {
     if (svg && svgGroup && zoomBehavior) {
       debug("Centering graph", { width, height });
-      
+
       // Get all nodes to calculate bounds
-      const nodes = svgGroup.selectAll('.node').data();
+      const nodes = svgGroup.selectAll(".node").data();
       if (nodes.length === 0) {
         debug("No nodes found for centering");
         return;
       }
-      
+
       // Calculate bounds of all nodes
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
       nodes.forEach((node: NetworkNode) => {
         if (node.x != null && node.y != null) {
           minX = Math.min(minX, node.x);
@@ -1224,24 +1269,24 @@
           maxY = Math.max(maxY, node.y);
         }
       });
-      
+
       // Calculate the center of the graph content
       const graphCenterX = (minX + maxX) / 2;
       const graphCenterY = (minY + maxY) / 2;
-      
+
       // Calculate the viewBox center
       const viewBoxCenterX = width / 2;
       const viewBoxCenterY = height / 2;
-      
+
       // Calculate the translation needed to center the graph
       const translateX = viewBoxCenterX - graphCenterX;
       const translateY = viewBoxCenterY - graphCenterY;
-      
-      debug("Centering graph", { 
+
+      debug("Centering graph", {
         graphBounds: { minX, maxX, minY, maxY },
         graphCenter: { graphCenterX, graphCenterY },
         viewBoxCenter: { viewBoxCenterX, viewBoxCenterY },
-        translation: { translateX, translateY }
+        translation: { translateX, translateY },
       });
 
       // Apply the centering transform
@@ -1253,10 +1298,10 @@
           d3.zoomIdentity.translate(translateX, translateY).scale(0.8),
         );
     } else {
-      debug("Cannot center graph - missing required elements", { 
-        hasSvg: !!svg, 
-        hasSvgGroup: !!svgGroup, 
-        hasZoomBehavior: !!zoomBehavior 
+      debug("Cannot center graph - missing required elements", {
+        hasSvg: !!svg,
+        hasSvgGroup: !!svgGroup,
+        hasZoomBehavior: !!zoomBehavior,
       });
     }
   }
@@ -1289,7 +1334,6 @@
       graphInteracted = true;
     }
   }
-  
 </script>
 
 <div class="network-container">
@@ -1316,7 +1360,7 @@
       starMode={starVisualization}
       showTags={showTagAnchors}
       tagAnchors={tagAnchorInfo}
-      eventCounts={eventCounts}
+      {eventCounts}
       {disabledTags}
       onTagToggle={handleTagToggle}
       {autoDisabledTags}

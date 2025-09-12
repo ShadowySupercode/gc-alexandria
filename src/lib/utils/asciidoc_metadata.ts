@@ -41,28 +41,28 @@ export interface ParsedAsciiDoc {
 // Shared attribute mapping based on Asciidoctor standard attributes
 const ATTRIBUTE_MAP: Record<string, keyof AsciiDocMetadata> = {
   // Standard Asciidoctor attributes
-  "author": "authors",
-  "description": "summary",
-  "keywords": "tags",
-  "revnumber": "version",
-  "revdate": "publicationDate",
-  "revremark": "edition",
-  "title": "title",
+  author: "authors",
+  description: "summary",
+  keywords: "tags",
+  revnumber: "version",
+  revdate: "publicationDate",
+  revremark: "edition",
+  title: "title",
 
   // Custom attributes for Alexandria
-  "published_by": "publishedBy",
-  "publisher": "publisher",
-  "summary": "summary",
-  "image": "coverImage",
-  "cover": "coverImage",
-  "isbn": "isbn",
-  "source": "source",
-  "type": "type",
+  published_by: "publishedBy",
+  publisher: "publisher",
+  summary: "summary",
+  image: "coverImage",
+  cover: "coverImage",
+  isbn: "isbn",
+  source: "source",
+  type: "type",
   "auto-update": "autoUpdate",
-  "version": "version",
-  "edition": "edition",
-  "published_on": "publicationDate",
-  "date": "publicationDate",
+  version: "version",
+  edition: "edition",
+  published_on: "publicationDate",
+  date: "publicationDate",
   "version-label": "version",
 };
 
@@ -135,7 +135,7 @@ function mapAttributesToMetadata(
 function extractDocumentAuthors(sourceContent: string): string[] {
   const authors: string[] = [];
   const lines = sourceContent.split(/\r?\n/);
-  
+
   // Find the document title line
   let titleLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -144,21 +144,21 @@ function extractDocumentAuthors(sourceContent: string): string[] {
       break;
     }
   }
-  
+
   if (titleLineIndex === -1) {
     return authors;
   }
-  
+
   // Look for authors in the lines immediately following the title
   let i = titleLineIndex + 1;
   while (i < lines.length) {
     const line = lines[i];
-    
+
     // Stop if we hit a blank line, section header, or content that's not an author
     if (line.trim() === "" || line.match(/^==\s+/)) {
       break;
     }
-    
+
     if (line.includes("<") && !line.startsWith(":")) {
       // This is an author line like "John Doe <john@example.com>"
       const authorName = line.split("<")[0].trim();
@@ -172,10 +172,10 @@ function extractDocumentAuthors(sourceContent: string): string[] {
       // Not an author line, stop looking
       break;
     }
-    
+
     i++;
   }
-  
+
   return authors;
 }
 
@@ -185,7 +185,7 @@ function extractDocumentAuthors(sourceContent: string): string[] {
 function extractSectionAuthors(sectionContent: string): string[] {
   const authors: string[] = [];
   const lines = sectionContent.split(/\r?\n/);
-  
+
   // Find the section title line
   let titleLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -194,21 +194,21 @@ function extractSectionAuthors(sectionContent: string): string[] {
       break;
     }
   }
-  
+
   if (titleLineIndex === -1) {
     return authors;
   }
-  
+
   // Look for authors in the lines immediately following the section title
   let i = titleLineIndex + 1;
   while (i < lines.length) {
     const line = lines[i];
-    
+
     // Stop if we hit a blank line, another section header, or content that's not an author
     if (line.trim() === "" || line.match(/^==\s+/)) {
       break;
     }
-    
+
     if (line.includes("<") && !line.startsWith(":")) {
       // This is an author line like "John Doe <john@example.com>"
       const authorName = line.split("<")[0].trim();
@@ -217,7 +217,7 @@ function extractSectionAuthors(sectionContent: string): string[] {
       }
     } else if (
       line.match(/^[A-Za-z\s]+$/) &&
-      line.trim() !== "" && 
+      line.trim() !== "" &&
       line.trim().split(/\s+/).length <= 2 &&
       !line.startsWith(":")
     ) {
@@ -230,10 +230,10 @@ function extractSectionAuthors(sectionContent: string): string[] {
       // Not an author line, stop looking
       break;
     }
-    
+
     i++;
   }
-  
+
   return authors;
 }
 
@@ -243,23 +243,23 @@ function extractSectionAuthors(sectionContent: string): string[] {
 function stripDocumentHeader(content: string): string {
   const lines = content.split(/\r?\n/);
   let contentStart = 0;
-  
+
   // Find where the document header ends
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Skip title line, author line, revision line, and attribute lines
     if (
-      !line.match(/^=\s+/) && 
+      !line.match(/^=\s+/) &&
       !line.includes("<") &&
       !line.match(/^.+,\s*.+:\s*.+$/) &&
-      !line.match(/^:[^:]+:\s*.+$/) && 
+      !line.match(/^:[^:]+:\s*.+$/) &&
       line.trim() !== ""
     ) {
       contentStart = i;
       break;
     }
   }
-  
+
   // Filter out all attribute lines and author lines from the content
   const contentLines = lines.slice(contentStart);
   const filteredLines = contentLines.filter((line) => {
@@ -269,12 +269,13 @@ function stripDocumentHeader(content: string): string {
     }
     return true;
   });
-  
+
   // Remove extra blank lines and normalize newlines
-  return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
-    /\n\s*\n/g,
-    "\n",
-  ).trim();
+  return filteredLines
+    .join("\n")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .replace(/\n\s*\n/g, "\n")
+    .trim();
 }
 
 /**
@@ -283,23 +284,27 @@ function stripDocumentHeader(content: string): string {
 function stripSectionHeader(sectionContent: string): string {
   const lines = sectionContent.split(/\r?\n/);
   let contentStart = 0;
-  
+
   // Find where the section header ends
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Skip section title line, author line, and attribute lines
     if (
-      !line.match(/^==\s+/) && 
+      !line.match(/^==\s+/) &&
       !line.includes("<") &&
-      !line.match(/^:[^:]+:\s*.+$/) && 
+      !line.match(/^:[^:]+:\s*.+$/) &&
       line.trim() !== "" &&
-      !(line.match(/^[A-Za-z\s]+$/) && line.trim() !== "" && line.trim().split(/\s+/).length <= 2)
+      !(
+        line.match(/^[A-Za-z\s]+$/) &&
+        line.trim() !== "" &&
+        line.trim().split(/\s+/).length <= 2
+      )
     ) {
       contentStart = i;
       break;
     }
   }
-  
+
   // Filter out all attribute lines, author lines, and section headers from the content
   const contentLines = lines.slice(contentStart);
   const filteredLines = contentLines.filter((line) => {
@@ -309,7 +314,7 @@ function stripSectionHeader(sectionContent: string): string {
     }
     // Skip author lines (simple names without email)
     if (
-      line.match(/^[A-Za-z\s]+$/) && 
+      line.match(/^[A-Za-z\s]+$/) &&
       line.trim() !== "" &&
       line.trim().split(/\s+/).length <= 2
     ) {
@@ -321,12 +326,13 @@ function stripSectionHeader(sectionContent: string): string {
     }
     return true;
   });
-  
+
   // Remove extra blank lines and normalize newlines
-  return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
-    /\n\s*\n/g,
-    "\n",
-  ).trim();
+  return filteredLines
+    .join("\n")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .replace(/\n\s*\n/g, "\n")
+    .trim();
 }
 
 /**
@@ -387,7 +393,7 @@ export function extractDocumentMetadata(inputContent: string): {
       inDocumentHeader = false;
       break;
     }
-    
+
     // Process :author: attributes regardless of other content
     if (inDocumentHeader) {
       const match = line.match(/^:author:\s*(.+)$/);
@@ -464,7 +470,7 @@ export function extractSectionMetadata(inputSectionContent: string): {
 
   // Extract authors from section content
   const authors = extractSectionAuthors(inputSectionContent);
-  
+
   // Get authors from attributes (including multiple :author: lines)
   const lines = inputSectionContent.split(/\r?\n/);
   for (const line of lines) {
@@ -476,7 +482,7 @@ export function extractSectionMetadata(inputSectionContent: string): {
       }
     }
   }
-  
+
   if (authors.length > 0) {
     metadata.authors = authors;
   }
@@ -647,9 +653,10 @@ export function extractSmartMetadata(content: string): {
     // Check if it's a minimal document header (just title, no other metadata)
     const lines = content.split(/\r?\n/);
     const titleLine = lines.find((line) => line.match(/^=\s+/));
-    const hasOtherMetadata = lines.some((line) =>
-      line.includes("<") || // author line
-      line.match(/^.+,\s*.+:\s*.+$/) // revision line
+    const hasOtherMetadata = lines.some(
+      (line) =>
+        line.includes("<") || // author line
+        line.match(/^.+,\s*.+:\s*.+$/), // revision line
     );
 
     if (hasOtherMetadata) {

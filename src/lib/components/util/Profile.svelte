@@ -1,12 +1,12 @@
 <script lang="ts">
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import NetworkStatus from "$components/NetworkStatus.svelte";
-  import { 
-    logoutUser, 
-    userStore, 
+  import {
+    logoutUser,
+    userStore,
     loginWithExtension,
     loginWithAmber,
-    loginWithNpub
+    loginWithNpub,
   } from "$lib/stores/userStore";
   import {
     ArrowRightToBracketOutline,
@@ -18,7 +18,11 @@
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
 
   const ndk = getNdkContext();
 
@@ -64,7 +68,7 @@
   // Handle user state changes with effects
   $effect(() => {
     const currentUser = userState;
-    
+
     // Check for fallback flag when user state changes to signed in
     if (
       currentUser.signedIn &&
@@ -99,9 +103,14 @@
   // Auto-refresh profile when user signs in
   $effect(() => {
     const currentUser = userState;
-    
+
     // If user is signed in and we have an npub but no profile data, refresh it
-    if (currentUser.signedIn && currentUser.npub && !profile?.name && !isRefreshingProfile) {
+    if (
+      currentUser.signedIn &&
+      currentUser.npub &&
+      !profile?.name &&
+      !isRefreshingProfile
+    ) {
       console.log("Profile: User signed in but no profile data, refreshing...");
       refreshProfile();
     }
@@ -115,7 +124,7 @@
 
   // Track if we've already refreshed the profile for this session
   let hasRefreshedProfile = $state(false);
-  
+
   // Reset the refresh flag when user logs out
   $effect(() => {
     const currentUser = userState;
@@ -123,12 +132,17 @@
       hasRefreshedProfile = false;
     }
   });
-  
+
   // Manual trigger to refresh profile when user signs in (only once)
   $effect(() => {
     const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.npub && !isRefreshingProfile && !hasRefreshedProfile) {
+
+    if (
+      currentUser.signedIn &&
+      currentUser.npub &&
+      !isRefreshingProfile &&
+      !hasRefreshedProfile
+    ) {
       console.log("Profile: User signed in, triggering profile refresh...");
       hasRefreshedProfile = true;
       // Add a small delay to ensure relays are ready
@@ -141,13 +155,20 @@
   // Refresh profile when login method changes (e.g., Amber to read-only)
   $effect(() => {
     const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.npub && currentUser.loginMethod && !isRefreshingProfile) {
+
+    if (
+      currentUser.signedIn &&
+      currentUser.npub &&
+      currentUser.loginMethod &&
+      !isRefreshingProfile
+    ) {
       console.log("Profile: Login method detected:", currentUser.loginMethod);
-      
+
       // If switching to read-only mode (npub), refresh profile
       if (currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
-        console.log("Profile: Switching to read-only mode, refreshing profile...");
+        console.log(
+          "Profile: Switching to read-only mode, refreshing profile...",
+        );
         hasRefreshedProfile = true;
         setTimeout(() => {
           refreshProfile();
@@ -158,22 +179,37 @@
 
   // Track login method changes and refresh profile when switching from Amber to npub
   let previousLoginMethod = $state<string | null>(null);
-  
+
   $effect(() => {
     const currentUser = userState;
-    
-    if (currentUser.signedIn && currentUser.loginMethod !== previousLoginMethod && !isRefreshingProfile) {
-      console.log("Profile: Login method changed from", previousLoginMethod, "to", currentUser.loginMethod);
-      
+
+    if (
+      currentUser.signedIn &&
+      currentUser.loginMethod !== previousLoginMethod &&
+      !isRefreshingProfile
+    ) {
+      console.log(
+        "Profile: Login method changed from",
+        previousLoginMethod,
+        "to",
+        currentUser.loginMethod,
+      );
+
       // If switching from Amber to npub (read-only), refresh profile
-      if (previousLoginMethod === "amber" && currentUser.loginMethod === "npub" && !hasRefreshedProfile) {
-        console.log("Profile: Switching from Amber to read-only mode, refreshing profile...");
+      if (
+        previousLoginMethod === "amber" &&
+        currentUser.loginMethod === "npub" &&
+        !hasRefreshedProfile
+      ) {
+        console.log(
+          "Profile: Switching from Amber to read-only mode, refreshing profile...",
+        );
         hasRefreshedProfile = true;
         setTimeout(() => {
           refreshProfile();
         }, 1000);
       }
-      
+
       previousLoginMethod = currentUser.loginMethod;
     }
   });
@@ -181,34 +217,38 @@
   // Function to refresh profile data
   async function refreshProfile() {
     if (!userState.signedIn || !userState.npub) return;
-    
+
     isRefreshingProfile = true;
     try {
       console.log("Refreshing profile for npub:", userState.npub);
-      
+
       // Check if we have relays available
       const inboxRelays = get(activeInboxRelays);
       const outboxRelays = get(activeOutboxRelays);
-      
+
       if (inboxRelays.length === 0 && outboxRelays.length === 0) {
-        console.log("Profile: No relays available, will retry when relays become available");
+        console.log(
+          "Profile: No relays available, will retry when relays become available",
+        );
         // Set up a retry mechanism when relays become available
         const unsubscribe = activeInboxRelays.subscribe((relays) => {
           if (relays.length > 0 && !isRefreshingProfile) {
-            console.log("Profile: Relays now available, retrying profile fetch");
+            console.log(
+              "Profile: Relays now available, retrying profile fetch",
+            );
             unsubscribe();
             setTimeout(() => refreshProfile(), 1000);
           }
         });
         return;
       }
-      
+
       // Try using NDK's built-in profile fetching first
       if (ndk && userState.ndkUser) {
         console.log("Using NDK's built-in profile fetching");
         const userProfile = await userState.ndkUser.fetchProfile();
         console.log("NDK profile fetch result:", userProfile);
-        
+
         if (userProfile) {
           const profileData = {
             name: userProfile.name,
@@ -220,28 +260,28 @@
             website: userProfile.website,
             lud16: userProfile.lud16,
           };
-          
+
           console.log("Converted profile data:", profileData);
-          
+
           // Update the userStore with fresh profile data
-          userStore.update(currentState => ({
+          userStore.update((currentState) => ({
             ...currentState,
-            profile: profileData
+            profile: profileData,
           }));
-          
+
           return;
         }
       }
-      
+
       // Fallback to getUserMetadata
       console.log("Falling back to getUserMetadata");
       const freshProfile = await getUserMetadata(userState.npub, ndk, true); // Force fresh fetch
       console.log("Fresh profile data from getUserMetadata:", freshProfile);
-      
+
       // Update the userStore with fresh profile data
-      userStore.update(currentState => ({
+      userStore.update((currentState) => ({
         ...currentState,
-        profile: freshProfile
+        profile: freshProfile,
       }));
     } catch (error) {
       console.error("Failed to refresh profile:", error);
@@ -249,8 +289,6 @@
       isRefreshingProfile = false;
     }
   }
-
-
 
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
@@ -373,10 +411,12 @@
   function handleAmberFallbackDismiss() {
     showAmberFallback = false;
     localStorage.removeItem("alexandria/amber/fallback");
-    
+
     // Refresh profile when switching to read-only mode
     setTimeout(() => {
-      console.log("Profile: Amber fallback dismissed, refreshing profile for read-only mode...");
+      console.log(
+        "Profile: Amber fallback dismissed, refreshing profile for read-only mode...",
+      );
       refreshProfile();
     }, 500);
   }
@@ -462,7 +502,9 @@
         aria-label="Open profile menu"
       >
         {#if !pfp}
-          <div class="h-6 w-6 rounded-full bg-gray-300 animate-pulse cursor-pointer"></div>
+          <div
+            class="h-6 w-6 rounded-full bg-gray-300 animate-pulse cursor-pointer"
+          ></div>
         {:else}
           <Avatar
             rounded

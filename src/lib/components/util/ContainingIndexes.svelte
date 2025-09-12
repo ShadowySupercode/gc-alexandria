@@ -5,7 +5,11 @@
   import { findContainingIndexEvents } from "$lib/utils/event_search";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
 
   let { event } = $props<{
     event: NDKEvent;
@@ -49,7 +53,7 @@
   function navigateToIndex(indexEvent: NDKEvent) {
     const dTag = getMatchingTags(indexEvent, "d")[0]?.[1];
     if (dTag) {
-              goto(`/publication/d/${encodeURIComponent(dTag)}`);
+      goto(`/publication/d/${encodeURIComponent(dTag)}`);
     } else {
       // Fallback to naddr
       try {

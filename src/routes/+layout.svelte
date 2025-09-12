@@ -35,46 +35,61 @@
         const persistedPubkey = getPersistedLogin();
         const loginMethod = localStorage.getItem(loginMethodStorageKey);
         const logoutFlag = localStorage.getItem("alexandria/logout/flag");
-        
+
         console.log("Layout: Checking for persisted authentication...");
         console.log("Layout: Persisted pubkey:", persistedPubkey);
         console.log("Layout: Login method:", loginMethod);
         console.log("Layout: Logout flag:", logoutFlag);
-        
+
         // If there's a logout flag, don't restore authentication
         if (logoutFlag === "true") {
-          console.log("Layout: Logout flag found, skipping authentication restoration");
+          console.log(
+            "Layout: Logout flag found, skipping authentication restoration",
+          );
           localStorage.removeItem("alexandria/logout/flag");
           return;
         }
-        
+
         // If we have a persisted pubkey and login method, restore the session
         if (persistedPubkey && loginMethod) {
-          console.log("Layout: Found persisted authentication, attempting to restore...");
-          
+          console.log(
+            "Layout: Found persisted authentication, attempting to restore...",
+          );
+
           const currentUserState = $userStore;
-          
+
           // Only restore if not already signed in
           if (!currentUserState.signedIn) {
-            console.log("Layout: User not currently signed in, restoring authentication...");
-            
+            console.log(
+              "Layout: User not currently signed in, restoring authentication...",
+            );
+
             if (loginMethod === "extension") {
               // For extension login, we need to check if the extension is available
               if (typeof window !== "undefined" && window.nostr) {
                 try {
-                  console.log("Layout: Attempting to restore extension login...");
+                  console.log(
+                    "Layout: Attempting to restore extension login...",
+                  );
                   // Import the login function dynamically to avoid circular dependencies
-                  const { loginWithExtension } = await import("$lib/stores/userStore");
+                  const { loginWithExtension } = await import(
+                    "$lib/stores/userStore"
+                  );
                   await loginWithExtension(data.ndk);
                   console.log("Layout: Extension login restored successfully");
                 } catch (error) {
-                  console.warn("Layout: Failed to restore extension login:", error);
+                  console.warn(
+                    "Layout: Failed to restore extension login:",
+                    error,
+                  );
                   // Clear the persisted login if restoration fails
                   localStorage.removeItem("alexandria/login/pubkey");
                   localStorage.removeItem(loginMethodStorageKey);
                 }
               } else {
-                console.log("Layout: Extension not available, clearing persisted login");
+                console.log(
+                  "Layout: Extension not available, clearing persisted login",
+                );
                 localStorage.removeItem("alexandria/login/pubkey");
                 localStorage.removeItem(loginMethodStorageKey);
               }
@@ -93,7 +108,9 @@
             } else if (loginMethod === "amber") {
               // For Amber login, we can't automatically restore due to the QR code requirement
               // Set a flag to show the fallback modal
-              console.log("Layout: Amber login detected, setting fallback flag");
+              console.log(
+                "Layout: Amber login detected, setting fallback flag",
+              );
               localStorage.setItem("alexandria/amber/fallback", "1");
             }
           } else {
@@ -103,17 +120,20 @@
           console.log("Layout: No persisted authentication found");
         }
       } catch (error) {
-        console.error("Layout: Error during authentication restoration:", error);
+        console.error(
+          "Layout: Error during authentication restoration:",
+          error,
+        );
       }
     }
-    
+
     // Restore authentication on mount
     restoreAuthentication();
 
     // AI-NOTE: Global click handler for wikilinks and hashtags to avoid breaking amber session
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
-      
+
       // Handle wikilinks
       if (target.tagName === "A" && target.classList.contains("wikilink")) {
         const href = (target as HTMLAnchorElement).getAttribute("href");
@@ -122,9 +142,12 @@
           goto(href);
         }
       }
-      
+
       // Handle hashtag buttons
-      if (target.tagName === "BUTTON" && target.classList.contains("cursor-pointer")) {
+      if (
+        target.tagName === "BUTTON" &&
+        target.classList.contains("cursor-pointer")
+      ) {
         const onclick = target.getAttribute("onclick");
         if (onclick && onclick.includes("window.location.href")) {
           event.preventDefault();
@@ -135,9 +158,12 @@
           }
         }
       }
-      
+
       // Handle notification links (divs with onclick handlers)
-      if (target.tagName === "DIV" && target.classList.contains("cursor-pointer")) {
+      if (
+        target.tagName === "DIV" &&
+        target.classList.contains("cursor-pointer")
+      ) {
         const onclick = target.getAttribute("onclick");
         if (onclick && onclick.includes("window.location.href")) {
           event.preventDefault();
@@ -149,9 +175,9 @@
         }
       }
     }
-    
+
     document.addEventListener("click", handleInternalLinkClick);
-    
+
     // Cleanup function to prevent memory leaks
     return () => {
       document.removeEventListener("click", handleInternalLinkClick);

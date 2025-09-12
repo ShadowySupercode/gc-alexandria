@@ -21,7 +21,10 @@
   import { getEventType } from "$lib/utils/mime";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { checkCommunity } from "$lib/utils/search_utility";
-  import { repostContent, quotedContent } from "$lib/snippets/EmbeddedSnippets.svelte";
+  import {
+    repostContent,
+    quotedContent,
+  } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   import { userStore } from "$lib/stores/userStore";
   import {
@@ -36,21 +39,28 @@
 
   // AI-NOTE:  Add cache clearing function for testing second-order search
   // This can be called from browser console: window.clearCache()
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     (window as any).clearCache = () => {
-      console.log('Clearing all caches for testing...');
+      console.log("Clearing all caches for testing...");
       clearAllCaches();
-      console.log('Caches cleared. Try searching again to test second-order search.');
+      console.log(
+        "Caches cleared. Try searching again to test second-order search.",
+      );
     };
-    
+
     // AI-NOTE:  Add function to clear specific search cache
     // Usage: window.clearSearchCache('n', 'silberengel')
-    (window as any).clearSearchCache = (searchType: string, searchTerm: string) => {
+    (window as any).clearSearchCache = (
+      searchType: string,
+      searchTerm: string,
+    ) => {
       console.log(`Clearing search cache for ${searchType}:${searchTerm}...`);
       // Import searchCache dynamically
-      import('$lib/utils/searchCache').then(({ searchCache }) => {
+      import("$lib/utils/searchCache").then(({ searchCache }) => {
         searchCache.clear();
-        console.log('Search cache cleared. Try searching again to test second-order search.');
+        console.log(
+          "Search cache cleared. Try searching again to test second-order search.",
+        );
       });
     };
   }
@@ -99,14 +109,22 @@
         if (parsedProfile) {
           // Check if we already have user list information from the search results
           const existingProfileData = (newEvent as any).profileData;
-          if (existingProfileData && typeof existingProfileData.isInUserLists === "boolean") {
+          if (
+            existingProfileData &&
+            typeof existingProfileData.isInUserLists === "boolean"
+          ) {
             // Use the existing user list status from search results
-            profile = { ...parsedProfile, isInUserLists: existingProfileData.isInUserLists } as any;
-            console.log(`[Events Page] Using existing user list status for ${newEvent.pubkey}: ${existingProfileData.isInUserLists}`);
+            profile = {
+              ...parsedProfile,
+              isInUserLists: existingProfileData.isInUserLists,
+            } as any;
+            console.log(
+              `[Events Page] Using existing user list status for ${newEvent.pubkey}: ${existingProfileData.isInUserLists}`,
+            );
           } else {
             // Set initial profile and fetch user list information
             profile = parsedProfile;
-            
+
             // Fetch user list information
             fetchCurrentUserLists(undefined, ndk)
               .then((userLists) => {
@@ -121,7 +139,9 @@
                   ...parsedProfile,
                   isInUserLists: isInLists,
                 };
-                console.log(`[Events Page] Updated user list status for ${newEvent.pubkey}: ${isInLists}`);
+                console.log(
+                  `[Events Page] Updated user list status for ${newEvent.pubkey}: ${isInLists}`,
+                );
               })
               .catch(() => {
                 profile = { ...parsedProfile, isInUserLists: false } as any;
@@ -129,7 +149,9 @@
                   ...parsedProfile,
                   isInUserLists: false,
                 };
-                console.log(`[Events Page] Set default user list status for ${newEvent.pubkey}: false`);
+                console.log(
+                  `[Events Page] Set default user list status for ${newEvent.pubkey}: false`,
+                );
               });
           }
         } else {
@@ -156,11 +178,15 @@
         checkCommunity(newEvent.pubkey)
           .then((status) => {
             communityStatus = { ...communityStatus, [newEvent.pubkey]: status };
-            console.log(`[Events Page] Updated community status for ${newEvent.pubkey}: ${status}`);
+            console.log(
+              `[Events Page] Updated community status for ${newEvent.pubkey}: ${status}`,
+            );
           })
           .catch(() => {
             communityStatus = { ...communityStatus, [newEvent.pubkey]: false };
-            console.log(`[Events Page] Set default community status for ${newEvent.pubkey}: false`);
+            console.log(
+              `[Events Page] Set default community status for ${newEvent.pubkey}: false`,
+            );
           });
       }
     }
@@ -182,8 +208,6 @@
       );
     }
   }
-
-
 
   // Use Svelte 5 idiomatic effect to update searchValue and searchType based on URL parameters
   $effect(() => {
@@ -314,8 +338,6 @@
     // AI-NOTE:  Profile data is now handled in subscription_search.ts
     // No need to cache profiles here as they're already attached to events
   }
-
-
 
   function handleClear() {
     searchType = null;
@@ -559,7 +581,10 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
+              <Heading
+                tag="h2"
+                class="h-leather mb-4 break-words overflow-hidden"
+              >
                 {#if searchType === "n"}
                   Search Results for name: "{searchTerm &&
                   searchTerm.length > 50
@@ -590,16 +615,19 @@
                     onclick={() => handleEventFound(result)}
                   >
                     <div class="flex flex-col gap-1 responsive-card-content">
-                        <div class="flex items-center gap-2 mb-1 min-w-0">
-                          <span
-                            class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
-                            >{searchType === "n" ? "Profile" : "Event"}
-                            {index + 1}</span
-                          >
-                          <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
-                            >Kind: {result.kind}</span
-                          >
-                          <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                      <div class="flex items-center gap-2 mb-1 min-w-0">
+                        <span
+                          class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
+                          >{searchType === "n" ? "Profile" : "Event"}
+                          {index + 1}</span
+                        >
+                        <span
+                          class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
+                          >Kind: {result.kind}</span
+                        >
+                        <div
+                          class="flex items-center gap-2 ml-auto flex-shrink-0"
+                        >
                           <!-- Indicators -->
                           {#if profileData?.isInUserLists}
                             <div
@@ -636,7 +664,7 @@
                           {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
                             <div class="flex-shrink-0 w-4 h-4"></div>
                           {/if}
-                          
+
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
@@ -644,25 +672,36 @@
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                                (
+                                  e.target as HTMLImageElement
+                                ).nextElementSibling?.classList.remove(
+                                  "hidden",
+                                );
                               }}
                             />
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {:else}
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {/if}
-                          
+
                           <!-- User badge -->
-                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                          <span
+                            class="text-xs text-gray-600 dark:text-gray-400"
+                          >
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
                               profileData?.display_name || profileData?.name,
@@ -713,7 +752,9 @@
                               />
                             </div>
                           {/if}
-                          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                          <div
+                            class="flex flex-col min-w-0 flex-1 overflow-hidden"
+                          >
                             {#if profileData.display_name || profileData.name}
                               <span
                                 class="font-medium text-gray-900 dark:text-gray-100 truncate"
@@ -780,31 +821,55 @@
                           >
                             {#if repostKinds.includes(result.kind)}
                               <!-- Repost content - parse stringified JSON -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
+                                  {result.kind === 6
+                                    ? "Repost:"
+                                    : "Generic repost:"}
                                 </div>
                                 {@render repostContent(result.content)}
                               </div>
                             {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
                               <!-- Quote repost content -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
                                   Quote repost:
                                 </div>
                                 {@render quotedContent(result, [], ndk)}
                                 {#if result.content && result.content.trim()}
-                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  <div
+                                    class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                  >
+                                    <div
+                                      class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                    >
                                       Comment:
                                     </div>
-                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
+                                    {@render basicMarkup(
+                                      result.content.slice(0, 100) +
+                                        (result.content.length > 100
+                                          ? "..."
+                                          : ""),
+                                      ndk,
+                                    )}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
+                              {@render basicMarkup(
+                                result.content.slice(0, 200) +
+                                  (result.content.length > 200 ? "..." : ""),
+                                ndk,
+                              )}
                             {/if}
                           </div>
                         {/if}
@@ -824,7 +889,10 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
+              <Heading
+                tag="h2"
+                class="h-leather mb-4 break-words overflow-hidden"
+              >
                 Second-Order Events (References, Replies, Quotes) ({secondOrderResults.length}
                 events)
               </Heading>
@@ -851,10 +919,13 @@
                           class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
                           >Reference {index + 1}</span
                         >
-                        <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
+                        <span
+                          class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
                           >Kind: {result.kind}</span
                         >
-                        <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                        <div
+                          class="flex items-center gap-2 ml-auto flex-shrink-0"
+                        >
                           <!-- Indicators -->
                           {#if profileData?.isInUserLists}
                             <div
@@ -891,7 +962,7 @@
                           {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
                             <div class="flex-shrink-0 w-4 h-4"></div>
                           {/if}
-                          
+
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
@@ -899,25 +970,36 @@
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                                (
+                                  e.target as HTMLImageElement
+                                ).nextElementSibling?.classList.remove(
+                                  "hidden",
+                                );
                               }}
                             />
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {:else}
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {/if}
-                          
+
                           <!-- User badge -->
-                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                          <span
+                            class="text-xs text-gray-600 dark:text-gray-400"
+                          >
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
                               profileData?.display_name || profileData?.name,
@@ -971,7 +1053,9 @@
                               </span>
                             </div>
                           {/if}
-                          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                          <div
+                            class="flex flex-col min-w-0 flex-1 overflow-hidden"
+                          >
                             {#if profileData.display_name || profileData.name}
                               <span
                                 class="font-medium text-gray-900 dark:text-gray-100 truncate"
@@ -1038,31 +1122,55 @@
                           >
                             {#if repostKinds.includes(result.kind)}
                               <!-- Repost content - parse stringified JSON -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
+                                  {result.kind === 6
+                                    ? "Repost:"
+                                    : "Generic repost:"}
                                 </div>
                                 {@render repostContent(result.content)}
                               </div>
                             {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
                               <!-- Quote repost content -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
                                   Quote repost:
                                 </div>
                                 {@render quotedContent(result, [], ndk)}
                                 {#if result.content && result.content.trim()}
-                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  <div
+                                    class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                  >
+                                    <div
+                                      class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                    >
                                       Comment:
                                     </div>
-                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
+                                    {@render basicMarkup(
+                                      result.content.slice(0, 100) +
+                                        (result.content.length > 100
+                                          ? "..."
+                                          : ""),
+                                      ndk,
+                                    )}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
+                              {@render basicMarkup(
+                                result.content.slice(0, 200) +
+                                  (result.content.length > 200 ? "..." : ""),
+                                ndk,
+                              )}
                             {/if}
                           </div>
                         {/if}
@@ -1082,7 +1190,10 @@
                 ? "lg:block hidden"
                 : "block"}
             >
-              <Heading tag="h2" class="h-leather mb-4 break-words overflow-hidden">
+              <Heading
+                tag="h2"
+                class="h-leather mb-4 break-words overflow-hidden"
+              >
                 Search Results for t-tag: "{searchTerm ||
                   (searchType === "t" ? searchValue : "")}" ({tTagResults.length}
                 events)
@@ -1104,10 +1215,13 @@
                           class="font-medium text-gray-800 dark:text-gray-100 flex-shrink-0"
                           >Tagged Event {index + 1}</span
                         >
-                        <span class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
+                        <span
+                          class="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0"
                           >Kind: {result.kind}</span
                         >
-                        <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                        <div
+                          class="flex items-center gap-2 ml-auto flex-shrink-0"
+                        >
                           <!-- Indicators -->
                           {#if profileData?.isInUserLists}
                             <div
@@ -1144,7 +1258,7 @@
                           {#if !profileData?.isInUserLists && !(result.pubkey && communityStatus[result.pubkey])}
                             <div class="flex-shrink-0 w-4 h-4"></div>
                           {/if}
-                          
+
                           <!-- Profile picture -->
                           {#if profileData?.picture}
                             <img
@@ -1152,25 +1266,36 @@
                               alt="Profile"
                               class="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
                               onerror={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                                (
+                                  e.target as HTMLImageElement
+                                ).nextElementSibling?.classList.remove(
+                                  "hidden",
+                                );
                               }}
                             />
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0 hidden"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {:else}
                             <div
                               class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border border-gray-200 dark:border-gray-600 flex-shrink-0"
                             >
-                              <UserOutline class="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                              <UserOutline
+                                class="w-3 h-3 text-gray-600 dark:text-gray-300"
+                              />
                             </div>
                           {/if}
-                          
+
                           <!-- User badge -->
-                          <span class="text-xs text-gray-600 dark:text-gray-400">
+                          <span
+                            class="text-xs text-gray-600 dark:text-gray-400"
+                          >
                             {@render userBadge(
                               toNpub(result.pubkey) as string,
                               profileData?.display_name || profileData?.name,
@@ -1282,31 +1407,55 @@
                           >
                             {#if repostKinds.includes(result.kind)}
                               <!-- Repost content - parse stringified JSON -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  {result.kind === 6 ? 'Repost:' : 'Generic repost:'}
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
+                                  {result.kind === 6
+                                    ? "Repost:"
+                                    : "Generic repost:"}
                                 </div>
                                 {@render repostContent(result.content)}
                               </div>
                             {:else if result.kind === 1 && result.getMatchingTags("q").length > 0}
                               <!-- Quote repost content -->
-                              <div class="border-l-2 border-primary-300 dark:border-primary-600 pl-2">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <div
+                                class="border-l-2 border-primary-300 dark:border-primary-600 pl-2"
+                              >
+                                <div
+                                  class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                >
                                   Quote repost:
                                 </div>
                                 {@render quotedContent(result, [], ndk)}
                                 {#if result.content && result.content.trim()}
-                                  <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  <div
+                                    class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                  >
+                                    <div
+                                      class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                                    >
                                       Comment:
                                     </div>
-                                    {@render basicMarkup(result.content.slice(0, 100) + (result.content.length > 100 ? "..." : ""), ndk)}
+                                    {@render basicMarkup(
+                                      result.content.slice(0, 100) +
+                                        (result.content.length > 100
+                                          ? "..."
+                                          : ""),
+                                      ndk,
+                                    )}
                                   </div>
                                 {/if}
                               </div>
                             {:else}
                               <!-- Regular content -->
-                              {@render basicMarkup(result.content.slice(0, 200) + (result.content.length > 200 ? "..." : ""), ndk)}
+                              {@render basicMarkup(
+                                result.content.slice(0, 200) +
+                                  (result.content.length > 200 ? "..." : ""),
+                                ndk,
+                              )}
                             {/if}
                           </div>
                         {/if}
@@ -1390,7 +1539,11 @@
         {/if}
 
         <div class="min-w-0 overflow-hidden">
-          <EventDetails {event} {profile} communityStatusMap={communityStatus} />
+          <EventDetails
+            {event}
+            {profile}
+            communityStatusMap={communityStatus}
+          />
         </div>
         <div class="min-w-0 overflow-hidden">
           <RelayActions {event} />

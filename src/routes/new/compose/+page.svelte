@@ -35,36 +35,47 @@
     isPublishing = true;
     publishResults = null;
 
-    const results = await publishMultipleZettels({
-      content,
-      onError: (error) => {
-        // Only used for catastrophic errors
-        publishResults = { successCount: 0, total: 0, errors: [error], successfulEvents: [], failedEvents: [] };
+    const results = await publishMultipleZettels(
+      {
+        content,
+        onError: (error) => {
+          // Only used for catastrophic errors
+          publishResults = {
+            successCount: 0,
+            total: 0,
+            errors: [error],
+            successfulEvents: [],
+            failedEvents: [],
+          };
+        },
       },
-    }, ndk);
+      ndk,
+    );
 
-    const successCount = results.filter(r => r.success).length;
-    const errors = results.filter(r => !r.success && r.error).map(r => r.error!);
-    
+    const successCount = results.filter((r) => r.success).length;
+    const errors = results
+      .filter((r) => !r.success && r.error)
+      .map((r) => r.error!);
+
     // Extract successful events with their titles
     const parsed = parseAsciiDocWithMetadata(content);
     const successfulEvents = results
-      .filter(r => r.success && r.eventId)
+      .filter((r) => r.success && r.eventId)
       .map((r, index) => ({
         eventId: r.eventId!,
-        title: parsed.sections[index]?.title || `Note ${index + 1}`
+        title: parsed.sections[index]?.title || `Note ${index + 1}`,
       }));
-    
+
     // Extract failed events with their titles and errors
     const failedEvents = results
       .map((r, index) => ({ result: r, index }))
       .filter(({ result }) => !result.success)
       .map(({ result, index }) => ({
         title: parsed.sections[index]?.title || `Note ${index + 1}`,
-        error: result.error || 'Unknown error',
-        sectionIndex: index
+        error: result.error || "Unknown error",
+        sectionIndex: index,
       }));
-    
+
     publishResults = {
       successCount,
       total: results.length,
@@ -77,40 +88,46 @@
 
   async function retryFailedEvent(sectionIndex: number) {
     if (!publishResults) return;
-    
+
     isPublishing = true;
-    
+
     // Get the specific section content
     const parsed = parseAsciiDocWithMetadata(content);
     const section = parsed.sections[sectionIndex];
     if (!section) return;
-    
+
     // Reconstruct the section content for publishing
     const sectionContent = `== ${section.title}\n\n${section.content}`;
-    
+
     try {
-      const result = await publishMultipleZettels({
-        content: sectionContent,
-        onError: (error) => {
-          console.error('Retry failed:', error);
+      const result = await publishMultipleZettels(
+        {
+          content: sectionContent,
+          onError: (error) => {
+            console.error("Retry failed:", error);
+          },
         },
-      }, ndk);
-      
+        ndk,
+      );
+
       if (result[0]?.success && result[0]?.eventId) {
         // Update the successful events list
         const newSuccessfulEvent = {
           eventId: result[0].eventId,
-          title: section.title
+          title: section.title,
         };
-        
+
         // Remove from failed events
         const updatedFailedEvents = publishResults.failedEvents.filter(
-          (_, index) => index !== sectionIndex
+          (_, index) => index !== sectionIndex,
         );
-        
+
         // Add to successful events
-        const updatedSuccessfulEvents = [...publishResults.successfulEvents, newSuccessfulEvent];
-        
+        const updatedSuccessfulEvents = [
+          ...publishResults.successfulEvents,
+          newSuccessfulEvent,
+        ];
+
         publishResults = {
           ...publishResults,
           successCount: publishResults.successCount + 1,
@@ -119,9 +136,9 @@
         };
       }
     } catch (error) {
-      console.error('Retry failed:', error);
+      console.error("Retry failed:", error);
     }
-    
+
     isPublishing = false;
   }
 </script>
@@ -174,8 +191,8 @@
                 {#each publishResults.successfulEvents as event}
                   {@const nevent = nip19.neventEncode({ id: event.eventId })}
                   <div class="text-sm">
-                    <a 
-                      href="/events?id={encodeURIComponent(event.eventId)}" 
+                    <a
+                      href="/events?id={encodeURIComponent(event.eventId)}"
                       class="text-blue-600 dark:text-blue-400 hover:underline font-mono"
                     >
                       {event.title} ({nevent})
@@ -190,7 +207,7 @@
         <Alert color="red" dismissable>
           <span class="font-medium">Some events failed to publish.</span>
           {publishResults.successCount} of {publishResults.total} events published.
-          
+
           {#if publishResults.successfulEvents.length > 0}
             <div class="mt-2">
               <span class="text-sm font-medium">Successfully published:</span>
@@ -198,8 +215,8 @@
                 {#each publishResults.successfulEvents as event}
                   {@const nevent = nip19.neventEncode({ id: event.eventId })}
                   <div class="text-sm">
-                    <a 
-                      href="/events?id={encodeURIComponent(event.eventId)}" 
+                    <a
+                      href="/events?id={encodeURIComponent(event.eventId)}"
                       class="text-blue-600 dark:text-blue-400 hover:underline font-mono"
                     >
                       {event.title} ({nevent})
@@ -209,7 +226,7 @@
               </div>
             </div>
           {/if}
-          
+
           {#if publishResults.failedEvents.length > 0}
             <div class="mt-2">
               <span class="text-sm font-medium">Failed to publish:</span>
@@ -217,7 +234,9 @@
                 {#each publishResults.failedEvents as failedEvent, index}
                   <div class="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded">
                     <div class="font-medium">{failedEvent.title}</div>
-                    <div class="text-red-600 dark:text-red-400 text-xs">{failedEvent.error}</div>
+                    <div class="text-red-600 dark:text-red-400 text-xs">
+                      {failedEvent.error}
+                    </div>
                     <Button
                       size="xs"
                       color="light"
@@ -225,7 +244,7 @@
                       disabled={isPublishing}
                       class="mt-1"
                     >
-                      {isPublishing ? 'Retrying...' : 'Retry'}
+                      {isPublishing ? "Retrying..." : "Retry"}
                     </Button>
                   </div>
                 {/each}

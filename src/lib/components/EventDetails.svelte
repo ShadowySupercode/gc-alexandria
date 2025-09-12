@@ -14,8 +14,8 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import { 
-    repostContent, 
+  import {
+    repostContent,
     quotedContent,
   } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
@@ -38,7 +38,10 @@
   let authorDisplayName = $state<string | undefined>(undefined);
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
-  let isRepost = $derived(repostKinds.includes(event.kind) || (event.kind === 1 && event.getMatchingTags("q").length > 0));
+  let isRepost = $derived(
+    repostKinds.includes(event.kind) ||
+      (event.kind === 1 && event.getMatchingTags("q").length > 0),
+  );
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -224,13 +227,15 @@
       return;
     }
 
-    getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
-      authorDisplayName =
-        profile.displayName ||
-        (profile as any).display_name ||
-        profile.name ||
-        event.pubkey;
-    });
+    getUserMetadata(toNpub(event.pubkey) as string, undefined).then(
+      (profile) => {
+        authorDisplayName =
+          profile.displayName ||
+          (profile as any).display_name ||
+          profile.name ||
+          event.pubkey;
+      },
+    );
   });
 
   // --- Identifier helpers ---
@@ -273,7 +278,11 @@
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
       // hex id - make it a clickable link to search for the event ID
-      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
+      ids.push({
+        label: "id",
+        value: event.id,
+        link: `/events?id=${event.id}`,
+      });
     }
     return ids;
   }
@@ -332,7 +341,9 @@
 
   <div class="flex flex-col space-y-1 min-w-0">
     <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+    <div
+      class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0"
+    >
       {@render basicMarkup(getEventSummary(event), ndk)}
     </div>
   </div>
@@ -344,57 +355,71 @@
   {#if event.kind !== 0}
     {@const kind = event.kind}
     {@const content = event.content.trim()}
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
+    <div
+      class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden"
+    >
       <div class="flex flex-col space-y-1 min-w-0">
-        <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        {#if isRepost}
-          <!-- Repost content handling -->
-          {#if repostKinds.includes(event.kind)}
-            <!-- Kind 6 and 16 reposts - stringified JSON content -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
-              </div>
-              {@render repostContent(event.content)}
-            </div>
-          {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
-            <!-- Quote repost - kind 1 with q tag -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Quote repost:
-              </div>
-              {@render quotedContent(event, [], ndk)}
-              {#if content}
-                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Added comment:
-                  </div>
-                  {#if repostKinds.includes(kind)}
-                    {@html content}
-                  {:else}
-                    {@render basicMarkup(content, ndk)}
-                  {/if}
+        <span class="text-gray-700 dark:text-gray-300 font-semibold"
+          >Content:</span
+        >
+        <div
+          class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0"
+        >
+          {#if isRepost}
+            <!-- Repost content handling -->
+            {#if repostKinds.includes(event.kind)}
+              <!-- Kind 6 and 16 reposts - stringified JSON content -->
+              <div
+                class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2"
+              >
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  {event.kind === 6
+                    ? "Reposted content:"
+                    : "Generic reposted content:"}
                 </div>
+                {@render repostContent(event.content)}
+              </div>
+            {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+              <!-- Quote repost - kind 1 with q tag -->
+              <div
+                class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2"
+              >
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Quote repost:
+                </div>
+                {@render quotedContent(event, [], ndk)}
+                {#if content}
+                  <div
+                    class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700"
+                  >
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Added comment:
+                    </div>
+                    {#if repostKinds.includes(kind)}
+                      {@html content}
+                    {:else}
+                      {@render basicMarkup(content, ndk)}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          {:else}
+            <!-- Regular content -->
+            <div class={shouldTruncate ? "max-h-32 overflow-hidden" : ""}>
+              {#if repostKinds.includes(kind)}
+                {@html content}
+              {:else}
+                {@render basicMarkup(content, ndk)}
               {/if}
             </div>
-          {/if}
-        {:else}
-          <!-- Regular content -->
-          <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-            {#if repostKinds.includes(kind)}
-              {@html content}
-            {:else}
-              {@render basicMarkup(content, ndk)}
+            {#if shouldTruncate}
+              <button
+                class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+                onclick={() => (showFullContent = true)}>Show more</button
+              >
             {/if}
-          </div>
-          {#if shouldTruncate}
-            <button
-              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-              onclick={() => (showFullContent = true)}>Show more</button
-            >
           {/if}
-        {/if}
         </div>
       </div>
     </div>
@@ -402,11 +427,7 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <ProfileHeader
-      {event}
-      {profile}
-      {communityStatusMap}
-    />
+    <ProfileHeader {event} {profile} {communityStatusMap} />
   {/if}
 
   <!-- Raw Event JSON -->
@@ -418,34 +439,38 @@
     >
       Show details
     </summary>
-    
+
     <!-- Identifiers Section -->
     <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+        Identifiers:
+      </h4>
       <div class="flex flex-col gap-2 min-w-0">
         {#each getIdentifiers(event, profile) as identifier}
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            {#if identifier.link}
-              <a
-                href={identifier.link}
-                class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
-                title={identifier.value}
-              >
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </a>
-            {:else}
-              <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </span>
-            {/if}
-            <CopyToClipboard
-              displayText=""
-              copyText={identifier.value}
-            />
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-gray-600 dark:text-gray-400 flex-shrink-0"
+              >{identifier.label}:</span
+            >
+            <div class="flex-1 min-w-0 flex items-center gap-2">
+              {#if identifier.link}
+                <a
+                  href={identifier.link}
+                  class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
+                  title={identifier.value}
+                >
+                  {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+                </a>
+              {:else}
+                <span
+                  class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all"
+                  title={identifier.value}
+                >
+                  {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
+                </span>
+              {/if}
+              <CopyToClipboard displayText="" copyText={identifier.value} />
+            </div>
           </div>
-        </div>
         {/each}
       </div>
     </div>
@@ -453,7 +478,9 @@
     <!-- Event Tags Section -->
     {#if event.tags && event.tags.length}
       <div class="mb-4 max-w-full overflow-hidden">
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
+        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Event Tags:
+        </h4>
         <div class="flex flex-wrap gap-2 break-words min-w-0">
           {#each event.tags as tag}
             {@const tagInfo = getTagButtonInfo(tag)}
@@ -508,7 +535,9 @@
 
     <!-- Raw Event JSON Section -->
     <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
+      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+        Raw Event JSON:
+      </h4>
       <div class="relative min-w-0">
         <div class="absolute top-0 right-0 z-10">
           <CopyToClipboard

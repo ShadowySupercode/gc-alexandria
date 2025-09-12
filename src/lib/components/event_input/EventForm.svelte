@@ -81,7 +81,10 @@
 <form class="space-y-4" onsubmit={handleValidate}>
   <!-- Event Kind -->
   <div>
-    <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-kind">
+    <label
+      class="block font-medium mb-1 text-gray-700 dark:text-gray-300"
+      for="event-kind"
+    >
       Kind
     </label>
     <input
@@ -113,7 +116,9 @@
               ?
             </button>
             <div class="max-w-sm p-2 text-xs">
-              <strong>30040 - Publication Index:</strong> Events that organize AsciiDoc content into structured publications with metadata tags and section references.
+              <strong>30040 - Publication Index:</strong> Events that organize AsciiDoc
+              content into structured publications with metadata tags and section
+              references.
             </div>
           </Tooltip>
         {/if}
@@ -123,7 +128,10 @@
 
   <!-- Event Content -->
   <div>
-    <label class="block font-medium mb-1 text-gray-700 dark:text-gray-300" for="event-content">
+    <label
+      class="block font-medium mb-1 text-gray-700 dark:text-gray-300"
+      for="event-content"
+    >
       Content
     </label>
     <textarea
@@ -133,15 +141,17 @@
       class="textarea textarea-bordered w-full h-40"
       required
     ></textarea>
-    
+
     <!-- Content hints based on kind -->
     {#if eventData.kind === 30023}
       <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-        Use Markdown format for long-form content. Do not use AsciiDoc headers (=).
+        Use Markdown format for long-form content. Do not use AsciiDoc headers
+        (=).
       </div>
     {:else if eventData.kind === 30040 || eventData.kind === 30041 || eventData.kind === 30818}
       <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-        Use AsciiDoc format. Start with a document title (=) and include section headers (==).
+        Use AsciiDoc format. Start with a document title (=) and include section
+        headers (==).
       </div>
     {/if}
   </div>
@@ -157,6 +167,4 @@
       Warning: {validationWarning}
     </div>
   {/if}
-
-
 </form>

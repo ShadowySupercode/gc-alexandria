@@ -56,8 +56,8 @@ export async function fetchTaggedEventsFromRelays(
   const contentEventDTags = new Set<string>();
   const existingContentDTags = new Set(
     baseEvents
-      .filter((e) =>
-        e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind)
+      .filter(
+        (e) => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind),
       )
       .map((e) => e.tagValue("d"))
       .filter((d) => d !== undefined),
@@ -137,8 +137,8 @@ export function findTaggedEventsInFetched(
   // For content events, also search in allEvents
   const existingContentDTags = new Set(
     baseEvents
-      .filter((e) =>
-        e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind)
+      .filter(
+        (e) => e.kind !== undefined && CONTENT_EVENT_KINDS.includes(e.kind),
       )
       .map((e) => e.tagValue("d"))
       .filter((d) => d !== undefined),

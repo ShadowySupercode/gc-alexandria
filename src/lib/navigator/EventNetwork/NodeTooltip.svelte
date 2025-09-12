@@ -13,7 +13,7 @@
     getDisplayNameSync,
     replacePubkeysWithDisplayNames,
   } from "$lib/utils/npubCache";
-  import {indexKind, zettelKinds, wikiKind} from "$lib/consts";
+  import { indexKind, zettelKinds, wikiKind } from "$lib/consts";
 
   // Component props
   let {
@@ -51,7 +51,7 @@
     if (node.isPersonAnchor && node.pubkey) {
       return getDisplayNameSync(node.pubkey);
     }
-    
+
     if (node.event) {
       const authorTags = getMatchingTags(node.event, "author");
       if (authorTags.length > 0) {
@@ -108,11 +108,15 @@
     // For tag anchor nodes, only create URLs for supported tag types
     if (node.isTagAnchor && node.tagType && node.tagValue) {
       // Only create URLs for supported parameters: t, n, d
-      if (node.tagType === 't' || node.tagType === 'n' || node.tagType === 'd') {
+      if (
+        node.tagType === "t" ||
+        node.tagType === "n" ||
+        node.tagType === "d"
+      ) {
         return `/events?${node.tagType}=${encodeURIComponent(node.tagValue)}`;
       }
       // For other tag types, don't create a URL
-      return '';
+      return "";
     }
     // For person anchor nodes, use the pubkey to create an npub
     if (node.isPersonAnchor && node.pubkey) {
@@ -120,11 +124,11 @@
       return `/events?id=${npub}`;
     }
     // For regular events, use the event ID
-    if (node.id && !node.id.startsWith('tag-anchor-')) {
+    if (node.id && !node.id.startsWith("tag-anchor-")) {
       return `/events?id=${node.id}`;
     }
     // For other nodes, don't create a URL
-    return '';
+    return "";
   }
 
   /**

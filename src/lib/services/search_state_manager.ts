@@ -23,19 +23,17 @@ export class SearchStateManager {
   /**
    * Resets all search state to initial values
    */
-  resetSearchState(
-    callbacks: {
-      onSearchResults: (
-        events: any[],
-        secondOrder: any[],
-        tTagEvents: any[],
-        eventIds: Set<string>,
-        addresses: Set<string>,
-      ) => void;
-      cleanupSearch: () => void;
-      clearTimeout: () => void;
-    },
-  ): void {
+  resetSearchState(callbacks: {
+    onSearchResults: (
+      events: any[],
+      secondOrder: any[],
+      tTagEvents: any[],
+      eventIds: Set<string>,
+      addresses: Set<string>,
+    ) => void;
+    cleanupSearch: () => void;
+    clearTimeout: () => void;
+  }): void {
     callbacks.cleanupSearch();
     callbacks.onSearchResults([], [], [], new Set(), new Set());
     callbacks.clearTimeout();
@@ -54,9 +52,8 @@ export class SearchStateManager {
       resetProcessingFlags: () => void;
     },
   ): void {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : defaultMessage;
+    const errorMessage =
+      error instanceof Error ? error.message : defaultMessage;
     callbacks.setLocalError(errorMessage);
     callbacks.cleanupSearch();
     callbacks.updateSearchState({

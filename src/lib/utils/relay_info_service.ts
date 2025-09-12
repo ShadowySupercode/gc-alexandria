@@ -47,14 +47,13 @@ export async function fetchRelayInfo(
 ): Promise<RelayInfoWithMetadata | undefined> {
   try {
     // Convert WebSocket URL to HTTP URL for NIP-11
-    const httpUrl = url.replace("ws://", "http://").replace(
-      "wss://",
-      "https://",
-    );
+    const httpUrl = url
+      .replace("ws://", "http://")
+      .replace("wss://", "https://");
 
     const response = await fetch(httpUrl, {
       headers: {
-        "Accept": "application/nostr+json",
+        Accept: "application/nostr+json",
         "User-Agent": "Alexandria/1.0",
       },
       // Add timeout to prevent hanging
@@ -71,7 +70,7 @@ export async function fetchRelayInfo(
       };
     }
 
-    const relayInfo = await response.json() as RelayInfo;
+    const relayInfo = (await response.json()) as RelayInfo;
 
     return {
       ...relayInfo,
@@ -107,7 +106,7 @@ export async function fetchRelayInfos(
   const results = await Promise.allSettled(promises);
 
   return results
-    .map((result) => result.status === "fulfilled" ? result.value : undefined)
+    .map((result) => (result.status === "fulfilled" ? result.value : undefined))
     .filter((info): info is RelayInfoWithMetadata => info !== undefined);
 }
 
@@ -128,8 +127,10 @@ export function getRelayTypeLabel(
 
   // Check if it's a community relay
   if (
-    relayUrl.includes("nostr.band") || relayUrl.includes("noswhere.com") ||
-    relayUrl.includes("damus.io") || relayUrl.includes("nostr.wine")
+    relayUrl.includes("nostr.band") ||
+    relayUrl.includes("noswhere.com") ||
+    relayUrl.includes("damus.io") ||
+    relayUrl.includes("nostr.wine")
   ) {
     return "Community";
   }

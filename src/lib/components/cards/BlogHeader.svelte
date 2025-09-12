@@ -10,7 +10,7 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
-  
+
   const {
     rootId,
     event,
@@ -72,21 +72,20 @@
         in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
       >
         {#if image}
-          <LazyImage 
-            src={image} 
+          <LazyImage
+            src={image}
             alt={title || "Publication image"}
             eventId={event.id}
             className="rounded w-full h-full object-cover"
           />
         {:else}
-          <div 
+          <div
             class="rounded w-full h-full"
             style="background-color: {generateDarkPastelColor(event.id)};"
-          >
-          </div>
+          ></div>
         {/if}
       </div>
-      
+
       <div class="flex flex-col space-y-4">
         <button onclick={() => showBlog()} class="text-left">
           <h2 class="text-lg font-bold line-clamp-2" {title}>{title}</h2>
@@ -99,11 +98,11 @@
           </div>
         {/if}
       </div>
-      
+
       {#if active}
         <Interactions {rootId} {event} />
       {/if}
-      
+
       <!-- Position CardActions at bottom-right -->
       <div class="absolute bottom-2 right-2">
         <CardActions {event} />

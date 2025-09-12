@@ -159,7 +159,7 @@ export class TableOfContents {
     // Handle any other nodes that have already been resolved in parallel.
     await Promise.all(
       Array.from(this.#publicationTree.resolvedAddresses).map((address) =>
-        this.#buildTocEntryFromResolvedNode(address)
+        this.#buildTocEntryFromResolvedNode(address),
       ),
     );
 

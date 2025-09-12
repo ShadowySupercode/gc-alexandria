@@ -1,6 +1,6 @@
 <script lang="ts">
   import { CaretDownOutline, CaretUpOutline } from "flowbite-svelte-icons";
-  import { getEventKindColor, getEventKindName } from '$lib/utils/eventColors';
+  import { getEventKindColor, getEventKindName } from "$lib/utils/eventColors";
   import type { EventCounts } from "$lib/types";
 
   const TAG_LEGEND_COLUMNS = 3; // Number of columns for tag anchor table
@@ -55,7 +55,7 @@
   let tagAnchorsExpanded = $state(true);
   let tagControlsExpanded = $state(true);
   let personVisualizerExpanded = $state(true);
-  let tagSortMode = $state<'count' | 'alphabetical'>('count');
+  let tagSortMode = $state<"count" | "alphabetical">("count");
 
   $effect(() => {
     if (collapsedOnInteraction) {
@@ -66,11 +66,11 @@
   function toggle() {
     expanded = !expanded;
   }
-  
+
   function toggleNodeTypes() {
     nodeTypesExpanded = !nodeTypesExpanded;
   }
-  
+
   function toggleTagAnchors() {
     tagAnchorsExpanded = !tagAnchorsExpanded;
   }
@@ -78,7 +78,7 @@
   function invertTagSelection() {
     // Invert selection - toggle all tags one by one
     const allTagIds = tagAnchors.map((anchor: any) => anchor.value);
-    
+
     // Process all tags
     allTagIds.forEach((tagId: string) => {
       onTagToggle(tagId);
@@ -88,7 +88,7 @@
   function invertPersonSelection() {
     // Invert selection - toggle all person nodes
     const allPubkeys = personAnchors.map((person: any) => person.pubkey);
-    
+
     // Process all persons
     allPubkeys.forEach((pubkey: string) => {
       onPersonToggle(pubkey);
@@ -97,10 +97,10 @@
 </script>
 
 <div class={`leather-legend ${className}`}>
-  <button 
+  <button
     class="flex items-center justify-between space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md px-2 py-1 -mx-2 -my-1 w-full text-left border-none bg-none"
     onclick={toggle}
-    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? toggle() : null}
+    onkeydown={(e) => (e.key === "Enter" || e.key === " " ? toggle() : null)}
     aria-expanded={expanded}
     aria-controls="legend-content"
   >
@@ -117,15 +117,22 @@
   {#if expanded}
     <div id="legend-content" class="space-y-4">
       <!-- Node Types Section -->
-      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <button 
+      <div
+        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+      >
+        <button
           class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3 w-full text-left border-none bg-none"
           onclick={toggleNodeTypes}
-          onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleNodeTypes() : null}
+          onkeydown={(e) =>
+            e.key === "Enter" || e.key === " " ? toggleNodeTypes() : null}
           aria-expanded={nodeTypesExpanded}
           aria-controls="node-types-content"
         >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Node Types</h4>
+          <h4
+            class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0"
+          >
+            Node Types
+          </h4>
           <div class="pointer-events-none">
             {#if nodeTypesExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -134,7 +141,7 @@
             {/if}
           </div>
         </button>
-        
+
         {#if nodeTypesExpanded}
           <div id="node-types-content">
             <ul class="space-y-2">
@@ -178,7 +185,7 @@
                   {/if}
                 </span>
               </li>
-              
+
               <!-- Edge colors for person connections -->
               {#if showPersonNodes && personAnchors.length > 0}
                 <li class="flex items-center mb-2 last:mb-0">
@@ -214,15 +221,24 @@
       </div>
 
       <!-- Tag Anchor Controls Section -->
-      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <button 
+      <div
+        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+      >
+        <button
           class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3 w-full text-left border-none bg-none"
-          onclick={() => tagControlsExpanded = !tagControlsExpanded}
-          onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (tagControlsExpanded = !tagControlsExpanded) : null}
+          onclick={() => (tagControlsExpanded = !tagControlsExpanded)}
+          onkeydown={(e) =>
+            e.key === "Enter" || e.key === " "
+              ? (tagControlsExpanded = !tagControlsExpanded)
+              : null}
           aria-expanded={tagControlsExpanded}
           aria-controls="tag-controls-content"
         >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Tag Anchor Controls</h4>
+          <h4
+            class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0"
+          >
+            Tag Anchor Controls
+          </h4>
           <div class="pointer-events-none">
             {#if tagControlsExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -231,7 +247,7 @@
             {/if}
           </div>
         </button>
-        
+
         {#if tagControlsExpanded}
           <div id="tag-controls-content" class="space-y-3">
             <!-- Show Tag Anchors Toggle -->
@@ -241,19 +257,31 @@
                   showTagAnchors = !showTagAnchors;
                   onTagSettingsChange();
                 }}
-                onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (showTagAnchors = !showTagAnchors, onTagSettingsChange()) : null}
-                class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showTagAnchors ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
+                onkeydown={(e) =>
+                  e.key === "Enter" || e.key === " "
+                    ? ((showTagAnchors = !showTagAnchors),
+                      onTagSettingsChange())
+                    : null}
+                class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showTagAnchors
+                  ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                 aria-pressed={showTagAnchors}
               >
-                {showTagAnchors ? 'ON' : 'OFF'}
+                {showTagAnchors ? "ON" : "OFF"}
               </button>
-                <span class="text-sm text-gray-700 dark:text-gray-300">Show Tag Anchors</span>
+              <span class="text-sm text-gray-700 dark:text-gray-300"
+                >Show Tag Anchors</span
+              >
             </div>
-            
+
             {#if showTagAnchors}
               <!-- Tag Type Selection -->
               <div>
-                <label for="tag-type-select" class="text-xs text-gray-600 dark:text-gray-400">Tag Type:</label>
+                <label
+                  for="tag-type-select"
+                  class="text-xs text-gray-600 dark:text-gray-400"
+                  >Tag Type:</label
+                >
                 <select
                   id="tag-type-select"
                   bind:value={selectedTagType}
@@ -266,7 +294,6 @@
                   <option value="title">Titles</option>
                   <option value="summary">Summaries</option>
                 </select>
-                
               </div>
             {/if}
           </div>
@@ -275,15 +302,22 @@
 
       <!-- Tag Anchors section -->
       {#if showTags && tagAnchors.length > 0}
-        <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-          <button 
+        <div
+          class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+        >
+          <button
             class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3 w-full text-left border-none bg-none"
             onclick={toggleTagAnchors}
-            onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? toggleTagAnchors() : null}
+            onkeydown={(e) =>
+              e.key === "Enter" || e.key === " " ? toggleTagAnchors() : null}
             aria-expanded={tagAnchorsExpanded}
             aria-controls="tag-anchors-content"
           >
-            <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Active Tag Anchors: {tagAnchors[0].type}</h4>
+            <h4
+              class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0"
+            >
+              Active Tag Anchors: {tagAnchors[0].type}
+            </h4>
             <div class="pointer-events-none">
               {#if tagAnchorsExpanded}
                 <CaretUpOutline class="w-3 h-3" />
@@ -292,23 +326,30 @@
               {/if}
             </div>
           </button>
-          
+
           {#if tagAnchorsExpanded}
-            {@const sortedAnchors = tagSortMode === 'count' 
-              ? [...tagAnchors].sort((a, b) => b.count - a.count)
-              : [...tagAnchors].sort((a, b) => a.label.localeCompare(b.label))
-            }
+            {@const sortedAnchors =
+              tagSortMode === "count"
+                ? [...tagAnchors].sort((a, b) => b.count - a.count)
+                : [...tagAnchors].sort((a, b) =>
+                    a.label.localeCompare(b.label),
+                  )}
             <div id="tag-anchors-content">
               {#if autoDisabledTags}
-                <div class="text-xs text-amber-600 dark:text-amber-400 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
-                  <strong>Note:</strong> Some tags were auto-disabled to prevent graph overload. Click individual tags below to enable/disable them.
+                <div
+                  class="text-xs text-amber-600 dark:text-amber-400 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded"
+                >
+                  <strong>Note:</strong> Some tags were auto-disabled to prevent
+                  graph overload. Click individual tags below to enable/disable them.
                 </div>
               {/if}
-              
+
               <!-- Sort options and controls -->
               <div class="flex items-center justify-between gap-4 mb-3">
                 <div class="flex items-center gap-4">
-                  <span class="text-xs text-gray-600 dark:text-gray-400">Sort by:</span>
+                  <span class="text-xs text-gray-600 dark:text-gray-400"
+                    >Sort by:</span
+                  >
                   <label class="flex items-center gap-1 cursor-pointer">
                     <input
                       type="radio"
@@ -317,7 +358,9 @@
                       bind:group={tagSortMode}
                       class="w-3 h-3"
                     />
-                    <span class="text-xs text-gray-700 dark:text-gray-300">Count</span>
+                    <span class="text-xs text-gray-700 dark:text-gray-300"
+                      >Count</span
+                    >
                   </label>
                   <label class="flex items-center gap-1 cursor-pointer">
                     <input
@@ -327,10 +370,12 @@
                       bind:group={tagSortMode}
                       class="w-3 h-3"
                     />
-                    <span class="text-xs text-gray-700 dark:text-gray-300">Alphabetical</span>
+                    <span class="text-xs text-gray-700 dark:text-gray-300"
+                      >Alphabetical</span
+                    >
                   </label>
                 </div>
-                
+
                 <!-- Invert Selection -->
                 <label class="flex items-center gap-1 cursor-pointer">
                   <input
@@ -338,31 +383,42 @@
                     onclick={invertTagSelection}
                     class="w-3 h-3"
                   />
-                  <span class="text-xs text-gray-700 dark:text-gray-300">Invert Selection</span>
+                  <span class="text-xs text-gray-700 dark:text-gray-300"
+                    >Invert Selection</span
+                  >
                 </label>
               </div>
-              
+
               <div class="space-y-1 max-h-48 overflow-y-auto">
                 {#each sortedAnchors as tag}
                   {@const isDisabled = disabledTags.has(tag.value)}
                   <button
                     class="flex items-center gap-2 w-full p-2 rounded text-left border-none bg-none cursor-pointer transition hover:bg-black/5 dark:hover:bg-white/5"
                     onclick={() => onTagToggle(tag.value)}
-                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? onTagToggle(tag.value) : null}
-                    title={isDisabled ? `Click to show ${tag.label}` : `Click to hide ${tag.label}`}
+                    onkeydown={(e) =>
+                      e.key === "Enter" || e.key === " "
+                        ? onTagToggle(tag.value)
+                        : null}
+                    title={isDisabled
+                      ? `Click to show ${tag.label}`
+                      : `Click to hide ${tag.label}`}
                     aria-pressed={!isDisabled}
                   >
                     <!-- Circular icon with # symbol -->
                     <div class="flex items-center">
                       <span
                         class="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-xs text-white font-bold"
-                        style="background-color: {tag.color || '#FB7185'}; opacity: {isDisabled ? 0.3 : 1};"
+                        style="background-color: {tag.color ||
+                          '#FB7185'}; opacity: {isDisabled ? 0.3 : 1};"
                       >
                         #
                       </span>
                     </div>
                     <!-- Tag label with count -->
-                    <span class="text-xs text-gray-700 dark:text-gray-300 flex-1" style="opacity: {isDisabled ? 0.5 : 1};">
+                    <span
+                      class="text-xs text-gray-700 dark:text-gray-300 flex-1"
+                      style="opacity: {isDisabled ? 0.5 : 1};"
+                    >
                       {tag.label}
                       <span class="text-gray-500">({tag.count})</span>
                     </span>
@@ -373,17 +429,26 @@
           {/if}
         </div>
       {/if}
-      
+
       <!-- Person Visualizer Section -->
-      <div class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0">
-        <button 
+      <div
+        class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 last:border-b-0 last:mb-0"
+      >
+        <button
           class="flex justify-between items-center cursor-pointer px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 mb-3 w-full text-left border-none bg-none"
-          onclick={() => personVisualizerExpanded = !personVisualizerExpanded}
-          onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (personVisualizerExpanded = !personVisualizerExpanded) : null}
+          onclick={() => (personVisualizerExpanded = !personVisualizerExpanded)}
+          onkeydown={(e) =>
+            e.key === "Enter" || e.key === " "
+              ? (personVisualizerExpanded = !personVisualizerExpanded)
+              : null}
           aria-expanded={personVisualizerExpanded}
           aria-controls="person-visualizer-content"
         >
-          <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0">Person Visualizer</h4>
+          <h4
+            class="font-semibold text-gray-700 dark:text-gray-300 text-sm m-0"
+          >
+            Person Visualizer
+          </h4>
           <div class="pointer-events-none">
             {#if personVisualizerExpanded}
               <CaretUpOutline class="w-3 h-3" />
@@ -392,7 +457,7 @@
             {/if}
           </div>
         </button>
-        
+
         {#if personVisualizerExpanded}
           <div id="person-visualizer-content" class="space-y-3">
             <!-- Show Person Nodes Toggle -->
@@ -403,18 +468,28 @@
                     showPersonNodes = !showPersonNodes;
                     onPersonSettingsChange();
                   }}
-                  onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (showPersonNodes = !showPersonNodes, onPersonSettingsChange()) : null}
-                  class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showPersonNodes ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
+                  onkeydown={(e) =>
+                    e.key === "Enter" || e.key === " "
+                      ? ((showPersonNodes = !showPersonNodes),
+                        onPersonSettingsChange())
+                      : null}
+                  class="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs font-medium cursor-pointer transition min-w-[3rem] hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 {showPersonNodes
+                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:border-blue-600 dark:hover:bg-blue-700'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                   aria-pressed={showPersonNodes}
                 >
-                  {showPersonNodes ? 'ON' : 'OFF'}
+                  {showPersonNodes ? "ON" : "OFF"}
                 </button>
-                <span class="text-sm text-gray-700 dark:text-gray-300">Show Person Nodes</span>
+                <span class="text-sm text-gray-700 dark:text-gray-300"
+                  >Show Person Nodes</span
+                >
               </div>
-              
+
               {#if showPersonNodes}
                 <div class="flex items-center space-x-3 text-xs">
-                  <label class="flex items-center space-x-1 text-gray-700 dark:text-gray-300">
+                  <label
+                    class="flex items-center space-x-1 text-gray-700 dark:text-gray-300"
+                  >
                     <input
                       type="checkbox"
                       bind:checked={showSignedBy}
@@ -423,7 +498,9 @@
                     />
                     <span>Signed by</span>
                   </label>
-                  <label class="flex items-center space-x-1 text-gray-700 dark:text-gray-300">
+                  <label
+                    class="flex items-center space-x-1 text-gray-700 dark:text-gray-300"
+                  >
                     <input
                       type="checkbox"
                       bind:checked={showReferenced}
@@ -435,29 +512,36 @@
                 </div>
               {/if}
             </div>
-            
+
             {#if showPersonNodes && personAnchors.length > 0}
               <div class="flex items-center justify-between mb-2">
                 <p class="text-xs text-gray-600 dark:text-gray-400">
                   {#if totalPersonCount > displayedPersonCount}
-                    Displaying {displayedPersonCount} of {totalPersonCount} people found:
+                    Displaying {displayedPersonCount} of {totalPersonCount} people
+                    found:
                   {:else}
                     {personAnchors.length} people found:
                   {/if}
                 </p>
-                
-                <label class="flex items-center gap-1 cursor-pointer text-gray-700 dark:text-gray-300">
+
+                <label
+                  class="flex items-center gap-1 cursor-pointer text-gray-700 dark:text-gray-300"
+                >
                   <input
                     type="checkbox"
                     onclick={invertPersonSelection}
                     class="w-3 h-3"
                   />
-                  <span class="text-xs text-gray-700 dark:text-gray-300">Invert Selection</span>
+                  <span class="text-xs text-gray-700 dark:text-gray-300"
+                    >Invert Selection</span
+                  >
                 </label>
               </div>
-              
+
               <div
-                class="grid gap-1 {personAnchors.length > 20 ? 'max-h-96 overflow-y-auto pr-2' : ''}"
+                class="grid gap-1 {personAnchors.length > 20
+                  ? 'max-h-96 overflow-y-auto pr-2'
+                  : ''}"
                 style="grid-template-columns: repeat(2, 1fr);"
               >
                 {#each personAnchors as person}
@@ -469,18 +553,31 @@
                         onPersonToggle(person.pubkey);
                       }
                     }}
-                    onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? (showPersonNodes && onPersonToggle(person.pubkey)) : null}
+                    onkeydown={(e) =>
+                      e.key === "Enter" || e.key === " "
+                        ? showPersonNodes && onPersonToggle(person.pubkey)
+                        : null}
                     disabled={!showPersonNodes}
-                    title={!showPersonNodes ? 'Enable "Show Person Nodes" first' : isDisabled ? `Click to show ${person.displayName || person.pubkey}` : `Click to hide ${person.displayName || person.pubkey}`}
+                    title={!showPersonNodes
+                      ? 'Enable "Show Person Nodes" first'
+                      : isDisabled
+                        ? `Click to show ${person.displayName || person.pubkey}`
+                        : `Click to hide ${person.displayName || person.pubkey}`}
                     aria-pressed={!isDisabled}
                   >
                     <div class="flex items-center">
                       <span
                         class="inline-block w-3.5 h-3.5 rotate-45 border-2 border-white"
-                        style="background-color: {person.isFromFollowList ? getEventKindColor(3) : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
+                        style="background-color: {person.isFromFollowList
+                          ? getEventKindColor(3)
+                          : '#10B981'}; opacity: {isDisabled ? 0.3 : 1};"
                       ></span>
                     </div>
-                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate" style="opacity: {isDisabled ? 0.5 : 1};" title="{person.displayName || person.pubkey}">
+                    <span
+                      class="text-xs text-gray-700 dark:text-gray-300 truncate"
+                      style="opacity: {isDisabled ? 0.5 : 1};"
+                      title={person.displayName || person.pubkey}
+                    >
                       {person.displayName || person.pubkey}
                     </span>
                   </button>

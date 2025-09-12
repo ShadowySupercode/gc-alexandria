@@ -42,7 +42,8 @@ export function createStarSimulation(
     .alphaMin(0.001); // Keep minimum energy to prevent complete freeze
 
   // Custom charge force that varies by node type
-  const chargeForce = d3.forceManyBody()
+  const chargeForce = d3
+    .forceManyBody()
     .strength((d: NetworkNode) => {
       // Tag anchors don't repel
       if (d.isTagAnchor) {
@@ -58,7 +59,8 @@ export function createStarSimulation(
     .distanceMax(300); // Limit charge force range
 
   // Custom link force with variable strength and distance
-  const linkForce = d3.forceLink(links)
+  const linkForce = d3
+    .forceLink(links)
     .id((d: NetworkNode) => d.id)
     .strength((link: any) => {
       const source = link.source as NetworkNode;
@@ -88,9 +90,7 @@ export function createStarSimulation(
     });
 
   // Apply forces to simulation
-  simulation
-    .force("charge", chargeForce)
-    .force("link", linkForce);
+  simulation.force("charge", chargeForce).force("link", linkForce);
 
   // Custom radial force to keep content nodes around their star center
   simulation.force("radial", createRadialForce(nodes, links));
@@ -312,7 +312,8 @@ export function createStarDragHandler(
 ): any {
   // These handlers are now top-level functions, so we use closures to pass simulation to them.
   // This is a common pattern in JavaScript/TypeScript when you need to pass extra arguments to event handlers.
-  return d3.drag()
+  return d3
+    .drag()
     .on("start", function (event: any, d: NetworkNode) {
       dragstarted(event, d, simulation);
     })

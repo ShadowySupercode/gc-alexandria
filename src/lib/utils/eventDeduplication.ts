@@ -13,9 +13,11 @@ export function deduplicateContentEvents(
   // Track statistics for debugging
   let totalEvents = 0;
   let duplicateCoordinates = 0;
-  const duplicateDetails: Array<
-    { coordinate: string; count: number; events: string[] }
-  > = [];
+  const duplicateDetails: Array<{
+    coordinate: string;
+    count: number;
+    events: string[];
+  }> = [];
 
   contentEventSets.forEach((eventSet) => {
     eventSet.forEach((event) => {
@@ -34,8 +36,8 @@ export function deduplicateContentEvents(
 
           // Track details for the first few duplicates
           if (duplicateDetails.length < 5) {
-            const existingDetails = duplicateDetails.find((d) =>
-              d.coordinate === coordinate
+            const existingDetails = duplicateDetails.find(
+              (d) => d.coordinate === coordinate,
             );
             if (existingDetails) {
               existingDetails.count++;
@@ -99,13 +101,15 @@ export function deduplicateAndCombineEvents(
   contentEvents: Set<NDKEvent>,
 ): NDKEvent[] {
   // Track statistics for debugging
-  const initialCount = nonPublicationEvents.length + validIndexEvents.size +
-    contentEvents.size;
+  const initialCount =
+    nonPublicationEvents.length + validIndexEvents.size + contentEvents.size;
   let replaceableEventsProcessed = 0;
   let duplicateCoordinatesFound = 0;
-  const duplicateDetails: Array<
-    { coordinate: string; count: number; events: string[] }
-  > = [];
+  const duplicateDetails: Array<{
+    coordinate: string;
+    count: number;
+    events: string[];
+  }> = [];
 
   // First, build coordinate map for replaceable events
   const coordinateMap = new Map<string, NDKEvent>();
@@ -135,8 +139,8 @@ export function deduplicateAndCombineEvents(
 
           // Track details for the first few duplicates
           if (duplicateDetails.length < 5) {
-            const existingDetails = duplicateDetails.find((d) =>
-              d.coordinate === coordinate
+            const existingDetails = duplicateDetails.find(
+              (d) => d.coordinate === coordinate,
             );
             if (existingDetails) {
               existingDetails.count++;

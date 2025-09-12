@@ -548,10 +548,7 @@ export default class Pharos {
    * - Each node ID is mapped to an integer event kind that will be used to represent the node.
    * - Each ID of a node containing children is mapped to the set of IDs of its children.
    */
-  private treeProcessor(
-    _: Extensions.TreeProcessor,
-    document: Document,
-  ) {
+  private treeProcessor(_: Extensions.TreeProcessor, document: Document) {
     this.rootNodeId = this.generateNodeId(document);
     document.setId(this.rootNodeId);
     this.nodes.set(this.rootNodeId, document);

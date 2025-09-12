@@ -253,9 +253,9 @@
   {#if hasCoverImage(rootId, index)}
     {@const event = blogEntries[index][1]}
     <div class="coverImage depth-{depth}">
-      <LazyImage 
-        src={hasCoverImage(rootId, index)} 
-        alt={title || "Cover image"} 
+      <LazyImage
+        src={hasCoverImage(rootId, index)}
+        alt={title || "Cover image"}
         eventId={event?.id || rootId}
         className="w-full h-full object-cover"
       />

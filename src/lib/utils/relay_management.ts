@@ -364,7 +364,7 @@ export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
 
     // Convert wss:// URLs from consts to ws:// for local testing
     const localRelayUrls = localRelays.map((url: string) =>
-      url.replace(/^wss:\/\//, "ws://")
+      url.replace(/^wss:\/\//, "ws://"),
     );
 
     const workingRelays = await testLocalRelays(localRelayUrls, ndk);
@@ -649,8 +649,9 @@ async function testRelaySet(relayUrls: string[], ndk: NDK): Promise<string[]> {
 
     const batchResults = await Promise.allSettled(batchPromises);
     const batchWorkingRelays = batchResults
-      .filter((result): result is PromiseFulfilledResult<string | null> =>
-        result.status === "fulfilled"
+      .filter(
+        (result): result is PromiseFulfilledResult<string | null> =>
+          result.status === "fulfilled",
       )
       .map((result) => result.value)
       .filter((url): url is string => url !== null);
@@ -801,12 +802,14 @@ export async function buildCompleteRelaySet(
   ]);
 
   // Use tested relays and add fallback relays
-  const inboxRelays = testedInboxRelays.length > 0
-    ? deduplicateRelayUrls([...testedInboxRelays, ...fallbackRelays])
-    : deduplicateRelayUrls(fallbackRelays);
-  const outboxRelays = testedOutboxRelays.length > 0
-    ? deduplicateRelayUrls([...testedOutboxRelays, ...fallbackRelays])
-    : deduplicateRelayUrls(fallbackRelays);
+  const inboxRelays =
+    testedInboxRelays.length > 0
+      ? deduplicateRelayUrls([...testedInboxRelays, ...fallbackRelays])
+      : deduplicateRelayUrls(fallbackRelays);
+  const outboxRelays =
+    testedOutboxRelays.length > 0
+      ? deduplicateRelayUrls([...testedOutboxRelays, ...fallbackRelays])
+      : deduplicateRelayUrls(fallbackRelays);
 
   // Apply network condition optimization
   const currentNetworkCondition = get(networkCondition);
@@ -820,13 +823,13 @@ export async function buildCompleteRelaySet(
   // Filter out blocked relays and deduplicate final sets
   const finalRelaySet = {
     inboxRelays: deduplicateRelayUrls(
-      networkOptimizedRelaySet.inboxRelays.filter((r: string) =>
-        !blockedRelays.includes(r)
+      networkOptimizedRelaySet.inboxRelays.filter(
+        (r: string) => !blockedRelays.includes(r),
       ),
     ),
     outboxRelays: deduplicateRelayUrls(
-      networkOptimizedRelaySet.outboxRelays.filter((r: string) =>
-        !blockedRelays.includes(r)
+      networkOptimizedRelaySet.outboxRelays.filter(
+        (r: string) => !blockedRelays.includes(r),
       ),
     ),
   };
