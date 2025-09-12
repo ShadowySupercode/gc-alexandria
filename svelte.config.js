@@ -14,6 +14,7 @@ const config = {
       $lib: "src/lib",
       $components: "src/lib/components",
       $cards: "src/lib/cards",
+      $relay_selector: "lib/relay_selector/pkg/bundler",
     },
   },
 };
