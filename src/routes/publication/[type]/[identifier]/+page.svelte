@@ -3,7 +3,6 @@
   import type { PageProps } from "./$types";
   import { onDestroy, onMount, setContext } from "svelte";
   import Processor from "asciidoctor";
-  import ArticleNav from "$components/util/ArticleNav.svelte";
   import { SveltePublicationTree } from "$lib/components/publications/svelte_publication_tree.svelte";
   import { TableOfContents } from "$lib/components/publications/table_of_contents.svelte";
   import { page } from "$app/state";
@@ -180,12 +179,6 @@
 {#if indexEvent && publicationTree && toc}
   {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
   {@const debugElement = console.debug('[Publication] Rendering publication with:', debugInfo)}
-  <ArticleNav
-    publicationType={data.publicationType}
-    rootId={indexEvent.id}
-    indexEvent={indexEvent}
-  />
-
     <Publication
       rootAddress={indexEvent.tagAddress()}
       publicationType={data.publicationType}
@@ -222,4 +215,4 @@
       <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>
     </div>
   </main>
-{/if} 
+{/if}

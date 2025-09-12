@@ -21,7 +21,7 @@ const defaultVisibility: PublicationLayoutVisibility = {
   blog: true,
   main: true,
   inner: false,
-  discussion: true,
+  discussion: false,
   editing: false,
 };
 

@@ -265,9 +265,7 @@
     <!-- Table of contents -->
     {#if publicationType !== "blog" && !isLeaf}
       <Sidebar
-        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto
-               border border-s-4 rounded border-primary-200 dark:border-primary-800
-               dark:bg-primary-1000"
+        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
         activeUrl={`#${activeAddress ?? ""}`}
         classes={{
           div: 'bg-transparent',
@@ -276,17 +274,19 @@
         }}
       >
         <SidebarWrapper>
-          <TableOfContents
-            {rootAddress}
-            {toc}
-            depth={2}
-            onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
-            onLoadMore={() => {
-            if (!isLoading && !isDone && publicationTree) {
-              loadMore(4);
-            }
-          }}
-            />
+          {#if $publicationColumnVisibility.toc}
+            <TableOfContents
+              {rootAddress}
+              {toc}
+              depth={2}
+              onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
+              onLoadMore={() => {
+              if (!isLoading && !isDone && publicationTree) {
+                loadMore(4);
+              }
+            }}
+              />
+          {/if}
         </SidebarWrapper>
       </Sidebar>
     {/if}
@@ -295,7 +295,7 @@
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
-        <div class="flex flex-col p-4 space-y-4 max-w-2xl flex-grow-2">
+        <div class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto">
           <div
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
@@ -371,9 +371,10 @@
 
     {#if $publicationColumnVisibility.discussion}
       <Sidebar
-        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto
-               border border-s-4 rounded border-primary-200 dark:border-primary-800
-               dark:bg-primary-1000"
+        class="z-10 ml-4 sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
+        classes={{
+          div: 'bg-transparent'
+        }}
       >
         <SidebarWrapper>
           <SidebarGroup>
