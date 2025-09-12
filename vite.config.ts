@@ -2,6 +2,8 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import { execSync } from "child_process";
 import process from "node:process";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
 
 // Function to get the latest git tag
 function getAppVersionString() {
@@ -24,7 +26,7 @@ function getAppVersionString() {
 }
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [wasm(), topLevelAwait(), sveltekit()],
   resolve: {
     alias: {
       $lib: "./src/lib",
