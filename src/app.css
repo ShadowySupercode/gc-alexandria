@@ -138,7 +138,7 @@
       display: none;
   }
 
-  .leather {
+  .leather, .publication-leather {
     @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 

@@ -253,7 +253,7 @@
 </script>
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
-<div class="grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]">
+<div class="relative grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]">
   <!-- Full-width ArticleNav row -->
     <ArticleNav
       publicationType={publicationType}
@@ -263,34 +263,38 @@
   <!-- Three-column row -->
   <div class="contents">
     <!-- Table of contents -->
-    {#if publicationType !== "blog" && !isLeaf}
-      <Sidebar
-        class="z-10 ml-4 bg-transparent sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
-        activeUrl={`#${activeAddress ?? ""}`}
-        classes={{
-          div: 'bg-transparent',
+    <div class="mt-[70px] relative {$publicationColumnVisibility.toc ? 'w-64' : 'w-auto'}">
+      {#if publicationType !== "blog" && !isLeaf}
+        {#if $publicationColumnVisibility.toc}
+          <Sidebar
+            class="z-10 ml-2 fixed top-[162px] max-h-[calc(100vh-165px)] overflow-y-auto dark:bg-primary-800 bg-primary-50 rounded"
+            activeUrl={`#${activeAddress ?? ""}`}
+            classes={{
+          div: 'dark:bg-primary-800 bg-primary-50',
           active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
           nonactive: 'bg-primary-50 dark:bg-primary-800',
         }}
-      >
-        <SidebarWrapper>
-          {#if $publicationColumnVisibility.toc}
-            <TableOfContents
-              {rootAddress}
-              {toc}
-              depth={2}
-              onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
-              onLoadMore={() => {
+          >
+            <SidebarWrapper>
+              <CloseButton color="secondary" class="m-2 dark:text-primary-100" onclick={closeToc} ></CloseButton>
+              <TableOfContents
+                {rootAddress}
+                {toc}
+                depth={2}
+                onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
+                onLoadMore={() => {
               if (!isLoading && !isDone && publicationTree) {
                 loadMore(4);
               }
             }}
               />
-          {/if}
-        </SidebarWrapper>
-      </Sidebar>
-    {/if}
 
+            </SidebarWrapper>
+          </Sidebar>
+        {/if}
+      {/if}
+
+    </div>
     <div class="mt-[70px]">
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
@@ -369,9 +373,11 @@
       {/if}
     </div>
 
+    <div class="mt-[70px] relative {$publicationColumnVisibility.discussion ? 'w-64' : 'w-auto'}">
+      <!-- Discussion sidebar -->
     {#if $publicationColumnVisibility.discussion}
       <Sidebar
-        class="z-10 ml-4 sticky top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
+        class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
         classes={{
           div: 'bg-transparent'
         }}
@@ -418,5 +424,6 @@
         </SidebarWrapper>
       </Sidebar>
     {/if}
+    </div>
   </div>
 </div>
