@@ -19,76 +19,76 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    /* single color */
-    --color-highlight: #f9f6f1;
+  /* single color */
+  --color-highlight: #f9f6f1;
 
-    --color-border: var(--color-highlight);
-    --color-text-muted: var(--color-text-muted);
+  --color-border: var(--color-highlight);
+  --color-text-muted: var(--color-text-muted);
 
-    /* success */
-    --color-success-50:  #e3f2e7;
-    --color-success-100: #c7e6cf;
-    --color-success-200: #a2d4ae;
-    --color-success-300: #7dbf8e;
-    --color-success-400: #5ea571;
-    --color-success-500: #4e8e5f;
-    --color-success-600: #3e744c;
-    --color-success-700: #305b3b;
-    --color-success-800: #22412a;
-    --color-success-900: #15281b;
+  /* success */
+  --color-success-50: #e3f2e7;
+  --color-success-100: #c7e6cf;
+  --color-success-200: #a2d4ae;
+  --color-success-300: #7dbf8e;
+  --color-success-400: #5ea571;
+  --color-success-500: #4e8e5f;
+  --color-success-600: #3e744c;
+  --color-success-700: #305b3b;
+  --color-success-800: #22412a;
+  --color-success-900: #15281b;
 
-    /* info */
-    --color-info-50:  #e7eff6;
-    --color-info-100: #c5d9ea;
-    --color-info-200: #9fbfdb;
-    --color-info-300: #7aa5cc;
-    --color-info-400: #5e90be;
-    --color-info-500: #4779a5;
-    --color-info-600: #365d80;
-    --color-info-700: #27445d;
-    --color-info-800: #192b3a;
-    --color-info-900: #0d161f;
+  /* info */
+  --color-info-50: #e7eff6;
+  --color-info-100: #c5d9ea;
+  --color-info-200: #9fbfdb;
+  --color-info-300: #7aa5cc;
+  --color-info-400: #5e90be;
+  --color-info-500: #4779a5;
+  --color-info-600: #365d80;
+  --color-info-700: #27445d;
+  --color-info-800: #192b3a;
+  --color-info-900: #0d161f;
 
-    /* warning */
-    --color-warning-50:  #fef4e6;
-    --color-warning-100: #fde4bf;
-    --color-warning-200: #fcd18e;
-    --color-warning-300: #fbbc5c;
-    --color-warning-400: #f9aa33;
-    --color-warning-500: #f7971b;
-    --color-warning-600: #c97a14;
-    --color-warning-700: #9a5c0e;
-    --color-warning-800: #6c3e08;
-    --color-warning-900: #3e2404;
+  /* warning */
+  --color-warning-50: #fef4e6;
+  --color-warning-100: #fde4bf;
+  --color-warning-200: #fcd18e;
+  --color-warning-300: #fbbc5c;
+  --color-warning-400: #f9aa33;
+  --color-warning-500: #f7971b;
+  --color-warning-600: #c97a14;
+  --color-warning-700: #9a5c0e;
+  --color-warning-800: #6c3e08;
+  --color-warning-900: #3e2404;
 
-    /* danger */
-    --color-danger-50:  #fbeaea;
-    --color-danger-100: #f5cccc;
-    --color-danger-200: #eba5a5;
-    --color-danger-300: #e17e7e;
-    --color-danger-400: #d96060;
-    --color-danger-500: #c94848;
-    --color-danger-600: #a53939;
-    --color-danger-700: #7c2b2b;
-    --color-danger-800: #521c1c;
-    --color-danger-900: #2b0e0e;
+  /* danger */
+  --color-danger-50: #fbeaea;
+  --color-danger-100: #f5cccc;
+  --color-danger-200: #eba5a5;
+  --color-danger-300: #e17e7e;
+  --color-danger-400: #d96060;
+  --color-danger-500: #c94848;
+  --color-danger-600: #a53939;
+  --color-danger-700: #7c2b2b;
+  --color-danger-800: #521c1c;
+  --color-danger-900: #2b0e0e;
 }
 
 /* Map Tailwind utilities → theme tokens (PRIMARY ONLY) */
 @theme inline {
-    --color-primary-0:     var(--brand-primary-0);
-    --color-primary-50:    var(--brand-primary-50);
-    --color-primary-100:   var(--brand-primary-100);
-    --color-primary-200:   var(--brand-primary-200);
-    --color-primary-300:   var(--brand-primary-300);
-    --color-primary-400:   var(--brand-primary-400);
-    --color-primary-500:   var(--brand-primary-500);
-    --color-primary-600:   var(--brand-primary-600);
-    --color-primary-700:   var(--brand-primary-700);
-    --color-primary-800:   var(--brand-primary-800);
-    --color-primary-900:   var(--brand-primary-900);
-    --color-primary-950:   var(--brand-primary-950);
-    --color-primary-1000:  var(--brand-primary-1000);
+  --color-primary-0: var(--brand-primary-0);
+  --color-primary-50: var(--brand-primary-50);
+  --color-primary-100: var(--brand-primary-100);
+  --color-primary-200: var(--brand-primary-200);
+  --color-primary-300: var(--brand-primary-300);
+  --color-primary-400: var(--brand-primary-400);
+  --color-primary-500: var(--brand-primary-500);
+  --color-primary-600: var(--brand-primary-600);
+  --color-primary-700: var(--brand-primary-700);
+  --color-primary-800: var(--brand-primary-800);
+  --color-primary-900: var(--brand-primary-900);
+  --color-primary-950: var(--brand-primary-950);
+  --color-primary-1000: var(--brand-primary-1000);
 }
 
 @source "../node_modules/flowbite-svelte/dist";
@@ -97,33 +97,47 @@
 /* @utility and @layer rules… */
 
 /* .content-visibility-auto */
-@utility content-visibility-auto { content-visibility: auto; }
+@utility content-visibility-auto {
+  content-visibility: auto;
+}
 
 /* .contain-size */
-@utility contain-size { contain: size; }
+@utility contain-size {
+  contain: size;
+}
 
 /* numbers -> px  (e.g. contain-intrinsic-w-[320] => width: 320px) */
 @utility contain-intrinsic-w-* {
-    --tw-ciw: --value(number);
-    width: calc(var(--tw-ciw) * 1px);
+  --tw-ciw: --value(number);
+  width: calc(var(--tw-ciw) * 1px);
 }
 
 @utility contain-intrinsic-h-* {
-    --tw-cih: --value(number);
-    height: calc(var(--tw-cih) * 1px);
+  --tw-cih: --value(number);
+  height: calc(var(--tw-cih) * 1px);
 }
 
 /* percentages (e.g. contain-intrinsic-wp-[65%] => width: 65%) */
-@utility contain-intrinsic-wp-* { width: --value(percentage); }
-@utility contain-intrinsic-hp-* { height: --value(percentage); }
+@utility contain-intrinsic-wp-* {
+  width: --value(percentage);
+}
+@utility contain-intrinsic-hp-* {
+  height: --value(percentage);
+}
 
 /* list-upper-alpha, list-lower-alpha (keep your old class names)
    Note: in v4 you can also write list-[upper-alpha] / list-[lower-alpha] inline. */
-@utility list-upper-alpha { list-style-type: upper-alpha; }
-@utility list-lower-alpha { list-style-type: lower-alpha; }
+@utility list-upper-alpha {
+  list-style-type: upper-alpha;
+}
+@utility list-lower-alpha {
+  list-style-type: lower-alpha;
+}
 
 /* flexGrow 1/2/3 — unlock grow-2, grow-3 (and any number via brackets) */
-@utility grow-* { flex-grow: --value(integer); }
+@utility grow-* {
+  flex-grow: --value(integer);
+}
 
 /* Hue rotate: use arbitrary values directly, e.g. hue-rotate-[20deg] (no config needed). */
 
@@ -135,10 +149,11 @@
 @layer base {
   /* disable chrome cancel button */
   input[type="search"]::-webkit-search-cancel-button {
-      display: none;
+    display: none;
   }
 
-  .leather, .publication-leather {
+  .leather,
+  .publication-leather {
     @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
@@ -465,7 +480,6 @@
 }
 
 @layer components {
-
   nav a {
     text-decoration-line: none !important;
   }
@@ -506,7 +520,12 @@
 
     /* common heading base styles */
 
-    h1, h2, h3, h4, h5, h6 {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
       @apply text-gray-900 dark:text-gray-100 pt-4;
     }
 

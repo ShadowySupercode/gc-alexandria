@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { DisplayBadge } from '$lib/nostr/nip58';
+  import type { DisplayBadge } from "$lib/nostr/nip58";
   export let badge: DisplayBadge;
-  export let size: 'xs' | 's' | 'm' | 'l' = 's';
+  export let size: "xs" | "s" | "m" | "l" = "s";
   const px = { xs: 16, s: 24, m: 32, l: 48 }[size];
 </script>
 

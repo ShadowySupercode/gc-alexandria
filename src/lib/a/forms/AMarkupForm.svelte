@@ -82,7 +82,9 @@
   </div>
 
   <div class="flex justify-end space-x-4">
-    <Button type="button" color="alternative" onclick={clearForm}>Clear Form</Button>
+    <Button type="button" color="alternative" onclick={clearForm}
+      >Clear Form</Button
+    >
     <Button type="submit" tabindex={0} disabled={isSubmitting}>
       {#if isSubmitting}
         Submitting...

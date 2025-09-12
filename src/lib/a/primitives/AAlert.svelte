@@ -12,9 +12,9 @@
 
 <Alert {color} {dismissable} class="alert-leather mb-4 {classes}">
   {#if title}
-  <div class="flex">
-    <span class="text-lg font-medium">{@render title()}</span>
-  </div>
+    <div class="flex">
+      <span class="text-lg font-medium">{@render title()}</span>
+    </div>
   {/if}
   {@render children()}
 </Alert>

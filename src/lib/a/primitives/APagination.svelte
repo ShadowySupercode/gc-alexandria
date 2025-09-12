@@ -15,8 +15,8 @@
     hasNextPage = false,
     hasPreviousPage = false,
     totalItems = 0,
-    itemsLabel = 'items',
-    className = ''
+    itemsLabel = "items",
+    className = "",
   } = $props<{
     currentPage: number;
     totalPages: number;
@@ -36,7 +36,9 @@
 </script>
 
 {#if totalPages > 1}
-  <div class={`mt-4 flex flex-row items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg ${className}`}>
+  <div
+    class={`mt-4 flex flex-row items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg ${className}`}
+  >
     <div class="text-sm !mb-0 text-gray-600 dark:text-gray-400">
       Page {currentPage} of {totalPages} ({totalItems} total {itemsLabel})
     </div>

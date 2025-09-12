@@ -61,8 +61,15 @@
 
   <div class="flex flex-row justify-between mt-2">
     <div class="flex flex-row flex-wrap gap-3 !m-0">
-      <Button size="xs" color="alternative" onclick={removeFormatting} class="!m-0">Remove Formatting</Button>
-      <Button size="xs" color="alternative" class="!m-0" onclick={clearForm}>Clear</Button>
+      <Button
+        size="xs"
+        color="alternative"
+        onclick={removeFormatting}
+        class="!m-0">Remove Formatting</Button
+      >
+      <Button size="xs" color="alternative" class="!m-0" onclick={clearForm}
+        >Clear</Button
+      >
     </div>
     <Button
       disabled={isSubmitting || !content.trim() || !$userStore.signedIn}
