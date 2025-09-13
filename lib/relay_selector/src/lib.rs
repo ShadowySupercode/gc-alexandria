@@ -130,3 +130,6 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
         })
         .unwrap_throw()
 }
+
+// TODO: Add a function to add a new relay to the selector's memory. This function may be invoked
+// when new relays are discovered via outbox.

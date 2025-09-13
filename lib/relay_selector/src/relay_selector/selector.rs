@@ -8,6 +8,8 @@ use crate::database;
 use crate::relay;
 use crate::weights;
 
+use super::defaults;
+
 pub struct RelaySelector {
     // Relay statistics
     statistics: HashMap<String, relay::Statistics>,
@@ -98,7 +100,79 @@ impl RelaySelector {
             selector.store_name = store_name.to_string();
         }
 
+        // Add defaults if lists are empty
+        if selector.general.is_empty() || selector.inbox.is_empty() || selector.outbox.is_empty() {
+            selector.populate_defaults().await?;
+        }
+
         Ok(selector)
+    }
+
+    /// Populates the selector with default relays for empty variant lists.
+    async fn populate_defaults(&mut self) -> Result<(), String> {
+        // TODO: Update for relay starter pack.
+        let mut relays_to_save = Vec::new();
+
+        // Add default general relays if list is empty
+        if self.general.is_empty() {
+            for &relay_url in defaults::get_default_relays(relay::Variant::General) {
+                self.insert(relay_url, relay::Variant::General);
+                self.initial_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                self.current_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+
+                relays_to_save.push(database::Relay::from_repositories(
+                    relay_url,
+                    relay::Variant::General,
+                    &self.statistics[relay_url],
+                    self,
+                ));
+            }
+        }
+
+        // Add default inbox relays if list is empty
+        if self.inbox.is_empty() {
+            for &relay_url in defaults::get_default_relays(relay::Variant::Inbox) {
+                self.insert(relay_url, relay::Variant::Inbox);
+                self.initial_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                self.current_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+
+                relays_to_save.push(database::Relay::from_repositories(
+                    relay_url,
+                    relay::Variant::Inbox,
+                    &self.statistics[relay_url],
+                    self,
+                ));
+            }
+        }
+
+        // Add default outbox relays if list is empty
+        if self.outbox.is_empty() {
+            for &relay_url in defaults::get_default_relays(relay::Variant::Outbox) {
+                self.insert(relay_url, relay::Variant::Outbox);
+                self.initial_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                self.current_weights
+                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+
+                relays_to_save.push(database::Relay::from_repositories(
+                    relay_url,
+                    relay::Variant::Outbox,
+                    &self.statistics[relay_url],
+                    self,
+                ));
+            }
+        }
+
+        // Save defaults to IndexedDB for persistence
+        if !relays_to_save.is_empty() {
+            database::insert_or_update(&self.store_name, &relays_to_save).await?;
+        }
+
+        Ok(())
     }
 
     /// Returns `true` if the relay with the given URL is contained in the selector.
