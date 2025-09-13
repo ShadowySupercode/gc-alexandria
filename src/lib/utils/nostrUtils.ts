@@ -500,6 +500,176 @@ export async function fetchEventWithComprehensiveSearch(
 }
 
 /**
+ * Fetches an event using smart relay selector with progressive fallback:
+ *
+ * 1. Uses relay selector to get highest-ranked relay.
+ * 2. Falls back to next highest-ranked relay on timeout/failure.
+ * 3. Records metrics for relay performance.
+ * 4. Returns null if all smart attempts fail.
+ *
+ * @param {NDK} ndk - An instance of the Nostr NDK client.
+ * @param {string | Filter} filterOrId - The filter object or event ID on which to search.
+ * @param {number} timeoutMs - The request timeout in milliseconds.
+ * @param {(ndk: NDK, filterOrId: string | Filter) => Promise<NDKEvent | null>} fallback - An
+ * optional fallback function to execute if other fetch attempts fail or time out.
+ *
+ * @returns {Promise<NDKEvent | null>} The fetched event or null if not found.
+ */
+export async function fetchEventWithFallback(
+  ndk: NDK,
+  filterOrId: string | Filter,
+  timeoutMs: number = 10000,
+  fallback?: (
+    ndk: NDK,
+    filterOrId: string | Filter,
+  ) => Promise<NDKEvent | null>,
+): Promise<NDKEvent | null> {
+  const RELAY_TIMEOUT = 5000;
+  const WAIT_INTERVAL = 1000;
+  const overallStartTime = Date.now();
+
+  // Determine relay type based on filter
+  const relayType = "general"; // Could be extended to use 'inbox' or 'outbox' depending on need
+
+  const usedRelays = new Set<RelayHandle>();
+  const activePromises = new Map<RelayHandle, Promise<NDKEvent | null>>();
+  let relayRank = 0;
+
+  const intervalId = whileInterval(
+    () => Date.now() - overallStartTime < timeoutMs,
+    () => {
+      let relayHandle: RelayHandle | null = null;
+
+      try {
+        // Try to get next highest-rated relay that hasn't been used
+        relayHandle = get_relay(relayType, relayRank++);
+
+        if (usedRelays.has(relayHandle)) {
+          return;
+        }
+
+        usedRelays.add(relayHandle);
+
+        // Start query on this relay
+        const queryPromise = createRelayQuery(
+          relayHandle,
+          relayType,
+          filterOrId,
+          RELAY_TIMEOUT,
+          ndk,
+        );
+        activePromises.set(relayHandle, queryPromise);
+      } catch (err) {
+        console.error(
+          `fetchEventWithFallback: Error getting relay for rank ${relayRank}:`,
+          err,
+        );
+        return;
+      }
+    },
+    WAIT_INTERVAL,
+  );
+
+  // Return the first successful promise within the timeout, or null if all fail or take too long.
+  const result = await Promise.any([
+    ...activePromises.values(),
+    new Promise<null>((resolve) =>
+      setTimeout(() => {
+        clearInterval(intervalId);
+        resolve(null);
+      }, timeoutMs),
+    ),
+  ]);
+
+  if (result !== null || fallback === undefined) {
+    return result;
+  }
+
+  return await fallback(ndk, filterOrId);
+}
+
+/**
+ * Records metrics for the relay selector.
+ */
+const recordRelayMetrics = async (
+  relay: RelayHandle,
+  relayType: string,
+  startTimeMs: number,
+  success: boolean,
+) => {
+  const duration = Date.now() - startTimeMs;
+  record_request(relay.url, success, relayType);
+  await record_response_time(relay.url, duration, relayType);
+};
+
+/**
+ * Queries a single relay for an event by ID or filter.
+ */
+const createRelayQuery = async (
+  relayHandle: RelayHandle,
+  relayType: string,
+  filterOrId: string | Filter,
+  timeoutMs: number,
+  ndk: NDK,
+): Promise<NDKEvent | null> => {
+  const startTimeMs = Date.now();
+
+  try {
+    // Create relay set with single relay
+    const relaySet = NDKRelaySetFromNDK.fromRelayUrls(
+      [relayHandle.url],
+      ndk,
+      true,
+    );
+
+    // Guard clause: return null if we are unable to create the relay set.
+    if (!relaySet || relaySet.relays.size === 0) {
+      return null;
+    }
+
+    let found: NDKEvent | null = null;
+
+    if (typeof filterOrId === "string") {
+      // If an identifier is provided, attempt to fetch the event by ID.
+      found = await ndk
+        .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
+        .withTimeout(timeoutMs);
+    } else {
+      // Otherwise, attempt to fetch the event by filter.
+      const results = await ndk
+        .fetchEvents(filterOrId, undefined, relaySet)
+        .withTimeout(timeoutMs);
+      found =
+        results instanceof Set ? (Array.from(results)[0] as NDKEvent) : null;
+    }
+
+    if (found) {
+      // Record successful request with response time
+      recordRelayMetrics(relayHandle, relayType, startTimeMs, true);
+      return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
+    } else {
+      // Record failed request (no event found)
+      recordRelayMetrics(relayHandle, relayType, startTimeMs, false);
+      return null;
+    }
+  } catch (err) {
+    recordRelayMetrics(relayHandle, relayType, startTimeMs, false);
+
+    if (err instanceof Error && err.message === "Timeout") {
+      console.warn(
+        `fetchEventWithFallback: Request to ${relayHandle.url} timed out after ${timeoutMs}ms`,
+      );
+    } else {
+      console.warn(
+        `fetchEventWithFallback: Error with ${relayHandle.url}:`,
+        err,
+      );
+    }
+    return null;
+  }
+};
+
+/**
  * Converts various Nostr identifiers to npub format.
  * Handles hex pubkeys, npub strings, and nprofile strings.
  */
