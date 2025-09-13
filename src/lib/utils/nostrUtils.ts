@@ -404,6 +404,31 @@ Promise.prototype.withTimeout = function <T>(
   return withTimeout(timeoutMs, this);
 };
 
+/**
+ * Executes an action periodically while a condition is true.
+ *
+ * @param condition - Condition to check before each action.
+ * @param action - Action to execute periodically.
+ * @param interval - Interval between iterations in milliseconds.
+ *
+ * @returns Interval ID if started, -1 if not started.
+ */
+export function whileInterval(
+  condition: () => boolean,
+  action: () => void,
+  interval: number,
+): number {
+  if (condition()) {
+    action();
+    return setInterval(() => {
+      if (condition()) {
+        action();
+      }
+    }, interval);
+  }
+  return -1;
+}
+
 // TODO: Implement fetch for no-auth relays using the WebSocketPool and raw WebSockets.
 // This fetch function will be used for server-side loading.
 
