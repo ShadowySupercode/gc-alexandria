@@ -433,151 +433,25 @@ export function whileInterval(
 // This fetch function will be used for server-side loading.
 
 /**
- * Fetches an event using a two-step relay strategy:
- * 1. First tries standard relays with timeout
- * 2. Falls back to all relays if not found
- * Always wraps result as NDKEvent
+ * Fetches an event using comprehensive relay search (all available relays).
+ *
+ * @param ndk NDK instance
+ * @param filterOrId Event ID or filter to search for
+ * @param timeoutMs Total timeout for the search
+ * @returns Found event or null
  */
-export async function fetchEventWithFallback(
+export async function fetchEventWithComprehensiveSearch(
   ndk: NDK,
   filterOrId: string | Filter,
   timeoutMs: number = 10000,
 ): Promise<NDKEvent | null> {
-  const MAX_RELAY_ATTEMPTS = 3;
-  const SINGLE_RELAY_TIMEOUT = Math.min(timeoutMs / MAX_RELAY_ATTEMPTS, 5000);
-  const overallStartTime = Date.now();
-
-  // Determine relay type based on filter
-  const relayType = "general"; // Could be extended to use 'inbox' or 'outbox' based on filter content
-
-  for (let attempt = 0; attempt < MAX_RELAY_ATTEMPTS; attempt++) {
-    let relayHandle: RelayHandle | null = null;
-
-    try {
-      // Get relay handle from selector (ranked by performance)
-      relayHandle = get_relay(relayType, attempt);
-      if (!relayHandle) {
-        console.warn(
-          `fetchEventWithFallback: No relay handle available for attempt ${
-            attempt + 1
-          }`,
-        );
-        continue;
-      }
-      const relayUrl = relayHandle.url;
-
-      console.log(
-        `fetchEventWithFallback: Attempt ${attempt + 1}, trying relay:`,
-        relayUrl,
-      );
-
-      // Create relay set with single relay for this attempt
-      const relaySet = NDKRelaySetFromNDK.fromRelayUrls([relayUrl], ndk);
-
-      if (relaySet.relays.size === 0) {
-        console.warn(
-          `fetchEventWithFallback: No relay available for ${relayUrl}`,
-        );
-        record_request(relayUrl, false, relayType);
-        continue;
-      }
-
-      const requestStartTime = Date.now();
-      let found: NDKEvent | null = null;
-
-      try {
-        if (
-          typeof filterOrId === "string" &&
-          new RegExp(`^[0-9a-f]{${VALIDATION.HEX_LENGTH}}$`, "i").test(
-            filterOrId,
-          )
-        ) {
-          found = await ndk
-            .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
-            .withTimeout(SINGLE_RELAY_TIMEOUT);
-        } else {
-          const filter =
-            typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
-          const results = await ndk
-            .fetchEvents(filter, undefined, relaySet)
-            .withTimeout(SINGLE_RELAY_TIMEOUT);
-          found =
-            results instanceof Set
-              ? (Array.from(results)[0] as NDKEvent)
-              : null;
-        }
-
-        const responseTime = Date.now() - requestStartTime;
-
-        if (found) {
-          // Record successful request with response time
-          record_request(relayUrl, true, relayType);
-          await record_response_time(relayUrl, responseTime, relayType);
-
-          console.log(
-            `fetchEventWithFallback: Found event ${found.id} from ${relayUrl} in ${responseTime}ms`,
-          );
-          return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
-        } else {
-          // Record failed request (no event found)
-          record_request(relayUrl, false, relayType);
-          await record_response_time(relayUrl, responseTime, relayType);
-          console.log(
-            `fetchEventWithFallback: Event not found on ${relayUrl} (${responseTime}ms)`,
-          );
-        }
-      } catch (err) {
-        const responseTime = Date.now() - requestStartTime;
-        record_request(relayUrl, false, relayType);
-        await record_response_time(relayUrl, responseTime, relayType);
-
-        if (err instanceof Error && err.message === "Timeout") {
-          console.warn(
-            `fetchEventWithFallback: Request to ${relayUrl} timed out after ${SINGLE_RELAY_TIMEOUT}ms`,
-          );
-        } else {
-          console.warn(`fetchEventWithFallback: Error with ${relayUrl}:`, err);
-        }
-      }
-    } catch (err) {
-      console.error(
-        `fetchEventWithFallback: Error getting relay for attempt ${
-          attempt + 1
-        }:`,
-        err,
-      );
-
-      // If we can't get a relay handle, record failure for the relay type in general
-      if (relayHandle) {
-        record_request(relayHandle.url, false, relayType);
-      }
-    } finally {
-      // RelayHandle will auto-cleanup when it goes out of scope
-      relayHandle = null;
-    }
-
-    // Check if we've exceeded overall timeout
-    const elapsedTime = Date.now() - overallStartTime;
-    if (elapsedTime >= timeoutMs) {
-      console.warn(
-        `fetchEventWithFallback: Overall timeout of ${timeoutMs}ms exceeded after ${elapsedTime}ms`,
-      );
-      break;
-    }
-  }
-
-  // If all relay attempts failed, fall back to the old comprehensive approach
-  console.warn(
-    "fetchEventWithFallback: All relay selector attempts failed, falling back to comprehensive relay search",
-  );
-
   const poolRelays = Array.from(ndk.pool.relays.values()).map(
     (r: any) => r.url,
   );
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
 
-  let fallbackRelays = [
+  const fallbackRelays = [
     ...new Set([
       ...poolRelays,
       ...inboxRelays,
@@ -589,15 +463,11 @@ export async function fetchEventWithFallback(
   ];
 
   if (fallbackRelays.length === 0) {
-    console.error("fetchEventWithFallback: No fallback relays available");
+    console.error("[fetchEventWithComprehensiveSearch] No relays available");
     return null;
   }
 
   const relaySet = NDKRelaySetFromNDK.fromRelayUrls(fallbackRelays, ndk);
-  const remainingTime = Math.max(
-    1000,
-    timeoutMs - (Date.now() - overallStartTime),
-  );
 
   try {
     let found: NDKEvent | null = null;
@@ -608,32 +478,24 @@ export async function fetchEventWithFallback(
     ) {
       found = await ndk
         .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
-        .withTimeout(remainingTime);
+        .withTimeout(timeoutMs);
     } else {
       const filter =
         typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
       const results = await ndk
         .fetchEvents(filter, undefined, relaySet)
-        .withTimeout(remainingTime);
+        .withTimeout(timeoutMs);
       found =
         results instanceof Set ? (Array.from(results)[0] as NDKEvent) : null;
     }
 
     if (found) {
-      console.log(
-        "fetchEventWithFallback: Found event via fallback method:",
-        found.id,
-      );
       return found instanceof NDKEvent ? found : new NDKEvent(ndk, found);
     }
   } catch (err) {
-    console.error("fetchEventWithFallback: Fallback method also failed:", err);
+    console.error("[fetchEventWithComprehensiveSearch] Search failed:", err);
   }
 
-  const totalTime = Date.now() - overallStartTime;
-  console.warn(
-    `fetchEventWithFallback: Event not found after ${totalTime}ms total search time`,
-  );
   return null;
 }
 
