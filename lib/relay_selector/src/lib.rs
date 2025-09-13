@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use console_error_panic_hook;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
@@ -31,6 +32,7 @@ fn relay_selector_is_some() -> bool {
 }
 
 async fn init_relay_selector(store_name: &str) {
+    console_error_panic_hook::set_once();
     let selector = RelaySelector::init(store_name).await.unwrap_throw();
     RELAY_SELECTOR.with(|rc_selector| rc_selector.borrow_mut().replace(selector));
 }
