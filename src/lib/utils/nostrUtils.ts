@@ -7,7 +7,6 @@ import type { Filter } from "./search_types.ts";
 import {
   anonymousRelays,
   communityRelays,
-  localRelays,
   searchRelays,
   secondaryRelays,
 } from "../consts.ts";
