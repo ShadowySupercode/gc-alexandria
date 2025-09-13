@@ -34,7 +34,9 @@ fn relay_selector_is_some() -> bool {
 async fn init_relay_selector(store_name: &str) {
     console_error_panic_hook::set_once();
     let selector = RelaySelector::init(store_name).await.unwrap_throw();
-    RELAY_SELECTOR.with(|rc_selector| rc_selector.borrow_mut().replace(selector));
+    RELAY_SELECTOR
+        .try_with(|rc_selector| rc_selector.borrow_mut().replace(selector))
+        .unwrap_throw();
 }
 
 fn init_relay_selector_if_none(store_name: &str) {
@@ -60,13 +62,15 @@ pub async fn record_response_time(
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR.with(|selector| {
-        selector
-            .borrow_mut()
-            .as_mut()
-            .unwrap_throw()
-            .update_weights_with_response_time(relay_url, variant, response_duration)
-    })
+    RELAY_SELECTOR
+        .try_with(|selector| {
+            selector
+                .borrow_mut()
+                .as_mut()
+                .unwrap_throw()
+                .update_weights_with_response_time(relay_url, variant, response_duration)
+        })
+        .unwrap_throw()
 }
 
 #[wasm_bindgen]
@@ -77,13 +81,15 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
     };
 
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR.with(|selector| {
-        selector
-            .borrow_mut()
-            .as_mut()
-            .unwrap_throw()
-            .update_weights_with_request(relay_url, variant, is_success);
-    })
+    RELAY_SELECTOR
+        .try_with(|selector| {
+            selector
+                .borrow_mut()
+                .as_mut()
+                .unwrap_throw()
+                .update_weights_with_request(relay_url, variant, is_success);
+        })
+        .unwrap_throw()
 }
 
 /// Get a recommended relay URL based on current weights.
@@ -112,13 +118,15 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
     } as usize;
 
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR.with(|selector| {
-        let url = selector
-            .borrow_mut()
-            .as_mut()
-            .unwrap_throw()
-            .get_relay_by_weighted_round_robin(variant, rank)
-            .unwrap_throw();
-        Ok(relay::RelayHandle::new(url, variant, selector))
-    })
+    RELAY_SELECTOR
+        .try_with(|selector| {
+            let url = selector
+                .borrow_mut()
+                .as_mut()
+                .unwrap_throw()
+                .get_relay_by_weighted_round_robin(variant, rank)
+                .unwrap_throw();
+            Ok(relay::RelayHandle::new(url, variant, selector))
+        })
+        .unwrap_throw()
 }
