@@ -226,7 +226,8 @@
   div.note-leather,
   p.note-leather,
   section.note-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
+      p-2 rounded;
   }
 
   .edit div.note-leather:hover:not(:has(.note-leather:hover)),
@@ -278,7 +279,8 @@
   }
 
   div.modal-leather > div {
-    @apply bg-primary-50 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
+    @apply bg-primary-50 dark:bg-primary-950 border-b-[1px] border-primary-100
+      dark:border-primary-600;
   }
 
   div.modal-leather > div > h1,
@@ -292,7 +294,9 @@
   }
 
   div.modal-leather button {
-    @apply bg-primary-50 hover:bg-primary-50 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply bg-primary-50 hover:bg-primary-50 dark:bg-primary-950
+      dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600
+      dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   /* Navbar */
@@ -491,11 +495,11 @@
   /* Legend */
   .leather-legend {
     @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2
-    rounded;
+      rounded;
     @apply shadow-none text-primary-1000 border border-s-4 bg-highlight
-    border-primary-200 has-[:hover]:border-primary-700;
+      border-primary-200 has-[:hover]:border-primary-700;
     @apply dark:bg-primary-1000 dark:border-primary-800
-    dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
     max-width: 450px;
     min-width: 300px;
     overflow-x: auto;
@@ -504,7 +508,9 @@
 
   /* Tooltip */
   .tooltip-leather {
-    @apply fixed p-4 rounded shadow-lg bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
+    @apply fixed p-4 rounded shadow-lg bg-primary-50 dark:bg-primary-1000
+      text-gray-900 dark:text-gray-100 border border-gray-200
+      dark:border-gray-700 transition-colors duration-200;
     max-width: 400px;
     z-index: 1000;
   }
@@ -544,11 +550,11 @@
     }
 
     h4 {
-      @apply text-xl  font-bold;
+      @apply text-xl font-bold;
     }
 
     h5 {
-      @apply text-lg  font-semibold;
+      @apply text-lg font-semibold;
     }
 
     h6 {
@@ -585,7 +591,8 @@
   }
 
   a {
-    @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
+    @apply underline cursor-pointer hover:text-primary-600
+      dark:hover:text-primary-400;
   }
 
   .imageblock {
@@ -728,14 +735,15 @@
   input[type="tel"],
   input[type="url"],
   textarea {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none;
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
+      border-s-4 border-primary-200 rounded shadow-none;
     @apply focus:border-primary-600 dark:focus:border-primary-400;
   }
 
   /* Table of Contents highlighting */
   .toc-highlight {
-    @apply bg-primary-200 dark:bg-primary-700 border-s-4 border-primary-600 rounded
-    dark:border-primary-400 font-medium;
+    @apply bg-primary-200 dark:bg-primary-700 border-s-4 border-primary-600
+      rounded dark:border-primary-400 font-medium;
     transition: all 0.2s ease-in-out;
   }
 

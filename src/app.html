@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" data-tech="off">
   <head>
     <meta charset="utf-8" />
@@ -19,7 +19,9 @@
     <script>
       try {
         const v = localStorage.getItem("alexandria/showTech");
-        document.documentElement.dataset.tech = v === "true" ? "on" : "off";
+        document.documentElement.dataset.tech = v === "true"
+          ? "on"
+          : "off";
       } catch (_) {
         /* no-op */
       }
@@ -46,14 +48,18 @@
         },
       };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
 
     <!-- highlight.js for code highlighting -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
     />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+    ></script>
 
     %sveltekit.head%
   </head>

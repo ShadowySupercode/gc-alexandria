@@ -253,7 +253,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     // Clear all nodes except the root to force fresh loading
     const rootAddress = this.#root.address;
     this.#nodes.clear();
-    this.#nodes.set(rootAddress, new Lazy<PublicationTreeNode>(() => Promise.resolve(this.#root)));
+    this.#nodes.set(
+      rootAddress,
+      new Lazy<PublicationTreeNode>(() => Promise.resolve(this.#root)),
+    );
     // Clear events cache to ensure fresh data
     this.#events.clear();
     this.#eventCache.clear();
@@ -496,18 +499,20 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     if (!this.#cursor.target) {
       return { done, value: null };
     }
-    
+
     const address = this.#cursor.target.address;
-    
+
     // AI-NOTE:  Check if this node has already been visited
     if (this.#visitedNodes.has(address)) {
-      console.debug(`[PublicationTree] Skipping already visited node: ${address}`);
+      console.debug(
+        `[PublicationTree] Skipping already visited node: ${address}`,
+      );
       return { done: false, value: null };
     }
-    
+
     // Mark this node as visited
     this.#visitedNodes.add(address);
-    
+
     const value = (await this.getEvent(address)) ?? null;
     return { done, value };
   }
@@ -762,8 +767,10 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
 
   #addNode(address: string, parentNode: PublicationTreeNode) {
     // AI-NOTE:  Add debugging to track node addition
-    console.debug(`[PublicationTree] Adding node ${address} to parent ${parentNode.address}`);
-    
+    console.debug(
+      `[PublicationTree] Adding node ${address} to parent ${parentNode.address}`,
+    );
+
     const lazyNode = new Lazy<PublicationTreeNode>(() =>
       this.#resolveNode(address, parentNode)
     );
@@ -902,7 +909,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
             this.#eventCache.set(address, fetchedEvent);
             this.#events.set(address, fetchedEvent);
 
-            return await this.#buildNodeFromEvent(fetchedEvent, address, parentNode);
+            return await this.#buildNodeFromEvent(
+              fetchedEvent,
+              address,
+              parentNode,
+            );
           }
         } catch (error) {
           console.debug(
@@ -1017,7 +1028,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       // AI-NOTE:  Remove e-tag processing from synchronous method
       // E-tags should be resolved asynchronously in #resolveNode method
       // Adding raw event IDs here causes duplicate processing
-      console.debug(`[PublicationTree] Found ${eTags.length} e-tags but skipping processing in buildNodeFromEvent`);
+      console.debug(
+        `[PublicationTree] Found ${eTags.length} e-tags but skipping processing in buildNodeFromEvent`,
+      );
     }
 
     const node: PublicationTreeNode = {
@@ -1033,13 +1046,18 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     // Now directly adds child nodes to current node's children array
     // Add children in the order they appear in the a-tags to preserve section order
     // Use sequential processing to ensure order is maintained
-    console.log(`[PublicationTree] Adding ${childAddresses.length} children in order:`, childAddresses);
+    console.log(
+      `[PublicationTree] Adding ${childAddresses.length} children in order:`,
+      childAddresses,
+    );
     for (const childAddress of childAddresses) {
       console.log(`[PublicationTree] Adding child: ${childAddress}`);
       try {
         // Add the child node directly to the current node's children
         this.#addNode(childAddress, node);
-        console.log(`[PublicationTree] Successfully added child: ${childAddress}`);
+        console.log(
+          `[PublicationTree] Successfully added child: ${childAddress}`,
+        );
       } catch (error) {
         console.warn(
           `[PublicationTree] Error adding child ${childAddress} for ${node.address}:`,
@@ -1060,24 +1078,44 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     if (event.kind === 30040) {
       // Check if this 30040 has any children (a-tags only, since e-tags are handled separately)
       const hasChildren = event.tags.some((tag) => tag[0] === "a");
-      
-      console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? 'Branch' : 'Leaf'}`);
-      
-      return hasChildren ? PublicationTreeNodeType.Branch : PublicationTreeNodeType.Leaf;
+
+      console.debug(
+        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+          event.tags.find((t) => t[0] === "d")?.[1]
+        } - hasChildren: ${hasChildren}, type: ${
+          hasChildren ? "Branch" : "Leaf"
+        }`,
+      );
+
+      return hasChildren
+        ? PublicationTreeNodeType.Branch
+        : PublicationTreeNodeType.Leaf;
     }
 
     // Zettel kinds are always leaves
     if ([30041, 30818, 30023].includes(event.kind)) {
-      console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - Zettel kind, type: Leaf`);
+      console.debug(
+        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+          event.tags.find((t) => t[0] === "d")?.[1]
+        } - Zettel kind, type: Leaf`,
+      );
       return PublicationTreeNodeType.Leaf;
     }
 
     // For other kinds, check if they have children (a-tags only)
     const hasChildren = event.tags.some((tag) => tag[0] === "a");
-    
-    console.debug(`[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find(t => t[0] === 'd')?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? 'Branch' : 'Leaf'}`);
-    
-    return hasChildren ? PublicationTreeNodeType.Branch : PublicationTreeNodeType.Leaf;
+
+    console.debug(
+      `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+        event.tags.find((t) => t[0] === "d")?.[1]
+      } - hasChildren: ${hasChildren}, type: ${
+        hasChildren ? "Branch" : "Leaf"
+      }`,
+    );
+
+    return hasChildren
+      ? PublicationTreeNodeType.Branch
+      : PublicationTreeNodeType.Leaf;
   }
 
   // #endregion

@@ -1,7 +1,8 @@
 @layer components {
   /* Global scrollbar styles */
   * {
-    scrollbar-color: rgba(87, 66, 41, 0.8) transparent; /* Transparent track, default scrollbar thumb */
+    scrollbar-color: rgba(87, 66, 41, 0.8)
+      transparent; /* Transparent track, default scrollbar thumb */
   }
 
   /* Webkit Browsers (Chrome, Safari, Edge) */
