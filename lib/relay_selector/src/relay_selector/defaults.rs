@@ -1,14 +1,18 @@
 use crate::relay;
 
+// This "starter pack" relay set is used if the user has no preferred relays.
 pub const DEFAULT_GENERAL_RELAYS: &[&str] = &[
-    "wss://relay.damus.io",
-    "wss://nos.lol",
-    "wss://relay.snort.social",
+    "wss://theforest.nostr1.com",
+    "wss://thecitadel.nostr1.com",
+    "wss://nostr.land",
+    "wss://nostr.wine",
+    "wss://nostr.sovbit.host",
+    "wss://nostr21.com",
 ];
 
-pub const DEFAULT_INBOX_RELAYS: &[&str] = &["wss://relay.damus.io", "wss://inbox.nostr.wine"];
+pub const DEFAULT_INBOX_RELAYS: &[&str] = DEFAULT_GENERAL_RELAYS;
 
-pub const DEFAULT_OUTBOX_RELAYS: &[&str] = &["wss://relay.damus.io", "wss://relay.snort.social"];
+pub const DEFAULT_OUTBOX_RELAYS: &[&str] = DEFAULT_GENERAL_RELAYS;
 
 pub const DEFAULT_WEIGHT: f32 = 1.0;
 
