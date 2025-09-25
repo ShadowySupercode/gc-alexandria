@@ -110,6 +110,7 @@ impl RelaySelector {
 
     /// Populates the selector with default relays for empty variant lists.
     async fn populate_defaults(&mut self) -> Result<(), String> {
+        // TODO: Use new relay add method to add defaults.
         let mut relays_to_save = Vec::new();
 
         // Add default general relays if list is empty
