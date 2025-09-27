@@ -103,4 +103,46 @@ impl Statistics {
             self.active_connections,
         )
     }
+
+    /// Updates trust level and returns updated weights.
+    ///
+    /// # Arguments
+    ///
+    /// * `trust_level` - The new trust level to set.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the updated initial and current weights of the relay.
+    pub fn update_trust_level(&mut self, trust_level: f32) -> (f32, f32) {
+        self.trust_level = trust_level;
+        weights::calculate_weights(
+            self.response_times.as_mut_slice(),
+            self.successful_requests,
+            self.requests,
+            self.trust_level,
+            self.vendor_score,
+            self.active_connections,
+        )
+    }
+
+    /// Updates vendor score and returns updated weights.
+    ///
+    /// # Arguments
+    ///
+    /// * `vendor_score` - The new vendor score to set.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the updated initial and current weights of the relay.
+    pub fn update_vendor_score(&mut self, vendor_score: f32) -> (f32, f32) {
+        self.vendor_score = vendor_score;
+        weights::calculate_weights(
+            self.response_times.as_mut_slice(),
+            self.successful_requests,
+            self.requests,
+            self.trust_level,
+            self.vendor_score,
+            self.active_connections,
+        )
+    }
 }

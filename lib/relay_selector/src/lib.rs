@@ -131,6 +131,59 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
         .unwrap_throw()
 }
 
-// TODO: Add a function to add a new relay to the selector's memory. This function may be invoked
-// when new relays are discovered via outbox.
-// The relay add method should set trust level and vendor scores, if applicable.
+/// Adds a new relay to the selector.
+///
+/// The `relay_selector` crate contains hard-coded trust levels and vendor scores for relays. When
+/// a new relay is added, if a trust level or vendor score is available, it will be used to set
+/// initial weights.
+///
+/// # Arguments
+///
+/// * `relay_url` - The URL of the relay to add.
+/// * `relay_type` - The type of relay. May be `"general"`, `"inbox"`, or `"outbox"`. Defaults to `"general"`.
+///
+/// # Errors
+///
+/// Throws an error if the relay type is invalid or if an error occurs while adding the relay.
+#[wasm_bindgen]
+pub fn add_relay(relay_url: &str, relay_type: Option<String>) {
+    let variant = match relay_type {
+        Some(t) => relay::Variant::from_str(&t).unwrap_throw(),
+        None => relay::Variant::General,
+    };
+
+    init_relay_selector_if_none(STORE_NAME);
+
+    let trust_level = get_trust_level(relay_url);
+    let vendor_score = get_vendor_score(relay_url);
+
+    RELAY_SELECTOR
+        .try_with(|selector| {
+            let mut tmp_sel = selector.borrow_mut();
+            let sel = tmp_sel.as_mut().unwrap_throw();
+
+            sel.insert(relay_url, variant);
+
+            sel.update_weights_with_trust_level(relay_url, variant, trust_level as f32);
+            sel.update_weights_with_vendor_score(relay_url, variant, vendor_score as f32);
+        })
+        .unwrap_throw()
+}
+
+/// Stub function to get trust level for a relay.
+///
+/// TODO: Implement trust score calculation logic.
+/// TODO: Move this to an appropriate module.
+fn get_trust_level(_relay_url: &str) -> f64 {
+    // Placeholder implementation
+    0.5
+}
+
+/// Stub function to get vendor score for a relay.
+///
+/// TODO: Implement vendor score calculation logic.
+/// TODO: Move this to an appropriate module.
+fn get_vendor_score(_relay_url: &str) -> f64 {
+    // Placeholder implementation
+    0.5
+}

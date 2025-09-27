@@ -253,6 +253,52 @@ impl RelaySelector {
             .insert(relay.to_string(), current_weight);
     }
 
+    /// Updates the trust level of a relay, then updates its weights accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `relay` - The relay URL.
+    /// * `variant` - The relay variant.
+    /// * `trust_level` - The new trust level. Replaces the existing trust level.
+    pub fn update_weights_with_trust_level(
+        &mut self,
+        relay: &str,
+        variant: relay::Variant,
+        trust_level: f32,
+    ) {
+        let (initial_weight, current_weight) = self
+            .get_mut_statistics(relay, variant)
+            .update_trust_level(trust_level);
+
+        self.initial_weights
+            .insert(relay.to_string(), initial_weight);
+        self.current_weights
+            .insert(relay.to_string(), current_weight);
+    }
+
+    /// Updates the vendor score of a relay, then updates its weights accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `relay` - The relay URL.
+    /// * `variant` - The relay variant.
+    /// * `vendor_score` - The new vendor score. Replaces the existing score.
+    pub fn update_weights_with_vendor_score(
+        &mut self,
+        relay: &str,
+        variant: relay::Variant,
+        vendor_score: f32,
+    ) {
+        let (initial_weight, current_weight) = self
+            .get_mut_statistics(relay, variant)
+            .update_vendor_score(vendor_score);
+
+        self.initial_weights
+            .insert(relay.to_string(), initial_weight);
+        self.current_weights
+            .insert(relay.to_string(), current_weight);
+    }
+
     /// Selects a relay based on weighted round-robin algorithm.
     ///
     /// Relays are sorted in descending order of rank. Typically, the caller should select the
