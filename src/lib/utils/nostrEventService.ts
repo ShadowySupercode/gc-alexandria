@@ -1,10 +1,9 @@
 import { nip19 } from "nostr-tools";
-import { getEventHash, signEvent, prefixNostrAddresses } from "./nostrUtils.ts";
-import { get } from "svelte/store";
+import { getEventHash, prefixNostrAddresses, signEvent } from "./nostrUtils.ts";
 import { goto } from "$app/navigation";
 import { EVENT_KINDS, TIME_CONSTANTS } from "./search_constants.ts";
-import { ndkInstance } from "../ndk.ts";
-import { NDKRelaySet, NDKEvent } from "@nostr-dev-kit/ndk";
+import { EXPIRATION_DURATION } from "../consts.ts";
+import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 
 export interface RootEventInfo {
   rootId: string;
@@ -95,21 +94,21 @@ export function extractRootEventInfo(parent: NDKEvent): RootEventInfo {
     rootInfo.rootId = rootE[1];
     rootInfo.rootRelay = getRelayString(rootE[2]);
     rootInfo.rootPubkey = getPubkeyString(rootE[3] || rootInfo.rootPubkey);
-    rootInfo.rootKind =
-      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
+    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
+      rootInfo.rootKind;
   } else if (rootA) {
     rootInfo.rootAddress = rootA[1];
     rootInfo.rootRelay = getRelayString(rootA[2]);
     rootInfo.rootPubkey = getPubkeyString(
       getTagValue(parent.tags, "P") || rootInfo.rootPubkey,
     );
-    rootInfo.rootKind =
-      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
+    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
+      rootInfo.rootKind;
   } else if (rootI) {
     rootInfo.rootIValue = rootI[1];
     rootInfo.rootIRelay = getRelayString(rootI[2]);
-    rootInfo.rootKind =
-      Number(getTagValue(parent.tags, "K")) || rootInfo.rootKind;
+    rootInfo.rootKind = Number(getTagValue(parent.tags, "K")) ||
+      rootInfo.rootKind;
   }
 
   return rootInfo;
@@ -223,7 +222,8 @@ export function buildReplyTags(
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
-        const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
+        const parentAddress =
+          `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
         addTags(tags, createTag("a", parentAddress, "", "root"));
       }
     }
@@ -232,7 +232,8 @@ export function buildReplyTags(
     if (isParentReplaceable) {
       const dTag = getTagValue(parent.tags || [], "d");
       if (dTag) {
-        const parentAddress = `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
+        const parentAddress =
+          `${parentInfo.parentKind}:${parentInfo.parentPubkey}:${dTag}`;
 
         if (isReplyToComment) {
           // Root scope (uppercase) - use the original article
@@ -316,16 +317,25 @@ export async function createSignedEvent(
   pubkey: string,
   kind: number,
   tags: string[][],
-// deno-lint-ignore no-explicit-any
+  // deno-lint-ignore no-explicit-any
 ): Promise<{ id: string; sig: string; event: any }> {
   const prefixedContent = prefixNostrAddresses(content);
+
+  // Add expiration tag for kind 24 events (NIP-40)
+  const finalTags = [...tags];
+  if (kind === 24) {
+    const expirationTimestamp =
+      Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR) +
+      EXPIRATION_DURATION;
+    finalTags.push(["expiration", String(expirationTimestamp)]);
+  }
 
   const eventToSign = {
     kind: Number(kind),
     created_at: Number(
       Math.floor(Date.now() / TIME_CONSTANTS.UNIX_TIMESTAMP_FACTOR),
     ),
-    tags: tags.map((tag) => [
+    tags: finalTags.map((tag: any) => [
       String(tag[0]),
       String(tag[1]),
       String(tag[2] || ""),
@@ -336,7 +346,10 @@ export async function createSignedEvent(
   };
 
   let sig, id;
-  if (typeof window !== "undefined" && globalThis.nostr && globalThis.nostr.signEvent) {
+  if (
+    typeof window !== "undefined" && globalThis.nostr &&
+    globalThis.nostr.signEvent
+  ) {
     const signed = await globalThis.nostr.signEvent(eventToSign);
     sig = signed.sig as string;
     id = "id" in signed ? (signed.id as string) : getEventHash(eventToSign);
@@ -365,9 +378,9 @@ export async function createSignedEvent(
 export async function publishEvent(
   event: NDKEvent,
   relayUrls: string[],
+  ndk: NDK,
 ): Promise<string[]> {
   const successfulRelays: string[] = [];
-  const ndk = get(ndkInstance);
 
   if (!ndk) {
     throw new Error("NDK instance not available");
@@ -379,7 +392,7 @@ export async function publishEvent(
   try {
     // If event is a plain object, create an NDKEvent from it
     let ndkEvent: NDKEvent;
-    if (event.publish && typeof event.publish === 'function') {
+    if (event.publish && typeof event.publish === "function") {
       // It's already an NDKEvent
       ndkEvent = event;
     } else {
@@ -389,15 +402,15 @@ export async function publishEvent(
 
     // Publish with timeout
     await ndkEvent.publish(relaySet).withTimeout(5000);
-    
+
     // For now, assume all relays were successful
     // In a more sophisticated implementation, you'd track individual relay responses
     successfulRelays.push(...relayUrls);
-    
+
     console.debug("[nostrEventService] Published event successfully:", {
       eventId: ndkEvent.id,
       relayCount: relayUrls.length,
-      successfulRelays
+      successfulRelays,
     });
   } catch (error) {
     console.error("[nostrEventService] Failed to publish event:", error);

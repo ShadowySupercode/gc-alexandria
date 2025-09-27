@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { PublicationTree } from "$lib/data_structures/publication_tree";
   import {
     contentParagraph,
     sectionHeading,
@@ -10,21 +9,26 @@
   import type { Asciidoctor, Document } from "asciidoctor";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
+  import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
+  import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
 
   let {
     address,
     rootAddress,
     leaves,
+    publicationTree,
+    toc,
     ref,
   }: {
     address: string;
     rootAddress: string;
     leaves: Array<NDKEvent | null>;
+    publicationTree: SveltePublicationTree;
+    toc: TocType;
     ref: (ref: HTMLElement) => void;
   } = $props();
 
-  const publicationTree: SveltePublicationTree = getContext("publicationTree");
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
@@ -48,10 +52,19 @@
   );
 
   let leafContent: Promise<string | Document> = $derived.by(async () => {
-    const content = (await leafEvent)?.content ?? "";
-    const converted = asciidoctor.convert(content);
-    const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
-    return processed;
+    const event = await leafEvent;
+    const content = event?.content ?? "";
+    
+    // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
+    // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
+    if (event?.kind === 30023) {
+      return await parseAdvancedmarkup(content);
+    } else {
+      // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
+      const converted = asciidoctor.convert(content);
+      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString());
+      return processed;
+    }
   });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {

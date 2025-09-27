@@ -32,21 +32,40 @@ export function parseZettelSection(section: string): ZettelSection {
   const lines = section.split("\n");
   let title = "Untitled";
   const contentLines: string[] = [];
-  let inHeader = true;
   let tags: string[][] = [];
   tags = extractTags(section);
 
-  for (const line of lines) {
+  // Find the section title first
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
-    if (inHeader && trimmed.startsWith("==")) {
+    if (trimmed.startsWith("==")) {
       title = trimmed.replace(/^==+/, "").trim();
-      continue;
-    } else if (inHeader && trimmed.startsWith(":")) {
-      continue;
-    }
 
-    inHeader = false;
-    contentLines.push(line);
+      // Process header metadata (everything after title until blank line)
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() !== "") {
+        const headerLine = lines[j].trim();
+        if (headerLine.startsWith(":")) {
+          // This is metadata, already handled by extractTags
+          j++;
+        } else {
+          // This is header content (like author name), skip from content
+          j++;
+        }
+      }
+
+      // Skip the blank line
+      if (j < lines.length && lines[j].trim() === "") {
+        j++;
+      }
+
+      // Everything after the blank line is content
+      for (let k = j; k < lines.length; k++) {
+        contentLines.push(lines[k]);
+      }
+      break;
+    }
   }
 
   return {
@@ -69,6 +88,7 @@ export function parseAsciiDocSections(
 /**
  * Extracts tag names and values from the content.
  * :tagname: tagvalue // tags are optional
+ * Also handles AsciiDoc author line convention
  * @param content The AsciiDoc string.
  * @returns Array of tags.
  */
@@ -76,30 +96,46 @@ export function extractTags(content: string): string[][] {
   const tags: string[][] = [];
   const lines = content.split("\n");
 
-  for (const line of lines) {
+  // Find the section title and process header metadata
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
-    if (trimmed.startsWith(":")) {
-      // Parse AsciiDoc attribute format: :tagname: value
-      const match = trimmed.match(/^:([^:]+):\s*(.*)$/);
-      if (match) {
-        const tagName = match[1].trim();
-        const tagValue = match[2].trim();
 
-        // Special handling for tags attribute
-        if (tagName === "tags") {
-          // Split comma-separated values and create individual "t" tags
-          const tagValues = tagValue
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v.length > 0);
-          for (const value of tagValues) {
-            tags.push(["t", value]);
+    if (trimmed.startsWith("==")) {
+      // Process header metadata (everything after title until blank line)
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() !== "") {
+        const headerLine = lines[j].trim();
+
+        if (headerLine.startsWith(":")) {
+          // Parse AsciiDoc attribute format: :tagname: value
+          const match = headerLine.match(/^:([^:]+):\s*(.*)$/);
+          if (match) {
+            const tagName = match[1].trim();
+            const tagValue = match[2].trim();
+
+            // Special handling for tags attribute
+            if (tagName === "tags") {
+              // Split comma-separated values and create individual "t" tags
+              const tagValues = tagValue
+                .split(",")
+                .map((v) => v.trim())
+                .filter((v) => v.length > 0);
+              for (const value of tagValues) {
+                tags.push(["t", value]);
+              }
+            } else {
+              // Regular attribute becomes a tag
+              tags.push([tagName, tagValue]);
+            }
           }
         } else {
-          // Regular attribute becomes a tag
-          tags.push([tagName, tagValue]);
+          // This is header content (like author name)
+          tags.push(["author", headerLine]);
         }
+        j++;
       }
+      break;
     }
   }
 

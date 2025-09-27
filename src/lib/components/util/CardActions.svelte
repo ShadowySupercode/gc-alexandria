@@ -12,6 +12,7 @@
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import LazyImage from "$components/util/LazyImage.svelte";
 
   // Component props
   let { event } = $props<{ event: NDKEvent }>();
@@ -191,10 +192,11 @@
         <div
           class="flex col justify-center align-middle h-32 w-24 min-w-20 max-w-24 overflow-hidden"
         >
-          <img
+          <LazyImage
             src={image}
             alt="Publication cover"
-            class="rounded w-full h-full object-cover"
+            eventId={event.id}
+            className="rounded w-full h-full object-cover"
           />
         </div>
       {/if}

@@ -1,8 +1,11 @@
 import type { NDKEvent } from "./nostrUtils.ts";
-import { get } from "svelte/store";
-import { ndkInstance } from "../ndk.ts";
-import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
 import { EVENT_KINDS } from "./search_constants";
+import {
+  extractDocumentMetadata,
+  metadataToTags,
+  parseAsciiDocWithMetadata,
+} from "./asciidoc_metadata.ts";
 
 // =========================
 // Validation
@@ -79,24 +82,25 @@ export function validateAsciiDoc(content: string): {
 export function validate30040EventSet(content: string): {
   valid: boolean;
   reason?: string;
+  warning?: string;
 } {
-  // First validate as AsciiDoc
-  const asciiDocValidation = validateAsciiDoc(content);
-  if (!asciiDocValidation.valid) {
-    return asciiDocValidation;
-  }
+  // Check for "index card" format first
+  const lines = content.split(/\r?\n/);
+  const { metadata } = extractDocumentMetadata(content);
+  const documentTitle = metadata.title;
+  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
+    line.trim()
+  );
+  const isIndexCardFormat = documentTitle &&
+    nonEmptyLines.length === 2 &&
+    nonEmptyLines[0].startsWith("=") &&
+    nonEmptyLines[1].toLowerCase() === "index card";
 
-  // Check that we have at least one section
-  const sectionsResult = splitAsciiDocSections(content);
-  if (sectionsResult.sections.length === 0) {
-    return {
-      valid: false,
-      reason: "30040 events must contain at least one section.",
-    };
+  if (isIndexCardFormat) {
+    return { valid: true };
   }
 
   // Check that we have a document title
-  const documentTitle = extractAsciiDocDocumentHeader(content);
   if (!documentTitle) {
     return {
       valid: false,
@@ -114,6 +118,45 @@ export function validate30040EventSet(content: string): {
     };
   }
 
+  // Check for duplicate document headers (=)
+  const documentHeaderMatches = content.match(/^=\s+/gm);
+  if (documentHeaderMatches && documentHeaderMatches.length > 1) {
+    return {
+      valid: false,
+      reason:
+        '30040 events must have exactly one document title ("="). Found multiple document headers.',
+    };
+  }
+
+  // Parse the content to check sections
+  const parsed = parseAsciiDocWithMetadata(content);
+  const hasSections = parsed.sections.length > 0;
+
+  if (!hasSections) {
+    return {
+      valid: true,
+      warning:
+        "No section headers (==) found. This will create a 30040 index event and a single 30041 preamble section. Continue?",
+    };
+  }
+
+  // Only validate as AsciiDoc if we have sections
+  const asciiDocValidation = validateAsciiDoc(content);
+  if (!asciiDocValidation.valid) {
+    return asciiDocValidation;
+  }
+
+  // Check for empty sections
+  const emptySections = parsed.sections.filter((section: any) =>
+    section.content.trim() === ""
+  );
+  if (emptySections.length > 0) {
+    return {
+      valid: true,
+      warning: "You are creating sections that contain no content. Proceed?",
+    };
+  }
+
   return { valid: true };
 }
 
@@ -127,6 +170,14 @@ export function validate30040EventSet(content: string): {
 function normalizeDTagValue(header: string): string {
   return header
     .toLowerCase()
+    // Decode common HTML entities first
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    // Then normalize as before
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
 }
@@ -142,14 +193,6 @@ export function titleToDTag(title: string): string {
 }
 
 /**
- * Extracts the first AsciiDoc document header (line starting with '= ').
- */
-function extractAsciiDocDocumentHeader(content: string): string | null {
-  const match = content.match(/^=\s+(.+)$/m);
-  return match ? match[1].trim() : null;
-}
-
-/**
  * Extracts the topmost Markdown # header (line starting with '# ').
  */
 function extractMarkdownTopHeader(content: string): string | null {
@@ -157,81 +200,10 @@ function extractMarkdownTopHeader(content: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-/**
- * Splits AsciiDoc content into sections at each '==' header. Returns array of section strings.
- * Document title (= header) is excluded from sections and only used for the index event title.
- * Section headers (==) are discarded from content.
- * Text between document header and first section becomes a "Preamble" section.
- */
-function splitAsciiDocSections(content: string): {
-  sections: string[];
-  sectionHeaders: string[];
-  hasPreamble: boolean;
-} {
-  const lines = content.split(/\r?\n/);
-  const sections: string[] = [];
-  const sectionHeaders: string[] = [];
-  let current: string[] = [];
-  let foundFirstSection = false;
-  let hasPreamble = false;
-  const preambleContent: string[] = [];
-
-  for (const line of lines) {
-    // Skip document title lines (= header)
-    if (/^=\s+/.test(line)) {
-      continue;
-    }
-
-    // If we encounter a section header (==) and we have content, start a new section
-    if (/^==\s+/.test(line)) {
-      if (current.length > 0) {
-        sections.push(current.join("\n").trim());
-        current = [];
-      }
-
-      // Extract section header for title tag
-      const headerMatch = line.match(/^==\s+(.+)$/);
-      if (headerMatch) {
-        sectionHeaders.push(headerMatch[1].trim());
-      }
-
-      foundFirstSection = true;
-    } else if (foundFirstSection) {
-      // Only add lines to current section if we've found the first section
-      current.push(line);
-    } else {
-      // Text before first section becomes preamble
-      if (line.trim() !== "") {
-        preambleContent.push(line);
-      }
-    }
-  }
-
-  // Add the last section
-  if (current.length > 0) {
-    sections.push(current.join("\n").trim());
-  }
-
-  // Add preamble as first section if it exists
-  if (preambleContent.length > 0) {
-    sections.unshift(preambleContent.join("\n").trim());
-    sectionHeaders.unshift("Preamble");
-    hasPreamble = true;
-  }
-
-  return { sections, sectionHeaders, hasPreamble };
-}
-
 // =========================
 // Event Construction
 // =========================
 
-/**
- * Returns the current NDK instance from the store.
- */
-function getNdk() {
-  return get(ndkInstance);
-}
 
 /**
  * Builds a set of events for a 30040 publication: one 30040 index event and one 30041 event per section.
@@ -242,53 +214,92 @@ export function build30040EventSet(
   content: string,
   tags: [string, string][],
   baseEvent: Partial<NDKEvent> & { pubkey: string; created_at: number },
+  ndk: NDK,
 ): { indexEvent: NDKEvent; sectionEvents: NDKEvent[] } {
-  console.log("=== build30040EventSet called ===");
-  console.log("Input content:", content);
-  console.log("Input tags:", tags);
-  console.log("Input baseEvent:", baseEvent);
+  // Parse the AsciiDoc content with metadata extraction
+  const parsed = parseAsciiDocWithMetadata(content);
+  console.log("Parsed AsciiDoc:", parsed);
 
-  const ndk = getNdk();
-  console.log("NDK instance:", ndk);
+  // Check if this is an "index card" format (no sections, just title + "index card")
+  const lines = content.split(/\r?\n/);
+  const documentTitle = parsed.metadata.title;
 
-  const sectionsResult = splitAsciiDocSections(content);
-  const sections = sectionsResult.sections;
-  const sectionHeaders = sectionsResult.sectionHeaders;
-  console.log("Sections:", sections);
-  console.log("Section headers:", sectionHeaders);
+  // For index card format, the content should be exactly: title + "index card"
+  const nonEmptyLines = lines.filter((line) => line.trim() !== "").map((line) =>
+    line.trim()
+  );
+  const isIndexCardFormat = documentTitle &&
+    nonEmptyLines.length === 2 &&
+    nonEmptyLines[0].startsWith("=") &&
+    nonEmptyLines[1].toLowerCase() === "index card";
 
-  const dTags =
-    sectionHeaders.length === sections.length
-      ? sectionHeaders.map(normalizeDTagValue)
-      : sections.map((_, i) => `section${i}`);
-  console.log("D tags:", dTags);
+  if (isIndexCardFormat) {
+    console.log("Creating index card format (no sections)");
+    const indexDTag = normalizeDTagValue(documentTitle);
 
-  const sectionEvents: NDKEvent[] = sections.map((section, i) => {
-    const header = sectionHeaders[i] || `Section ${i + 1}`;
-    const dTag = dTags[i];
-    console.log(`Creating section ${i}:`, { header, dTag, content: section });
+    // Convert document metadata to tags
+    const metadataTags = metadataToTags(parsed.metadata);
+
+    const indexEvent: NDKEvent = new NDKEventClass(ndk, {
+      kind: 30040,
+      content: "",
+      tags: [
+        ...tags,
+        ...metadataTags,
+        ["d", indexDTag],
+        ["title", documentTitle],
+      ],
+      pubkey: baseEvent.pubkey,
+      created_at: baseEvent.created_at,
+    });
+
+    return { indexEvent, sectionEvents: [] };
+  }
+
+  // Generate the index d-tag first
+  const indexDTag = documentTitle ? normalizeDTagValue(documentTitle) : "index";
+  console.log("Index event:", { documentTitle, indexDTag });
+
+  // Create section events with their metadata
+  const sectionEvents: NDKEvent[] = parsed.sections.map((section: any, i: number) => {
+    const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
+    console.log(`Creating section ${i}:`, {
+      title: section.title,
+      dTag: sectionDTag,
+      content: section.content,
+      metadata: section.metadata,
+    });
+
+    // Convert section metadata to tags
+    const sectionMetadataTags = metadataToTags(section.metadata);
+
     return new NDKEventClass(ndk, {
       kind: 30041,
-      content: section,
-      tags: [...tags, ["d", dTag], ["title", header]],
+      content: section.content,
+      tags: [
+        ...tags,
+        ...sectionMetadataTags,
+        ["d", sectionDTag],
+        ["title", section.title],
+      ],
       pubkey: baseEvent.pubkey,
       created_at: baseEvent.created_at,
     });
   });
 
   // Create proper a tags with format: kind:pubkey:d-tag
-  const aTags = dTags.map(
-    (dTag) => ["a", `30041:${baseEvent.pubkey}:${dTag}`] as [string, string],
-  );
+  const aTags = sectionEvents.map((event) => {
+    const dTag = event.tags.find(([k]) => k === "d")?.[1];
+    return ["a", `30041:${baseEvent.pubkey}:${dTag}`] as [string, string];
+  });
   console.log("A tags:", aTags);
 
-  // Extract document title for the index event
-  const documentTitle = extractAsciiDocDocumentHeader(content);
-  const indexDTag = documentTitle ? normalizeDTagValue(documentTitle) : "index";
-  console.log("Index event:", { documentTitle, indexDTag });
+  // Convert document metadata to tags
+  const metadataTags = metadataToTags(parsed.metadata);
 
   const indexTags = [
     ...tags,
+    ...metadataTags,
     ["d", indexDTag],
     ["title", documentTitle || "Untitled"],
     ...aTags,
@@ -316,7 +327,8 @@ export function getTitleTagForEvent(
   content: string,
 ): string | null {
   if (kind === 30041 || kind === 30818) {
-    return extractAsciiDocDocumentHeader(content);
+    const { metadata } = extractDocumentMetadata(content);
+    return metadata.title || null;
   }
   if (kind === 30023) {
     return extractMarkdownTopHeader(content);
@@ -345,8 +357,8 @@ export function getDTagForEvent(
   }
 
   if (kind === 30041 || kind === 30818) {
-    const title = extractAsciiDocDocumentHeader(content);
-    return title ? normalizeDTagValue(title) : null;
+    const { metadata } = extractDocumentMetadata(content);
+    return metadata.title ? normalizeDTagValue(metadata.title) : null;
   }
 
   return null;
@@ -356,13 +368,59 @@ export function getDTagForEvent(
  * Returns a description of what a 30040 event structure should be.
  */
 export function get30040EventDescription(): string {
-  return `30040 events are publication indexes that contain:
-- Empty content (metadata only)
-- A d-tag for the publication identifier
-- A title tag for the publication title
-- A tags referencing 30041 content events (one per section)
+  return `30040 events are publication indexes that organize AsciiDoc content into structured publications.
 
-The content is split into sections, each published as a separate 30041 event.`;
+**Supported Structures:**
+
+1. **Normal Document** (with sections):
+   = Document Title
+   :author: Author Name
+   :summary: Document description
+   :keywords: tag1, tag2, tag3
+   
+   == Section 1
+   Section content here...
+   
+   == Section 2
+   More content...
+
+2. **Index Card** (empty publication):
+   = Publication Title
+   index card
+
+3. **Skeleton Document** (empty sections):
+   = Document Title
+   
+   == Empty Section 1
+   
+   == Empty Section 2
+
+4. **Preamble Document** (with preamble content):
+   = Document Title
+   :author: Author Name
+   :summary: Document description
+   :keywords: tag1, tag2, tag3
+
+   Preamble content here...
+
+   == Section 1
+   Section content here...
+
+**Metadata Extraction:**
+- Document title, authors, version, publication date, and publisher are extracted from header lines
+- Additional metadata (summary/description, keywords/tags, image, ISBN, etc.) are extracted from attributes
+- Multiple authors and summaries are preserved
+- All metadata is converted to appropriate Nostr event tags
+
+**Event Structure:**
+- 30040 index event: Empty content with metadata tags and a-tags referencing sections
+- 30041 section events: Individual section content with section-specific metadata
+
+**Special Features:**
+- Preamble content (between header and first section) is preserved
+- Multiple authors and descriptions are supported
+- Keywords and tags are automatically converted to Nostr t-tags
+- Index card format creates empty publications without sections`;
 }
 
 /**
@@ -422,16 +480,31 @@ export function analyze30040Event(event: {
 export function get30040FixGuidance(): string {
   return `To fix a 30040 event:
 
-1. **Content Issue**: 30040 events should have empty content. All content should be split into separate 30041 events.
+1. **Content Structure**: Ensure your AsciiDoc starts with a document title (= Title)
+   - Add at least one section (== Section) for normal documents
+   - Use "index card" format for empty publications
+   - Include metadata in header lines or attributes, 
+     or add them manually to the tag list
 
-2. **Structure**: A proper 30040 event should contain:
-   - Empty content
-   - d tag: publication identifier
-   - title tag: publication title
-   - a tags: references to 30041 content events (format: "30041:pubkey:d-tag")
+2. **Metadata**: Add relevant metadata to improve discoverability:
+   - Author: Use header line or :author: attribute
+   - Summary: Use :summary: or :description: attribute
+   - Keywords: Use :keywords: or :tags: attribute
+   - Version: Use revision line or :version: attribute
+   - Publication date: Use revision line or :published_on: attribute
 
-3. **Process**: When creating a 30040 event:
-   - Write your content with document title (= Title) and sections (== Section)
-   - The system will automatically split it into one 30040 index event and multiple 30041 content events
-   - The 30040 will have empty content and reference the 30041s via a tags`;
+3. **Event Structure**: The system will automatically create:
+   - 30040 index event: Empty content with metadata and a-tags
+   - 30041 section events: Individual section content with section metadata
+
+4. **Common Issues**:
+   - Missing document title: Start with "= Your Title"
+   - No sections: Add "== Section Name" or use "index card" format
+   - Invalid metadata: Use proper AsciiDoc attribute syntax (:key: value)
+
+5. **Best Practices**:
+   - Include descriptive titles and summaries
+   - Use keywords for better searchability
+   - Add author information when relevant
+   - Consider using preamble content for introductions`;
 }

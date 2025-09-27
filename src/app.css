@@ -2,7 +2,6 @@
 @import "./styles/scrollbar.css";
 @import "./styles/publications.css";
 @import "./styles/visualize.css";
-@import "./styles/events.css";
 @import "./styles/asciidoc.css";
 
 /* Custom styles */
@@ -28,7 +27,9 @@
   }
 
   div[role="tooltip"] button.btn-leather {
-    @apply hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-600 dark:hover:border-primary-400 hover:bg-gray-200 dark:hover:bg-gray-700;
+    @apply hover:text-primary-600 dark:hover:text-primary-400
+      hover:border-primary-600 dark:hover:border-primary-400 hover:bg-gray-200
+      dark:hover:bg-gray-700;
   }
 
   .image-border {
@@ -36,8 +37,10 @@
   }
 
   div.card-leather {
-    @apply shadow-none text-primary-1000 border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight
+      border-primary-200 has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800
+      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
   }
 
   div.card-leather h1,
@@ -46,11 +49,13 @@
   div.card-leather h4,
   div.card-leather h5,
   div.card-leather h6 {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
   }
 
   div.card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100 dark:hover:text-primary-300;
+    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
+      dark:hover:text-primary-300;
   }
 
   main {
@@ -74,7 +79,8 @@
   div.note-leather,
   p.note-leather,
   section.note-leather {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 p-2 rounded;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
+      p-2 rounded;
   }
 
   .edit div.note-leather:hover:not(:has(.note-leather:hover)),
@@ -117,7 +123,8 @@
   }
 
   div.modal-leather > div {
-    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100 dark:border-primary-600;
+    @apply bg-primary-0 dark:bg-primary-950 border-b-[1px] border-primary-100
+      dark:border-primary-600;
   }
 
   div.modal-leather > div > h1,
@@ -126,11 +133,14 @@
   div.modal-leather > div > h4,
   div.modal-leather > div > h5,
   div.modal-leather > div > h6 {
-    @apply text-gray-900 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100;
+    @apply text-gray-900 hover:text-gray-900 dark:text-gray-100
+      dark:hover:text-gray-100;
   }
 
   div.modal-leather button {
-    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950 dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply bg-primary-0 hover:bg-primary-0 dark:bg-primary-950
+      dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600
+      dark:text-gray-100 dark:hover:text-primary-400;
   }
 
   /* Navbar */
@@ -143,7 +153,8 @@
   }
 
   nav.navbar-leather svg {
-    @apply fill-gray-900 hover:fill-primary-600 dark:fill-gray-100 dark:hover:fill-primary-400;
+    @apply fill-gray-900 hover:fill-primary-600 dark:fill-gray-100
+      dark:hover:fill-primary-400;
   }
 
   nav.navbar-leather h1,
@@ -152,7 +163,8 @@
   nav.navbar-leather h4,
   nav.navbar-leather h5,
   nav.navbar-leather h6 {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
   }
 
   div.skeleton-leather div {
@@ -201,6 +213,20 @@
   .network-node-content {
     @apply fill-primary-100;
   }
+
+  /* Person link colors */
+  .person-link-signed {
+    @apply stroke-green-500;
+  }
+
+  .person-link-referenced {
+    @apply stroke-blue-400;
+  }
+
+  /* Person anchor node */
+  .person-anchor-node {
+    @apply fill-green-400 stroke-green-600;
+  }
 }
 
 /* Utilities can be applied via the @apply directive. */
@@ -233,14 +259,38 @@
     @apply text-base font-semibold;
   }
 
+  /* Line clamp utilities for text truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
   /* Lists */
   .ol-leather li a,
   .ul-leather li a {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
   }
 
   .link {
-    @apply underline cursor-pointer hover:text-primary-600 dark:hover:text-primary-400;
+    @apply underline cursor-pointer hover:text-primary-600
+      dark:hover:text-primary-400;
   }
 
   /* Card with transition */
@@ -254,11 +304,14 @@
   }
 
   .tags span {
-    @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-primary-900 dark:text-primary-200;
+    @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5
+      rounded-sm dark:bg-primary-900 dark:text-primary-200;
   }
 
   .npub-badge {
-    @apply inline-flex space-x-1 items-center text-primary-600 dark:text-primary-500 hover:underline me-2 px-2 py-0.5 rounded-sm border border-primary-600 dark:border-primary-500;
+    @apply inline-flex space-x-1 items-center text-primary-600
+      dark:text-primary-500 hover:underline me-2 px-2 py-0.5 rounded-sm border
+      border-primary-600 dark:border-primary-500;
 
     svg {
       @apply fill-primary-600 dark:fill-primary-500;
@@ -267,16 +320,29 @@
 }
 
 @layer components {
+  canvas.qr-code {
+    @apply block mx-auto my-4;
+  }
+
   /* Legend */
   .leather-legend {
-    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2 rounded;
-    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight border-primary-200 has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800 dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+    @apply relative m-4 sm:m-0 sm:absolute sm:top-1 sm:left-1 flex-shrink-0 p-2
+      rounded;
+    @apply shadow-none text-primary-1000 border border-s-4 bg-highlight
+      border-primary-200 has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800
+      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+    max-width: 450px;
+    min-width: 300px;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   /* Tooltip */
   .tooltip-leather {
-    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 transition-colors duration-200;
+    @apply fixed p-4 rounded shadow-lg bg-primary-0 dark:bg-primary-1000
+      text-gray-900 dark:text-gray-100 border border-gray-200
+      dark:border-gray-700 transition-colors duration-200;
     max-width: 400px;
     z-index: 1000;
   }
@@ -500,17 +566,26 @@
   input[type="tel"],
   input[type="url"],
   textarea {
-    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100 border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
+      border-s-4 border-primary-200 rounded shadow-none px-4 py-2;
     @apply focus:border-primary-600 dark:focus:border-primary-400;
   }
 
   /* Table of Contents highlighting */
   .toc-highlight {
-    @apply bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600 dark:border-primary-400 font-medium;
+    @apply bg-primary-200 dark:bg-primary-700 border-l-4 border-primary-600
+      dark:border-primary-400 font-medium;
     transition: all 0.2s ease-in-out;
   }
 
   .toc-highlight:hover {
     @apply bg-primary-300 dark:bg-primary-600;
+  }
+
+  /* Override prose first-line bold styling */
+  .prose p:first-line,
+  .prose-sm p:first-line,
+  .prose-invert p:first-line {
+    font-weight: normal !important;
   }
 }

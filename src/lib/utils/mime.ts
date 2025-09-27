@@ -104,7 +104,7 @@ export function getMimeTags(kind: number): [string, string][] {
       MTag = ["M", `article/long-form/${replaceability}`];
       break;
 
-    // Add more cases as needed...
+      // Add more cases as needed...
   }
 
   return [mTag, MTag];

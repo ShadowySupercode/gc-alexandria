@@ -5,11 +5,13 @@
   import { findContainingIndexEvents } from "$lib/utils/event_search";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
   import { naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
 
   let { event } = $props<{
     event: NDKEvent;
   }>();
+
+  const ndk = getNdkContext();
 
   let containingIndexes = $state<NDKEvent[]>([]);
   let loading = $state(false);
@@ -25,7 +27,7 @@
     error = null;
 
     try {
-      containingIndexes = await findContainingIndexEvents(event);
+      containingIndexes = await findContainingIndexEvents(event, ndk);
       console.log(
         "[ContainingIndexes] Found containing indexes:",
         containingIndexes.length,
@@ -47,12 +49,12 @@
   function navigateToIndex(indexEvent: NDKEvent) {
     const dTag = getMatchingTags(indexEvent, "d")[0]?.[1];
     if (dTag) {
-      goto(`/publication?d=${encodeURIComponent(dTag)}`);
+              goto(`/publication/d/${encodeURIComponent(dTag)}`);
     } else {
       // Fallback to naddr
       try {
         const naddr = naddrEncode(indexEvent, $activeInboxRelays);
-        goto(`/publication?id=${encodeURIComponent(naddr)}`);
+        goto(`/publication/naddr/${encodeURIComponent(naddr)}`);
       } catch (err) {
         console.error("[ContainingIndexes] Error creating naddr:", err);
       }

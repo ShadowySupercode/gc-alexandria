@@ -33,7 +33,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["bech32"],
+      // Removed bech32 from externals since it's needed on client side
     },
   },
   test: {
@@ -42,5 +42,24 @@ export default defineConfig({
   define: {
     // Expose the app version as a global variable
     "import.meta.env.APP_VERSION": JSON.stringify(getAppVersionString()),
+    // Enable debug logging for relays when needed
+    "process.env.DEBUG_RELAYS": JSON.stringify(
+      process.env.DEBUG_RELAYS || "false",
+    ),
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+      },
+    },
+  },
+  server: {
+    fs: {
+      allow: [".."],
+    },
+    hmr: {
+      overlay: false, // Disable HMR overlay to prevent ESM URL scheme errors
+    },
   },
 });

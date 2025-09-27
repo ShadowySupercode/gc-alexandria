@@ -1,14 +1,15 @@
 <script lang="ts">
   import { Button, Alert } from "flowbite-svelte";
   import {
-    ndkInstance,
     ndkSignedIn,
     testRelayConnection,
     checkWebSocketSupport,
     checkEnvironmentForWebSocketDowngrade,
   } from "$lib/ndk";
-  import { onMount } from "svelte";
-import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
+  import {  onMount } from "svelte";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+
+  const ndk = getNdkContext();
 
   interface RelayStatus {
     url: string;
@@ -30,7 +31,6 @@ import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   async function runRelayTests() {
     testing = true;
-    const ndk = $ndkInstance;
     if (!ndk) {
       testing = false;
       return;
@@ -136,7 +136,7 @@ import { activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
 
   <div class="space-y-2">
     {#each relayStatuses as status}
-      <div class="flex items-center justify-between p-3 border rounded-lg">
+      <div class="flex items-center justify-between p-3">
         <div class="flex-1">
           <div class="font-medium">{status.url}</div>
           <div class="text-sm {getStatusColor(status)}">

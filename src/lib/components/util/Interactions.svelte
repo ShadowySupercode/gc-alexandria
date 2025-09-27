@@ -8,14 +8,15 @@
   import ZapOutline from "$components/util/ZapOutline.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { onMount } from "svelte";
-  import { ndkInstance } from "$lib/ndk";
   import { publicationColumnVisibility } from "$lib/stores";
+  import { getNdkContext } from "$lib/ndk";
 
   const {
     rootId,
-    event,
     direction = "row",
   } = $props<{ rootId: string; event?: NDKEvent; direction?: string }>();
+
+  const ndk = getNdkContext();
 
   // Reactive arrays to hold incoming events
   let likes: NDKEvent[] = [];
@@ -38,7 +39,7 @@
    * Returns the subscription for later cleanup.
    */
   function subscribeCount(kind: number, targetArray: NDKEvent[]) {
-    const sub = $ndkInstance.subscribe({
+    const sub = ndk.subscribe({
       kinds: [kind],
       "#a": [rootId], // Will this work?
     });

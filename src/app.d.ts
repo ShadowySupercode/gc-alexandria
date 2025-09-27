@@ -13,6 +13,10 @@ declare global {
       publicationType?: string;
       indexEvent?: NDKEvent;
       url?: URL;
+      identifierInfo?: {
+        type: string;
+        identifier: string;
+      };
     }
     // interface Platform {}
   }
@@ -23,7 +27,9 @@ declare global {
   var MathJax: any;
 
   var nostr: NDKNip07Signer & {
-    getRelays: () => Promise<Record<string, Record<string, boolean | undefined>>>;
+    getRelays: () => Promise<
+      Record<string, Record<string, boolean | undefined>>
+    >;
     // deno-lint-ignore no-explicit-any
     signEvent: (event: any) => Promise<any>;
   };

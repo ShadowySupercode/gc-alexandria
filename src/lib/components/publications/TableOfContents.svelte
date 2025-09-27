@@ -12,14 +12,13 @@
   import Self from "./TableOfContents.svelte";
   import { onMount, onDestroy } from "svelte";
 
-  let { depth, onSectionFocused, onLoadMore } = $props<{
+  let { depth, onSectionFocused, onLoadMore, toc } = $props<{
     rootAddress: string;
     depth: number;
+    toc: TableOfContents;
     onSectionFocused?: (address: string) => void;
     onLoadMore?: () => void;
   }>();
-
-  let toc = getContext("toc") as TableOfContents;
 
   let entries = $derived.by<TocEntry[]>(() => {
     const newEntries = [];
@@ -175,7 +174,7 @@
         btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} {isLastEntry ? 'pb-4' : ''}"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self rootAddress={address} depth={childDepth} {onSectionFocused} {onLoadMore} />
+        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

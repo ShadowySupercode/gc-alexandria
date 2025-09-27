@@ -6,25 +6,19 @@
  */
 
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import type { NetworkNode, GraphData, GraphState } from "../types.ts";
+import type { GraphData, GraphState, NetworkLink, NetworkNode } from "../types";
 import { nip19 } from "nostr-tools";
-import { activeInboxRelays, activeOutboxRelays } from "../../../ndk.ts";
-import { getMatchingTags } from "../../../utils/nostrUtils.ts";
-import { get } from "svelte/store";
+import { communityRelays } from "$lib/consts";
+import { getMatchingTags } from "$lib/utils/nostrUtils";
+import { getDisplayNameSync } from "$lib/utils/npubCache";
+import { createDebugFunction } from "./common";
 
 // Configuration
-const DEBUG = false; // Set to true to enable debug logging
 const INDEX_EVENT_KIND = 30040;
 const CONTENT_EVENT_KIND = 30041;
 
-/**
- * Debug logging function that only logs when DEBUG is true
- */
-function debug(...args: unknown[]) {
-  if (DEBUG) {
-    console.log("[NetworkBuilder]", ...args);
-  }
-}
+// Debug function
+const debug = createDebugFunction("NetworkBuilder");
 
 /**
  * Creates a NetworkNode from an NDKEvent
@@ -47,7 +41,11 @@ export function createNetworkNode(
   });
 
   const isContainer = event.kind === INDEX_EVENT_KIND;
-  const nodeType = isContainer ? "Index" : "Content";
+  const nodeType = isContainer
+    ? "Index"
+    : event.kind === CONTENT_EVENT_KIND || event.kind === 30818
+    ? "Content"
+    : `Kind ${event.kind}`;
 
   // Create the base node with essential properties
   const node: NetworkNode = {
@@ -57,9 +55,9 @@ export function createNetworkNode(
     level,
     title: event.getMatchingTags("title")?.[0]?.[1] || "Untitled",
     content: event.content || "",
-    author: event.pubkey || "",
-    kind: event.kind || CONTENT_EVENT_KIND, // Default to content event kind if undefined
-    type: nodeType,
+    author: event.pubkey ? getDisplayNameSync(event.pubkey) : "",
+    kind: event.kind !== undefined ? event.kind : CONTENT_EVENT_KIND, // Default to content event kind only if truly undefined
+    type: nodeType as "Index" | "Content" | "TagAnchor",
   };
 
   // Add NIP-19 identifiers if possible
@@ -72,13 +70,13 @@ export function createNetworkNode(
         pubkey: event.pubkey,
         identifier: dTag,
         kind: event.kind,
-        relays: [...get(activeInboxRelays), ...get(activeOutboxRelays)],
+        relays: communityRelays,
       });
 
       // Create nevent (NIP-19 event reference) for the event
       node.nevent = nip19.neventEncode({
         id: event.id,
-        relays: [...get(activeInboxRelays), ...get(activeOutboxRelays)],
+        relays: communityRelays,
         kind: event.kind,
       });
     } catch (error) {
@@ -164,24 +162,13 @@ export function initializeGraphState(events: NDKEvent[]): GraphState {
   // Build set of referenced event IDs to identify root events
   const referencedIds = new Set<string>();
   events.forEach((event) => {
-    // Handle both "a" tags (NIP-62) and "e" tags (legacy)
-    let tags = getMatchingTags(event, "a");
-    if (tags.length === 0) {
-      tags = getMatchingTags(event, "e");
-    }
-
-    debug("Processing tags for event", {
+    const aTags = getMatchingTags(event, "a");
+    debug("Processing a-tags for event", {
       eventId: event.id,
-      tagCount: tags.length,
-      tagType:
-        tags.length > 0
-          ? getMatchingTags(event, "a").length > 0
-            ? "a"
-            : "e"
-          : "none",
+      aTagCount: aTags.length,
     });
 
-    tags.forEach((tag) => {
+    aTags.forEach((tag) => {
       const id = extractEventIdFromATag(tag);
       if (id) referencedIds.add(id);
     });
@@ -296,13 +283,7 @@ export function processIndexEvent(
   if (level >= maxLevel) return;
 
   // Extract the sequence of nodes referenced by this index
-  // Handle both "a" tags (NIP-62) and "e" tags (legacy)
-  let tags = getMatchingTags(indexEvent, "a");
-  if (tags.length === 0) {
-    tags = getMatchingTags(indexEvent, "e");
-  }
-
-  const sequence = tags
+  const sequence = getMatchingTags(indexEvent, "a")
     .map((tag) => extractEventIdFromATag(tag))
     .filter((id): id is string => id !== null)
     .map((id) => state.nodeMap.get(id))
@@ -320,30 +301,40 @@ export function processIndexEvent(
  * @param maxLevel - Maximum hierarchy level to process
  * @returns Complete graph data for visualization
  */
-export function generateGraph(events: NDKEvent[], maxLevel: number): GraphData {
+export function generateGraph(
+  events: NDKEvent[],
+  maxLevel: number,
+): GraphData {
   debug("Generating graph", { eventCount: events.length, maxLevel });
 
   // Initialize the graph state
   const state = initializeGraphState(events);
 
-  // Find root index events (those not referenced by other events)
-  const rootIndices = events.filter(
+  // Find root events (index events not referenced by others, and all non-publication events)
+  const publicationKinds = [30040, 30041, 30818];
+  const rootEvents = events.filter(
     (e) =>
-      e.kind === INDEX_EVENT_KIND && e.id && !state.referencedIds.has(e.id),
+      e.id && (
+        // Index events not referenced by others
+        (e.kind === INDEX_EVENT_KIND && !state.referencedIds.has(e.id)) ||
+        // All non-publication events are treated as roots
+        (e.kind !== undefined && !publicationKinds.includes(e.kind))
+      ),
   );
 
-  debug("Found root indices", {
-    rootCount: rootIndices.length,
-    rootIds: rootIndices.map((e) => e.id),
+  debug("Found root events", {
+    rootCount: rootEvents.length,
+    rootIds: rootEvents.map((e) => e.id),
   });
 
-  // Process each root index
-  rootIndices.forEach((rootIndex) => {
-    debug("Processing root index", {
-      rootId: rootIndex.id,
-      aTags: getMatchingTags(rootIndex, "a").length,
+  // Process each root event
+  rootEvents.forEach((rootEvent) => {
+    debug("Processing root event", {
+      rootId: rootEvent.id,
+      kind: rootEvent.kind,
+      aTags: getMatchingTags(rootEvent, "a").length,
     });
-    processIndexEvent(rootIndex, 0, state, maxLevel);
+    processIndexEvent(rootEvent, 0, state, maxLevel);
   });
 
   // Create the final graph data

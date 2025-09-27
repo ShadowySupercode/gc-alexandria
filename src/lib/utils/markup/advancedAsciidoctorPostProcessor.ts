@@ -32,9 +32,11 @@ export async function postProcessAdvancedAsciidoctorHtml(
     }
     if (
       typeof globalThis !== "undefined" &&
-      typeof globalThis.MathJax?.typesetPromise === "function"
+      // deno-lint-ignore no-explicit-any
+      typeof (globalThis as any).MathJax?.typesetPromise === "function"
     ) {
-      setTimeout(() => globalThis.MathJax.typesetPromise(), 0);
+      // deno-lint-ignore no-explicit-any
+      setTimeout(() => (globalThis as any).MathJax.typesetPromise(), 0);
     }
     return processedHtml;
   } catch (error) {
@@ -186,7 +188,8 @@ function processPlantUMLBlocks(html: string): string {
         try {
           const rawContent = decodeHTMLEntities(content);
           const encoded = plantumlEncoder.encode(rawContent);
-          const plantUMLUrl = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+          const plantUMLUrl =
+            `https://www.plantuml.com/plantuml/svg/${encoded}`;
           return `<div class="plantuml-block my-4">
             <img src="${plantUMLUrl}" alt="PlantUML diagram" 
                  class="plantuml-diagram max-w-full h-auto rounded-lg shadow-lg" 

@@ -1,14 +1,37 @@
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { getMatchingTags } from "./utils/nostrUtils.ts";
+import type { AddressPointer, EventPointer } from "nostr-tools/nip19";
+import type { NostrEvent } from "./utils/websocket_utils.ts";
+
+export class DecodeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DecodeError";
+  }
+}
+
+export class InvalidKindError extends DecodeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidKindError";
+  }
+}
 
 export function neventEncode(event: NDKEvent, relays: string[]) {
-  return nip19.neventEncode({
-    id: event.id,
-    kind: event.kind,
-    relays,
-    author: event.pubkey,
-  });
+  try {
+    const nevent = nip19.neventEncode({
+      id: event.id,
+      kind: event.kind,
+      relays,
+      author: event.pubkey,
+    });
+
+    return nevent;
+  } catch (error) {
+    console.error(`[neventEncode] Error encoding nevent:`, error);
+    throw error;
+  }
 }
 
 export function naddrEncode(event: NDKEvent, relays: string[]) {
@@ -25,8 +48,69 @@ export function naddrEncode(event: NDKEvent, relays: string[]) {
   });
 }
 
+/**
+ * Creates a tag address from a raw Nostr event (for compatibility with NDK events)
+ * @param event The raw Nostr event
+ * @param relays Optional relay list for the address
+ * @returns A tag address string
+ */
+export function createTagAddress(
+  event: NostrEvent,
+  relays: string[] = [],
+): string {
+  const dTag = event.tags.find((tag: string[]) => tag[0] === "d")?.[1];
+  if (!dTag) {
+    throw new Error("Event does not have a d tag");
+  }
+
+  return nip19.naddrEncode({
+    identifier: dTag,
+    pubkey: event.pubkey,
+    kind: event.kind,
+    relays,
+  });
+}
+
 export function nprofileEncode(pubkey: string, relays: string[]) {
   return nip19.nprofileEncode({ pubkey, relays });
+}
+
+/**
+ * Decodes a nostr identifier (naddr, nevent) and returns the decoded data.
+ * @param identifier The nostr identifier to decode.
+ * @param expectedType The expected type of the decoded data ('naddr' or 'nevent').
+ * @returns The decoded data.
+ */
+function decodeNostrIdentifier<T extends AddressPointer | EventPointer>(
+  identifier: string,
+  expectedType: "naddr" | "nevent",
+): T {
+  try {
+    if (!identifier.startsWith(expectedType)) {
+      throw new InvalidKindError(`Invalid ${expectedType} format`);
+    }
+    const decoded = nip19.decode(identifier);
+    if (decoded.type !== expectedType) {
+      throw new InvalidKindError(`Decoded result is not an ${expectedType}`);
+    }
+    return decoded.data as T;
+  } catch (error) {
+    throw new DecodeError(`Failed to decode ${expectedType}: ${error}`);
+  }
+}
+
+/**
+ * Decodes an naddr identifier and returns the decoded data
+ */
+export function naddrDecode(naddr: string): AddressPointer {
+  return decodeNostrIdentifier<AddressPointer>(naddr, "naddr");
+}
+
+/**
+ * Decodes an nevent identifier and returns the decoded data
+ */
+export function neventDecode(nevent: string): EventPointer {
+  return decodeNostrIdentifier<EventPointer>(nevent, "nevent");
 }
 
 export function formatDate(unixtimestamp: number) {
@@ -63,10 +147,9 @@ export function next(): number {
 
 export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
   function scrollTab() {
-    const element =
-      typeof el === "string"
-        ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-        : el;
+    const element = typeof el === "string"
+      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+      : el;
     if (!element) return;
 
     element.scrollIntoView({
@@ -85,10 +168,9 @@ export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
 }
 
 export function isElementInViewport(el: string | HTMLElement) {
-  const element =
-    typeof el === "string"
-      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-      : el;
+  const element = typeof el === "string"
+    ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+    : el;
   if (!element) return;
 
   const rect = element.getBoundingClientRect();
@@ -98,7 +180,8 @@ export function isElementInViewport(el: string | HTMLElement) {
     rect.left >= 0 &&
     rect.bottom <=
       (globalThis.innerHeight || document.documentElement.clientHeight) &&
-    rect.right <= (globalThis.innerWidth || document.documentElement.clientWidth)
+    rect.right <=
+      (globalThis.innerWidth || document.documentElement.clientWidth)
   );
 }
 
@@ -169,7 +252,8 @@ Array.prototype.findIndexAsync = function <T>(
  * @param wait The number of milliseconds to delay
  * @returns A debounced version of the function
  */
-export function debounce<T extends (...args: unknown[]) => unknown>(
+// deno-lint-ignore no-explicit-any
+export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
 ): (...args: Parameters<T>) => void {
@@ -179,6 +263,32 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     const later = () => {
       timeout = undefined;
       func(...args);
+    };
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Creates a debounced async function that delays invoking func until after wait milliseconds have elapsed
+ * since the last time the debounced function was invoked.
+ * @param func The async function to debounce
+ * @param wait The number of milliseconds to delay
+ * @returns A debounced version of the async function
+ */
+export function debounceAsync(
+  func: (query: string) => Promise<void>,
+  wait: number,
+): (query: string) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return function executedFunction(query: string) {
+    const later = () => {
+      timeout = undefined;
+      func(query);
     };
 
     if (timeout) {

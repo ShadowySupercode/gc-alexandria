@@ -1,3 +1,4 @@
+import { WebSocketPool } from "../data_structures/websocket_pool.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { TIMEOUTS } from "./search_constants.ts";
 import { get } from "svelte/store";
@@ -13,69 +14,33 @@ export interface RelayDiagnostic {
 /**
  * Tests connection to a single relay
  */
-export function testRelay(url: string): Promise<RelayDiagnostic> {
+export async function testRelay(url: string): Promise<RelayDiagnostic> {
   const startTime = Date.now();
+  const ws = await WebSocketPool.instance.acquire(url);
 
   return new Promise((resolve) => {
-    const ws = new WebSocket(url);
-    let resolved = false;
-
     const timeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        ws.close();
-        resolve({
-          url,
-          connected: false,
-          requiresAuth: false,
-          error: "Connection timeout",
-          responseTime: Date.now() - startTime,
-        });
-      }
+      WebSocketPool.instance.release(ws);
+      resolve({
+        url,
+        connected: false,
+        requiresAuth: false,
+        error: "Connection timeout",
+        responseTime: Date.now() - startTime,
+      });
     }, TIMEOUTS.RELAY_DIAGNOSTICS);
-
-    ws.onopen = () => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        ws.close();
-        resolve({
-          url,
-          connected: true,
-          requiresAuth: false,
-          responseTime: Date.now() - startTime,
-        });
-      }
-    };
-
-    ws.onerror = () => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        resolve({
-          url,
-          connected: false,
-          requiresAuth: false,
-          error: "WebSocket error",
-          responseTime: Date.now() - startTime,
-        });
-      }
-    };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data[0] === "NOTICE" && data[1]?.includes("auth-required")) {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeout);
-          ws.close();
-          resolve({
-            url,
-            connected: true,
-            requiresAuth: true,
-            responseTime: Date.now() - startTime,
-          });
-        }
+        clearTimeout(timeout);
+        WebSocketPool.instance.release(ws);
+        resolve({
+          url,
+          connected: true,
+          requiresAuth: true,
+          responseTime: Date.now() - startTime,
+        });
       }
     };
   });
@@ -127,7 +92,9 @@ export function logRelayDiagnostics(diagnostics: RelayDiagnostic[]): void {
   console.log(`✅ Working relays (${working.length}):`);
   working.forEach((d) => {
     console.log(
-      `  - ${d.url}${d.requiresAuth ? " (requires auth)" : ""}${d.responseTime ? ` (${d.responseTime}ms)` : ""}`,
+      `  - ${d.url}${d.requiresAuth ? " (requires auth)" : ""}${
+        d.responseTime ? ` (${d.responseTime}ms)` : ""
+      }`,
     );
   });
 

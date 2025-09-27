@@ -1,8 +1,14 @@
 import { writable } from "svelte/store";
-import { detectNetworkCondition, NetworkCondition, startNetworkMonitoring } from '../utils/network_detection.ts';
+import {
+  detectNetworkCondition,
+  NetworkCondition,
+  startNetworkMonitoring,
+} from "../utils/network_detection.ts";
 
 // Network status store
-export const networkCondition = writable<NetworkCondition>(NetworkCondition.ONLINE);
+export const networkCondition = writable<NetworkCondition>(
+  NetworkCondition.ONLINE,
+);
 export const isNetworkChecking = writable<boolean>(false);
 
 // Network monitoring state
@@ -16,14 +22,16 @@ export function startNetworkStatusMonitoring(): void {
     return; // Already monitoring
   }
 
-  console.debug('[networkStore.ts] Starting network status monitoring');
-  
+  console.debug("[networkStore.ts] Starting network status monitoring");
+
   stopNetworkMonitoring = startNetworkMonitoring(
     (condition: NetworkCondition) => {
-      console.debug(`[networkStore.ts] Network condition changed to: ${condition}`);
+      console.debug(
+        `[networkStore.ts] Network condition changed to: ${condition}`,
+      );
       networkCondition.set(condition);
     },
-    60000 // Check every 60 seconds to reduce spam
+    60000, // Check every 60 seconds to reduce spam
   );
 }
 
@@ -32,7 +40,7 @@ export function startNetworkStatusMonitoring(): void {
  */
 export function stopNetworkStatusMonitoring(): void {
   if (stopNetworkMonitoring) {
-    console.debug('[networkStore.ts] Stopping network status monitoring');
+    console.debug("[networkStore.ts] Stopping network status monitoring");
     stopNetworkMonitoring();
     stopNetworkMonitoring = null;
   }
@@ -47,9 +55,9 @@ export async function checkNetworkStatus(): Promise<void> {
     const condition = await detectNetworkCondition();
     networkCondition.set(condition);
   } catch (error) {
-    console.warn('[networkStore.ts] Failed to check network status:', error);
+    console.warn("[networkStore.ts] Failed to check network status:", error);
     networkCondition.set(NetworkCondition.OFFLINE);
   } finally {
     isNetworkChecking.set(false);
   }
-} 
+}

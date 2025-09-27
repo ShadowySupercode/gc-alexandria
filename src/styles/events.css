@@ -1,5 +1,0 @@
-@layer components {
-  canvas.qr-code {
-    @apply block mx-auto my-4;
-  }
-}

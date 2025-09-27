@@ -9,15 +9,17 @@ You are senior full-stack software engineer with 20 years of experience writing 
 
 ## Project Overview
 
-Alexandria is a Nostr project written in Svelte 5 and SvelteKit 2.  It is a web app for reading, commenting on, and publishing books, blogs, and other long-form content stored on Nostr relays.  It revolves around breaking long AsciiDoc documents into Nostr events, with each event containing a paragraph or so of text from the document.  These individual content events are organized by index events into publications.  An index contains an ordered list of references to other index events or content events, forming a tree.
-
-### Reader Features
-
-In reader mode, Alexandria loads a document tree from a root publication index event.  The AsciiDoc text content of the various content events, along with headers specified by tags in the index events, is composed and rendered as a single document from the user's point of view.
+Alexandria is a Nostr project written in Svelte 5 and SvelteKit 2.  It is a web app for reading, commenting on, and publishing books, blogs, and other long-form content stored on Nostr relays.
 
 ### Tech Stack
 
 Svelte components in Alexandria use TypeScript exclusively over plain JavaScript.  Styles are defined via Tailwind 4 utility classes, and some custom utility classes are defined in [app.css](mdc:src/app.css).  The app runs on Deno, but maintains compatibility with Node.js.
+
+### Utilities
+
+The project contains a number of modules that define utility classes and functions to support the app's operations.  Make use of these utilities when they are relevant to reduce code duplication and maintain common patterns:
+
+- Use the `WebSocketPool` class defined in [websocket_pool.ts](../src/lib/data_structures/websocket_pool.ts) when handling raw WebSockets to efficiently manage connections.
 
 ## General Guidelines
 
@@ -30,14 +32,33 @@ When responding to prompts, adhere to the following rules:
 - Avoid proposing code edits unless I specifically tell you to do so.
 - When giving examples from my codebase, include the file name and line numbers so I can find the relevant code easily.
 
-## Code Style
+## Coding Guidelines
 
-Observe the following style guidelines when writing code:
+### Prime Directive
+
+NEVER assume developer intent. If you are unsure about something, ALWAYS stop and ask the developer for clarification before proceeding.
+
+### AI Anchor Comments
+
+- Use anchor comments prefixed with `AI-NOTE:`, `AI-TODO:`, or `AI-QUESTION:` to share context between AI agents and developers across time.
+ - Use all-caps prefixes.
+ - Also _read_ (but do not write) variants of this format that begin with `AI-<date>:` where `<date>` is some date in `MM/DD/YYYY` format. Anchor comments with this format are used by developers to record context.
+- **Important:** Before scanning files, ALWAYS search first for `AI-` anchor comments in relevant subdirectories.
+- ALWAYS update relevant anchor comments when modifying associated code.
+- NEVER remove `AI-` comments unless the developer explicitly instructs it.
+- Add new anchor comments as relevant when:
+ - Code is unusually complex.
+ - Code is critical to security, performance, or functionality.
+ - Code is confusing.
+ - Code could have a bug.
 
 ### General Guidance
 
+- Before writing any code, ALWAYS search the codebase for relevant anchor comments.
+- Whenever updating code, ALWAYS update relevant anchor comments.
+- Prefer to use Deno to manage dependencies, build the project, and run tests.
 - Use snake_case names for plain TypeScript files.
-- Use comments sparingly; code should be self-documenting.
+- Use comments sparingly; aim to make code readable and self-documenting.
 
 ### JavaScript/TypeScript
 
@@ -49,7 +70,7 @@ Observe the following style guidelines when writing code:
 - Use blocks enclosed by curly brackets when writing control flow expressions such as `for` and `while` loops, and `if` and `switch` statements.
 - Begin `case` expressions in a `switch` statement at the same indentation level as the `switch` itself.  Indent code within a `case` block.
 - Limit line length to 100 characters; break statements across lines if necessary.
-- Default to single quotes.
+- Default to double quotes.
 
 ### HTML
 
@@ -57,5 +78,3 @@ Observe the following style guidelines when writing code:
 - Break long tags across multiple lines.
 - Use Tailwind 4 utility classes for styling.
 - Default to single quotes.
-
-
