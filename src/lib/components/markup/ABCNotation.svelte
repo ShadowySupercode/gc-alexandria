@@ -176,9 +176,11 @@
     </div>
   {/if}
 
+  <div bind:this={paperDiv} class="abc-notation-paper" class:hidden={isLoading || error}></div>
+
   <!-- AI-NOTE: Phase 2 - Audio controls -->
   {#if showControls && !isLoading && !error}
-    <div class="flex items-center justify-center mb-4">
+    <div class="flex items-center justify-center mt-4">
       <button
         onclick={togglePlayback}
         disabled={isAudioLoading}
@@ -210,8 +212,6 @@
       </button>
     </div>
   {/if}
-
-  <div bind:this={paperDiv} class="abc-notation-paper" class:hidden={isLoading || error}></div>
 </div>
 
 <style>
