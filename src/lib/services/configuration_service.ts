@@ -9,16 +9,25 @@
 
 export { getRelayConfig };
 
-type RelayConfigKey = "serverAllowList";
+type RelayConfigKey =
+  | "serverAllowList"
+  | "trustLevels"
+  | "vendorScores";
 
-type RelayConfigValue = string | string[] | number | number[];
+type RelayConfigValue = string[] | Record<string, number>;
 
 interface ServerConfig {
   allowList: string[];
 }
 
+interface WeightsConfig {
+  trustLevel: Record<string, number>;
+  vendorScore: Record<string, number>;
+}
+
 interface RelayConfiguration {
   server: ServerConfig;
+  weights: WeightsConfig;
 }
 
 function getConfigPath(): string {
@@ -58,10 +67,14 @@ async function loadConfig(): Promise<RelayConfiguration> {
 function extractConfigValue(
   config: RelayConfiguration,
   key: RelayConfigKey,
-): string[] {
+): RelayConfigValue {
   switch (key) {
     case "serverAllowList":
       return config.server.allowList;
+    case "trustLevels":
+      return config.weights.trustLevel;
+    case "vendorScores":
+      return config.weights.vendorScore;
     default:
       throw new Error(`Unknown configuration key: ${key}`);
   }
