@@ -1083,9 +1083,9 @@
                                 // Create a complete AsciiDoc document structure
                                 // Important: Ensure proper level sequence for nested headers
                                 const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${section.content}`;
-                                
-                                
-                                const rendered = asciidoctor.convert(fullDoc, {
+
+
+                                let rendered = asciidoctor.convert(fullDoc, {
                                   extension_registry: advancedExtensions,
                                   standalone: false,
                                   attributes: {
@@ -1093,8 +1093,8 @@
                                     sectids: false,
                                   },
                                 });
-                                
-                                
+
+
                                 // Extract just the content we want (remove the temporary structure)
                                 // Find the section we care about
                                 const sectionStart = rendered.indexOf(`<h${section.level}`);
@@ -1107,6 +1107,42 @@
                                     const sectionEnd = afterHeader.lastIndexOf('</div>');
                                     if (sectionEnd !== -1) {
                                       const extracted = afterHeader.substring(0, sectionEnd);
+
+                                      // Post-process for ABC notation blocks in nested content too
+                                      if (section.content.includes('[abc]') || section.content.includes('[source,abc]')) {
+                                        console.log('[ZettelEditor] Detected ABC block(s) in nested headers, processing...');
+
+                                        // Replace all listingblocks that contain ABC notation
+                                        const processedExtracted = extracted.replace(/<div class="listingblock">[\s\S]*?<pre[^>]*>([\s\S]*?)<\/pre>[\s\S]*?<\/div>/g, (match, preContent) => {
+                                          // Check if this is likely ABC notation (contains X: and K: headers)
+                                          if (preContent.includes('X:') && preContent.includes('K:')) {
+                                            const abcContent = preContent
+                                              .replace(/&amp;/g, '&')
+                                              .replace(/&lt;/g, '<')
+                                              .replace(/&gt;/g, '>')
+                                              .replace(/&quot;/g, '"')
+                                              .replace(/&#039;/g, "'");
+
+                                            const escaped = abcContent
+                                              .replace(/&/g, '&amp;')
+                                              .replace(/</g, '&lt;')
+                                              .replace(/>/g, '&gt;')
+                                              .replace(/"/g, '&quot;')
+                                              .replace(/'/g, '&#039;');
+
+                                            console.log('[ZettelEditor] Converted ABC block in nested headers');
+                                            return `<div class="abc-notation-container" data-abc="${escaped}">
+  <div class="abc-notation-placeholder">
+    <p class="text-gray-600 dark:text-gray-400">Loading ABC notation...</p>
+  </div>
+</div>`;
+                                          }
+                                          return match; // Not ABC, keep original
+                                        });
+
+                                        return processedExtracted;
+                                      }
+
                                       return extracted;
                                     }
                                   }
@@ -1124,33 +1160,39 @@
                                   },
                                 });
 
-                                // Post-process to detect ABC notation blocks
-                                // Check if the original content started with [abc]
-                                if (section.content.trim().startsWith('[abc]')) {
-                                  // Extract the ABC content from the listingblock
-                                  const match = rendered.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
-                                  if (match) {
-                                    const abcContent = match[1]
-                                      .replace(/&amp;/g, '&')
-                                      .replace(/&lt;/g, '<')
-                                      .replace(/&gt;/g, '>')
-                                      .replace(/&quot;/g, '"')
-                                      .replace(/&#039;/g, "'");
+                                // Post-process to detect and replace ABC notation blocks
+                                // Check if the content contains [abc] or [source,abc] blocks
+                                if (section.content.includes('[abc]') || section.content.includes('[source,abc]')) {
+                                  console.log('[ZettelEditor] Detected ABC block(s) in content, processing...');
 
-                                    const escaped = abcContent
-                                      .replace(/&/g, '&amp;')
-                                      .replace(/</g, '&lt;')
-                                      .replace(/>/g, '&gt;')
-                                      .replace(/"/g, '&quot;')
-                                      .replace(/'/g, '&#039;');
+                                  // Replace all listingblocks that contain ABC notation
+                                  // Match listingblock divs containing pre tags
+                                  rendered = rendered.replace(/<div class="listingblock">[\s\S]*?<pre[^>]*>([\s\S]*?)<\/pre>[\s\S]*?<\/div>/g, (match, preContent) => {
+                                    // Check if this is likely ABC notation (contains X: and K: headers)
+                                    if (preContent.includes('X:') && preContent.includes('K:')) {
+                                      const abcContent = preContent
+                                        .replace(/&amp;/g, '&')
+                                        .replace(/&lt;/g, '<')
+                                        .replace(/&gt;/g, '>')
+                                        .replace(/&quot;/g, '"')
+                                        .replace(/&#039;/g, "'");
 
-                                    rendered = `<div class="abc-notation-container" data-abc="${escaped}">
+                                      const escaped = abcContent
+                                        .replace(/&/g, '&amp;')
+                                        .replace(/</g, '&lt;')
+                                        .replace(/>/g, '&gt;')
+                                        .replace(/"/g, '&quot;')
+                                        .replace(/'/g, '&#039;');
+
+                                      console.log('[ZettelEditor] Converted ABC block to container');
+                                      return `<div class="abc-notation-container" data-abc="${escaped}">
   <div class="abc-notation-placeholder">
     <p class="text-gray-600 dark:text-gray-400">Loading ABC notation...</p>
   </div>
 </div>`;
-                                    console.log('[ZettelEditor] Converted ABC block to container');
-                                  }
+                                    }
+                                    return match; // Not ABC, keep original
+                                  });
                                 }
 
                                 console.log('[ZettelEditor] Rendered section content:', rendered.substring(0, 200));
