@@ -421,7 +421,7 @@ async function processABCNotationBlocks(): Promise<void> {
             target: container as HTMLElement,
             props: {
               abc: unescapedAbc,
-              showControls: false,  // Phase 1: no audio controls yet
+              showControls: true,  // Phase 2: audio playback enabled
               responsive: true,
               scale: 1.0
             }
