@@ -12,6 +12,7 @@
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
+  import { createAdvancedExtensions } from "$lib/utils/markup/asciidoctorExtensions";
   import NDK from "@nostr-dev-kit/ndk";
 
   let {
@@ -62,8 +63,12 @@
     if (event?.kind === 30023) {
       return await parseAdvancedmarkup(content);
     } else {
-      // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
-      const converted = asciidoctor.convert(content);
+      // For 30041 and 30818 events, use Asciidoctor (AsciiDoc) with advanced extensions
+      // AI-NOTE: Advanced extensions include PlantUML, TikZ, and ABC music notation
+      const extensions = createAdvancedExtensions();
+      const converted = asciidoctor.convert(content, {
+        extension_registry: extensions
+      });
       const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString(), ndk);
       return processed;
     }

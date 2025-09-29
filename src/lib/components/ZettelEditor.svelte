@@ -23,9 +23,12 @@
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
   import Asciidoctor from "asciidoctor";
+  import { createAdvancedExtensions } from "$lib/utils/markup/asciidoctorExtensions";
+  import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
 
-  // Initialize Asciidoctor processor
+  // Initialize Asciidoctor processor with advanced extensions
   const asciidoctor = Asciidoctor();
+  const advancedExtensions = createAdvancedExtensions();
 
   // Component props
   let {
@@ -72,6 +75,19 @@
       editorView.dispatch({
         effects: updateHighlighting.of(parsedSections || []),
       });
+    }
+  });
+
+  // Effect to post-process preview content for ABC notation and other advanced features
+  $effect(() => {
+    if (showPreview && parsedSections.length > 0) {
+      // Wait for DOM to update, then post-process
+      setTimeout(async () => {
+        console.log('[ZettelEditor] Running post-processor for ABC notation');
+        const containers = document.querySelectorAll('.abc-notation-container');
+        console.log('[ZettelEditor] Found ABC containers:', containers.length);
+        await postProcessAdvancedAsciidoctorHtml("", ndk);
+      }, 100);
     }
   });
 
@@ -959,6 +975,7 @@
                   >
                     <div class="asciidoc-content">
                       {@html asciidoctor.convert(documentHeader, {
+                        extension_registry: advancedExtensions,
                         standalone: false,
                         attributes: {
                           showtitle: true,
@@ -1029,6 +1046,7 @@
                           {@html asciidoctor.convert(
                             `${"=".repeat(section.level)} ${section.title}`,
                             {
+                              extension_registry: advancedExtensions,
                               standalone: false,
                               attributes: {
                                 showtitle: false,
@@ -1068,6 +1086,7 @@
                                 
                                 
                                 const rendered = asciidoctor.convert(fullDoc, {
+                                  extension_registry: advancedExtensions,
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
@@ -1095,13 +1114,47 @@
                                 return rendered;
                               } else {
                                 // Simple content without nested headers
-                                return asciidoctor.convert(section.content, {
+                                console.log('[ZettelEditor] Section content before conversion:', section.content.substring(0, 200));
+                                let rendered = asciidoctor.convert(section.content, {
+                                  extension_registry: advancedExtensions,
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
                                     sectids: false,
                                   },
                                 });
+
+                                // Post-process to detect ABC notation blocks
+                                // Check if the original content started with [abc]
+                                if (section.content.trim().startsWith('[abc]')) {
+                                  // Extract the ABC content from the listingblock
+                                  const match = rendered.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
+                                  if (match) {
+                                    const abcContent = match[1]
+                                      .replace(/&amp;/g, '&')
+                                      .replace(/&lt;/g, '<')
+                                      .replace(/&gt;/g, '>')
+                                      .replace(/&quot;/g, '"')
+                                      .replace(/&#039;/g, "'");
+
+                                    const escaped = abcContent
+                                      .replace(/&/g, '&amp;')
+                                      .replace(/</g, '&lt;')
+                                      .replace(/>/g, '&gt;')
+                                      .replace(/"/g, '&quot;')
+                                      .replace(/'/g, '&#039;');
+
+                                    rendered = `<div class="abc-notation-container" data-abc="${escaped}">
+  <div class="abc-notation-placeholder">
+    <p class="text-gray-600 dark:text-gray-400">Loading ABC notation...</p>
+  </div>
+</div>`;
+                                    console.log('[ZettelEditor] Converted ABC block to container');
+                                  }
+                                }
+
+                                console.log('[ZettelEditor] Rendered section content:', rendered.substring(0, 200));
+                                return rendered;
                               }
                             })()}
                           </div>

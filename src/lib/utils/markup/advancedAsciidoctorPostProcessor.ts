@@ -8,23 +8,33 @@ import plantumlEncoder from "plantuml-encoder";
  * - PlantUML diagrams
  * - BPMN diagrams
  * - TikZ diagrams
+ * - ABC music notation (client-side Svelte component mounting)
  */
 export async function postProcessAdvancedAsciidoctorHtml(
   html: string,
   ndk?: NDK,
 ): Promise<string> {
-  if (!html) return html;
   try {
-    // First apply the basic post-processing (wikilinks, nostr addresses)
-    let processedHtml = await postProcessAsciidoctorHtml(html, ndk);
-    // Unified math block processing
-    processedHtml = fixAllMathBlocks(processedHtml);
-    // Process PlantUML blocks
-    processedHtml = processPlantUMLBlocks(processedHtml);
-    // Process BPMN blocks
-    processedHtml = processBPMNBlocks(processedHtml);
-    // Process TikZ blocks
-    processedHtml = processTikZBlocks(processedHtml);
+    let processedHtml = html;
+
+    // If HTML is provided, process it
+    if (html) {
+      // First apply the basic post-processing (wikilinks, nostr addresses)
+      processedHtml = await postProcessAsciidoctorHtml(html, ndk);
+      // Unified math block processing
+      processedHtml = fixAllMathBlocks(processedHtml);
+      // Process PlantUML blocks
+      processedHtml = processPlantUMLBlocks(processedHtml);
+      // Process BPMN blocks
+      processedHtml = processBPMNBlocks(processedHtml);
+      // Process TikZ blocks
+      processedHtml = processTikZBlocks(processedHtml);
+    }
+
+    // AI-NOTE: ABC notation processing happens after DOM insertion via processABCNotationBlocks
+    // Call it asynchronously after the HTML is rendered
+    // This runs even if html is empty, to process existing DOM content
+    setTimeout(() => processABCNotationBlocks(), 0);
     // After all processing, apply highlight.js if available
     if (
       typeof globalThis !== "undefined" &&
@@ -373,4 +383,64 @@ function escapeHtml(text: string): string {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Processes ABC music notation blocks by mounting Svelte components
+ * AI-NOTE: This runs client-side after the HTML is inserted into the DOM.
+ * It finds .abc-notation-container elements and mounts ABCNotation components.
+ */
+async function processABCNotationBlocks(): Promise<void> {
+  // Only run in browser environment
+  if (typeof document === 'undefined') return;
+
+  try {
+    console.log('[ABC Post-processor] Starting processABCNotationBlocks');
+
+    // Dynamic import of Svelte mount and ABCNotation component
+    const { mount } = await import('svelte');
+    const ABCNotation = (await import('$lib/components/markup/ABCNotation.svelte')).default;
+
+    // Find all ABC notation containers
+    const containers = document.querySelectorAll('.abc-notation-container:not([data-abc-mounted])');
+    console.log('[ABC Post-processor] Found containers:', containers.length);
+
+    for (const container of Array.from(containers)) {
+      const abcContent = container.getAttribute('data-abc');
+      if (abcContent) {
+        try {
+          // Decode HTML entities from the data attribute
+          const unescapedAbc = decodeHTMLEntities(abcContent);
+          console.log('[ABC Post-processor] Mounting component with ABC content:', unescapedAbc.substring(0, 50) + '...');
+
+          // Clear the placeholder
+          container.innerHTML = '';
+
+          // Mount the Svelte component
+          mount(ABCNotation, {
+            target: container as HTMLElement,
+            props: {
+              abc: unescapedAbc,
+              showControls: false,  // Phase 1: no audio controls yet
+              responsive: true,
+              scale: 1.0
+            }
+          });
+
+          // Mark as mounted to prevent duplicate mounting
+          container.setAttribute('data-abc-mounted', 'true');
+          console.log('[ABC Post-processor] Successfully mounted component');
+        } catch (error) {
+          console.error('[ABC Post-processor] Failed to mount component:', error);
+          container.innerHTML = `
+            <div class="abc-notation-error p-4 bg-red-50 dark:bg-red-900 rounded-lg border border-red-300 dark:border-red-700">
+              <p class="text-red-600 dark:text-red-400">Failed to render ABC notation</p>
+            </div>
+          `;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[ABC Post-processor] Failed to load ABC component:', error);
+  }
 }

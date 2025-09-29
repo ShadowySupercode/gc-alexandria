@@ -13,7 +13,7 @@ function renderPlantUML(content: string): string {
 
 /**
  * Creates Asciidoctor extensions for advanced content rendering
- * including Asciimath/Latex, PlantUML, BPMN, and TikZ
+ * including Asciimath/Latex, PlantUML, BPMN, TikZ, and ABC music notation
  */
 export function createAdvancedExtensions(): any {
   const Asciidoctor = Processor();
@@ -43,6 +43,18 @@ export function createAdvancedExtensions(): any {
     dsl.process(function (this: any, document: any) {
       const treeProcessor = this;
       processTikZBlocks(treeProcessor, document);
+    });
+  });
+
+  // ABC music notation extension
+  console.log('[ABC Extension] Registering ABC tree processor');
+  extensions.treeProcessor(function (this: any) {
+    console.log('[ABC Extension] Tree processor DSL invoked');
+    const dsl = this;
+    dsl.process(function (this: any, document: any) {
+      console.log('[ABC Extension] Tree processor process() invoked');
+      const treeProcessor = this;
+      processABCBlocks(treeProcessor, document);
     });
   });
 
@@ -76,6 +88,7 @@ export function createAdvancedExtensions(): any {
   registerDiagramBlock("plantuml");
   registerDiagramBlock("tikz");
   registerDiagramBlock("bpmn");
+  registerDiagramBlock("abc");
   // --- END NEW ---
 
   return extensions;
@@ -198,5 +211,114 @@ function isTikZBlock(block: any): boolean {
       line.trim().startsWith("\\tikz") ||
       line.includes("tikzpicture") ||
       line.includes("tikz"),
+  );
+}
+
+/**
+ * Processes ABC music notation blocks and prepares them for client-side rendering
+ * AI-NOTE: Unlike PlantUML/TikZ, ABC rendering happens client-side with abcjs.
+ * This function wraps the ABC content in a container div with a data attribute
+ * for the post-processor to mount the Svelte component.
+ */
+function processABCBlocks(processor: any, document: any): void {
+  console.log('[ABC Extension] Starting processABCBlocks');
+
+  // AI-NOTE: Recursively walk the block tree to find all listing/source blocks
+  function walkBlocks(parent: any, blocks: any[] = []): any[] {
+    const children = parent.getBlocks?.() || [];
+    console.log('[ABC Extension] walkBlocks: parent has', children.length, 'children');
+
+    for (const block of children) {
+      blocks.push(block);
+      // Recursively walk children
+      walkBlocks(block, blocks);
+    }
+    return blocks;
+  }
+
+  const allBlocks = walkBlocks(document);
+  console.log('[ABC Extension] Found blocks:', allBlocks.length);
+
+  for (const block of allBlocks) {
+    const context = block.getContext();
+    const isABC = isABCBlock(block);
+    console.log('[ABC Extension] Block context:', context, 'isABC:', isABC);
+
+    // AI-NOTE: Only process listing/source blocks - sections don't have setContent()
+    if ((context === "listing" || context === "source") && isABC) {
+      console.log('[ABC Extension] Processing ABC block');
+      const content = block.getContent();
+
+      if (content) {
+        try {
+          // Escape HTML entities for safe data attribute storage
+          const escaped = content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+          // Create container div with data attribute for post-processing
+          const rendered = `<div class="abc-notation-container" data-abc="${escaped}">
+  <div class="abc-notation-placeholder">
+    <p class="text-gray-600 dark:text-gray-400">Loading ABC notation...</p>
+  </div>
+</div>`;
+
+          // AI-NOTE: In Asciidoctor.js tree processors, blocks can't use setContent()
+          // Instead, we create a pass block (which allows raw HTML) and replace the original
+          const parent = block.getParent();
+          const passBlock = processor.createBlock(parent, "pass", rendered);
+
+          // Find the block's index in parent and replace it
+          const blocks = parent.getBlocks();
+          for (let i = 0; i < blocks.length; i++) {
+            if (blocks[i] === block) {
+              blocks[i] = passBlock;
+              break;
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to prepare ABC notation:", error);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Checks if a block contains ABC music notation content
+ * AI-NOTE: Checks both attributes (set by registerDiagramBlock) and content patterns
+ * to ensure we catch ABC blocks regardless of how they're specified
+ */
+function isABCBlock(block: any): boolean {
+  // Check attributes first
+  const lang = block.getAttribute("language") || block.getAttribute("lang");
+  const role = block.getAttribute("role");
+  const style = block.getAttribute("style");
+
+  if (lang === "abc" || role === "abc" || style === "abc") {
+    return true;
+  }
+
+  // Fallback: check content for ABC notation patterns
+  const content = block.getContent();
+
+  // AI-NOTE: Content might not be a string (could be array, undefined, etc)
+  if (!content || typeof content !== "string") {
+    return false;
+  }
+
+  const lines = content.split("\n");
+
+  // ABC notation typically starts with X: (reference number) or has K: (key signature)
+  return lines.some(
+    (line: string) => {
+      const trimmed = line.trim();
+      return trimmed.match(/^X:\s*\d+/) || // Reference number
+             trimmed.match(/^K:\s*[A-G]/) || // Key signature
+             (trimmed.match(/^T:/) && content.includes("K:")); // Title with key signature elsewhere
+    }
   );
 }

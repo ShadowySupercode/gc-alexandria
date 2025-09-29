@@ -1,0 +1,151 @@
+= ABC Music Notation Test Document
+:image: https://i.nostr.build/IUs0xNyUEf5hXTFL.jpg
+:published: 2025-09-29
+:language: en
+:tags: music, abc-notation, test
+:type: text
+
+This document demonstrates ABC music notation rendering in Alexandria publications.
+
+== Simple Scale
+
+A basic ascending scale in C major to test the fundamental rendering:
+
+[source,abc]
+----
+X:1
+T:C Major Scale
+M:4/4
+L:1/4
+K:C
+C D E F | G A B c |
+----
+
+== Traditional Tune
+
+A more complex example with multiple bars and varied note lengths:
+
+[abc]
+----
+X:2
+T:Irish Reel
+C:Traditional
+M:4/4
+L:1/8
+K:D
+|: D2 A2 BAFA | D2 A2 Bcde | D2 A2 BAFA | GBAG FDEd :|
+|: d2 fd edfd | d2 fd Bcde | d2 fd edfd | GBAG FDEd :|
+----
+
+== Chord Example
+
+Testing chords and harmonies:
+
+[source,abc]
+----
+X:3
+T:Simple Harmony
+M:3/4
+L:1/4
+K:G
+[GBd] [GBd] [GBd] | [FAc] [FAc] [FAc] | [GBd] [GBd] [GBd] | [GBd]2 z |]
+----
+
+== Lyrics Test
+
+ABC notation with lyrics beneath the notes:
+
+[abc]
+----
+X:4
+T:Simple Song
+M:4/4
+L:1/4
+K:C
+C D E F | G A B c |
+w: Do Re Mi Fa Sol La Ti Do
+----
+
+== Advanced Features
+
+Testing more complex ABC features including grace notes and ornaments:
+
+[source,abc]
+----
+X:5
+T:Advanced Example
+C:Composer Name
+M:6/8
+L:1/8
+K:Em
+|: {A}B2E G2E | F2D D2E | {A}B2E G2E | B3 BAG :|
+|: {d}e2f g2a | b2a g2f | {d}e2f g2e | d3 def :|
+----
+
+== Multiple Parts
+
+A tune with distinct A and B parts:
+
+[abc]
+----
+X:6
+T:Two Part Tune
+M:4/4
+L:1/8
+K:G
+P:A
+|: GABc dedB | dedB dedB | c2ec B2dB | A2BA G4 :|
+P:B
+|: gfga bage | dega bage | c2ec B2dB | A2BA G4 :|
+----
+
+== Notes on ABC Notation
+
+ABC notation is a text-based music notation system that's easy to write and read. Key elements include:
+
+* *X:* - Reference number (required)
+* *T:* - Title
+* *C:* - Composer
+* *M:* - Meter (time signature)
+* *L:* - Default note length
+* *K:* - Key signature (required, starts the music)
+* *P:* - Part labels
+* *w:* - Lyrics
+
+Note durations can be modified:
+
+* `C2` - double length
+* `C/2` - half length
+* `C3/2` - one and a half length
+
+For more information, visit http://abcnotation.com/
+
+== Testing Edge Cases
+
+=== Empty ABC Block
+
+This section tests error handling for an empty ABC block:
+
+[abc]
+----
+----
+
+=== Invalid ABC
+
+This tests error handling for malformed ABC notation:
+
+[source,abc]
+----
+This is not valid ABC notation
+----
+
+=== Minimal ABC
+
+The absolute minimum valid ABC:
+
+[abc]
+----
+X:7
+K:C
+C
+----
