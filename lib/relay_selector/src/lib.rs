@@ -172,8 +172,7 @@ pub fn add_relay(relay_url: &str, relay_type: Option<String>) {
 
 /// Stub function to get trust level for a relay.
 ///
-/// TODO: Implement trust score calculation logic.
-/// TODO: Move this to an appropriate module.
+/// TODO: Get trust level from relay config file via JS.
 fn get_trust_level(_relay_url: &str) -> f64 {
     // Placeholder implementation
     0.5
@@ -181,8 +180,7 @@ fn get_trust_level(_relay_url: &str) -> f64 {
 
 /// Stub function to get vendor score for a relay.
 ///
-/// TODO: Implement vendor score calculation logic.
-/// TODO: Move this to an appropriate module.
+/// TODO: Get trust level from relay config file via JS.
 fn get_vendor_score(_relay_url: &str) -> f64 {
     // Placeholder implementation
     0.5
