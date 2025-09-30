@@ -161,8 +161,7 @@ export async function createProfileLinkWithVerification(
 
   const defaultText = `${cleanId.slice(0, 8)}...${cleanId.slice(-4)}`;
   const escapedText = escapeHtml(displayText || defaultText);
-  const displayIdentifier =
-    profile?.displayName ??
+  const displayIdentifier = profile?.displayName ??
     profile?.display_name ??
     profile?.name ??
     escapedText;
@@ -373,7 +372,7 @@ export function withTimeout<T>(
     return Promise.race([
       promise,
       new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
       ),
     ]);
   }
@@ -384,7 +383,7 @@ export function withTimeout<T>(
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), timeoutMs),
+      setTimeout(() => reject(new Error("Timeout")), timeoutMs)
     ),
   ]);
 }
@@ -479,13 +478,15 @@ export async function fetchEventWithComprehensiveSearch(
         .fetchEvent({ ids: [filterOrId] }, undefined, relaySet)
         .withTimeout(timeoutMs);
     } else {
-      const filter =
-        typeof filterOrId === "string" ? { ids: [filterOrId] } : filterOrId;
+      const filter = typeof filterOrId === "string"
+        ? { ids: [filterOrId] }
+        : filterOrId;
       const results = await ndk
         .fetchEvents(filter, undefined, relaySet)
         .withTimeout(timeoutMs);
-      found =
-        results instanceof Set ? (Array.from(results)[0] as NDKEvent) : null;
+      found = results instanceof Set
+        ? (Array.from(results)[0] as NDKEvent)
+        : null;
     }
 
     if (found) {
@@ -576,7 +577,7 @@ export async function fetchEventWithFallback(
       setTimeout(() => {
         clearInterval(intervalId);
         resolve(null);
-      }, timeoutMs),
+      }, timeoutMs)
     ),
   ]);
 
@@ -638,8 +639,9 @@ const createRelayQuery = async (
       const results = await ndk
         .fetchEvents(filterOrId, undefined, relaySet)
         .withTimeout(timeoutMs);
-      found =
-        results instanceof Set ? (Array.from(results)[0] as NDKEvent) : null;
+      found = results instanceof Set
+        ? (Array.from(results)[0] as NDKEvent)
+        : null;
     }
 
     if (found) {

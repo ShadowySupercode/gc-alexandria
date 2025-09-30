@@ -40,8 +40,9 @@ function createVisualizationConfig() {
     searchThroughFetched: true,
   };
 
-  const { subscribe, set, update } =
-    writable<VisualizationConfig>(initialConfig);
+  const { subscribe, set, update } = writable<VisualizationConfig>(
+    initialConfig,
+  );
 
   function reset() {
     set(initialConfig);
@@ -84,7 +85,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, limit } : ec,
+        ec.kind === kind ? { ...ec, limit } : ec
       ),
     }));
   }
@@ -93,7 +94,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec,
+        ec.kind === 30040 ? { ...ec, nestedLevels: levels } : ec
       ),
     }));
   }
@@ -102,7 +103,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === 3 ? { ...ec, depth: depth } : ec,
+        ec.kind === 3 ? { ...ec, depth: depth } : ec
       ),
     }));
   }
@@ -111,7 +112,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec,
+        ec.kind === kind ? { ...ec, showAll: !ec.showAll } : ec
       ),
     }));
   }
@@ -135,7 +136,7 @@ function createVisualizationConfig() {
     update((config) => ({
       ...config,
       eventConfigs: config.eventConfigs.map((ec) =>
-        ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec,
+        ec.kind === kind ? { ...ec, enabled: !ec.enabled } : ec
       ),
     }));
   }
@@ -159,10 +160,12 @@ function createVisualizationConfig() {
 export const visualizationConfig = createVisualizationConfig();
 
 // Helper to get all enabled event kinds
-export const enabledEventKinds = derived(visualizationConfig, ($config) =>
-  $config.eventConfigs
-    .filter((ec) => ec.enabled !== false)
-    .map((ec) => ec.kind),
+export const enabledEventKinds = derived(
+  visualizationConfig,
+  ($config) =>
+    $config.eventConfigs
+      .filter((ec) => ec.enabled !== false)
+      .map((ec) => ec.kind),
 );
 
 /**

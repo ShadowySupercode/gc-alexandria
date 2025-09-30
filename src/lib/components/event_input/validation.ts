@@ -6,9 +6,9 @@ import { get } from "svelte/store";
 import { userStore } from "$lib/stores/userStore";
 import type { EventData, TagData, ValidationResult } from "./types";
 import {
-  validateNotAsciidoc,
-  validateAsciiDoc,
   validate30040EventSet,
+  validateAsciiDoc,
+  validateNotAsciidoc,
 } from "$lib/utils/event_input_utils";
 
 /**

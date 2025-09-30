@@ -147,10 +147,9 @@ export function next(): number {
 
 export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
   function scrollTab() {
-    const element =
-      typeof el === "string"
-        ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-        : el;
+    const element = typeof el === "string"
+      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+      : el;
     if (!element) return;
 
     element.scrollIntoView({
@@ -169,10 +168,9 @@ export function scrollTabIntoView(el: string | HTMLElement, wait: boolean) {
 }
 
 export function isElementInViewport(el: string | HTMLElement) {
-  const element =
-    typeof el === "string"
-      ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
-      : el;
+  const element = typeof el === "string"
+    ? document.querySelector(`[id^="wikitab-v0-${el}"]`)
+    : el;
   if (!element) return;
 
   const rect = element.getBoundingClientRect();

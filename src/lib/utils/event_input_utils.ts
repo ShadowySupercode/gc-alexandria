@@ -91,8 +91,7 @@ export function validate30040EventSet(content: string): {
   const nonEmptyLines = lines
     .filter((line) => line.trim() !== "")
     .map((line) => line.trim());
-  const isIndexCardFormat =
-    documentTitle &&
+  const isIndexCardFormat = documentTitle &&
     nonEmptyLines.length === 2 &&
     nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";
@@ -230,8 +229,7 @@ export function build30040EventSet(
   const nonEmptyLines = lines
     .filter((line) => line.trim() !== "")
     .map((line) => line.trim());
-  const isIndexCardFormat =
-    documentTitle &&
+  const isIndexCardFormat = documentTitle &&
     nonEmptyLines.length === 2 &&
     nonEmptyLines[0].startsWith("=") &&
     nonEmptyLines[1].toLowerCase() === "index card";

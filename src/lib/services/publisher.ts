@@ -96,8 +96,9 @@ export async function publishZettel(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -171,8 +172,9 @@ export async function publishMultipleZettels(
           });
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
+        const errorMessage = err instanceof Error
+          ? err.message
+          : "Unknown error";
         results.push({ success: false, error: errorMessage });
       }
     }
@@ -197,8 +199,9 @@ export async function publishMultipleZettels(
     });
     return results;
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return [{ success: false, error: errorMessage }];
   }

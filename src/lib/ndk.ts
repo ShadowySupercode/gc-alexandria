@@ -249,8 +249,7 @@ class CustomRelayAuthPolicy {
 export function checkEnvironmentForWebSocketDowngrade(): void {
   console.debug("[NDK.ts] Environment Check for WebSocket Protocol:");
 
-  const isLocalhost =
-    globalThis.location.hostname === "localhost" ||
+  const isLocalhost = globalThis.location.hostname === "localhost" ||
     globalThis.location.hostname === "127.0.0.1";
   const isHttp = globalThis.location.protocol === "http:";
   const isHttps = globalThis.location.protocol === "https:";
@@ -474,8 +473,8 @@ function createRelayWithAuth(url: string, ndk: NDK): NDKRelay {
     );
 
     // Find an anonymous relay that's not the same as the failed URL
-    const fallbackUrl =
-      anonymousRelays.find((relay) => relay !== url) || anonymousRelays[0];
+    const fallbackUrl = anonymousRelays.find((relay) => relay !== url) ||
+      anonymousRelays[0];
 
     if (fallbackUrl) {
       console.debug(

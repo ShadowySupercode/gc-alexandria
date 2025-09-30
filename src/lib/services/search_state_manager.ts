@@ -52,8 +52,9 @@ export class SearchStateManager {
       resetProcessingFlags: () => void;
     },
   ): void {
-    const errorMessage =
-      error instanceof Error ? error.message : defaultMessage;
+    const errorMessage = error instanceof Error
+      ? error.message
+      : defaultMessage;
     callbacks.setLocalError(errorMessage);
     callbacks.cleanupSearch();
     callbacks.updateSearchState({

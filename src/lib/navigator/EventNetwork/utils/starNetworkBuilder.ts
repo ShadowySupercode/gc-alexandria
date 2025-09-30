@@ -268,8 +268,8 @@ export function applyStarLayout(
   // For multiple stars, arrange them in a grid or circle
   const starsPerRow = Math.ceil(Math.sqrt(starNetworks.length));
   const starSpacingX = width / (starsPerRow + 1);
-  const starSpacingY =
-    height / (Math.ceil(starNetworks.length / starsPerRow) + 1);
+  const starSpacingY = height /
+    (Math.ceil(starNetworks.length / starsPerRow) + 1);
 
   starNetworks.forEach((star, index) => {
     const row = Math.floor(index / starsPerRow);

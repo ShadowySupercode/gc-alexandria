@@ -177,7 +177,7 @@ function getEligiblePersons(
     }
     if (showReferenced) {
       connection.referencedInEventIds.forEach((id) =>
-        connectedEventIds.add(id),
+        connectedEventIds.add(id)
       );
     }
 
@@ -237,7 +237,8 @@ export function createPersonAnchorNodes(
     const anchorNode: NetworkNode = {
       id: `person-anchor-${pubkey}`,
       title: displayName,
-      content: `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
+      content:
+        `${connection.signedByEventIds.size} signed, ${connection.referencedInEventIds.size} referenced`,
       author: "",
       kind: 0, // Special kind for anchors
       type: "PersonAnchor",

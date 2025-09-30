@@ -100,7 +100,7 @@ async function prioritizeSearchEvents(
                 setTimeout(
                   () => reject(new Error("Community check timeout")),
                   2000,
-                ),
+                )
               ),
             ]);
             return { pubkey, isCommunityMember };
@@ -812,7 +812,7 @@ function createPrimaryRelaySet(
       searchRelays.some(
         (searchRelay: string) =>
           normalizeUrl(relay.url) === normalizeUrl(searchRelay),
-      ),
+      )
     );
 
     if (searchRelaySet.length > 0) {
@@ -1036,12 +1036,11 @@ function createSearchResult(
   normalizedSearchTerm: string,
 ): SearchResult {
   return {
-    events:
-      searchType === "n"
-        ? searchState.foundProfiles
-        : searchType === "t"
-          ? searchState.tTagEvents
-          : searchState.firstOrderEvents,
+    events: searchType === "n"
+      ? searchState.foundProfiles
+      : searchType === "t"
+      ? searchState.tTagEvents
+      : searchState.firstOrderEvents,
     secondOrder: [],
     tTagEvents: [],
     eventIds: searchState.eventIds,
@@ -1505,23 +1504,23 @@ async function performSecondOrderSearchInBackground(
         const [eTagEvents, aTagEvents] = await Promise.all([
           eventIds.size > 0
             ? ndk.fetchEvents(
-                {
-                  "#e": Array.from(eventIds),
-                  limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
-                },
-                { closeOnEose: true },
-                relaySet,
-              )
+              {
+                "#e": Array.from(eventIds),
+                limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+              },
+              { closeOnEose: true },
+              relaySet,
+            )
             : Promise.resolve([]),
           addresses.size > 0
             ? ndk.fetchEvents(
-                {
-                  "#a": Array.from(addresses),
-                  limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
-                },
-                { closeOnEose: true },
-                relaySet,
-              )
+              {
+                "#a": Array.from(addresses),
+                limit: SEARCH_LIMITS.SECOND_ORDER_RESULTS,
+              },
+              { closeOnEose: true },
+              relaySet,
+            )
             : Promise.resolve([]),
         ]);
         // Filter out unwanted events
@@ -1627,10 +1626,9 @@ async function performSecondOrderSearchInBackground(
       events: firstOrderEvents,
       secondOrder: prioritizedSecondOrder,
       tTagEvents: [],
-      eventIds:
-        searchType === "n"
-          ? new Set(firstOrderEvents.map((p) => p.id))
-          : eventIds,
+      eventIds: searchType === "n"
+        ? new Set(firstOrderEvents.map((p) => p.id))
+        : eventIds,
       addresses: searchType === "n" ? new Set() : addresses,
       searchType: searchType,
       searchTerm: "", // This will be set by the caller
@@ -1703,7 +1701,7 @@ async function attachProfileDataToEvents(
         // Import getUserMetadata dynamically to avoid circular dependencies
         const { getUserMetadata } = await import("./nostrUtils.ts");
         const npub = await import("./nostrUtils.ts").then((m) =>
-          m.toNpub(pubkey),
+          m.toNpub(pubkey)
         );
 
         if (npub) {

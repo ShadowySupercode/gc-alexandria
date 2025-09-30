@@ -101,8 +101,8 @@ export function deduplicateAndCombineEvents(
   contentEvents: Set<NDKEvent>,
 ): NDKEvent[] {
   // Track statistics for debugging
-  const initialCount =
-    nonPublicationEvents.length + validIndexEvents.size + contentEvents.size;
+  const initialCount = nonPublicationEvents.length + validIndexEvents.size +
+    contentEvents.size;
   let replaceableEventsProcessed = 0;
   let duplicateCoordinatesFound = 0;
   const duplicateDetails: Array<{

@@ -44,8 +44,8 @@ export function createNetworkNode(
   const nodeType = isContainer
     ? "Index"
     : event.kind === CONTENT_EVENT_KIND || event.kind === 30818
-      ? "Content"
-      : `Kind ${event.kind}`;
+    ? "Content"
+    : `Kind ${event.kind}`;
 
   // Create the base node with essential properties
   const node: NetworkNode = {

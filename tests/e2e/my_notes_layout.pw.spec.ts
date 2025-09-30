@@ -15,9 +15,7 @@ test.describe("My Notes Layout", () => {
     await page.waitForSelector('h1:text("My Notes")');
   });
 
-  test("no horizontal scroll bar for all tag type and tag filter combinations", async ({
-    page,
-  }) => {
+  test("no horizontal scroll bar for all tag type and tag filter combinations", async ({ page }) => {
     // Helper to check scroll for current state
     async function assertNoScroll() {
       const hasScroll = await hasHorizontalScroll(page, "main, body, html");

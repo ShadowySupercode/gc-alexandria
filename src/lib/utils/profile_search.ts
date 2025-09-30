@@ -1,16 +1,16 @@
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import {
+  fetchEventWithFallback,
   getNpubFromNip05,
   getUserMetadata,
-  fetchEventWithFallback,
 } from "./nostrUtils.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
 import {
+  anonymousRelays,
   communityRelays,
   searchRelays,
   secondaryRelays,
-  anonymousRelays,
 } from "../consts.ts";
 import { get } from "svelte/store";
 import type { NostrProfile, ProfileSearchResult } from "./search_types.ts";
@@ -410,8 +410,8 @@ async function quickRelaySearch(
         try {
           if (!event.content) return;
           const profileData = JSON.parse(event.content);
-          const displayName =
-            profileData.displayName || profileData.display_name || "";
+          const displayName = profileData.displayName ||
+            profileData.display_name || "";
           const display_name = profileData.display_name || "";
           const name = profileData.name || "";
           const nip05 = profileData.nip05 || "";

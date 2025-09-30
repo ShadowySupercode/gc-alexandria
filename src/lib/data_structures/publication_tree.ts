@@ -691,7 +691,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
                 (tag) => tag[0] === "d",
               )?.[1];
               if (dTag) {
-                const address = `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
+                const address =
+                  `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
                 console.debug(
                   `[PublicationTree] Constructed address from e-tag in depthFirstRetrieve: ${address}`,
                 );
@@ -771,7 +772,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     );
 
     const lazyNode = new Lazy<PublicationTreeNode>(() =>
-      this.#resolveNode(address, parentNode),
+      this.#resolveNode(address, parentNode)
     );
     parentNode.children!.push(lazyNode);
     this.#nodes.set(address, lazyNode);
@@ -1004,7 +1005,8 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
               (tag) => tag[0] === "d",
             )?.[1];
             if (dTag) {
-              const address = `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
+              const address =
+                `${referencedEvent.kind}:${referencedEvent.pubkey}:${dTag}`;
               console.debug(
                 `[PublicationTree] Constructed address from e-tag: ${address}`,
               );
@@ -1084,7 +1086,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       const hasChildren = event.tags.some((tag) => tag[0] === "a");
 
       console.debug(
-        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find((t) => t[0] === "d")?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? "Branch" : "Leaf"}`,
+        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+          event.tags.find((t) => t[0] === "d")?.[1]
+        } - hasChildren: ${hasChildren}, type: ${
+          hasChildren ? "Branch" : "Leaf"
+        }`,
       );
 
       return hasChildren
@@ -1095,7 +1101,9 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     // Zettel kinds are always leaves
     if ([30041, 30818, 30023].includes(event.kind)) {
       console.debug(
-        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find((t) => t[0] === "d")?.[1]} - Zettel kind, type: Leaf`,
+        `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+          event.tags.find((t) => t[0] === "d")?.[1]
+        } - Zettel kind, type: Leaf`,
       );
       return PublicationTreeNodeType.Leaf;
     }
@@ -1104,7 +1112,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     const hasChildren = event.tags.some((tag) => tag[0] === "a");
 
     console.debug(
-      `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${event.tags.find((t) => t[0] === "d")?.[1]} - hasChildren: ${hasChildren}, type: ${hasChildren ? "Branch" : "Leaf"}`,
+      `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
+        event.tags.find((t) => t[0] === "d")?.[1]
+      } - hasChildren: ${hasChildren}, type: ${
+        hasChildren ? "Branch" : "Leaf"
+      }`,
     );
 
     return hasChildren

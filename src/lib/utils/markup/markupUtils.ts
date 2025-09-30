@@ -165,9 +165,11 @@ export function processBasicFormatting(content: string): string {
     processedText = processedText.replace(
       MARKUP_LINK,
       (_match, text, url) =>
-        `<a href="${stripTrackingParams(
-          url,
-        )}" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
+        `<a href="${
+          stripTrackingParams(
+            url,
+          )
+        }" class="text-primary-600 dark:text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`,
     );
 
     // Process WebSocket URLs using shared services
@@ -333,8 +335,7 @@ export async function processNostrIdentifiersInText(
     const link = createProfileLink(identifier, displayText);
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       link +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -370,18 +371,21 @@ export function processNostrIdentifiersWithEmbeddedEvents(
 
     if (nestingLevel >= MAX_NESTING_LEVEL) {
       // At max nesting level, just show the link
-      replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all">${fullMatch}</a>`;
+      replacement =
+        `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all">${fullMatch}</a>`;
     } else {
       // Create a placeholder for embedded event
-      const componentId = `embedded-event-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-      replacement = `<div class="embedded-event-placeholder" data-nostr-id="${fullMatch}" data-nesting-level="${nestingLevel}" id="${componentId}"></div>`;
+      const componentId = `embedded-event-${
+        Math.random()
+          .toString(36)
+          .substr(2, 9)
+      }`;
+      replacement =
+        `<div class="embedded-event-placeholder" data-nostr-id="${fullMatch}" data-nesting-level="${nestingLevel}" id="${componentId}"></div>`;
     }
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       replacement +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -422,11 +426,11 @@ export function processAllNostrIdentifiers(text: string): string {
     const displayText = `${identifier.slice(0, 8)}...${identifier.slice(-4)}`;
 
     // Create clickable link
-    const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       replacement +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -444,11 +448,11 @@ export function processAllNostrIdentifiers(text: string): string {
     const displayText = `${fullMatch.slice(0, 8)}...${fullMatch.slice(-4)}`;
 
     // Create clickable link with nostr: prefix for the href
-    const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       replacement +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -470,17 +474,16 @@ export function processAllNostrIdentifiers(text: string): string {
 
     // Create display text for truncated identifiers
     const identifier = fullMatch.replace("nostr:", "");
-    const displayText =
-      identifier.length > 12
-        ? `${identifier.slice(0, 8)}...${identifier.slice(-4)}`
-        : identifier;
+    const displayText = identifier.length > 12
+      ? `${identifier.slice(0, 8)}...${identifier.slice(-4)}`
+      : identifier;
 
     // Create clickable link
-    const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       replacement +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -501,17 +504,16 @@ export function processAllNostrIdentifiers(text: string): string {
     if (fullMatch.length >= 30) continue; // Full identifiers are at least 30 chars
 
     // Create display text for truncated identifiers
-    const displayText =
-      fullMatch.length > 12
-        ? `${fullMatch.slice(0, 8)}...${fullMatch.slice(-4)}`
-        : fullMatch;
+    const displayText = fullMatch.length > 12
+      ? `${fullMatch.slice(0, 8)}...${fullMatch.slice(-4)}`
+      : fullMatch;
 
     // Create clickable link
-    const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
-    processedText =
-      processedText.slice(0, matchIndex) +
+    processedText = processedText.slice(0, matchIndex) +
       replacement +
       processedText.slice(matchIndex + fullMatch.length);
   }
@@ -585,9 +587,11 @@ export function processBlockquotes(text: string): string {
     const lines = match.split("\n").map((line) => {
       return line.replace(/^[ \t]*>[ \t]?/, "").trim();
     });
-    return `<blockquote class="pl-4 border-l-4 border-gray-300 dark:border-gray-600 my-4">${lines.join(
-      "\n",
-    )}</blockquote>`;
+    return `<blockquote class="pl-4 border-l-4 border-gray-300 dark:border-gray-600 my-4">${
+      lines.join(
+        "\n",
+      )
+    }</blockquote>`;
   });
 }
 

@@ -364,7 +364,7 @@ export async function discoverLocalRelays(ndk: NDK): Promise<string[]> {
 
     // Convert wss:// URLs from consts to ws:// for local testing
     const localRelayUrls = localRelays.map((url: string) =>
-      url.replace(/^wss:\/\//, "ws://"),
+      url.replace(/^wss:\/\//, "ws://")
     );
 
     const workingRelays = await testLocalRelays(localRelayUrls, ndk);
@@ -802,14 +802,12 @@ export async function buildCompleteRelaySet(
   ]);
 
   // Use tested relays and add fallback relays
-  const inboxRelays =
-    testedInboxRelays.length > 0
-      ? deduplicateRelayUrls([...testedInboxRelays, ...fallbackRelays])
-      : deduplicateRelayUrls(fallbackRelays);
-  const outboxRelays =
-    testedOutboxRelays.length > 0
-      ? deduplicateRelayUrls([...testedOutboxRelays, ...fallbackRelays])
-      : deduplicateRelayUrls(fallbackRelays);
+  const inboxRelays = testedInboxRelays.length > 0
+    ? deduplicateRelayUrls([...testedInboxRelays, ...fallbackRelays])
+    : deduplicateRelayUrls(fallbackRelays);
+  const outboxRelays = testedOutboxRelays.length > 0
+    ? deduplicateRelayUrls([...testedOutboxRelays, ...fallbackRelays])
+    : deduplicateRelayUrls(fallbackRelays);
 
   // Apply network condition optimization
   const currentNetworkCondition = get(networkCondition);

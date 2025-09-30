@@ -60,9 +60,10 @@ export async function parseBasicMarkup(
         // AI-NOTE:  Added img tag to skip wrapping to prevent image rendering issues
         // Skip wrapping if para already contains block-level elements, math blocks, or images
         if (
-          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i.test(
-            para,
-          )
+          /(<div[^>]*class=["'][^"']*math-block[^"']*["'])|<(div|h[1-6]|blockquote|table|pre|ul|ol|hr|img)/i
+            .test(
+              para,
+            )
         ) {
           return para;
         }

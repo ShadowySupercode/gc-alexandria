@@ -18,7 +18,9 @@ export function generateDarkPastelColor(seed: string): string {
   const g = (Math.abs(hash >> 8) % 80) + 120; // 120-200 range
   const b = (Math.abs(hash >> 16) % 80) + 120; // 120-200 range
 
-  return `#${r.toString(16).padStart(2, "0")}${g
-    .toString(16)
-    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  return `#${r.toString(16).padStart(2, "0")}${
+    g
+      .toString(16)
+      .padStart(2, "0")
+  }${b.toString(16).padStart(2, "0")}`;
 }

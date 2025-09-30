@@ -16,9 +16,9 @@ import { removeMetadataFromContent } from "$lib/utils/asciidoc_metadata";
 import { build30040EventSet } from "$lib/utils/event_input_utils";
 import type {
   EventData,
-  TagData,
-  PublishResult,
   LoadEventResult,
+  PublishResult,
+  TagData,
 } from "./types";
 
 /**
@@ -72,8 +72,9 @@ export async function publishEvent(
     try {
       // Get the current d and title values from the UI
       const dTagValue = tags.find((tag) => tag.key === "d")?.values[0] || "";
-      const titleTagValue =
-        tags.find((tag) => tag.key === "title")?.values[0] || "";
+      const titleTagValue = tags.find((tag) =>
+        tag.key === "title"
+      )?.values[0] || "";
 
       // Convert multi-value tags to the format expected by build30040EventSet
       // Filter out d and title tags since we'll add them manually
@@ -115,7 +116,9 @@ export async function publishEvent(
       console.error("Error in build30040EventSet:", error);
       return {
         success: false,
-        error: `Failed to build 30040 event set: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error: `Failed to build 30040 event set: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       };
     }
   } else {
@@ -255,7 +258,9 @@ export async function publishEvent(
       console.error("Error signing/publishing event:", signError);
       return {
         success: false,
-        error: `Failed to sign event: ${signError instanceof Error ? signError.message : "Unknown error"}`,
+        error: `Failed to sign event: ${
+          signError instanceof Error ? signError.message : "Unknown error"
+        }`,
       };
     }
   }

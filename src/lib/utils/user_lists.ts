@@ -1,4 +1,4 @@
-import { getNdkContext, activeInboxRelays } from "../ndk.ts";
+import { activeInboxRelays, getNdkContext } from "../ndk.ts";
 import { get } from "svelte/store";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
@@ -115,7 +115,9 @@ export async function fetchUserLists(
     }
 
     console.log(
-      `fetchUserLists: Found ${userLists.length} lists with ${userLists.reduce((sum, list) => sum + list.pubkeys.length, 0)} total pubkeys`,
+      `fetchUserLists: Found ${userLists.length} lists with ${
+        userLists.reduce((sum, list) => sum + list.pubkeys.length, 0)
+      } total pubkeys`,
     );
     return userLists;
   } catch (error) {

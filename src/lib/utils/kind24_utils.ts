@@ -36,7 +36,7 @@ export async function getKind24RelaySet(
 
     // Prioritize common relays for better privacy
     const commonRelays = senderOutboxRelays.filter((relay: any) =>
-      recipientInboxRelays.includes(relay),
+      recipientInboxRelays.includes(relay)
     );
     const senderOnlyRelays = senderOutboxRelays.filter(
       (relay: any) => !recipientInboxRelays.includes(relay),

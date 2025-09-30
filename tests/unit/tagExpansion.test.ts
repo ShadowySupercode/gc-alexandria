@@ -158,7 +158,7 @@ describe("Tag Expansion Tests", () => {
     it("should fetch publications with matching tags from relays", async () => {
       // Mock the NDK fetch to return publications with 'bitcoin' tag
       const bitcoinPublications = mockPublications.filter((pub) =>
-        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin"),
+        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin")
       );
       mockNDK.fetchEvents.mockResolvedValueOnce(
         new Set(bitcoinPublications as NDKEvent[]),
@@ -387,7 +387,7 @@ describe("Tag Expansion Tests", () => {
 
       // Step 1: Mock relay fetch for 'bitcoin' tag
       const bitcoinPublications = mockPublications.filter((pub) =>
-        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin"),
+        pub.tags.some((tag) => tag[0] === "t" && tag[1] === "bitcoin")
       );
       mockNDK.fetchEvents.mockResolvedValueOnce(
         new Set(bitcoinPublications as NDKEvent[]),
