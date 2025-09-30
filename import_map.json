@@ -25,6 +25,7 @@
     "plantuml-encoder": "npm:plantuml-encoder@^1.4.0",
     "qrcode": "npm:qrcode@^1.5.4",
     "child_process": "node:child_process",
-    "process": "node:process"
+    "process": "node:process",
+    "@alexandria/configuration-manager": "./lib/configuration_manager/index.ts"
   }
 }
