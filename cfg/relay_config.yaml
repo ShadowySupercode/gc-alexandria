@@ -1,0 +1,24 @@
+server:
+  allowList:
+    - "wss://theforest.nostr1.com"
+    - "wss://thecitadel.nostr1.com"
+    - "wss://nostr.land"
+    - "wss://nostr.wine"
+    - "wss://nostr.sovbit.host"
+    - "wss://nostr21.com"
+
+weights:
+  trustLevel:
+    "wss://theforest.nostr1.com": 0.5
+    "wss://thecitadel.nostr1.com": 0.5
+    "wss://nostr.land": 0.5
+    "wss://nostr.wine": 0.5
+    "wss://nostr.sovbit.host": 0.25
+    "wss://nostr21.com": 0.25
+  vendorScore:
+    "wss://theforest.nostr1.com": 0.5
+    "wss://thecitadel.nostr1.com": 0.5
+    "wss://nostr.land": 0.5
+    "wss://nostr.wine": 0.25
+    "wss://nostr.sovbit.host": 0.25
+    "wss://nostr21.com": 0.25
