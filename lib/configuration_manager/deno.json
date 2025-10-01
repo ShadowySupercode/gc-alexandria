@@ -1,5 +1,5 @@
 {
-  "name": "@alexandria/configuration-manager",
+  "name": "@alexandria/configuration_manager",
   "version": "0.1.0",
   "description": "A stateless YAML-based configuration manager library for Alexandria on the Deno runtime.",
   "exports": {
