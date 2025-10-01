@@ -3425,6 +3425,11 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@std/assert@*",
+      "jsr:@std/cli@*",
+      "jsr:@std/fs@*",
+      "jsr:@std/path@*",
+      "jsr:@std/yaml@*",
       "npm:@noble/curves@^1.9.4",
       "npm:@noble/hashes@^1.8.0",
       "npm:@nostr-dev-kit/ndk-cache-dexie@2.6",
