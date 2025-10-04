@@ -462,6 +462,7 @@ dependencies = [
  "indexed_db_futures",
  "js-sys",
  "serde",
+ "serde-wasm-bindgen",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

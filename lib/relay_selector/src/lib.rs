@@ -1,3 +1,4 @@
+mod config;
 mod database;
 mod relay;
 mod relay_selector;
@@ -146,7 +147,7 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
 ///
 /// Throws an error if the relay type is invalid or if an error occurs while adding the relay.
 #[wasm_bindgen]
-pub fn add_relay(relay_url: &str, relay_type: Option<String>) {
+pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
     let variant = match relay_type {
         Some(t) => relay::Variant::from_str(&t).unwrap_throw(),
         None => relay::Variant::General,
@@ -154,8 +155,8 @@ pub fn add_relay(relay_url: &str, relay_type: Option<String>) {
 
     init_relay_selector_if_none(STORE_NAME);
 
-    let trust_level = get_trust_level(relay_url);
-    let vendor_score = get_vendor_score(relay_url);
+    let trust_level = get_trust_level(relay_url).await;
+    let vendor_score = get_vendor_score(relay_url).await;
 
     RELAY_SELECTOR
         .try_with(|selector| {
@@ -170,18 +171,4 @@ pub fn add_relay(relay_url: &str, relay_type: Option<String>) {
         .unwrap_throw()
 }
 
-/// Stub function to get trust level for a relay.
-///
-/// TODO: Get trust level from relay config file via JS.
-fn get_trust_level(_relay_url: &str) -> f64 {
-    // Placeholder implementation
-    0.5
-}
 
-/// Stub function to get vendor score for a relay.
-///
-/// TODO: Get trust level from relay config file via JS.
-fn get_vendor_score(_relay_url: &str) -> f64 {
-    // Placeholder implementation
-    0.5
-}
