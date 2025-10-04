@@ -9,6 +9,7 @@
     "jsr:@std/path@*": "1.1.2",
     "jsr:@std/path@^1.1.1": "1.1.2",
     "jsr:@std/yaml@*": "1.0.9",
+    "npm:@deno/vite-plugin@^1.0.5": "1.0.5_vite@6.3.5__@types+node@24.0.15__picomatch@4.0.3_@types+node@24.0.15",
     "npm:@noble/curves@^1.9.4": "1.9.4",
     "npm:@noble/hashes@^1.8.0": "1.8.0",
     "npm:@nostr-dev-kit/ndk-cache-dexie@2.6": "2.6.33_nostr-tools@2.15.1__typescript@5.8.3_typescript@5.8.3",
@@ -139,6 +140,12 @@
       "dependencies": [
         "@babel/helper-string-parser",
         "@babel/helper-validator-identifier"
+      ]
+    },
+    "@deno/vite-plugin@1.0.5_vite@6.3.5__@types+node@24.0.15__picomatch@4.0.3_@types+node@24.0.15": {
+      "integrity": "sha512-tLja5n4dyMhcze1NzvSs2iiriBymfBlDCZIrjMTxb9O2ru0gvmV6mn5oBD2teNw5Sd92cj3YJzKwsAs8tMJXlg==",
+      "dependencies": [
+        "vite"
       ]
     },
     "@esbuild/aix-ppc64@0.25.7": {
@@ -3430,6 +3437,7 @@
       "jsr:@std/fs@*",
       "jsr:@std/path@*",
       "jsr:@std/yaml@*",
+      "npm:@deno/vite-plugin@^1.0.5",
       "npm:@noble/curves@^1.9.4",
       "npm:@noble/hashes@^1.8.0",
       "npm:@nostr-dev-kit/ndk-cache-dexie@2.6",
@@ -3454,6 +3462,7 @@
     ],
     "packageJson": {
       "dependencies": [
+        "npm:@deno/vite-plugin@^1.0.5",
         "npm:@noble/curves@^1.9.4",
         "npm:@noble/hashes@^1.8.0",
         "npm:@nostr-dev-kit/ndk-cache-dexie@2.6",

@@ -4,13 +4,13 @@
   "description": "A Rust WASM library for algorithmically choosing Nostr relays",
   "exports": {
     ".": {
-      "types": "./lib/relay_selector.d.ts",
-      "default": "./lib/relay_selector.js"
+      "types": "./lib/relay_selector.d.mts",
+      "default": "./lib/relay_selector.mjs"
     }
   },
   "tasks": {
     "build": "wasm-pack build --target bundler --out-dir pkg/bundler",
-    "wasmbuild": "deno run -A jsr:@deno/wasmbuild@0.19.3 --inline --project relay_selector",
+    "wasmbuild": "deno run -A jsr:@deno/wasmbuild@0.19.3 --inline --project relay_selector --js-ext mjs",
     "check": "deno task wasmbuild --check"
   }
 }

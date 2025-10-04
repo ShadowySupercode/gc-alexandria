@@ -14,8 +14,6 @@ const config = {
       $lib: "src/lib",
       $components: "src/lib/components",
       $cards: "src/lib/cards",
-      $alexandria_relay_selector:
-        "lib/relay_selector/pkg/bundler/relay_selector.js",
     },
   },
 };

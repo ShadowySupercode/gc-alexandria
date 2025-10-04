@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import process from "node:process";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import deno from "@deno/vite-plugin";
 
 // Function to get the latest git tag
 function getAppVersionString() {
@@ -26,13 +27,11 @@ function getAppVersionString() {
 }
 
 export default defineConfig({
-  plugins: [wasm(), topLevelAwait(), sveltekit()],
+  plugins: [deno(), wasm(), topLevelAwait(), sveltekit()],
   resolve: {
     alias: {
       $lib: "./src/lib",
       $components: "./src/components",
-      $alexandria_relay_selector:
-        "./lib/relay_selector/pkg/bundler/relay_selector.js",
     },
   },
   assetsInclude: ["**/*.wasm"],

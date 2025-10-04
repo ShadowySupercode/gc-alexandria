@@ -16,6 +16,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@deno/vite-plugin": "^1.0.5",
     "@noble/curves": "^1.9.4",
     "@noble/hashes": "^1.8.0",
     "@nostr-dev-kit/ndk": "^2.14.32",
