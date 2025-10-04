@@ -49,7 +49,7 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class="ArticleBox card-leather w-full relative flex flex-col sm:flex-row sm:space-x-2 overflow-hidden">
+  <Card class="ArticleBox max-h-52 card-leather w-full relative flex flex-col sm:flex-row sm:space-x-2 overflow-hidden">
     <!-- Image block: full width on mobile, fixed side on md+ -->
     <div class="w-full sm:min-w-40 sm:w-40 overflow-hidden flex items-center justify-center sm:rounded-l rounded-t sm:rounded-t-none">
       {#if image}
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Content -->
-    <div class="flex flex-col min-w-0 p-3 sm:p-2 w-full">
+    <div class="flex flex-col min-w-0 p-3 sm:p-2 w-full gap-2">
       <a href="/{href}" class="flex flex-col space-y-2 flex-1 min-w-0 overflow-hidden decoration-none hover:underline">
         <div class="min-w-0">
           <h2 class="text-lg font-bold line-clamp-2 break-words overflow-hidden decoration-none" {title}>{title}</h2>

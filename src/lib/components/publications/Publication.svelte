@@ -267,12 +267,12 @@
       {#if publicationType !== "blog" && !isLeaf}
         {#if $publicationColumnVisibility.toc}
           <Sidebar
-            class="z-10 ml-2 fixed top-[162px] max-h-[calc(100vh-165px)] overflow-y-auto dark:bg-primary-800 bg-primary-50 rounded"
+            class="z-10 ml-2 fixed top-[162px] max-h-[calc(100vh-165px)] overflow-y-auto dark:bg-primary-900 bg-primary-50 rounded"
             activeUrl={`#${activeAddress ?? ""}`}
             classes={{
-          div: 'dark:bg-primary-800 bg-primary-50',
+          div: 'dark:bg-primary-900 bg-primary-50',
           active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
-          nonactive: 'bg-primary-50 dark:bg-primary-800',
+          nonactive: 'bg-primary-50 dark:bg-primary-900',
         }}
           >
             <SidebarWrapper>
