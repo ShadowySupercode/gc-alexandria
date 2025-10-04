@@ -1,4 +1,46 @@
 <script>
+/**
+ * @fileoverview AFooter Component - Alexandria
+ *
+ * A standardized footer component with copyright information and navigation links.
+ * Uses Flowbite's Footer components with Alexandria-specific styling and content.
+ * This component has no props - it renders a fixed footer structure.
+ *
+ * @component
+ * @category Navigation
+ *
+ * @example
+ * ```svelte
+ * <AFooter />
+ * ```
+ *
+ * @example Place at bottom of layout
+ * ```svelte
+ * <main>
+ *   <!-- page content -->
+ * </main>
+ * <AFooter />
+ * ```
+ *
+ * @features
+ * - Copyright notice with GitCitadel attribution
+ * - Navigation links to About and Contact pages
+ * - Responsive layout that adapts to screen size
+ * - Consistent styling with Alexandria theme
+ * - Links to creator's nostr profile
+ *
+ * @accessibility
+ * - Semantic footer structure
+ * - Keyboard accessible navigation links
+ * - Screen reader friendly with proper link text
+ * - Responsive design for various screen sizes
+ *
+ * @integration
+ * - Typically placed at the bottom of page layouts
+ * - Uses Flowbite Footer components for consistency
+ * - Matches Alexandria's overall design system
+ */
+
   import {
     Footer,
     FooterCopyright,

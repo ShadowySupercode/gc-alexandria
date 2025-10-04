@@ -9,6 +9,8 @@
 @import "./styles/visualize.css";
 @import "./styles/asciidoc.css";
 @import "theme-tokens.css";
+@import "./styles/a/cards.css";
+@import "./styles/a/forms.css";
 @import "./styles/a/primitives.css";
 
 @layer theme, base, components, utilities;
@@ -183,28 +185,6 @@
     @apply border border-primary-700;
   }
 
-  div.card-leather {
-    @apply shadow-none text-primary-1000 border-s-4 bg-highlight
-      border-primary-200 has-[:hover]:border-primary-700;
-    @apply dark:bg-primary-1000 dark:border-primary-800
-      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
-  }
-
-  div.card-leather h1,
-  div.card-leather h2,
-  div.card-leather h3,
-  div.card-leather h4,
-  div.card-leather h5,
-  div.card-leather h6 {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
-  }
-
-  div.card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
-      dark:hover:text-primary-300;
-  }
-
   main {
     @apply max-w-full flex;
   }
@@ -243,15 +223,6 @@
   h5.h-leather,
   h6.h-leather {
     @apply text-gray-900 dark:text-gray-100;
-  }
-
-  /* Responsive card styles */
-  .responsive-card {
-    @apply w-full min-w-0 overflow-hidden;
-  }
-
-  .responsive-card-content {
-    @apply break-words overflow-hidden;
   }
 
   h1.h-leather {
@@ -321,14 +292,6 @@
   nav.navbar-leather h6 {
     @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
       dark:hover:text-primary-400;
-  }
-
-  div.skeleton-leather div {
-    @apply bg-primary-100 dark:bg-primary-800;
-  }
-
-  div.skeleton-leather {
-    @apply h-48;
   }
 
   div.textarea-leather {
@@ -451,21 +414,6 @@
   .link {
     @apply underline cursor-pointer hover:text-primary-600
       dark:hover:text-primary-400;
-  }
-
-  /* Card with transition */
-  .ArticleBox.grid .ArticleBoxImage {
-    @apply max-h-0;
-    transition: max-height 0.5s ease;
-  }
-
-  .ArticleBox.grid.active .ArticleBoxImage {
-    @apply max-h-40;
-  }
-
-  .tags span {
-    @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5
-      rounded-sm dark:bg-primary-900 dark:text-primary-200;
   }
 
   .npub-badge {

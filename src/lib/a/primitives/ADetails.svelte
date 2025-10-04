@@ -1,4 +1,55 @@
 <script lang="ts">
+  /**
+   * @fileoverview ADetails Component - Alexandria
+   *
+   * A collapsible details/summary element with enhanced styling and tech-aware functionality.
+   * Integrates with the techStore to automatically hide technical details based on user preference.
+   *
+   * @component
+   * @category Primitives
+   *
+   * @prop {string} [summary=""] - The summary text shown in the collapsible header
+   * @prop {boolean} [tech=false] - Whether this contains technical content (affects visibility)
+   * @prop {boolean} [defaultOpen=false] - Whether details should be open by default
+   * @prop {boolean} [forceHide=false] - Force hide content even when tech mode is on
+   * @prop {string} [class=""] - Additional CSS classes to apply
+   * @prop {snippet} children - The content to show/hide in the details body (required, via default slot)
+   *
+   * @example
+   * ```svelte
+   * <ADetails summary="Event Details" tech={true}>
+   *   <p>Technical event information here...</p>
+   * </ADetails>
+   * ```
+   *
+   * @example Regular details block
+   * ```svelte
+   * <ADetails summary="More Information">
+   *   <p>Additional content here...</p>
+   * </ADetails>
+   * ```
+   *
+   * @example Technical details with custom styling
+   * ```svelte
+   * <ADetails summary="Raw Event Data" tech={true} class="border-red-200">
+   *   <pre>{JSON.stringify(event, null, 2)}</pre>
+   * </ADetails>
+   * ```
+   *
+   * @features
+   * - Respects global techStore setting for tech content
+   * - Animated chevron icon indicates open/closed state
+   * - "Technical" badge for tech-related details
+   * - Consistent themed styling with hover effects
+   * - Auto-closes tech details when techStore is disabled
+   *
+   * @accessibility
+   * - Uses semantic HTML details/summary elements
+   * - Keyboard accessible (Enter/Space to toggle)
+   * - Screen reader friendly with proper labeling
+   * - Clear visual indicators for state changes
+   */
+
   import { showTech } from "$lib/stores/techStore";
   let {
     summary = "",

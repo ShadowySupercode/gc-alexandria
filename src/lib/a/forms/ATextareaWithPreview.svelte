@@ -1,4 +1,70 @@
 <script lang="ts">
+  /**
+   * @fileoverview ATextareaWithPreview Component - Alexandria
+   *
+   * A rich text editor with toolbar and live preview functionality for markup content.
+   * Provides formatting tools, preview toggle, and extensible parsing system.
+   *
+   * @component
+   * @category Forms
+   *
+   * @prop {string} value - The textarea content (bindable)
+   * @prop {string} [id="editor"] - HTML id for the textarea element
+   * @prop {string} [label=""] - Label text for the textarea
+   * @prop {number} [rows=10] - Number of textarea rows
+   * @prop {string} [placeholder=""] - Placeholder text
+   * @prop {(text: string, extensions?: any) => Promise<string>} parser - Async markup parser function
+   * @prop {snippet} previewSnippet - Svelte snippet for rendering preview content
+   * @prop {any} [previewArg] - Additional argument passed to preview snippet
+   * @prop {any} [extensions] - Extensions passed to the parser
+   *
+   * @example
+   * ```svelte
+   * <ATextareaWithPreview
+   *   bind:value={content}
+   *   {parser}
+   *   {previewSnippet}
+   *   previewArg={ndk}
+   * />
+   * ```
+   *
+   * @example Basic markup editor
+   * ```svelte
+   * <ATextareaWithPreview
+   *   bind:value={content}
+   *   parser={parseBasicMarkup}
+   *   previewSnippet={basicMarkup}
+   *   placeholder="Write your content..."
+   * />
+   * ```
+   *
+   * @example Advanced editor with extensions
+   * ```svelte
+   * <ATextareaWithPreview
+   *   bind:value={articleContent}
+   *   parser={parseAdvancedMarkup}
+   *   previewSnippet={advancedMarkup}
+   *   previewArg={ndkInstance}
+   *   extensions={customExtensions}
+   *   rows={15}
+   * />
+   * ```
+   *
+   * @features
+   * - Rich formatting toolbar (bold, italic, strikethrough, etc.)
+   * - Live preview toggle with eye icon
+   * - Support for links, images, quotes, lists
+   * - Hashtag and mention insertion
+   * - Extensible parser system
+   * - Keyboard shortcuts for formatting
+   *
+   * @accessibility
+   * - Proper form labels and ARIA attributes
+   * - Keyboard accessible toolbar buttons
+   * - Screen reader friendly with descriptive labels
+   * - Focus management between edit and preview modes
+   */
+
   import {
     Textarea,
     Toolbar,

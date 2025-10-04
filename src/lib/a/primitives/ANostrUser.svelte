@@ -1,4 +1,81 @@
 <script lang="ts">
+/**
+ * @fileoverview ANostrUser Component - Alexandria
+ *
+ * Displays a nostr user with avatar, display name, npub, NIP-05 verification, and badges.
+ * Provides a comprehensive user representation with configurable display options.
+ *
+ * @component
+ * @category Primitives
+ *
+ * @prop {string} npub - The user's npub (required)
+ * @prop {string} [pubkey] - The user's public key (for NIP-05 verification)
+ * @prop {NostrProfile} [profile] - User profile metadata
+ * @prop {"sm" | "md" | "lg"} [size="md"] - Component size variant
+ * @prop {boolean} [showNpub=true] - Whether to show the shortened npub
+ * @prop {boolean} [showBadges=true] - Whether to display user badges
+ * @prop {boolean} [verifyNip05=true] - Whether to verify NIP-05 identifier
+ * @prop {boolean} [nip05Verified] - Override NIP-05 verification status
+ * @prop {DisplayBadge[] | null} [nativeBadges] - User's badges to display
+ * @prop {number} [badgeLimit=6] - Maximum badges to show
+ * @prop {string} [href] - Optional link URL (makes component clickable)
+ * @prop {string} [class=""] - Additional CSS classes
+ *
+ * @example
+ * ```svelte
+ * <ANostrUser
+ *   {npub}
+ *   {pubkey}
+ *   {profile}
+ *   size="lg"
+ *   showBadges={true}
+ * />
+ * ```
+ *
+ * @example Basic user display
+ * ```svelte
+ * <ANostrUser {npub} {profile} />
+ * ```
+ *
+ * @example Large user card with all features
+ * ```svelte
+ * <ANostrUser
+ *   {npub}
+ *   {pubkey}
+ *   {profile}
+ *   size="lg"
+ *   nativeBadges={userBadges}
+ *   href="/profile/{npub}"
+ * />
+ * ```
+ *
+ * @example Compact user mention
+ * ```svelte
+ * <ANostrUser
+ *   {npub}
+ *   size="sm"
+ *   showNpub={false}
+ *   showBadges={false}
+ * />
+ * ```
+ *
+ * @features
+ * - Avatar display with fallback
+ * - Display name from profile or npub
+ * - NIP-05 verification with visual indicator
+ * - Badge integration via ANostrBadgeRow
+ * - Configurable sizing and display options
+ * - Optional linking capability
+ * - Loading states for verification
+ *
+ * @accessibility
+ * - Semantic user representation
+ * - Alt text for avatars
+ * - Screen reader friendly verification status
+ * - Keyboard accessible when linked
+ * - Proper focus management
+ */
+
   import type { NostrProfile } from "$lib/nostr/types";
   import type { DisplayBadge } from "$lib/nostr/nip58";
   import ANostrBadgeRow from "./ANostrBadgeRow.svelte";

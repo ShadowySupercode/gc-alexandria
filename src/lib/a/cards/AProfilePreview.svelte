@@ -1,4 +1,80 @@
 <script lang="ts">
+/**
+ * @fileoverview AProfilePreview Component - Alexandria
+ *
+ * A comprehensive profile card component for displaying nostr user profiles.
+ * Shows avatar, banner, name, bio, NIP-05 verification, lightning address, and user status indicators.
+ *
+ * @component
+ * @category Cards
+ *
+ * @prop {NDKEvent} event - The nostr event (kind 0 profile) to display (required)
+ * @prop {UserLite} [user] - User object containing npub identifier
+ * @prop {Profile} profile - User profile metadata (required)
+ * @prop {boolean} [loading=false] - Whether the profile is currently loading
+ * @prop {string} [error=null] - Error message if profile loading failed
+ * @prop {boolean} [isOwn=false] - Whether this is the current user's own profile
+ * @prop {Record<string, boolean>} [communityStatusMap=false] - Map of pubkey to community membership status
+ *
+ * @example
+ * ```svelte
+ * <AProfilePreview
+ *   {event}
+ *   user={{npub}}
+ *   {profile}
+ * />
+ * ```
+ *
+ * @example Own profile with actions
+ * ```svelte
+ * <AProfilePreview
+ *   {event}
+ *   {profile}
+ *   isOwn={true}
+ * />
+ * ```
+ *
+ * @example Loading state
+ * ```svelte
+ * <AProfilePreview
+ *   {event}
+ *   {profile}
+ *   loading={true}
+ * />
+ * ```
+ *
+ * @example With error handling
+ * ```svelte
+ * <AProfilePreview
+ *   {event}
+ *   {profile}
+ *   error={errorMessage}
+ * />
+ * ```
+ *
+ * @features
+ * - Banner image with fallback color generation
+ * - Avatar display with proper sizing
+ * - NIP-05 verification badge display
+ * - Community membership indicator (star icon)
+ * - User list membership indicator (heart icon)
+ * - Lightning address (lud16) with QR code modal
+ * - Multiple identifier formats (npub, nprofile, nevent)
+ * - Copy to clipboard functionality for identifiers
+ * - Website link display
+ * - Bio/about text with markup rendering
+ * - Own profile actions (notifications, my notes)
+ * - Loading and error states
+ *
+ * @accessibility
+ * - Semantic profile structure with proper headings
+ * - Keyboard accessible action buttons and dropdowns
+ * - Screen reader friendly verification status badges
+ * - Proper modal focus management for QR code
+ * - Alt text for images
+ * - ARIA labels for status indicators
+ */
+
   import {
     Card,
     Heading,
@@ -203,12 +279,12 @@
   class="main-leather p-0 overflow-hidden rounded-lg border border-primary-200 dark:border-primary-700"
 >
   {#if props.profile?.banner}
-    <div class="w-full bg-primary-200 dark:bg-primary-800 relative">
+    <div class="card-image-container">
       <LazyImage
         src={props.profile.banner}
         alt="Profile banner"
         eventId={props.event.id}
-        className="w-full h-60 object-cover"
+        className="card-banner"
       />
     </div>
   {:else}
@@ -223,7 +299,7 @@
       size="xl"
       src={props.profile?.picture ?? null}
       alt="Avatar"
-      class="absolute w-fit top-[-56px]"
+      class="card-avatar-container"
     />
 
     <div class="flex flex-col gap-3 mt-14">
@@ -235,18 +311,15 @@
       {#if props.event}
         <div class="flex items-center gap-2 min-w-0">
           {#if props.profile?.nip05}
-            <span
-              class="px-2 py-0.5 !mb-0 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs"
-              >{props.profile.nip05}</span
-            >
+            <span class="profile-nip05-badge">{props.profile.nip05}</span>
           {/if}
           {#if communityStatus === true}
             <div
-              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+              class="community-status-indicator"
               title="Has posted to the community"
             >
               <svg
-                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                class="community-status-icon"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 ><path
@@ -257,11 +330,11 @@
           {/if}
           {#if isInUserLists === true}
             <div
-              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+              class="user-list-indicator"
               title="In your lists (follows, etc.)"
             >
               <svg
-                class="w-3 h-3 text-red-600 dark:text-red-400"
+                class="user-list-icon"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 ><path
@@ -275,9 +348,7 @@
     </div>
 
     {#if props.profile?.about}
-      <div
-        class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0"
-      >
+      <div class="prose dark:prose-invert card-prose">
         {@render basicMarkup(props.profile.about, ndk)}
       </div>
     {/if}

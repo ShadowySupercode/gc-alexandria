@@ -1,4 +1,57 @@
 <script lang="ts">
+  /**
+   * @fileoverview ACommentForm Component - Alexandria
+   *
+   * A form component for creating and editing comments with markup support and preview functionality.
+   * Integrates with ATextareaWithPreview to provide rich text editing capabilities.
+   *
+   * @component
+   * @category Forms
+   *
+   * @prop {string} [content=""] - The comment content text (bindable)
+   * @prop {any} [extensions] - Additional extensions for markup processing
+   * @prop {boolean} [isSubmitting=false] - Whether form is currently submitting
+   * @prop {(content: string) => Promise<void>} [onSubmit] - Callback when form is submitted
+   *
+   * @example
+   * ```svelte
+   * <ACommentForm
+   *   bind:content={commentText}
+   *   {isSubmitting}
+   *   onSubmit={handleCommentSubmit}
+   * />
+   * ```
+   *
+   * @example Basic comment form
+   * ```svelte
+   * <ACommentForm bind:content={comment} onSubmit={postComment} />
+   * ```
+   *
+   * @example Comment form with custom extensions
+   * ```svelte
+   * <ACommentForm
+   *   bind:content={replyText}
+   *   extensions={customMarkupExtensions}
+   *   isSubmitting={posting}
+   *   onSubmit={handleReply}
+   * />
+   * ```
+   *
+   * @features
+   * - Rich text editing with markdown-like syntax
+   * - Live preview of formatted content
+   * - Clear form functionality
+   * - Remove formatting option
+   * - Submit handling with loading states
+   * - Integration with user authentication
+   *
+   * @accessibility
+   * - Proper form labels and structure
+   * - Keyboard accessible controls
+   * - Screen reader friendly
+   * - Clear form validation feedback
+   */
+
   import { Button, Label } from "flowbite-svelte";
   import { userStore } from "$lib/stores/userStore.ts";
   import { parseBasicMarkup } from "$lib/utils/markup/basicMarkupParser.ts";

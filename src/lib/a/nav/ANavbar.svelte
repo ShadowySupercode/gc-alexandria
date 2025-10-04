@@ -1,4 +1,56 @@
 <script lang="ts">
+  /**
+   * @fileoverview ANavbar Component - Alexandria
+   *
+   * The main navigation bar component with responsive menu, user profile, and theme controls.
+   * Provides primary navigation for the Alexandria application with mega menu functionality.
+   * This component has no props - it renders a fixed navigation structure.
+   *
+   * @component
+   * @category Navigation
+   *
+   * @example
+   * ```svelte
+   * <ANavbar />
+   * ```
+   *
+   * @example Place at top of main layout
+   * ```svelte
+   * <ANavbar />
+   * <main>
+   *   <!-- page content -->
+   * </main>
+   * ```
+   *
+   * @features
+   * - Responsive hamburger menu for mobile devices
+   * - Mega menu with categorized navigation items
+   * - User profile integration with sign-in/out functionality
+   * - Dark mode toggle
+   * - Brand logo and home link
+   * - Organized menu sections (Browse, Create, Learn, etc.)
+   * - Helpful descriptions for each navigation item
+   *
+   * @navigation
+   * - Browse: Publications, Events, Visualize
+   * - Create: Compose notes, Publish events
+   * - Learn: Getting Started, Relay Status
+   * - Profile: User-specific actions and settings
+   *
+   * @accessibility
+   * - Semantic navigation structure with proper ARIA attributes
+   * - Keyboard accessible menu items and dropdowns
+   * - Screen reader friendly with descriptive labels
+   * - Focus management for mobile menu
+   * - Proper heading hierarchy
+   *
+   * @integration
+   * - Uses Flowbite Navbar components for consistency
+   * - Integrates with Alexandria's theme system
+   * - Connects to user authentication state
+   * - Responsive design adapts to all screen sizes
+   */
+
   import {
     DarkMode,
     Navbar,
@@ -80,7 +132,7 @@
         class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white"
       />
     </NavLi>
-    <MegaMenu full items={menu2}>
+    <MegaMenu items={menu2}>
       {#snippet children({ item })}
         <a
           href={item.href}

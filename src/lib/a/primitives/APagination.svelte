@@ -1,4 +1,70 @@
 <script lang="ts">
+  /**
+   * @fileoverview APagination Component - Alexandria
+   *
+   * A pagination component for navigating through multiple pages of content.
+   * Provides previous/next navigation with page information and item counts.
+   *
+   * @component
+   * @category Primitives
+   *
+   * @prop {number} currentPage - Current page number (1-based, bindable)
+   * @prop {number} totalPages - Total number of pages available
+   * @prop {boolean} hasNextPage - Whether there is a next page available
+   * @prop {boolean} hasPreviousPage - Whether there is a previous page available
+   * @prop {number} [totalItems=0] - Total number of items across all pages
+   * @prop {string} [itemsLabel="items"] - Label for items (e.g., "posts", "events")
+   * @prop {string} [className=""] - Additional CSS classes to apply
+   *
+   * @example
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={page}
+   *   totalPages={10}
+   *   hasNextPage={page < 10}
+   *   hasPreviousPage={page > 1}
+   *   totalItems={100}
+   *   itemsLabel="events"
+   * />
+   * ```
+   *
+   * @example Basic pagination
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={currentPage}
+   *   totalPages={Math.ceil(totalEvents / pageSize)}
+   *   hasNextPage={currentPage < totalPages}
+   *   hasPreviousPage={currentPage > 1}
+   * />
+   * ```
+   *
+   * @example With custom item labels and styling
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={page}
+   *   totalPages={pageCount}
+   *   hasNextPage={hasNext}
+   *   hasPreviousPage={hasPrev}
+   *   totalItems={eventCount}
+   *   itemsLabel="nostr events"
+   *   className="border-2 border-primary"
+   * />
+   * ```
+   *
+   * @features
+   * - Bindable current page for reactive updates
+   * - Previous/Next button navigation
+   * - Page information display with item counts
+   * - Disabled state for unavailable navigation
+   * - Only renders when totalPages > 1
+   *
+   * @accessibility
+   * - Keyboard accessible buttons
+   * - Disabled buttons have proper cursor and opacity
+   * - Clear page information for screen readers
+   * - Semantic button elements
+   */
+
   type Props = {
     currentPage: number;
     totalPages: number;

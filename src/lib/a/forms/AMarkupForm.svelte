@@ -1,4 +1,65 @@
 <script lang="ts">
+  /**
+   * @fileoverview AMarkupForm Component - Alexandria
+   *
+   * A comprehensive form component for creating content with subject/title and rich markup body.
+   * Provides advanced markup editing with preview, confirmation dialogs, and form management.
+   *
+   * @component
+   * @category Forms
+   *
+   * @prop {string} [subject=""] - The content title/subject (bindable)
+   * @prop {string} [content=""] - The main content body (bindable)
+   * @prop {boolean} [isSubmitting=false] - Whether form is currently submitting
+   * @prop {number} [clearSignal=0] - Signal to clear form (increment to trigger clear)
+   * @prop {(subject: string, content: string) => Promise<void>} [onSubmit] - Submit callback
+   *
+   * @example
+   * ```svelte
+   * <AMarkupForm
+   *   bind:subject={title}
+   *   bind:content={body}
+   *   {isSubmitting}
+   *   onSubmit={handlePublish}
+   * />
+   * ```
+   *
+   * @example Basic markup form
+   * ```svelte
+   * <AMarkupForm
+   *   bind:subject={articleTitle}
+   *   bind:content={articleContent}
+   *   onSubmit={publishArticle}
+   * />
+   * ```
+   *
+   * @example Form with clear signal control
+   * ```svelte
+   * <AMarkupForm
+   *   bind:subject={title}
+   *   bind:content={body}
+   *   clearSignal={resetCounter}
+   *   isSubmitting={publishing}
+   *   onSubmit={handleSubmit}
+   * />
+   * ```
+   *
+   * @features
+   * - Subject/title input field
+   * - Advanced markup editor with preview
+   * - Clear form functionality with confirmation dialog
+   * - Form validation and submission states
+   * - Integration with advanced markup parser
+   * - Responsive layout with proper spacing
+   *
+   * @accessibility
+   * - Proper form labels and structure
+   * - Keyboard accessible controls
+   * - Screen reader friendly
+   * - Modal dialogs with focus management
+   * - Clear form validation feedback
+   */
+
   import { Label, Input, Button, Modal } from "flowbite-svelte";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
   import { ATextareaWithPreview } from "$lib/a/index.ts";

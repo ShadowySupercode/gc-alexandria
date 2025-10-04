@@ -1,4 +1,78 @@
 <script lang="ts">
+/**
+ * @fileoverview AEventPreview Component - Alexandria
+ *
+ * A card component for displaying nostr event previews with configurable display options.
+ * Shows event metadata, content, author information, and action buttons.
+ *
+ * @component
+ * @category Cards
+ *
+ * @prop {NDKEvent} event - The nostr event to display (required)
+ * @prop {string} [label=""] - Optional label/category for the event
+ * @prop {boolean} [community=false] - Whether this is a community event
+ * @prop {number} [truncateContentAt=200] - Character limit for content truncation
+ * @prop {boolean} [showKind=true] - Whether to show event kind
+ * @prop {boolean} [showSummary=true] - Whether to show event summary
+ * @prop {boolean} [showDeferralNaddr=true] - Whether to show deferral naddr
+ * @prop {boolean} [showPublicationLink=true] - Whether to show publication link
+ * @prop {boolean} [showContent=true] - Whether to show event content
+ * @prop {Array<{label: string, onClick: (ev: NDKEvent) => void, variant?: string}>} [actions] - Action buttons
+ * @prop {(ev: NDKEvent) => void} [onSelect] - Callback when event is selected
+ * @prop {(naddr: string, ev: NDKEvent) => void} [onDeferralClick] - Callback for deferral clicks
+ *
+ * @example
+ * ```svelte
+ * <AEventPreview
+ *   {event}
+ *   label="Article"
+ *   showContent={true}
+ *   actions={[{label: "View", onClick: handleView}]}
+ * />
+ * ```
+ *
+ * @example Basic event preview
+ * ```svelte
+ * <AEventPreview {event} />
+ * ```
+ *
+ * @example Community event with actions
+ * ```svelte
+ * <AEventPreview
+ *   {event}
+ *   community={true}
+ *   actions={[
+ *     {label: "Reply", onClick: handleReply},
+ *     {label: "Share", onClick: handleShare, variant: "light"}
+ *   ]}
+ * />
+ * ```
+ *
+ * @example Minimal preview without content
+ * ```svelte
+ * <AEventPreview
+ *   {event}
+ *   showContent={false}
+ *   showSummary={false}
+ *   truncateContentAt={100}
+ * />
+ * ```
+ *
+ * @features
+ * - Responsive card layout with author badges
+ * - Content truncation with "show more" functionality
+ * - Publication links and metadata display
+ * - Configurable action buttons
+ * - Community event highlighting
+ * - Event kind and summary display
+ *
+ * @accessibility
+ * - Semantic card structure
+ * - Keyboard accessible action buttons
+ * - Screen reader friendly metadata
+ * - Proper heading hierarchy
+ */
+
   import { Card, Button } from "flowbite-svelte";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -122,7 +196,7 @@
 </script>
 
 <Card
-  class="hover:bg-highlight dark:bg-primary-900/70 bg-primary-50 dark:hover:bg-primary-800 border-primary-400 border-s-4 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-none"
+  class="event-preview-card"
   role="group"
   tabindex="0"
   aria-label="Event preview"
@@ -131,26 +205,22 @@
   size="xl"
 >
   <!-- Header -->
-  <div class="flex items-start w-full p-4">
+  <div class="card-header">
     <!-- Meta -->
     <div class="flex flex-row w-full gap-3 items-center min-w-0">
       {#if label}
-        <span
-          class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400"
-        >
+        <span class="event-label">
           {label}
         </span>
       {/if}
       {#if showKind}
-        <span
-          class="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-        >
+        <span class="event-kind-badge">
           Kind {event.kind}
         </span>
       {/if}
       {#if community}
         <span
-          class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+          class="community-badge"
           title="Has posted to the community"
         >
           <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -172,16 +242,14 @@
   </div>
 
   <!-- Body -->
-  <div class="px-4 pb-3 flex flex-col gap-2">
+  <div class="card-body">
     {#if event.kind === 0 && profileData?.about}
-      <div class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+      <div class="card-about">
         {clippedContent(profileData.about)}
       </div>
     {:else}
       {#if summary}
-        <div
-          class="text-sm text-primary-900 dark:text-primary-200 line-clamp-2"
-        >
+        <div class="card-summary">
           {summary}
         </div>
       {/if}
@@ -189,7 +257,7 @@
         <div class="text-xs text-primary-800 dark:text-primary-300">
           Read
           <span
-            class="underline text-primary-700 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-200 break-all cursor-pointer"
+            class="deferral-link"
             role="button"
             tabindex="0"
             onclick={handleDeferralClick}
@@ -206,9 +274,7 @@
       {/if}
 
       {#if showContent && event.content}
-        <div
-          class="text-sm text-gray-800 dark:text-gray-200 line-clamp-3 break-words mb-4"
-        >
+        <div class="card-content">
           {clippedContent(event.content)}
         </div>
       {/if}
@@ -217,9 +283,7 @@
 
   <!-- Footer / Actions -->
   {#if showPublicationLink && event.kind !== 0}
-    <div
-      class="px-4 pt-2 pb-3 border-t border-primary-200 dark:border-primary-700 flex items-center gap-2 flex-wrap"
-    >
+    <div class="card-footer">
       <ViewPublicationLink {event} />
     </div>
   {/if}
