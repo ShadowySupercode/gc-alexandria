@@ -6,6 +6,8 @@ server:
     - "wss://nostr.wine"
     - "wss://nostr.sovbit.host"
     - "wss://nostr21.com"
+    - "wss://orly-relay.imwald.eu"
+    - "wss://aggr.nostr.land"
 
 weights:
   trustLevel:
@@ -13,12 +15,16 @@ weights:
     "wss://thecitadel.nostr1.com": 0.5
     "wss://nostr.land": 0.5
     "wss://nostr.wine": 0.5
-    "wss://nostr.sovbit.host": 0.25
-    "wss://nostr21.com": 0.25
+    "wss://nostr.sovbit.host": 0.4
+    "wss://nostr21.com": 0.4
+    "wss://orly-relay.imwald.eu": 0.5
+    "wss://aggr.nostr.land": 0.5
   vendorScore:
     "wss://theforest.nostr1.com": 0.5
     "wss://thecitadel.nostr1.com": 0.5
     "wss://nostr.land": 0.5
-    "wss://nostr.wine": 0.25
-    "wss://nostr.sovbit.host": 0.25
-    "wss://nostr21.com": 0.25
+    "wss://nostr.wine": 0.4
+    "wss://nostr.sovbit.host": 0.3
+    "wss://nostr21.com": 0.2
+    "wss://orly-relay.imwald.eu": 0.4
+    "wss://aggr.nostr.land": 0.5
