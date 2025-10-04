@@ -61,7 +61,7 @@
   </div>
   
   {#if eventCount.total > 0}
-    <div class="flex items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
       <span>Showing {eventCount.displayed} of {eventCount.total} events.</span>
       
       <!-- AI-NOTE: Show filter checkbox only when user is logged in -->

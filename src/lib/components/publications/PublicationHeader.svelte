@@ -51,7 +51,7 @@
 {#if title != null && href != null}
   <Card class="ArticleBox card-leather w-full relative flex flex-col sm:flex-row sm:space-x-2 overflow-hidden">
     <!-- Image block: full width on mobile, fixed side on md+ -->
-    <div class="w-full h-48 sm:min-w-40 sm:w-40 sm:h-40 overflow-hidden flex items-center justify-center sm:rounded-l rounded-t sm:rounded-t-none">
+    <div class="w-full sm:min-w-40 sm:w-40 overflow-hidden flex items-center justify-center sm:rounded-l rounded-t sm:rounded-t-none">
       {#if image}
         <LazyImage
           src={image}

@@ -198,7 +198,7 @@
   /* === LEATHER COMPONENTS === */
   .leather,
   .publication-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   .btn-leather.text-xs {
@@ -242,13 +242,13 @@
 
   main.main-leather,
   article.article-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   div.note-leather,
   p.note-leather,
   section.note-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100
+    @apply text-gray-900 dark:text-gray-100
       p-2 rounded;
   }
 
@@ -287,7 +287,7 @@
   }
 
   nav.navbar-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 z-10;
+    @apply bg-primary-0 dark:bg-primary-1000 z-10;
   }
 
   nav.navbar-leather svg {

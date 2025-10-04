@@ -107,7 +107,7 @@
 
 <Navbar
   id="navi"
-  class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-1000"
+  class="fixed start-0 top-0 z-50 flex flex-row bg-primary-0 dark:bg-primary-1000"
   navContainerClass="flex-row items-center !p-0"
 >
   <NavBrand href="/" >
