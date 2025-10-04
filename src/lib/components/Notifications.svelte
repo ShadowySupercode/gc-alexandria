@@ -70,7 +70,7 @@
   let allFromMeNotifications = $state<NDKEvent[]>([]); // All fetched "from-me" notifications
   let allPublicMessages = $state<NDKEvent[]>([]); // All fetched public messages
   let currentPage = $state(1);
-  let itemsPerPage = 10; // Show 20 items per page
+  let itemsPerPage = 10;
   let hasFetchedToMe = $state(false); // Track if we've already fetched "to-me" data
   let hasFetchedFromMe = $state(false); // Track if we've already fetched "from-me" data
   let hasFetchedPublic = $state(false); // Track if we've already fetched public messages
