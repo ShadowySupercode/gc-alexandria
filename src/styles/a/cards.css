@@ -22,8 +22,8 @@
   }
 
   .card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
-      dark:hover:text-primary-300;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
   }
 
   /* Main card leather (used in profile previews) */
@@ -65,8 +65,8 @@
   }
 
   .ArticleBox .font-thin {
-    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
-      dark:hover:text-primary-300;
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
   }
 
   /* Article box image transitions */
@@ -183,7 +183,7 @@
   .deferral-link {
     @apply underline
       text-primary-700 dark:text-primary-400
-      hover:text-primary-900 dark:hover:text-primary-200
+      hover:text-primary-600 dark:hover:text-primary-400
       break-all cursor-pointer;
   }
 

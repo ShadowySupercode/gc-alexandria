@@ -294,7 +294,7 @@
     ></div>
   {/if}
 
-  <div class={`p-6 flex flex-col gap-4 relative`}>
+  <div class={`p-6 flex flex-col relative`}>
     <Avatar
       size="xl"
       src={props.profile?.picture ?? null}
@@ -302,7 +302,7 @@
       class="card-avatar-container"
     />
 
-    <div class="flex flex-col gap-3 mt-14">
+    <div class="flex flex-col gap-3">
       <Heading tag="h1" class="h-leather mb-2">{displayName()}</Heading>
       {#if props.user?.npub}
         <CopyToClipboard displayText={shortNpub()} copyText={props.user.npub} />

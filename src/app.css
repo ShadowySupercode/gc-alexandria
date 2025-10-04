@@ -154,6 +154,48 @@
     display: none;
   }
 
+  /* === HEADINGS === */
+  /* Base heading styles - gray-900 (light) / gray-100 (dark) for high contrast */
+  h1, h2, h3, h4, h5, h6,
+  h1.h-leather, h2.h-leather, h3.h-leather,
+  h4.h-leather, h5.h-leather, h6.h-leather {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+
+  /* Heading sizes and weights */
+  h1, h1.h-leather {
+    @apply text-4xl font-bold;
+  }
+
+  h2, h2.h-leather {
+    @apply text-3xl font-bold;
+  }
+
+  h3, h3.h-leather {
+    @apply text-2xl font-bold;
+  }
+
+  h4, h4.h-leather {
+    @apply text-xl font-bold;
+  }
+
+  h5, h5.h-leather {
+    @apply text-lg font-semibold;
+  }
+
+  h6, h6.h-leather {
+    @apply text-base font-semibold;
+  }
+
+  /* Heading links - primary-600 (light) / primary-400 (dark) for hover */
+  h1 a, h2 a, h3 a, h4 a, h5 a, h6 a,
+  h1.h-leather a, h2.h-leather a, h3.h-leather a,
+  h4.h-leather a, h5.h-leather a, h6.h-leather a {
+    @apply text-gray-900 dark:text-gray-100
+           hover:text-primary-600 dark:hover:text-primary-400;
+  }
+
+  /* === LEATHER COMPONENTS === */
   .leather,
   .publication-leather {
     @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
@@ -216,39 +258,6 @@
     @apply hover:bg-primary-100 dark:hover:bg-primary-800;
   }
 
-  h1.h-leather,
-  h2.h-leather,
-  h3.h-leather,
-  h4.h-leather,
-  h5.h-leather,
-  h6.h-leather {
-    @apply text-gray-900 dark:text-gray-100;
-  }
-
-  h1.h-leather {
-    @apply text-4xl font-bold;
-  }
-
-  h2.h-leather {
-    @apply text-3xl font-bold;
-  }
-
-  h3.h-leather {
-    @apply text-2xl font-bold;
-  }
-
-  h4.h-leather {
-    @apply text-xl font-bold;
-  }
-
-  h5.h-leather {
-    @apply text-lg font-semibold;
-  }
-
-  h6.h-leather {
-    @apply text-base font-semibold;
-  }
-
   div.modal-leather > div {
     @apply bg-primary-50 dark:bg-primary-950 border-b-[1px] border-primary-100
       dark:border-primary-600;
@@ -260,14 +269,16 @@
   div.modal-leather > div > h4,
   div.modal-leather > div > h5,
   div.modal-leather > div > h6 {
-    @apply text-gray-900 hover:text-gray-900 dark:text-gray-100
-      dark:hover:text-gray-100;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
-  div.modal-leather button {
-    @apply bg-primary-50 hover:bg-primary-50 dark:bg-primary-950
-      dark:hover:bg-primary-950 text-gray-900 hover:text-primary-600
-      dark:text-gray-100 dark:hover:text-primary-400;
+  div.modal-leather > div > h1 a,
+  div.modal-leather > div > h2 a,
+  div.modal-leather > div > h3 a,
+  div.modal-leather > div > h4 a,
+  div.modal-leather > div > h5 a,
+  div.modal-leather > div > h6 a {
+    @apply hover:text-primary-600 dark:hover:text-primary-400;
   }
 
   /* Navbar */
@@ -284,14 +295,29 @@
       dark:hover:fill-primary-400;
   }
 
+  /* NavBrand hover - all text highlights together */
+  #navi a:hover h1,
+  #navi a:hover p {
+    @apply !text-primary-600 dark:!text-primary-400;
+    transition: color 0.2s ease-in-out;
+  }
+
   nav.navbar-leather h1,
   nav.navbar-leather h2,
   nav.navbar-leather h3,
   nav.navbar-leather h4,
   nav.navbar-leather h5,
   nav.navbar-leather h6 {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+    @apply text-gray-900 dark:text-gray-100;
+  }
+
+  nav.navbar-leather h1 a,
+  nav.navbar-leather h2 a,
+  nav.navbar-leather h3 a,
+  nav.navbar-leather h4 a,
+  nav.navbar-leather h5 a,
+  nav.navbar-leather h6 a {
+    @apply hover:text-primary-600 dark:hover:text-primary-400;
   }
 
   div.textarea-leather {
@@ -350,33 +376,7 @@
 
 /* Utilities can be applied via the @apply directive. */
 @layer utilities {
-  .h-leather {
-    @apply text-gray-900 dark:text-gray-100 pt-4;
-  }
-
-  .h1-leather {
-    @apply text-4xl font-bold;
-  }
-
-  .h2-leather {
-    @apply text-3xl font-bold;
-  }
-
-  .h3-leather {
-    @apply text-2xl font-bold;
-  }
-
-  .h4-leather {
-    @apply text-xl font-bold;
-  }
-
-  .h5-leather {
-    @apply text-lg font-semibold;
-  }
-
-  .h6-leather {
-    @apply text-base font-semibold;
-  }
+  /* Removed redundant .h-leather and .h1-leather through .h6-leather - use base layer definitions instead */
 
   /* Line clamp utilities for text truncation */
   .line-clamp-1 {
@@ -407,13 +407,14 @@
   /* Lists */
   .ol-leather li a,
   .ul-leather li a {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+    @apply text-gray-900 dark:text-gray-100
+           hover:text-primary-600 dark:hover:text-primary-400;
   }
 
+  /* Links - consistent hover colors */
   .link {
-    @apply underline cursor-pointer hover:text-primary-600
-      dark:hover:text-primary-400;
+    @apply underline cursor-pointer
+           hover:text-primary-600 dark:hover:text-primary-400;
   }
 
   .npub-badge {
@@ -471,44 +472,9 @@
     @apply flex flex-col space-y-4;
     scroll-margin-top: 150px;
     scroll-behavior: smooth;
-
-    /* common heading base styles */
-
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      @apply text-gray-900 dark:text-gray-100 pt-4;
-    }
-
-    /* sizes/weights per level */
-
-    h1 {
-      @apply text-4xl font-bold;
-    }
-
-    h2 {
-      @apply text-3xl font-bold;
-    }
-
-    h3 {
-      @apply text-2xl font-bold;
-    }
-
-    h4 {
-      @apply text-xl font-bold;
-    }
-
-    h5 {
-      @apply text-lg font-semibold;
-    }
-
-    h6 {
-      @apply text-base font-semibold;
-    }
   }
+
+  /* Publication headings inherit from base layer - removed duplicate definitions */
 
   .olist {
     @apply flex flex-col space-y-4;
@@ -538,9 +504,10 @@
     }
   }
 
+  /* All links - consistent hover behavior */
   a {
-    @apply underline cursor-pointer hover:text-primary-600
-      dark:hover:text-primary-400;
+    @apply underline cursor-pointer
+           hover:text-primary-600 dark:hover:text-primary-400;
   }
 
   .imageblock {

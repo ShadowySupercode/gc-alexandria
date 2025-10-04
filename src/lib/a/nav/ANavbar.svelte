@@ -59,6 +59,8 @@
     NavHamburger,
     NavBrand,
     MegaMenu,
+    P,
+    Heading
   } from "flowbite-svelte";
   import Profile from "$components/util/Profile.svelte";
 
@@ -108,18 +110,14 @@
   class="fixed start-0 top-0 z-50 flex flex-row bg-primary-50 dark:bg-primary-1000"
   navContainerClass="flex-row items-center !p-0"
 >
-  <NavBrand href="/">
+  <NavBrand href="/" >
     <div class="flex flex-col">
-      <h1
-        class="text-2xl font-bold mb-0 dark:text-primary-100 hover:dark:text-highlight"
-      >
+      <Heading class="text-2xl font-bold mb-0">
         Alexandria
-      </h1>
-      <p
-        class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem] mb-0 dark:text-primary-200"
-      >
+      </Heading>
+      <P class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem] mb-0">
         READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.
-      </p>
+      </P>
     </div>
   </NavBrand>
   <div class="flex md:order-2">
