@@ -11,7 +11,7 @@
   },
   "tasks": {
     "check": "deno check mod.ts",
-    "bundle": "deno bundle mod.ts -o dist/configuration_manager.js"
+    "bundle": "deno bundle mod.ts -o dist/configuration_manager.bundle.js"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.14",
