@@ -50,7 +50,7 @@ fn init_relay_selector_if_none(store_name: &str) {
 }
 
 #[wasm_bindgen]
-pub async fn record_response_time(
+pub fn record_response_time(
     relay_url: &str,
     response_time: Option<f32>,
     relay_type: Option<String>,
@@ -100,6 +100,8 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
 /// * `relay_type` - The type of relay. May be `"general"`, `"inbox"`, or `"outbox"`.
 /// * `relay_rank` - The relay rank based on current weights. Defaults to `0` to select the
 /// highest-ranked relay.
+/// * `is_server_side` - Whether this function is being invoked on a server environment, rather
+/// than client-side on an end user device or in a browser.
 ///
 /// # Returns
 ///
@@ -111,7 +113,11 @@ pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<Stri
 ///
 /// Throws an error if the relay type is invalid, or if an error occurs while selecting the relay.
 #[wasm_bindgen]
-pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::RelayHandle, String> {
+pub async fn get_relay(
+    relay_type: &str,
+    relay_rank: Option<u8>,
+    is_server_side: Option<bool>,
+) -> Result<relay::RelayHandle, String> {
     let variant = relay::Variant::from_str(relay_type).unwrap_throw();
     let rank = match relay_rank {
         Some(rank) => rank,
@@ -119,17 +125,24 @@ pub fn get_relay(relay_type: &str, relay_rank: Option<u8>) -> Result<relay::Rela
     } as usize;
 
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR
-        .try_with(|selector| {
-            let url = selector
-                .borrow_mut()
-                .as_mut()
-                .unwrap_throw()
-                .get_relay_by_weighted_round_robin(variant, rank)
-                .unwrap_throw();
-            Ok(relay::RelayHandle::new(url, variant, selector))
-        })
+
+    // First, clone the reference counted variable (cloning increases the reference count) out of
+    // the thread-local storage. This clone of the reference will go out of scope when the function
+    // returns.
+    let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
+
+    // The clone is necessary because `get_relay_by_weighted_round_robin` is async, and we cannot
+    // pass references to the data inside the thread-local storage across an `await` within the
+    // thread-local storage's `try_with` callback.
+    let url = selector_rc
+        .borrow_mut()
+        .as_mut()
         .unwrap_throw()
+        .get_relay_by_weighted_round_robin(variant, rank, is_server_side.unwrap_or(false))
+        .await
+        .unwrap_throw();
+
+    Ok(relay::RelayHandle::new(url, variant, &selector_rc))
 }
 
 /// Adds a new relay to the selector.
@@ -155,8 +168,8 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
 
     init_relay_selector_if_none(STORE_NAME);
 
-    let trust_level = get_trust_level(relay_url).await;
-    let vendor_score = get_vendor_score(relay_url).await;
+    let trust_level = config::get_trust_level(relay_url).await;
+    let vendor_score = config::get_vendor_score(relay_url).await;
 
     RELAY_SELECTOR
         .try_with(|selector| {
@@ -170,5 +183,3 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
         })
         .unwrap_throw()
 }
-
-

@@ -1,9 +1,11 @@
 use futures::executor::LocalPool;
 use futures::task::LocalSpawnExt;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::Duration;
 use wasm_bindgen::UnwrapThrowExt;
 
+use crate::config;
 use crate::database;
 use crate::relay;
 use crate::weights;
@@ -115,17 +117,17 @@ impl RelaySelector {
 
         // Add default general relays if list is empty
         if self.general.is_empty() {
-            for &relay_url in defaults::get_default_relays(relay::Variant::General) {
-                self.insert(relay_url, relay::Variant::General);
+            for relay_url in defaults::get_default_relays().await.iter() {
+                self.insert(relay_url.as_str(), relay::Variant::General);
                 self.initial_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
                 self.current_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
 
                 relays_to_save.push(database::Relay::from_repositories(
-                    relay_url,
+                    relay_url.as_str(),
                     relay::Variant::General,
-                    &self.statistics[relay_url],
+                    &self.statistics[relay_url.as_str()],
                     self,
                 ));
             }
@@ -133,17 +135,17 @@ impl RelaySelector {
 
         // Add default inbox relays if list is empty
         if self.inbox.is_empty() {
-            for &relay_url in defaults::get_default_relays(relay::Variant::Inbox) {
-                self.insert(relay_url, relay::Variant::Inbox);
+            for relay_url in defaults::get_default_relays().await.iter() {
+                self.insert(relay_url.as_str(), relay::Variant::Inbox);
                 self.initial_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
                 self.current_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
 
                 relays_to_save.push(database::Relay::from_repositories(
-                    relay_url,
+                    relay_url.as_str(),
                     relay::Variant::Inbox,
-                    &self.statistics[relay_url],
+                    &self.statistics[relay_url.as_str()],
                     self,
                 ));
             }
@@ -151,17 +153,17 @@ impl RelaySelector {
 
         // Add default outbox relays if list is empty
         if self.outbox.is_empty() {
-            for &relay_url in defaults::get_default_relays(relay::Variant::Outbox) {
-                self.insert(relay_url, relay::Variant::Outbox);
+            for relay_url in defaults::get_default_relays().await.iter() {
+                self.insert(relay_url.as_str(), relay::Variant::Outbox);
                 self.initial_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
                 self.current_weights
-                    .insert(relay_url.to_string(), defaults::DEFAULT_WEIGHT);
+                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
 
                 relays_to_save.push(database::Relay::from_repositories(
-                    relay_url,
+                    relay_url.as_str(),
                     relay::Variant::Outbox,
-                    &self.statistics[relay_url],
+                    &self.statistics[relay_url.as_str()],
                     self,
                 ));
             }
@@ -312,15 +314,17 @@ impl RelaySelector {
     ///
     /// * `variant` - The desired relay variant.
     /// * `rank` - The desired relay rank.
+    /// * `is_server_side` - Whether the call is coming from server-side code.
     ///
     /// # Returns
     ///
     /// * `Ok(String)` - The selected relay.
     /// * `Err(String)` - An error message.
-    pub fn get_relay_by_weighted_round_robin(
+    pub async fn get_relay_by_weighted_round_robin(
         &mut self,
         variant: relay::Variant,
         rank: usize,
+        is_server_side: bool,
     ) -> Result<String, String> {
         let ranked = match variant {
             relay::Variant::General => &self.general,
@@ -343,8 +347,23 @@ impl RelaySelector {
                 variant, rank
             ))?
             .clone();
-        let selected_statistics = self.get_mut_statistics(&selected, variant);
 
+        let is_allowed = config::get_server_side_relay_allow_list()
+            .await
+            .and_then(|allow_list| {
+                Ok(allow_list
+                    .iter()
+                    .any(|relay| relay.cmp(&selected) == Ordering::Equal))
+            })
+            .unwrap_or(false);
+        if is_server_side && !is_allowed {
+            return Err(format!(
+                "Network requests to relay {} are not allowed from this server.",
+                selected
+            ));
+        }
+
+        let selected_statistics = self.get_mut_statistics(&selected, variant);
         let (initial_weight, current_weight) = selected_statistics.add_active_connection();
 
         self.initial_weights
