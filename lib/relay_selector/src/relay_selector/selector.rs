@@ -89,7 +89,7 @@ impl RelaySelector {
         let mut selector = Self::new();
 
         for relay in database::get_all_relays(store_name).await? {
-            selector.insert(&relay.url, relay.variant);
+            selector.insert(&relay.url, relay.variant).await;
             selector
                 .statistics
                 .insert(relay.url.clone(), relay.to_statistics());
@@ -112,68 +112,28 @@ impl RelaySelector {
 
     /// Populates the selector with default relays for empty variant lists.
     async fn populate_defaults(&mut self) -> Result<(), String> {
-        // TODO: Use new relay add method to add defaults.
-        let mut relays_to_save = Vec::new();
-
         // Add default general relays if list is empty
         if self.general.is_empty() {
             for relay_url in defaults::get_default_relays().await.iter() {
-                self.insert(relay_url.as_str(), relay::Variant::General);
-                self.initial_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-                self.current_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-
-                relays_to_save.push(database::Relay::from_repositories(
-                    relay_url.as_str(),
-                    relay::Variant::General,
-                    &self.statistics[relay_url.as_str()],
-                    self,
-                ));
+                self.insert(relay_url.as_str(), relay::Variant::General)
+                    .await;
             }
         }
 
         // Add default inbox relays if list is empty
         if self.inbox.is_empty() {
             for relay_url in defaults::get_default_relays().await.iter() {
-                self.insert(relay_url.as_str(), relay::Variant::Inbox);
-                self.initial_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-                self.current_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-
-                relays_to_save.push(database::Relay::from_repositories(
-                    relay_url.as_str(),
-                    relay::Variant::Inbox,
-                    &self.statistics[relay_url.as_str()],
-                    self,
-                ));
+                self.insert(relay_url.as_str(), relay::Variant::Inbox).await;
             }
         }
 
         // Add default outbox relays if list is empty
         if self.outbox.is_empty() {
             for relay_url in defaults::get_default_relays().await.iter() {
-                self.insert(relay_url.as_str(), relay::Variant::Outbox);
-                self.initial_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-                self.current_weights
-                    .insert(relay_url.clone(), defaults::DEFAULT_WEIGHT);
-
-                relays_to_save.push(database::Relay::from_repositories(
-                    relay_url.as_str(),
-                    relay::Variant::Outbox,
-                    &self.statistics[relay_url.as_str()],
-                    self,
-                ));
+                self.insert(relay_url.as_str(), relay::Variant::Outbox)
+                    .await;
             }
         }
-
-        // Save defaults to IndexedDB for persistence
-        if !relays_to_save.is_empty() {
-            database::insert_or_update(&self.store_name, &relays_to_save).await?;
-        }
-
         Ok(())
     }
 
@@ -185,7 +145,8 @@ impl RelaySelector {
     }
 
     /// Inserts a relay into the selector, respecting its type (i.e., its intended usage category).
-    pub fn insert(&mut self, relay: &str, variant: relay::Variant) {
+    pub async fn insert(&mut self, relay: &str, variant: relay::Variant) {
+        // Add the relay to the appropriate collections based on its variant.
         match variant {
             relay::Variant::General => self.general.push(relay.to_string()),
             relay::Variant::Inbox => self.inbox.push(relay.to_string()),
@@ -193,20 +154,34 @@ impl RelaySelector {
             _ => self.general.push(relay.to_string()),
         }
 
+        // Set up the relay's representation in the selector with initial defaults.
         self.statistics
             .insert(relay.to_string(), relay::Statistics::new());
+        self.initial_weights
+            .insert(relay.to_string(), defaults::DEFAULT_WEIGHT);
+        self.current_weights
+            .insert(relay.to_string(), defaults::DEFAULT_WEIGHT);
 
-        // TODO: Set initial weight and sort
+        // If any trust level or vendor score is configured, update the weights accordingly.
+        let trust_level = config::get_trust_level(relay);
+        let vendor_score = config::get_vendor_score(relay);
+        self.update_weights_with_trust_level(relay, trust_level.await as f32);
+        self.update_weights_with_vendor_score(relay, vendor_score.await as f32);
+
+        // Sort the relay collections based on the weights.
+        match variant {
+            relay::Variant::General => {
+                weights::weighted_sort(&mut self.general, &self.current_weights)
+            }
+            relay::Variant::Inbox => weights::weighted_sort(&mut self.inbox, &self.current_weights),
+            relay::Variant::Outbox => {
+                weights::weighted_sort(&mut self.outbox, &self.current_weights)
+            }
+            _ => (),
+        }
     }
 
-    fn get_mut_statistics(
-        &mut self,
-        relay: &str,
-        variant: relay::Variant,
-    ) -> &mut relay::Statistics {
-        if !self.contains(relay) {
-            self.insert(relay, variant);
-        }
+    fn get_mut_statistics(&mut self, relay: &str) -> &mut relay::Statistics {
         self.statistics.get_mut(relay).unwrap()
     }
 
@@ -215,16 +190,10 @@ impl RelaySelector {
     /// # Arguments
     ///
     /// * `relay` - The relay URL.
-    /// * `variant`
     /// * `response_time`
-    pub fn update_weights_with_response_time(
-        &mut self,
-        relay: &str,
-        variant: relay::Variant,
-        response_time: Duration,
-    ) {
+    pub fn update_weights_with_response_time(&mut self, relay: &str, response_time: Duration) {
         let (initial_weight, current_weight) = self
-            .get_mut_statistics(relay, variant)
+            .get_mut_statistics(relay)
             .add_response_time(response_time);
 
         self.initial_weights
@@ -238,16 +207,9 @@ impl RelaySelector {
     /// # Arguments
     ///
     /// * `relay` - The relay URL.
-    /// * `variant` - The relay variant.
     /// * `success` - Whether the request was successful.
-    pub fn update_weights_with_request(
-        &mut self,
-        relay: &str,
-        variant: relay::Variant,
-        success: bool,
-    ) {
-        let (initial_weight, current_weight) =
-            self.get_mut_statistics(relay, variant).add_request(success);
+    pub fn update_weights_with_request(&mut self, relay: &str, success: bool) {
+        let (initial_weight, current_weight) = self.get_mut_statistics(relay).add_request(success);
 
         self.initial_weights
             .insert(relay.to_string(), initial_weight);
@@ -260,16 +222,10 @@ impl RelaySelector {
     /// # Arguments
     ///
     /// * `relay` - The relay URL.
-    /// * `variant` - The relay variant.
     /// * `trust_level` - The new trust level. Replaces the existing trust level.
-    pub fn update_weights_with_trust_level(
-        &mut self,
-        relay: &str,
-        variant: relay::Variant,
-        trust_level: f32,
-    ) {
+    pub fn update_weights_with_trust_level(&mut self, relay: &str, trust_level: f32) {
         let (initial_weight, current_weight) = self
-            .get_mut_statistics(relay, variant)
+            .get_mut_statistics(relay)
             .update_trust_level(trust_level);
 
         self.initial_weights
@@ -283,16 +239,10 @@ impl RelaySelector {
     /// # Arguments
     ///
     /// * `relay` - The relay URL.
-    /// * `variant` - The relay variant.
     /// * `vendor_score` - The new vendor score. Replaces the existing score.
-    pub fn update_weights_with_vendor_score(
-        &mut self,
-        relay: &str,
-        variant: relay::Variant,
-        vendor_score: f32,
-    ) {
+    pub fn update_weights_with_vendor_score(&mut self, relay: &str, vendor_score: f32) {
         let (initial_weight, current_weight) = self
-            .get_mut_statistics(relay, variant)
+            .get_mut_statistics(relay)
             .update_vendor_score(vendor_score);
 
         self.initial_weights
@@ -363,7 +313,7 @@ impl RelaySelector {
             ));
         }
 
-        let selected_statistics = self.get_mut_statistics(&selected, variant);
+        let selected_statistics = self.get_mut_statistics(&selected);
         let (initial_weight, current_weight) = selected_statistics.add_active_connection();
 
         self.initial_weights
@@ -397,7 +347,7 @@ impl RelaySelector {
     /// * `relay` - The URL of the relay to be returned.
     /// * `variant` - The variant of the relay to be returned.
     pub fn return_relay(&mut self, relay: &str, variant: relay::Variant) {
-        let selected_statistics = self.get_mut_statistics(relay, variant);
+        let selected_statistics = self.get_mut_statistics(relay);
         let (initial_weight, current_weight) = selected_statistics.remove_active_connection();
 
         self.initial_weights

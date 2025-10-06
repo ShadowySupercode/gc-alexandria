@@ -50,7 +50,7 @@ fn init_relay_selector_if_none(store_name: &str) {
 }
 
 #[wasm_bindgen]
-pub fn record_response_time(
+pub async fn record_response_time(
     relay_url: &str,
     response_time: Option<f32>,
     relay_type: Option<String>,
@@ -62,35 +62,33 @@ pub fn record_response_time(
     let response_duration =
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
+    // TODO: Do an insert if relay is missing.
+
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR
-        .try_with(|selector| {
-            selector
-                .borrow_mut()
-                .as_mut()
-                .unwrap_throw()
-                .update_weights_with_response_time(relay_url, variant, response_duration)
-        })
+    let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
+    selector_rc
+        .borrow_mut()
+        .as_mut()
         .unwrap_throw()
+        .update_weights_with_response_time(relay_url, response_duration);
 }
 
 #[wasm_bindgen]
-pub fn record_request(relay_url: &str, is_success: bool, relay_type: Option<String>) {
+pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Option<String>) {
     let variant = match relay_type {
         Some(t) => relay::Variant::from_str(&t).unwrap_throw(),
         None => relay::Variant::General,
     };
 
+    // TODO: Do an insert if relay is missing.
+
     init_relay_selector_if_none(STORE_NAME);
-    RELAY_SELECTOR
-        .try_with(|selector| {
-            selector
-                .borrow_mut()
-                .as_mut()
-                .unwrap_throw()
-                .update_weights_with_request(relay_url, variant, is_success);
-        })
+    let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
+    selector_rc
+        .borrow_mut()
+        .as_mut()
         .unwrap_throw()
+        .update_weights_with_request(relay_url, is_success);
 }
 
 /// Get a recommended relay URL based on current weights.
@@ -168,18 +166,11 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
 
     init_relay_selector_if_none(STORE_NAME);
 
-    let trust_level = config::get_trust_level(relay_url).await;
-    let vendor_score = config::get_vendor_score(relay_url).await;
-
-    RELAY_SELECTOR
-        .try_with(|selector| {
-            let mut tmp_sel = selector.borrow_mut();
-            let sel = tmp_sel.as_mut().unwrap_throw();
-
-            sel.insert(relay_url, variant);
-
-            sel.update_weights_with_trust_level(relay_url, variant, trust_level as f32);
-            sel.update_weights_with_vendor_score(relay_url, variant, vendor_score as f32);
-        })
+    let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
+    selector_rc
+        .borrow_mut()
+        .as_mut()
         .unwrap_throw()
+        .insert(relay_url, variant)
+        .await;
 }
