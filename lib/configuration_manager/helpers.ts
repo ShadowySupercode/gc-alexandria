@@ -13,7 +13,6 @@ import {
 } from "@std/assert";
 
 import { ConfigurationError } from "./errors.ts";
-import { Disposable } from "./disposables.ts";
 import type {
   RelayConfigKey,
   RelayConfiguration,
@@ -116,51 +115,26 @@ export function parseYamlContent<T>(content: string): T {
 
 /**
  * Loads and parses the root configuration file.
- * @returns Parsed root configuration as a disposable resource.
+ * @returns Parsed root configuration.
  */
-export async function loadRootConfig(): Promise<Disposable<RootConfig>> {
-  // `DisposableStack` is used here for security. Memory is synchronously zeroed out when it goes
-  // out of scope to help prevent leaks.
-  using disposer = new DisposableStack();
-
-  const configPath = disposer.adopt(
-    getConfigPathFromArgs(),
-    (val) => val.replaceAll(/[\s\S]*/, "0"),
-  );
-  const resolvedPath = disposer.adopt(
-    resolve(configPath),
-    (val) => val.replaceAll(/[\s\S]*/, "0"),
-  );
-  const content = disposer.adopt(
-    await readConfigFile(resolvedPath),
-    (val) => val.replaceAll(/[\s\S]*/, "0"),
-  );
-
-  return Disposable.from(parseYamlContent<RootConfig>(content));
+export async function loadRootConfig(): Promise<RootConfig> {
+  const configPath = getConfigPathFromArgs();
+  const resolvedPath = resolve(configPath);
+  const content = await readConfigFile(resolvedPath);
+  return parseYamlContent<RootConfig>(content);
 }
 
 /**
  * Loads and parses the relay configuration file.
  * @param relayConfigPath Path to the relay configuration file.
- * @returns Parsed relay configuration as a disposable resource.
+ * @returns Parsed relay configuration.
  */
 export async function loadRelayConfig(
   relayConfigPath: string,
-): Promise<Disposable<RelayConfiguration>> {
-  // `DisposableStack` is used here for security. Memory is synchronously zeroed out when it goes
-  // out of scope to help prevent leaks.
-  using disposer = new DisposableStack();
-
-  const resolvedPath = disposer.adopt(
-    resolve(relayConfigPath),
-    (val) => val.replaceAll(/[\s\S]*/, "0"),
-  );
-  const content = disposer.adopt(
-    await readConfigFile(resolvedPath),
-    (val) => val.replaceAll(/[\s\S]*/, "0"),
-  );
-
-  return Disposable.from(parseYamlContent<RelayConfiguration>(content));
+): Promise<RelayConfiguration> {
+  const resolvedPath = resolve(relayConfigPath);
+  const content = await readConfigFile(resolvedPath);
+  return parseYamlContent<RelayConfiguration>(content);
 }
 
 /**
