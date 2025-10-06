@@ -48,6 +48,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     esbuildOptions: {
+      target: "es2024",
       define: {
         global: "globalThis",
       },
