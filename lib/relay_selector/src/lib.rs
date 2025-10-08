@@ -62,15 +62,17 @@ pub async fn record_response_time(
     let response_duration =
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
-    // TODO: Do an insert if relay is missing.
-
     init_relay_selector_if_none(STORE_NAME);
+
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
-    selector_rc
-        .borrow_mut()
-        .as_mut()
-        .unwrap_throw()
-        .update_weights_with_response_time(relay_url, response_duration);
+    let mut selector_ref = selector_rc.borrow_mut();
+    let selector = selector_ref.as_mut().unwrap_throw();
+
+    if !selector.contains(relay_url) {
+        selector.insert(relay_url, variant).await;
+    }
+
+    selector.update_weights_with_response_time(relay_url, response_duration)
 }
 
 #[wasm_bindgen]
@@ -80,15 +82,17 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
         None => relay::Variant::General,
     };
 
-    // TODO: Do an insert if relay is missing.
-
     init_relay_selector_if_none(STORE_NAME);
+
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
-    selector_rc
-        .borrow_mut()
-        .as_mut()
-        .unwrap_throw()
-        .update_weights_with_request(relay_url, is_success);
+    let mut selector_ref = selector_rc.borrow_mut();
+    let selector = selector_ref.as_mut().unwrap_throw();
+
+    if !selector.contains(relay_url) {
+        selector.insert(relay_url, variant).await;
+    }
+
+    selector.update_weights_with_request(relay_url, is_success)
 }
 
 /// Get a recommended relay URL based on current weights.
