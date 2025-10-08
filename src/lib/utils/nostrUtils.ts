@@ -71,7 +71,7 @@ function escapeRegExp(string: string): string {
 /**
  * Get user metadata for a nostr identifier (npub or nprofile)
  */
-export async function getUserMetadata(
+export function getUserMetadata(
   identifier: string,
   ndk?: NDK,
   force = false,
@@ -413,7 +413,7 @@ Promise.prototype.withTimeout = function <T>(
  */
 export function whileInterval(
   condition: () => boolean,
-  action: () => void,
+  action: () => void | Promise<void>,
   interval: number,
 ): number {
   if (condition()) {
@@ -444,7 +444,7 @@ export async function fetchEventWithComprehensiveSearch(
   timeoutMs: number = 10000,
 ): Promise<NDKEvent | null> {
   const poolRelays = Array.from(ndk.pool.relays.values()).map(
-    (r: any) => r.url,
+    (r) => r.url,
   );
   const inboxRelays = get(activeInboxRelays);
   const outboxRelays = get(activeOutboxRelays);
@@ -537,14 +537,14 @@ export async function fetchEventWithFallback(
 
   const intervalId = whileInterval(
     () => Date.now() - overallStartTime < timeoutMs,
-    () => {
+    async () => {
       let relayHandle: RelayHandle | null = null;
 
       try {
         // Try to get next highest-rated relay that hasn't been used
-        relayHandle = get_relay(relayType, relayRank++);
+        relayHandle = await get_relay(relayType, relayRank++);
 
-        if (usedRelays.has(relayHandle)) {
+        if (usedRelays.has(relayHandle!)) {
           return;
         }
 
