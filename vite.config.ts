@@ -34,7 +34,7 @@ export default defineConfig({
       $components: "./src/components",
     },
   },
-  assetsInclude: ["**/*.wasm"],
+  assetsInclude: ["**/*.wasm", "cfg/**/*"],
   test: {
     include: ["./tests/unit/**/*.test.ts", "./tests/integration/**/*.test.ts"],
   },

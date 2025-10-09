@@ -9,9 +9,8 @@
     }
   },
   "tasks": {
-    "prebuild": "cd ../configuration_manager && deno task bundle",
-    "build": "deno task prebuild && wasm-pack build --target bundler --out-dir pkg/bundler",
-    "wasmbuild": "deno task prebuild && deno run -A jsr:@deno/wasmbuild@0.19.3 --inline --project relay_selector --js-ext mjs",
+    "build": "wasm-pack build --target bundler --out-dir pkg/bundler",
+    "wasmbuild": "deno run -A jsr:@deno/wasmbuild@0.19.3 --inline --project relay_selector --js-ext mjs",
     "check": "deno task wasmbuild --check"
   }
 }

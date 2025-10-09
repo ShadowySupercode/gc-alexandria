@@ -31,7 +31,6 @@
     "@std/fs": "jsr:@std/fs@1.0.19",
     "@std/path": "jsr:@std/path@1.1.2",
     "@std/yaml": "jsr:@std/yaml@1.0.9",
-    "@alexandria/configuration-manager": "./lib/configuration_manager/mod.ts",
     "@alexandria/relay_selector": "./lib/relay_selector/lib/relay_selector.mjs",
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5"
   }

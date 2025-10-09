@@ -15,6 +15,15 @@ const config = {
       $components: "src/lib/components",
       $cards: "src/lib/cards",
     },
+    experimental: {
+      remoteFunctions: true,
+    },
+  },
+
+  compilerOptions: {
+    experimental: {
+      async: true,
+    },
   },
 };
 

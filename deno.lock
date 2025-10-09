@@ -3830,17 +3830,6 @@
         "npm:vite@^6.3.6",
         "npm:vitest@^3.2.4"
       ]
-    },
-    "members": {
-      "lib/configuration_manager": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.14",
-          "jsr:@std/cli@1",
-          "jsr:@std/fs@1",
-          "jsr:@std/path@1",
-          "jsr:@std/yaml@1"
-        ]
-      }
     }
   }
 }

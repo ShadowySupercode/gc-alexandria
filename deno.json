@@ -1,5 +1,5 @@
 {
-  "workspace": ["lib/configuration_manager", "lib/relay_selector"],
+  "workspace": ["lib/relay_selector"],
   "importMap": "./import_map.json",
   "compilerOptions": {
     "lib": ["ES2024", "dom", "dom.iterable", "dom.asynciterable", "deno.ns"]

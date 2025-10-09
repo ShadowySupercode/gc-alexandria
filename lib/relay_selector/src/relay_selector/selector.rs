@@ -1,6 +1,5 @@
 use futures::executor::LocalPool;
 use futures::task::LocalSpawnExt;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::Duration;
 use wasm_bindgen::UnwrapThrowExt;
@@ -26,6 +25,9 @@ pub struct RelaySelector {
     outbox: Vec<String>,
 
     store_name: String,
+
+    // Configuration provider callback
+    config_provider: config::JsConfigProvider,
 }
 
 impl Drop for RelaySelector {
@@ -72,7 +74,7 @@ impl Drop for RelaySelector {
 }
 
 impl RelaySelector {
-    pub fn new() -> Self {
+    pub fn new(config_provider: config::JsConfigProvider) -> Self {
         Self {
             statistics: HashMap::new(),
             initial_weights: HashMap::new(),
@@ -81,12 +83,16 @@ impl RelaySelector {
             inbox: Vec::new(),
             outbox: Vec::new(),
             store_name: String::new(),
+            config_provider,
         }
     }
 
     /// Initializes the relay selector with data from the IndexedDB store with the given name.
-    pub async fn init(store_name: &str) -> Result<Self, String> {
-        let mut selector = Self::new();
+    pub async fn init(
+        store_name: &str,
+        config_provider: config::JsConfigProvider,
+    ) -> Result<Self, String> {
+        let mut selector = Self::new(config_provider);
 
         for relay in database::get_all_relays(store_name).await? {
             selector.insert(&relay.url, relay.variant).await;
@@ -114,7 +120,10 @@ impl RelaySelector {
     async fn populate_defaults(&mut self) -> Result<(), String> {
         // Add default general relays if list is empty
         if self.general.is_empty() {
-            for relay_url in defaults::get_default_relays().await.iter() {
+            for relay_url in defaults::get_default_relays(&self.config_provider)
+                .await
+                .iter()
+            {
                 self.insert(relay_url.as_str(), relay::Variant::General)
                     .await;
             }
@@ -122,14 +131,20 @@ impl RelaySelector {
 
         // Add default inbox relays if list is empty
         if self.inbox.is_empty() {
-            for relay_url in defaults::get_default_relays().await.iter() {
+            for relay_url in defaults::get_default_relays(&self.config_provider)
+                .await
+                .iter()
+            {
                 self.insert(relay_url.as_str(), relay::Variant::Inbox).await;
             }
         }
 
         // Add default outbox relays if list is empty
         if self.outbox.is_empty() {
-            for relay_url in defaults::get_default_relays().await.iter() {
+            for relay_url in defaults::get_default_relays(&self.config_provider)
+                .await
+                .iter()
+            {
                 self.insert(relay_url.as_str(), relay::Variant::Outbox)
                     .await;
             }
@@ -163,10 +178,10 @@ impl RelaySelector {
             .insert(relay.to_string(), defaults::DEFAULT_WEIGHT);
 
         // If any trust level or vendor score is configured, update the weights accordingly.
-        let trust_level = config::get_trust_level(relay);
-        let vendor_score = config::get_vendor_score(relay);
-        self.update_weights_with_trust_level(relay, trust_level.await as f32);
-        self.update_weights_with_vendor_score(relay, vendor_score.await as f32);
+        let trust_level = config::get_trust_level(&self.config_provider, relay).await as f32;
+        let vendor_score = config::get_vendor_score(&self.config_provider, relay).await as f32;
+        self.update_weights_with_trust_level(relay, trust_level);
+        self.update_weights_with_vendor_score(relay, vendor_score);
 
         // Sort the relay collections based on the weights.
         match variant {
@@ -264,7 +279,8 @@ impl RelaySelector {
     ///
     /// * `variant` - The desired relay variant.
     /// * `rank` - The desired relay rank.
-    /// * `is_server_side` - Whether the call is coming from server-side code.
+    /// * `is_server_side` - Whether the call is coming from server-side code. When true,
+    ///   the selected relay must be in the server allowlist or an error will be returned.
     ///
     /// # Returns
     ///
@@ -298,19 +314,20 @@ impl RelaySelector {
             ))?
             .clone();
 
-        let is_allowed = config::get_server_side_relay_allow_list()
-            .await
-            .and_then(|allow_list| {
-                Ok(allow_list
-                    .iter()
-                    .any(|relay| relay.cmp(&selected) == Ordering::Equal))
-            })
-            .unwrap_or(false);
-        if is_server_side && !is_allowed {
-            return Err(format!(
-                "Network requests to relay {} are not allowed from this server.",
-                selected
-            ));
+        // If this is a server-side request, verify the selected relay is in the allowlist
+        if is_server_side {
+            let allowlist = config::get_server_side_relay_allow_list(&self.config_provider)
+                .await
+                .unwrap_or_else(|_| vec![]);
+
+            let is_allowed = allowlist.iter().any(|relay| relay == &selected);
+
+            if !is_allowed {
+                return Err(format!(
+                    "Network requests to relay {} are not allowed from this server.",
+                    selected
+                ));
+            }
         }
 
         let selected_statistics = self.get_mut_statistics(&selected);

@@ -24,6 +24,12 @@ thread_local! {
     /// saves the data back to persistent storage. The repository data may be mutated via the
     /// functions provided in the `relay_selector` crate's API.
     static RELAY_SELECTOR: Rc<RefCell<Option<RelaySelector>>> = Rc::new(RefCell::new(None));
+
+    /// Static lifetime, thread-local configuration provider.
+    ///
+    /// This stores the configuration callback function that will be used by the RelaySelector
+    /// to retrieve configuration values.
+    static CONFIG_PROVIDER: RefCell<Option<config::JsConfigProvider>> = RefCell::new(None);
 }
 
 fn relay_selector_is_some() -> bool {
@@ -34,7 +40,16 @@ fn relay_selector_is_some() -> bool {
 
 async fn init_relay_selector(store_name: &str) {
     console_error_panic_hook::set_once();
-    let selector = RelaySelector::init(store_name).await.unwrap_throw();
+
+    // Get the config provider from thread-local storage
+    let config_provider = CONFIG_PROVIDER
+        .try_with(|provider| provider.borrow().as_ref().cloned())
+        .unwrap_throw()
+        .expect("Config provider must be set before initializing relay selector");
+
+    let selector = RelaySelector::init(store_name, config_provider)
+        .await
+        .unwrap_throw();
     RELAY_SELECTOR
         .try_with(|rc_selector| rc_selector.borrow_mut().replace(selector))
         .unwrap_throw();
@@ -95,7 +110,36 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
     selector.update_weights_with_request(relay_url, is_success)
 }
 
+/// Sets the configuration provider callback for the relay selector.
+///
+/// This function must be called before any other relay selector operations.
+/// The config_callback should be a JavaScript function that accepts a string key
+/// and returns a Promise resolving to the configuration value.
+///
+/// # Arguments
+///
+/// * `config_callback` - A JavaScript function that provides configuration values.
+///   The function signature should be: `(key: string) => Promise<ConfigValue>`
+///
+/// # Example (JavaScript)
+///
+/// ```js
+/// import { setConfigProvider } from './relay_selector';
+/// import { getConfigValue } from './config-provider';
+///
+/// setConfigProvider(getConfigValue);
+/// ```
+#[wasm_bindgen]
+pub fn set_config_provider(config_callback: js_sys::Function) {
+    let provider = config::JsConfigProvider::new(config_callback);
+    CONFIG_PROVIDER
+        .try_with(|p| p.borrow_mut().replace(provider))
+        .unwrap_throw();
+}
+
 /// Get a recommended relay URL based on current weights.
+///
+/// **Important**: You must call `set_config_provider` before calling this function.
 ///
 /// # Arguments
 ///
@@ -103,7 +147,8 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
 /// * `relay_rank` - The relay rank based on current weights. Defaults to `0` to select the
 /// highest-ranked relay.
 /// * `is_server_side` - Whether this function is being invoked on a server environment, rather
-/// than client-side on an end user device or in a browser.
+/// than client-side on an end user device or in a browser. When true, only relays in the
+/// server allowlist will be selected.
 ///
 /// # Returns
 ///
@@ -113,7 +158,8 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
 ///
 /// # Errors
 ///
-/// Throws an error if the relay type is invalid, or if an error occurs while selecting the relay.
+/// Throws an error if the relay type is invalid, if the selected relay is not in the server
+/// allowlist (when `is_server_side` is true), or if an error occurs while selecting the relay.
 #[wasm_bindgen]
 pub async fn get_relay(
     relay_type: &str,
