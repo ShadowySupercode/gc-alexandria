@@ -1,0 +1,131 @@
+<script lang="ts">
+  /**
+   * @fileoverview APagination Component - Alexandria
+   *
+   * A pagination component for navigating through multiple pages of content.
+   * Provides previous/next navigation with page information and item counts.
+   *
+   * @component
+   * @category Primitives
+   *
+   * @prop {number} currentPage - Current page number (1-based, bindable)
+   * @prop {number} totalPages - Total number of pages available
+   * @prop {boolean} hasNextPage - Whether there is a next page available
+   * @prop {boolean} hasPreviousPage - Whether there is a previous page available
+   * @prop {number} [totalItems=0] - Total number of items across all pages
+   * @prop {string} [itemsLabel="items"] - Label for items (e.g., "posts", "events")
+   * @prop {string} [className=""] - Additional CSS classes to apply
+   *
+   * @example
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={page}
+   *   totalPages={10}
+   *   hasNextPage={page < 10}
+   *   hasPreviousPage={page > 1}
+   *   totalItems={100}
+   *   itemsLabel="events"
+   * />
+   * ```
+   *
+   * @example Basic pagination
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={currentPage}
+   *   totalPages={Math.ceil(totalEvents / pageSize)}
+   *   hasNextPage={currentPage < totalPages}
+   *   hasPreviousPage={currentPage > 1}
+   * />
+   * ```
+   *
+   * @example With custom item labels and styling
+   * ```svelte
+   * <APagination
+   *   bind:currentPage={page}
+   *   totalPages={pageCount}
+   *   hasNextPage={hasNext}
+   *   hasPreviousPage={hasPrev}
+   *   totalItems={eventCount}
+   *   itemsLabel="nostr events"
+   *   className="border-2 border-primary"
+   * />
+   * ```
+   *
+   * @features
+   * - Bindable current page for reactive updates
+   * - Previous/Next button navigation
+   * - Page information display with item counts
+   * - Disabled state for unavailable navigation
+   * - Only renders when totalPages > 1
+   *
+   * @accessibility
+   * - Keyboard accessible buttons
+   * - Disabled buttons have proper cursor and opacity
+   * - Clear page information for screen readers
+   * - Semantic button elements
+   */
+
+  type Props = {
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    totalItems?: number;
+    itemsLabel?: string;
+    className?: string;
+  };
+
+  let {
+    currentPage = $bindable<number>(1),
+    totalPages = 1,
+    hasNextPage = false,
+    hasPreviousPage = false,
+    totalItems = 0,
+    itemsLabel = "items",
+    className = "",
+  } = $props<{
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    totalItems?: number;
+    itemsLabel?: string;
+    className?: string;
+  }>();
+
+  function next() {
+    if (hasNextPage) currentPage = currentPage + 1;
+  }
+  function previous() {
+    if (hasPreviousPage) currentPage = currentPage - 1;
+  }
+</script>
+
+{#if totalPages > 1}
+  <div
+    class={`mt-4 flex flex-row items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg ${className}`}
+  >
+    <div class="text-sm !mb-0 text-gray-600 dark:text-gray-400">
+      Page {currentPage} of {totalPages} ({totalItems} total {itemsLabel})
+    </div>
+    <div class="flex flex-row items-center gap-2">
+      <button
+        class="px-3 py-1 !mb-0 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        onclick={previous}
+        disabled={!hasPreviousPage}
+      >
+        Previous
+      </button>
+      <span class="!mb-0 text-sm text-gray-600 dark:text-gray-400">
+        {currentPage} / {totalPages}
+      </span>
+      <button
+        class="px-3 py-1 !mb-0 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        onclick={next}
+        disabled={!hasNextPage}
+      >
+        Next
+      </button>
+    </div>
+  </div>
+{/if}

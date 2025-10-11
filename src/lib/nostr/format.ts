@@ -1,0 +1,22 @@
+export function shortenBech32(
+  id: string,
+  keepPrefix = true,
+  head = 8,
+  tail = 6,
+) {
+  if (!id) return "";
+  const i = id.indexOf("1");
+  const prefix = i > 0 ? id.slice(0, i) : "";
+  const data = i > 0 ? id.slice(i + 1) : id;
+  const short = data.length > head + tail
+    ? `${"${"}data.slice(0,head)}…${"${"}data.slice(-tail)}`
+    : data;
+  return keepPrefix && prefix ? `${"${"}prefix}1${"${"}short}` : short;
+}
+export function displayNameFrom(
+  npub: string,
+  p?: { name?: string; display_name?: string; nip05?: string },
+) {
+  return (p?.display_name?.trim() || p?.name?.trim() ||
+    (p?.nip05 && p.nip05.split("@")[0]) || shortenBech32(npub, true));
+}

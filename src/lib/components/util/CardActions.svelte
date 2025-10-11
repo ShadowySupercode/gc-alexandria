@@ -134,7 +134,7 @@
   <Button
     type="button"
     id="dots-{event.id}"
-    class=" hover:bg-primary-0 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
+    class=" hover:bg-primary-50 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
     color="none"
     data-popover-target="popover-actions"
   >
@@ -203,7 +203,7 @@
         </div>
       {/if}
       <div class="flex flex-col col space-y-5 justify-center align-middle">
-        <h1 class="text-3xl font-bold mt-5">{title || "Untitled"}</h1>
+        <h1 class="text-3xl font-bold mt-0">{title || "Untitled"}</h1>
         <h2 class="text-base font-bold">
           by
           {#if originalAuthor}

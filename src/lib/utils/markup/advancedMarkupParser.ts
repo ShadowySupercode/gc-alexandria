@@ -399,31 +399,37 @@ function processInlineCodeMath(content: string): string {
     // Check if the code content contains math expressions
     const hasInlineMath = /\$((?:[^$\\]|\\.)*?)\$/.test(codeContent);
     const hasDisplayMath = /\$\$[\s\S]*?\$\$/.test(codeContent);
-    
+
     if (!hasInlineMath && !hasDisplayMath) {
       // No math found, return the original inline code
       return match;
     }
-    
-      // Process display math ($$...$$) first to avoid conflicts with inline math
-  let processedContent = codeContent.replace(/\$\$([\s\S]*?)\$\$/g, (mathMatch: string, mathContent: string) => {
-    // Skip empty math expressions
-    if (!mathContent.trim()) {
-      return mathMatch;
-    }
-    return `<span class="math-display">\\[${mathContent}\\]</span>`;
-  });
-  
-  // Process inline math ($...$) after display math
-  // Use a more sophisticated regex that handles escaped dollar signs
-  processedContent = processedContent.replace(/\$((?:[^$\\]|\\.)*?)\$/g, (mathMatch: string, mathContent: string) => {
-    // Skip empty math expressions
-    if (!mathContent.trim()) {
-      return mathMatch;
-    }
-    return `<span class="math-inline">\\(${mathContent}\\)</span>`;
-  });
-    
+
+    // Process display math ($$...$$) first to avoid conflicts with inline math
+    let processedContent = codeContent.replace(
+      /\$\$([\s\S]*?)\$\$/g,
+      (mathMatch: string, mathContent: string) => {
+        // Skip empty math expressions
+        if (!mathContent.trim()) {
+          return mathMatch;
+        }
+        return `<span class="math-display">\\[${mathContent}\\]</span>`;
+      },
+    );
+
+    // Process inline math ($...$) after display math
+    // Use a more sophisticated regex that handles escaped dollar signs
+    processedContent = processedContent.replace(
+      /\$((?:[^$\\]|\\.)*?)\$/g,
+      (mathMatch: string, mathContent: string) => {
+        // Skip empty math expressions
+        if (!mathContent.trim()) {
+          return mathMatch;
+        }
+        return `<span class="math-inline">\\(${mathContent}\\)</span>`;
+      },
+    );
+
     return `\`${processedContent}\``;
   });
 }

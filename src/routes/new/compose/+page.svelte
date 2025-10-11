@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Heading, Button, Alert } from "flowbite-svelte";
+  import { Heading, Button } from "flowbite-svelte";
   import { PaperPlaneOutline } from "flowbite-svelte-icons";
   import ZettelEditor from "$lib/components/ZettelEditor.svelte";
-  import { goto } from "$app/navigation";
   import { nip19 } from "nostr-tools";
   import { publishMultipleZettels } from "$lib/services/publisher";
   import { parseAsciiDocWithMetadata } from "$lib/utils/asciidoc_metadata";
   import { getNdkContext } from "$lib/ndk";
+  import { AAlert } from "$lib/a/index";
 
   const ndk = getNdkContext();
 
@@ -130,13 +130,10 @@
   <title>Compose Note - Alexandria</title>
 </svelte:head>
 
-<!-- Main container with 75% width and centered -->
-<div class="w-3/4 mx-auto">
-  <div class="flex flex-col space-y-4">
+<!-- Main container with max 1024px width and centered -->
+<div class="flex flex-col self-center items-center w-full max-w-[1024px] mx-auto px-2 space-y-4">
     <Heading
-      tag="h1"
-      class="text-2xl font-bold text-gray-900 dark:text-gray-100"
-    >
+      tag="h1" class="h-leather mb-2">
       Compose Notes
     </Heading>
 
@@ -151,7 +148,7 @@
     <Button
       onclick={handlePublish}
       disabled={isPublishing || !content.trim()}
-      class="w-full"
+      class="self-end my-2"
     >
       {#if isPublishing}
         Publishing...
@@ -164,7 +161,7 @@
     <!-- Status Messages -->
     {#if publishResults}
       {#if publishResults.successCount === publishResults.total}
-        <Alert color="green" dismissable>
+        <AAlert color="green" dismissable>
           <span class="font-medium">Success!</span>
           {publishResults.successCount} events published.
           {#if publishResults.successfulEvents.length > 0}
@@ -185,9 +182,9 @@
               </div>
             </div>
           {/if}
-        </Alert>
+        </AAlert>
       {:else}
-        <Alert color="red" dismissable>
+        <AAlert color="red" dismissable>
           <span class="font-medium">Some events failed to publish.</span>
           {publishResults.successCount} of {publishResults.total} events published.
           
@@ -232,8 +229,7 @@
               </div>
             </div>
           {/if}
-        </Alert>
+        </AAlert>
       {/if}
     {/if}
-  </div>
 </div>

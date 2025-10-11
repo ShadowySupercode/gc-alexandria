@@ -6,7 +6,7 @@
     GlobeOutline,
     ChartOutline,
   } from "flowbite-svelte-icons";
-  import { Button } from "flowbite-svelte";
+  import { Button, P } from "flowbite-svelte";
   import { publicationColumnVisibility } from "$lib/stores";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -152,7 +152,7 @@
 </script>
 
 <nav
-  class="Navbar navbar-leather flex fixed top-[100px] sm:top-[106px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+  class="Navbar navbar-leather col-span-3 flex fixed top-[100px] sm:top-[92px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
     ? 'translate-y-0'
     : '-translate-y-full'}"
 >
@@ -191,14 +191,14 @@
       {/if}
     </div>
     <div class="flex flex-col flex-grow text justify-center items-center">
-      <p class="max-w-[60vw] line-ellipsis">
+      <P class="max-w-[60vw] line-ellipsis">
         <b class="text-nowrap">{title}</b>
-      </p>
-      <p>
+      </P>
+      <P>
         <span class="whitespace-nowrap"
           >by {@render userBadge(pubkey, author, ndk)}</span
         >
-      </p>
+      </P>
     </div>
     <div class="flex justify-end items-center space-x-2 md:min-w-52 min-w-8">
       {#if $publicationColumnVisibility.inner}

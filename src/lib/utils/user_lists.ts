@@ -1,4 +1,4 @@
-import { getNdkContext, activeInboxRelays } from "../ndk.ts";
+import { activeInboxRelays, getNdkContext } from "../ndk.ts";
 import { get } from "svelte/store";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
@@ -11,15 +11,15 @@ import { npubCache } from "./npubCache.ts";
  * @see https://github.com/nostr-protocol/nips/blob/master/51.md
  */
 export const NIP51_LIST_KINDS = {
-  FOLLOWS: 3,           // Follow list
-  MUTED: 10000,         // Mute list
-  PINNED: 10001,        // Pin list
-  RELAYS: 10002,        // Relay list
-  PEOPLE: 30000,        // Categorized people list
-  BOOKMARKS: 30001,     // Categorized bookmark list
-  COMMUNITIES: 34550,   // Community definition
-  STARTER_PACKS: 39089,      // Starter packs
-  MEDIA_STARTER_PACKS: 39092,      // Media starter packs
+  FOLLOWS: 3, // Follow list
+  MUTED: 10000, // Mute list
+  PINNED: 10001, // Pin list
+  RELAYS: 10002, // Relay list
+  PEOPLE: 30000, // Categorized people list
+  BOOKMARKS: 30001, // Categorized bookmark list
+  COMMUNITIES: 34550, // Community definition
+  STARTER_PACKS: 39089, // Starter packs
+  MEDIA_STARTER_PACKS: 39092, // Media starter packs
 } as const;
 
 /**
@@ -52,7 +52,7 @@ export interface UserListEvent {
 export async function fetchUserLists(
   pubkey: string,
   listKinds: number[] = [...PEOPLE_LIST_KINDS],
-  ndk?: NDK
+  ndk?: NDK,
 ): Promise<UserListEvent[]> {
   const ndkInstance = ndk || getNdkContext();
   if (!ndkInstance) {
@@ -60,7 +60,10 @@ export async function fetchUserLists(
     return [];
   }
 
-  console.log(`fetchUserLists: Fetching lists for ${pubkey}, kinds:`, listKinds);
+  console.log(
+    `fetchUserLists: Fetching lists for ${pubkey}, kinds:`,
+    listKinds,
+  );
 
   try {
     const events = await ndkInstance.fetchEvents({
@@ -72,10 +75,10 @@ export async function fetchUserLists(
 
     for (const event of events) {
       const pubkeys: string[] = [];
-      
+
       // Extract pubkeys from p-tags
-      event.tags.forEach(tag => {
-        if (tag[0] === 'p' && tag[1]) {
+      event.tags.forEach((tag) => {
+        if (tag[0] === "p" && tag[1]) {
           pubkeys.push(tag[1]);
         }
       });
@@ -83,7 +86,7 @@ export async function fetchUserLists(
       // Extract list metadata from content if available
       let listName: string | undefined;
       let listDescription: string | undefined;
-      
+
       if (event.content) {
         try {
           const content = JSON.parse(event.content);
@@ -96,7 +99,7 @@ export async function fetchUserLists(
 
       // Get list name from d-tag if available (for addressable lists)
       if (!listName && event.kind >= 30000 && event.kind < 40000) {
-        const dTag = event.getMatchingTags('d')[0]?.[1];
+        const dTag = event.getMatchingTags("d")[0]?.[1];
         if (dTag) {
           listName = dTag;
         }
@@ -111,7 +114,11 @@ export async function fetchUserLists(
       });
     }
 
-    console.log(`fetchUserLists: Found ${userLists.length} lists with ${userLists.reduce((sum, list) => sum + list.pubkeys.length, 0)} total pubkeys`);
+    console.log(
+      `fetchUserLists: Found ${userLists.length} lists with ${
+        userLists.reduce((sum, list) => sum + list.pubkeys.length, 0)
+      } total pubkeys`,
+    );
     return userLists;
   } catch (error) {
     console.error("fetchUserLists: Error fetching user lists:", error);
@@ -127,10 +134,10 @@ export async function fetchUserLists(
  */
 export async function fetchCurrentUserLists(
   listKinds: number[] = [...PEOPLE_LIST_KINDS],
-  ndk?: NDK
+  ndk?: NDK,
 ): Promise<UserListEvent[]> {
   const userState = get(userStore);
-  
+
   if (!userState.signedIn || !userState.pubkey) {
     console.warn("fetchCurrentUserLists: No active user found in userStore");
     return [];
@@ -145,11 +152,13 @@ export async function fetchCurrentUserLists(
  * @param userLists - Array of UserListEvent objects
  * @returns Set of unique pubkeys
  */
-export function getPubkeysFromUserLists(userLists: UserListEvent[]): Set<string> {
+export function getPubkeysFromUserLists(
+  userLists: UserListEvent[],
+): Set<string> {
   const pubkeys = new Set<string>();
-  
-  userLists.forEach(list => {
-    list.pubkeys.forEach(pubkey => {
+
+  userLists.forEach((list) => {
+    list.pubkeys.forEach((pubkey) => {
       pubkeys.add(pubkey);
     });
   });
@@ -163,12 +172,15 @@ export function getPubkeysFromUserLists(userLists: UserListEvent[]): Set<string>
  * @param kind - The list kind to filter by
  * @returns Set of unique pubkeys from the specified list kind
  */
-export function getPubkeysFromListKind(userLists: UserListEvent[], kind: number): Set<string> {
+export function getPubkeysFromListKind(
+  userLists: UserListEvent[],
+  kind: number,
+): Set<string> {
   const pubkeys = new Set<string>();
-  
-  userLists.forEach(list => {
+
+  userLists.forEach((list) => {
     if (list.kind === kind) {
-      list.pubkeys.forEach(pubkey => {
+      list.pubkeys.forEach((pubkey) => {
         pubkeys.add(pubkey);
       });
     }
@@ -183,11 +195,22 @@ export function getPubkeysFromListKind(userLists: UserListEvent[], kind: number)
  * @param userLists - Array of UserListEvent objects
  * @returns True if the pubkey is in any list
  */
-export function isPubkeyInUserLists(pubkey: string, userLists: UserListEvent[]): boolean {
-  const result = userLists.some(list => list.pubkeys.includes(pubkey));
-  console.log(`isPubkeyInUserLists: Checking ${pubkey} against ${userLists.length} lists, result: ${result}`);
+export function isPubkeyInUserLists(
+  pubkey: string,
+  userLists: UserListEvent[],
+): boolean {
+  const result = userLists.some((list) => list.pubkeys.includes(pubkey));
+  console.log(
+    `isPubkeyInUserLists: Checking ${pubkey} against ${userLists.length} lists, result: ${result}`,
+  );
   if (result) {
-    console.log(`isPubkeyInUserLists: Found ${pubkey} in lists:`, userLists.filter(list => list.pubkeys.includes(pubkey)).map(list => ({ kind: list.kind, name: list.listName })));
+    console.log(
+      `isPubkeyInUserLists: Found ${pubkey} in lists:`,
+      userLists.filter((list) => list.pubkeys.includes(pubkey)).map((list) => ({
+        kind: list.kind,
+        name: list.listName,
+      })),
+    );
   }
   return result;
 }
@@ -198,10 +221,13 @@ export function isPubkeyInUserLists(pubkey: string, userLists: UserListEvent[]):
  * @param userLists - Array of UserListEvent objects
  * @returns Array of list kinds that contain the pubkey
  */
-export function getListKindsForPubkey(pubkey: string, userLists: UserListEvent[]): number[] {
+export function getListKindsForPubkey(
+  pubkey: string,
+  userLists: UserListEvent[],
+): number[] {
   return userLists
-    .filter(list => list.pubkeys.includes(pubkey))
-    .map(list => list.kind);
+    .filter((list) => list.pubkeys.includes(pubkey))
+    .map((list) => list.kind);
 }
 
 /**
@@ -209,29 +235,32 @@ export function getListKindsForPubkey(pubkey: string, userLists: UserListEvent[]
  * This ensures follows are always cached and prioritized
  * @param pubkeys - Array of pubkeys to cache profiles for
  */
-export async function updateProfileCacheForPubkeys(pubkeys: string[], ndk?: NDK): Promise<void> {
+export async function updateProfileCacheForPubkeys(
+  pubkeys: string[],
+  ndk?: NDK,
+): Promise<void> {
   if (pubkeys.length === 0) return;
-  
+
   try {
     console.log(`Updating profile cache for ${pubkeys.length} pubkeys`);
-    
+
     const ndkInstance = ndk || getNdkContext();
     if (!ndkInstance) {
       console.warn("updateProfileCacheForPubkeys: No NDK instance available");
       return;
     }
-    
+
     // Fetch profiles for all pubkeys in batches
     const batchSize = 20;
     for (let i = 0; i < pubkeys.length; i += batchSize) {
       const batch = pubkeys.slice(i, i + batchSize);
-      
+
       try {
         const events = await ndkInstance.fetchEvents({
           kinds: [0],
           authors: batch,
         });
-        
+
         // Cache each profile
         for (const event of events) {
           if (event.content) {
@@ -249,7 +278,7 @@ export async function updateProfileCacheForPubkeys(pubkeys: string[], ndk?: NDK)
         console.warn("Failed to fetch batch of profiles:", error);
       }
     }
-    
+
     console.log("Profile cache update completed");
   } catch (error) {
     console.warn("Failed to update profile cache:", error);

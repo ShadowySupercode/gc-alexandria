@@ -680,7 +680,7 @@
   >
     {#if loading && eventsInView.length === 0}
       {#each getSkeletonIds() as id}
-        <Skeleton divClass="skeleton-leather w-full" size="lg" />
+        <Skeleton classes={{wrapper: "skeleton-leather w-full"}} size="lg" />
       {/each}
     {:else if eventsInView.length > 0}
       {#each eventsInView as event}

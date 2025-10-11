@@ -204,7 +204,6 @@ function extractMarkdownTopHeader(content: string): string | null {
 // Event Construction
 // =========================
 
-
 /**
  * Builds a set of events for a 30040 publication: one 30040 index event and one 30041 event per section.
  * Each 30041 gets a d-tag (normalized section header) and a title tag (raw section header).
@@ -261,31 +260,33 @@ export function build30040EventSet(
   console.log("Index event:", { documentTitle, indexDTag });
 
   // Create section events with their metadata
-  const sectionEvents: NDKEvent[] = parsed.sections.map((section: any, i: number) => {
-    const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
-    console.log(`Creating section ${i}:`, {
-      title: section.title,
-      dTag: sectionDTag,
-      content: section.content,
-      metadata: section.metadata,
-    });
+  const sectionEvents: NDKEvent[] = parsed.sections.map(
+    (section: any, i: number) => {
+      const sectionDTag = `${indexDTag}-${normalizeDTagValue(section.title)}`;
+      console.log(`Creating section ${i}:`, {
+        title: section.title,
+        dTag: sectionDTag,
+        content: section.content,
+        metadata: section.metadata,
+      });
 
-    // Convert section metadata to tags
-    const sectionMetadataTags = metadataToTags(section.metadata);
+      // Convert section metadata to tags
+      const sectionMetadataTags = metadataToTags(section.metadata);
 
-    return new NDKEventClass(ndk, {
-      kind: 30041,
-      content: section.content,
-      tags: [
-        ...tags,
-        ...sectionMetadataTags,
-        ["d", sectionDTag],
-        ["title", section.title],
-      ],
-      pubkey: baseEvent.pubkey,
-      created_at: baseEvent.created_at,
-    });
-  });
+      return new NDKEventClass(ndk, {
+        kind: 30041,
+        content: section.content,
+        tags: [
+          ...tags,
+          ...sectionMetadataTags,
+          ["d", sectionDTag],
+          ["title", section.title],
+        ],
+        pubkey: baseEvent.pubkey,
+        created_at: baseEvent.created_at,
+      });
+    },
+  );
 
   // Create proper a tags with format: kind:pubkey:d-tag
   const aTags = sectionEvents.map((event) => {

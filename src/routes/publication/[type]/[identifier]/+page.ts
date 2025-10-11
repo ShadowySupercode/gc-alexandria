@@ -49,7 +49,8 @@ export const load: PageLoad = async (
 
   // AI-NOTE: Return null for indexEvent during SSR or when fetch fails
   // The component will handle client-side loading and error states
-  const publicationType = indexEvent?.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
+  const publicationType =
+    indexEvent?.tags.find((tag) => tag[0] === "type")?.[1] ?? "";
 
   const result = {
     publicationType,

@@ -1,34 +1,15 @@
 <script lang="ts">
-  import { Textarea, Button } from "flowbite-svelte";
-  import { EyeOutline } from "flowbite-svelte-icons";
-  import {
-  extractSmartMetadata,
-  parseAsciiDocWithMetadata,
-  type AsciiDocMetadata,
-  metadataToTags,
-} from "$lib/utils/asciidoc_metadata";
-import asciidoctor from "asciidoctor";
+  import { Textarea, Toolbar, ToolbarGroup, ToolbarButton } from "flowbite-svelte";
+  import { Bold, Italic, Link2, Image as ImageIcon, FilePlus, Eye } from "@lucide/svelte";
+  import { extractSmartMetadata, parseAsciiDocWithMetadata, type AsciiDocMetadata, metadataToTags } from "$lib/utils/asciidoc_metadata";
+  import asciidoctor from "asciidoctor";
+  import { AAlert } from "$lib/a";
+  import { onMount } from 'svelte';
 
   // Component props
   let {
     content = "",
-    placeholder = `== Note Title
-:author: Your Name
-:version: 1.0
-:published_on: 2024-01-01
-:published_by: Alexandria
-:summary: A brief description of this note
-:tags: note, example, metadata
-:image: https://example.com/image.jpg
-
-note content here...
-
-== Note Title 2
-Some Other Author (this weeks even if there is no :author: attribute)
-:keywords: second, note, example (keywords are converted to tags)
-:description: This is a description of the note (description is converted to a summary tag)
-Note content here...
-    `,
+    placeholder = `== Note Title\n:author: Your Name\n:version: 1.0\n:published_on: 2024-01-01\n:published_by: Alexandria\n:summary: A brief description of this note\n:tags: note, example, metadata\n:image: https://example.com/image.jpg\n\nnote content here...\n\n== Note Title 2\nSome Other Author (this works even if there is no :author: attribute)\n:keywords: second, note, example (keywords are converted to tags)\n:description: This is a description of the note (description is converted to a summary tag)\nNote content here...\n    `,
     showPreview = false,
     onContentChange = (content: string) => {},
     onPreviewToggle = (show: boolean) => {},
@@ -40,27 +21,77 @@ Note content here...
     onPreviewToggle?: (show: boolean) => void;
   }>();
 
+  // --- New toolbar insertion helpers ---
+  let wrapper: HTMLElement | null = null;
+  function getTextarea(): HTMLTextAreaElement | null {
+    return wrapper?.querySelector('textarea') as HTMLTextAreaElement | null;
+  }
+  function insertMarkup(prefix: string, suffix: string) {
+    const ta = getTextarea();
+    if (!ta || ta.disabled) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = content.substring(start, end);
+    content = content.slice(0, start) + prefix + selected + suffix + content.slice(end);
+    onContentChange(content);
+    queueMicrotask(() => {
+      ta.focus();
+      const pos = start + prefix.length + selected.length + suffix.length;
+      ta.selectionStart = ta.selectionEnd = pos;
+    });
+  }
+  function insertPlain(text: string) {
+    const ta = getTextarea();
+    if (!ta || ta.disabled) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    content = content.slice(0, start) + text + content.slice(end);
+    onContentChange(content);
+    queueMicrotask(() => {
+      ta.focus();
+      const pos = start + text.length;
+      ta.selectionStart = ta.selectionEnd = pos;
+    });
+  }
+  const today = new Date().toISOString().split('T')[0];
+  const newNoteTemplate = `\n== Note Title\n:author: \n:version: 1.0\n:published_on: ${today}\n:published_by: Alexandria\n:summary: \n:tags: \n:image: \n\nNote content here...\n`;
+  function insertNoteTemplate() {
+    const ta = getTextarea();
+    if (!ta || ta.disabled) return;
+    const start = ta.selectionStart;
+    const before = content.slice(0, start);
+    const needsNL = before.length > 0 && !before.endsWith('\n\n');
+    insertPlain((needsNL ? (before.endsWith('\n') ? '\n' : '\n\n') : '') + newNoteTemplate);
+  }
+  const markupButtons = [
+    { label: 'Bold', icon: Bold, action: () => insertMarkup('*', '*') },
+    { label: 'Italic', icon: Italic, action: () => insertMarkup('_', '_') },
+    { label: 'Link', icon: Link2, action: () => insertPlain('link:url[Text]') },
+    { label: 'Image', icon: ImageIcon, action: () => insertPlain('image::url[]') },
+    { label: 'Insert Note Template', icon: FilePlus, action: () => insertNoteTemplate() },
+  ];
+
   // Parse sections for preview using the smart metadata service
   let parsedSections = $derived.by(() => {
     if (!content.trim()) return [];
-    
+
     // Use smart metadata extraction that handles both document headers and section-only content
-    const { metadata: docMetadata } = extractSmartMetadata(content);
-    
+    const { metadata: _docMetadata } = extractSmartMetadata(content);
+
     // Parse the content using the standardized parser
     const parsed = parseAsciiDocWithMetadata(content);
-    
+
     // Debug logging
     console.log("Parsed sections:", parsed.sections);
-    
+
     return parsed.sections.map((section: { metadata: AsciiDocMetadata; content: string; title: string }) => {
       // Use only section metadata for each section
       // Don't combine with document metadata to avoid overriding section-specific metadata
       const tags = metadataToTags(section.metadata);
-      
+
       // Debug logging
       console.log(`Section "${section.title}":`, { metadata: section.metadata, tags });
-      
+
       return {
         title: section.title || "Untitled",
         content: section.content.trim(),
@@ -72,7 +103,7 @@ Note content here...
   // Check for 30040-style document headers (publication format)
   let hasPublicationHeader = $derived.by(() => {
     if (!content.trim()) return false;
-    
+
     const lines = content.split(/\r?\n/);
     for (const line of lines) {
       // Check for document title (level 0 header)
@@ -93,6 +124,14 @@ Note content here...
     onPreviewToggle(newShowPreview);
   }
 
+  // Auto-open preview on desktop (lg >= 1024px) first load
+  onMount(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    if (mq.matches && !showPreview) {
+      onPreviewToggle(true);
+    }
+  });
+
   // Handle content changes
   function handleContentChange(event: Event) {
     const target = event.target as HTMLTextAreaElement;
@@ -100,14 +139,14 @@ Note content here...
   }
 </script>
 
-<div class="flex flex-col space-y-4">
+<div class="w-full flex flex-col space-y-4 mt-3" bind:this={wrapper}>
   <!-- Error message for publication format -->
   {#if hasPublicationHeader}
     <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
       <div class="flex items-start space-x-3">
         <div class="flex-shrink-0">
           <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-4 4a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
           </svg>
         </div>
         <div class="flex-1">
@@ -115,14 +154,14 @@ Note content here...
             Publication Format Detected
           </h3>
           <p class="text-sm text-red-700 dark:text-red-300 mb-3">
-            You're using a publication format (document title with <code>=</code> or "index card"). 
-            This editor is for individual notes only. Use the 
-            <a href="/events?kind=30040" class="font-medium underline hover:text-red-600 dark:hover:text-red-400">Events form</a> 
+            You're using a publication format (document title with <code>=</code> or "index card").
+            This editor is for individual notes only. Use the
+            <a href="/events?kind=30040" class="font-medium underline hover:text-red-600 dark:hover:text-red-400">Events form</a>
             to create structured publications.
           </p>
           <div class="flex space-x-2">
-            <a 
-              href="/events?kind=30040" 
+            <a
+              href="/events?kind=30040"
               onclick={() => {
                 // Store the content in sessionStorage so it can be loaded in the Events form
                 sessionStorage.setItem('zettelEditorContent', content);
@@ -132,7 +171,7 @@ Note content here...
             >
               Switch to Publication Editor
             </a>
-            <button 
+            <button
               onclick={() => {
                 // Remove publication format by converting document title to section title
                 let convertedContent = content.replace(/^=\s+(.+)$/gm, '== $1');
@@ -153,157 +192,91 @@ Note content here...
     </div>
   {:else}
     <!-- Informative text about ZettelEditor purpose -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-      <div class="flex items-start space-x-3">
-        <div class="flex-shrink-0">
-          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-            Note-Taking Tool
-          </h3>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">
-            This editor is for creating individual notes (30041 events) only. Each section becomes a separate note event.
-            You can add metadata like author, version, publication date, summary, and tags using AsciiDoc attributes.
-            To create structured publications with a 30040 index event that ties multiple notes together, 
-            use the <a href="/events?kind=30040" class="font-medium underline hover:text-blue-600 dark:hover:text-blue-400">Events form</a>.
-          </p>
-          <div class="flex space-x-2">
-            <a 
-              href="/events?kind=30040" 
-              class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
-            >
-              Create Publication
-            </a>
-          </div>
-        </div>
+    <AAlert color="blue" classes="w-full self-center">
+      {#snippet title()}Note-Taking Tool{/snippet}
+      <p class="text-sm mb-3">
+        This editor is for creating individual notes (30041 events) only. Each section becomes a separate note event.
+        You can add metadata like author, version, publication date, summary, and tags using AsciiDoc attributes.
+        To create structured publications with a 30040 index event that ties multiple notes together,
+        use the <a href="/events/compose?kind=30040" class="font-medium underline">Events form</a>.
+      </p>
+      <div class="flex space-x-2">
+        <a
+          href="/events/compose?kind=30040"
+          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+        >
+          Create Publication
+        </a>
       </div>
-    </div>
+    </AAlert>
   {/if}
 
-  <div class="flex items-center justify-between">
-    <Button
-      color="light"
-      size="sm"
-      onclick={togglePreview}
-      class="flex items-center space-x-1"
-      disabled={hasPublicationHeader}
-    >
-      {#if showPreview}
-        <EyeOutline class="w-4 h-4" />
-        <span>Hide Preview</span>
-      {:else}
-        <EyeOutline class="w-4 h-4" />
-        <span>Show Preview</span>
-      {/if}
-    </Button>
-  </div>
+  <!-- Editor + Preview (two columns on desktop) -->
+  <div class={`w-full grid gap-4 ${showPreview && !hasPublicationHeader ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+    <Textarea
+        bind:value={content}
+        oninput={handleContentChange}
+        {placeholder}
+        rows={20}
+        disabled={hasPublicationHeader}
+        classes={{
+          wrapper: '!m-0 p-0 h-full',
+          inner: '!m-0 !bg-transparent !dark:bg-transparent',
+          header: '!m-0 !bg-transparent !dark:bg-transparent',
+          footer: '!m-0 !bg-transparent',
+          addon: '!m-0 top-3 hidden md:flex',
+          div: '!m-0 !bg-transparent !dark:bg-transparent focus:!ring-0 h-full',
+        }}
+      >
+        {#snippet header()}
+          <Toolbar embedded class="flex-row !m-0 !dark:bg-transparent !bg-transparent overflow-x-auto">
+            <ToolbarGroup class="flex-row flex-nowrap gap-1 !m-0">
+              {#each markupButtons as btn}
+                {@const Icon = btn.icon}
+                <ToolbarButton title={btn.label} color="dark" size="sm" onclick={btn.action} disabled={hasPublicationHeader}>
+                  <Icon size={24} />
+                </ToolbarButton>
+              {/each}
+              <ToolbarButton title={showPreview ? 'Hide Preview' : 'Show Preview'} color="dark" size="sm" onclick={togglePreview} disabled={hasPublicationHeader}>
+                <Eye size={24}  />
+              </ToolbarButton>
+            </ToolbarGroup>
+          </Toolbar>
+        {/snippet}
+      </Textarea>
 
-  <div class="flex flex-col lg:flex-row lg:space-x-4 {showPreview ? 'lg:h-96' : ''}">
-    <!-- Editor Panel -->
-    <div class="{showPreview ? 'lg:w-1/2' : 'w-full'} flex flex-col space-y-4">
-      <div class="flex-1">
-        <Textarea
-          bind:value={content}
-          on:input={handleContentChange}
-          {placeholder}
-          class="h-full min-h-64 resize-none {hasPublicationHeader ? 'opacity-50 cursor-not-allowed' : ''}"
-          rows={12}
-          disabled={hasPublicationHeader}
-        />
-      </div>
-    </div>
-
-    <!-- Preview Panel -->
     {#if showPreview && !hasPublicationHeader}
-      <div class="lg:w-1/2 lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-4 mt-4 lg:mt-0">
+      <div class="flex flex-col max-h-[600px]">
         <div class="lg:sticky lg:top-4">
-          <h3
-            class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100"
-          >
-            AsciiDoc Preview
-          </h3>
-
-          <div
-            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-h-80 overflow-y-auto"
-          >
+          <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100 hidden">AsciiDoc Preview</h3>
+          <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-h-[560px] overflow-y-auto">
             {#if !content.trim()}
-              <div class="text-gray-500 dark:text-gray-400 text-sm">
-                Start typing to see the preview...
-              </div>
+              <div class="text-gray-500 dark:text-gray-400 text-sm">Start typing to see the preview...</div>
             {:else}
               <div class="prose prose-sm dark:prose-invert max-w-none">
                 {#each parsedSections as section, index}
                   <div class="mb-6">
-                    <div
-                      class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content"
-                    >
-                      {@html asciidoctor().convert(
-                        `== ${section.title}\n\n${section.content}`,
-                        {
-                          standalone: false,
-                          doctype: "article",
-                          attributes: {
-                            showtitle: true,
-                            sectids: true,
-                          },
-                        },
-                      )}
-                    </div>
-
-                    <!-- Gray area with tag bubbles for all sections -->
+                    <div class="text-sm text-gray-800 dark:text-gray-200 asciidoc-content">{@html asciidoctor().convert(`== ${section.title}\n\n${section.content}`, { standalone:false, doctype:'article', attributes:{ showtitle:true, sectids:true } })}</div>
                     <div class="my-4 relative">
-                      <!-- Gray background area -->
-                      <div
-                        class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2"
-                      >
+                      <div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-2">
                         <div class="flex flex-wrap gap-2 items-center">
                           {#if section.tags && section.tags.length > 0}
                             {#each section.tags as tag}
-                              <div
-                                class="bg-amber-900 text-amber-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
-                              >
-                                <span class="font-mono">{tag[0]}:</span>
-                                <span>{tag[1]}</span>
-                              </div>
+                              <div class="bg-amber-900 text-amber-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"><span class="font-mono">{tag[0]}:</span><span>{tag[1]}</span></div>
                             {/each}
                           {:else}
-                            <span
-                              class="text-gray-500 dark:text-gray-400 text-xs italic"
-                              >No tags</span
-                            >
+                            <span class="text-gray-500 dark:text-gray-400 text-xs italic">No tags</span>
                           {/if}
                         </div>
                       </div>
-
                       {#if index < parsedSections.length - 1}
-                        <!-- Event boundary line only between sections -->
-                        <div
-                          class="border-t-2 border-dashed border-blue-400 relative"
-                        >
-                          <div
-                            class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium"
-                          >
-                            Event Boundary
-                          </div>
-                        </div>
+                        <div class="border-t-2 border-dashed border-blue-400 relative"><div class="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium">Event Boundary</div></div>
                       {/if}
                     </div>
                   </div>
                 {/each}
               </div>
-
-              <div
-                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
-              >
-                <strong>Event Count:</strong>
-                {parsedSections.length} event{parsedSections.length !== 1
-                  ? "s"
-                  : ""}
-                <br />
-              </div>
+              <div class="mt-2 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"><strong>Event Count:</strong> {parsedSections.length} event{parsedSections.length !== 1 ? 's' : ''}</div>
             {/if}
           </div>
         </div>
