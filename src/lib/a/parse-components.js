@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -240,8 +240,8 @@ class ComponentParser {
       default: defaultValue
         ? defaultValue.trim()
         : isOptional
-          ? undefined
-          : null,
+        ? undefined
+        : null,
       description: description.trim(),
       required: !isOptional,
     };
@@ -271,7 +271,9 @@ class ComponentParser {
 
       return component;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       console.error(`Error processing ${filePath}:`, errorMessage);
       return null;
     }
@@ -329,7 +331,7 @@ function main() {
   const parser = new ComponentParser();
   const aFolderPath = __dirname;
 
-  console.log('Parsing Alexandria components...');
+  console.log("Parsing Alexandria components...");
   console.log(`Source directory: ${aFolderPath}`);
 
   if (!fs.existsSync(aFolderPath)) {
@@ -344,18 +346,18 @@ function main() {
   const output = parser.generateOutput();
 
   // Write to file in the same directory (/a folder)
-  const outputPath = path.join(__dirname, 'alexandria-components.json');
+  const outputPath = path.join(__dirname, "alexandria-components.json");
   fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
 
   console.log(`\n✅ Successfully parsed ${output.totalComponents} components`);
-  console.log(`📁 Categories: ${output.categories.join(', ')}`);
+  console.log(`📁 Categories: ${output.categories.join(", ")}`);
   console.log(`💾 Output saved to: ${outputPath}`);
 
   // Print summary
-  console.log('\n📊 Component Summary:');
+  console.log("\n📊 Component Summary:");
   /** @type {Record<string, number>} */
   const categoryCounts = {};
-  output.components.forEach(c => {
+  output.components.forEach((c) => {
     categoryCounts[c.category] = (categoryCounts[c.category] || 0) + 1;
   });
 

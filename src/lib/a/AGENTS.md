@@ -1,23 +1,30 @@
 # Alexandria Component Library - AI Agent Guide
 
-**Version:** 1.0.0  
+**Version:** 1.0.0\
 **Last Updated:** October 4, 2025
 
-This guide provides comprehensive instructions for AI agents working with the Alexandria UI component library. Following these guidelines ensures consistency, maintainability, and proper integration with the existing codebase.
+This guide provides comprehensive instructions for AI agents working with the
+Alexandria UI component library. Following these guidelines ensures consistency,
+maintainability, and proper integration with the existing codebase.
 
 ---
 
 ## Core Principles
 
 ### 1. Always Check Before Creating
+
 Before creating any new UI component, **you must**:
+
 1. Search the existing component library in `src/lib/a/`
 2. Review `alexandria-components.json` for available components
 3. Check if an existing component can be reused or extended
 4. Only create new components when absolutely necessary
 
 ### 2. Use alexandria-components.json as Your Reference
-The `alexandria-components.json` file is the **single source of truth** for all available components. It contains:
+
+The `alexandria-components.json` file is the **single source of truth** for all
+available components. It contains:
+
 - Complete component inventory (18 components across 5 categories)
 - Full prop definitions with types and defaults
 - Usage examples and patterns
@@ -26,13 +33,16 @@ The `alexandria-components.json` file is the **single source of truth** for all 
 **Always consult this file first** when selecting components.
 
 ### 3. Maintain TSDoc Documentation Standards
-All components use **TSDoc format** for documentation. You must maintain this standard when creating or modifying components.
+
+All components use **TSDoc format** for documentation. You must maintain this
+standard when creating or modifying components.
 
 ---
 
 ## Component Inventory
 
 ### Available Categories
+
 1. **Primitives** (8 components) - Basic UI building blocks
 2. **Navigation** (2 components) - App navigation elements
 3. **Forms** (4 components) - Input and editing interfaces
@@ -44,7 +54,9 @@ All components use **TSDoc format** for documentation. You must maintain this st
 ## Component Selection Workflow
 
 ### Step 1: Identify the Need
+
 Determine what UI functionality is required:
+
 - User input? → Check **Forms** category
 - Display content? → Check **Cards** category
 - Navigation? → Check **Navigation** category
@@ -59,7 +71,9 @@ For example: Finding a component for user profiles
 - Result: AProfilePreview and ANostrUser are available
 
 ### Step 3: Review Component Props
+
 Check the component's props in `alexandria-components.json`:
+
 ```json
 {
   "name": "AEventPreview",
@@ -82,6 +96,7 @@ Check the component's props in `alexandria-components.json`:
 ```
 
 ### Step 4: Review Examples
+
 Check the `examples` array in `alexandria-components.json` for usage patterns.
 
 ---
@@ -111,7 +126,6 @@ Every component **must** include TSDoc comments following this exact format:
  *    <ComponentName requiredProp={value} optionalProp={value} ></ComponentName>
  * ```
  *
- *
  * @features
  * - Feature 1
  * - Feature 2
@@ -126,24 +140,25 @@ Every component **must** include TSDoc comments following this exact format:
 
 ### TSDoc Tags Reference
 
-| Tag | Purpose | Required | Example |
-|-----|---------|----------|---------|
-| `@fileoverview` | Component name and description | ✅ Yes | `@fileoverview AAlert Component - Alexandria` |
-| `@component` | Marks file as Svelte component | ✅ Yes | `@component` |
-| `@category` | Component category | ✅ Yes | `@category Primitives` |
-| `@prop` | Define component properties | ✅ Yes | `@prop {string} [color] - Alert color theme` |
-| `@example` | Usage examples with code | ✅ Yes | See format above |
-| `@features` | List key functionality | ✅ Yes | `- Responsive layout` |
-| `@accessibility` | Accessibility notes | ✅ Yes | `- ARIA compliant` |
-| `@since` | Version introduced | ⚠️ Optional | `@since 1.0.0` |
+| Tag              | Purpose                        | Required    | Example                                       |
+| ---------------- | ------------------------------ | ----------- | --------------------------------------------- |
+| `@fileoverview`  | Component name and description | ✅ Yes      | `@fileoverview AAlert Component - Alexandria` |
+| `@component`     | Marks file as Svelte component | ✅ Yes      | `@component`                                  |
+| `@category`      | Component category             | ✅ Yes      | `@category Primitives`                        |
+| `@prop`          | Define component properties    | ✅ Yes      | `@prop {string} [color] - Alert color theme`  |
+| `@example`       | Usage examples with code       | ✅ Yes      | See format above                              |
+| `@features`      | List key functionality         | ✅ Yes      | `- Responsive layout`                         |
+| `@accessibility` | Accessibility notes            | ✅ Yes      | `- ARIA compliant`                            |
+| `@since`         | Version introduced             | ⚠️ Optional | `@since 1.0.0`                                |
 
 ---
 
 ## Component Import Patterns
 
 ### Import
+
 ```typescript
-import { AAlert, AEventPreview, AMarkupForm } from '$lib/a';
+import { AAlert, AEventPreview, AMarkupForm } from "$lib/a";
 ```
 
 ---
@@ -153,12 +168,14 @@ import { AAlert, AEventPreview, AMarkupForm } from '$lib/a';
 ### When to Create a New Component
 
 **DO create a new component when:**
+
 - No existing component provides the required functionality
 - The component will be reused in 3+ places
 - It represents a distinct, standalone UI pattern
 - It follows the Alexandria design system
 
 **DON'T create a new component when:**
+
 - An existing component can be configured to meet needs
 - It's only used once (keep in parent component)
 - It's too generic (use Flowbite components directly)
@@ -171,7 +188,8 @@ import { AAlert, AEventPreview, AMarkupForm } from '$lib/a';
 - [ ] **Name** following convention: `A[ComponentName].svelte`
 - [ ] **Add TSDoc** documentation following standard format
 - [ ] **Create** component file in correct category folder
-- [ ] **Add styles** to appropriate `/src/styles/a/` CSS file (or create new file if needed)
+- [ ] **Add styles** to appropriate `/src/styles/a/` CSS file (or create new
+      file if needed)
 - [ ] **Import new CSS file** in `app.css` if created
 - [ ] **Export** component in `index.ts`
 - [ ] **Update** `alexandria-components.json` (run parse script)
@@ -227,7 +245,9 @@ let {
 ## Updating alexandria-components.json
 
 ### When to Update
+
 You **must** update `alexandria-components.json` whenever:
+
 - A new component is created
 - Component props are added, modified, or removed
 - Component examples are updated
@@ -246,12 +266,15 @@ You **must** update `alexandria-components.json` whenever:
 4. **Commit** both the component file and updated JSON
 
 ### Parser Script Location
+
 - **File:** `src/lib/a/parse-components.js`
 - **Purpose:** Extracts TSDoc from all `.svelte` files in the library
 - **Output:** `alexandria-components.json`
 
 ### Manual Updates (When Necessary)
+
 If the parser doesn't capture something correctly:
+
 1. First, try to fix the TSDoc format
 2. Re-run the parser
 3. Only manually edit JSON as last resort
@@ -262,7 +285,9 @@ If the parser doesn't capture something correctly:
 ## Design System Integration
 
 ### Theme Compatibility
+
 All Alexandria components support:
+
 - Light and dark themes
 - "Leather" aesthetic (warm browns, tans)
 - Flowbite-based styling
@@ -271,6 +296,7 @@ All Alexandria components support:
 ### Styling Guidelines
 
 **DO:**
+
 - Use Tailwind CSS classes
 - Leverage Flowbite Svelte components as base
 - Follow existing color patterns in library
@@ -278,12 +304,14 @@ All Alexandria components support:
 - Test in both light and dark modes
 
 **DON'T:**
+
 - Add arbitrary custom CSS without justification
 - Override Flowbite's accessibility features
 - Hard-code colors (use theme tokens)
 - Create layout inconsistencies
 
 ### Component Styling Pattern
+
 ```svelte
 <!-- Use Flowbite component as base -->
 <Alert color="info" class="leather-theme">
@@ -297,9 +325,11 @@ All Alexandria components support:
 
 ### **Mandatory Styling Rules**
 
-⚠️ **ALL custom styles for Alexandria components MUST go in the `/src/styles/a/` folder.**
+⚠️ **ALL custom styles for Alexandria components MUST go in the `/src/styles/a/`
+folder.**
 
-**DO NOT add `<style>` blocks inside component `.svelte` files unless absolutely necessary for component-scoped styles that cannot be reused.**
+**DO NOT add `<style>` blocks inside component `.svelte` files unless absolutely
+necessary for component-scoped styles that cannot be reused.**
 
 ### Directory Structure
 
@@ -325,7 +355,9 @@ src/
 ### Styling Workflow
 
 #### 1. **Determine Component Category**
+
 Identify which category your component belongs to:
+
 - `primitives/` → `styles/a/primitives.css`
 - `forms/` → `styles/a/forms.css`
 - `cards/` → `styles/a/cards.css`
@@ -333,14 +365,18 @@ Identify which category your component belongs to:
 - `reader/` → `styles/a/reader.css`
 
 #### 2. **Check if Style File Exists**
-Before adding styles, verify the corresponding CSS file exists in `src/styles/a/`:
+
+Before adding styles, verify the corresponding CSS file exists in
+`src/styles/a/`:
 
 **Existing files:**
+
 - ✅ `styles/a/cards.css`
 - ✅ `styles/a/forms.css`
 - ✅ `styles/a/primitives.css`
 
 **Files to create when needed:**
+
 - ⚠️ `styles/a/nav.css` (create for navigation components)
 - ⚠️ `styles/a/reader.css` (create for reader components)
 
@@ -349,12 +385,14 @@ Before adding styles, verify the corresponding CSS file exists in `src/styles/a/
 If the CSS file doesn't exist for your category:
 
 **Step A: Create the file**
+
 ```bash
 # Create the new CSS file
 type nul > src\styles\a\nav.css
 ```
 
 **Step B: Add the CSS structure**
+
 ```css
 /* src/styles/a/nav.css */
 /* Alexandria Navigation Component Styles */
@@ -362,19 +400,18 @@ type nul > src\styles\a\nav.css
 @layer components {
   /* ANavbar styles */
   .navbar-alexandria {
-    @apply /* your Tailwind classes */;
+    @apply; /* your Tailwind classes */
   }
 
   /* AFooter styles */
   .footer-alexandria {
-    @apply /* your Tailwind classes */;
+    @apply; /* your Tailwind classes */
   }
 }
 ```
 
-**Step C: Import in app.css**
-Add the import to `src/app.css` in the correct location, after existing imports.
-
+**Step C: Import in app.css** Add the import to `src/app.css` in the correct
+location, after existing imports.
 
 #### 4. **Add Component Styles**
 
@@ -431,6 +468,7 @@ let { color = "info", dismissable = false } = $props();
 ### CSS Organization Best Practices
 
 #### Naming Conventions
+
 - Use descriptive, component-specific class names
 - Prefix with component name or category
 - Use `-leather` or `-alexandria` suffix for themed styles
@@ -441,6 +479,7 @@ let { color = "info", dismissable = false } = $props();
   - `.form-input-alexandria`
 
 #### File Structure Within CSS Files
+
 Organize styles by component within each file:
 
 ```css
@@ -451,38 +490,39 @@ Organize styles by component within each file:
    * AMarkupForm Component
    * ======================================== */
   .markup-form-container {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 
   .markup-form-header {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 
   /* ========================================
    * ACommentForm Component
    * ======================================== */
   .comment-form-wrapper {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 
   .comment-form-textarea {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 
   /* ========================================
    * ATextareaWithPreview Component
    * ======================================== */
   .textarea-preview-container {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 
   .textarea-toolbar {
-    @apply /* styles */;
+    @apply; /* styles */
   }
 }
 ```
 
 #### Use Tailwind @apply Directive
+
 Prefer `@apply` with Tailwind utilities over custom CSS:
 
 ```css
@@ -505,6 +545,7 @@ Prefer `@apply` with Tailwind utilities over custom CSS:
 ### When Component-Scoped Styles Are Acceptable
 
 Use `<style>` blocks in `.svelte` files ONLY when:
+
 1. **Truly unique** - Style is used nowhere else and never will be
 2. **Animation keyframes** - Component-specific animations
 3. **CSS variables** - Component-specific custom properties
@@ -543,11 +584,13 @@ Use `<style>` blocks in `.svelte` files ONLY when:
 **Step 1:** Check if `styles/a/nav.css` exists (it doesn't)
 
 **Step 2:** Create the file
+
 ```bash
 type nul > src\styles\a\nav.css
 ```
 
 **Step 3:** Add styles to the new file
+
 ```css
 /* src/styles/a/nav.css */
 /* Alexandria Navigation Component Styles */
@@ -583,15 +626,17 @@ type nul > src\styles\a\nav.css
 ```
 
 **Step 4:** Import in app.css
+
 ```css
 /* src/app.css */
 @import "./styles/a/cards.css";
 @import "./styles/a/forms.css";
 @import "./styles/a/primitives.css";
-@import "./styles/a/nav.css";  /* ← NEW */
+@import "./styles/a/nav.css"; /* ← NEW */
 ```
 
 **Step 5:** Use in component
+
 ```svelte
 <!-- src/lib/a/nav/ANavbar.svelte -->
 <script lang="ts">
@@ -612,6 +657,7 @@ import { Navbar } from "flowbite-svelte";
 ## Testing Requirements
 
 ### Component Testing
+
 When creating or modifying components:
 
 1. **Visual Testing**
@@ -640,11 +686,13 @@ When creating or modifying components:
 ## Common Patterns & Best Practices
 
 ### Bindable Props
+
 Use `$bindable` for two-way data binding:
+
 ```typescript
 let {
   value = $bindable(""),
-  isOpen = $bindable(false)
+  isOpen = $bindable(false),
 } = $props<{
   value?: string;
   isOpen?: boolean;
@@ -652,11 +700,13 @@ let {
 ```
 
 ### Event Handlers
+
 Use optional function props for callbacks:
+
 ```typescript
 let {
   onSubmit = async () => {},
-  onClick
+  onClick,
 } = $props<{
   onSubmit?: (data: string) => Promise<void>;
   onClick?: () => void;
@@ -664,6 +714,7 @@ let {
 ```
 
 ### Conditional Rendering
+
 ```svelte
 {#if showContent}
   <div>Content</div>
@@ -671,7 +722,9 @@ let {
 ```
 
 ### Snippets (Svelte 5)
+
 For flexible content slots:
+
 ```typescript
 @prop {snippet} children - Main content (required)
 @prop {snippet} [title] - Optional title section
@@ -688,18 +741,21 @@ For flexible content slots:
 ## Common Mistakes to Avoid
 
 ### DON'T: Create duplicate components
+
 ```typescript
 // Bad: Creating new component without checking
-export default AUserCard.svelte // AProfilePreview already exists!
+export default AUserCard.svelte; // AProfilePreview already exists!
 ```
 
 ### DO: Use existing components
+
 ```typescript
 // Good: Use existing component
-import { AProfilePreview } from '$lib/a';
+import { AProfilePreview } from "$lib/a";
 ```
 
 ### DON'T: Skip TSDoc documentation
+
 ```svelte
 <!-- Bad: No documentation -->
 <script>
@@ -708,6 +764,7 @@ let { prop } = $props();
 ```
 
 ### DO: Add complete TSDoc
+
 ```svelte
 <!-- Good: Complete documentation -->
 <script>
@@ -720,12 +777,14 @@ let { prop } = $props();
 ```
 
 ### DON'T: Forget to update JSON
+
 ```bash
 # Bad: Only editing component, not updating JSON
 # (Other agents won't know about your changes!)
 ```
 
 ### DO: Always run the parser
+
 ```bash
 # Good: Update JSON after changes
 cd src/lib/a
@@ -733,12 +792,14 @@ node parse-components.js
 ```
 
 ### DON'T: Use generic component names
+
 ```typescript
 // Bad: Could be anything
 export UserDisplay.svelte
 ```
 
 ### DO: Follow naming convention
+
 ```typescript
 // Good: Clearly part of Alexandria library
 export ANostrUser.svelte
@@ -749,6 +810,7 @@ export ANostrUser.svelte
 ## Integration with Application
 
 ### Directory Structure
+
 ```
 src/lib/a/
 ├── AGENTS.md                    ← This file
@@ -778,9 +840,11 @@ src/lib/a/
 ## Examples: Component Selection Scenarios
 
 ### Scenario 1: Displaying User Information
+
 **Need:** Show user profile with avatar and bio
 
 **Process:**
+
 1. Check `alexandria-components.json` for "user" or "profile"
 2. Find: `ANostrUser` (compact) and `AProfilePreview` (full card)
 3. Choose based on needs:
@@ -788,6 +852,7 @@ src/lib/a/
    - Full profile card: `AProfilePreview`
 
 **Solution:**
+
 ```svelte
 <AProfilePreview 
   {npub} 
@@ -797,14 +862,17 @@ src/lib/a/
 ```
 
 ### Scenario 2: Creating a Comment Form
+
 **Need:** Allow users to write and submit comments
 
 **Process:**
+
 1. Check `alexandria-components.json` under "Forms"
 2. Find: `ACommentForm` - "Comment creation with markup support"
 3. Review props: `content`, `placeholder`, `onSubmit`
 
 **Solution:**
+
 ```svelte
 <ACommentForm
   bind:content={commentText}
@@ -814,14 +882,17 @@ src/lib/a/
 ```
 
 ### Scenario 3: Showing Event Cards
+
 **Need:** Display nostr events in a feed
 
 **Process:**
+
 1. Check `alexandria-components.json` under "Cards"
 2. Find: `AEventPreview` - "Event preview cards with metadata and actions"
 3. Review configurable options: `showContent`, `truncateContentAt`, etc.
 
 **Solution:**
+
 ```svelte
 {#each events as event}
   <AEventPreview
@@ -834,14 +905,17 @@ src/lib/a/
 ```
 
 ### Scenario 4: Alert/Notification
+
 **Need:** Show success message after save
 
 **Process:**
+
 1. Check "Primitives" category
 2. Find: `AAlert` - "Themed alert messages with dismissal options"
 3. Review color options and dismissable prop
 
 **Solution:**
+
 ```svelte
 {#if saveSuccessful}
   <AAlert color="success" dismissable={true}>
@@ -855,24 +929,28 @@ src/lib/a/
 ## Troubleshooting
 
 ### Component Not Found
+
 1. Verify component exists in `alexandria-components.json`
 2. Check import statement syntax
 3. Ensure component is exported in `index.ts`
 4. Check file path matches category structure
 
 ### Props Not Working
+
 1. Check prop name spelling in `alexandria-components.json`
 2. Verify prop type matches expected type
 3. Check if prop is bindable (use `bind:` prefix if needed)
 4. Review component TSDoc for usage examples
 
 ### Styling Issues
+
 1. Verify theme mode (light/dark) is set correctly
 2. Check if custom classes conflict with Flowbite
 3. Ensure Tailwind classes are being applied
 4. Test in isolation to identify conflicts
 
 ### Documentation Out of Sync
+
 1. Run parser script: `node parse-components.js`
 2. Verify TSDoc format is correct
 3. Check for syntax errors in TSDoc comments
@@ -883,20 +961,25 @@ src/lib/a/
 ## Additional Resources
 
 ### Related Files
+
 - **README.md**: User-facing library documentation
 - **index.ts**: Component export definitions
 - **parse-components.js**: TSDoc extraction script
 - **alexandria-components.json**: Generated component registry
 
 ### External Documentation
+
 - [Flowbite Svelte](https://flowbite-svelte.com/) - Base component library
 - [Tailwind CSS](https://tailwindcss.com/) - Styling framework
 - [TSDoc](https://tsdoc.org/) - Documentation standard
 - [Svelte 5 Docs](https://svelte.dev/docs) - Svelte framework
 
 ### Nostr-Specific
-- [NDK Documentation](https://github.com/nostr-dev-kit/ndk) - Nostr Development Kit
-- [NIPs](https://github.com/nostr-protocol/nips) - Nostr Implementation Possibilities
+
+- [NDK Documentation](https://github.com/nostr-dev-kit/ndk) - Nostr Development
+  Kit
+- [NIPs](https://github.com/nostr-protocol/nips) - Nostr Implementation
+  Possibilities
 
 ---
 
@@ -911,7 +994,8 @@ Before creating or modifying any UI component:
 - [ ] Named component with `A` prefix (e.g., `AComponentName`)
 - [ ] Added complete TSDoc documentation
 - [ ] Followed TSDoc format exactly as documented
-- [ ] Included all required tags (@fileoverview, @component, @category, @prop, @example, @features, @accessibility)
+- [ ] Included all required tags (@fileoverview, @component, @category, @prop,
+      @example, @features, @accessibility)
 - [ ] Added component export to `index.ts`
 - [ ] Ran `node parse-components.js` to update JSON
 - [ ] Tested component in light and dark themes
@@ -922,17 +1006,21 @@ Before creating or modifying any UI component:
 
 ## Summary
 
-1. **Always search first** - Check `alexandria-components.json` before creating anything
-2. **Use TSDoc religiously** - Every component must have complete TSDoc documentation
+1. **Always search first** - Check `alexandria-components.json` before creating
+   anything
+2. **Use TSDoc religiously** - Every component must have complete TSDoc
+   documentation
 3. **Update the JSON** - Run parser script after any component changes
 4. **Follow naming conventions** - `A` prefix, PascalCase, descriptive names
 5. **Maintain consistency** - Match existing patterns and style
-7. **Don't reinvent** - Reuse existing components whenever possible
+6. **Don't reinvent** - Reuse existing components whenever possible
 
-**Remember:** The goal is to maintain a cohesive, well-documented, and easily discoverable 
-component library that serves the entire Alexandria application ecosystem.
+**Remember:** The goal is to maintain a cohesive, well-documented, and easily
+discoverable component library that serves the entire Alexandria application
+ecosystem.
 
 ---
 
-**Questions or Issues?**  
-Refer to this guide, review existing components for patterns, or check the main README.md for additional context.
+**Questions or Issues?**\
+Refer to this guide, review existing components for patterns, or check the main
+README.md for additional context.
