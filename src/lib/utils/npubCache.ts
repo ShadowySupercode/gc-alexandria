@@ -71,14 +71,18 @@ class UnifiedProfileCache {
   /**
    * Get profile data, fetching fresh data if needed
    */
-  async getProfile(identifier: string, ndk?: NDK, force = false): Promise<NpubMetadata> {
+  async getProfile(
+    identifier: string,
+    ndk?: NDK,
+    force = false,
+  ): Promise<NpubMetadata> {
     const cleanId = identifier.replace(/^nostr:/, "");
-    
+
     // Check cache first (unless forced)
     if (!force && this.cache.has(cleanId)) {
       const entry = this.cache.get(cleanId)!;
       const now = Date.now();
-      
+
       // Return cached data if not expired
       if ((now - entry.timestamp) < this.maxAge) {
         console.log("UnifiedProfileCache: Returning cached profile:", cleanId);
@@ -109,9 +113,12 @@ class UnifiedProfileCache {
         console.warn("UnifiedProfileCache: Invalid identifier format:", identifier, decodeError);
         return fallback;
       }
-      
+
       if (!decoded) {
-        console.warn("UnifiedProfileCache: Failed to decode identifier:", identifier);
+        console.warn(
+          "UnifiedProfileCache: Failed to decode identifier:",
+          identifier,
+        );
         return fallback;
       }
 
@@ -122,11 +129,17 @@ class UnifiedProfileCache {
       } else if (decoded.type === "nprofile") {
         pubkey = decoded.data.pubkey;
       } else {
-        console.warn("UnifiedProfileCache: Unsupported identifier type:", decoded.type);
+        console.warn(
+          "UnifiedProfileCache: Unsupported identifier type:",
+          decoded.type,
+        );
         return fallback;
       }
 
-      console.log("UnifiedProfileCache: Fetching fresh profile for pubkey:", pubkey);
+      console.log(
+        "UnifiedProfileCache: Fetching fresh profile for pubkey:",
+        pubkey,
+      );
 
       // Use fetchEventWithFallback to search ALL available relays
       const profileEvent = await fetchEventWithFallback(ndk, {
@@ -135,7 +148,10 @@ class UnifiedProfileCache {
       });
 
       if (!profileEvent || !profileEvent.content) {
-        console.warn("UnifiedProfileCache: No profile event found for:", pubkey);
+        console.warn(
+          "UnifiedProfileCache: No profile event found for:",
+          pubkey,
+        );
         return fallback;
       }
 
@@ -158,7 +174,6 @@ class UnifiedProfileCache {
 
       console.log("UnifiedProfileCache: Cached fresh profile:", metadata, "with event id:", profileEvent.id);
       return metadata;
-
     } catch (e) {
       console.error("UnifiedProfileCache: Error fetching profile:", e);
       return fallback;
@@ -171,7 +186,7 @@ class UnifiedProfileCache {
   getCached(identifier: string): NpubMetadata | undefined {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry = this.cache.get(cleanId);
-    
+
     if (entry) {
       const now = Date.now();
       if ((now - entry.timestamp) < this.maxAge) {
@@ -181,7 +196,7 @@ class UnifiedProfileCache {
         this.cache.delete(cleanId);
       }
     }
-    
+
     return undefined;
   }
 
@@ -191,7 +206,7 @@ class UnifiedProfileCache {
   getCachedEvent(identifier: string): NDKEvent | undefined {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry = this.cache.get(cleanId);
-    
+
     if (entry) {
       const now = Date.now();
       if ((now - entry.timestamp) < this.maxAge) {
@@ -201,7 +216,7 @@ class UnifiedProfileCache {
         this.cache.delete(cleanId);
       }
     }
-    
+
     return undefined;
   }
 
@@ -211,14 +226,14 @@ class UnifiedProfileCache {
    */
   getCachedEvents(identifiers: string[]): NDKEvent[] {
     const events: NDKEvent[] = [];
-    
+
     for (const identifier of identifiers) {
       const event = this.getCachedEvent(identifier);
       if (event) {
         events.push(event);
       }
     }
-    
+
     return events;
   }
 
@@ -235,7 +250,12 @@ class UnifiedProfileCache {
   /**
    * Set profile data in cache
    */
-  set(identifier: string, profile: NpubMetadata, pubkey?: string, relaySource?: string): void {
+  set(
+    identifier: string,
+    profile: NpubMetadata,
+    pubkey?: string,
+    relaySource?: string,
+  ): void {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry: CacheEntry = {
       profile,
@@ -257,16 +277,16 @@ class UnifiedProfileCache {
   updateOriginalEvent(identifier: string, originalEvent: NDKEvent): void {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry = this.cache.get(cleanId);
-    
+
     if (entry) {
       entry.originalEvent = originalEvent;
       this.cache.set(cleanId, entry);
-      
+
       // Also update by pubkey if different
       if (entry.pubkey && entry.pubkey !== cleanId) {
         this.cache.set(entry.pubkey, entry);
       }
-      
+
       this.saveToStorage();
       console.log("UnifiedProfileCache: Updated original event for:", cleanId, "with id:", originalEvent.id);
     }
@@ -278,7 +298,7 @@ class UnifiedProfileCache {
   has(identifier: string): boolean {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry = this.cache.get(cleanId);
-    
+
     if (entry) {
       const now = Date.now();
       if ((now - entry.timestamp) < this.maxAge) {
@@ -288,7 +308,7 @@ class UnifiedProfileCache {
         this.cache.delete(cleanId);
       }
     }
-    
+
     return false;
   }
 
@@ -298,7 +318,7 @@ class UnifiedProfileCache {
   delete(identifier: string): boolean {
     const cleanId = identifier.replace(/^nostr:/, "");
     const entry = this.cache.get(cleanId);
-    
+
     if (entry) {
       this.cache.delete(cleanId);
       if (entry.pubkey && entry.pubkey !== cleanId) {
@@ -307,7 +327,7 @@ class UnifiedProfileCache {
       this.saveToStorage();
       return true;
     }
-    
+
     return false;
   }
 
@@ -343,18 +363,20 @@ class UnifiedProfileCache {
   cleanup(): void {
     const now = Date.now();
     const expiredKeys: string[] = [];
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if ((now - entry.timestamp) >= this.maxAge) {
         expiredKeys.push(key);
       }
     }
-    
-    expiredKeys.forEach(key => this.cache.delete(key));
-    
+
+    expiredKeys.forEach((key) => this.cache.delete(key));
+
     if (expiredKeys.length > 0) {
       this.saveToStorage();
-      console.log(`UnifiedProfileCache: Cleaned up ${expiredKeys.length} expired entries`);
+      console.log(
+        `UnifiedProfileCache: Cleaned up ${expiredKeys.length} expired entries`,
+      );
     }
   }
 }
@@ -373,7 +395,8 @@ if (typeof window !== "undefined") {
 // but make it use the unified cache internally
 export const npubCache = {
   get: (key: string) => unifiedProfileCache.getCached(key),
-  set: (key: string, value: NpubMetadata) => unifiedProfileCache.set(key, value),
+  set: (key: string, value: NpubMetadata) =>
+    unifiedProfileCache.set(key, value),
   has: (key: string) => unifiedProfileCache.has(key),
   delete: (key: string) => unifiedProfileCache.delete(key),
   clear: () => unifiedProfileCache.clear(),
@@ -387,15 +410,15 @@ export async function batchFetchProfiles(
   onProgress?: (fetched: number, total: number) => void,
 ): Promise<NDKEvent[]> {
   const allProfileEvents: NDKEvent[] = [];
-  
+
   if (onProgress) onProgress(0, pubkeys.length);
-  
+
   // Fetch profiles in parallel using the unified cache
   const fetchPromises = pubkeys.map(async (pubkey, index) => {
     try {
       const profile = await unifiedProfileCache.getProfile(pubkey, ndk);
       if (onProgress) onProgress(index + 1, pubkeys.length);
-      
+
       // Create a mock NDKEvent for compatibility
       const event = new NDKEvent(ndk);
       event.content = JSON.stringify(profile);
@@ -406,14 +429,14 @@ export async function batchFetchProfiles(
       return null;
     }
   });
-  
+
   const results = await Promise.allSettled(fetchPromises);
-  results.forEach(result => {
-    if (result.status === 'fulfilled' && result.value) {
+  results.forEach((result) => {
+    if (result.status === "fulfilled" && result.value) {
       allProfileEvents.push(result.value);
     }
   });
-  
+
   return allProfileEvents;
 }
 

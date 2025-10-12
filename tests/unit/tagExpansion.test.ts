@@ -335,7 +335,9 @@ describe("Tag Expansion Tests", () => {
       );
 
       // Should not include events without tags
-      expect(result.publications.map((p: any) => p.id)).not.toContain("no-tags");
+      expect(result.publications.map((p: any) => p.id)).not.toContain(
+        "no-tags",
+      );
     });
   });
 
@@ -512,7 +514,9 @@ describe("Tag Expansion Tests", () => {
 
       // Should handle d-tags with colons correctly
       expect(result.publications).toHaveLength(3);
-      expect(result.contentEvents.map((c: any) => c.id)).toContain("colon-content");
+      expect(result.contentEvents.map((c: any) => c.id)).toContain(
+        "colon-content",
+      );
     });
   });
 });

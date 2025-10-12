@@ -16,12 +16,12 @@
   {@const npub = toNpub(identifier)}
   {#if npub}
     {@const hasValidDisplayText = displayText && displayText.trim().toLowerCase() !== "unknown"}
-    
+
     {#if hasValidDisplayText}
       {#await createProfileLinkWithVerification(npub as string, displayText, ndk)}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}
@@ -30,7 +30,7 @@
       {:then html}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}
@@ -40,7 +40,7 @@
       {:catch}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{displayText}
@@ -52,7 +52,7 @@
         {@const p = profile as UserProfile}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{getBestDisplayName(p, identifier)}
@@ -62,7 +62,7 @@
         {@const debugError = console.error("Error fetching profile for", npub, ":", error)}
         <span class="inline-flex items-center gap-0.5">
           <button
-            class="npub-badge bg-transparent border-none p-0 underline cursor-pointer"
+            class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"
             onclick={() => goto(`/events?id=${npub}`)}
           >
             @{shortenNpub(npub)}

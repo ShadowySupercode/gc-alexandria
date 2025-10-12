@@ -81,7 +81,10 @@ export function replaceAlexandriaNostrLinks(text: string): string {
   return text;
 }
 
-export function renderListGroup(lines: string[], typeHint?: "ol" | "ul"): string {
+export function renderListGroup(
+  lines: string[],
+  typeHint?: "ol" | "ul",
+): string {
   function parseList(
     start: number,
     indent: number,
@@ -393,15 +396,19 @@ export function processAllNostrIdentifiers(text: string): string {
 
   // Pattern for prefixed nostr identifiers (nostr:npub1, nostr:note1, etc.)
   // This handles both full identifiers and partial ones that might appear in content
-  const prefixedNostrPattern = /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{20,}/g;
-  
+  const prefixedNostrPattern =
+    /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{20,}/g;
+
   // Pattern for bare nostr identifiers (npub1, note1, nevent1, naddr1)
   // Exclude matches that are part of URLs to avoid breaking existing links
-  const bareNostrPattern = /(?<!https?:\/\/[^\s]*)(?<!wss?:\/\/[^\s]*)(?<!nostr:)(npub1|note1|nevent1|naddr1)[a-zA-Z0-9]{20,}/g;
+  const bareNostrPattern =
+    /(?<!https?:\/\/[^\s]*)(?<!wss?:\/\/[^\s]*)(?<!nostr:)(npub1|note1|nevent1|naddr1)[a-zA-Z0-9]{20,}/g;
 
   // Process prefixed nostr identifiers first
-  const prefixedMatches = Array.from(processedText.matchAll(prefixedNostrPattern));
-  
+  const prefixedMatches = Array.from(
+    processedText.matchAll(prefixedNostrPattern),
+  );
+
   // Process them in reverse order to avoid index shifting issues
   for (let i = prefixedMatches.length - 1; i >= 0; i--) {
     const match = prefixedMatches[i];
@@ -409,11 +416,11 @@ export function processAllNostrIdentifiers(text: string): string {
     const matchIndex = match.index ?? 0;
 
     // Create shortened display text
-    const identifier = fullMatch.replace('nostr:', '');
+    const identifier = fullMatch.replace("nostr:", "");
     const displayText = shortenNpub(identifier);
-    
     // Create clickable link
-    const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
     processedText = processedText.slice(0, matchIndex) + replacement +
@@ -422,7 +429,7 @@ export function processAllNostrIdentifiers(text: string): string {
 
   // Process bare nostr identifiers
   const bareMatches = Array.from(processedText.matchAll(bareNostrPattern));
-  
+
   // Process them in reverse order to avoid index shifting issues
   for (let i = bareMatches.length - 1; i >= 0; i--) {
     const match = bareMatches[i];
@@ -431,9 +438,9 @@ export function processAllNostrIdentifiers(text: string): string {
 
     // Create shortened display text
     const displayText = shortenNpub(fullMatch);
-    
     // Create clickable link with nostr: prefix for the href
-    const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
     processedText = processedText.slice(0, matchIndex) + replacement +
@@ -441,9 +448,12 @@ export function processAllNostrIdentifiers(text: string): string {
   }
 
   // Also handle any remaining truncated prefixed identifiers that might be cut off or incomplete
-  const truncatedPrefixedPattern = /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{8,}/g;
-  const truncatedPrefixedMatches = Array.from(processedText.matchAll(truncatedPrefixedPattern));
-  
+  const truncatedPrefixedPattern =
+    /nostr:(npub|nprofile|note|nevent|naddr)[a-zA-Z0-9]{8,}/g;
+  const truncatedPrefixedMatches = Array.from(
+    processedText.matchAll(truncatedPrefixedPattern),
+  );
+
   for (let i = truncatedPrefixedMatches.length - 1; i >= 0; i--) {
     const match = truncatedPrefixedMatches[i];
     const [fullMatch] = match;
@@ -453,11 +463,13 @@ export function processAllNostrIdentifiers(text: string): string {
     if (fullMatch.length >= 30) continue; // Full identifiers are at least 30 chars
 
     // Create display text for truncated identifiers
-    const identifier = fullMatch.replace('nostr:', '');
-    const displayText = identifier.length > 12 ? shortenNpub(identifier) : identifier;
-    
+    const identifier = fullMatch.replace("nostr:", "");
+    const displayText = identifier.length > 12
+      ? shortenNpub(identifier)
+      : identifier;
     // Create clickable link
-    const replacement = `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
     processedText = processedText.slice(0, matchIndex) + replacement +
@@ -465,9 +477,12 @@ export function processAllNostrIdentifiers(text: string): string {
   }
 
   // Handle truncated bare identifiers
-  const truncatedBarePattern = /(?<!https?:\/\/[^\s]*)(?<!wss?:\/\/[^\s]*)(?<!nostr:)(npub1|note1|nevent1|naddr1)[a-zA-Z0-9]{8,}/g;
-  const truncatedBareMatches = Array.from(processedText.matchAll(truncatedBarePattern));
-  
+  const truncatedBarePattern =
+    /(?<!https?:\/\/[^\s]*)(?<!wss?:\/\/[^\s]*)(?<!nostr:)(npub1|note1|nevent1|naddr1)[a-zA-Z0-9]{8,}/g;
+  const truncatedBareMatches = Array.from(
+    processedText.matchAll(truncatedBarePattern),
+  );
+
   for (let i = truncatedBareMatches.length - 1; i >= 0; i--) {
     const match = truncatedBareMatches[i];
     const [fullMatch] = match;
@@ -477,10 +492,12 @@ export function processAllNostrIdentifiers(text: string): string {
     if (fullMatch.length >= 30) continue; // Full identifiers are at least 30 chars
 
     // Create display text for truncated identifiers
-    const displayText = fullMatch.length > 12 ? shortenNpub(fullMatch) : fullMatch;
-    
+    const displayText = fullMatch.length > 12
+      ? shortenNpub(fullMatch)
+      : fullMatch;
     // Create clickable link
-    const replacement = `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
+    const replacement =
+      `<a href="/events?id=nostr:${fullMatch}" class="text-primary-600 dark:text-primary-500 hover:underline break-all" title="nostr:${fullMatch}">${displayText}</a>`;
 
     // Replace the match in the text
     processedText = processedText.slice(0, matchIndex) + replacement +

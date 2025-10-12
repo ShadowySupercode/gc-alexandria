@@ -1,4 +1,7 @@
-import { postProcessBasicMarkup, preProcessBasicMarkup } from "./basicMarkupParser.ts";
+import {
+  postProcessBasicMarkup,
+  preProcessBasicMarkup,
+} from "./basicMarkupParser.ts";
 import { processNostrIdentifiersWithEmbeddedEvents } from "./markupUtils.ts";
 import type NDK from "@nostr-dev-kit/ndk";
 

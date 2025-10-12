@@ -1,8 +1,17 @@
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
-import { getNpubFromNip05, getUserMetadata, fetchEventWithFallback } from "./nostrUtils.ts";
+import {
+  fetchEventWithFallback,
+  getNpubFromNip05,
+  getUserMetadata,
+} from "./nostrUtils.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { searchCache } from "./searchCache.ts";
-import { communityRelays, searchRelays, secondaryRelays, anonymousRelays } from "../consts.ts";
+import {
+  anonymousRelays,
+  communityRelays,
+  searchRelays,
+  secondaryRelays,
+} from "../consts.ts";
 import { get } from "svelte/store";
 import type { NostrProfile, ProfileSearchResult } from "./search_types.ts";
 import {
@@ -36,15 +45,15 @@ export async function searchProfiles(
   const cachedResult = searchCache.get("profile", normalizedSearchTerm);
   if (cachedResult) {
     console.log("Found cached result for:", normalizedSearchTerm);
-    
+
     // AI-NOTE: For profile searches, resolve identifiers to actual events from UnifiedProfileCache
     const resolvedResult = searchCache.resolveProfileEvents(cachedResult);
-    
+
     // Validate that we have complete events with id fields
-    const hasIncompleteEvents = resolvedResult.events.some(event => 
+    const hasIncompleteEvents = resolvedResult.events.some(event =>
       !event.id || event.id === "" || !event.pubkey || !event.content
     );
-    
+
     if (hasIncompleteEvents) {
       console.log("Cached profile events are incomplete (missing id or other critical fields), requerying relays...");
       // Clear the incomplete cache entry
@@ -152,14 +161,14 @@ export async function searchProfiles(
       // AI-NOTE: Store profile identifiers instead of duplicating events
       // This eliminates redundancy by using UnifiedProfileCache as the single source of truth
       const profileIdentifiers: string[] = [];
-      
+
       for (const profile of foundProfiles) {
         if (profile.pubkey) {
           // Ensure the profile is cached in UnifiedProfileCache with complete event data
           try {
             // Get or fetch the complete event with id field
             let originalEvent = unifiedProfileCache.getCachedEvent(profile.pubkey);
-            
+
             if (!originalEvent || !originalEvent.id) {
               // Fetch the original event to ensure we have complete data including id
               const fetchedEvent = await fetchEventWithFallback(ndk, {
@@ -167,7 +176,7 @@ export async function searchProfiles(
                 authors: [profile.pubkey],
               });
               originalEvent = fetchedEvent || undefined;
-              
+
               if (originalEvent && originalEvent.id) {
                 // Update the unified cache with the complete event
                 const profileData = parseProfileContent(originalEvent);
@@ -179,7 +188,7 @@ export async function searchProfiles(
                 }
               }
             }
-            
+
             if (originalEvent && originalEvent.id) {
               profileIdentifiers.push(profile.pubkey);
               console.log("Cached profile identifier:", profile.pubkey, "with event id:", originalEvent.id);
@@ -297,7 +306,7 @@ async function searchNip05Domains(
       if (npub) {
         console.log("NIP-05 search: found npub for", nip05Address, ":", npub);
         const metadata = await getUserMetadata(npub, ndk);
-        
+
         // AI-NOTE:  Fetch the original event timestamp to preserve created_at
         let created_at: number | undefined = undefined;
         try {
@@ -313,9 +322,12 @@ async function searchNip05Domains(
             }
           }
         } catch (e) {
-          console.warn("profile_search: Failed to fetch original event timestamp:", e);
+          console.warn(
+            "profile_search: Failed to fetch original event timestamp:",
+            e,
+          );
         }
-        
+
         const profile: NostrProfile & { created_at?: number } = {
           ...metadata,
           pubkey: npub,
@@ -366,12 +378,14 @@ async function quickRelaySearch(
 
   // AI-NOTE:  Use ALL available relays for comprehensive profile discovery
   // This ensures we don't miss profiles due to stale cache or limited relay coverage
-  
+
   // Get all available relays from NDK pool (most comprehensive)
-  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) => r.url) as string[];
+  const poolRelays = Array.from(ndk.pool.relays.values()).map((r: any) =>
+    r.url
+  ) as string[];
   const userInboxRelays = get(activeInboxRelays);
   const userOutboxRelays = get(activeOutboxRelays);
-  
+
   // Combine ALL available relays for maximum coverage
   const allRelayUrls = [
     ...(poolRelays || []), // All NDK pool relays
@@ -385,7 +399,10 @@ async function quickRelaySearch(
 
   // Deduplicate relay URLs
   const uniqueRelayUrls = [...new Set(allRelayUrls)];
-  console.log("Using ALL available relays for profile search:", uniqueRelayUrls);
+  console.log(
+    "Using ALL available relays for profile search:",
+    uniqueRelayUrls,
+  );
   console.log("Total relays for profile search:", uniqueRelayUrls.length);
 
   // Create relay sets for parallel search
@@ -428,7 +445,7 @@ async function quickRelaySearch(
           if (!profileData) {
             return;
           }
-          
+
           // Check if any field matches the search term using normalized comparison
           const matchesDisplay_name = fieldMatches(profileData.display_name, normalizedSearchTerm);
           const matchesName = fieldMatches(profileData.name, normalizedSearchTerm);
@@ -521,11 +538,11 @@ export async function searchProfilesForMentions(
 ): Promise<{ profiles: NostrProfile[]; Status: Record<string, boolean> }> {
   // Use the main searchProfiles function to get events with profile data
   const result = await searchProfiles(searchTerm, ndk);
-  
+
   // Extract profile data from the events
   const profiles: NostrProfile[] = result.profiles
     .map((event) => (event as any).profileData)
     .filter(Boolean);
-  
+
   return { profiles, Status: result.Status };
 }

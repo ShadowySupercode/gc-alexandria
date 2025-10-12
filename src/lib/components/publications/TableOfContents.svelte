@@ -158,20 +158,21 @@
     {@const expanded = toc.expandedMap.get(address) ?? false}
     {@const isLeaf = toc.leaves.has(address)}
     {@const isVisible = isEntryVisible(address)}
-    {@const isLastEntry = index === entries.length - 1}
     {#if isLeaf}
       <SidebarItem
         label={entry.title}
         href={`#${address}`}
         spanClass="px-2 text-ellipsis"
-        class={`${isVisible ? "toc-highlight" : ""} ${isLastEntry ? "pb-4" : ""}`}
+        class={`${isVisible ? "toc-highlight" : ""} `}
         onclick={() => handleSectionClick(address)}
-      />
+      >
+        <!-- Empty for now - could add icons or labels here in the future -->
+      </SidebarItem>
     {:else}
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} {isLastEntry ? 'pb-4' : ''}"
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} "
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
         <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} />

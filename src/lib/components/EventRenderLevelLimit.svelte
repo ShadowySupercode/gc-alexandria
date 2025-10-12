@@ -42,14 +42,14 @@
     id="levels-to-render"
     min="1"
     max="50"
-    class="w-20 bg-primary-0 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
+    class="w-20 bg-primary-50 dark:bg-primary-1000 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 dark:text-white"
     bind:value={inputValue}
     oninput={handleInput}
     onkeydown={handleKeyDown}
   />
   <button
     onclick={handleUpdate}
-    class="px-3 py-1 bg-primary-0 dark:bg-primary-1000 border border-gray-400 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+    class="px-3 py-1 bg-primary-50 dark:bg-primary-1000 border border-gray-400 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
   >
     Update
   </button>

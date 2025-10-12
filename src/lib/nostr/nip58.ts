@@ -1,0 +1,147 @@
+import type { AddressPointer, NostrEvent } from "./event";
+export type BadgeDefinition = {
+  kind: 30009;
+  id: string;
+  pubkey: string;
+  d: string;
+  a: AddressPointer;
+  name?: string;
+  description?: string;
+  image?: { url: string; size?: string } | null;
+  thumbs: { url: string; size?: string }[];
+};
+export type BadgeAward = {
+  kind: 8;
+  id: string;
+  pubkey: string;
+  a: AddressPointer;
+  recipients: { pubkey: string; relay?: string }[];
+};
+export type ProfileBadges = {
+  kind: 30008;
+  id: string;
+  pubkey: string;
+  pairs: { a: AddressPointer; awardId: string; relay?: string }[];
+};
+export const isKind = (e: NostrEvent, k: number) => e.kind === k;
+const val = (tags: string[][], name: string) =>
+  tags.find((t) => t[0] === name)?.[1];
+const vals = (tags: string[][], name: string) =>
+  tags.filter((t) => t[0] === name).map((t) => t.slice(1));
+export function parseBadgeDefinition(e: NostrEvent): BadgeDefinition | null {
+  if (e.kind !== 30009) return null;
+  const d = val(e.tags, "d");
+  if (!d) return null;
+  const a: AddressPointer = `30009:${"${"}e.pubkey}:${"${"}d}`;
+  const name = val(e.tags, "name") || undefined;
+  const description = val(e.tags, "description") || undefined;
+  const imageTag = vals(e.tags, "image")[0];
+  const image = imageTag ? { url: imageTag[0], size: imageTag[1] } : null;
+  const thumbs = vals(e.tags, "thumb").map(([url, size]) => ({ url, size }));
+  return {
+    kind: 30009,
+    id: e.id,
+    pubkey: e.pubkey,
+    d,
+    a,
+    name,
+    description,
+    image,
+    thumbs,
+  };
+}
+export function parseBadgeAward(e: NostrEvent): BadgeAward | null {
+  if (e.kind !== 8) return null;
+  const atag = vals(e.tags, "a")[0];
+  if (!atag) return null;
+  const a: AddressPointer = atag[0];
+  const recipients = vals(e.tags, "p").map(([pubkey, relay]) => ({
+    pubkey,
+    relay,
+  }));
+  return { kind: 8, id: e.id, pubkey: e.pubkey, a, recipients };
+}
+export function parseProfileBadges(e: NostrEvent): ProfileBadges | null {
+  if (e.kind !== 30008) return null;
+  const d = val(e.tags, "d");
+  if (d !== "profile_badges") return null;
+  const pairs: { a: AddressPointer; awardId: string; relay?: string }[] = [];
+  for (let i = 0; i < e.tags.length; i++) {
+    const t = e.tags[i];
+    if (t[0] === "a") {
+      const a = t[1];
+      const nxt = e.tags[i + 1];
+      if (nxt && nxt[0] === "e") {
+        pairs.push({ a, awardId: nxt[1], relay: nxt[2] });
+        i++;
+      }
+    }
+  }
+  return { kind: 30008, id: e.id, pubkey: e.pubkey, pairs };
+}
+export type DisplayBadge = {
+  def: BadgeDefinition;
+  award: BadgeAward | null;
+  issuer: string;
+  thumbUrl: string | null;
+  title: string;
+};
+export function pickThumb(
+  def: BadgeDefinition,
+  prefer: ("16" | "32" | "64" | "256" | "512")[] = ["32", "64", "256"],
+): string | null {
+  for (const p of prefer) {
+    const t = def.thumbs.find((t) => (t.size || "").startsWith(p + "x"));
+    if (t) return t.url;
+  }
+  return def.image?.url || null;
+}
+export function buildDisplayBadgesForUser(
+  userPubkey: string,
+  defs: BadgeDefinition[],
+  awards: BadgeAward[],
+  profileBadges?: ProfileBadges | null,
+  opts: { issuerWhitelist?: Set<string>; max?: number } = {},
+): DisplayBadge[] {
+  const byA = new Map<string, BadgeDefinition>(defs.map((d) => [d.a, d]));
+  const byAwardId = new Map<string, BadgeAward>(awards.map((a) => [a.id, a]));
+  const isWhitelisted = (issuer: string) =>
+    !opts.issuerWhitelist || opts.issuerWhitelist.has(issuer);
+  let out: DisplayBadge[] = [];
+  if (profileBadges && profileBadges.pubkey === userPubkey) {
+    for (const { a, awardId } of profileBadges.pairs) {
+      const def = byA.get(a);
+      if (!def) {
+        continue;
+      }
+      const award = byAwardId.get(awardId) || null;
+      if (
+        award &&
+        (award.a !== a ||
+          !award.recipients.find((r) => r.pubkey === userPubkey))
+      ) continue;
+      if (!isWhitelisted(def.pubkey)) continue;
+      out.push({
+        def,
+        award,
+        issuer: def.pubkey,
+        thumbUrl: pickThumb(def),
+        title: def.name || def.d,
+      });
+    }
+  } else {for (const aw of awards) {
+      if (!aw.recipients.find((r) => r.pubkey === userPubkey)) continue;
+      const def = byA.get(aw.a);
+      if (!def) continue;
+      if (!isWhitelisted(def.pubkey)) continue;
+      out.push({
+        def,
+        award: aw,
+        issuer: def.pubkey,
+        thumbUrl: pickThumb(def),
+        title: def.name || def.d,
+      });
+    }}
+  if (opts.max && out.length > opts.max) out = out.slice(0, opts.max);
+  return out;
+}

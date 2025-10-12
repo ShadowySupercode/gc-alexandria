@@ -173,11 +173,11 @@
           </div>
           {#if communityStatus === true}
             <div
-              class="flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center"
+              class="community-status-indicator"
               title="Has posted to the community"
             >
               <svg
-                class="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+                class="community-status-icon"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -191,11 +191,11 @@
           {/if}
           {#if isInUserLists === true}
             <div
-              class="flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center"
+              class="user-list-indicator"
               title="In your lists (follows, etc.)"
             >
               <svg
-                class="w-3 h-3 text-red-600 dark:text-red-400"
+                class="user-list-icon"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -211,7 +211,7 @@
       </div>
       <div class="min-w-0">
         <div class="mt-2 flex flex-col gap-4">
-          <dl class="grid grid-cols-1 gap-y-2">
+          <dl class="card-metadata-grid">
             {#if freshProfile().name}
               <div class="flex gap-2 min-w-0">
                 <dt class="font-semibold min-w-[120px] flex-shrink-0">Name:</dt>
@@ -289,8 +289,8 @@
             {/if}
             {#each identifiers as id}
               <div class="flex gap-2 min-w-0">
-                <dt class="font-semibold min-w-[120px] flex-shrink-0">{id.label}:</dt>
-                <dd class="min-w-0 break-all">
+                <dt class="card-metadata-label">{id.label}:</dt>
+                <dd class="card-metadata-value">
                   {#if id.link}
                     <button
                       class="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline hover:no-underline transition-colors"

@@ -2,7 +2,6 @@
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { Heading, Img, P, A } from "flowbite-svelte";
   import { goto } from "$app/navigation";
-  import RelayStatus from "$lib/components/RelayStatus.svelte";
   import { getNdkContext } from "$lib/ndk";
   
   // Get the git tag version from environment variables
@@ -12,20 +11,19 @@
   const ndk = getNdkContext();
 </script>
 
-<div class="w-full flex justify-center">
-  <main class="main-leather flex flex-col space-y-6 max-w-2xl w-full my-6 px-4">
-    <div class="flex justify-between items-center">
+<div class="w-full max-w-3xl flex flex-col self-center mb-3 px-2">
+    <div class="flex flex-col justify-between items-center mb-4">
       <Heading tag="h1" class="h-leather mb-2"
         >About the Library of Alexandria</Heading
       >
       {#if isVersionKnown}
         <span
-          class="text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-nowrap"
+          class="mt-2 text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-nowrap"
           >Version: {appVersion}</span
         >
       {/if}
     </div>
-    <Img src="./screenshots/old_books.jpg" alt="Alexandria icon" />
+    <Img src="./screenshots/old_books.jpg" alt="Alexandria icon" class="my-3"/>
 
     <P class="mb-3">
       Alexandria is a reader and writer for <A
@@ -62,9 +60,4 @@
         target="_blank">homepage</A
       > and find out more about us, and the many projects we are working on.
     </P>
-
-    <div class="border-t pt-6">
-      <RelayStatus />
-    </div>
-  </main>
 </div>

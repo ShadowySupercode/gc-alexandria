@@ -1,0 +1,64 @@
+/* Default theme (your current palette) */
+:root {
+  --brand-primary-0: #efe6dc;
+  --brand-primary-50: #decdb9;
+  --brand-primary-100: #d6c1a8;
+  --brand-primary-200: #c6a885;
+  --brand-primary-300: #b58f62;
+  --brand-primary-400: #ad8351;
+  --brand-primary-500: #c6a885;
+  --brand-primary-600: #795c39;
+  --brand-primary-700: #564a3e;
+  --brand-primary-800: #3c352c;
+  --brand-primary-900: #2a241c;
+  --brand-primary-950: #1d1812;
+  --brand-primary-1000: #15110d;
+}
+
+/* Example alternative theme: ocean */
+:root[data-theme="ocean"] {
+  --brand-primary-0: #ecf8ff;
+  --brand-primary-50: #e6f3ff;
+  --brand-primary-100: #d9ecff;
+  --brand-primary-200: #b9ddff;
+  --brand-primary-300: #90cbff;
+  --brand-primary-400: #61b6fb;
+  --brand-primary-500: #0ea5e9; /* sky-500-ish */
+  --brand-primary-600: #0284c7;
+  --brand-primary-700: #0369a1;
+  --brand-primary-800: #075985;
+  --brand-primary-900: #0c4a6e;
+  --brand-primary-950: #082f49;
+  --brand-primary-1000: #062233;
+}
+
+/* (Optional) per-theme dark tweaks — applied when <html class="dark"> is set */
+:root.dark[data-theme="ocean"] {
+  /* nudge the mid tones brighter for contrast */
+  --brand-primary-400: #7ccdfc;
+  --brand-primary-500: #38bdf8;
+}
+
+/* Example alternative theme: forrest */
+:root[data-theme="forrest"] {
+  --brand-primary-0: #eaf7ea;
+  --brand-primary-50: #d6eed6;
+  --brand-primary-100: #bfe3bf;
+  --brand-primary-200: #9fd49f;
+  --brand-primary-300: #7fc57f;
+  --brand-primary-400: #5fa65f;
+  --brand-primary-500: #3f863f; /* forest green */
+  --brand-primary-600: #2e6b2e;
+  --brand-primary-700: #205120;
+  --brand-primary-800: #153a15;
+  --brand-primary-900: #0c230c;
+  --brand-primary-950: #071507;
+  --brand-primary-1000: #041004;
+}
+
+/* (Optional) per-theme dark tweaks — applied when <html class="dark"> is set */
+:root.dark[data-theme="forrest"] {
+  /* nudge the mid tones brighter for contrast */
+  --brand-primary-400: #7fc97f;
+  --brand-primary-500: #4caf50;
+}

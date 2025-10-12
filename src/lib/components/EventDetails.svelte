@@ -6,7 +6,7 @@
   import { activeInboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
-  import ProfileHeader from "$components/cards/ProfileHeader.svelte";
+  import { AProfilePreview } from "$lib/a";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
@@ -22,6 +22,9 @@
   import { getNdkContext } from "$lib/ndk";
   import type { UserProfile } from "$lib/models/user_profile";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import ATechBlock from "$lib/a/reader/ATechBlock.svelte";
+  import { Accordion, AccordionItem, Heading } from "flowbite-svelte";
+  import RelayActions from "$components/RelayActions.svelte";
 
   const {
     event,
@@ -218,6 +221,32 @@
     return { text: `${tag[0]}:${tag[1]}` };
   }
 
+  // Navigation for tag buttons (moved out of template)
+  function handleTagGoto(value: string) {
+    if (!value) return;
+    if (
+      value.startsWith("naddr") ||
+      value.startsWith("nevent") ||
+      value.startsWith("npub") ||
+      value.startsWith("nprofile") ||
+      value.startsWith("note")
+    ) {
+      goto(`/events?id=${value}`);
+    } else if (value.startsWith("/")) {
+      goto(value);
+    } else if (value.startsWith("d:")) {
+      const dTag = value.substring(2);
+      goto(`/events?d=${encodeURIComponent(dTag)}`);
+    } else if (value.startsWith("t:")) {
+      const tTag = value.substring(2);
+      goto(`/events?t=${encodeURIComponent(tTag)}`);
+    } else if (/^[0-9a-fA-F]{64}$/.test(value)) {
+      navigateToEvent(value);
+    } else {
+      goto(`/events?id=${value}`);
+    }
+  }
+
   $effect(() => {
     if (!event?.pubkey) {
       authorDisplayName = undefined;
@@ -233,12 +262,10 @@
   // --- Identifier helpers ---
   function getIdentifiers(
     event: NDKEvent,
-    profile: any,
+    _profile: any,
   ): { label: string; value: string; link?: string }[] {
     const ids: { label: string; value: string; link?: string }[] = [];
     if (event.kind === 0) {
-      // NIP-05
-      const nip05 = profile?.nip05 || getMatchingTags(event, "nip05")[0]?.[1];
       // npub
       const npub = toNpub(event.pubkey);
       if (npub)
@@ -277,6 +304,10 @@
     return ids;
   }
 
+  function navigateToIdentifier(link: string) {
+    goto(link);
+  }
+
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
       const target = event.target as HTMLElement;
@@ -298,43 +329,38 @@
     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
       {@render basicMarkup(getEventTitle(event), ndk)}
     </h2>
-  {/if}
 
-  <!-- Notifications (for profile events) -->
-  {#if event.kind === 0}
-    <Notifications {event} />
-  {/if}
-
-  <div class="flex items-center space-x-2 min-w-0">
-    {#if toNpub(event.pubkey)}
+    <div class="flex items-center space-x-2 min-w-0">
+      {#if toNpub(event.pubkey)}
       <span class="text-gray-600 dark:text-gray-400 min-w-0"
-        >Author: {@render userBadge(
-          toNpub(event.pubkey) as string,
-          authorDisplayName,
-          ndk,
-        )}</span
+      >Author: {@render userBadge(
+        toNpub(event.pubkey) || '',
+        authorDisplayName,
+        ndk,
+      )}</span
       >
-    {:else}
+      {:else}
       <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-        >Author: {@render userBadge(event.pubkey, authorDisplayName, ndk)}</span
+      >Author: {@render userBadge(event.pubkey, authorDisplayName, ndk)}</span
       >
-    {/if}
-  </div>
-
-  <div class="flex items-center space-x-2 min-w-0">
-    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
-    <span class="font-mono flex-shrink-0">{event.kind}</span>
-    <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
-      >({getEventTypeDisplay(event)})</span
-    >
-  </div>
-
-  <div class="flex flex-col space-y-1 min-w-0">
-    <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-    <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-      {@render basicMarkup(getEventSummary(event), ndk)}
+      {/if}
     </div>
-  </div>
+
+    <div class="flex items-center space-x-2 min-w-0">
+      <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
+      <span class="font-mono flex-shrink-0">{event.kind}</span>
+      <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
+      >({getEventTypeDisplay(event)})</span
+      >
+    </div>
+
+    <div class="flex flex-col space-y-1 min-w-0">
+      <span class="text-gray-700 dark:text-gray-300">Summary:</span>
+      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+        {@render basicMarkup(getEventSummary(event), ndk)}
+      </div>
+    </div>
+  {/if}
 
   <!-- Containing Publications -->
   <ContainingIndexes {event} />
@@ -346,54 +372,54 @@
     <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
       <div class="flex flex-col space-y-1 min-w-0">
         <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
-        {#if isRepost}
-          <!-- Repost content handling -->
-          {#if repostKinds.includes(event.kind)}
-            <!-- Kind 6 and 16 reposts - stringified JSON content -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
-              </div>
-              {@render repostContent(event.content)}
-            </div>
-          {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
-            <!-- Quote repost - kind 1 with q tag -->
-            <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Quote repost:
-              </div>
-              {@render quotedContent(event, [], ndk)}
-              {#if content}
-                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Added comment:
-                  </div>
-                  {#if repostKinds.includes(kind)}
-                    {@html content}
-                  {:else}
-                    {@render basicMarkup(content, ndk)}
-                  {/if}
+        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+          {#if isRepost}
+            <!-- Repost content handling -->
+            {#if repostKinds.includes(event.kind)}
+              <!-- Kind 6 and 16 reposts - stringified JSON content -->
+              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
                 </div>
+                {@render repostContent(event.content)}
+              </div>
+            {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
+              <!-- Quote repost - kind 1 with q tag -->
+              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Quote repost:
+                </div>
+                {@render quotedContent(event, [], ndk)}
+                {#if content}
+                  <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Added comment:
+                    </div>
+                    {#if repostKinds.includes(kind)}
+                      {@html content}
+                    {:else}
+                      {@render basicMarkup(content, ndk)}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          {:else}
+            <!-- Regular content -->
+            <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+              {#if repostKinds.includes(kind)}
+                {@html content}
+              {:else}
+                {@render basicMarkup(content, ndk)}
               {/if}
             </div>
-          {/if}
-        {:else}
-          <!-- Regular content -->
-          <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
-            {#if repostKinds.includes(kind)}
-              {@html content}
-            {:else}
-              {@render basicMarkup(content, ndk)}
+            {#if shouldTruncate}
+              <button
+                class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
+                onclick={() => (showFullContent = true)}>Show more</button
+              >
             {/if}
-          </div>
-          {#if shouldTruncate}
-            <button
-              class="mt-2 text-primary-700 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-200"
-              onclick={() => (showFullContent = true)}>Show more</button
-            >
           {/if}
-        {/if}
         </div>
       </div>
     </div>
@@ -401,126 +427,83 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <ProfileHeader
-      {event}
-      {profile}
-      {communityStatusMap}
-    />
+    <AProfilePreview event={event} profile={profile} communityStatusMap={communityStatusMap} />
   {/if}
 
-  <!-- Raw Event JSON -->
-  <details
-    class="relative w-full max-w-2xl md:max-w-full bg-primary-50 dark:bg-primary-900 rounded p-4 overflow-hidden"
-  >
-    <summary
-      class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300 mb-2"
-    >
-      Show details
-    </summary>
-    
-    <!-- Identifiers Section -->
-    <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Identifiers:</h4>
-      <div class="flex flex-col gap-2 min-w-0">
-        {#each getIdentifiers(event, profile) as identifier}
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-gray-600 dark:text-gray-400 flex-shrink-0">{identifier.label}:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            {#if identifier.link}
-              <a
-                href={identifier.link}
-                class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer"
-                title={identifier.value}
-              >
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </a>
-            {:else}
-              <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all" title={identifier.value}>
-                {identifier.value.slice(0, 20)}...{identifier.value.slice(-8)}
-              </span>
-            {/if}
+  <ATechBlock>
+    {#snippet content()}
+      <Heading tag="h3" class="h-leather my-6">
+        Technical details
+      </Heading>
+
+      <Accordion flush class="w-full">
+        <AccordionItem open={false} >
+          {#snippet header()}Identifiers{/snippet}
+          {#if event}
+            <div class="flex flex-col gap-2">
+              {#each getIdentifiers(event, profile) as identifier}
+                <div class="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-start gap-2 min-w-0">
+                  <span class="min-w-24 text-gray-600 dark:text-gray-400">{identifier.label}:</span>
+                  <div class="min-w-0">
+                    {#if identifier.link}
+                      <button class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left"
+                              onclick={() => navigateToIdentifier(identifier.link)}>
+                        {identifier.value}
+                      </button>
+                    {:else}
+                      <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{identifier.value}</span>
+                    {/if}
+                  </div>
+                  <div class="justify-self-end">
+                    <CopyToClipboard displayText="" copyText={identifier.value} />
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </AccordionItem>
+        <!-- Event Tags Section -->
+        {#if event.tags && event.tags.length}
+          <AccordionItem open={false}>
+            {#snippet header()}
+              Tags
+            {/snippet}
+            <div class="flex flex-wrap gap-2 break-words min-w-0">
+              {#each event.tags as tag}
+                {@const tagInfo = getTagButtonInfo(tag)}
+                {#if tagInfo.text && tagInfo.gotoValue}
+                  <button
+                    onclick={() => handleTagGoto(tagInfo.gotoValue || "")}
+                    class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
+                  >
+                    {tagInfo.text}
+                  </button>
+                {/if}
+              {/each}
+            </div>
+          </AccordionItem>
+        {/if}
+
+        <AccordionItem open={false} contentClass="relative">
+          {#snippet header()}Event JSON{/snippet}
+          <div class="absolute top-5 right-0 z-10">
             <CopyToClipboard
               displayText=""
-              copyText={identifier.value}
+              copyText={JSON.stringify(event.rawEvent(), null, 2)}
             />
           </div>
-        </div>
-        {/each}
-      </div>
-    </div>
+          {#if event}
+            <pre class="p-4 wrap-break-word  bg-highlight dark:bg-primary-900">
+              <code class="text-wrap">{JSON.stringify(event.rawEvent(), null, 2)}</code>
+            </pre>
+          {/if}
+        </AccordionItem>
 
-    <!-- Event Tags Section -->
-    {#if event.tags && event.tags.length}
-      <div class="mb-4 max-w-full overflow-hidden">
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Tags:</h4>
-        <div class="flex flex-wrap gap-2 break-words min-w-0">
-          {#each event.tags as tag}
-            {@const tagInfo = getTagButtonInfo(tag)}
-            {#if tagInfo.text && tagInfo.gotoValue}
-              <button
-                onclick={() => {
-                  // Handle different types of gotoValue
-                  if (
-                    tagInfo.gotoValue!.startsWith("naddr") ||
-                    tagInfo.gotoValue!.startsWith("nevent") ||
-                    tagInfo.gotoValue!.startsWith("npub") ||
-                    tagInfo.gotoValue!.startsWith("nprofile") ||
-                    tagInfo.gotoValue!.startsWith("note")
-                  ) {
-                    // For naddr, nevent, npub, nprofile, note - navigate directly
-                    goto(`/events?id=${tagInfo.gotoValue!}`);
-                  } else if (tagInfo.gotoValue!.startsWith("/")) {
-                    // For relative URLs - navigate directly
-                    goto(tagInfo.gotoValue!);
-                  } else if (tagInfo.gotoValue!.startsWith("d:")) {
-                    // For d-tag searches - navigate to d-tag search
-                    const dTag = tagInfo.gotoValue!.substring(2);
-                    goto(`/events?d=${encodeURIComponent(dTag)}`);
-                  } else if (tagInfo.gotoValue!.startsWith("t:")) {
-                    // For t-tag searches - navigate to t-tag search
-                    const tTag = tagInfo.gotoValue!.substring(2);
-                    goto(`/events?t=${encodeURIComponent(tTag)}`);
-                  } else if (/^[0-9a-fA-F]{64}$/.test(tagInfo.gotoValue!)) {
-                    // AI-NOTE:  E-tag navigation may cause comment feed update issues
-                    // When navigating to a new event via e-tag, the CommentViewer component
-                    // may experience timing issues that result in:
-                    // - Empty comment feeds even when comments exist
-                    // - UI flashing between different thread views
-                    // - Delayed comment loading
-                    // This is likely due to race conditions between event prop changes
-                    // and comment fetching in the CommentViewer component.
-                    navigateToEvent(tagInfo.gotoValue!);
-                  } else {
-                    // For other cases, try direct navigation
-                    goto(`/events?id=${tagInfo.gotoValue!}`);
-                  }
-                }}
-                class="text-primary-700 dark:text-primary-300 cursor-pointer bg-transparent border-none p-0 text-left hover:text-primary-900 dark:hover:text-primary-100 break-all max-w-full"
-              >
-                {tagInfo.text}
-              </button>
-            {/if}
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Raw Event JSON Section -->
-    <div class="mb-4 max-w-full overflow-hidden">
-      <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON:</h4>
-      <div class="relative min-w-0">
-        <div class="absolute top-0 right-0 z-10">
-          <CopyToClipboard
-            displayText=""
-            copyText={JSON.stringify(event.rawEvent(), null, 2)}
-          />
-        </div>
-        <pre
-          class="overflow-x-auto text-xs bg-highlight dark:bg-primary-900 rounded p-4 mt-2 font-mono break-words whitespace-pre-wrap min-w-0"
-          style="line-height: 1.7; font-size: 1rem;">
-{JSON.stringify(event.rawEvent(), null, 2)}
-        </pre>
-      </div>
-    </div>
-  </details>
+        <AccordionItem open={true}>
+          {#snippet header()}Relay Info{/snippet}
+          <RelayActions {event} />
+        </AccordionItem>
+      </Accordion>
+    {/snippet}
+  </ATechBlock>
 </div>

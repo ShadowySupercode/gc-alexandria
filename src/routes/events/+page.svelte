@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { Heading, P } from "flowbite-svelte";
+  import { Heading, P, List, Li } from "flowbite-svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import EventSearch from "$lib/components/EventSearch.svelte";
   import EventDetails from "$lib/components/EventDetails.svelte";
-  import RelayActions from "$lib/components/RelayActions.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
   import CommentViewer from "$lib/components/CommentViewer.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
@@ -14,7 +13,6 @@
     toNpub,
     getUserMetadata,
   } from "$lib/utils/nostrUtils";
-  import EventInput from "$lib/components/EventInput.svelte";
   import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays, getNdkContext } from "$lib/ndk";
@@ -34,6 +32,7 @@
   import type { SearchType } from "$lib/models/search_type";
   import { clearAllCaches } from "$lib/utils/cache_manager";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
+  import { AAlert } from "$lib/a";
 
   // AI-NOTE:  Add cache clearing function for testing second-order search
   // This can be called from browser console: window.clearCache()
@@ -494,27 +493,25 @@
         <P class="mb-3">
           Search and explore Nostr events across the network. Find events by:
         </P>
-        <ul
-          class="mb-3 list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300"
-        >
-          <li>
+        <List class="mb-3 list-disc">
+          <Li>
             <strong>Event identifiers:</strong> nevent, note, naddr, npub, nprofile,
             pubkey, or event ID
-          </li>
-          <li><strong>NIP-05 addresses:</strong> username@domain.com</li>
-          <li>
+          </Li>
+          <Li><strong>NIP-05 addresses:</strong> username@domain.com</Li>
+          <Li>
             <strong>Profile names:</strong> Search by display name or username (use
             "n:" prefix for exact matches)
-          </li>
-          <li>
+          </Li>
+          <Li>
             <strong>D-tags:</strong> Find events with specific d-tags using "d:tag-name"
-          </li>
-          <li>
+          </Li>
+          <Li>
             <strong>T-tags:</strong> Find events tagged with specific topics using
             "t:topic"
-          </li>
-        </ul>
-        <P class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+          </Li>
+        </List>
+        <P class="mb-3 text-sm text-muted">
           The page shows primary search results, second-order references
           (replies, quotes, mentions), and related tagged events. Click any
           event to view details, comments, and relay information.
@@ -533,11 +530,9 @@
         />
 
         {#if secondOrderSearchMessage}
-          <div
-            class="mt-4 p-4 text-sm text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-200 rounded-lg"
-          >
+          <AAlert color="blue">
             {secondOrderSearchMessage}
-          </div>
+          </AAlert>
         {/if}
 
         {#if searchResults.length > 0}
@@ -1286,36 +1281,6 @@
             </div>
           </div>
         {/if}
-
-        {#if !event && searchResults.length === 0 && secondOrderResults.length === 0 && tTagResults.length === 0 && !searchValue && !searchInProgress}
-          <div class="mt-8 w-full">
-            <Heading tag="h2" class="h-leather mb-4"
-              >Publish Nostr Event</Heading
-            >
-            <P class="mb-4">
-              Create and publish new Nostr events to the network. This form
-              supports various event kinds including:
-            </P>
-            <ul
-              class="mb-6 list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300"
-            >
-              <li>
-                <strong>Kind 30040:</strong> Publication indexes that organize AsciiDoc
-                content into structured publications
-              </li>
-              <li>
-                <strong>Kind 30041:</strong> Individual section content for publications
-              </li>
-              <li>
-                <strong>Other kinds:</strong> Standard Nostr events with custom tags
-                and content
-              </li>
-            </ul>
-            <div class="w-full flex justify-center">
-              <EventInput />
-            </div>
-          </div>
-        {/if}
       </div>
     </div>
 
@@ -1360,26 +1325,17 @@
         <div class="min-w-0 overflow-hidden">
           <EventDetails {event} {profile} communityStatusMap={communityStatus} />
         </div>
-        <div class="min-w-0 overflow-hidden">
-          <RelayActions {event} />
-        </div>
 
-        <div class="min-w-0 overflow-hidden">
+        <div class="flex flex-col space-y-6">
           <CommentViewer {event} />
-        </div>
-
-        {#if user?.signedIn}
-          <div class="mt-8 min-w-0 overflow-hidden">
-            <Heading tag="h3" class="h-leather mb-4 break-words"
-              >Add Comment</Heading
-            >
+          {#if user?.signedIn}
             <CommentBox {event} {userRelayPreference} />
-          </div>
-        {:else}
-          <div class="mt-8 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg min-w-0">
-            <P>Please sign in to add comments.</P>
-          </div>
-        {/if}
+          {:else}
+            <AAlert color="blue">
+              Please sign in to add comments.
+            </AAlert>
+          {/if}
+        </div>
       </div>
     {/if}
   </div>

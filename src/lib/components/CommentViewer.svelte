@@ -212,7 +212,7 @@
             if (!isFetching) {
               fetchComments();
             }
-          }, 2000); // Wait 2 seconds before retry
+          }, 10000); // Wait 10 seconds before retry
         }
       });
       

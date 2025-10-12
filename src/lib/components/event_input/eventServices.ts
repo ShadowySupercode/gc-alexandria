@@ -23,30 +23,35 @@ import { prepareProfileEventForPublishing, parseProfileContent } from "$lib/util
  */
 function extractAllValuesFromMalformedJson(content: string, profileFields: string[]): Array<{ field: string; values: string[] }> {
   const results: Array<{ field: string; values: string[] }> = [];
-  
+
   for (const field of profileFields) {
     const values: string[] = [];
-    
+
     // Use regex to find all occurrences of the field in the JSON string
     // Pattern matches: "field":"value" or "field": "value"
     const regex = new RegExp(`"${field}"\\s*:\\s*"([^"]*)"`, 'g');
     let match;
-    
+
     while ((match = regex.exec(content)) !== null) {
       const value = match[1];
       if (value && value.trim() !== '') {
         values.push(value);
       }
     }
-    
+
     if (values.length > 0) {
       results.push({ field, values });
     }
   }
-  
+
   return results;
 }
-import type { EventData, TagData, PublishResult, LoadEventResult } from "./types";
+import type {
+  EventData,
+  LoadEventResult,
+  PublishResult,
+  TagData,
+} from "./types";
 
 // AI-NOTE: Deprecated profile fields that should be filtered out during loading and preview
 export const DEPRECATED_PROFILE_FIELDS = ['displayName', 'username'];
@@ -58,7 +63,7 @@ export const DEPRECATED_PROFILE_FIELDS = ['displayName', 'username'];
  */
 export function convertTagsToNDKFormat(tags: TagData[]): string[][] {
   const result: string[][] = [];
-  
+
   for (const tag of tags) {
     if (tag.key.trim() !== "") {
       // Create ONE tag entry with all values
@@ -66,28 +71,35 @@ export function convertTagsToNDKFormat(tags: TagData[]): string[][] {
       result.push([tag.key, ...tag.values]);
     }
   }
-  
+
   return normalizeAndOrderTags(result);
 }
 
 /**
  * Publishes an event to relays
  */
-export async function publishEvent(ndk: any, eventData: EventData, tags: TagData[]): Promise<PublishResult> {
+export async function publishEvent(
+  ndk: any,
+  eventData: EventData,
+  tags: TagData[],
+): Promise<PublishResult> {
   if (!ndk) {
     return { success: false, error: "NDK context not available" };
   }
-  
+
   const userState = get(userStore);
   const pubkey = userState.pubkey;
-  
+
   if (!pubkey) {
     return { success: false, error: "User not logged in." };
   }
-  
+
   const pubkeyString = String(pubkey);
   if (!/^[a-fA-F0-9]{64}$/.test(pubkeyString)) {
-    return { success: false, error: "Invalid public key: must be a 64-character hex string." };
+    return {
+      success: false,
+      error: "Invalid public key: must be a 64-character hex string.",
+    };
   }
 
   const baseEvent = { pubkey: pubkeyString, created_at: eventData.createdAt };
@@ -102,63 +114,71 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
   if (Number(eventData.kind) === 30040) {
     console.log("=== 30040 EVENT CREATION START ===");
     console.log("Creating 30040 event set with content:", eventData.content);
-    
+
     try {
       // Get the current d and title values from the UI
-      const dTagValue = tags.find(tag => tag.key === "d")?.values[0] || "";
-      const titleTagValue = tags.find(tag => tag.key === "title")?.values[0] || "";
-      
+      const dTagValue = tags.find((tag) => tag.key === "d")?.values[0] || "";
+      const titleTagValue = tags.find((tag) =>
+        tag.key === "title"
+      )?.values[0] || "";
+
       // Convert multi-value tags to the format expected by build30040EventSet
       // Filter out d and title tags since we'll add them manually
       const compatibleTags: [string, string][] = tags
-        .filter(tag => tag.key.trim() !== "" && tag.key !== "d" && tag.key !== "title")
-        .map(tag => [tag.key, tag.values[0] || ""] as [string, string]);
-      
+        .filter((tag) =>
+          tag.key.trim() !== "" && tag.key !== "d" && tag.key !== "title"
+        )
+        .map((tag) => [tag.key, tag.values[0] || ""] as [string, string]);
+
       const { indexEvent, sectionEvents } = build30040EventSet(
         eventData.content,
         compatibleTags,
         baseEvent,
         ndk,
       );
-      
+
       // Override the d and title tags with the UI values if they exist
-      const finalTags = indexEvent.tags.filter(tag => tag[0] !== "d" && tag[0] !== "title");
+      const finalTags = indexEvent.tags.filter((tag) =>
+        tag[0] !== "d" && tag[0] !== "title"
+      );
       if (dTagValue) {
         finalTags.push(["d", dTagValue]);
       }
       if (titleTagValue) {
         finalTags.push(["title", titleTagValue]);
       }
-      
+
       // Update the index event with the correct tags
       indexEvent.tags = finalTags;
       console.log("Index event:", indexEvent);
       console.log("Section events:", sectionEvents);
-      
+
       // Publish all 30041 section events first, then the 30040 index event
       events = [...sectionEvents, indexEvent];
       console.log("Total events to publish:", events.length);
       console.log("=== 30040 EVENT CREATION END ===");
     } catch (error) {
       console.error("Error in build30040EventSet:", error);
-      return { 
-        success: false, 
-        error: `Failed to build 30040 event set: ${error instanceof Error ? error.message : "Unknown error"}` 
+      return {
+        success: false,
+        error: `Failed to build 30040 event set: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       };
     }
   } else if (Number(eventData.kind) === 0) {
     // Special handling for profile events (kind 0)
     let eventTags = convertTagsToNDKFormat(tags);
-    
+
     // Use the profile parsing service to prepare the event for publishing
     const { content: finalContent, tags: comprehensiveTags } = prepareProfileEventForPublishing(
       eventData.content,
       eventTags
     );
-    
+
     // Update eventTags with the comprehensive tags
     eventTags = normalizeAndOrderTags(comprehensiveTags);
-    
+
     // Prefix Nostr addresses before publishing
     const prefixedContent = prefixNostrAddresses(finalContent);
 
@@ -179,7 +199,7 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
     if (eventData.kind === 30040 || eventData.kind === 30041) {
       finalContent = removeMetadataFromContent(eventData.content);
     }
-    
+
     // Prefix Nostr addresses before publishing
     const prefixedContent = prefixNostrAddresses(finalContent);
 
@@ -196,9 +216,9 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
   // AI-NOTE: Validate event according to NIP-01 specification before creating NDK event
   const validation = validateEvent(eventDataForNDK);
   if (!validation.valid) {
-    return { 
-      success: false, 
-      error: `Event validation failed: ${validation.errors.join(', ')}` 
+    return {
+      success: false,
+      error: `Event validation failed: ${validation.errors.join(', ')}`
     };
   }
 
@@ -229,13 +249,13 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
         tags: event.tags.map((tag) => tag.map(String)),
         content: String(event.content),
       };
-      
+
       // AI-NOTE: Final validation before signing according to NIP-01 specification
       const finalValidation = validateEvent(plainEvent);
       if (!finalValidation.valid) {
         throw new Error(`Event validation failed before signing: ${finalValidation.errors.join(', ')}`);
       }
-      
+
       if (
         typeof window !== "undefined" &&
         window.nostr &&
@@ -249,7 +269,7 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
       } else {
         await event.sign();
       }
-      
+
       // AI-NOTE: Event ID should be generated during signing according to NIP-01
       // The validation above ensures the event is properly formatted before signing
 
@@ -266,12 +286,15 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
         ...get(activeOutboxRelays),
         ...get(activeInboxRelays),
       ];
-      
+
       console.log("publishEvent: Publishing to relays:", relays);
       console.log("publishEvent: Anonymous relays:", anonymousRelays);
-      console.log("publishEvent: Active outbox relays:", get(activeOutboxRelays));
+      console.log(
+        "publishEvent: Active outbox relays:",
+        get(activeOutboxRelays),
+      );
       console.log("publishEvent: Active inbox relays:", get(activeInboxRelays));
-      
+
       let published = false;
 
       for (const relayUrl of relays) {
@@ -322,18 +345,20 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
       }
     } catch (signError) {
       console.error("Error signing/publishing event:", signError);
-      return { 
-        success: false, 
-        error: `Failed to sign event: ${signError instanceof Error ? signError.message : "Unknown error"}` 
+      return {
+        success: false,
+        error: `Failed to sign event: ${
+          signError instanceof Error ? signError.message : "Unknown error"
+        }`,
       };
     }
   }
 
   if (atLeastOne) {
-    return { 
-      success: true, 
+    return {
+      success: true,
       eventId: lastEventId || undefined,
-      relays: relaysPublished 
+      relays: relaysPublished,
     };
   } else {
     return { success: false, error: "Failed to publish to any relay." };
@@ -343,32 +368,38 @@ export async function publishEvent(ndk: any, eventData: EventData, tags: TagData
 /**
  * Loads an event by its hex ID
  */
-export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventResult | null> {
+export async function loadEvent(
+  ndk: any,
+  eventId: string,
+): Promise<LoadEventResult | null> {
   if (!ndk) {
     throw new Error("NDK context not available");
   }
-  
+
   console.log("loadEvent: Starting search for event ID:", eventId);
-  console.log("loadEvent: NDK pool relays:", Array.from(ndk.pool.relays.values()).map((r: any) => r.url));
+  console.log(
+    "loadEvent: NDK pool relays:",
+    Array.from(ndk.pool.relays.values()).map((r: any) => r.url),
+  );
   console.log("loadEvent: Active inbox relays:", get(activeInboxRelays));
   console.log("loadEvent: Active outbox relays:", get(activeOutboxRelays));
-  
+
   const foundEvent = await fetchEventWithFallback(ndk, eventId, 10000);
 
   if (foundEvent) {
     console.log("loadEvent: Successfully found event:", foundEvent.id);
-    
+
     // AI-NOTE: Validate and normalize the loaded event according to NIP-01 specification
     const validation = validateEvent(foundEvent);
     const validationIssues = validation.valid ? undefined : validation.errors;
-    
+
     if (!validation.valid) {
       console.warn("loadEvent: Event validation failed:", validation.errors);
     }
-    
+
     // Normalize and order tags according to NIP-01 specification
     const normalizedTags = normalizeAndOrderTags(foundEvent.tags || []);
-    
+
     // Convert NDK event format to our format
     const eventData: EventData = {
       kind: foundEvent.kind, // Use the actual kind from the event
@@ -380,13 +411,13 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
     // For profile events, content entries should be listed first in tags for consistency
     const tags: TagData[] = [];
     const seenTags = new Set<string>(); // Track seen tags to deduplicate only identical tags
-    
+
     // For profile events (kind 0), extract profile data from content and add as tags FIRST
     if (foundEvent.kind === 0) {
       try {
         // Profile fields that should be extracted to tags (excluding deprecated fields)
         const profileFields = ['name', 'display_name', 'about', 'picture', 'banner', 'website', 'nip05', 'lud16', 'pronouns'];
-        
+
         // Extract ALL values from content (including malformed JSON with duplicate keys)
         // This ensures clients using only tags get complete information from content
         const allContentValues = extractAllValuesFromMalformedJson(foundEvent.content || "{}", profileFields);
@@ -409,7 +440,7 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
         console.warn("Failed to parse profile content for tag extraction:", error);
       }
     }
-    
+
     // Then add all existing tags from the original event (excluding deprecated fields)
     for (const tag of normalizedTags) {
       if (tag.length >= 2) {
@@ -420,7 +451,7 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
         }
         // Preserve empty strings - they are valid in Nostr tags
         const values = tag.slice(1).map(v => v === null || v === undefined ? "" : String(v));
-        
+
         if (key) {
           // ALL tags can have multiple values - add each tag as a separate entry
           const tagData = {
@@ -435,7 +466,7 @@ export async function loadEvent(ndk: any, eventId: string): Promise<LoadEventRes
         }
       }
     }
-    
+
     // tags array is already populated above
 
     return { eventData, tags, validationIssues };
