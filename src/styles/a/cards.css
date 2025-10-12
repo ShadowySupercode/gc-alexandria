@@ -28,7 +28,7 @@
 
   /* Main card leather (used in profile previews) */
   .main-leather {
-    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+    @apply bg-primary-0 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
   }
 
   /* ========================================
