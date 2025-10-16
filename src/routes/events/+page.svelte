@@ -2,7 +2,7 @@
   import { Heading, P, List, Li } from "flowbite-svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
-  import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import type { NDKEvent, NostrProfile } from "$lib/utils/nostrUtils";
   import EventSearch from "$lib/components/EventSearch.svelte";
   import EventDetails from "$lib/components/EventDetails.svelte";
   import CommentBox from "$lib/components/CommentBox.svelte";
@@ -28,7 +28,6 @@
     isPubkeyInUserLists,
   } from "$lib/utils/user_lists";
   import { UserOutline } from "flowbite-svelte-icons";
-  import type { UserProfile } from "$lib/models/user_profile";
   import type { SearchType } from "$lib/models/search_type";
   import { clearAllCaches } from "$lib/utils/cache_manager";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
@@ -66,7 +65,7 @@
   let originalEventIds = $state<Set<string>>(new Set());
   let originalAddresses = $state<Set<string>>(new Set());
   let searchTerm = $state<string | null>(null);
-  let profile = $state<UserProfile | null>(null);
+  let profile = $state<NostrProfile | null>(null);
   let userRelayPreference = $state(false);
   let showSidePanel = $state(false);
   let searchInProgress = $state(false);

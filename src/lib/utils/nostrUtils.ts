@@ -41,6 +41,9 @@ export interface NostrProfile {
   banner?: string[];
   website?: string[];
   lud16?: string[];
+  isInUserLists?: boolean;
+  listKinds?: number[];
+  badges?: Array<{ label: string; color?: string }>;
 }
 
 /**

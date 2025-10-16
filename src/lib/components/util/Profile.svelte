@@ -249,12 +249,6 @@
     logoutUser(ndk);
   }
 
-  function handleViewProfile() {
-    if (npub) {
-      goto(`/events?id=${encodeURIComponent(npub)}`);
-    }
-  }
-
   function handleAmberReconnect() {
     showAmberFallback = false;
     localStorage.removeItem("alexandria/amber/fallback");

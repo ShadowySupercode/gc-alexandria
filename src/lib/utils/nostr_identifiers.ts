@@ -1,4 +1,9 @@
+import { get } from "svelte/store";
 import { VALIDATION } from "./search_constants";
+import { type NDKEvent, toNpub } from "$lib/utils/nostrUtils.ts";
+import { naddrEncode, neventEncode, nprofileEncode } from "$lib/utils.ts";
+import { activeInboxRelays } from "$lib/ndk";
+
 
 /**
  * Nostr identifier types
@@ -93,4 +98,55 @@ export function isNostrIdentifier(
   identifier: string,
 ): identifier is NostrIdentifier {
   return isEventId(identifier) || isCoordinate(identifier);
+}
+
+/**
+ * Get various Nostr identifiers for an event
+ * @param event
+ * @param _profile
+ */
+export function getIdentifiers(
+  event: NDKEvent,
+  _profile: any,
+): { label: string; value: string; link?: string }[] {
+  const ids: { label: string; value: string; link?: string }[] = [];
+  const relays = get(activeInboxRelays);
+
+  if (event.kind === 0) {
+    // npub
+    const npub = toNpub(event.pubkey);
+    if (npub)
+      ids.push({ label: "npub", value: npub, link: `/events?id=${npub}` });
+    // nprofile
+    ids.push({
+      label: "nprofile",
+      value: nprofileEncode(event.pubkey, relays),
+      link: `/events?id=${nprofileEncode(event.pubkey, relays)}`,
+    });
+    // nevent
+    ids.push({
+      label: "nevent",
+      value: neventEncode(event, relays),
+      link: `/events?id=${neventEncode(event, relays)}`,
+    });
+    // hex pubkey - make it clickable to search for the pubkey
+    ids.push({ label: "pubkey", value: event.pubkey, link: `/events?n=${event.pubkey}` });
+    // hex id - make it a clickable link to search for the event ID
+    ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
+  } else {
+    // nevent
+    ids.push({
+      label: "nevent",
+      value: neventEncode(event, relays),
+      link: `/events?id=${neventEncode(event, relays)}`,
+    });
+    // naddr (if addressable)
+    try {
+      const naddr = naddrEncode(event, relays);
+      ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
+    } catch {}
+    // hex id - make it a clickable link to search for the event ID
+    ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
+  }
+  return ids;
 }

@@ -1,12 +1,11 @@
 <script module lang="ts">
   import { goto } from "$app/navigation";
+  import type { NostrProfile } from "$lib/utils/nostrUtils.ts";
   import {
     createProfileLinkWithVerification,
     toNpub,
     getUserMetadata,
   } from "$lib/utils/nostrUtils";
-  import type { UserProfile } from "$lib/models/user_profile";
-  import NDK from "@nostr-dev-kit/ndk";
   import { getBestDisplayName, shortenNpub } from "$lib/utils/profile_parsing";
 
   export { userBadge };
@@ -49,7 +48,7 @@
       {/await}
     {:else}
       {#await getUserMetadata(npub, ndk, false) then profile}
-        {@const p = profile as UserProfile}
+        {@const p = profile as NostrProfile}
         <span class="inline-flex items-center gap-0.5">
           <button
             class="npub-badge bg-transparent border-none !p-0 underline cursor-pointer"

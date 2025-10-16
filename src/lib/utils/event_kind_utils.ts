@@ -80,26 +80,4 @@ export function handleEventKindKeydown(
   }
 }
 
-/**
- * Gets the display name for an event kind.
- * @param kind - The event kind number.
- * @returns The display name for the kind.
- */
-export function getEventKindDisplayName(kind: number): string {
-  switch (kind) {
-    case 30040:
-      return "Publication Index";
-    case 30041:
-      return "Publication Content";
-    case 30818:
-      return "Wiki";
-    case 1:
-      return "Text Note";
-    case 0:
-      return "Metadata";
-    case 3:
-      return "Follow List";
-    default:
-      return `Kind ${kind}`;
-  }
-}
+// Removed. Partial of getEventKindName in eventColors

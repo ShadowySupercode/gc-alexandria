@@ -56,4 +56,5 @@ export enum FeedType {
 export const EXPIRATION_DURATION = 28 * 24 * 60 * 60; // 4 weeks in seconds
 
 export const loginStorageKey = "alexandria/login/pubkey";
+export const loginMethodStorageKey = "alexandria/login/method";
 export const feedTypeStorageKey = "alexandria/feed/type";

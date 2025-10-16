@@ -1,20 +1,11 @@
 import { get, writable } from "svelte/store";
 import type { NostrProfile } from "../utils/nostrUtils.ts";
-import type { NDKSigner, NDKUser } from "@nostr-dev-kit/ndk";
-import NDK, {
-  NDKNip07Signer,
-  NDKRelay,
-  NDKRelayAuthPolicies,
-  NDKRelaySet,
-} from "@nostr-dev-kit/ndk";
 import { getUserMetadata } from "../utils/nostrUtils.ts";
-import { getBestProfileValue, getBestDisplayName } from "../utils/profile_parsing";
-import {
-  activeInboxRelays,
-  activeOutboxRelays,
-  updateActiveRelayStores,
-} from "../ndk.ts";
-import { loginStorageKey } from "../consts.ts";
+import type { NDKSigner, NDKUser } from "@nostr-dev-kit/ndk";
+import NDK, { NDKNip07Signer, NDKRelay, NDKRelayAuthPolicies, NDKRelaySet } from "@nostr-dev-kit/ndk";
+import { getBestDisplayName, getBestProfileValue } from "../utils/profile_parsing";
+import { activeInboxRelays, activeOutboxRelays, updateActiveRelayStores } from "../ndk.ts";
+import { loginStorageKey, loginMethodStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 
 export interface UserState {
@@ -152,7 +143,6 @@ async function getUserPreferredRelays(
 // The layout component automatically restores this authentication state on page load.
 // This prevents users from being logged out when refreshing the page.
 
-export const loginMethodStorageKey = "alexandria/login/method";
 
 function persistLogin(user: NDKUser, method: "extension" | "amber" | "npub") {
   // Only access localStorage on client-side

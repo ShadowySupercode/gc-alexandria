@@ -94,14 +94,16 @@
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
   import QrCode from "$lib/components/util/QrCode.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
   import {
     lnurlpWellKnownUrl,
     checkCommunity,
   } from "$lib/utils/search_utility";
   import { bech32 } from "bech32";
-  import { getNdkContext, activeInboxRelays } from "$lib/ndk";
-  import { toNpub } from "$lib/utils/nostrUtils";
-  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+  import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils";
+  import { getNdkContext } from "$lib/ndk";
+  import { getIdentifiers } from "$lib/utils/nostr_identifiers.ts";
+  import { shortenNpub } from "$lib/utils/profile_parsing.js";
   import {
     isPubkeyInUserLists,
     fetchCurrentUserLists,
@@ -109,23 +111,10 @@
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
   type UserLite = { npub?: string | null };
-  type Profile = {
-    name?: string;
-    display_name?: string;
-    displayName?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    lud16?: string;
-    nip05?: string;
-    // Optional flags that might come via cached profile data
-    isInUserLists?: boolean;
-  } | null;
 
   const props = $props<{
     user?: UserLite;
-    profile: Profile;
+    profile: NostrProfile;
     loading?: boolean;
     error?: string | null;
     isOwn?: boolean;
@@ -139,75 +128,6 @@
   let lnurl = $state<string | null>(null);
   let communityStatus = $state<boolean | null>(null);
   let isInUserLists = $state<boolean | null>(null);
-
-  function displayName() {
-    const p = props.profile;
-    const u = props.user;
-    return (
-      p?.display_name ||
-      p?.displayName ||
-      p?.name ||
-      (u?.npub ? u.npub.slice(0, 10) + "…" : "")
-    );
-  }
-
-  function shortNpub() {
-    const npub = props.user?.npub;
-    if (!npub) return "";
-    return npub.slice(0, 12) + "…" + npub.slice(-8);
-  }
-
-  function hideOnError(e: Event) {
-    const img = e.currentTarget as HTMLImageElement | null;
-    if (img) {
-      img.style.display = "none";
-      const next = img.nextElementSibling as HTMLElement | null;
-      if (next) next.classList.remove("hidden");
-    }
-  }
-
-  function getIdentifiers(
-    event: NDKEvent,
-    profile: any,
-  ): { label: string; value: string; link?: string }[] {
-    const ids: { label: string; value: string; link?: string }[] = [];
-    if (event.kind === 0) {
-      const npub = toNpub(event.pubkey);
-      if (npub)
-        ids.push({ label: "npub", value: npub, link: `/events?id=${npub}` });
-      ids.push({
-        label: "nprofile",
-        value: nprofileEncode(event.pubkey, $activeInboxRelays),
-        link: `/events?id=${nprofileEncode(event.pubkey, $activeInboxRelays)}`,
-      });
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
-      ids.push({ label: "pubkey", value: event.pubkey });
-    } else {
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
-      try {
-        const naddr = naddrEncode(event, $activeInboxRelays);
-        ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
-      } catch {}
-      ids.push({
-        label: "id",
-        value: event.id,
-        link: `/events?id=${event.id}`,
-      });
-    }
-    return ids;
-  }
-
-  function navigateToIdentifier(link: string) {
-    goto(link);
-  }
 
   // Compute LNURL on mount if lud16 exists
   $effect(() => {
@@ -303,9 +223,9 @@
     />
 
     <div class="flex flex-col gap-3">
-      <Heading tag="h1" class="h-leather mb-2">{displayName()}</Heading>
+      <Heading tag="h1" class="h-leather mb-2">{getBestDisplayName(props.profile)}</Heading>
       {#if props.user?.npub}
-        <CopyToClipboard displayText={shortNpub()} copyText={props.user.npub} />
+        <CopyToClipboard displayText={shortenNpub(props.user.npub)} copyText={props.user.npub} />
       {/if}
 
       {#if props.event}

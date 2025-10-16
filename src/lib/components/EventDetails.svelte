@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getMimeTags } from "$lib/utils/mime";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
-  import { toNpub } from "$lib/utils/nostrUtils";
-  import { neventEncode, naddrEncode, nprofileEncode } from "$lib/utils";
+  import { type NostrProfile, toNpub } from "$lib/utils/nostrUtils";
+  import { neventEncode, naddrEncode } from "$lib/utils";
   import { activeInboxRelays } from "$lib/ndk";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getMatchingTags } from "$lib/utils/nostrUtils";
@@ -10,17 +10,16 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
-  import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
+  import { getIdentifiers } from "$lib/utils/nostr_identifiers.ts";
   import { navigateToEvent } from "$lib/utils/nostrEventService";
+  import CopyToClipboard from "$lib/components/util/CopyToClipboard.svelte";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
-  import Notifications from "$lib/components/Notifications.svelte";
-  import { 
+  import {
     repostContent, 
     quotedContent,
   } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
-  import type { UserProfile } from "$lib/models/user_profile";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
   import ATechBlock from "$lib/a/reader/ATechBlock.svelte";
   import { Accordion, AccordionItem, Heading } from "flowbite-svelte";
@@ -32,7 +31,7 @@
     communityStatusMap = {},
   } = $props<{
     event: NDKEvent;
-    profile?: UserProfile | null;
+    profile?: NostrProfile | null;
     communityStatusMap?: Record<string, boolean>;
   }>();
 
@@ -259,54 +258,7 @@
     });
   });
 
-  // --- Identifier helpers ---
-  function getIdentifiers(
-    event: NDKEvent,
-    _profile: any,
-  ): { label: string; value: string; link?: string }[] {
-    const ids: { label: string; value: string; link?: string }[] = [];
-    if (event.kind === 0) {
-      // npub
-      const npub = toNpub(event.pubkey);
-      if (npub)
-        ids.push({ label: "npub", value: npub, link: `/events?id=${npub}` });
-      // nprofile
-      ids.push({
-        label: "nprofile",
-        value: nprofileEncode(event.pubkey, $activeInboxRelays),
-        link: `/events?id=${nprofileEncode(event.pubkey, $activeInboxRelays)}`,
-      });
-      // nevent
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
-      // hex pubkey - make it clickable to search for the pubkey
-      ids.push({ label: "pubkey", value: event.pubkey, link: `/events?n=${event.pubkey}` });
-      // hex id - make it a clickable link to search for the event ID
-      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
-    } else {
-      // nevent
-      ids.push({
-        label: "nevent",
-        value: neventEncode(event, $activeInboxRelays),
-        link: `/events?id=${neventEncode(event, $activeInboxRelays)}`,
-      });
-      // naddr (if addressable)
-      try {
-        const naddr = naddrEncode(event, $activeInboxRelays);
-        ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
-      } catch {}
-      // hex id - make it a clickable link to search for the event ID
-      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
-    }
-    return ids;
-  }
 
-  function navigateToIdentifier(link: string) {
-    goto(link);
-  }
 
   onMount(() => {
     function handleInternalLinkClick(event: MouseEvent) {
@@ -447,7 +399,7 @@
                   <div class="min-w-0">
                     {#if identifier.link}
                       <button class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left"
-                              onclick={() => navigateToIdentifier(identifier.link)}>
+                              onclick={() => goto(identifier.link)}>
                         {identifier.value}
                       </button>
                     {:else}

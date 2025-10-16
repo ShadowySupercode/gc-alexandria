@@ -76,12 +76,12 @@
  * - Proper focus management
  */
 
-  import type { NostrProfile } from "$lib/nostr/types";
+  import type { NostrProfile } from "$lib/utils/nostrUtils.ts";
   import type { DisplayBadge } from "$lib/nostr/nip58";
   import ANostrBadgeRow from "./ANostrBadgeRow.svelte";
-  import { shortenBech32, displayNameFrom } from "$lib/nostr/format";
   import { verifyNip05 } from "$lib/nostr/nip05";
   import { onMount } from "svelte";
+  import { getBestDisplayName, getBestProfileValue, shortenNpub } from "$lib/utils/profile_parsing.ts";
 
   let {
     npub, // required
@@ -99,10 +99,9 @@
   } = $props();
 
   // Derived view-model
-  let displayName = displayNameFrom(npub, profile);
-  let shortNpub = shortenBech32(npub, true);
-  let avatarUrl = profile?.picture ?? "";
-  let nip05 = profile?.nip05 ?? "";
+  let displayName = getBestDisplayName(profile);
+  let avatarUrl = getBestProfileValue(profile?.picture, "");
+  let nip05 = getBestProfileValue(profile?.nip05);
 
   // NIP-05 verify
   let computedVerified = $state(false);
@@ -156,7 +155,7 @@
       <img src={avatarUrl} alt="" class="h-full w-full object-cover" />
     {:else}
       <span class="h-full w-full grid place-items-center text-xs opacity-70">
-        {displayName.slice(0, 1).toUpperCase()}
+        {getBestDisplayName(profile)}
       </span>
     {/if}
   </span>
@@ -201,17 +200,15 @@
     <span class={`flex items-center gap-2 text-muted/80 ${sizes.meta}`}>
       {#if nip05}<span class="truncate" title={nip05}>{nip05}</span>{/if}
       {#if showNpub}<span class="truncate opacity-80" title={npub}
-          >{shortNpub}</span
+          >{shortenNpub(npub)}</span
         >{/if}
     </span>
 
     {#if showBadges}
       <span class="mt-1 block">
-        <slot name="badges">
           {#if nativeBadges}
             <ANostrBadgeRow badges={nativeBadges} limit={badgeLimit} size="s" />
           {/if}
-        </slot>
       </span>
     {/if}
   </span>

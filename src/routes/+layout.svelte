@@ -2,8 +2,9 @@
   import "../app.css";
   import { onMount, setContext } from "svelte";
   import { goto } from "$app/navigation";
-  import { cleanupNdk, getPersistedLogin } from "$lib/ndk";
-  import { loginMethodStorageKey, userStore } from "$lib/stores/userStore";
+  import { cleanupNdk } from "$lib/ndk";
+  import { loginStorageKey, loginMethodStorageKey } from "$lib/consts.ts";
+  import { userStore } from "$lib/stores/userStore";
   import type { LayoutProps } from "./$types";
   import { page } from "$app/state";
   import { AFooter, ANavbar } from "$lib/a/index.js";
@@ -33,7 +34,7 @@
     async function restoreAuthentication() {
       try {
         // Check if user was previously logged in
-        const persistedPubkey = getPersistedLogin();
+        const persistedPubkey = localStorage.getItem(loginStorageKey);
         const loginMethod = localStorage.getItem(loginMethodStorageKey);
         const logoutFlag = localStorage.getItem("alexandria/logout/flag");
         
