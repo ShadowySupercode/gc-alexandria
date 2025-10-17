@@ -79,6 +79,7 @@
   import { toNpub, getMatchingTags } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { ACommunityIndicator } from "$lib/a";
 
   let {
     event,
@@ -208,17 +209,7 @@
         </span>
       {/if}
       {#if community}
-        <span
-          class="community-badge"
-          title="Has posted to the community"
-        >
-          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-            <path
-              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            />
-          </svg>
-          Community
-        </span>
+        <ACommunityIndicator />
       {/if}
       <span class="text-xs ml-auto mb-4">
         {createdDate}
