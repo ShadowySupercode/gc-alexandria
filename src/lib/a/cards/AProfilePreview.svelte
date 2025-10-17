@@ -94,7 +94,7 @@
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
   import QrCode from "$lib/components/util/QrCode.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
-  import { getBestDisplayName } from "$lib/utils/profile_parsing";
+  import { getBestDisplayName, getBestProfileValue } from "$lib/utils/profile_parsing";
   import {
     lnurlpWellKnownUrl,
     checkCommunity,
@@ -108,7 +108,7 @@
     isPubkeyInUserLists,
     fetchCurrentUserLists,
   } from "$lib/utils/user_lists";
-  import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
   type UserLite = { npub?: string | null };
 
@@ -231,7 +231,7 @@
       {#if props.event}
         <div class="flex items-center gap-2 min-w-0">
           {#if props.profile?.nip05}
-            <span class="profile-nip05-badge">{props.profile.nip05}</span>
+            <span class="profile-nip05-badge">{getBestProfileValue(props.profile.nip05, '')}</span>
           {/if}
           {#if communityStatus === true}
             <div
@@ -269,27 +269,28 @@
 
     {#if props.profile?.about}
       <div class="prose dark:prose-invert card-prose">
-        {@render basicMarkup(props.profile.about, ndk)}
+        {@render basicMarkup(getBestProfileValue(props.profile.about), ndk)}
       </div>
     {/if}
 
     <div class="flex flex-wrap gap-4 text-sm">
       {#if props.profile?.website}
+        {@const website = getBestProfileValue(props.profile.website)}
         <a
-          href={props.profile.website}
+          href={website}
           rel="noopener"
           class="text-primary-600 dark:text-primary-400 hover:underline break-all"
-          target="_blank">{props.profile.website}</a
+          target="_blank">{website}</a
         >
       {/if}
     </div>
 
-    <div class="flex flex-row flex-wrap justify-end gap-4 text-sm">
+    <div class="flex flex-row flex-wrap justify-end gap-4 text-sm mt-1">
       {#if props.profile?.lud16}
         <Button
           color="alternative"
           size="xs"
-          onclick={() => (lnModalOpen = true)}>⚡ {props.profile.lud16}</Button
+          onclick={() => (lnModalOpen = true)}>⚡ {getBestProfileValue(props.profile.lud16)}</Button
         >
       {/if}
       <Button size="xs" color="alternative"
@@ -341,12 +342,8 @@
       <div>
         <div class="flex flex-col items-center">
           {@render userBadge(
-            props.user?.npub ?? toNpub(props.event.pubkey),
-            props.profile?.displayName ||
-              props.profile?.display_name ||
-              props.profile?.name ||
-              props.event?.pubkey ||
-              "",
+            props.user?.npub ?? toNpub(props.profile.pubkey),
+            getBestDisplayName(props.profile),
             ndk,
           )}
           <P class="break-all">{props.profile.lud16}</P>

@@ -73,12 +73,12 @@
  * - Proper heading hierarchy
  */
 
-  import { Card, Button } from "flowbite-svelte";
+  import { Card } from "flowbite-svelte";
   import ViewPublicationLink from "$lib/components/util/ViewPublicationLink.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { toNpub, getMatchingTags } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
-  import { preventDefault } from "svelte/legacy";
+  import { getBestDisplayName } from "$lib/utils/profile_parsing";
 
   let {
     event,
@@ -176,23 +176,12 @@
 
   const displayName: string | undefined =
     profileData?.display_name || profileData?.name;
-  const avatarFallback: string = (displayName || event.pubkey || "?")
-    .slice(0, 1)
-    .toUpperCase();
+
   const createdDate: string = event.created_at
     ? new Date(event.created_at * 1000).toLocaleDateString()
     : "Unknown date";
 
-  const computedActions =
-    actions && actions.length > 0
-      ? actions
-      : [
-          {
-            label: "Open",
-            onClick: (ev: NDKEvent) => onSelect?.(ev),
-            variant: "light" as const,
-          },
-        ];
+
 </script>
 
 <Card
@@ -237,7 +226,7 @@
     </div>
 
     <div class="flex flex-row">
-      {@render userBadge(toNpub(event.pubkey) as string, displayName)}
+      {@render userBadge(toNpub(event.pubkey), getBestDisplayName(profileData))}
     </div>
   </div>
 
