@@ -1,8 +1,8 @@
-use futures::executor::LocalPool;
-use futures::task::LocalSpawnExt;
 use std::collections::HashMap;
 use std::time::Duration;
 use wasm_bindgen::UnwrapThrowExt;
+use wasm_bindgen_futures::spawn_local;
+use web_sys::console;
 
 use crate::config;
 use crate::database;
@@ -32,6 +32,7 @@ pub struct RelaySelector {
 
 impl Drop for RelaySelector {
     fn drop(&mut self) {
+        console::log_1(&"[RelaySelector] dropping".into());
         let relays: Vec<database::Relay> = self
             .general
             .iter()
@@ -62,14 +63,12 @@ impl Drop for RelaySelector {
             .collect();
 
         let store_name = self.store_name.clone();
-        LocalPool::new()
-            .spawner()
-            .spawn_local(async move {
-                database::insert_or_update(&store_name, relays.as_slice())
-                    .await
-                    .unwrap_throw()
-            })
-            .unwrap_throw()
+        spawn_local(async move {
+            console::log_1(&"[RelaySelector] writing to IndexedDB on drop".into());
+            database::insert_or_update(&store_name, relays.as_slice())
+                .await
+                .unwrap_throw()
+        })
     }
 }
 

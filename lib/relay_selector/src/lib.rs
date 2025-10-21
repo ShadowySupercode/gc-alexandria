@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use console_error_panic_hook;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
+use web_sys::console;
 
 use relay_selector::RelaySelector;
 
@@ -55,12 +55,11 @@ async fn init_relay_selector(store_name: &str) {
         .unwrap_throw();
 }
 
-fn init_relay_selector_if_none(store_name: &str) {
+async fn init_relay_selector_if_none(store_name: &str) {
     let closure_store_name = store_name.to_string();
     if !relay_selector_is_some() {
-        spawn_local(async move {
-            init_relay_selector(&closure_store_name).await;
-        });
+        console::log_1(&"[init_relay_selector_if_none] initializing relay selector async".into());
+        init_relay_selector(&closure_store_name).await;
     }
 }
 
@@ -77,7 +76,7 @@ pub async fn record_response_time(
     let response_duration =
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
-    init_relay_selector_if_none(STORE_NAME);
+    init_relay_selector_if_none(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     let mut selector_ref = selector_rc.borrow_mut();
@@ -97,7 +96,7 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
         None => relay::Variant::General,
     };
 
-    init_relay_selector_if_none(STORE_NAME);
+    init_relay_selector_if_none(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     let mut selector_ref = selector_rc.borrow_mut();
@@ -166,18 +165,30 @@ pub async fn get_relay(
     relay_rank: Option<u8>,
     is_server_side: Option<bool>,
 ) -> Result<relay::RelayHandle, String> {
+    console::log_1(&"[get_relay] starting".into());
+
     let variant = relay::Variant::from_str(relay_type).unwrap_throw();
+    console::log_2(
+        &"[get_relay] relay type".into(),
+        &variant.to_string().into(),
+    );
+
     let rank = match relay_rank {
         Some(rank) => rank,
         None => 0,
     } as usize;
+    console::log_2(
+        &"[get_relay] requested rank".into(),
+        &rank.to_string().into(),
+    );
 
-    init_relay_selector_if_none(STORE_NAME);
+    init_relay_selector_if_none(STORE_NAME).await;
 
     // First, clone the reference counted variable (cloning increases the reference count) out of
     // the thread-local storage. This clone of the reference will go out of scope when the function
     // returns.
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
+    console::log_1(&"[get_relay] got relay selector ref".into());
 
     // The clone is necessary because `get_relay_by_weighted_round_robin` is async, and we cannot
     // pass references to the data inside the thread-local storage across an `await` within the
@@ -185,10 +196,11 @@ pub async fn get_relay(
     let url = selector_rc
         .borrow_mut()
         .as_mut()
-        .unwrap_throw()
+        .unwrap_throw() // Uncaught Error: called `Option::unwrap_throw()` on a `None` value
         .get_relay_by_weighted_round_robin(variant, rank, is_server_side.unwrap_or(false))
         .await
         .unwrap_throw();
+    console::log_2(&"[get_relay] got relay url".into(), &url.clone().into());
 
     Ok(relay::RelayHandle::new(url, variant, &selector_rc))
 }
@@ -214,7 +226,7 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
         None => relay::Variant::General,
     };
 
-    init_relay_selector_if_none(STORE_NAME);
+    init_relay_selector_if_none(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     selector_rc

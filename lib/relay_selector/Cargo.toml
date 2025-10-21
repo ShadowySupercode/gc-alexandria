@@ -24,4 +24,4 @@ features = ["cursors", "serde", "streams"]
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["Worker"]
+features = ["Worker", "console"]
