@@ -96,6 +96,7 @@
     badgeLimit = 6,
     href = undefined as string | undefined,
     class: className = "",
+    badges,
   } = $props();
 
   // Derived view-model
@@ -207,11 +208,11 @@
 
     {#if showBadges}
       <span class="mt-1 block">
-        <slot name="badges">
-          {#if nativeBadges}
-            <ANostrBadgeRow badges={nativeBadges} limit={badgeLimit} size="s" />
-          {/if}
-        </slot>
+        {#if badges}
+          {@render badges()}
+        {:else if nativeBadges}
+          <ANostrBadgeRow badges={nativeBadges} limit={badgeLimit} size="s" />
+        {/if}
       </span>
     {/if}
   </span>
