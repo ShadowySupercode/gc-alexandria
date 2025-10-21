@@ -32,6 +32,7 @@
     "@std/path": "jsr:@std/path@1.1.2",
     "@std/yaml": "jsr:@std/yaml@1.0.9",
     "@alexandria/relay_selector": "./lib/relay_selector/lib/relay_selector.mjs",
-    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5"
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
+    "@tailwindcss/postcss": "npm:@tailwindcss/postcss@^4.1.14"
   }
 }
