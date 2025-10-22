@@ -9,6 +9,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use console_error_panic_hook;
+use futures::lock::Mutex;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -30,6 +31,9 @@ thread_local! {
     /// This stores the configuration callback function that will be used by the RelaySelector
     /// to retrieve configuration values.
     static CONFIG_PROVIDER: RefCell<Option<config::JsConfigProvider>> = RefCell::new(None);
+
+    /// Use this mutex to prevent race conditions during relay selector initialization.
+    static INIT_MUTEX: Rc<Mutex<()>> = Rc::new(Mutex::new(()));
 }
 
 fn relay_selector_is_some() -> bool {
@@ -38,7 +42,27 @@ fn relay_selector_is_some() -> bool {
         .unwrap_or(false)
 }
 
-async fn init_relay_selector(store_name: &str) {
+/// Checks whether the relay selector is initialized, and performs the initialization if not.
+///
+/// This function uses a mutex to prevent race conditions. Callers "late" to the initialization
+/// will await mutex release.
+async fn ensure_relay_selector_initialized(store_name: &str) {
+    // Fast path: check if already initialized (no lock needed)
+    if relay_selector_is_some() {
+        return;
+    }
+
+    // Slow path: clone the mutex Rc out of thread-local storage to acquire lock
+    let mutex = INIT_MUTEX.with(|m| Rc::clone(m));
+    let _guard = mutex.lock().await;
+
+    // Double-check: another task might have initialized while we waited for the lock
+    if relay_selector_is_some() {
+        return;
+    }
+
+    // We hold the lock and selector is still None - safe to initialize
+
     console_error_panic_hook::set_once();
 
     // Get the config provider from thread-local storage
@@ -50,17 +74,22 @@ async fn init_relay_selector(store_name: &str) {
     let selector = RelaySelector::init(store_name, config_provider)
         .await
         .unwrap_throw();
-    RELAY_SELECTOR
-        .try_with(|rc_selector| rc_selector.borrow_mut().replace(selector))
-        .unwrap_throw();
-}
 
-async fn init_relay_selector_if_none(store_name: &str) {
-    let closure_store_name = store_name.to_string();
-    if !relay_selector_is_some() {
-        console::log_1(&"[init_relay_selector_if_none] initializing relay selector async".into());
-        init_relay_selector(&closure_store_name).await;
-    }
+    RELAY_SELECTOR
+        .try_with(|rc_selector| {
+            // Only replace if still None (extra safety check)
+            let mut borrow = rc_selector.borrow_mut();
+            if borrow.is_none() {
+                *borrow = Some(selector);
+            } else {
+            }
+        })
+        .unwrap_throw();
+
+    // TODO: Reference count for selector memory goes to 0 before lock is released, causing
+    // premature drop.
+
+    // Lock released when _guard is dropped
 }
 
 #[wasm_bindgen]
@@ -76,7 +105,7 @@ pub async fn record_response_time(
     let response_duration =
         Duration::try_from_secs_f32(response_time.unwrap_throw()).unwrap_throw();
 
-    init_relay_selector_if_none(STORE_NAME).await;
+    ensure_relay_selector_initialized(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     let mut selector_ref = selector_rc.borrow_mut();
@@ -96,7 +125,7 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
         None => relay::Variant::General,
     };
 
-    init_relay_selector_if_none(STORE_NAME).await;
+    ensure_relay_selector_initialized(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     let mut selector_ref = selector_rc.borrow_mut();
@@ -182,7 +211,7 @@ pub async fn get_relay(
         &rank.to_string().into(),
     );
 
-    init_relay_selector_if_none(STORE_NAME).await;
+    ensure_relay_selector_initialized(STORE_NAME).await;
 
     // First, clone the reference counted variable (cloning increases the reference count) out of
     // the thread-local storage. This clone of the reference will go out of scope when the function
@@ -196,7 +225,7 @@ pub async fn get_relay(
     let url = selector_rc
         .borrow_mut()
         .as_mut()
-        .unwrap_throw() // Uncaught Error: called `Option::unwrap_throw()` on a `None` value
+        .unwrap_throw()
         .get_relay_by_weighted_round_robin(variant, rank, is_server_side.unwrap_or(false))
         .await
         .unwrap_throw();
@@ -226,7 +255,7 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
         None => relay::Variant::General,
     };
 
-    init_relay_selector_if_none(STORE_NAME).await;
+    ensure_relay_selector_initialized(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     selector_rc
