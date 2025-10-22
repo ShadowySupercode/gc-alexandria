@@ -69,6 +69,12 @@ pub fn calculate_weights(
     // Get the median response time in milliseconds
     response_times.sort();
     let response_times_len = response_times.len();
+
+    if response_times_len == 0 {
+        let fallback_weight = trust_level_weight + preferred_vendor_weight;
+        return (fallback_weight, fallback_weight);
+    }
+
     let is_odd_len = response_times_len % 2 == 1;
     let median_time = if is_odd_len {
         response_times[response_times_len / 2].as_millis() as f32
