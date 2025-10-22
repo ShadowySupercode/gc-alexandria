@@ -14,6 +14,12 @@ pub async fn get_all_relays(store_name: &str) -> Result<Vec<schema::Relay>, Stri
     let tx = open_transaction(&db, store_name, TransactionMode::Readonly).await?;
     let store = get_object_store(&tx, store_name).await?;
     let cursor = open_serde_cursor(&store).await?;
+    let cursor_opt = open_serde_cursor(&store).await?;
+
+    let cursor = match cursor_opt {
+        Some(c) => c,
+        None => return Ok(Vec::new()),
+    };
 
     let stream = cursor.stream_ser::<schema::Relay>();
     stream
@@ -36,8 +42,22 @@ pub async fn insert_or_update(store_name: &str, relays: &[schema::Relay]) -> Res
 
 async fn open_database(database_name: &str) -> Result<Database, String> {
     Database::open(database_name)
+        .with_version(1u8)
+        .with_on_upgrade_needed(|event, db| {
+            let old_version = event.old_version() as u64;
+            match old_version {
+                0 => {
+                    // First-time setup: create the relay selector store
+                    db.create_object_store("relay_selector_store")
+                        .with_key_path(KeyPath::from("url"))
+                        .build()?;
+                }
+                _ => {}
+            }
+            Ok(())
+        })
         .await
-        .or_else(|err| Err(format!("Failed to open database: {:?}", err)))
+        .map_err(|err| format!("Failed to open database: {:?}", err))
 }
 
 async fn open_transaction<'a>(
@@ -66,8 +86,8 @@ async fn get_object_store<'a>(
 
 async fn open_serde_cursor<'a>(
     store: &'a ObjectStore<'a>,
-) -> Result<Cursor<'a, ObjectStore<'a>>, String> {
-    match store
+) -> Result<Option<Cursor<'a, ObjectStore<'a>>>, String> {
+    store
         .open_cursor()
         .serde()
         .map_err(|err| {
@@ -84,10 +104,7 @@ async fn open_serde_cursor<'a>(
                 store.name(),
                 err
             )
-        })? {
-        Some(cursor) => Ok(cursor),
-        None => Err(format!("Failed to open cursor on store {:?}", store.name())),
-    }
+        })
 }
 
 async fn commit_transaction<'a>(transaction: Transaction<'a>) -> Result<(), String> {
