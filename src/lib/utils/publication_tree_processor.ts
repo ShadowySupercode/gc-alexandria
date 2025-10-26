@@ -319,7 +319,7 @@ function parseSegmentContent(
   for (let i = 1; i < sectionLines.length; i++) {
     const line = sectionLines[i].trim();
     if (line.startsWith(":") && line.includes(":")) {
-      const match = line.match(/^:([^:]+):\\s*(.*)$/);
+      const match = line.match(/^:([^:]+):\s*(.*)$/);
       if (match) {
         attributes[match[1]] = match[2];
         contentStartIdx = i + 1;

@@ -922,37 +922,6 @@
                 Start typing to see the preview...
               </div>
             {:else}
-              <!-- Show document title and tags for articles -->
-              {#if contentType === "article" && publicationResult?.metadata.title}
-                <div
-                  class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700"
-                >
-                  <h1
-                    class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4"
-                  >
-                    {publicationResult.metadata.title}
-                  </h1>
-                  <!-- Document-level tags -->
-                  {#if publicationResult.metadata.attributes.tags}
-                    {@const tagsList =
-                      publicationResult.metadata.attributes.tags
-                        .split(",")
-                        .map((t: string) => t.trim())}
-                    {#if tagsList.length > 0}
-                      <div class="flex flex-wrap gap-2">
-                        {#each tagsList as tag}
-                          <span
-                            class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium"
-                          >
-                            #{tag}
-                          </span>
-                        {/each}
-                      </div>
-                    {/if}
-                  {/if}
-                </div>
-              {/if}
-
               <div class="prose prose-sm dark:prose-invert max-w-none">
                 <!-- Render full document with title if it's an article -->
                 {#if contentType === "article" && publicationResult?.metadata.title}
@@ -977,17 +946,35 @@
                     class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0"
                   >
                     {#if section.isIndex}
-                      <!-- Index event: show as simple title -->
-                      <div
-                        class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2"
-                      >
-                        Index Event (30040)
+                      <!-- Index event: show title and tags -->
+                      <div class="space-y-3">
+                        <!-- Event type indicator -->
+                        <div
+                          class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
+                        >
+                          Index Event (30040)
+                        </div>
+
+                        <!-- Title -->
+                        <h2
+                          class="text-lg font-bold text-gray-900 dark:text-gray-100"
+                        >
+                          {section.title}
+                        </h2>
+
+                        <!-- Tags -->
+                        {#if section.tags && section.tags.length > 0}
+                          <div class="flex flex-wrap gap-2">
+                            {#each section.tags as tag}
+                              <span
+                                class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
+                              >
+                                #{tag[1]}
+                              </span>
+                            {/each}
+                          </div>
+                        {/if}
                       </div>
-                      <h2
-                        class="text-lg font-bold text-gray-900 dark:text-gray-100"
-                      >
-                        {section.title}
-                      </h2>
                     {:else}
                       <!-- Content event: show title, tags, then content -->
                       <div class="space-y-3">
