@@ -1,0 +1,252 @@
+@layer components {
+  /* ========================================
+     Base Card Styles
+     ======================================== */
+
+  /* Main card leather theme */
+  .card-leather {
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight
+      border-primary-200 has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800
+      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+  }
+
+  .card-leather h1,
+  .card-leather h2,
+  .card-leather h3,
+  .card-leather h4,
+  .card-leather h5,
+  .card-leather h6 {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
+  }
+
+  .card-leather .font-thin {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
+  }
+
+  /* Main card leather (used in profile previews) */
+  .main-leather {
+    @apply bg-primary-50 dark:bg-primary-1000 text-gray-900 dark:text-gray-100;
+  }
+
+  /* ========================================
+     Responsive Card Styles
+     ======================================== */
+
+  .responsive-card {
+    @apply w-full min-w-0 overflow-hidden;
+  }
+
+  .responsive-card-content {
+    @apply break-words overflow-hidden;
+  }
+
+  /* ========================================
+     Article Box Styles (Blog & Publication Cards)
+     ======================================== */
+
+  .ArticleBox {
+    @apply shadow-none text-primary-1000 border-s-4 bg-highlight
+      border-primary-200 has-[:hover]:border-primary-700;
+    @apply dark:bg-primary-1000 dark:border-primary-800
+      dark:has-[:hover]:bg-primary-950 dark:has-[:hover]:border-primary-500;
+  }
+
+  .ArticleBox h1,
+  .ArticleBox h2,
+  .ArticleBox h3,
+  .ArticleBox h4,
+  .ArticleBox h5,
+  .ArticleBox h6 {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
+  }
+
+  .ArticleBox .font-thin {
+    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
+      dark:hover:text-primary-400;
+  }
+
+  /* Article box image transitions */
+  .ArticleBox.grid .ArticleBoxImage {
+    @apply max-h-0;
+    transition: max-height 0.5s ease;
+  }
+
+  .ArticleBox.grid.active .ArticleBoxImage {
+    @apply max-h-40;
+  }
+
+  /* ========================================
+     Event Preview Card Styles
+     ======================================== */
+
+  /* Event preview card hover state */
+  .event-preview-card {
+    @apply hover:bg-highlight dark:bg-primary-900/70 bg-primary-50
+      dark:hover:bg-primary-800 border-primary-400 border-s-4 transition-colors
+      cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500
+      shadow-none;
+  }
+
+  /* Event metadata badges */
+  .event-kind-badge {
+    @apply text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700
+      text-gray-700 dark:text-gray-300;
+  }
+
+  .event-label {
+    @apply text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400;
+  }
+
+  /* Community badge */
+  .community-badge {
+    @apply inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded
+      bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300;
+  }
+
+  /* ========================================
+     Profile Card Styles
+     ======================================== */
+
+  /* Profile verification badge (NIP-05) */
+  .profile-nip05-badge {
+    @apply px-2 py-0.5 !mb-0 rounded bg-green-100 dark:bg-green-900
+      text-green-700 dark:text-green-300 text-xs;
+  }
+
+  /* Community status indicator */
+  .community-status-indicator {
+    @apply flex-shrink-0 w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded-full
+      flex items-center justify-center;
+  }
+
+  .community-status-icon {
+    @apply w-3 h-3 text-yellow-600 dark:text-yellow-400;
+  }
+
+  /* User list status indicator (heart) */
+  .user-list-indicator {
+    @apply flex-shrink-0 w-4 h-4 bg-red-100 dark:bg-red-900 rounded-full flex
+      items-center justify-center;
+  }
+
+  .user-list-icon {
+    @apply w-3 h-3 text-red-600 dark:text-red-400;
+  }
+
+  /* ========================================
+     Card Content Styles
+     ======================================== */
+
+  /* Card content sections */
+  .card-header {
+    @apply flex items-start w-full p-4;
+  }
+
+  .card-body {
+    @apply px-4 pb-3 flex flex-col gap-2;
+  }
+
+  .card-footer {
+    @apply px-4 pt-2 pb-3 border-t border-primary-200 dark:border-primary-700
+      flex items-center gap-2 flex-wrap;
+  }
+
+  /* Card content text styles */
+  .card-summary {
+    @apply text-sm text-primary-900 dark:text-primary-200 line-clamp-2;
+  }
+
+  .card-content {
+    @apply text-sm text-gray-800 dark:text-gray-200 line-clamp-3 break-words
+      mb-4;
+  }
+
+  .card-about {
+    @apply text-sm text-gray-700 dark:text-gray-300 line-clamp-3;
+  }
+
+  /* Deferral link styling */
+  .deferral-link {
+    @apply underline text-primary-700 dark:text-primary-400
+      hover:text-primary-600 dark:hover:text-primary-400 break-all
+      cursor-pointer;
+  }
+
+  /* ========================================
+     Tags and Badges
+     ======================================== */
+
+  .tags span {
+    @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5
+      rounded-sm dark:bg-primary-900 dark:text-primary-200;
+  }
+
+  /* ========================================
+     Card Image Styles
+     ======================================== */
+
+  .card-image-container {
+    @apply w-full bg-primary-200 dark:bg-primary-800 relative;
+  }
+
+  .card-banner {
+    @apply w-full h-60 object-cover;
+  }
+
+  .card-avatar-container {
+    @apply absolute w-fit top-[-56px];
+  }
+
+  /* ========================================
+     Utility Classes for Cards
+     ======================================== */
+
+  /* Prose styling within cards - extends prose class when applied */
+  .card-prose {
+    @apply max-w-none text-gray-900 dark:text-gray-100 break-words min-w-0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Card metadata grid */
+  .card-metadata-grid {
+    @apply grid grid-cols-1 gap-y-2;
+  }
+
+  .card-metadata-label {
+    @apply font-semibold min-w-[120px] flex-shrink-0;
+  }
+
+  .card-metadata-value {
+    @apply min-w-0 break-words;
+  }
+
+  /* ========================================
+     Interactive Card States
+     ======================================== */
+
+  /* Clickable card states */
+  .card-clickable {
+    @apply cursor-pointer transition-colors focus:outline-none focus:ring-2
+      focus:ring-primary-500;
+  }
+
+  .card-clickable:hover {
+    @apply bg-primary-100 dark:bg-primary-800;
+  }
+
+  /* ========================================
+     Skeleton Loader for Cards
+     ======================================== */
+
+  .skeleton-leather div {
+    @apply bg-primary-100 dark:bg-primary-800;
+  }
+
+  .skeleton-leather {
+    @apply h-48;
+  }
+}

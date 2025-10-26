@@ -10,7 +10,10 @@ import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 /**
  * Search for a single event by ID or filter
  */
-export async function searchEvent(query: string, ndk: NDK): Promise<NDKEvent | null> {
+export async function searchEvent(
+  query: string,
+  ndk: NDK,
+): Promise<NDKEvent | null> {
   if (!ndk) {
     console.warn("[Search] No NDK instance available");
     return null;

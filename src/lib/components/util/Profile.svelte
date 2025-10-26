@@ -1,18 +1,9 @@
 <script lang="ts">
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import NetworkStatus from "$components/NetworkStatus.svelte";
-  import { 
-    logoutUser, 
-    userStore, 
-    loginWithExtension,
-    loginWithAmber,
-    loginWithNpub
-  } from "$lib/stores/userStore";
-  import {
-    ArrowRightToBracketOutline,
-    UserOutline,
-  } from "flowbite-svelte-icons";
-  import { Avatar, Popover } from "flowbite-svelte";
+  import { loginWithAmber, loginWithExtension, loginWithNpub, logoutUser, userStore } from "$lib/stores/userStore";
+  import { Avatar, Dropdown, DropdownGroup, DropdownHeader, DropdownItem, P } from "flowbite-svelte";
+  import { Book, Globe, Loader, Smartphone } from "@lucide/svelte";
   import { get } from "svelte/store";
   import { goto } from "$app/navigation";
   import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
@@ -22,8 +13,6 @@
 
   const ndk = getNdkContext();
 
-  let { isNav = false } = $props<{ isNav?: boolean }>();
-
   // UI state for login functionality
   let isLoadingExtension: boolean = $state(false);
   let isLoadingAmber: boolean = $state(false);
@@ -31,7 +20,6 @@
   let nostrConnectUri: string | undefined = $state(undefined);
   let showQrCode: boolean = $state(false);
   let qrCodeDataUrl: string | undefined = $state(undefined);
-  let loginButtonRef: HTMLElement | undefined = $state();
   let resultTimeout: ReturnType<typeof setTimeout> | null = null;
   let profileAvatarId = "profile-avatar-btn";
   let showAmberFallback = $state(false);
@@ -118,8 +106,7 @@
   
   // Reset the refresh flag when user logs out
   $effect(() => {
-    const currentUser = userState;
-    if (!currentUser.signedIn) {
+    if (!userState.signedIn) {
       hasRefreshedProfile = false;
     }
   });
@@ -390,162 +377,130 @@
 <div class="relative h-fit my-auto">
   {#if !userState.signedIn}
     <!-- Login button -->
-    <div class="group">
-      <button
-        bind:this={loginButtonRef}
-        id="login-avatar"
-        class="h-6 w-6 rounded-full bg-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-400 transition-colors"
-      >
-        <UserOutline class="h-4 w-4 text-gray-600" />
-      </button>
-      <Popover
-        placement="bottom"
-        triggeredBy="#login-avatar"
-        class="popover-leather w-[200px]"
-        trigger="click"
-      >
-        <div class="flex flex-col space-y-2">
-          <h3 class="text-lg font-bold mb-2">Login with...</h3>
-          <button
-            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50"
-            onclick={handleBrowserExtensionLogin}
-            disabled={isLoadingExtension || isLoadingAmber}
-          >
+    <Avatar size="xs" id="login-menu"/>
+    <Dropdown placement="bottom" triggeredBy="#login-menu" class="min-w-xs">
+      <DropdownGroup>
+        <DropdownHeader>Login with...</DropdownHeader>
+        <DropdownItem
+          class="w-full"
+          onclick={handleBrowserExtensionLogin}
+          disabled={isLoadingExtension || isLoadingAmber}>
+          <span class="w-full flex items-center justify-start gap-3">
             {#if isLoadingExtension}
-              🔄 Connecting...
+              <Loader size={16} class="inline" /> Connecting...
             {:else}
-              🌐 Browser extension
+              <Globe size={16} class="inline" /> Browser extension
             {/if}
-          </button>
-          <button
-            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500 disabled:opacity-50"
-            onclick={handleAmberLogin}
-            disabled={isLoadingAmber || isLoadingExtension}
+          </span></DropdownItem>
+        <DropdownItem
+          class="w-full"
+          onclick={handleAmberLogin}
+          disabled={isLoadingAmber || isLoadingExtension}
           >
-            {#if isLoadingAmber}
-              🔄 Connecting...
+          <span class="w-full flex items-center justify-start gap-3">
+          {#if isLoadingAmber}
+              <Loader size={16} class="inline" /> Connecting...
             {:else}
-              📱 Amber: NostrConnect
+              <Smartphone size={16} class="inline" />  Amber: NostrConnect
             {/if}
-          </button>
-          <button
-            class="btn-leather text-nowrap flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500"
-            onclick={handleReadOnlyLogin}
-          >
-            📖 npub (read only)
-          </button>
-          <div class="border-t border-gray-200 pt-2 mt-2">
-            <div class="text-xs text-gray-500 mb-1">Network Status:</div>
-            <NetworkStatus />
-          </div>
-        </div>
-      </Popover>
-      {#if result}
-        <div
-          class="absolute right-0 top-10 z-50 bg-gray-100 p-3 rounded text-sm break-words whitespace-pre-line max-w-lg shadow-lg border border-gray-300"
+        </span>
+        </DropdownItem>
+        <DropdownItem
+          class="w-full"
+          onclick={handleReadOnlyLogin}
         >
-          {result}
-          <button
-            class="ml-2 text-gray-500 hover:text-gray-700"
-            onclick={() => (result = null)}>✖</button
-          >
-        </div>
-      {/if}
-    </div>
+          <span class="w-full flex items-center justify-start gap-3">
+            <Book size={16} class="inline" /> npub (read only)
+          </span>
+        </DropdownItem>
+        {#if result}
+          <DropdownHeader class="flex gap-3">
+            <P class="text-xs">
+              {result}
+            </P>
+            <button
+              class="inline ml-2 text-gray-500 hover:text-gray-700"
+              onclick={() => (result = null)}>✖</button
+            >
+          </DropdownHeader>
+        {/if}
+      </DropdownGroup>
+      <DropdownGroup>
+        <DropdownHeader>
+          <NetworkStatus />
+        </DropdownHeader>
+      </DropdownGroup>
+    </Dropdown>
   {:else}
     <!-- User profile -->
-    <div class="group">
-      <button
-        class="h-6 w-6 rounded-full p-0 border-0 bg-transparent cursor-pointer"
-        id={profileAvatarId}
-        type="button"
-        aria-label="Open profile menu"
-      >
-        {#if !pfp}
-          <div class="h-6 w-6 rounded-full bg-gray-300 animate-pulse cursor-pointer"></div>
+    <Avatar
+      src={pfp}
+      alt={username || "User"}
+      aria-label="Open profile menu"
+      size="xs" id={profileAvatarId}/>
+    <Dropdown placement="bottom" triggeredBy="#{profileAvatarId}" class="min-w-xs">
+      <DropdownHeader>
+        {#if username}
+          <span class="block text-sm">{username}</span>
+          <span class="block truncate text-sm font-medium">@{tag}</span>
+        {:else if !pfp}
+          <span>Loading profile...</span>
         {:else}
-          <Avatar
-            rounded
-            class="h-6 w-6 cursor-pointer"
-            src={pfp}
-            alt={username || "User"}
-          />
+          <span>Loading...</span>
         {/if}
-      </button>
-      <Popover
-        placement="bottom"
-        triggeredBy={`#${profileAvatarId}`}
-        class="popover-leather w-[220px]"
-        trigger="click"
-      >
-        <div class="flex flex-row justify-between space-x-4">
-          <div class="flex flex-col">
-            {#if username}
-              <h3 class="text-lg font-bold">{username}</h3>
-              {#if isNav}<h4 class="text-base">@{tag}</h4>{/if}
-            {:else if !pfp}
-              <h3 class="text-lg font-bold">Loading profile...</h3>
-            {:else}
-              <h3 class="text-lg font-bold">Loading...</h3>
-            {/if}
-            <ul class="space-y-2 mt-2">
-              <li>
-                <CopyToClipboard
-                  displayText={shortenNpub(npub) || "Loading..."}
-                  copyText={npub || ""}
-                />
-              </li>
-              <li>
-                <button
-                  class="hover:text-primary-400 dark:hover:text-primary-500 text-nowrap mt-3 m-0 text-left"
-                  onclick={handleViewProfile}
-                >
-                  <UserOutline
-                    class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
-                  /><span class="underline">View notifications</span>
-                </button>
-              </li>
-
-              <li class="text-xs text-gray-500">
-                {#if userState.loginMethod === "extension"}
-                  Logged in with extension
-                {:else if userState.loginMethod === "amber"}
-                  Logged in with Amber
-                {:else if userState.loginMethod === "npub"}
-                  Logged in with npub
-                {:else}
-                  Unknown login method
-                {/if}
-              </li>
-              <li>
-                <NetworkStatus />
-              </li>
-              {#if isNav}
-                <li>
-                  <button
-                    id="sign-out-button"
-                    class="btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500"
-                    onclick={handleSignOutClick}
-                  >
-                    <ArrowRightToBracketOutline
-                      class="mr-1 !h-6 !w-6 inline !fill-none dark:!fill-none"
-                    /> Sign out
-                  </button>
-                </li>
-              {:else}
-                <!-- li>
-                <button
-                  class='btn-leather text-nowrap mt-3 flex self-stretch align-middle hover:text-primary-400 dark:hover:text-primary-500'
-                >
-                  <FileSearchOutline class='mr-1 !h-6 inline !fill-none dark:!fill-none' /> More content
-                </button>
-              </li -->
-              {/if}
-            </ul>
-          </div>
-        </div>
-      </Popover>
-    </div>
+      </DropdownHeader>
+      <DropdownGroup>
+        <DropdownItem class="w-full">
+          <CopyToClipboard
+            displayText={shortenNpub(npub) || "Loading..."}
+            copyText={npub || ""}
+          />
+        </DropdownItem>
+      </DropdownGroup>
+      <DropdownGroup>
+        <DropdownItem
+          class="w-full flex items-center justify-start"
+          onclick={() => goto('/profile')}
+        >
+          View profile
+        </DropdownItem>
+        <DropdownItem
+          class="w-full flex items-center justify-start "
+          onclick={() => goto('/profile/my-notes')}
+        >
+          My notes
+        </DropdownItem>
+        <DropdownItem
+          class="w-full flex items-center justify-start"
+          onclick={() => goto('/profile/notifications')}
+        >
+          Notifications
+        </DropdownItem>
+      </DropdownGroup>
+      <DropdownGroup>
+        <DropdownHeader class="text-xs">
+          {#if userState.loginMethod === "extension"}
+            Logged in with extension
+          {:else if userState.loginMethod === "amber"}
+            Logged in with Amber
+          {:else if userState.loginMethod === "npub"}
+            Logged in with npub
+          {:else}
+            Unknown login method
+          {/if}
+        </DropdownHeader>
+        <DropdownHeader><NetworkStatus /></DropdownHeader>
+      </DropdownGroup>
+      <DropdownGroup>
+        <DropdownItem
+          id="sign-out-button"
+          class="w-full flex items-center justify-start "
+          onclick={handleSignOutClick}
+          >
+          Sign out
+        </DropdownItem>
+      </DropdownGroup>
+    </Dropdown>
   {/if}
 </div>
 

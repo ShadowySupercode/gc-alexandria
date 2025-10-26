@@ -1,5 +1,9 @@
 @layer components {
   /* AsciiDoc content */
+  section {
+    @apply my-2;
+  }
+
   .publication-leather p a {
     @apply underline hover:text-primary-600 dark:hover:text-primary-400;
   }
@@ -121,6 +125,12 @@
   }
 
   /* admonition */
+  .publication-leather .admonitionblock,
+  .publication-leather .sidebarblock,
+  .publication-leather .tableblock {
+    @apply my-4;
+  }
+
   .publication-leather .admonitionblock .title {
     @apply font-semibold;
   }

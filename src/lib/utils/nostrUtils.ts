@@ -7,9 +7,9 @@ import type { Filter } from "./search_types.ts";
 import {
   anonymousRelays,
   communityRelays,
+  localRelays,
   searchRelays,
   secondaryRelays,
-  localRelays,
 } from "../consts.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
@@ -205,22 +205,22 @@ export async function processNostrIdentifiers(
     if (/https?:\/\/$|www\.$/i.test(before)) {
       return true;
     }
-    
+
     // Check if the match is part of a larger URL structure
     // Look for common URL patterns that might contain nostr identifiers
     const beforeContext = text.slice(Math.max(0, index - 50), index);
     const afterContext = text.slice(index, Math.min(text.length, index + 50));
-    
+
     // Check if there's a URL-like structure around the match
     const urlPatterns = [
-      /https?:\/\/[^\s]*$/i,  // URL starting with http(s)://
-      /www\.[^\s]*$/i,        // URL starting with www.
-      /[^\s]*\.(com|org|net|io|eu|co|me|app|dev)[^\s]*$/i,  // Common TLDs
-      /[^\s]*\/[^\s]*$/i,     // Path-like structures
+      /https?:\/\/[^\s]*$/i, // URL starting with http(s)://
+      /www\.[^\s]*$/i, // URL starting with www.
+      /[^\s]*\.(com|org|net|io|eu|co|me|app|dev)[^\s]*$/i, // Common TLDs
+      /[^\s]*\/[^\s]*$/i, // Path-like structures
     ];
-    
+
     const combinedContext = beforeContext + afterContext;
-    return urlPatterns.some(pattern => pattern.test(combinedContext));
+    return urlPatterns.some((pattern) => pattern.test(combinedContext));
   }
 
   // Process profiles (npub and nprofile)
@@ -440,8 +440,8 @@ export async function fetchEventWithFallback(
     // AI-NOTE:  Include ALL available relays for comprehensive event discovery
     // This ensures we don't miss events that might be on any available relay
     allRelays = [
-      ...secondaryRelays, 
-      ...searchRelays, 
+      ...secondaryRelays,
+      ...searchRelays,
       ...anonymousRelays,
       ...inboxRelays, // Include user's inbox relays
       ...outboxRelays, // Include user's outbox relays

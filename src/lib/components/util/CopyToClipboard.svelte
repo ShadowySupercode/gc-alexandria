@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from "flowbite-svelte";
   import {
     ClipboardCheckOutline,
     ClipboardCleanOutline,
@@ -42,15 +43,12 @@
   }
 </script>
 
-<button class="btn-leather w-full text-left" onclick={copyToClipboard}>
+<button class="btn-leather w-full text-left dark:text-primary-100 p-1 rounded-xs cursor-pointer" onclick={copyToClipboard}>
   {#if copied}
     <ClipboardCheckOutline class="inline mr-2" /> Copied!
   {:else}
-    {#if icon === ClipboardCleanOutline}
-      <ClipboardCleanOutline class="inline mr-2" />
-    {:else if icon === ClipboardCheckOutline}
-      <ClipboardCheckOutline class="inline mr-2" />
-    {/if}
+    {@const TheIcon = icon}
+    <TheIcon class="inline { displayText !== '' ? 'mr-2' : ''}" />
     {displayText}
   {/if}
 </button>

@@ -49,50 +49,46 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class="ArticleBox card-leather w-full h-48 flex flex-row space-x-2 relative">
-    <div
-      class="flex-shrink-0 w-40 h-40 overflow-hidden rounded flex items-center justify-center p-2 -mt-2"
-    >
+  <Card class="ArticleBox max-h-52 card-leather w-full relative flex flex-col sm:flex-row sm:space-x-2 overflow-hidden">
+    <!-- Image block: full width on mobile, fixed side on md+ -->
+    <div class="w-full sm:min-w-40 sm:w-40 overflow-hidden flex items-center justify-center sm:rounded-l rounded-t sm:rounded-t-none">
       {#if image}
-        <LazyImage 
-          src={image} 
-          alt={title || "Publication image"}
+        <LazyImage
+          src={image}
+          alt={title || 'Publication image'}
           eventId={event.id}
           className="w-full h-full object-cover"
         />
       {:else}
-        <div 
-          class="w-full h-full rounded"
+        <div
+          class="w-full h-full"
           style="background-color: {generateDarkPastelColor(event.id)};"
-        >
-        </div>
+        ></div>
       {/if}
     </div>
-    
-    <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
-      <div class="flex flex-col flex-grow min-w-0 overflow-hidden">
-        <a href="/{href}" class="flex flex-col space-y-2 h-full min-w-0 overflow-hidden">
-          <div class="flex-grow pt-2 min-w-0 overflow-hidden">
-            <h2 class="text-lg font-bold line-clamp-2 break-words overflow-hidden" {title}>{title}</h2>
-            <h3 class="text-base font-normal mt-2 break-words overflow-hidden">
-              by
-              {#if authorPubkey != null}
-                {@render userBadge(authorPubkey, author, ndk)}
-              {:else}
-                <span class="truncate">{author}</span>
-              {/if}
-            </h3>
-          </div>
-          {#if version != "1"}
-            <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden">version: {version}</h3>
-          {/if}
-        </a>
+
+    <!-- Content -->
+    <div class="flex flex-col min-w-0 p-3 sm:p-2 w-full gap-2">
+      <a href="/{href}" class="flex flex-col space-y-2 flex-1 min-w-0 overflow-hidden decoration-none hover:underline">
+        <div class="min-w-0">
+          <h2 class="text-lg font-bold line-clamp-2 break-words overflow-hidden decoration-none" {title}>{title}</h2>
+          <h3 class="text-base font-normal mt-2 break-words overflow-hidden decoration-none">
+            {#if authorPubkey != null}
+              by {@render userBadge(authorPubkey, author, ndk)}
+            {:else}
+              <span class="line-clamp-1 inline">by {author}</span>
+            {/if}
+          </h3>
+        </div>
+      </a>
+      <div class="flex flex-row w-full justify-between">
+        {#if version != '1'}
+          <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden">version: {version}</h3>
+        {/if}
+        <div class="flex ml-auto">
+          <CardActions {event} />
+        </div>
       </div>
-    </div>
-    
-    <!-- Position CardActions at bottom-right -->
-    <div class="absolute bottom-2 right-2">
-      <CardActions {event} />
     </div>
   </Card>
 {/if}

@@ -1,14 +1,15 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { userStore } from "$lib/stores/userStore";
+  import { Button } from "flowbite-svelte";
+  import { userStore } from "$lib/stores/userStore.ts";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { get } from "svelte/store";
-  import { getMatchingTags } from "$lib/utils/nostrUtils";
-  import { getTitleTagForEvent } from "$lib/utils/event_input_utils";
+  import { getMatchingTags } from "$lib/utils/nostrUtils.ts";
+  import { getTitleTagForEvent } from "$lib/utils/event_input_utils.ts";
   import asciidoctor from "asciidoctor";
-  import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor";
-  import { getNdkContext } from "$lib/ndk";
-
+  import { postProcessAsciidoctorHtml } from "$lib/utils/markup/asciidoctorPostProcessor.ts";
+  import { getNdkContext } from "$lib/ndk.ts";
+  
   const ndk = getNdkContext();
 
   let events: NDKEvent[] = $state([]);
@@ -172,33 +173,34 @@
   // AI-NOTE: Check authentication status and redirect if not logged in
   // Wait for authentication state to be properly initialized before checking
   let authCheckTimeout: ReturnType<typeof setTimeout> | null = null;
-
+  
   $effect(() => {
     const user = $userStore;
-
+    
     // Clear any existing timeout
     if (authCheckTimeout) {
       clearTimeout(authCheckTimeout);
       authCheckTimeout = null;
     }
-
+    
     // If user is signed in, we're good
     if (user.signedIn) {
       checkingAuth = false;
       return;
     }
-
+    
     // If user is not signed in, wait a bit for auth restoration to complete
     // This handles the case where the page loads before auth restoration finishes
     authCheckTimeout = setTimeout(() => {
       const currentUser = get(userStore);
       if (!currentUser.signedIn) {
-        goto("/");
+        console.debug('[MyNotes] User not signed in after auth restoration, redirecting to home page');
+        goto('/');
       } else {
         checkingAuth = false;
       }
     }, 1500); // 1.5 second delay to allow auth restoration to complete
-
+    
     // Cleanup function
     return () => {
       if (authCheckTimeout) {
@@ -221,6 +223,7 @@
 >
   <!-- Tag Filter Sidebar -->
   <aside class="w-full lg:w-80 flex-shrink-0 self-start">
+    <Button size="sm" class="mb-3" onclick={() => goto('/new/compose')}>Create new</Button>
     <h2 class="text-lg font-bold mb-4">Tag Type</h2>
     <div class="flex flex-wrap gap-2 mb-6">
       {#each tagTypes as type}
@@ -271,9 +274,7 @@
   </aside>
 
   <!-- Notes Feed -->
-  <div
-    class="flex-1 w-full lg:max-w-5xl lg:ml-auto px-0 lg:px-4 min-w-0 overflow-hidden"
-  >
+  <div class="flex-1 w-full lg:max-w-5xl lg:ml-auto px-0 lg:px-4 min-w-0 overflow-hidden">
     <h1 class="text-2xl font-bold mb-6">My Notes</h1>
     {#if checkingAuth}
       <div class="text-gray-500">Checking authentication...</div>
@@ -286,13 +287,9 @@
     {:else}
       <ul class="space-y-4 w-full">
         {#each filteredEvents as event}
-          <li
-            class="p-4 bg-white dark:bg-gray-800 rounded shadow w-full overflow-hidden"
-          >
+          <li class="p-4 bg-white dark:bg-gray-800 rounded shadow w-full overflow-hidden">
             <div class="flex items-center justify-between mb-2 min-w-0">
-              <div class="font-semibold text-lg truncate flex-1 mr-2">
-                {getTitle(event)}
-              </div>
+              <div class="font-semibold text-lg truncate flex-1 mr-2">{getTitle(event)}</div>
               <button
                 class="flex-shrink-0 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
                 onclick={() => toggleTags(event.id)}

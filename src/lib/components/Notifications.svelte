@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../../styles/notifications.css";
-  import { Heading, P } from "flowbite-svelte";
+  import { Heading, P, Avatar, Button, Modal } from "flowbite-svelte";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
@@ -9,10 +9,9 @@
   import { anonymousRelays } from "$lib/consts";
   import { getKind24RelaySet } from "$lib/utils/kind24_utils";
   import { createSignedEvent } from "$lib/utils/nostrEventService";
-  import { Modal, Button } from "flowbite-svelte";
   import { searchProfiles } from "$lib/utils/search_utility";
   import type { NostrProfile } from "$lib/utils/search_types";
-  import { PlusOutline, ReplyOutline, UserOutline } from "flowbite-svelte-icons";
+  import { ReplyOutline, UserOutline } from "flowbite-svelte-icons";
   import { 
     getNotificationType, 
     fetchAuthorProfiles,
@@ -25,10 +24,20 @@
   import { repostKinds } from "$lib/consts";
   import { getNdkContext } from "$lib/ndk";
   import { basicMarkup } from "$lib/snippets/MarkupSnippets.svelte";
-
-  const { event } = $props<{ event: NDKEvent }>();
+  import { AAlert, APagination } from "$lib/a";
 
   const ndk = getNdkContext();
+
+  // Helper: hide broken images (avoid TS assertions in template)
+  function hideImg(e: Event) {
+    const el = e.target as HTMLImageElement | null;
+    if (el) el.style.display = 'none';
+  }
+
+  // Mode typing and setter to avoid TS in template
+  type Mode = "to-me" | "from-me" | "public-messages";
+  const modes: Mode[] = ["to-me", "from-me", "public-messages"];
+  function setNotificationMode(m: Mode) { notificationMode = m; }
 
   // Handle navigation events from quoted messages
   $effect(() => {
@@ -61,7 +70,7 @@
   let allFromMeNotifications = $state<NDKEvent[]>([]); // All fetched "from-me" notifications
   let allPublicMessages = $state<NDKEvent[]>([]); // All fetched public messages
   let currentPage = $state(1);
-  let itemsPerPage = 20; // Show 20 items per page
+  let itemsPerPage = 10;
   let hasFetchedToMe = $state(false); // Track if we've already fetched "to-me" data
   let hasFetchedFromMe = $state(false); // Track if we've already fetched "from-me" data
   let hasFetchedPublic = $state(false); // Track if we've already fetched public messages
@@ -641,27 +650,13 @@
     }
   }
 
-  // AI-NOTE: Pagination navigation functions
-  function nextPage() {
-    if (hasNextPage) {
-      currentPage++;
-      updateDisplayedItems();
-    }
-  }
-
-  function previousPage() {
-    if (hasPreviousPage) {
-      currentPage--;
-      updateDisplayedItems();
-    }
-  }
-
-  function goToPage(page: number) {
-    if (page >= 1 && page <= totalPages) {
-      currentPage = page;
-      updateDisplayedItems();
-    }
-  }
+  // Pagination navigation
+  $effect (() => {
+    console.log(`[Pagination] Mode: ${notificationMode}, Current Page: ${currentPage}, Total Pages: ${totalPages}`);
+    updateDisplayedItems();
+    // scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   // AI-NOTE: Update displayed items based on current page
   function updateDisplayedItems() {
@@ -688,8 +683,9 @@
 
   // Check if user is viewing their own profile
   $effect(() => {
-    if ($userStore.signedIn && $userStore.pubkey && event.pubkey) {
-      isOwnProfile = $userStore.pubkey.toLowerCase() === event.pubkey.toLowerCase();
+    // Only operate for a logged-in user; treat the logged-in user's profile as the source
+    if ($userStore.signedIn && $userStore.pubkey) {
+      isOwnProfile = true;
     } else {
       isOwnProfile = false;
     }
@@ -835,36 +831,33 @@
 </script>
 
 {#if isOwnProfile && $userStore.signedIn}
-  <div class="mb-6 w-full overflow-x-hidden">
-    <div class="flex items-center justify-between mb-4">
-      <Heading tag="h3" class="h-leather">Notifications</Heading>
-      
-      <div class="flex items-center gap-3">
-        <!-- New Message Button -->
-        <Button
-          color="primary"
-          size="sm"
-          onclick={() => openNewMessageModal()}
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+    <Heading tag="h3" class="h-leather">Notifications</Heading>
+
+    <div class="flex flex-row items-center gap-3">
+      <!-- New Message Button -->
+      <Button
+        color="primary"
+        size="sm"
+        onclick={() => openNewMessageModal()}
+        class="flex !mb-0 items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+      >
+        New Message
+      </Button>
+
+    <!-- Mode toggle -->
+    <div class="flex flex-row bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
+      {#each modes as mode}
+        {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
+        <button
+          class={`mode-toggle-button px-3 py-1 text-sm !mb-0 font-medium rounded-md ${notificationMode === mode ? 'active' : 'inactive'}`}
+          onclick={() => setNotificationMode(mode)}
         >
-          New Message
-        </Button>
-      
-      <!-- Mode toggle -->
-      <div class="flex bg-gray-300 dark:bg-gray-700 rounded-lg p-1">
-        {#each ["to-me", "from-me", "public-messages"] as mode}
-          {@const modeLabel = mode === "to-me" ? "To Me" : mode === "from-me" ? "From Me" : "Public Messages"}
-          <button
-            class="mode-toggle-button px-3 py-1 text-sm font-medium rounded-md {notificationMode === mode ? 'active' : 'inactive'}"
-            onclick={() => notificationMode = mode as "to-me" | "from-me" | "public-messages"}
-          >
-            {modeLabel}
-          </button>
-        {/each}
-        </div>
+          {modeLabel}
+        </button>
+      {/each}
       </div>
     </div>
-    
+
     {#if loading}
       <div class="flex items-center justify-center py-8 min-h-96">
         <div class="notifications-loading-spinner rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -873,28 +866,21 @@
         </span>
       </div>
     {:else if error}
-      <div class="p-4 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg">
+      <AAlert color="red">
         <P>Error loading {notificationMode === "public-messages" ? "public messages" : "notifications"}: {error}</P>
-      </div>
+      </AAlert>
     {:else if notificationMode === "public-messages"}
       {#if publicMessages.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-          <P>No public messages found.</P>
-        </div>
+        <AAlert color="blue"><P>No public messages found.</P></AAlert>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden">
+        <div>
           {#if filteredByUser}
             <div class="filter-indicator mb-4 p-3 rounded-lg">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-blue-700 dark:text-blue-300">
-                  Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}
-                </span>
-                <button
-                  class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
-                  onclick={clearFilter}
-                >
+              <div class="flex flex-row items-center justify-between gap-3">
+                <AAlert color="blue"><P>Filtered by user: @{authorProfiles.get(filteredByUser)?.displayName || authorProfiles.get(filteredByUser)?.name || "anon"}</P></AAlert>
+                <Button size="xs" color="blue" onclick={clearFilter}>
                   Clear Filter
-                </button>
+                </Button>
               </div>
             </div>
           {/if}
@@ -903,21 +889,14 @@
               {@const authorProfile = authorProfiles.get(message.pubkey)}
               {@const isFromUser = message.pubkey === $userStore.pubkey}
               <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-event-id="{message.id}">
-                <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : ''}">
+                <div class="flex items-start gap-3 {isFromUser ? 'flex-row-reverse' : 'flex-row'}">
                   <!-- Author Profile Picture and Name -->
                   <div class="flex-shrink-0 relative">
-                    <div class="flex flex-col items-center gap-2 {isFromUser ? 'items-end' : 'items-start'}">
+                    <div class="flex flex-col items-center justify-center gap-2">
                       {#if authorProfile?.picture}
-                        <img
-                          src={authorProfile.picture}
-                          alt="Author avatar"
-                          class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                        />
+                        <Avatar src={authorProfile.picture} onerror={hideImg} border></Avatar>
                       {:else}
-                        <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
-                          <UserOutline class="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        </div>
+                        <Avatar border />
                       {/if}
                       <div class="w-24 text-center">
                         <span class="text-xs font-medium text-gray-900 dark:text-gray-100 break-words">
@@ -928,7 +907,7 @@
                     
                     <!-- Filter button for non-user messages -->
                     {#if !isFromUser}
-                      <div class="mt-2 flex justify-center gap-1">
+                      <div class="mt-2 flex flex-row justify-center gap-1">
                         <!-- Reply button -->
                         <button
                           class="reply-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors"
@@ -944,7 +923,7 @@
                         </button>
                         <!-- Filter button -->
                         <button
-                          class="filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors {filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}"
+                          class={`filter-button w-6 h-6 border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full flex items-center justify-center text-xs transition-colors ${filteredByUser === message.pubkey ? 'filter-button-active bg-gray-200 dark:bg-gray-600 border-gray-500 dark:border-gray-400' : ''}`}
                           onclick={() => filterByUser(message.pubkey)}
                           title="Filter by this user"
                           aria-label="Filter by this user"
@@ -959,20 +938,20 @@
                   
                   <!-- Message Content -->
                   <div class="message-content flex-1 min-w-0 {isFromUser ? 'text-right' : ''}">
-                    <div class="flex items-center gap-2 mb-2 {isFromUser ? 'justify-end' : ''}">
-                      <span class="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
+                    <div class="flex flex-row items-center gap-2 mb-2 {isFromUser ? 'justify-end' : 'justify-start'}">
+                      <span class="text-xs !mb-0 font-medium text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded">
                         {isFromUser ? 'Your Message' : 'Public Message'}
                       </span>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {message.created_at ? formatDate(message.created_at) : "Unknown date"}
-                      </span>
                       <button
-                        class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
+                        class="text-xs !mb-0 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline font-mono"
                         onclick={() => navigateToEvent(getNeventUrl(message))}
                         title="Click to view event"
                       >
                         {getNeventUrl(message).slice(0, 16)}...
                       </button>
+                      <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                        {message.created_at ? formatDate(message.created_at) : "Unknown date"}
+                      </span>
                     </div>
                     
 
@@ -1029,40 +1008,24 @@
           
           <!-- Pagination Controls -->
           {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({allPublicMessages.length} total messages)
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={previousPage}
-                  disabled={!hasPreviousPage}
-                >
-                  Previous
-                </button>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={nextPage}
-                  disabled={!hasNextPage}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <APagination
+              bind:currentPage
+              {totalPages}
+              {hasNextPage}
+              {hasPreviousPage}
+              totalItems={allPublicMessages.length}
+              itemsLabel="messages"
+            />
           {/if}
         </div>
       {/if}
     {:else}
       {#if notifications.length === 0}
-        <div class="p-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
+        <AAlert color="blue">
           <P>No notifications {notificationMode === "to-me" ? "received" : "sent"} found.</P>
-        </div>
+        </AAlert>
       {:else}
-        <div class="max-h-[72rem] overflow-y-auto overflow-x-hidden space-y-4">
+        <div class="space-y-4">
           {#each notifications.slice(0, 100) as notification}
             {@const authorProfile = authorProfiles.get(notification.pubkey)}
             <div class="message-container p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -1075,7 +1038,7 @@
                           src={authorProfile.picture}
                           alt="Author avatar"
                           class="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                          onerror={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                          onerror={hideImg}
                         />
                       {:else}
                         <div class="profile-picture-fallback w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
@@ -1155,36 +1118,19 @@
           
           <!-- Pagination Controls -->
           {#if totalPages > 1}
-            <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div class="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages} ({notificationMode === "to-me" ? allToMeNotifications.length : allFromMeNotifications.length} total notifications)
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={previousPage}
-                  disabled={!hasPreviousPage}
-                >
-                  Previous
-                </button>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  class="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onclick={nextPage}
-                  disabled={!hasNextPage}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <APagination
+              bind:currentPage
+              {totalPages}
+              {hasNextPage}
+              {hasPreviousPage}
+              totalItems={notificationMode === 'to-me' ? allToMeNotifications.length : allFromMeNotifications.length}
+              itemsLabel="notifications"
+            />
           {/if}
         </div>
       {/if}
     {/if}
-  </div>
-  
+
   <!-- New Message Modal -->
   <Modal bind:open={showNewMessageModal} size="lg" class="w-full">
     <div class="modal-content p-6">
@@ -1301,7 +1247,7 @@
           color="primary"
           onclick={sendNewMessage}
           disabled={isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim()}
-          class="flex items-center gap-2 {isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}"
+          class={`flex items-center gap-2 ${isComposingMessage || selectedRecipients.length === 0 || !newMessageContent.trim() ? 'button-disabled' : ''}`}
         >
           {#if isComposingMessage}
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -1326,7 +1272,7 @@
             placeholder="Search display name, name, NIP-05, or npub..."
             bind:value={recipientSearch}
             bind:this={recipientSearchInput}
-            class="search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 p-2.5 {recipientLoading ? 'pr-10' : ''}"
+            class={`search-input w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 ${recipientLoading ? 'pr-10' : ''}`}
           />
           {#if recipientLoading}
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1347,16 +1293,14 @@
                     selectRecipient(profile);
                   }}
                   disabled={isAlreadySelected}
-                  class="recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 {isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}"
+                  class={`recipient-selection-button w-full flex items-center gap-3 p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${isAlreadySelected ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {#if profile.picture}
                     <img
                       src={profile.picture}
                       alt="Profile"
                       class="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
-                      onerror={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
+                      onerror={hideImg}
                     />
                   {:else}
                     <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
@@ -1423,4 +1367,4 @@
       </div>
     </div>
   </Modal>
-{/if} 
+{/if}

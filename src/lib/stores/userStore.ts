@@ -16,7 +16,6 @@ import {
 import { loginStorageKey } from "../consts.ts";
 import { nip19 } from "nostr-tools";
 
-
 export interface UserState {
   pubkey: string | null;
   npub: string | null;
@@ -248,7 +247,11 @@ export async function loginWithExtension(ndk: NDK) {
 /**
  * Login with Amber (NIP-46)
  */
-export async function loginWithAmber(amberSigner: NDKSigner, user: NDKUser, ndk: NDK) {
+export async function loginWithAmber(
+  amberSigner: NDKSigner,
+  user: NDKUser,
+  ndk: NDK,
+) {
   if (!ndk) throw new Error("NDK not initialized");
   // Only clear previous login state after successful login
   const npub = user.npub;
