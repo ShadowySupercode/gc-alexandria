@@ -962,7 +962,7 @@
                           {section.title}
                         </h2>
 
-                        <!-- Tags -->
+                        <!-- Tags (blue for index events) -->
                         {#if section.tags && section.tags.length > 0}
                           <div class="flex flex-wrap gap-2">
                             {#each section.tags as tag}
@@ -1001,12 +1001,12 @@
                           )}
                         </div>
 
-                        <!-- Tags -->
+                        <!-- Tags (green for content events) -->
                         {#if section.tags && section.tags.length > 0}
                           <div class="flex flex-wrap gap-2">
                             {#each section.tags as tag}
                               <span
-                                class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
+                                class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
                               >
                                 #{tag[1]}
                               </span>
