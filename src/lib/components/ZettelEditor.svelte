@@ -706,6 +706,8 @@
           ".cm-content": {
             padding: "16px",
             minHeight: "100%",
+            maxWidth: "900px",
+            margin: "0 auto",
           },
           ".cm-editor": {
             borderRadius: "0.5rem",
@@ -881,7 +883,7 @@
       (showTutorial && showStructurePreview)
         ? 'lg:w-1/3'
         : showPreview || showTutorial || showStructurePreview
-          ? 'lg:w-1/2'
+          ? 'lg:w-3/5'
           : 'w-full'} flex flex-col"
     >
       <div
@@ -898,7 +900,7 @@
       <div
         class="{showTutorial || showStructurePreview
           ? 'lg:w-1/3'
-          : 'lg:w-1/2'} flex flex-col"
+          : 'lg:w-2/5'} flex flex-col"
       >
         <div
           class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden"
@@ -912,6 +914,7 @@
           </div>
 
           <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900">
+            <div class="max-w-4xl mx-auto">
             {#if !content.trim()}
               <div
                 class="text-gray-500 dark:text-gray-400 text-sm text-center py-8"
@@ -966,33 +969,6 @@
                         },
                       })}
                     </div>
-                    <!-- Document-level tags -->
-                    {#if publicationResult.metadata.attributes.tags}
-                      {@const tagsList =
-                        publicationResult.metadata.attributes.tags
-                          .split(",")
-                          .map((t: string) => t.trim())}
-                      {#if tagsList.length > 0}
-                        <div
-                          class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mt-3"
-                        >
-                          <div class="flex flex-wrap gap-2 items-center">
-                            <span
-                              class="text-xs font-medium text-gray-600 dark:text-gray-400"
-                              >Document tags:</span
-                            >
-                            {#each tagsList as tag}
-                              <div
-                                class="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-baseline"
-                              >
-                                <span class="mr-1">#</span>
-                                <span>{tag}</span>
-                              </div>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-                    {/if}
                   </div>
                 {/if}
 
@@ -1158,6 +1134,7 @@
                 {/if}
               </div>
             {/if}
+            </div>
           </div>
         </div>
       </div>
@@ -1168,7 +1145,7 @@
       <div
         class="{showPreview || showStructurePreview
           ? 'lg:w-1/3'
-          : 'lg:w-1/2'} flex flex-col"
+          : 'lg:w-2/5'} flex flex-col"
       >
         <div
           class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden"
@@ -1320,7 +1297,7 @@ Understanding the nature of knowledge...
       <div
         class="{showPreview || showTutorial
           ? 'lg:w-1/3'
-          : 'lg:w-1/2'} flex flex-col"
+          : 'lg:w-2/5'} flex flex-col"
       >
         <div
           class="border border-gray-200 dark:border-gray-700 rounded-lg h-full flex flex-col overflow-hidden"

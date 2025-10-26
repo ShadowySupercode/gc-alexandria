@@ -219,8 +219,8 @@
   <title>Compose Note - Alexandria</title>
 </svelte:head>
 
-<!-- Main container with max 1024px width and centered -->
-<div class="flex flex-col self-center items-center w-full max-w-[1024px] mx-auto px-2 space-y-4">
+<!-- Main container with max 1536px width and centered -->
+<div class="flex flex-col self-center items-center w-full max-w-[1536px] mx-auto px-2 space-y-4">
     <Heading
       tag="h1" class="h-leather mb-2">
       Compose Notes
