@@ -1,4 +1,5 @@
 use futures::TryStreamExt;
+use indexed_db_futures::KeyPath;
 use indexed_db_futures::cursor::Cursor;
 use indexed_db_futures::database::Database;
 use indexed_db_futures::object_store::ObjectStore;

@@ -24,7 +24,7 @@ thread_local! {
     /// initialized, it loads data from persistent storage, and when it is no longer needed, it
     /// saves the data back to persistent storage. The repository data may be mutated via the
     /// functions provided in the `relay_selector` crate's API.
-    static RELAY_SELECTOR: Rc<RefCell<Option<RelaySelector>>> = Rc::new(RefCell::new(None));
+    static RELAY_SELECTOR: Rc<Mutex<Option<RelaySelector>>> = Rc::new(Mutex::new(None));
 
     /// Static lifetime, thread-local configuration provider.
     ///
@@ -36,10 +36,11 @@ thread_local! {
     static INIT_MUTEX: Rc<Mutex<()>> = Rc::new(Mutex::new(()));
 }
 
-fn relay_selector_is_some() -> bool {
-    RELAY_SELECTOR
-        .try_with(|selector| selector.borrow().is_some())
-        .unwrap_or(false)
+async fn relay_selector_is_some() -> bool {
+    match RELAY_SELECTOR.try_with(|selector| Rc::clone(selector)) {
+        Ok(selector_rc) => selector_rc.lock().await.is_some(),
+        Err(_) => false,
+    }
 }
 
 /// Checks whether the relay selector is initialized, and performs the initialization if not.
@@ -48,7 +49,7 @@ fn relay_selector_is_some() -> bool {
 /// will await mutex release.
 async fn ensure_relay_selector_initialized(store_name: &str) {
     // Fast path: check if already initialized (no lock needed)
-    if relay_selector_is_some() {
+    if relay_selector_is_some().await {
         return;
     }
 
@@ -57,11 +58,12 @@ async fn ensure_relay_selector_initialized(store_name: &str) {
     let _guard = mutex.lock().await;
 
     // Double-check: another task might have initialized while we waited for the lock
-    if relay_selector_is_some() {
+    if relay_selector_is_some().await {
         return;
     }
 
     // We hold the lock and selector is still None - safe to initialize
+    console::log_1(&"[ensure_relay_selector_initialized] initializing relay selector".into());
 
     console_error_panic_hook::set_once();
 
@@ -71,23 +73,31 @@ async fn ensure_relay_selector_initialized(store_name: &str) {
         .unwrap_throw()
         .expect("Config provider must be set before initializing relay selector");
 
+    console::log_1(&"[ensure_relay_selector_initialized] Calling `RelaySelector::init`".into());
     let selector = RelaySelector::init(store_name, config_provider)
         .await
         .unwrap_throw();
 
     RELAY_SELECTOR
         .try_with(|rc_selector| {
-            // Only replace if still None (extra safety check)
-            let mut borrow = rc_selector.borrow_mut();
-            if borrow.is_none() {
-                *borrow = Some(selector);
-            } else {
+            let selector_clone = Rc::clone(rc_selector);
+            async move {
+                let mut guard = selector_clone.lock().await;
+                if guard.is_none() {
+                    *guard = Some(selector);
+                    console::log_1(
+                        &"[ensure_relay_selector_initialized] initialization complete".into(),
+                    );
+                } else {
+                    console::log_1(
+                        &"[ensure_relay_selector_initialized] already initialized by another task"
+                            .into(),
+                    );
+                }
             }
         })
-        .unwrap_throw();
-
-    // TODO: Reference count for selector memory goes to 0 before lock is released, causing
-    // premature drop.
+        .unwrap_throw()
+        .await;
 
     // Lock released when _guard is dropped
 }
@@ -108,8 +118,8 @@ pub async fn record_response_time(
     ensure_relay_selector_initialized(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
-    let mut selector_ref = selector_rc.borrow_mut();
-    let selector = selector_ref.as_mut().unwrap_throw();
+    let mut selector_guard = selector_rc.lock().await;
+    let selector = selector_guard.as_mut().unwrap_throw();
 
     if !selector.contains(relay_url) {
         selector.insert(relay_url, variant).await;
@@ -128,8 +138,8 @@ pub async fn record_request(relay_url: &str, is_success: bool, relay_type: Optio
     ensure_relay_selector_initialized(STORE_NAME).await;
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
-    let mut selector_ref = selector_rc.borrow_mut();
-    let selector = selector_ref.as_mut().unwrap_throw();
+    let mut selector_guard = selector_rc.lock().await;
+    let selector = selector_guard.as_mut().unwrap_throw();
 
     if !selector.contains(relay_url) {
         selector.insert(relay_url, variant).await;
@@ -223,7 +233,8 @@ pub async fn get_relay(
     // pass references to the data inside the thread-local storage across an `await` within the
     // thread-local storage's `try_with` callback.
     let url = selector_rc
-        .borrow_mut()
+        .lock()
+        .await
         .as_mut()
         .unwrap_throw()
         .get_relay_by_weighted_round_robin(variant, rank, is_server_side.unwrap_or(false))
@@ -259,7 +270,8 @@ pub async fn add_relay(relay_url: &str, relay_type: Option<String>) {
 
     let selector_rc = RELAY_SELECTOR.try_with(|rc| rc.clone()).unwrap_throw();
     selector_rc
-        .borrow_mut()
+        .lock()
+        .await
         .as_mut()
         .unwrap_throw()
         .insert(relay_url, variant)

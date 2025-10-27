@@ -1,6 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
+use futures::lock::Mutex;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
+use web_sys::console;
 
 use crate::relay;
 use crate::relay_selector;
@@ -15,14 +18,14 @@ pub struct RelayHandle {
     pub url: String,
     #[wasm_bindgen(getter_with_clone)]
     pub variant: String,
-    selector: *const RefCell<Option<relay_selector::RelaySelector>>,
+    selector: *const Mutex<Option<relay_selector::RelaySelector>>,
 }
 
 impl RelayHandle {
     pub fn new(
         url: String,
         variant: relay::Variant,
-        selector: &Rc<RefCell<Option<relay_selector::RelaySelector>>>,
+        selector: &Rc<Mutex<Option<relay_selector::RelaySelector>>>,
     ) -> Self {
         let selector_clone = Rc::clone(selector);
         RelayHandle {
@@ -37,14 +40,22 @@ impl Drop for RelayHandle {
     /// Cleans up the relay handle by returning it to the selector, allowing the selector to update
     /// its weights accordingly.
     fn drop(&mut self) {
+        let url = self.url.clone();
+        let url_js = JsValue::from_str(&url);
+
         let variant =
             relay::Variant::from_str(self.variant.as_str()).unwrap_or(relay::Variant::General);
+
         let selector = unsafe { Rc::from_raw(self.selector) };
-        selector
-            .borrow_mut()
-            .as_mut()
-            .unwrap()
-            .return_relay(self.url.as_str(), variant);
-        drop(selector)
+
+        // Spawn async task to acquire mutex and call return_relay
+        spawn_local(async move {
+            let mut guard = selector.lock().await;
+            if let Some(sel) = guard.as_mut() {
+                sel.return_relay(&url, variant);
+            }
+            drop(guard);
+            drop(selector);
+        });
     }
 }
