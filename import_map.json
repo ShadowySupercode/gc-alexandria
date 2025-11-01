@@ -27,6 +27,7 @@
     "qrcode": "npm:qrcode@^1.5.4",
     "child_process": "node:child_process",
     "process": "node:process",
-    "tailwindcss": "npm:tailwindcss@^4.1.11"
+    "tailwindcss": "npm:tailwindcss@^4.1.11",
+    "postcss-import": "npm:postcss-import@^16.1.1"
   }
 }

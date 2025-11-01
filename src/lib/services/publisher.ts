@@ -1,8 +1,6 @@
 import { getMimeTags } from "../utils/mime.ts";
-import {
-  metadataToTags,
-  parseAsciiDocWithMetadata,
-} from "../utils/asciidoc_metadata.ts";
+import { metadataToTags } from "../utils/asciidoc_metadata.ts";
+import { parseAsciiDocWithMetadata } from "../utils/asciidoc_parser.ts";
 import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 
@@ -10,6 +8,14 @@ export interface PublishResult {
   success: boolean;
   eventId?: string;
   error?: string;
+}
+
+export interface ProcessedPublishResults {
+  successCount: number;
+  total: number;
+  errors: string[];
+  successfulEvents: Array<{ eventId: string; title: string }>;
+  failedEvents: Array<{ title: string; error: string; sectionIndex: number }>;
 }
 
 export interface PublishOptions {
@@ -96,9 +102,103 @@ export async function publishZettel(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    onError?.(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Publishes a single Nostr event directly
+ * @param options - Publishing options for a single event
+ * @returns Promise resolving to publish result
+ */
+export async function publishSingleEvent(
+  options: {
+    content: string;
+    kind: number;
+    tags: string[][];
+    onError?: (error: string) => void;
+  },
+  ndk: NDK,
+): Promise<PublishResult> {
+  const { content, kind, tags, onError } = options;
+  if (!ndk?.activeUser) {
+    const error = "Please log in first";
+    onError?.(error);
+    return { success: false, error };
+  }
+
+  try {
+    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map(
+      (r) => r.url,
+    );
+    if (allRelayUrls.length === 0) {
+      throw new Error("No relays available in NDK pool");
+    }
+    const relaySet = NDKRelaySet.fromRelayUrls(allRelayUrls, ndk);
+
+    // Fix a-tags that have placeholder "pubkey" with actual pubkey
+    const fixedTags = tags.map((tag) => {
+      if (
+        tag[0] === "a" &&
+        tag[1] &&
+        tag[1].includes(":pubkey:") &&
+        ndk.activeUser
+      ) {
+        // Replace "pubkey" placeholder with actual pubkey
+        const fixedATag = tag[1].replace(
+          ":pubkey:",
+          `:${ndk.activeUser.pubkey}:`,
+        );
+        return [tag[0], fixedATag, tag[2] || "", tag[3] || ""];
+      }
+      return tag;
+    });
+
+    // Auto-add author identity if not publishing on behalf of others
+    const hasAuthorTag = fixedTags.some((tag) => tag[0] === "author");
+    const hasPTag = fixedTags.some((tag) => tag[0] === "p");
+
+    const finalTags = [...fixedTags];
+
+    if (!hasAuthorTag && ndk.activeUser) {
+      // Add display name as author
+      const displayName =
+        ndk.activeUser.profile?.displayName ||
+        ndk.activeUser.profile?.name ||
+        "Anonymous";
+      finalTags.push(["author", displayName]);
+    }
+
+    if (!hasPTag && ndk.activeUser) {
+      // Add pubkey as p-tag
+      finalTags.push(["p", ndk.activeUser.pubkey]);
+    }
+
+    // Create and sign NDK event
+    const ndkEvent = new NDKEvent(ndk);
+    ndkEvent.kind = kind;
+    ndkEvent.created_at = Math.floor(Date.now() / 1000);
+    ndkEvent.tags = finalTags;
+    ndkEvent.content = content;
+    ndkEvent.pubkey = ndk.activeUser.pubkey;
+
+    await ndkEvent.sign();
+
+    // Publish to relays
+    const publishedToRelays = await ndkEvent.publish(relaySet);
+
+    if (publishedToRelays.size > 0) {
+      return { success: true, eventId: ndkEvent.id };
+    } else {
+      throw new Error("Failed to publish to any relays");
+    }
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error(`Error publishing event: ${errorMessage}`);
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -133,8 +233,8 @@ export async function publishMultipleZettels(
       throw new Error("No valid sections found in content");
     }
 
-    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map((r) =>
-      r.url
+    const allRelayUrls = Array.from(ndk.pool?.relays.values() || []).map(
+      (r) => r.url,
     );
     if (allRelayUrls.length === 0) {
       throw new Error("No relays available in NDK pool");
@@ -172,39 +272,92 @@ export async function publishMultipleZettels(
           });
         }
       } catch (err) {
-        const errorMessage = err instanceof Error
-          ? err.message
-          : "Unknown error";
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error";
         results.push({ success: false, error: errorMessage });
       }
     }
-    // Debug: extract and log 'e' and 'a' tags from all published events
-    publishedEvents.forEach((ev) => {
-      // Extract d-tag from tags
-      const dTagEntry = ev.tags.find((t) => t[0] === "d");
-      const dTag = dTagEntry ? dTagEntry[1] : "";
-      const aTag = `${ev.kind}:${ev.pubkey}:${dTag}`;
-      console.log(`Event ${ev.id} tags:`);
-      console.log("  e:", ev.id);
-      console.log("  a:", aTag);
-      // Print nevent and naddr using nip19
-      const nevent = nip19.neventEncode({ id: ev.id });
-      const naddr = nip19.naddrEncode({
-        kind: ev.kind,
-        pubkey: ev.pubkey,
-        identifier: dTag,
-      });
-      console.log("  nevent:", nevent);
-      console.log("  naddr:", naddr);
-    });
     return results;
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     onError?.(errorMessage);
     return [{ success: false, error: errorMessage }];
   }
+}
+
+/**
+ * Processes publish results and extracts success/failure information
+ * @param results - Array of publish results
+ * @param events - Event objects containing content and metadata
+ * @param hasIndexEvent - Whether the events include an index event
+ * @returns Processed results with counts and event details
+ */
+export function processPublishResults(
+  results: PublishResult[],
+  events: { indexEvent?: any; contentEvents: any[] },
+  hasIndexEvent: boolean = false,
+): ProcessedPublishResults {
+  const successCount = results.filter((r) => r.success).length;
+  const errors = results
+    .filter((r) => !r.success && r.error)
+    .map((r) => r.error!);
+
+  // Extract successful events with their titles
+  const successfulEvents = results
+    .filter((r) => r.success && r.eventId)
+    .map((r, index) => {
+      let title: string;
+
+      if (index === 0 && hasIndexEvent && events.indexEvent) {
+        title = "Article Index";
+      } else {
+        const contentIndex = hasIndexEvent ? index - 1 : index;
+        const contentEvent = events.contentEvents[contentIndex];
+        title =
+          contentEvent?.title ||
+          contentEvent?.tags?.find((t: any) => t[0] === "title")?.[1] ||
+          `Note ${contentIndex + 1}`;
+      }
+
+      return {
+        eventId: r.eventId!,
+        title,
+      };
+    });
+
+  // Extract failed events with their titles and errors
+  const failedEvents = results
+    .map((r, index) => ({ result: r, index }))
+    .filter(({ result }) => !result.success)
+    .map(({ result, index }) => {
+      let title: string;
+
+      if (index === 0 && hasIndexEvent && events.indexEvent) {
+        title = "Article Index";
+      } else {
+        const contentIndex = hasIndexEvent ? index - 1 : index;
+        const contentEvent = events.contentEvents[contentIndex];
+        title =
+          contentEvent?.title ||
+          contentEvent?.tags?.find((t: any) => t[0] === "title")?.[1] ||
+          `Note ${contentIndex + 1}`;
+      }
+
+      return {
+        title,
+        error: result.error || "Unknown error",
+        sectionIndex: index,
+      };
+    });
+
+  return {
+    successCount,
+    total: results.length,
+    errors,
+    successfulEvents,
+    failedEvents,
+  };
 }
 
 function generateDTag(title: string): string {
