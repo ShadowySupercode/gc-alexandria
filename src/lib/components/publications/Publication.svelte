@@ -24,6 +24,8 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import ArticleNav from "$components/util/ArticleNav.svelte";
+  import HighlightLayer from "./HighlightLayer.svelte";
+  import { EyeOutline, EyeSlashOutline } from "flowbite-svelte-icons";
 
   let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
     rootAddress: string;
@@ -32,6 +34,11 @@
     publicationTree: SveltePublicationTree;
     toc: TocType;
   }>();
+
+  // Highlight layer state
+  let highlightsVisible = $state(false);
+  let highlightLayerRef: any = null;
+  let publicationContentRef: HTMLElement | null = $state(null);
 
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
@@ -184,6 +191,10 @@
     return currentBlog && currentBlogEvent && window.innerWidth < 1140;
   }
 
+  function toggleHighlights() {
+    highlightsVisible = !highlightsVisible;
+  }
+
   // #endregion
 
   /**
@@ -249,6 +260,13 @@
     };
   });
 
+  // Setup highlight layer container reference
+  $effect(() => {
+    if (publicationContentRef && highlightLayerRef) {
+      highlightLayerRef.setContainer(publicationContentRef);
+    }
+  });
+
   // #endregion
 </script>
 
@@ -260,6 +278,23 @@
       rootId={indexEvent.id}
       indexEvent={indexEvent}
     />
+
+    <!-- Highlight toggle button -->
+    <Button
+      class="fixed top-20 right-4 z-40 shadow-lg"
+      color="primary"
+      size="sm"
+      onclick={toggleHighlights}
+      title={highlightsVisible ? "Hide Highlights" : "Show Highlights"}
+    >
+      {#if highlightsVisible}
+        <EyeSlashOutline class="w-4 h-4 mr-2" />
+        Hide Highlights
+      {:else}
+        <EyeOutline class="w-4 h-4 mr-2" />
+        Show Highlights
+      {/if}
+    </Button>
   <!-- Three-column row -->
   <div class="contents">
     <!-- Table of contents -->
@@ -299,7 +334,7 @@
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
-        <div class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto">
+        <div class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto" bind:this={publicationContentRef}>
           <div
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
@@ -427,3 +462,11 @@
     </div>
   </div>
 </div>
+
+<!-- Highlight Layer Component -->
+<HighlightLayer
+  bind:this={highlightLayerRef}
+  eventId={indexEvent.id}
+  eventAddress={rootAddress}
+  bind:visible={highlightsVisible}
+/>
