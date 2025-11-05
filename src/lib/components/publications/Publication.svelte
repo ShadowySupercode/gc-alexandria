@@ -24,6 +24,8 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import ArticleNav from "$components/util/ArticleNav.svelte";
+  import HighlightButton from "./HighlightButton.svelte";
+  import HighlightSelectionHandler from "./HighlightSelectionHandler.svelte";
 
   let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
     rootAddress: string;
@@ -41,6 +43,7 @@
   let activeAddress = $state<string | null>(null);
   let loadedAddresses = $state<Set<string>>(new Set());
   let hasInitialized = $state(false);
+  let highlightModeActive = $state(false);
 
   let observer: IntersectionObserver;
 
@@ -260,6 +263,15 @@
       rootId={indexEvent.id}
       indexEvent={indexEvent}
     />
+
+  <!-- Highlight selection handler -->
+  <HighlightSelectionHandler
+    isActive={highlightModeActive}
+    publicationEvent={indexEvent}
+    onHighlightCreated={() => {
+      highlightModeActive = false;
+    }}
+  />
   <!-- Three-column row -->
   <div class="contents">
     <!-- Table of contents -->
@@ -304,6 +316,11 @@
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
             <Details event={indexEvent} />
+          </div>
+
+          <!-- Highlight button -->
+          <div class="flex justify-end mb-4">
+            <HighlightButton bind:isActive={highlightModeActive} />
           </div>
           <!-- Publication sections/cards -->
           {#each leaves as leaf, i}
