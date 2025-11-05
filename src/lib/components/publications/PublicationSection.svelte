@@ -13,6 +13,7 @@
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
   import NDK from "@nostr-dev-kit/ndk";
+  import CommentButton from "./CommentButton.svelte";
 
   let {
     address,
@@ -146,8 +147,10 @@
 <section
   id={address}
   bind:this={sectionRef}
-  class="publication-leather content-visibility-auto"
+  class="publication-leather content-visibility-auto section-with-comment"
 >
+  <CommentButton {address} />
+
   {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
     <TextPlaceholder size="xxl" />
   {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
@@ -168,3 +171,9 @@
     )}
   {/await}
 </section>
+
+<style>
+  .section-with-comment {
+    position: relative;
+  }
+</style>
