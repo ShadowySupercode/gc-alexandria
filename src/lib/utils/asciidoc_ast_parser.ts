@@ -104,22 +104,26 @@ function extractSubsections(section: any, parseLevel: number): ASTSection[] {
  * This integrates with Michael's PublicationTree architecture
  */
 export async function createPublicationTreeFromAST(
-  content: string, 
-  ndk: NDK, 
-  parseLevel: number = 2
+  content: string,
+  ndk: NDK,
+  parseLevel: number = 2,
 ): Promise<PublicationTree> {
   const parsed = parseAsciiDocAST(content, parseLevel);
-  
+
   // Create root 30040 index event from document metadata
   const rootEvent = createIndexEventFromAST(parsed, ndk);
   const tree = new PublicationTree(rootEvent, ndk);
-  
-  // Add sections as 30041 events
+
+  // Add sections as 30041 events with proper namespacing
   for (const section of parsed.sections) {
-    const contentEvent = createContentEventFromSection(section, ndk);
+    const contentEvent = createContentEventFromSection(
+      section,
+      ndk,
+      parsed.title,
+    );
     await tree.addEvent(contentEvent, rootEvent);
   }
-  
+
   return tree;
 }
 
@@ -130,57 +134,80 @@ function createIndexEventFromAST(parsed: ASTParsedDocument, ndk: NDK): NDKEvent 
   const event = new NDKEvent(ndk);
   event.kind = 30040;
   event.created_at = Math.floor(Date.now() / 1000);
-  
+
   // Generate d-tag from title
   const dTag = generateDTag(parsed.title);
   const [mTag, MTag] = getMimeTags(30040);
-  
+
   const tags: string[][] = [
     ["d", dTag],
     mTag,
     MTag,
-    ["title", parsed.title]
+    ["title", parsed.title],
   ];
-  
+
   // Add document attributes as tags
   addAttributesAsTags(tags, parsed.attributes);
-  
+
+  // Generate publication abbreviation for namespacing sections
+  const pubAbbrev = generateTitleAbbreviation(parsed.title);
+
   // Add a-tags for each section (30041 content events)
-  parsed.sections.forEach(section => {
+  // Using new format: kind:pubkey:{abbv}-{section-d-tag}
+  parsed.sections.forEach((section) => {
     const sectionDTag = generateDTag(section.title);
-    tags.push(["a", `30041:${ndk.activeUser?.pubkey || 'pubkey'}:${sectionDTag}`]);
+    const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+    tags.push([
+      "a",
+      `30041:${ndk.activeUser?.pubkey || "pubkey"}:${namespacedDTag}`,
+    ]);
   });
-  
+
   event.tags = tags;
   event.content = parsed.content;
-  
+
   return event;
 }
 
 /**
  * Create a 30041 content event from an AST section
+ * Note: This function needs the publication title for proper namespacing
+ * but the current implementation doesn't have access to it.
+ * Consider using createPublicationTreeFromAST instead which handles this correctly.
  */
-function createContentEventFromSection(section: ASTSection, ndk: NDK): NDKEvent {
+function createContentEventFromSection(
+  section: ASTSection,
+  ndk: NDK,
+  publicationTitle?: string,
+): NDKEvent {
   const event = new NDKEvent(ndk);
   event.kind = 30041;
   event.created_at = Math.floor(Date.now() / 1000);
-  
-  const dTag = generateDTag(section.title);
+
+  // Generate namespaced d-tag if publication title is provided
+  const sectionDTag = generateDTag(section.title);
+  let dTag = sectionDTag;
+
+  if (publicationTitle) {
+    const pubAbbrev = generateTitleAbbreviation(publicationTitle);
+    dTag = `${pubAbbrev}-${sectionDTag}`;
+  }
+
   const [mTag, MTag] = getMimeTags(30041);
-  
+
   const tags: string[][] = [
     ["d", dTag],
     mTag,
     MTag,
-    ["title", section.title]
+    ["title", section.title],
   ];
-  
+
   // Add section attributes as tags
   addAttributesAsTags(tags, section.attributes);
-  
+
   event.tags = tags;
   event.content = section.content;
-  
+
   return event;
 }
 
@@ -193,6 +220,32 @@ function generateDTag(title: string): string {
     .replace(/[^\p{L}\p{N}]/gu, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/**
+ * Generate title abbreviation from first letters of each word
+ * Used for namespacing section a-tags
+ * @param title - The publication title
+ * @returns Abbreviation string (e.g., "My Test Article" → "mta")
+ */
+function generateTitleAbbreviation(title: string): string {
+  if (!title || !title.trim()) {
+    return "u"; // "untitled"
+  }
+
+  // Split on non-alphanumeric characters and filter out empty strings
+  const words = title
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return "u";
+  }
+
+  // Take first letter of each word and join
+  return words
+    .map((word) => word.charAt(0).toLowerCase())
+    .join("");
 }
 
 /**
@@ -250,24 +303,28 @@ export function createPublicationTreeProcessor(ndk: NDK, parseLevel: number = 2)
  * Helper function to create PublicationTree from Asciidoctor Document
  */
 async function createPublicationTreeFromDocument(
-  document: Document, 
-  ndk: NDK, 
-  parseLevel: number
+  document: Document,
+  ndk: NDK,
+  parseLevel: number,
 ): Promise<PublicationTree> {
   const parsed: ASTParsedDocument = {
-    title: document.getTitle() || '',
-    content: document.getContent() || '',
+    title: document.getTitle() || "",
+    content: document.getContent() || "",
     attributes: document.getAttributes(),
-    sections: extractSectionsFromAST(document, parseLevel)
+    sections: extractSectionsFromAST(document, parseLevel),
   };
-  
+
   const rootEvent = createIndexEventFromAST(parsed, ndk);
   const tree = new PublicationTree(rootEvent, ndk);
-  
+
   for (const section of parsed.sections) {
-    const contentEvent = createContentEventFromSection(section, ndk);
+    const contentEvent = createContentEventFromSection(
+      section,
+      ndk,
+      parsed.title,
+    );
     await tree.addEvent(contentEvent, rootEvent);
   }
-  
+
   return tree;
 }

@@ -10,7 +10,8 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
-  
+  import { deleteEvent } from "$lib/services/deletion";
+
   const {
     rootId,
     event,
@@ -24,6 +25,38 @@
   }>();
 
   const ndk = getNdkContext();
+
+  /**
+   * Handle deletion of this blog article
+   */
+  async function handleDelete() {
+    const confirmed = confirm(
+      "Are you sure you want to delete this article? This action will publish a deletion request to all relays."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteEvent({
+        eventAddress: event.tagAddress(),
+        eventKind: event.kind,
+        reason: "User deleted article",
+        onSuccess: (deletionEventId) => {
+          console.log("[BlogHeader] Deletion event published:", deletionEventId);
+          // Call onBlogUpdate if provided to refresh the list
+          if (onBlogUpdate) {
+            onBlogUpdate();
+          }
+        },
+        onError: (error) => {
+          console.error("[BlogHeader] Deletion failed:", error);
+          alert(`Failed to delete article: ${error}`);
+        },
+      }, ndk);
+    } catch (error) {
+      console.error("[BlogHeader] Deletion error:", error);
+    }
+  }
 
   let title: string = $derived(event.getMatchingTags("title")[0]?.[1]);
   let author: string = $derived(
@@ -106,7 +139,7 @@
       
       <!-- Position CardActions at bottom-right -->
       <div class="absolute bottom-2 right-2">
-        <CardActions {event} />
+        <CardActions {event} onDelete={handleDelete} />
       </div>
     </div>
   </Card>

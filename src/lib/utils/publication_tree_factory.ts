@@ -120,10 +120,15 @@ function createIndexEvent(parsed: any, ndk: NDK): NDKEvent {
   // Add document attributes as tags
   addDocumentAttributesToTags(tags, parsed.attributes, event.pubkey);
 
+  // Generate publication abbreviation for namespacing sections
+  const pubAbbrev = generateTitleAbbreviation(parsed.title);
+
   // Add a-tags for each section (30041 references)
+  // Using new format: kind:pubkey:{abbv}-{section-d-tag}
   parsed.sections.forEach((section: any) => {
     const sectionDTag = generateDTag(section.title);
-    tags.push(["a", `30041:${event.pubkey}:${sectionDTag}`]);
+    const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+    tags.push(["a", `30041:${event.pubkey}:${namespacedDTag}`]);
   });
 
   event.tags = tags;
@@ -147,10 +152,19 @@ function createContentEvent(
   // Use placeholder pubkey for preview if no active user
   event.pubkey = ndk.activeUser?.pubkey || "preview-placeholder-pubkey";
 
-  const dTag = generateDTag(section.title);
+  // Generate namespaced d-tag using publication abbreviation
+  const sectionDTag = generateDTag(section.title);
+  const pubAbbrev = generateTitleAbbreviation(documentParsed.title);
+  const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+
   const [mTag, MTag] = getMimeTags(30041);
 
-  const tags: string[][] = [["d", dTag], mTag, MTag, ["title", section.title]];
+  const tags: string[][] = [
+    ["d", namespacedDTag],
+    mTag,
+    MTag,
+    ["title", section.title],
+  ];
 
   // Add section-specific attributes
   addSectionAttributesToTags(tags, section.attributes);
@@ -198,6 +212,32 @@ function generateDTag(title: string): string {
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "") || "untitled"
   );
+}
+
+/**
+ * Generate title abbreviation from first letters of each word
+ * Used for namespacing section a-tags
+ * @param title - The publication title
+ * @returns Abbreviation string (e.g., "My Test Article" → "mta")
+ */
+function generateTitleAbbreviation(title: string): string {
+  if (!title || !title.trim()) {
+    return "u"; // "untitled"
+  }
+
+  // Split on non-alphanumeric characters and filter out empty strings
+  const words = title
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return "u";
+  }
+
+  // Take first letter of each word and join
+  return words
+    .map((word) => word.charAt(0).toLowerCase())
+    .join("");
 }
 
 /**
