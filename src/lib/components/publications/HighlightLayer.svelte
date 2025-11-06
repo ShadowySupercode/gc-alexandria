@@ -5,6 +5,16 @@
   import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import { communityRelays } from "$lib/consts";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
+  import {
+    groupHighlightsByAuthor,
+    truncateHighlight,
+    encodeHighlightNaddr,
+    getRelaysFromHighlight,
+    getAuthorDisplayName,
+    sortHighlightsByTime
+  } from "$lib/utils/highlightUtils";
+  import { unifiedProfileCache } from "$lib/utils/npubCache";
+  import { nip19 } from "nostr-tools";
 
   let {
     eventId,
@@ -27,6 +37,11 @@
   let loading = $state(false);
   let containerRef: HTMLElement | null = $state(null);
 
+  // State for hierarchical UI
+  let expandedAuthors = $state(new Set<string>());
+  let authorProfiles = $state(new Map<string, any>());
+  let copyFeedback = $state<string | null>(null);
+
   // Derived state for color mapping
   let colorMap = $derived.by(() => {
     const map = new Map<string, string>();
@@ -37,6 +52,11 @@
       }
     });
     return map;
+  });
+
+  // Derived state for grouped highlights
+  let groupedHighlights = $derived.by(() => {
+    return groupHighlightsByAuthor(highlights);
   });
 
   /**
@@ -208,6 +228,97 @@
     } catch (err) {
       console.error(`[HighlightLayer] Error fetching highlights:`, err);
       loading = false;
+    }
+  }
+
+  /**
+   * Fetch profiles for all unique highlight authors
+   */
+  async function fetchAuthorProfiles() {
+    const uniquePubkeys = Array.from(groupedHighlights.keys());
+    console.log(`[HighlightLayer] Fetching profiles for ${uniquePubkeys.length} authors`);
+
+    for (const pubkey of uniquePubkeys) {
+      try {
+        // Convert hex pubkey to npub for the profile cache
+        const npub = nip19.npubEncode(pubkey);
+        const profile = await unifiedProfileCache.getProfile(npub, ndk);
+        if (profile) {
+          authorProfiles.set(pubkey, profile);
+          // Trigger reactivity
+          authorProfiles = new Map(authorProfiles);
+        }
+      } catch (err) {
+        console.error(`[HighlightLayer] Error fetching profile for ${pubkey}:`, err);
+      }
+    }
+  }
+
+  /**
+   * Toggle expansion of an author's highlight list
+   */
+  function toggleAuthor(pubkey: string) {
+    if (expandedAuthors.has(pubkey)) {
+      expandedAuthors.delete(pubkey);
+    } else {
+      expandedAuthors.add(pubkey);
+    }
+    // Trigger reactivity
+    expandedAuthors = new Set(expandedAuthors);
+  }
+
+  /**
+   * Scroll to a specific highlight in the document
+   */
+  function scrollToHighlight(highlight: NDKEvent) {
+    if (!containerRef) return;
+
+    const content = highlight.content;
+    if (!content || content.trim().length === 0) return;
+
+    // Find the highlight mark element
+    const highlightMarks = containerRef.querySelectorAll("mark.highlight");
+
+    for (const mark of highlightMarks) {
+      const markText = mark.textContent?.toLowerCase() || "";
+      const searchText = content.toLowerCase();
+
+      if (markText === searchText) {
+        // Scroll to this element
+        mark.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Add a temporary flash effect
+        mark.classList.add("highlight-flash");
+        setTimeout(() => {
+          mark.classList.remove("highlight-flash");
+        }, 1500);
+
+        console.log(`[HighlightLayer] Scrolled to highlight:`, content.substring(0, 50));
+        return;
+      }
+    }
+
+    console.log(`[HighlightLayer] Could not find highlight mark for:`, content.substring(0, 50));
+  }
+
+  /**
+   * Copy highlight naddr to clipboard
+   */
+  async function copyHighlightNaddr(highlight: NDKEvent) {
+    const relays = getRelaysFromHighlight(highlight);
+    const naddr = encodeHighlightNaddr(highlight, relays);
+
+    try {
+      await navigator.clipboard.writeText(naddr);
+      copyFeedback = highlight.id;
+      console.log(`[HighlightLayer] Copied naddr to clipboard:`, naddr);
+
+      // Clear feedback after 2 seconds
+      setTimeout(() => {
+        copyFeedback = null;
+      }, 2000);
+    } catch (err) {
+      console.error(`[HighlightLayer] Error copying to clipboard:`, err);
     }
   }
 
@@ -420,6 +531,14 @@
     }
   });
 
+  // Fetch profiles when highlights change
+  $effect(() => {
+    const highlightCount = highlights.length;
+    if (highlightCount > 0) {
+      fetchAuthorProfiles();
+    }
+  });
+
   /**
    * Bind to parent container element
    */
@@ -450,20 +569,78 @@
 {/if}
 
 {#if visible && highlights.length > 0}
-  <div class="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 max-w-xs">
-    <h4 class="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">
-      Highlights ({highlights.length})
+  <div class="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 max-w-sm w-80">
+    <h4 class="text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100">
+      Highlights
     </h4>
-    <div class="space-y-1">
-      {#each Array.from(colorMap.entries()) as [pubkey, color]}
-        <div class="flex items-center gap-2 text-xs">
-          <div
-            class="w-4 h-4 rounded"
-            style="background-color: {color};"
-          ></div>
-          <span class="text-gray-600 dark:text-gray-300 truncate">
-            {pubkey.slice(0, 8)}...
-          </span>
+    <div class="space-y-2 max-h-96 overflow-y-auto">
+      {#each Array.from(groupedHighlights.entries()) as [pubkey, authorHighlights]}
+        {@const isExpanded = expandedAuthors.has(pubkey)}
+        {@const profile = authorProfiles.get(pubkey)}
+        {@const displayName = getAuthorDisplayName(profile, pubkey)}
+        {@const color = colorMap.get(pubkey) || "hsla(60, 70%, 60%, 0.3)"}
+        {@const sortedHighlights = sortHighlightsByTime(authorHighlights)}
+
+        <div class="border-b border-gray-200 dark:border-gray-700 pb-2">
+          <!-- Author header -->
+          <button
+            class="w-full flex items-center gap-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded transition-colors"
+            onclick={() => toggleAuthor(pubkey)}
+          >
+            <div
+              class="w-3 h-3 rounded flex-shrink-0"
+              style="background-color: {color};"
+            ></div>
+            <span class="font-medium text-gray-900 dark:text-gray-100 flex-1 text-left truncate">
+              {displayName}
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              ({authorHighlights.length})
+            </span>
+            <svg
+              class="w-4 h-4 text-gray-500 transition-transform {isExpanded ? 'rotate-90' : ''}"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <!-- Expanded highlight list -->
+          {#if isExpanded}
+            <div class="mt-2 ml-5 space-y-2">
+              {#each sortedHighlights as highlight}
+                {@const truncated = truncateHighlight(highlight.content)}
+                {@const showCopied = copyFeedback === highlight.id}
+
+                <div class="flex items-start gap-2 group">
+                  <button
+                    class="flex-1 text-left text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                    onclick={() => scrollToHighlight(highlight)}
+                    title={highlight.content}
+                  >
+                    {truncated}
+                  </button>
+                  <button
+                    class="flex-shrink-0 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                    onclick={() => copyHighlightNaddr(highlight)}
+                    title="Copy naddr"
+                  >
+                    {#if showCopied}
+                      <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                      </svg>
+                    {:else}
+                      <svg class="w-3 h-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    {/if}
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -477,5 +654,19 @@
 
   :global(mark.highlight:hover) {
     filter: brightness(1.1);
+  }
+
+  :global(mark.highlight.highlight-flash) {
+    animation: flash 1.5s ease-in-out;
+  }
+
+  @keyframes :global(flash) {
+    0%, 100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.5);
+      box-shadow: 0 0 8px rgba(255, 255, 0, 0.6);
+    }
   }
 </style>
