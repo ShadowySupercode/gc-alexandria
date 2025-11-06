@@ -23,7 +23,7 @@
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
   import Asciidoctor from "asciidoctor";
-  import { extractWikiLinks } from "$lib/utils/wiki_links";
+  import { extractWikiLinks, renderWikiLinksToHtml } from "$lib/utils/wiki_links";
 
   // Initialize Asciidoctor processor
   const asciidoctor = Asciidoctor();
@@ -218,7 +218,8 @@
         event = findEventByDTag(publicationResult.contentEvents, node.dTag, node.eventKind);
       }
 
-      const tags = event?.tags.filter((t: string[]) => t[0] === "t") || [];
+      // Extract all tags (t for hashtags, w for wiki links)
+      const tags = event?.tags || [];
 
       // Extract the title from the title tag
       const titleTag = event?.tags.find((t: string[]) => t[0] === "title");
@@ -722,18 +723,18 @@
         fontWeight: "500",
         fontStyle: "italic",
       },
-      // Wiki links
+      // Wiki links - using theme primary colors (leather tones)
       ".cm-wiki-link-auto": {
-        color: "#8B5CF6", // violet-500 for [[term]] (auto)
+        color: "var(--color-primary-700)", // [[term]] (auto) - medium leather
         fontWeight: "500",
-        backgroundColor: "rgba(139, 92, 246, 0.1)",
+        backgroundColor: "color-mix(in srgb, var(--color-primary-700) 10%, transparent)",
         padding: "2px 4px",
         borderRadius: "3px",
       },
       ".cm-wiki-link-ref": {
-        color: "#06B6D4", // cyan-500 for [[w:term]] (reference)
+        color: "var(--color-primary-800)", // [[w:term]] (reference) - darker leather
         fontWeight: "500",
-        backgroundColor: "rgba(6, 182, 212, 0.1)",
+        backgroundColor: "color-mix(in srgb, var(--color-primary-800) 10%, transparent)",
         padding: "2px 4px",
         borderRadius: "3px",
       },
@@ -1026,10 +1027,11 @@
                         </h2>
 
                         <!-- Tags and wiki links -->
-                        {@const tTags = section.tags?.filter((tag) => tag[0] === 't') || []}
-                        {@const wTags = section.tags?.filter((tag) => tag[0] === 'w') || []}
+                        {#if section.tags && section.tags.length > 0}
+                          {@const tTags = section.tags.filter((tag) => tag[0] === 't')}
+                          {@const wTags = section.tags.filter((tag) => tag[0] === 'w')}
 
-                        {#if tTags.length > 0 || wTags.length > 0}
+                          {#if tTags.length > 0 || wTags.length > 0}
                           <div class="space-y-2">
                             <!-- Hashtags (t-tags) -->
                             {#if tTags.length > 0}
@@ -1049,7 +1051,7 @@
                               <div class="flex flex-wrap gap-2">
                                 {#each wTags as tag}
                                   <span
-                                    class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200 px-2 py-1 rounded text-xs font-medium border border-cyan-300 dark:border-cyan-700"
+                                    class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
                                     title="Wiki reference: {tag[1]}"
                                   >
                                     🔗 {tag[2] || tag[1]}
@@ -1058,6 +1060,7 @@
                               </div>
                             {/if}
                           </div>
+                          {/if}
                         {/if}
                       </div>
                     {:else}
@@ -1087,10 +1090,11 @@
                         </div>
 
                         <!-- Tags and wiki links (green for content events) -->
-                        {@const tTags = section.tags?.filter((tag) => tag[0] === 't') || []}
-                        {@const wTags = section.tags?.filter((tag) => tag[0] === 'w') || []}
+                        {#if section.tags && section.tags.length > 0}
+                          {@const tTags = section.tags.filter((tag) => tag[0] === 't')}
+                          {@const wTags = section.tags.filter((tag) => tag[0] === 'w')}
 
-                        {#if tTags.length > 0 || wTags.length > 0}
+                          {#if tTags.length > 0 || wTags.length > 0}
                           <div class="space-y-2">
                             <!-- Hashtags (t-tags) -->
                             {#if tTags.length > 0}
@@ -1110,15 +1114,16 @@
                               <div class="flex flex-wrap gap-2">
                                 {#each wTags as tag}
                                   <span
-                                    class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200 px-2 py-1 rounded text-xs font-medium border border-cyan-300 dark:border-cyan-700"
+                                    class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
                                     title="Wiki reference: {tag[1]}"
                                   >
                                     🔗 {tag[2] || tag[1]}
                                   </span>
                                 {/each}
-                              </div}
+                              </div>
                             {/if}
                           </div>
+                          {/if}
                         {/if}
 
                         <!-- Content rendered as AsciiDoc -->
@@ -1127,25 +1132,37 @@
                             class="prose prose-sm dark:prose-invert max-w-none mt-4"
                           >
                             {@html (() => {
+                              // Extract wiki links and replace with placeholders BEFORE Asciidoctor
+                              const wikiLinks = extractWikiLinks(section.content);
+                              let contentWithPlaceholders = section.content;
+                              const placeholders = new Map();
+
+                              wikiLinks.forEach((link, index) => {
+                                // Use a placeholder inside a passthrough macro - Asciidoctor will strip pass:[...] and leave the inner text
+                                const innerPlaceholder = `WIKILINK${index}PLACEHOLDER`;
+                                const placeholder = `pass:[${innerPlaceholder}]`;
+                                placeholders.set(innerPlaceholder, link); // Store by inner placeholder (what will remain after Asciidoctor)
+                                contentWithPlaceholders = contentWithPlaceholders.replace(link.fullMatch, placeholder);
+                              });
+
                               // Check if content contains nested headers
-                              const hasNestedHeaders = section.content.includes('\n===') || section.content.includes('\n====');
-                              
+                              const hasNestedHeaders = contentWithPlaceholders.includes('\n===') || contentWithPlaceholders.includes('\n====');
+
+                              let rendered;
                               if (hasNestedHeaders) {
                                 // For proper nested header parsing, we need full document context
                                 // Create a complete AsciiDoc document structure
                                 // Important: Ensure proper level sequence for nested headers
-                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${section.content}`;
-                                
-                                
-                                const rendered = asciidoctor.convert(fullDoc, {
+                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${contentWithPlaceholders}`;
+
+                                rendered = asciidoctor.convert(fullDoc, {
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
                                     sectids: false,
                                   },
                                 });
-                                
-                                
+
                                 // Extract just the content we want (remove the temporary structure)
                                 // Find the section we care about
                                 const sectionStart = rendered.indexOf(`<h${section.level}`);
@@ -1157,15 +1174,13 @@
                                     // Find where the section ends (at the closing div)
                                     const sectionEnd = afterHeader.lastIndexOf('</div>');
                                     if (sectionEnd !== -1) {
-                                      const extracted = afterHeader.substring(0, sectionEnd);
-                                      return extracted;
+                                      rendered = afterHeader.substring(0, sectionEnd);
                                     }
                                   }
                                 }
-                                return rendered;
                               } else {
                                 // Simple content without nested headers
-                                return asciidoctor.convert(section.content, {
+                                rendered = asciidoctor.convert(contentWithPlaceholders, {
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
@@ -1173,6 +1188,32 @@
                                   },
                                 });
                               }
+
+                              // Replace placeholders with actual wiki link HTML
+                              // Use a global regex to catch all occurrences (Asciidoctor might have duplicated them)
+                              placeholders.forEach((link, placeholder) => {
+                                const className =
+                                  link.type === 'auto'
+                                    ? 'wiki-link wiki-link-auto'
+                                    : link.type === 'w'
+                                      ? 'wiki-link wiki-link-ref'
+                                      : 'wiki-link wiki-link-def';
+
+                                const title =
+                                  link.type === 'w'
+                                    ? 'Wiki reference (mentions this concept)'
+                                    : link.type === 'd'
+                                      ? 'Wiki definition (defines this concept)'
+                                      : 'Wiki link (searches both references and definitions)';
+
+                                const html = `<a class="${className}" href="#wiki/${link.type}/${encodeURIComponent(link.term)}" title="${title}" data-wiki-type="${link.type}" data-wiki-term="${link.term}">${link.displayText}</a>`;
+
+                                // Use global replace to handle all occurrences
+                                const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                                rendered = rendered.replace(regex, html);
+                              });
+
+                              return rendered;
                             })()}
                           </div>
                         {/if}
@@ -1567,3 +1608,43 @@ Understanding the nature of knowledge...
     {/if}
   </div>
 </div>
+
+<style>
+  /* Wiki link styling in preview */
+  :global(.prose .wiki-link) {
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+    transition: all 0.2s;
+  }
+
+  :global(.prose .wiki-link:hover) {
+    border-bottom-style: solid;
+  }
+
+  /* Use theme primary colors (leather tones) */
+  :global(.prose .wiki-link-auto) {
+    color: var(--color-primary-700); /* medium leather */
+  }
+
+  :global(.prose .wiki-link-ref) {
+    color: var(--color-primary-800); /* darker leather */
+  }
+
+  :global(.prose .wiki-link-def) {
+    color: var(--color-warning-600); /* amber/yellow for definitions */
+    font-weight: 500;
+  }
+
+  /* Dark mode - use lighter shades for contrast */
+  :global(.dark .prose .wiki-link-auto) {
+    color: var(--color-primary-300); /* lighter leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-ref) {
+    color: var(--color-primary-400); /* medium-light leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-def) {
+    color: var(--color-warning-400); /* brighter amber for dark mode */
+  }
+</style>
