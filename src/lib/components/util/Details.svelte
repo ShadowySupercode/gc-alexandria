@@ -8,6 +8,7 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
+  import CommentButton from "$components/publications/CommentButton.svelte";
 
   const ndk = getNdkContext();
 
@@ -43,6 +44,7 @@
   );
   let rootId: string = $derived(getMatchingTags(event, "d")[0]?.[1] ?? null);
   let kind = $derived(event.kind);
+  let address: string = $derived(`${kind}:${event.pubkey}:${rootId}`);
 
   let authorTag: string = $derived(
     getMatchingTags(event, "author")[0]?.[1] ?? "",
@@ -67,7 +69,10 @@
       <P class="text-base font-normal"
         >{@render userBadge(event.pubkey, undefined, ndk)}</P
       >
-      <CardActions {event}></CardActions>
+      <div class="flex flex-row gap-2 items-center">
+        <CommentButton {address} inline={true} />
+        <CardActions {event}></CardActions>
+      </div>
     </div>
   {/if}
   <div

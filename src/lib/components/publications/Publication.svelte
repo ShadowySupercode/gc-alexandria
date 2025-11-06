@@ -42,6 +42,26 @@
   let highlightLayerRef: any = null;
   let publicationContentRef: HTMLElement | null = $state(null);
 
+  // Derive all event IDs and addresses for highlight fetching
+  let allEventIds = $derived.by(() => {
+    const ids = [indexEvent.id];
+    leaves.forEach(leaf => {
+      if (leaf?.id) ids.push(leaf.id);
+    });
+    return ids;
+  });
+
+  let allEventAddresses = $derived.by(() => {
+    const addresses = [rootAddress];
+    leaves.forEach(leaf => {
+      if (leaf) {
+        const addr = leaf.tagAddress();
+        if (addr) addresses.push(addr);
+      }
+    });
+    return addresses;
+  });
+
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state(false);
@@ -305,6 +325,13 @@
     publicationEvent={indexEvent}
     onHighlightCreated={() => {
       highlightModeActive = false;
+      // Refresh highlights after a short delay to allow relay indexing
+      setTimeout(() => {
+        if (highlightLayerRef) {
+          console.log("[Publication] Refreshing highlights after creation");
+          highlightLayerRef.refresh();
+        }
+      }, 500);
     }}
   />
   <!-- Three-column row -->
@@ -483,7 +510,7 @@
 <!-- Highlight Layer Component -->
 <HighlightLayer
   bind:this={highlightLayerRef}
-  eventId={indexEvent.id}
-  eventAddress={rootAddress}
+  eventIds={allEventIds}
+  eventAddresses={allEventAddresses}
   bind:visible={highlightsVisible}
 />

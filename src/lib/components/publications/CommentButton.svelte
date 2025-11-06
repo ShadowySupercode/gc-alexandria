@@ -4,14 +4,18 @@
   import type NDK from "@nostr-dev-kit/ndk";
   import { NDKEvent } from "@nostr-dev-kit/ndk";
   import { userStore } from "$lib/stores/userStore";
-  import { activeOutboxRelays } from "$lib/ndk";
+  import { activeOutboxRelays, activeInboxRelays } from "$lib/ndk";
+  import { communityRelays } from "$lib/consts";
+  import { WebSocketPool } from "$lib/data_structures/websocket_pool";
 
   let {
     address,
     onCommentPosted,
+    inline = false,
   }: {
     address: string;
     onCommentPosted?: () => void;
+    inline?: boolean;
   } = $props();
 
   const ndk: NDK = getContext("ndk");
@@ -22,7 +26,6 @@
   let isSubmitting = $state(false);
   let error = $state<string | null>(null);
   let success = $state(false);
-  let sectionHovered = $state(false);
 
   // Parse address to get event details
   function parseAddress(address: string): { kind: number; pubkey: string; dTag: string } | null {
@@ -76,6 +79,7 @@
     const commentEvent = new NDKEvent(ndk);
     commentEvent.kind = 1111;
     commentEvent.content = content;
+    commentEvent.pubkey = $userStore.pubkey || ""; // Set pubkey from user store
 
     // NIP-22 tags structure for top-level comments
     commentEvent.tags = [
@@ -126,19 +130,87 @@
         throw new Error("Failed to create comment event");
       }
 
-      // Sign the event
-      await commentEvent.sign($userStore.signer);
+      // Sign the event - create plain object to avoid proxy issues
+      const plainEvent = {
+        kind: Number(commentEvent.kind),
+        pubkey: String(commentEvent.pubkey),
+        created_at: Number(commentEvent.created_at ?? Math.floor(Date.now() / 1000)),
+        tags: commentEvent.tags.map((tag) => tag.map(String)),
+        content: String(commentEvent.content),
+      };
+
+      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
+        const signed = await window.nostr.signEvent(plainEvent);
+        commentEvent.sig = signed.sig;
+        if ("id" in signed) {
+          commentEvent.id = signed.id as string;
+        }
+      } else {
+        await commentEvent.sign($userStore.signer);
+      }
 
       console.log("[CommentButton] Signed comment event:", commentEvent.rawEvent());
 
-      // Publish to relays
-      const publishedRelays = await commentEvent.publish();
+      // Build relay list following the same pattern as eventServices
+      const relays = [
+        ...communityRelays,
+        ...$activeOutboxRelays,
+        ...$activeInboxRelays,
+      ];
 
-      console.log("[CommentButton] Published to relays:", publishedRelays);
+      // Remove duplicates
+      const uniqueRelays = Array.from(new Set(relays));
 
-      if (publishedRelays.size === 0) {
+      console.log("[CommentButton] Publishing to relays:", uniqueRelays);
+
+      const signedEvent = {
+        ...plainEvent,
+        id: commentEvent.id,
+        sig: commentEvent.sig,
+      };
+
+      // Publish to relays using WebSocketPool
+      let publishedCount = 0;
+      for (const relayUrl of uniqueRelays) {
+        try {
+          const ws = await WebSocketPool.instance.acquire(relayUrl);
+
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              WebSocketPool.instance.release(ws);
+              reject(new Error("Timeout"));
+            }, 5000);
+
+            ws.onmessage = (e) => {
+              const [type, id, ok, message] = JSON.parse(e.data);
+              if (type === "OK" && id === signedEvent.id) {
+                clearTimeout(timeout);
+                if (ok) {
+                  publishedCount++;
+                  console.log(`[CommentButton] Published to ${relayUrl}`);
+                  WebSocketPool.instance.release(ws);
+                  resolve();
+                } else {
+                  console.warn(`[CommentButton] ${relayUrl} rejected: ${message}`);
+                  WebSocketPool.instance.release(ws);
+                  reject(new Error(message));
+                }
+              }
+            };
+
+            // Send the event to the relay
+            ws.send(JSON.stringify(["EVENT", signedEvent]));
+          });
+        } catch (e) {
+          console.error(`[CommentButton] Failed to publish to ${relayUrl}:`, e);
+        }
+      }
+
+      if (publishedCount === 0) {
         throw new Error("Failed to publish to any relays");
       }
+
+      console.log(`[CommentButton] Published to ${publishedCount} relay(s)`);
 
       // Success!
       success = true;
@@ -188,10 +260,9 @@
 </script>
 
 <!-- Hamburger Comment Button -->
-<div class="comment-button-container" onmouseenter={() => sectionHovered = true} onmouseleave={() => sectionHovered = false}>
+<div class="comment-button-container" class:inline={inline}>
   <button
-    class="hamburger-button"
-    class:visible={sectionHovered || showCommentUI}
+    class="single-line-button"
     onclick={toggleCommentUI}
     title="Add comment"
     aria-label="Add comment"
@@ -255,18 +326,29 @@
 
 <style>
   .comment-button-container {
-    position: relative;
-  }
-
-  .hamburger-button {
     position: absolute;
     top: 0;
+    right: 0;
     left: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .comment-button-container.inline {
+    position: relative;
+    height: auto;
+    pointer-events: auto;
+  }
+
+  .single-line-button {
+    position: absolute;
+    top: 4px;
+    right: 8px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    width: 28px;
-    height: 20px;
+    width: 24px;
+    height: 18px;
     padding: 4px;
     background: transparent;
     border: none;
@@ -274,28 +356,33 @@
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
     z-index: 10;
+    pointer-events: auto;
   }
 
-  .hamburger-button.visible {
+  .comment-button-container.inline .single-line-button {
+    position: relative;
+    top: 0;
+    right: 0;
     opacity: 1;
   }
 
-  .hamburger-button:hover .line {
-    border-width: 2px;
-    margin: 1px 0;
+  .single-line-button:hover .line {
+    border-width: 3px;
   }
 
   .line {
+    display: block;
     width: 100%;
-    border-top: 1px dashed #6b7280;
+    height: 0;
+    border: none;
+    border-top: 2px dashed #6b7280;
     transition: all 0.2s ease-in-out;
-    margin: 2px 0;
   }
 
   .comment-ui {
     position: absolute;
-    top: 30px;
-    left: 0;
+    top: 35px;
+    right: 8px;
     min-width: 400px;
     max-width: 600px;
     background: white;
@@ -304,6 +391,7 @@
     padding: 16px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     z-index: 20;
+    pointer-events: auto;
   }
 
   :global(.dark) .comment-ui {
@@ -363,7 +451,7 @@
     .comment-ui {
       min-width: 280px;
       max-width: calc(100vw - 32px);
-      left: -8px;
+      right: -8px;
     }
   }
 </style>

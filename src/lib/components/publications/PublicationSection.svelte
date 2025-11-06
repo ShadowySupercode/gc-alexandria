@@ -38,6 +38,17 @@
     async () => await publicationTree.getEvent(address),
   );
 
+  let leafEventId = $state<string>("");
+
+  $effect(() => {
+    leafEvent.then(e => {
+      if (e?.id) {
+        leafEventId = e.id;
+        console.log(`[PublicationSection] Set leafEventId for ${address}:`, e.id);
+      }
+    });
+  });
+
   let rootEvent: Promise<NDKEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(rootAddress),
   );
@@ -141,6 +152,14 @@
     }
 
     ref(sectionRef);
+
+    // Log data attributes for debugging
+    console.log(`[PublicationSection] Section mounted:`, {
+      address,
+      leafEventId,
+      dataAddress: sectionRef.dataset.eventAddress,
+      dataEventId: sectionRef.dataset.eventId
+    });
   });
 </script>
 
@@ -148,6 +167,8 @@
   id={address}
   bind:this={sectionRef}
   class="publication-leather content-visibility-auto section-with-comment"
+  data-event-address={address}
+  data-event-id={leafEventId}
 >
   <CommentButton {address} />
 
@@ -175,5 +196,9 @@
 <style>
   .section-with-comment {
     position: relative;
+  }
+
+  .section-with-comment:hover :global(.single-line-button) {
+    opacity: 1 !important;
   }
 </style>
