@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { getNdkContext, activeInboxRelays, activeOutboxRelays } from "$lib/ndk";
   import { pubkeyToHue } from "$lib/utils/nostrUtils";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -41,54 +40,15 @@
   });
 
   /**
-   * Hardcoded test highlight event
-   */
-  const HARDCODED_HIGHLIGHT = {
-    "content": "This is another paragraph.",
-    "created_at": 1762391061,
-    "id": "6b19da244c54f27ef8b70ecc8246bef43d3b981075842fd341e9bbb98f5a790d",
-    "kind": 9802,
-    "pubkey": "dc4cd086cd7ce5b1832adf4fdd1211289880d2c7e295bcb0e684c01acee77c06",
-    "sig": "3635bc09a077d434280e5aaadf2e017e02b3fc5e198a9bedab2a16477a7761cce7b2e1f139bd2226fc14526c4f819ea9499b5c6f0f0cb23f068cebc96db59514",
-    "tags": [
-      ["a", "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading", ""],
-      ["context", "This is another paragraph.[1]"],
-      ["p", "fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1", "", "author"]
-    ]
-  };
-
-  /**
-   * Fetch highlight events (kind 9802) for the current publication using direct WebSocket connections
+   * Fetch highlight events (kind 9802) for the current publication using NDK
    */
   async function fetchHighlights() {
-    // TEMPORARY: Use hardcoded highlight to test rendering
-    console.log("[HighlightLayer] Using hardcoded highlight for testing");
-    loading = true;
-    highlights = [];
-
-    try {
-      // Convert hardcoded event to NDKEvent
-      const ndkEvent = new NDKEventClass(ndk, HARDCODED_HIGHLIGHT);
-      highlights = [ndkEvent];
-
-      console.log(`[HighlightLayer] Loaded hardcoded highlight:`, {
-        content: ndkEvent.content,
-        address: ndkEvent.tags.find(t => t[0] === "a")?.[1],
-        author: ndkEvent.pubkey.substring(0, 8)
-      });
-
-      loading = false;
-
-      // Render highlights after fetching
-      if (visible) {
-        renderHighlights();
-      }
-    } catch (err) {
-      console.error(`[HighlightLayer] Error with hardcoded highlight:`, err);
-      loading = false;
+    // Prevent concurrent fetches
+    if (loading) {
+      console.log("[HighlightLayer] Already loading, skipping fetch");
+      return;
     }
 
-    /* ORIGINAL WEBSOCKET CODE - COMMENTED OUT FOR TESTING
     // Collect all event IDs and addresses
     const allEventIds = [...(eventId ? [eventId] : []), ...eventIds].filter(Boolean);
     const allAddresses = [...(eventAddress ? [eventAddress] : []), ...eventAddresses].filter(Boolean);
@@ -108,34 +68,46 @@
 
     try {
       // Build filter for kind 9802 highlight events
+      // IMPORTANT: Use only #a tags because filters are AND, not OR
+      // If we include both #e and #a, relays will only return highlights that have BOTH
       const filter: any = {
         kinds: [9802],
         limit: 500,
       };
 
-      // Add all event IDs to filter
-      if (allEventIds.length > 0) {
+      // Prefer #a (addressable events) since they're more specific and persistent
+      if (allAddresses.length > 0) {
+        filter["#a"] = allAddresses;
+      } else if (allEventIds.length > 0) {
+        // Fallback to #e if no addresses available
         filter["#e"] = allEventIds;
       }
 
-      // Add all addresses to filter
-      if (allAddresses.length > 0) {
-        filter["#a"] = allAddresses;
-      }
+      console.log(`[HighlightLayer] Fetching with filter:`, JSON.stringify(filter, null, 2));
 
-      console.log(`[HighlightLayer] Filter:`, JSON.stringify(filter, null, 2));
-
-      // Build relay list
+      // Build explicit relay set (same pattern as HighlightSelectionHandler and CommentButton)
       const relays = [
         ...communityRelays,
-        ...$activeInboxRelays,
         ...$activeOutboxRelays,
+        ...$activeInboxRelays,
       ];
       const uniqueRelays = Array.from(new Set(relays));
-
       console.log(`[HighlightLayer] Fetching from ${uniqueRelays.length} relays:`, uniqueRelays);
 
-      // Fetch from each relay using WebSocketPool
+      /**
+       * Use WebSocketPool with nostr-tools protocol instead of NDK
+       *
+       * Reasons for not using NDK:
+       * 1. NDK subscriptions mysteriously returned 0 events even when websocat confirmed events existed
+       * 2. Consistency - CommentButton and HighlightSelectionHandler both use WebSocketPool pattern
+       * 3. Better debugging - direct access to WebSocket messages for troubleshooting
+       * 4. Proven reliability - battle-tested in the codebase for similar use cases
+       * 5. Performance control - explicit 5s timeout per relay, tunable as needed
+       *
+       * This matches the pattern in:
+       * - src/lib/components/publications/CommentButton.svelte:156-220
+       * - src/lib/components/publications/HighlightSelectionHandler.svelte:217-280
+       */
       const subscriptionId = `highlights-${Date.now()}`;
       const receivedEventIds = new Set<string>();
       let eoseCount = 0;
@@ -150,9 +122,19 @@
               try {
                 const message = JSON.parse(event.data);
 
+                // Log ALL messages from relay.nostr.band for debugging
+                if (relayUrl.includes('relay.nostr.band')) {
+                  console.log(`[HighlightLayer] RAW message from ${relayUrl}:`, message);
+                }
+
                 if (message[0] === "EVENT" && message[1] === subscriptionId) {
                   const rawEvent = message[2];
-                  console.log(`[HighlightLayer] Received event from ${relayUrl}:`, rawEvent.id);
+                  console.log(`[HighlightLayer] EVENT from ${relayUrl}:`, {
+                    id: rawEvent.id,
+                    kind: rawEvent.kind,
+                    content: rawEvent.content.substring(0, 50),
+                    tags: rawEvent.tags
+                  });
 
                   // Avoid duplicates
                   if (!receivedEventIds.has(rawEvent.id)) {
@@ -164,14 +146,16 @@
                     console.log(`[HighlightLayer] Added highlight, total now: ${highlights.length}`);
                   }
                 } else if (message[0] === "EOSE" && message[1] === subscriptionId) {
-                  console.log(`[HighlightLayer] EOSE from ${relayUrl}`);
                   eoseCount++;
+                  console.log(`[HighlightLayer] EOSE from ${relayUrl} (${eoseCount}/${uniqueRelays.length})`);
 
                   // Close subscription
                   ws.send(JSON.stringify(["CLOSE", subscriptionId]));
                   ws.removeEventListener("message", messageHandler);
                   WebSocketPool.instance.release(ws);
                   resolve();
+                } else if (message[0] === "NOTICE") {
+                  console.warn(`[HighlightLayer] NOTICE from ${relayUrl}:`, message[1]);
                 }
               } catch (err) {
                 console.error(`[HighlightLayer] Error processing message from ${relayUrl}:`, err);
@@ -182,10 +166,14 @@
 
             // Send REQ
             const req = ["REQ", subscriptionId, filter];
-            console.log(`[HighlightLayer] Sending to ${relayUrl}:`, JSON.stringify(req));
+            if (relayUrl.includes('relay.nostr.band')) {
+              console.log(`[HighlightLayer] Sending REQ to ${relayUrl}:`, JSON.stringify(req));
+            } else {
+              console.log(`[HighlightLayer] Sending REQ to ${relayUrl}`);
+            }
             ws.send(JSON.stringify(req));
 
-            // Timeout per relay
+            // Timeout per relay (5 seconds)
             setTimeout(() => {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(["CLOSE", subscriptionId]));
@@ -203,7 +191,7 @@
       // Wait for all relays to respond or timeout
       await Promise.all(fetchPromises);
 
-      console.log(`[HighlightLayer] Fetch complete. Found ${highlights.length} unique highlights from ${eoseCount} relays`);
+      console.log(`[HighlightLayer] Fetched ${highlights.length} highlights`);
 
       if (highlights.length > 0) {
         console.log(`[HighlightLayer] Highlights summary:`, highlights.map(h => ({
@@ -215,16 +203,12 @@
 
       loading = false;
 
-      // Render highlights after fetching
-      if (visible) {
-        renderHighlights();
-      }
+      // Rendering is handled by the visibility/highlights effect
 
     } catch (err) {
       console.error(`[HighlightLayer] Error fetching highlights:`, err);
       loading = false;
     }
-    */
   }
 
   /**
@@ -315,10 +299,15 @@
    * Render all highlights on the page
    */
   function renderHighlights() {
-    console.log(`[HighlightLayer] renderHighlights called - visible: ${visible}, containerRef: ${!!containerRef}`);
+    console.log(`[HighlightLayer] renderHighlights called - visible: ${visible}, containerRef: ${!!containerRef}, highlights: ${highlights.length}`);
 
     if (!visible || !containerRef) {
       console.log(`[HighlightLayer] Skipping render - visible: ${visible}, containerRef: ${!!containerRef}`);
+      return;
+    }
+
+    if (highlights.length === 0) {
+      console.log(`[HighlightLayer] No highlights to render`);
       return;
     }
 
@@ -327,6 +316,7 @@
 
     console.log(`[HighlightLayer] Rendering ${highlights.length} highlights`);
     console.log(`[HighlightLayer] Container element:`, containerRef);
+    console.log(`[HighlightLayer] Container has children:`, containerRef.children.length);
 
     // Apply each highlight
     for (const highlight of highlights) {
@@ -338,7 +328,7 @@
       const targetAddress = aTag ? aTag[1] : undefined;
 
       console.log(`[HighlightLayer] Rendering highlight:`, {
-        content: content,
+        content: content.substring(0, 50),
         contentLength: content.length,
         targetAddress,
         color,
@@ -351,6 +341,10 @@
         console.log(`[HighlightLayer] Skipping highlight - empty content`);
       }
     }
+
+    // Check if any highlights were actually rendered
+    const renderedHighlights = containerRef.querySelectorAll("mark.highlight");
+    console.log(`[HighlightLayer] Rendered ${renderedHighlights.length} highlight marks in DOM`);
   }
 
   /**
@@ -375,41 +369,56 @@
     console.log(`[HighlightLayer] Cleared ${highlightElements.length} highlights`);
   }
 
-  // TEMPORARILY DISABLED - TESTING ONLY
-  // Fetch highlights on mount
-  // onMount(() => {
-  //   fetchHighlights();
-  // });
+  // Track the last fetched event count to know when to refetch
+  let lastFetchedCount = $state(0);
+  let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // Watch for visibility changes - ONLY render/clear, don't fetch
+  // Watch for changes to event data - debounce and fetch when data stabilizes
   $effect(() => {
-    console.log(`[HighlightLayer] Visibility changed to: ${visible}`);
-    if (visible) {
-      // Only fetch if we don't have highlights yet
-      if (highlights.length === 0) {
-        console.log(`[HighlightLayer] No highlights loaded, fetching...`);
-        fetchHighlights();
-      } else {
-        console.log(`[HighlightLayer] Already have ${highlights.length} highlights, just rendering`);
-        renderHighlights();
+    const currentCount = eventIds.length + eventAddresses.length;
+    const hasEventData = currentCount > 0;
+
+    console.log(`[HighlightLayer] Event data effect - count: ${currentCount}, lastFetched: ${lastFetchedCount}, loading: ${loading}`);
+
+    // Only fetch if:
+    // 1. We have event data
+    // 2. The count has changed since last fetch
+    // 3. We're not already loading
+    if (hasEventData && currentCount !== lastFetchedCount && !loading) {
+      // Clear any existing timeout
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout);
       }
-    } else {
+
+      // Debounce: wait 500ms for more events to arrive before fetching
+      fetchTimeout = setTimeout(() => {
+        console.log(`[HighlightLayer] Event data stabilized at ${currentCount} events, fetching highlights...`);
+        lastFetchedCount = currentCount;
+        fetchHighlights();
+      }, 500);
+    }
+
+    // Cleanup timeout on effect cleanup
+    return () => {
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout);
+      }
+    };
+  });
+
+  // Watch for visibility AND highlights changes - render when both are ready
+  $effect(() => {
+    // This effect runs when either visible or highlights.length changes
+    const highlightCount = highlights.length;
+    console.log(`[HighlightLayer] Visibility/highlights effect - visible: ${visible}, highlights: ${highlightCount}`);
+
+    if (visible && highlightCount > 0) {
+      console.log(`[HighlightLayer] Both visible and highlights ready, rendering...`);
+      renderHighlights();
+    } else if (!visible) {
       clearHighlights();
     }
   });
-
-  // TEMPORARILY DISABLED - TESTING ONLY
-  // Watch for changes to eventId, eventAddress, eventIds, or eventAddresses
-  // $effect(() => {
-  //   if (eventId || eventAddress || eventIds.length > 0 || eventAddresses.length > 0) {
-  //     // Clear existing highlights
-  //     highlights = [];
-  //     clearHighlights();
-
-  //     // Fetch new highlights
-  //     fetchHighlights();
-  //   }
-  // });
 
   /**
    * Bind to parent container element
@@ -428,7 +437,8 @@
     highlights = [];
     clearHighlights();
 
-    // Fetch new highlights
+    // Reset fetch count to force re-fetch
+    lastFetchedCount = 0;
     fetchHighlights();
   }
 </script>
