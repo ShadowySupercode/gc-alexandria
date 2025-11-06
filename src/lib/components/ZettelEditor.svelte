@@ -61,6 +61,9 @@
   let generatedEvents = $state<any>(null);
   let contentType = $state<"article" | "scattered-notes" | "none">("none");
 
+  // Dark mode state
+  let isDarkMode = $state(false);
+
   // Note: updateEditorContent() is only called manually when needed
   // The automatic effect was causing feedback loops with user typing
 
@@ -786,6 +789,36 @@
             outline: "none",
           },
         }),
+        // Override background and text to match preview (gray-800 bg, gray-100 text)
+        ...(isDarkMode ? [EditorView.theme({
+          "&": {
+            backgroundColor: "#1f2937",
+            color: "#f3f4f6",
+          },
+          ".cm-content": {
+            color: "#f3f4f6",
+          },
+          ".cm-line": {
+            color: "#f3f4f6",
+          },
+          ".cm-gutters": {
+            backgroundColor: "#1f2937",
+            borderColor: "#374151",
+            color: "#9ca3af",
+          },
+          ".cm-activeLineGutter": {
+            backgroundColor: "#374151",
+          },
+          ".cm-cursor": {
+            borderLeftColor: "#f3f4f6",
+          },
+          ".cm-selectionBackground, ::selection": {
+            backgroundColor: "#374151 !important",
+          },
+          "&.cm-focused .cm-selectionBackground, &.cm-focused ::selection": {
+            backgroundColor: "#4b5563 !important",
+          },
+        }, { dark: true })] : []),
       ],
     });
 
@@ -813,9 +846,41 @@
 
   // Mount CodeMirror when component mounts
   onMount(() => {
+    // Initialize dark mode state
+    isDarkMode = document.documentElement.classList.contains('dark');
     createEditor();
 
+    // Watch for dark mode changes
+    const observer = new MutationObserver(() => {
+      const newDarkMode = document.documentElement.classList.contains('dark');
+      if (newDarkMode !== isDarkMode) {
+        isDarkMode = newDarkMode;
+        // Recreate editor with new theme
+        if (editorView) {
+          const currentContent = editorView.state.doc.toString();
+          editorView.destroy();
+          createEditor();
+          // Restore content
+          if (editorView && currentContent !== content) {
+            editorView.dispatch({
+              changes: {
+                from: 0,
+                to: editorView.state.doc.length,
+                insert: currentContent,
+              },
+            });
+          }
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
     return () => {
+      observer.disconnect();
       if (editorView) {
         editorView.destroy();
       }
@@ -951,7 +1016,7 @@
           : 'w-full'} flex flex-col"
     >
       <div
-        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
         style="overflow: hidden;"
       >
         <!-- CodeMirror Editor Container -->
@@ -977,7 +1042,7 @@
             </h3>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900">
+          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <div class="max-w-4xl mx-auto">
             {#if !content.trim()}
               <div
@@ -1038,7 +1103,7 @@
                               <div class="flex flex-wrap gap-2">
                                 {#each tTags as tag}
                                   <span
-                                    class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
+                                    class="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium"
                                   >
                                     #{tag[1]}
                                   </span>
@@ -1101,7 +1166,7 @@
                               <div class="flex flex-wrap gap-2">
                                 {#each tTags as tag}
                                   <span
-                                    class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
+                                    class="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium"
                                   >
                                     #{tag[1]}
                                   </span>
@@ -1230,7 +1295,7 @@
                         </div>
                         <div class="relative flex justify-center">
                           <span
-                            class="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400"
+                            class="bg-white dark:bg-gray-800 px-3 text-xs text-gray-500 dark:text-gray-400"
                           >
                             Event Boundary
                           </span>
@@ -1242,7 +1307,7 @@
               </div>
 
               <div
-                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
+                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded border"
               >
                 <strong>Event Count:</strong>
                 {#if generatedEvents}
