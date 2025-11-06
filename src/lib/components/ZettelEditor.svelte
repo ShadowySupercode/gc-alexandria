@@ -23,6 +23,7 @@
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
   import Asciidoctor from "asciidoctor";
+  import { extractWikiLinks } from "$lib/utils/wiki_links";
 
   // Initialize Asciidoctor processor
   const asciidoctor = Asciidoctor();
@@ -349,6 +350,45 @@
     },
     provide: (f) => EditorView.decorations.from(f),
   });
+
+  // State field to track wiki link decorations
+  const wikiLinkDecorations = StateField.define<DecorationSet>({
+    create(state) {
+      return createWikiLinkDecorations(state);
+    },
+    update(decorations, tr) {
+      // Update decorations when content changes
+      if (tr.docChanged) {
+        return createWikiLinkDecorations(tr.state);
+      }
+      return decorations.map(tr.changes);
+    },
+    provide: (f) => EditorView.decorations.from(f),
+  });
+
+  // Function to create wiki link decorations
+  function createWikiLinkDecorations(state: EditorState): DecorationSet {
+    const ranges: Array<{ from: number; to: number; decoration: any }> = [];
+    const content = state.doc.toString();
+    const wikiLinks = extractWikiLinks(content);
+
+    for (const link of wikiLinks) {
+      const className =
+        link.type === 'auto'
+          ? 'cm-wiki-link-auto'
+          : link.type === 'w'
+            ? 'cm-wiki-link-ref'
+            : 'cm-wiki-link-def';
+
+      ranges.push({
+        from: link.startIndex,
+        to: link.endIndex,
+        decoration: Decoration.mark({ class: className }),
+      });
+    }
+
+    return RangeSet.of(ranges.map((r) => r.decoration.range(r.from, r.to)));
+  }
 
   // Function to create header decorations based on parsed sections
   function createHeaderDecorations(
@@ -682,6 +722,28 @@
         fontWeight: "500",
         fontStyle: "italic",
       },
+      // Wiki links
+      ".cm-wiki-link-auto": {
+        color: "#8B5CF6", // violet-500 for [[term]] (auto)
+        fontWeight: "500",
+        backgroundColor: "rgba(139, 92, 246, 0.1)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-ref": {
+        color: "#06B6D4", // cyan-500 for [[w:term]] (reference)
+        fontWeight: "500",
+        backgroundColor: "rgba(6, 182, 212, 0.1)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-def": {
+        color: "#F59E0B", // amber-500 for [[d:term]] (definition)
+        fontWeight: "500",
+        backgroundColor: "rgba(245, 158, 11, 0.1)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
     });
 
     const state = EditorState.create({
@@ -690,6 +752,7 @@
         basicSetup,
         markdown(), // AsciiDoc is similar to markdown syntax
         headerDecorations,
+        wikiLinkDecorations,
         headerHighlighting,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -962,16 +1025,38 @@
                           {section.title}
                         </h2>
 
-                        <!-- Tags (blue for index events) -->
-                        {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
+                        <!-- Tags and wiki links -->
+                        {@const tTags = section.tags?.filter((tag) => tag[0] === 't') || []}
+                        {@const wTags = section.tags?.filter((tag) => tag[0] === 'w') || []}
+
+                        {#if tTags.length > 0 || wTags.length > 0}
+                          <div class="space-y-2">
+                            <!-- Hashtags (t-tags) -->
+                            {#if tTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each tTags as tag}
+                                  <span
+                                    class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
+                                  >
+                                    #{tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+
+                            <!-- Wiki links (w-tags) -->
+                            {#if wTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each wTags as tag}
+                                  <span
+                                    class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200 px-2 py-1 rounded text-xs font-medium border border-cyan-300 dark:border-cyan-700"
+                                    title="Wiki reference: {tag[1]}"
+                                  >
+                                    🔗 {tag[2] || tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
                           </div>
                         {/if}
                       </div>
@@ -1001,16 +1086,38 @@
                           )}
                         </div>
 
-                        <!-- Tags (green for content events) -->
-                        {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
+                        <!-- Tags and wiki links (green for content events) -->
+                        {@const tTags = section.tags?.filter((tag) => tag[0] === 't') || []}
+                        {@const wTags = section.tags?.filter((tag) => tag[0] === 'w') || []}
+
+                        {#if tTags.length > 0 || wTags.length > 0}
+                          <div class="space-y-2">
+                            <!-- Hashtags (t-tags) -->
+                            {#if tTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each tTags as tag}
+                                  <span
+                                    class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
+                                  >
+                                    #{tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+
+                            <!-- Wiki links (w-tags) -->
+                            {#if wTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each wTags as tag}
+                                  <span
+                                    class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200 px-2 py-1 rounded text-xs font-medium border border-cyan-300 dark:border-cyan-700"
+                                    title="Wiki reference: {tag[1]}"
+                                  >
+                                    🔗 {tag[2] || tag[1]}
+                                  </span>
+                                {/each}
+                              </div}
+                            {/if}
                           </div>
                         {/if}
 
@@ -1273,6 +1380,35 @@ Understanding the nature of knowledge...
                   events
                 </li>
               </ul>
+            </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Wiki Links
+              </h4>
+              <p class="text-xs mb-2">
+                Create semantic links between content using wiki link syntax:
+              </p>
+              <ul class="space-y-2 text-xs">
+                <li>
+                  <code class="bg-violet-100 dark:bg-violet-900/30 px-1 py-0.5 rounded">[[term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Auto link (queries both w and d tags)</span>
+                </li>
+                <li>
+                  <code class="bg-cyan-100 dark:bg-cyan-900/30 px-1 py-0.5 rounded">[[w:term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Reference/mention (backward link)</span>
+                </li>
+                <li>
+                  <code class="bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded">[[d:term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Definition link (forward link)</span>
+                </li>
+                <li class="mt-2">
+                  <strong>Custom text:</strong> <code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">[[term|display text]]</code>
+                </li>
+              </ul>
+              <p class="text-xs mt-2 text-gray-600 dark:text-gray-400">
+                Example: "The concept of [[Knowledge Graphs]] enables..." creates a w-tag automatically.
+              </p>
             </div>
           </div>
         </div>

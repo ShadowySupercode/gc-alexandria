@@ -11,6 +11,7 @@ import { PublicationTree } from "$lib/data_structures/publication_tree";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import { getMimeTags } from "$lib/utils/mime";
+import { extractWikiLinks, wikiLinksToTags } from "$lib/utils/wiki_links";
 
 // For debugging tree structure
 const DEBUG = process.env.DEBUG_TREE_PROCESSOR === "true";
@@ -673,6 +674,14 @@ function createContentEvent(
 
   // Add segment attributes as tags
   addSectionAttributesToTags(tags, segment.attributes);
+
+  // Extract and add wiki link tags from content
+  const wikiLinks = extractWikiLinks(segment.content);
+  if (wikiLinks.length > 0) {
+    const wikiTags = wikiLinksToTags(wikiLinks);
+    tags.push(...wikiTags);
+    console.log(`[TreeProcessor] Added ${wikiTags.length} wiki link tags:`, wikiTags);
+  }
 
   event.tags = tags;
   event.content = segment.content;
