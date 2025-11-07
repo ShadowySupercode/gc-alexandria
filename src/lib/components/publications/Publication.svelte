@@ -33,6 +33,7 @@
   import HighlightSelectionHandler from "./HighlightSelectionHandler.svelte";
   import CommentLayer from "./CommentLayer.svelte";
   import CommentButton from "./CommentButton.svelte";
+  import SectionComments from "./SectionComments.svelte";
   import { Textarea, P } from "flowbite-svelte";
   import { userStore } from "$lib/stores/userStore";
 
@@ -96,6 +97,14 @@
     return addresses;
   });
 
+  // Filter comments for the root publication (kind 30040)
+  let articleComments = $derived(
+    comments.filter(comment => {
+      // Check if comment targets the root publication via #a tag
+      const aTag = comment.tags.find(t => t[0] === 'a');
+      return aTag && aTag[1] === rootAddress;
+    })
+  );
 
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
@@ -505,18 +514,42 @@
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
         <div class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto" bind:this={publicationContentRef}>
-          <div
-            class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
-          >
-            <Details event={indexEvent} onDelete={handleDeletePublication} />
-          </div>
+          <!-- Publication header with comments (similar to section layout) -->
+          <div class="relative">
+            <!-- Main header content - centered -->
+            <div class="max-w-4xl mx-auto px-4">
+              <div
+                class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+              >
+                <Details event={indexEvent} onDelete={handleDeletePublication} />
+              </div>
 
-          {#if publicationDeleted}
-            <Alert color="yellow" class="mb-4">
-              <ExclamationCircleOutline class="w-5 h-5 inline mr-2" />
-              Publication deleted. Redirecting to publications page...
-            </Alert>
-          {/if}
+              {#if publicationDeleted}
+                <Alert color="yellow" class="mb-4">
+                  <ExclamationCircleOutline class="w-5 h-5 inline mr-2" />
+                  Publication deleted. Redirecting to publications page...
+                </Alert>
+              {/if}
+            </div>
+
+            <!-- Mobile article comments - shown below header on smaller screens -->
+            <div class="xl:hidden mt-4 max-w-4xl mx-auto px-4">
+              <SectionComments
+                sectionAddress={rootAddress}
+                comments={articleComments}
+                visible={commentsVisible}
+              />
+            </div>
+
+            <!-- Desktop article comments - positioned on right side on XL+ screens -->
+            <div class="hidden xl:block absolute left-[calc(50%+26rem)] top-0 w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]">
+              <SectionComments
+                sectionAddress={rootAddress}
+                comments={articleComments}
+                visible={commentsVisible}
+              />
+            </div>
+          </div>
 
           <!-- Action buttons row -->
           <div class="flex justify-between gap-2 mb-4">
@@ -698,16 +731,16 @@
                 />
               {/if}
               <div class="flex flex-col w-full space-y-4">
-                <Card class="ArticleBox card-leather w-full grid max-w-xl">
-                  <div class="flex flex-col my-2">
-                    <span>Unknown</span>
-                    <span class="text-gray-500">1.1.1970</span>
-                  </div>
-                  <div class="flex flex-col flex-grow space-y-4">
-                    This is a very intelligent comment placeholder that applies to
-                    all the content equally well.
-                  </div>
-                </Card>
+                <SectionComments
+                  sectionAddress={rootAddress}
+                  comments={articleComments}
+                  visible={commentsVisible}
+                />
+                {#if articleComments.length === 0}
+                  <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                    No comments yet. Be the first to comment!
+                  </p>
+                {/if}
               </div>
             </div>
           </SidebarGroup>
