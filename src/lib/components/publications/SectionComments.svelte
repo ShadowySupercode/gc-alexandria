@@ -25,7 +25,7 @@
   // State management
   let profiles = $state(new Map<string, any>());
   let expandedThreads = $state(new Set<string>());
-  let jsonModalOpen = $state<string | null>(null);
+  let detailsModalOpen = $state<string | null>(null);
   let deletingComments = $state(new Set<string>());
   let replyingTo = $state<string | null>(null);
   let replyContent = $state("");
@@ -414,22 +414,11 @@
                     <button
                       class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
                       onclick={() => {
-                        viewEventDetails(rootComment);
+                        detailsModalOpen = rootComment.id;
                       }}
                     >
                       <EyeOutline class="w-4 h-4" />
                       View details
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
-                      onclick={() => {
-                        jsonModalOpen = rootComment.id;
-                      }}
-                    >
-                      <ClipboardCleanOutline class="w-4 h-4" />
-                      View JSON
                     </button>
                   </li>
                   <li>
@@ -511,22 +500,11 @@
                       <button
                         class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
                         onclick={() => {
-                          viewEventDetails(rootComment);
+                          detailsModalOpen = rootComment.id;
                         }}
                       >
                         <EyeOutline class="w-4 h-4" />
                         View details
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
-                        onclick={() => {
-                          jsonModalOpen = rootComment.id;
-                        }}
-                      >
-                        <ClipboardCleanOutline class="w-4 h-4" />
-                        View JSON
                       </button>
                     </li>
                     <li>
@@ -659,22 +637,11 @@
                                 <button
                                   class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
                                   onclick={() => {
-                                    viewEventDetails(reply);
+                                    detailsModalOpen = reply.id;
                                   }}
                                 >
                                   <EyeOutline class="w-4 h-4" />
                                   View details
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
-                                  onclick={() => {
-                                    jsonModalOpen = reply.id;
-                                  }}
-                                >
-                                  <ClipboardCleanOutline class="w-4 h-4" />
-                                  View JSON
                                 </button>
                               </li>
                               <li>
@@ -802,22 +769,11 @@
                                     <button
                                       class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
                                       onclick={() => {
-                                        viewEventDetails(nestedReply);
+                                        detailsModalOpen = nestedReply.id;
                                       }}
                                     >
                                       <EyeOutline class="w-4 h-4" />
                                       View details
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
-                                      onclick={() => {
-                                        jsonModalOpen = nestedReply.id;
-                                      }}
-                                    >
-                                      <ClipboardCleanOutline class="w-4 h-4" />
-                                      View JSON
                                     </button>
                                   </li>
                                   <li>
@@ -923,47 +879,32 @@
   </div>
 {/if}
 
-<!-- JSON Modal -->
-{#if jsonModalOpen}
-  {@const comment = comments.find(c => c.id === jsonModalOpen)}
+<!-- Details Modal -->
+{#if detailsModalOpen}
+  {@const comment = comments.find(c => c.id === detailsModalOpen)}
   {#if comment}
     <Modal
-      title="Comment JSON"
+      title="Comment Details"
       open={true}
       autoclose
       outsideclose
       size="lg"
       class="modal-leather"
-      onclose={() => jsonModalOpen = null}
+      onclose={() => detailsModalOpen = null}
     >
       <div class="space-y-4">
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Author</h3>
-          <p class="text-sm font-mono break-all">{comment.pubkey}</p>
+        <div class="flex justify-center pb-2">
+          <Button
+            color="primary"
+            onclick={() => {
+              viewEventDetails(comment);
+            }}
+          >
+            View on Event Page
+          </Button>
         </div>
         <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Event ID</h3>
-          <p class="text-sm font-mono break-all">{comment.id}</p>
-        </div>
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Kind</h3>
-          <p class="text-sm">{comment.kind}</p>
-        </div>
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Created</h3>
-          <p class="text-sm">{new Date((comment.created_at || 0) * 1000).toLocaleString()}</p>
-        </div>
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Content</h3>
-          <p class="text-sm whitespace-pre-wrap break-words">{comment.content}</p>
-        </div>
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Tags</h3>
-          <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto">{JSON.stringify(comment.tags, null, 2)}</pre>
-        </div>
-        <div>
-          <h3 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Raw Event JSON</h3>
-          <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto max-h-96 overflow-y-auto">{JSON.stringify({
+          <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto max-h-[500px] overflow-y-auto">{JSON.stringify({
             id: comment.id,
             pubkey: comment.pubkey,
             created_at: comment.created_at,
