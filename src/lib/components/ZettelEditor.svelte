@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from "flowbite-svelte";
+  import { Button, Progressbar } from "flowbite-svelte";
   import {
     EyeOutline,
     QuestionCircleOutline,
@@ -33,6 +33,8 @@
     placeholder = "Start writing your AsciiDoc content here...",
     showPreview = false,
     parseLevel = 2,
+    isPublishing = false,
+    publishProgress = { current: 0, total: 0 },
     onContentChange = (content: string) => {},
     onPreviewToggle = (show: boolean) => {},
     onPublishArticle = (events: any) => {},
@@ -42,6 +44,8 @@
     placeholder?: string;
     showPreview?: boolean;
     parseLevel?: number;
+    isPublishing?: boolean;
+    publishProgress?: { current: number; total: number };
     onContentChange?: (content: string) => void;
     onPreviewToggle?: (show: boolean) => void;
     onPublishArticle?: (events: any) => void;
@@ -873,6 +877,25 @@
       </div>
     {/if}
   </div>
+
+  <!-- Publishing Progress -->
+  {#if isPublishing && publishProgress.total > 0}
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+      <div class="mb-2 flex justify-between items-center">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Publishing events...
+        </span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">
+          {publishProgress.current} of {publishProgress.total}
+        </span>
+      </div>
+      <Progressbar
+        progress={(publishProgress.current / publishProgress.total) * 100}
+        size="h-2.5"
+        color="blue"
+      />
+    </div>
+  {/if}
 
   <div
     class="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-6 h-[60vh] min-h-[400px] max-h-[800px]"

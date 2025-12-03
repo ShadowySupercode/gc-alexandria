@@ -16,6 +16,10 @@
   let showPreview = $state(false);
   let isPublishing = $state(false);
   let publishResults = $state<ProcessedPublishResults | null>(null);
+  let publishProgress = $state<{ current: number; total: number }>({
+    current: 0,
+    total: 0,
+  });
 
   // Handle content changes from ZettelEditor
   function handleContentChange(newContent: string) {
@@ -79,6 +83,11 @@
     isPublishing = true;
     publishResults = null;
 
+    // Initialize progress tracking
+    const totalEvents =
+      (events.indexEvent ? 1 : 0) + events.contentEvents.length;
+    publishProgress = { current: 0, total: totalEvents };
+
     // Debug: Log the first content event to see its structure
     if (events.contentEvents.length > 0) {
       console.log("First content event structure:", {
@@ -106,6 +115,7 @@
           ndk,
         );
         results.push(indexResult);
+        publishProgress.current += 1;
       }
 
       // Publish content events
@@ -126,6 +136,7 @@
           ndk,
         );
         results.push(result);
+        publishProgress.current += 1;
       }
 
       // Process results using shared utility
@@ -149,6 +160,10 @@
     isPublishing = true;
     publishResults = null;
 
+    // Initialize progress tracking
+    const totalEvents = events.contentEvents.length;
+    publishProgress = { current: 0, total: totalEvents };
+
     // Debug: Log the structure of events being published (without content)
     console.log("=== PUBLISHING SCATTERED NOTES ===");
     console.log(`Number of content events: ${events.contentEvents.length}`);
@@ -171,6 +186,7 @@
           ndk,
         );
         results.push(result);
+        publishProgress.current += 1;
       }
 
       // Process results using shared utility
@@ -229,6 +245,8 @@
     <ZettelEditor
       {content}
       {showPreview}
+      {isPublishing}
+      {publishProgress}
       onContentChange={handleContentChange}
       onPreviewToggle={handlePreviewToggle}
       onPublishArticle={handlePublishArticle}
