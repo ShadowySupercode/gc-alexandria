@@ -1,27 +1,37 @@
 <script lang="ts">
-  import { Button, Modal, Popover } from "flowbite-svelte";
+  import { Button, Modal, Popover, Textarea, P } from "flowbite-svelte";
   import {
     DotsVerticalOutline,
     EyeOutline,
     ClipboardCleanOutline,
+    TrashBinOutline,
+    MessageDotsOutline,
+    ChevronDownOutline,
+    ChevronUpOutline,
   } from "flowbite-svelte-icons";
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, getNdkContext } from "$lib/ndk";
+  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
+  import { NDKEvent as NDKEventClass } from "@nostr-dev-kit/ndk";
   import LazyImage from "$components/util/LazyImage.svelte";
+  import { communityRelays } from "$lib/consts";
+  import { WebSocketPool } from "$lib/data_structures/websocket_pool";
 
   // Component props
-  let { event } = $props<{ event: NDKEvent }>();
+  let { event, onDelete, sectionAddress } = $props<{
+    event: NDKEvent;
+    onDelete?: () => void;
+    sectionAddress?: string; // If provided, shows "Comment on section" option
+  }>();
 
   const ndk = getNdkContext();
 
-  // Subscribe to userStore
-  let user = $state($userStore);
-  userStore.subscribe((val) => (user = val));
+  // Subscribe to userStore (Svelte 5 runes pattern)
+  let user = $derived($userStore);
 
   // Derive metadata from event
   let title = $derived(
@@ -61,6 +71,71 @@
   // UI state
   let detailsModalOpen: boolean = $state(false);
   let isOpen: boolean = $state(false);
+
+  // Comment modal state
+  let commentModalOpen: boolean = $state(false);
+  let commentContent: string = $state("");
+  let isSubmittingComment: boolean = $state(false);
+  let commentError: string | null = $state(null);
+  let commentSuccess: boolean = $state(false);
+  let showJsonPreview: boolean = $state(false);
+
+  // Build preview JSON for the comment event
+  let previewJson = $derived.by(() => {
+    if (!commentContent.trim() || !sectionAddress) return null;
+
+    const eventDetails = parseAddress(sectionAddress);
+    if (!eventDetails) return null;
+
+    const { kind, pubkey: authorPubkey, dTag } = eventDetails;
+    const relayHint = $activeOutboxRelays[0] || "";
+
+    return {
+      kind: 1111,
+      pubkey: user.pubkey || "<your-pubkey>",
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ["A", sectionAddress, relayHint, authorPubkey],
+        ["K", kind.toString()],
+        ["P", authorPubkey, relayHint],
+        ["a", sectionAddress, relayHint],
+        ["k", kind.toString()],
+        ["p", authorPubkey, relayHint],
+      ],
+      content: commentContent,
+      id: "<calculated-on-signing>",
+      sig: "<calculated-on-signing>"
+    };
+  });
+
+  // Check if user can delete this event (must be the author)
+  let canDelete = $derived.by(() => {
+    const result = user.signedIn && user.pubkey === event.pubkey && onDelete !== undefined;
+    console.log('[CardActions] canDelete check:', {
+      userSignedIn: user.signedIn,
+      userPubkey: user.pubkey,
+      eventPubkey: event.pubkey,
+      onDeleteProvided: onDelete !== undefined,
+      canDelete: result
+    });
+    return result;
+  });
+
+  // Determine delete button text based on event kind
+  let deleteButtonText = $derived.by(() => {
+    if (event.kind === 30040) {
+      // Kind 30040 is an index/publication
+      return "Delete publication";
+    } else if (event.kind === 30041) {
+      // Kind 30041 is a section
+      return "Delete section";
+    } else if (event.kind === 30023) {
+      // Kind 30023 is a long-form article
+      return "Delete article";
+    } else {
+      return "Delete";
+    }
+  });
 
   /**
    * Selects the appropriate relay set based on user state and feed type
@@ -123,6 +198,200 @@
     const nevent = getIdentifier("nevent");
     goto(`/events?id=${encodeURIComponent(nevent)}`);
   }
+
+  /**
+   * Opens the comment modal
+   */
+  function openCommentModal() {
+    if (!user.signedIn) {
+      commentError = "You must be signed in to comment";
+      setTimeout(() => {
+        commentError = null;
+      }, 3000);
+      return;
+    }
+    closePopover();
+    commentModalOpen = true;
+    commentContent = "";
+    commentError = null;
+    commentSuccess = false;
+    showJsonPreview = false;
+  }
+
+  /**
+   * Parse address to get event details
+   */
+  function parseAddress(address: string): { kind: number; pubkey: string; dTag: string } | null {
+    const parts = address.split(":");
+    if (parts.length !== 3) {
+      console.error("[CardActions] Invalid address format:", address);
+      return null;
+    }
+
+    const [kindStr, pubkey, dTag] = parts;
+    const kind = parseInt(kindStr);
+
+    if (isNaN(kind)) {
+      console.error("[CardActions] Invalid kind in address:", kindStr);
+      return null;
+    }
+
+    return { kind, pubkey, dTag };
+  }
+
+  /**
+   * Submit comment
+   */
+  async function submitComment() {
+    if (!sectionAddress || !user.pubkey) {
+      commentError = "Invalid state - cannot submit comment";
+      return;
+    }
+
+    const eventDetails = parseAddress(sectionAddress);
+    if (!eventDetails) {
+      commentError = "Invalid event address";
+      return;
+    }
+
+    const { kind, pubkey: authorPubkey, dTag } = eventDetails;
+
+    isSubmittingComment = true;
+    commentError = null;
+
+    try {
+      // Get relay hint
+      const relayHint = $activeOutboxRelays[0] || "";
+
+      // Fetch target event to get its ID
+      let eventId = "";
+      try {
+        const targetEvent = await ndk.fetchEvent({
+          kinds: [kind],
+          authors: [authorPubkey],
+          "#d": [dTag],
+        });
+        if (targetEvent) {
+          eventId = targetEvent.id;
+        }
+      } catch (err) {
+        console.warn("[CardActions] Could not fetch target event ID:", err);
+      }
+
+      // Create comment event (NIP-22)
+      const commentEvent = new NDKEventClass(ndk);
+      commentEvent.kind = 1111;
+      commentEvent.content = commentContent;
+      commentEvent.pubkey = user.pubkey;
+
+      commentEvent.tags = [
+        ["A", sectionAddress, relayHint, authorPubkey],
+        ["K", kind.toString()],
+        ["P", authorPubkey, relayHint],
+        ["a", sectionAddress, relayHint],
+        ["k", kind.toString()],
+        ["p", authorPubkey, relayHint],
+      ];
+
+      if (eventId) {
+        commentEvent.tags.push(["e", eventId, relayHint]);
+      }
+
+      // Sign event
+      const plainEvent = {
+        kind: Number(commentEvent.kind),
+        pubkey: String(commentEvent.pubkey),
+        created_at: Number(commentEvent.created_at ?? Math.floor(Date.now() / 1000)),
+        tags: commentEvent.tags.map((tag) => tag.map(String)),
+        content: String(commentEvent.content),
+      };
+
+      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
+        const signed = await window.nostr.signEvent(plainEvent);
+        commentEvent.sig = signed.sig;
+        if ("id" in signed) {
+          commentEvent.id = signed.id as string;
+        }
+      } else if (user.signer) {
+        await commentEvent.sign(user.signer);
+      }
+
+      // Publish to relays
+      const relays = [
+        ...communityRelays,
+        ...$activeOutboxRelays,
+        ...$activeInboxRelays,
+      ];
+      const uniqueRelays = Array.from(new Set(relays));
+
+      const signedEvent = {
+        ...plainEvent,
+        id: commentEvent.id,
+        sig: commentEvent.sig,
+      };
+
+      let publishedCount = 0;
+      for (const relayUrl of uniqueRelays) {
+        try {
+          const ws = await WebSocketPool.instance.acquire(relayUrl);
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              WebSocketPool.instance.release(ws);
+              reject(new Error("Timeout"));
+            }, 5000);
+
+            ws.onmessage = (e) => {
+              const [type, id, ok, message] = JSON.parse(e.data);
+              if (type === "OK" && id === signedEvent.id) {
+                clearTimeout(timeout);
+                if (ok) {
+                  publishedCount++;
+                  WebSocketPool.instance.release(ws);
+                  resolve();
+                } else {
+                  WebSocketPool.instance.release(ws);
+                  reject(new Error(message));
+                }
+              }
+            };
+
+            ws.send(JSON.stringify(["EVENT", signedEvent]));
+          });
+        } catch (e) {
+          console.error(`[CardActions] Failed to publish to ${relayUrl}:`, e);
+        }
+      }
+
+      if (publishedCount === 0) {
+        throw new Error("Failed to publish to any relays");
+      }
+
+      commentSuccess = true;
+      setTimeout(() => {
+        commentModalOpen = false;
+        commentSuccess = false;
+        commentContent = "";
+        showJsonPreview = false;
+      }, 2000);
+
+    } catch (err) {
+      console.error("[CardActions] Error submitting comment:", err);
+      commentError = err instanceof Error ? err.message : "Failed to post comment";
+    } finally {
+      isSubmittingComment = false;
+    }
+  }
+
+  /**
+   * Cancel comment
+   */
+  function cancelComment() {
+    commentModalOpen = false;
+    commentContent = "";
+    commentError = null;
+    commentSuccess = false;
+    showJsonPreview = false;
+  }
 </script>
 
 <div
@@ -153,6 +422,16 @@
       <div class="flex flex-row justify-between space-x-4">
         <div class="flex flex-col text-nowrap">
           <ul class="space-y-2">
+            {#if sectionAddress}
+              <li>
+                <button
+                  class="btn-leather w-full text-left"
+                  onclick={openCommentModal}
+                >
+                  <MessageDotsOutline class="inline mr-2" /> Comment on section
+                </button>
+              </li>
+            {/if}
             <li>
               <button
                 class="btn-leather w-full text-left"
@@ -175,6 +454,19 @@
                 icon={ClipboardCleanOutline}
               />
             </li>
+            {#if canDelete}
+              <li>
+                <button
+                  class="btn-leather w-full text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  onclick={() => {
+                    closePopover();
+                    onDelete?.();
+                  }}
+                >
+                  <TrashBinOutline class="inline mr-2" /> {deleteButtonText}
+                </button>
+              </li>
+            {/if}
           </ul>
         </div>
       </div>
@@ -265,4 +557,90 @@
       </button>
     </div>
   </Modal>
+
+  <!-- Comment Modal -->
+  {#if sectionAddress}
+    <Modal
+      class="modal-leather"
+      title="Add Comment"
+      bind:open={commentModalOpen}
+      autoclose={false}
+      outsideclose={true}
+      size="md"
+    >
+      <div class="space-y-4">
+        {#if user.profile}
+          <div class="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+            {#if user.profile.picture}
+              <img
+                src={user.profile.picture}
+                alt={user.profile.displayName || user.profile.name || "User"}
+                class="w-10 h-10 rounded-full object-cover"
+              />
+            {/if}
+            <span class="font-medium text-gray-900 dark:text-gray-100">
+              {user.profile.displayName || user.profile.name || "Anonymous"}
+            </span>
+          </div>
+        {/if}
+
+        <Textarea
+          bind:value={commentContent}
+          placeholder="Write your comment here..."
+          rows={6}
+          disabled={isSubmittingComment}
+          class="w-full"
+        />
+
+        {#if commentError}
+          <P class="text-red-600 dark:text-red-400 text-sm">{commentError}</P>
+        {/if}
+
+        {#if commentSuccess}
+          <P class="text-green-600 dark:text-green-400 text-sm">Comment posted successfully!</P>
+        {/if}
+
+        <!-- JSON Preview Section -->
+        {#if showJsonPreview && previewJson}
+          <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
+            <P class="text-sm font-semibold mb-2">Event JSON Preview:</P>
+            <pre class="text-xs bg-white dark:bg-gray-800 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700"><code>{JSON.stringify(previewJson, null, 2)}</code></pre>
+          </div>
+        {/if}
+
+        <div class="flex justify-between items-center gap-3 pt-2">
+          <Button
+            color="light"
+            size="sm"
+            onclick={() => showJsonPreview = !showJsonPreview}
+            class="flex items-center gap-1"
+          >
+            {#if showJsonPreview}
+              <ChevronUpOutline class="w-4 h-4" />
+            {:else}
+              <ChevronDownOutline class="w-4 h-4" />
+            {/if}
+            {showJsonPreview ? "Hide" : "Show"} JSON
+          </Button>
+
+          <div class="flex gap-3">
+          <Button
+            color="alternative"
+            onclick={cancelComment}
+            disabled={isSubmittingComment}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="primary"
+            onclick={submitComment}
+            disabled={isSubmittingComment || !commentContent.trim()}
+          >
+            {isSubmittingComment ? "Posting..." : "Post Comment"}
+          </Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  {/if}
 </div>

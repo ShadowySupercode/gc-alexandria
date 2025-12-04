@@ -611,6 +611,37 @@ export async function signEvent(event: {
 }
 
 /**
+ * Converts a pubkey to a consistent hue value (0-360) for color mapping.
+ * The same pubkey will always produce the same hue.
+ * @param pubkey The pubkey to convert (hex or npub format)
+ * @returns A hue value between 0 and 360
+ */
+export function pubkeyToHue(pubkey: string): number {
+  // Normalize pubkey to hex format
+  let hexPubkey = pubkey;
+
+  try {
+    if (pubkey.startsWith("npub")) {
+      const decoded = nip19.decode(pubkey);
+      if (decoded.type === "npub") {
+        hexPubkey = decoded.data as string;
+      }
+    }
+  } catch {
+    // If decode fails, use the original pubkey
+  }
+
+  // Hash the pubkey using SHA-256
+  const hash = sha256(hexPubkey);
+
+  // Use the first 4 bytes to generate a number
+  const num = (hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3];
+
+  // Map to 0-360 range
+  return Math.abs(num) % 360;
+}
+
+/**
  * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:"
  * if they are not already prefixed and are not part of a hyperlink
  */

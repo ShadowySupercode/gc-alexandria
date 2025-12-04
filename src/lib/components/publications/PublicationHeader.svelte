@@ -8,10 +8,41 @@
   import LazyImage from "$components/util/LazyImage.svelte";
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { indexKind } from "$lib/consts";
+  import { deleteEvent } from "$lib/services/deletion";
 
   const { event } = $props<{ event: NDKEvent }>();
 
   const ndk = getNdkContext();
+
+  /**
+   * Handle deletion of this publication
+   */
+  async function handleDelete() {
+    const confirmed = confirm(
+      "Are you sure you want to delete this publication? This action will publish a deletion request to all relays."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteEvent({
+        eventAddress: event.tagAddress(),
+        eventKind: event.kind,
+        reason: "User deleted publication",
+        onSuccess: (deletionEventId) => {
+          console.log("[PublicationHeader] Deletion event published:", deletionEventId);
+          // Optionally refresh the feed or remove the card
+          window.location.reload();
+        },
+        onError: (error) => {
+          console.error("[PublicationHeader] Deletion failed:", error);
+          alert(`Failed to delete publication: ${error}`);
+        },
+      }, ndk);
+    } catch (error) {
+      console.error("[PublicationHeader] Deletion error:", error);
+    }
+  }
 
   function getRelayUrls(): string[] {
     return $activeInboxRelays;
@@ -86,7 +117,7 @@
           <h3 class="text-sm font-semibold text-primary-600 dark:text-primary-400 mt-auto break-words overflow-hidden">version: {version}</h3>
         {/if}
         <div class="flex ml-auto">
-          <CardActions {event} />
+          <CardActions {event} onDelete={handleDelete} />
         </div>
       </div>
     </div>

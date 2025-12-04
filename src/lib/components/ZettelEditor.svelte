@@ -23,6 +23,7 @@
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
   import Asciidoctor from "asciidoctor";
+  import { extractWikiLinks, renderWikiLinksToHtml } from "$lib/utils/wiki_links";
 
   // Initialize Asciidoctor processor
   const asciidoctor = Asciidoctor();
@@ -59,6 +60,9 @@
   let publicationResult = $state<any>(null);
   let generatedEvents = $state<any>(null);
   let contentType = $state<"article" | "scattered-notes" | "none">("none");
+
+  // Dark mode state
+  let isDarkMode = $state(false);
 
   // Note: updateEditorContent() is only called manually when needed
   // The automatic effect was causing feedback loops with user typing
@@ -217,7 +221,8 @@
         event = findEventByDTag(publicationResult.contentEvents, node.dTag, node.eventKind);
       }
 
-      const tags = event?.tags.filter((t: string[]) => t[0] === "t") || [];
+      // Extract all tags (t for hashtags, w for wiki links)
+      const tags = event?.tags || [];
 
       // Extract the title from the title tag
       const titleTag = event?.tags.find((t: string[]) => t[0] === "title");
@@ -349,6 +354,45 @@
     },
     provide: (f) => EditorView.decorations.from(f),
   });
+
+  // State field to track wiki link decorations
+  const wikiLinkDecorations = StateField.define<DecorationSet>({
+    create(state) {
+      return createWikiLinkDecorations(state);
+    },
+    update(decorations, tr) {
+      // Update decorations when content changes
+      if (tr.docChanged) {
+        return createWikiLinkDecorations(tr.state);
+      }
+      return decorations.map(tr.changes);
+    },
+    provide: (f) => EditorView.decorations.from(f),
+  });
+
+  // Function to create wiki link decorations
+  function createWikiLinkDecorations(state: EditorState): DecorationSet {
+    const ranges: Array<{ from: number; to: number; decoration: any }> = [];
+    const content = state.doc.toString();
+    const wikiLinks = extractWikiLinks(content);
+
+    for (const link of wikiLinks) {
+      const className =
+        link.type === 'auto'
+          ? 'cm-wiki-link-auto'
+          : link.type === 'w'
+            ? 'cm-wiki-link-ref'
+            : 'cm-wiki-link-def';
+
+      ranges.push({
+        from: link.startIndex,
+        to: link.endIndex,
+        decoration: Decoration.mark({ class: className }),
+      });
+    }
+
+    return RangeSet.of(ranges.map((r) => r.decoration.range(r.from, r.to)));
+  }
 
   // Function to create header decorations based on parsed sections
   function createHeaderDecorations(
@@ -682,6 +726,28 @@
         fontWeight: "500",
         fontStyle: "italic",
       },
+      // Wiki links - using theme primary colors (leather tones)
+      ".cm-wiki-link-auto": {
+        color: "var(--color-primary-700)", // [[term]] (auto) - medium leather
+        fontWeight: "500",
+        backgroundColor: "color-mix(in srgb, var(--color-primary-700) 10%, transparent)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-ref": {
+        color: "var(--color-primary-800)", // [[w:term]] (reference) - darker leather
+        fontWeight: "500",
+        backgroundColor: "color-mix(in srgb, var(--color-primary-800) 10%, transparent)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-def": {
+        color: "#F59E0B", // amber-500 for [[d:term]] (definition)
+        fontWeight: "500",
+        backgroundColor: "rgba(245, 158, 11, 0.1)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
     });
 
     const state = EditorState.create({
@@ -690,6 +756,7 @@
         basicSetup,
         markdown(), // AsciiDoc is similar to markdown syntax
         headerDecorations,
+        wikiLinkDecorations,
         headerHighlighting,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -722,6 +789,36 @@
             outline: "none",
           },
         }),
+        // Override background and text to match preview (gray-800 bg, gray-100 text)
+        ...(isDarkMode ? [EditorView.theme({
+          "&": {
+            backgroundColor: "#1f2937",
+            color: "#f3f4f6",
+          },
+          ".cm-content": {
+            color: "#f3f4f6",
+          },
+          ".cm-line": {
+            color: "#f3f4f6",
+          },
+          ".cm-gutters": {
+            backgroundColor: "#1f2937",
+            borderColor: "#374151",
+            color: "#9ca3af",
+          },
+          ".cm-activeLineGutter": {
+            backgroundColor: "#374151",
+          },
+          ".cm-cursor": {
+            borderLeftColor: "#f3f4f6",
+          },
+          ".cm-selectionBackground, ::selection": {
+            backgroundColor: "#374151 !important",
+          },
+          "&.cm-focused .cm-selectionBackground, &.cm-focused ::selection": {
+            backgroundColor: "#4b5563 !important",
+          },
+        }, { dark: true })] : []),
       ],
     });
 
@@ -749,9 +846,41 @@
 
   // Mount CodeMirror when component mounts
   onMount(() => {
+    // Initialize dark mode state
+    isDarkMode = document.documentElement.classList.contains('dark');
     createEditor();
 
+    // Watch for dark mode changes
+    const observer = new MutationObserver(() => {
+      const newDarkMode = document.documentElement.classList.contains('dark');
+      if (newDarkMode !== isDarkMode) {
+        isDarkMode = newDarkMode;
+        // Recreate editor with new theme
+        if (editorView) {
+          const currentContent = editorView.state.doc.toString();
+          editorView.destroy();
+          createEditor();
+          // Restore content
+          if (editorView && currentContent !== content) {
+            editorView.dispatch({
+              changes: {
+                from: 0,
+                to: editorView.state.doc.length,
+                insert: currentContent,
+              },
+            });
+          }
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
     return () => {
+      observer.disconnect();
       if (editorView) {
         editorView.destroy();
       }
@@ -887,7 +1016,7 @@
           : 'w-full'} flex flex-col"
     >
       <div
-        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
         style="overflow: hidden;"
       >
         <!-- CodeMirror Editor Container -->
@@ -913,7 +1042,7 @@
             </h3>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900">
+          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             <div class="max-w-4xl mx-auto">
             {#if !content.trim()}
               <div
@@ -962,17 +1091,41 @@
                           {section.title}
                         </h2>
 
-                        <!-- Tags (blue for index events) -->
+                        <!-- Tags and wiki links -->
                         {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
+                          {@const tTags = section.tags.filter((tag) => tag[0] === 't')}
+                          {@const wTags = section.tags.filter((tag) => tag[0] === 'w')}
+
+                          {#if tTags.length > 0 || wTags.length > 0}
+                          <div class="space-y-2">
+                            <!-- Hashtags (t-tags) -->
+                            {#if tTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each tTags as tag}
+                                  <span
+                                    class="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium"
+                                  >
+                                    #{tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+
+                            <!-- Wiki links (w-tags) -->
+                            {#if wTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each wTags as tag}
+                                  <span
+                                    class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
+                                    title="Wiki reference: {tag[1]}"
+                                  >
+                                    🔗 {tag[2] || tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
                           </div>
+                          {/if}
                         {/if}
                       </div>
                     {:else}
@@ -1001,17 +1154,41 @@
                           )}
                         </div>
 
-                        <!-- Tags (green for content events) -->
+                        <!-- Tags and wiki links (green for content events) -->
                         {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
+                          {@const tTags = section.tags.filter((tag) => tag[0] === 't')}
+                          {@const wTags = section.tags.filter((tag) => tag[0] === 'w')}
+
+                          {#if tTags.length > 0 || wTags.length > 0}
+                          <div class="space-y-2">
+                            <!-- Hashtags (t-tags) -->
+                            {#if tTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each tTags as tag}
+                                  <span
+                                    class="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium"
+                                  >
+                                    #{tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+
+                            <!-- Wiki links (w-tags) -->
+                            {#if wTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each wTags as tag}
+                                  <span
+                                    class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
+                                    title="Wiki reference: {tag[1]}"
+                                  >
+                                    🔗 {tag[2] || tag[1]}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
                           </div>
+                          {/if}
                         {/if}
 
                         <!-- Content rendered as AsciiDoc -->
@@ -1020,25 +1197,37 @@
                             class="prose prose-sm dark:prose-invert max-w-none mt-4"
                           >
                             {@html (() => {
+                              // Extract wiki links and replace with placeholders BEFORE Asciidoctor
+                              const wikiLinks = extractWikiLinks(section.content);
+                              let contentWithPlaceholders = section.content;
+                              const placeholders = new Map();
+
+                              wikiLinks.forEach((link, index) => {
+                                // Use a placeholder inside a passthrough macro - Asciidoctor will strip pass:[...] and leave the inner text
+                                const innerPlaceholder = `WIKILINK${index}PLACEHOLDER`;
+                                const placeholder = `pass:[${innerPlaceholder}]`;
+                                placeholders.set(innerPlaceholder, link); // Store by inner placeholder (what will remain after Asciidoctor)
+                                contentWithPlaceholders = contentWithPlaceholders.replace(link.fullMatch, placeholder);
+                              });
+
                               // Check if content contains nested headers
-                              const hasNestedHeaders = section.content.includes('\n===') || section.content.includes('\n====');
-                              
+                              const hasNestedHeaders = contentWithPlaceholders.includes('\n===') || contentWithPlaceholders.includes('\n====');
+
+                              let rendered;
                               if (hasNestedHeaders) {
                                 // For proper nested header parsing, we need full document context
                                 // Create a complete AsciiDoc document structure
                                 // Important: Ensure proper level sequence for nested headers
-                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${section.content}`;
-                                
-                                
-                                const rendered = asciidoctor.convert(fullDoc, {
+                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${contentWithPlaceholders}`;
+
+                                rendered = asciidoctor.convert(fullDoc, {
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
                                     sectids: false,
                                   },
                                 });
-                                
-                                
+
                                 // Extract just the content we want (remove the temporary structure)
                                 // Find the section we care about
                                 const sectionStart = rendered.indexOf(`<h${section.level}`);
@@ -1050,15 +1239,13 @@
                                     // Find where the section ends (at the closing div)
                                     const sectionEnd = afterHeader.lastIndexOf('</div>');
                                     if (sectionEnd !== -1) {
-                                      const extracted = afterHeader.substring(0, sectionEnd);
-                                      return extracted;
+                                      rendered = afterHeader.substring(0, sectionEnd);
                                     }
                                   }
                                 }
-                                return rendered;
                               } else {
                                 // Simple content without nested headers
-                                return asciidoctor.convert(section.content, {
+                                rendered = asciidoctor.convert(contentWithPlaceholders, {
                                   standalone: false,
                                   attributes: {
                                     showtitle: false,
@@ -1066,6 +1253,32 @@
                                   },
                                 });
                               }
+
+                              // Replace placeholders with actual wiki link HTML
+                              // Use a global regex to catch all occurrences (Asciidoctor might have duplicated them)
+                              placeholders.forEach((link, placeholder) => {
+                                const className =
+                                  link.type === 'auto'
+                                    ? 'wiki-link wiki-link-auto'
+                                    : link.type === 'w'
+                                      ? 'wiki-link wiki-link-ref'
+                                      : 'wiki-link wiki-link-def';
+
+                                const title =
+                                  link.type === 'w'
+                                    ? 'Wiki reference (mentions this concept)'
+                                    : link.type === 'd'
+                                      ? 'Wiki definition (defines this concept)'
+                                      : 'Wiki link (searches both references and definitions)';
+
+                                const html = `<a class="${className}" href="#wiki/${link.type}/${encodeURIComponent(link.term)}" title="${title}" data-wiki-type="${link.type}" data-wiki-term="${link.term}">${link.displayText}</a>`;
+
+                                // Use global replace to handle all occurrences
+                                const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                                rendered = rendered.replace(regex, html);
+                              });
+
+                              return rendered;
                             })()}
                           </div>
                         {/if}
@@ -1082,7 +1295,7 @@
                         </div>
                         <div class="relative flex justify-center">
                           <span
-                            class="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400"
+                            class="bg-white dark:bg-gray-800 px-3 text-xs text-gray-500 dark:text-gray-400"
                           >
                             Event Boundary
                           </span>
@@ -1094,7 +1307,7 @@
               </div>
 
               <div
-                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
+                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded border"
               >
                 <strong>Event Count:</strong>
                 {#if generatedEvents}
@@ -1274,6 +1487,35 @@ Understanding the nature of knowledge...
                 </li>
               </ul>
             </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Wiki Links
+              </h4>
+              <p class="text-xs mb-2">
+                Create semantic links between content using wiki link syntax:
+              </p>
+              <ul class="space-y-2 text-xs">
+                <li>
+                  <code class="bg-violet-100 dark:bg-violet-900/30 px-1 py-0.5 rounded">[[term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Auto link (queries both w and d tags)</span>
+                </li>
+                <li>
+                  <code class="bg-cyan-100 dark:bg-cyan-900/30 px-1 py-0.5 rounded">[[w:term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Reference/mention (backward link)</span>
+                </li>
+                <li>
+                  <code class="bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded">[[d:term]]</code>
+                  <span class="text-gray-600 dark:text-gray-400">- Definition link (forward link)</span>
+                </li>
+                <li class="mt-2">
+                  <strong>Custom text:</strong> <code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">[[term|display text]]</code>
+                </li>
+              </ul>
+              <p class="text-xs mt-2 text-gray-600 dark:text-gray-400">
+                Example: "The concept of [[Knowledge Graphs]] enables..." creates a w-tag automatically.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1431,3 +1673,43 @@ Understanding the nature of knowledge...
     {/if}
   </div>
 </div>
+
+<style>
+  /* Wiki link styling in preview */
+  :global(.prose .wiki-link) {
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+    transition: all 0.2s;
+  }
+
+  :global(.prose .wiki-link:hover) {
+    border-bottom-style: solid;
+  }
+
+  /* Use theme primary colors (leather tones) */
+  :global(.prose .wiki-link-auto) {
+    color: var(--color-primary-700); /* medium leather */
+  }
+
+  :global(.prose .wiki-link-ref) {
+    color: var(--color-primary-800); /* darker leather */
+  }
+
+  :global(.prose .wiki-link-def) {
+    color: var(--color-warning-600); /* amber/yellow for definitions */
+    font-weight: 500;
+  }
+
+  /* Dark mode - use lighter shades for contrast */
+  :global(.dark .prose .wiki-link-auto) {
+    color: var(--color-primary-300); /* lighter leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-ref) {
+    color: var(--color-primary-400); /* medium-light leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-def) {
+    color: var(--color-warning-400); /* brighter amber for dark mode */
+  }
+</style>
