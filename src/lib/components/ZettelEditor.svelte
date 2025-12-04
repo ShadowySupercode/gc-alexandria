@@ -5,10 +5,10 @@
     QuestionCircleOutline,
     ChartPieOutline,
   } from "flowbite-svelte-icons";
-  import { EditorView, basicSetup } from "codemirror";
   import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
-  import { Decoration, type DecorationSet } from "@codemirror/view";
+  import { EditorView, Decoration, type DecorationSet } from "@codemirror/view";
+  import { basicSetup } from "@codemirror/basic-setup";
   import { RangeSet } from "@codemirror/state";
   import { onMount } from "svelte";
   import {
