@@ -102,8 +102,9 @@ export async function publishZettel(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -182,8 +183,7 @@ export async function publishSingleEvent(
 
     if (!hasAuthorTag && ndk.activeUser) {
       // Add display name as author
-      const displayName =
-        ndk.activeUser.profile?.displayName ||
+      const displayName = ndk.activeUser.profile?.displayName ||
         ndk.activeUser.profile?.name ||
         "Anonymous";
       finalTags.push(["author", displayName]);
@@ -213,8 +213,9 @@ export async function publishSingleEvent(
       throw new Error("Failed to publish to any relays");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     console.error(`Error publishing event: ${errorMessage}`);
     onError?.(errorMessage);
     return { success: false, error: errorMessage };
@@ -289,15 +290,17 @@ export async function publishMultipleZettels(
           });
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
+        const errorMessage = err instanceof Error
+          ? err.message
+          : "Unknown error";
         results.push({ success: false, error: errorMessage });
       }
     }
     return results;
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     onError?.(errorMessage);
     return [{ success: false, error: errorMessage }];
   }
@@ -331,8 +334,7 @@ export function processPublishResults(
       } else {
         const contentIndex = hasIndexEvent ? index - 1 : index;
         const contentEvent = events.contentEvents[contentIndex];
-        title =
-          contentEvent?.title ||
+        title = contentEvent?.title ||
           contentEvent?.tags?.find((t: any) => t[0] === "title")?.[1] ||
           `Note ${contentIndex + 1}`;
       }
@@ -355,8 +357,7 @@ export function processPublishResults(
       } else {
         const contentIndex = hasIndexEvent ? index - 1 : index;
         const contentEvent = events.contentEvents[contentIndex];
-        title =
-          contentEvent?.title ||
+        title = contentEvent?.title ||
           contentEvent?.tags?.find((t: any) => t[0] === "title")?.[1] ||
           `Note ${contentIndex + 1}`;
       }

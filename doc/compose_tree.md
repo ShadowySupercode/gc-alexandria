@@ -2,33 +2,42 @@
 
 ## Overview
 
-This document outlines the complete restart plan for implementing NKBIP-01 compliant hierarchical AsciiDoc parsing using proper Asciidoctor tree processor extensions.
+This document outlines the complete restart plan for implementing NKBIP-01
+compliant hierarchical AsciiDoc parsing using proper Asciidoctor tree processor
+extensions.
 
 ## Current State Analysis
 
 ### Problems Identified
+
 1. **Dual Architecture Conflict**: Two competing parsing implementations exist:
    - `publication_tree_factory.ts` - AST-first approach (currently used)
    - `publication_tree_extension.ts` - Extension approach (incomplete)
 
-2. **Missing Proper Extension Registration**: Current code doesn't follow the official Asciidoctor extension pattern you provided
+2. **Missing Proper Extension Registration**: Current code doesn't follow the
+   official Asciidoctor extension pattern you provided
 
-3. **Incomplete NKBIP-01 Compliance**: Testing with `deep_hierarchy_test.adoc` may not produce the exact structures shown in `docreference.md`
+3. **Incomplete NKBIP-01 Compliance**: Testing with `deep_hierarchy_test.adoc`
+   may not produce the exact structures shown in `docreference.md`
 
 ## NKBIP-01 Specification Summary
 
 From `test_data/AsciidocFiles/docreference.md`:
 
 ### Event Types
+
 - **30040**: Index events (collections/hierarchical containers)
 - **30041**: Content events (actual article sections)
 
 ### Parse Level Behaviors
-- **Level 2**: Only `==` sections → 30041 events (subsections included in content)
-- **Level 3**: `==` → 30040 indices, `===` → 30041 content events  
+
+- **Level 2**: Only `==` sections → 30041 events (subsections included in
+  content)
+- **Level 3**: `==` → 30040 indices, `===` → 30041 content events
 - **Level 4+**: Full hierarchy with each level becoming separate events
 
 ### Key Rules
+
 1. If a section has subsections at target level → becomes 30040 index
 2. If no subsections at target level → becomes 30041 content event
 3. Content inclusion: 30041 events include all content below parse level
@@ -44,13 +53,13 @@ Following the pattern you provided:
 // Extension registration pattern
 module.exports = function (registry) {
   registry.treeProcessor(function () {
-    var self = this
+    var self = this;
     self.process(function (doc) {
       // Process document and build PublicationTree
-      return doc
-    })
-  })
-}
+      return doc;
+    });
+  });
+};
 ```
 
 ### Implementation Components
@@ -80,11 +89,12 @@ export function registerPublicationTreeProcessor(
   registry: Registry,
   ndk: NDK,
   parseLevel: number,
-  options?: ProcessorOptions
-): { getResult: () => ProcessorResult | null }
+  options?: ProcessorOptions,
+): { getResult: () => ProcessorResult | null };
 ```
 
 **Key Features:**
+
 - Follows Asciidoctor extension pattern exactly
 - Builds events during AST traversal (not after)
 - Preserves original AsciiDoc content in events
@@ -97,11 +107,12 @@ export function registerPublicationTreeProcessor(
 export async function parseAsciiDocWithTree(
   content: string,
   ndk: NDK,
-  parseLevel: number = 2
-): Promise<PublicationTreeResult>
+  parseLevel: number = 2,
+): Promise<PublicationTreeResult>;
 ```
 
 **Responsibilities:**
+
 - Create Asciidoctor instance
 - Register tree processor extension
 - Execute parsing with extension
@@ -111,6 +122,7 @@ export async function parseAsciiDocWithTree(
 ### Phase 3: ZettelEditor Integration
 
 **Changes to `ZettelEditor.svelte`:**
+
 - Replace `createPublicationTreeFromContent()` calls
 - Use new `parseAsciiDocWithTree()` function
 - Maintain existing preview/publishing interface
@@ -119,6 +131,7 @@ export async function parseAsciiDocWithTree(
 ### Phase 4: Validation Testing
 
 **Test Suite:**
+
 1. Parse `deep_hierarchy_test.adoc` at levels 2-7
 2. Verify event structures match `docreference.md` examples
 3. Validate content preservation and tag inheritance
@@ -127,23 +140,29 @@ export async function parseAsciiDocWithTree(
 ## File Organization
 
 ### Files to Create
+
 1. `src/lib/utils/publication_tree_processor.ts` - Core tree processor extension
 2. `src/lib/utils/asciidoc_publication_parser.ts` - Unified parser interface
 3. `tests/unit/publication_tree_processor.test.ts` - Comprehensive test suite
 
 ### Files to Modify
+
 1. `src/lib/components/ZettelEditor.svelte` - Update parsing calls
 2. `src/routes/new/compose/+page.svelte` - Verify integration works
 
 ### Files to Remove (After Validation)
+
 1. `src/lib/utils/publication_tree_factory.ts` - Replace with processor
 2. `src/lib/utils/publication_tree_extension.ts` - Merge concepts into processor
 
 ## Success Criteria
 
-1. **NKBIP-01 Compliance**: All parse levels produce structures exactly matching `docreference.md`
-2. **Content Preservation**: Original AsciiDoc content preserved in events (not converted to HTML)
-3. **Proper Extension Pattern**: Uses official Asciidoctor tree processor registration
+1. **NKBIP-01 Compliance**: All parse levels produce structures exactly matching
+   `docreference.md`
+2. **Content Preservation**: Original AsciiDoc content preserved in events (not
+   converted to HTML)
+3. **Proper Extension Pattern**: Uses official Asciidoctor tree processor
+   registration
 4. **Zero Regression**: Current ZettelEditor functionality unchanged
 5. **Performance**: No degradation in parsing or preview speed
 6. **Test Coverage**: Comprehensive validation with `deep_hierarchy_test.adoc`
@@ -152,7 +171,7 @@ export async function parseAsciiDocWithTree(
 
 1. **Study & Plan** ✓ (Current phase)
 2. **Implement Core Processor** - Create `publication_tree_processor.ts`
-3. **Build Unified Interface** - Create `asciidoc_publication_parser.ts`  
+3. **Build Unified Interface** - Create `asciidoc_publication_parser.ts`
 4. **Integrate with ZettelEditor** - Update parsing calls
 5. **Validate with Test Documents** - Verify NKBIP-01 compliance
 6. **Clean Up Legacy Code** - Remove old implementations
@@ -169,5 +188,6 @@ export async function parseAsciiDocWithTree(
 
 - NKBIP-01 Specification: `test_data/AsciidocFiles/docreference.md`
 - Test Document: `test_data/AsciidocFiles/deep_hierarchy_test.adoc`
-- Asciidoctor Extensions: [Official Documentation](https://docs.asciidoctor.org/asciidoctor.js/latest/extend/extensions/)
+- Asciidoctor Extensions:
+  [Official Documentation](https://docs.asciidoctor.org/asciidoctor.js/latest/extend/extensions/)
 - Current Implementation: `src/lib/components/ZettelEditor.svelte:64`

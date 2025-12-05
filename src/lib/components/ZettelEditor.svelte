@@ -5,10 +5,10 @@
     QuestionCircleOutline,
     ChartPieOutline,
   } from "flowbite-svelte-icons";
-  import { EditorView, basicSetup } from "codemirror";
   import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
-  import { Decoration, type DecorationSet } from "@codemirror/view";
+  import { EditorView, Decoration, type DecorationSet } from "@codemirror/view";
+  import { basicSetup } from "@codemirror/basic-setup";
   import { RangeSet } from "@codemirror/state";
   import { onMount } from "svelte";
   import {
@@ -22,7 +22,11 @@
     exportEventsFromTree,
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
-  import Asciidoctor from "asciidoctor";
+  import Asciidoctor, { Document } from "asciidoctor";
+  import {
+    extractWikiLinks,
+    renderWikiLinksToHtml,
+  } from "$lib/utils/wiki_links";
 
   // Initialize Asciidoctor processor
   const asciidoctor = Asciidoctor();
@@ -63,6 +67,9 @@
   let publicationResult = $state<any>(null);
   let generatedEvents = $state<any>(null);
   let contentType = $state<"article" | "scattered-notes" | "none">("none");
+
+  // Dark mode state
+  let isDarkMode = $state(false);
 
   // Note: updateEditorContent() is only called manually when needed
   // The automatic effect was causing feedback loops with user typing
@@ -159,13 +166,6 @@
       keys: Object.keys(publicationResult),
     });
 
-    console.log("Event structure details:", JSON.stringify(publicationResult.metadata.eventStructure, null, 2));
-    console.log("Content events details:", publicationResult.contentEvents?.map(e => ({
-      dTag: e.tags?.find(t => t[0] === 'd')?.[1],
-      title: e.tags?.find(t => t[0] === 'title')?.[1],
-      content: e.content?.substring(0, 100) + '...'
-    })));
-
     // Helper to get d-tag from event (works with both NDK events and serialized events)
     const getEventDTag = (event: any) => {
       if (event?.tagValue) {
@@ -179,11 +179,16 @@
     };
 
     // Helper to find event by dTag and kind
-    const findEventByDTag = (events: any[], dTag: string, eventKind?: number) => {
+    const findEventByDTag = (
+      events: any[],
+      dTag: string,
+      eventKind?: number,
+    ) => {
       return events.find((event) => {
         const matchesDTag = getEventDTag(event) === dTag;
         if (eventKind !== undefined) {
-          const eventKindValue = event?.kind || (event?.tagValue ? event.tagValue("k") : null);
+          const eventKindValue =
+            event?.kind || (event?.tagValue ? event.tagValue("k") : null);
           return matchesDTag && eventKindValue === eventKind;
         }
         return matchesDTag;
@@ -218,15 +223,19 @@
       } else {
         // contentEvents can contain both 30040 and 30041 events at parse level 3+
         // Use eventKind to find the correct event type
-        event = findEventByDTag(publicationResult.contentEvents, node.dTag, node.eventKind);
+        event = findEventByDTag(
+          publicationResult.contentEvents,
+          node.dTag,
+          node.eventKind,
+        );
       }
 
-      const tags = event?.tags.filter((t: string[]) => t[0] === "t") || [];
+      // Extract all tags (t for hashtags, w for wiki links)
+      const tags = event?.tags || [];
 
       // Extract the title from the title tag
       const titleTag = event?.tags.find((t: string[]) => t[0] === "title");
       const eventTitle = titleTag ? titleTag[1] : node.title;
-
 
       // For content events, remove the first heading from content since we'll use the title tag
       let processedContent = event?.content || "";
@@ -236,8 +245,8 @@
         // since the title is displayed separately from the "title" tag
         const lines = processedContent.split("\n");
         const expectedHeading = `${"=".repeat(node.level)} ${node.title}`;
-        const titleHeadingIndex = lines.findIndex((line: string) =>
-          line.trim() === expectedHeading.trim(),
+        const titleHeadingIndex = lines.findIndex(
+          (line: string) => line.trim() === expectedHeading.trim(),
         );
         if (titleHeadingIndex !== -1) {
           // Remove only the specific title heading line
@@ -245,7 +254,6 @@
           processedContent = lines.join("\n").trim();
         }
       }
-
 
       return {
         title: eventTitle,
@@ -353,6 +361,45 @@
     },
     provide: (f) => EditorView.decorations.from(f),
   });
+
+  // State field to track wiki link decorations
+  const wikiLinkDecorations = StateField.define<DecorationSet>({
+    create(state) {
+      return createWikiLinkDecorations(state);
+    },
+    update(decorations, tr) {
+      // Update decorations when content changes
+      if (tr.docChanged) {
+        return createWikiLinkDecorations(tr.state);
+      }
+      return decorations.map(tr.changes);
+    },
+    provide: (f) => EditorView.decorations.from(f),
+  });
+
+  // Function to create wiki link decorations
+  function createWikiLinkDecorations(state: EditorState): DecorationSet {
+    const ranges: Array<{ from: number; to: number; decoration: any }> = [];
+    const content = state.doc.toString();
+    const wikiLinks = extractWikiLinks(content);
+
+    for (const link of wikiLinks) {
+      const className =
+        link.type === "auto"
+          ? "cm-wiki-link-auto"
+          : link.type === "w"
+            ? "cm-wiki-link-ref"
+            : "cm-wiki-link-def";
+
+      ranges.push({
+        from: link.startIndex,
+        to: link.endIndex,
+        decoration: Decoration.mark({ class: className }),
+      });
+    }
+
+    return RangeSet.of(ranges.map((r) => r.decoration.range(r.from, r.to)));
+  }
 
   // Function to create header decorations based on parsed sections
   function createHeaderDecorations(
@@ -686,6 +733,30 @@
         fontWeight: "500",
         fontStyle: "italic",
       },
+      // Wiki links - using theme primary colors (leather tones)
+      ".cm-wiki-link-auto": {
+        color: "var(--color-primary-700)", // [[term]] (auto) - medium leather
+        fontWeight: "500",
+        backgroundColor:
+          "color-mix(in srgb, var(--color-primary-700) 10%, transparent)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-ref": {
+        color: "var(--color-primary-800)", // [[w:term]] (reference) - darker leather
+        fontWeight: "500",
+        backgroundColor:
+          "color-mix(in srgb, var(--color-primary-800) 10%, transparent)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
+      ".cm-wiki-link-def": {
+        color: "#F59E0B", // amber-500 for [[d:term]] (definition)
+        fontWeight: "500",
+        backgroundColor: "rgba(245, 158, 11, 0.1)",
+        padding: "2px 4px",
+        borderRadius: "3px",
+      },
     });
 
     const state = EditorState.create({
@@ -694,6 +765,7 @@
         basicSetup,
         markdown(), // AsciiDoc is similar to markdown syntax
         headerDecorations,
+        wikiLinkDecorations,
         headerHighlighting,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -726,6 +798,44 @@
             outline: "none",
           },
         }),
+        // Override background and text to match preview (gray-800 bg, gray-100 text)
+        ...(isDarkMode
+          ? [
+              EditorView.theme(
+                {
+                  "&": {
+                    backgroundColor: "#1f2937",
+                    color: "#f3f4f6",
+                  },
+                  ".cm-content": {
+                    color: "#f3f4f6",
+                  },
+                  ".cm-line": {
+                    color: "#f3f4f6",
+                  },
+                  ".cm-gutters": {
+                    backgroundColor: "#1f2937",
+                    borderColor: "#374151",
+                    color: "#9ca3af",
+                  },
+                  ".cm-activeLineGutter": {
+                    backgroundColor: "#374151",
+                  },
+                  ".cm-cursor": {
+                    borderLeftColor: "#f3f4f6",
+                  },
+                  ".cm-selectionBackground, ::selection": {
+                    backgroundColor: "#374151 !important",
+                  },
+                  "&.cm-focused .cm-selectionBackground, &.cm-focused ::selection":
+                    {
+                      backgroundColor: "#4b5563 !important",
+                    },
+                },
+                { dark: true },
+              ),
+            ]
+          : []),
       ],
     });
 
@@ -753,9 +863,41 @@
 
   // Mount CodeMirror when component mounts
   onMount(() => {
+    // Initialize dark mode state
+    isDarkMode = document.documentElement.classList.contains("dark");
     createEditor();
 
+    // Watch for dark mode changes
+    const observer = new MutationObserver(() => {
+      const newDarkMode = document.documentElement.classList.contains("dark");
+      if (newDarkMode !== isDarkMode) {
+        isDarkMode = newDarkMode;
+        // Recreate editor with new theme
+        if (editorView) {
+          const currentContent = editorView.state.doc.toString();
+          editorView.destroy();
+          createEditor();
+          // Restore content
+          if (editorView && currentContent !== content) {
+            editorView.dispatch({
+              changes: {
+                from: 0,
+                to: editorView.state.doc.length,
+                insert: currentContent,
+              },
+            });
+          }
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
     return () => {
+      observer.disconnect();
       if (editorView) {
         editorView.destroy();
       }
@@ -910,7 +1052,7 @@
           : 'w-full'} flex flex-col"
     >
       <div
-        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+        class="flex-1 relative border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
         style="overflow: hidden;"
       >
         <!-- CodeMirror Editor Container -->
@@ -936,214 +1078,343 @@
             </h3>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900">
+          <div
+            class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          >
             <div class="max-w-4xl mx-auto">
-            {#if !content.trim()}
-              <div
-                class="text-gray-500 dark:text-gray-400 text-sm text-center py-8"
-              >
-                Start typing to see the preview...
-              </div>
-            {:else}
-              <div class="prose prose-sm dark:prose-invert max-w-none">
-                <!-- Render full document with title if it's an article -->
-                {#if contentType === "article" && publicationResult?.metadata.title}
-                  {@const documentHeader = content.split(/\n==\s+/)[0]}
-                  <div
-                    class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4"
-                  >
-                    <div class="asciidoc-content">
-                      {@html asciidoctor.convert(documentHeader, {
-                        standalone: false,
-                        attributes: {
-                          showtitle: true,
-                          sectids: false,
-                        },
-                      })}
-                    </div>
-                  </div>
-                {/if}
-
-                {#each parsedSections as section, index}
-                  <div
-                    class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0"
-                  >
-                    {#if section.isIndex}
-                      <!-- Index event: show title and tags -->
-                      <div class="space-y-3">
-                        <!-- Event type indicator -->
-                        <div
-                          class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
-                        >
-                          Index Event (30040)
-                        </div>
-
-                        <!-- Title -->
-                        <h2
-                          class="text-lg font-bold text-gray-900 dark:text-gray-100"
-                        >
-                          {section.title}
-                        </h2>
-
-                        <!-- Tags (blue for index events) -->
-                        {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
-                          </div>
-                        {/if}
+              {#if !content.trim()}
+                <div
+                  class="text-gray-500 dark:text-gray-400 text-sm text-center py-8"
+                >
+                  Start typing to see the preview...
+                </div>
+              {:else}
+                <div class="prose prose-sm dark:prose-invert max-w-none">
+                  <!-- Render full document with title if it's an article -->
+                  {#if contentType === "article" && publicationResult?.metadata.title}
+                    {@const documentHeader = content.split(/\n==\s+/)[0]}
+                    <div
+                      class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4"
+                    >
+                      <div class="asciidoc-content">
+                        {@html asciidoctor.convert(documentHeader, {
+                          standalone: false,
+                          attributes: {
+                            showtitle: true,
+                            sectids: false,
+                          },
+                        })}
                       </div>
-                    {:else}
-                      <!-- Content event: show title, tags, then content -->
-                      <div class="space-y-3">
-                        <!-- Event type indicator -->
-                        <div
-                          class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider"
-                        >
-                          Content Event (30041)
-                        </div>
+                    </div>
+                  {/if}
 
-                        <!-- Title at correct heading level -->
-                        <div
-                          class="prose prose-sm dark:prose-invert max-w-none"
-                        >
-                          {@html asciidoctor.convert(
-                            `${"=".repeat(section.level)} ${section.title}`,
-                            {
-                              standalone: false,
-                              attributes: {
-                                showtitle: false,
-                                sectids: false,
-                              },
-                            },
-                          )}
-                        </div>
-
-                        <!-- Tags (green for content events) -->
-                        {#if section.tags && section.tags.length > 0}
-                          <div class="flex flex-wrap gap-2">
-                            {#each section.tags as tag}
-                              <span
-                                class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium"
-                              >
-                                #{tag[1]}
-                              </span>
-                            {/each}
-                          </div>
-                        {/if}
-
-                        <!-- Content rendered as AsciiDoc -->
-                        {#if section.content}
+                  {#each parsedSections as section, index}
+                    <div
+                      class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700 last:border-0"
+                    >
+                      {#if section.isIndex}
+                        <!-- Index event: show title and tags -->
+                        <div class="space-y-3">
+                          <!-- Event type indicator -->
                           <div
-                            class="prose prose-sm dark:prose-invert max-w-none mt-4"
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
                           >
-                            {@html (() => {
-                              // Check if content contains nested headers
-                              const hasNestedHeaders = section.content.includes('\n===') || section.content.includes('\n====');
-                              
-                              if (hasNestedHeaders) {
-                                // For proper nested header parsing, we need full document context
-                                // Create a complete AsciiDoc document structure
-                                // Important: Ensure proper level sequence for nested headers
-                                const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${section.content}`;
-                                
-                                
-                                const rendered = asciidoctor.convert(fullDoc, {
-                                  standalone: false,
-                                  attributes: {
-                                    showtitle: false,
-                                    sectids: false,
-                                  },
+                            Index Event (30040)
+                          </div>
+
+                          <!-- Title -->
+                          <h2
+                            class="text-lg font-bold text-gray-900 dark:text-gray-100"
+                          >
+                            {section.title}
+                          </h2>
+
+                          <!-- Tags and wiki links -->
+                          {#if section.tags && section.tags.length > 0}
+                            {@const tTags = section.tags.filter(
+                              (tag: any) => tag[0] === "t",
+                            )}
+                            {@const wTags = section.tags.filter(
+                              (tag: any) => tag[0] === "w",
+                            )}
+
+                            {#if tTags.length > 0 || wTags.length > 0}
+                              <div class="space-y-2">
+                                <!-- Hashtags (t-tags) -->
+                                {#if tTags.length > 0}
+                                  <div class="flex flex-wrap gap-2">
+                                    {#each tTags as tag}
+                                      <span
+                                        class="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium"
+                                      >
+                                        #{tag[1]}
+                                      </span>
+                                    {/each}
+                                  </div>
+                                {/if}
+
+                                <!-- Wiki links (w-tags) -->
+                                {#if wTags.length > 0}
+                                  <div class="flex flex-wrap gap-2">
+                                    {#each wTags as tag}
+                                      <span
+                                        class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
+                                        title="Wiki reference: {tag[1]}"
+                                      >
+                                        🔗 {tag[2] || tag[1]}
+                                      </span>
+                                    {/each}
+                                  </div>
+                                {/if}
+                              </div>
+                            {/if}
+                          {/if}
+                        </div>
+                      {:else}
+                        <!-- Content event: show title, tags, then content -->
+                        <div class="space-y-3">
+                          <!-- Event type indicator -->
+                          <div
+                            class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider"
+                          >
+                            Content Event (30041)
+                          </div>
+
+                          <!-- Title at correct heading level -->
+                          <div
+                            class="prose prose-sm dark:prose-invert max-w-none"
+                          >
+                            {@html asciidoctor.convert(
+                              `${"=".repeat(section.level)} ${section.title}`,
+                              {
+                                standalone: false,
+                                attributes: {
+                                  showtitle: false,
+                                  sectids: false,
+                                },
+                              },
+                            )}
+                          </div>
+
+                          <!-- Tags and wiki links (green for content events) -->
+                          {#if section.tags && section.tags.length > 0}
+                            {@const tTags = section.tags.filter(
+                              (tag: any) => tag[0] === "t",
+                            )}
+                            {@const wTags = section.tags.filter(
+                              (tag: any) => tag[0] === "w",
+                            )}
+
+                            {#if tTags.length > 0 || wTags.length > 0}
+                              <div class="space-y-2">
+                                <!-- Hashtags (t-tags) -->
+                                {#if tTags.length > 0}
+                                  <div class="flex flex-wrap gap-2">
+                                    {#each tTags as tag}
+                                      <span
+                                        class="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium"
+                                      >
+                                        #{tag[1]}
+                                      </span>
+                                    {/each}
+                                  </div>
+                                {/if}
+
+                                <!-- Wiki links (w-tags) -->
+                                {#if wTags.length > 0}
+                                  <div class="flex flex-wrap gap-2">
+                                    {#each wTags as tag}
+                                      <span
+                                        class="bg-primary-50 text-primary-800 dark:bg-primary-950/40 dark:text-primary-200 px-2 py-1 rounded-full text-xs font-medium"
+                                        title="Wiki reference: {tag[1]}"
+                                      >
+                                        🔗 {tag[2] || tag[1]}
+                                      </span>
+                                    {/each}
+                                  </div>
+                                {/if}
+                              </div>
+                            {/if}
+                          {/if}
+
+                          <!-- Content rendered as AsciiDoc -->
+                          {#if section.content}
+                            <div
+                              class="prose prose-sm dark:prose-invert max-w-none mt-4"
+                            >
+                              {@html (() => {
+                                // Extract wiki links and replace with placeholders BEFORE Asciidoctor
+                                const wikiLinks = extractWikiLinks(
+                                  section.content,
+                                );
+                                let contentWithPlaceholders = section.content;
+                                const placeholders = new Map();
+
+                                wikiLinks.forEach((link, index) => {
+                                  // Use a placeholder inside a passthrough macro - Asciidoctor will strip pass:[...] and leave the inner text
+                                  const innerPlaceholder = `WIKILINK${index}PLACEHOLDER`;
+                                  const placeholder = `pass:[${innerPlaceholder}]`;
+                                  placeholders.set(innerPlaceholder, link); // Store by inner placeholder (what will remain after Asciidoctor)
+                                  contentWithPlaceholders =
+                                    contentWithPlaceholders.replace(
+                                      link.fullMatch,
+                                      placeholder,
+                                    );
                                 });
-                                
-                                
-                                // Extract just the content we want (remove the temporary structure)
-                                // Find the section we care about
-                                const sectionStart = rendered.indexOf(`<h${section.level}`);
-                                if (sectionStart !== -1) {
-                                  const nextSectionStart = rendered.indexOf(`</h${section.level}>`, sectionStart);
-                                  if (nextSectionStart !== -1) {
-                                    // Get everything after our section header
-                                    const afterHeader = rendered.substring(nextSectionStart + `</h${section.level}>`.length);
-                                    // Find where the section ends (at the closing div)
-                                    const sectionEnd = afterHeader.lastIndexOf('</div>');
-                                    if (sectionEnd !== -1) {
-                                      const extracted = afterHeader.substring(0, sectionEnd);
-                                      return extracted;
+
+                                // Check if content contains nested headers
+                                const hasNestedHeaders =
+                                  contentWithPlaceholders.includes("\n===") ||
+                                  contentWithPlaceholders.includes("\n====");
+
+                                let rendered: string | Document;
+                                if (hasNestedHeaders) {
+                                  // For proper nested header parsing, we need full document context
+                                  // Create a complete AsciiDoc document structure
+                                  // Important: Ensure proper level sequence for nested headers
+                                  const fullDoc = `= Temporary Document\n\n${"=".repeat(section.level)} ${section.title}\n\n${contentWithPlaceholders}`;
+
+                                  rendered = asciidoctor.convert(fullDoc, {
+                                    standalone: false,
+                                    attributes: {
+                                      showtitle: false,
+                                      sectids: false,
+                                    },
+                                  });
+
+                                  // Extract just the content we want (remove the temporary structure)
+                                  // Find the section we care about
+                                  const sectionStart = rendered
+                                    .toString()
+                                    .indexOf(`<h${section.level}`);
+                                  if (sectionStart !== -1) {
+                                    const nextSectionStart = rendered
+                                      .toString()
+                                      .indexOf(
+                                        `</h${section.level}>`,
+                                        sectionStart,
+                                      );
+                                    if (nextSectionStart !== -1) {
+                                      // Get everything after our section header
+                                      const afterHeader = rendered
+                                        .toString()
+                                        .substring(
+                                          nextSectionStart +
+                                            `</h${section.level}>`.length,
+                                        );
+                                      // Find where the section ends (at the closing div)
+                                      const sectionEnd =
+                                        afterHeader.lastIndexOf("</div>");
+                                      if (sectionEnd !== -1) {
+                                        rendered = afterHeader.substring(
+                                          0,
+                                          sectionEnd,
+                                        );
+                                      }
                                     }
                                   }
+                                } else {
+                                  // Simple content without nested headers
+                                  rendered = asciidoctor.convert(
+                                    contentWithPlaceholders,
+                                    {
+                                      standalone: false,
+                                      attributes: {
+                                        showtitle: false,
+                                        sectids: false,
+                                      },
+                                    },
+                                  );
                                 }
-                                return rendered;
-                              } else {
-                                // Simple content without nested headers
-                                return asciidoctor.convert(section.content, {
-                                  standalone: false,
-                                  attributes: {
-                                    showtitle: false,
-                                    sectids: false,
-                                  },
+
+                                // Replace placeholders with actual wiki link HTML
+                                // Use a global regex to catch all occurrences (Asciidoctor might have duplicated them)
+                                placeholders.forEach((link, placeholder) => {
+                                  const className =
+                                    link.type === "auto"
+                                      ? "wiki-link wiki-link-auto"
+                                      : link.type === "w"
+                                        ? "wiki-link wiki-link-ref"
+                                        : "wiki-link wiki-link-def";
+
+                                  const title =
+                                    link.type === "w"
+                                      ? "Wiki reference (mentions this concept)"
+                                      : link.type === "d"
+                                        ? "Wiki definition (defines this concept)"
+                                        : "Wiki link (searches both references and definitions)";
+
+                                  const html = `<a class="${className}" href="#wiki/${link.type}/${encodeURIComponent(link.term)}" title="${title}" data-wiki-type="${link.type}" data-wiki-term="${link.term}">${link.displayText}</a>`;
+
+                                  // Use global replace to handle all occurrences
+                                  const regex = new RegExp(
+                                    placeholder.replace(
+                                      /[.*+?^${}()|[\]\\]/g,
+                                      "\\$&",
+                                    ),
+                                    "g",
+                                  );
+                                  rendered = rendered
+                                    .toString()
+                                    .replace(regex, html);
                                 });
-                              }
-                            })()}
+
+                                return rendered;
+                              })()}
+                            </div>
+                          {/if}
+                        </div>
+                      {/if}
+
+                      <!-- Event boundary indicator -->
+                      {#if index < parsedSections.length - 1}
+                        <div class="mt-6 relative">
+                          <div class="absolute inset-0 flex items-center">
+                            <div
+                              class="w-full border-t-2 border-dashed border-gray-300 dark:border-gray-600"
+                            ></div>
                           </div>
-                        {/if}
-                      </div>
-                    {/if}
-
-                    <!-- Event boundary indicator -->
-                    {#if index < parsedSections.length - 1}
-                      <div class="mt-6 relative">
-                        <div class="absolute inset-0 flex items-center">
-                          <div
-                            class="w-full border-t-2 border-dashed border-gray-300 dark:border-gray-600"
-                          ></div>
+                          <div class="relative flex justify-center">
+                            <span
+                              class="bg-white dark:bg-gray-800 px-3 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                              Event Boundary
+                            </span>
+                          </div>
                         </div>
-                        <div class="relative flex justify-center">
-                          <span
-                            class="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400"
-                          >
-                            Event Boundary
-                          </span>
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
 
-              <div
-                class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded border"
-              >
-                <strong>Event Count:</strong>
-                {#if generatedEvents}
-                  {@const indexEvents = generatedEvents.contentEvents.filter(
-                    (e: any) => e.kind === 30040,
-                  )}
-                  {@const contentOnlyEvents =
-                    generatedEvents.contentEvents.filter(
-                      (e: any) => e.kind === 30041,
+                <div
+                  class="mt-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded border"
+                >
+                  <strong>Event Count:</strong>
+                  {#if generatedEvents}
+                    {@const indexEvents = generatedEvents.contentEvents.filter(
+                      (e: any) => e.kind === 30040,
                     )}
-                  {@const totalIndexEvents =
-                    indexEvents.length + (generatedEvents.indexEvent ? 1 : 0)}
-                  {@const totalEvents =
-                    totalIndexEvents + contentOnlyEvents.length}
-                  {totalEvents} event{totalEvents !== 1 ? "s" : ""}
-                  ({totalIndexEvents} index{totalIndexEvents !== 1
-                    ? " events"
-                    : ""} + {contentOnlyEvents.length} content{contentOnlyEvents.length !==
-                  1
-                    ? " events"
-                    : ""})
-                {:else}
-                  0 events
-                {/if}
-              </div>
-            {/if}
+                    {@const contentOnlyEvents =
+                      generatedEvents.contentEvents.filter(
+                        (e: any) => e.kind === 30041,
+                      )}
+                    {@const totalIndexEvents =
+                      indexEvents.length + (generatedEvents.indexEvent ? 1 : 0)}
+                    {@const totalEvents =
+                      totalIndexEvents + contentOnlyEvents.length}
+                    {totalEvents} event{totalEvents !== 1 ? "s" : ""}
+                    ({totalIndexEvents} index{totalIndexEvents !== 1
+                      ? " events"
+                      : ""} + {contentOnlyEvents.length} content{contentOnlyEvents.length !==
+                    1
+                      ? " events"
+                      : ""})
+                  {:else}
+                    0 events
+                  {/if}
+                </div>
+              {/if}
             </div>
           </div>
         </div>
@@ -1297,6 +1568,54 @@ Understanding the nature of knowledge...
                 </li>
               </ul>
             </div>
+
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Wiki Links
+              </h4>
+              <p class="text-xs mb-2">
+                Create semantic links between content using wiki link syntax:
+              </p>
+              <ul class="space-y-2 text-xs">
+                <li>
+                  <code
+                    class="bg-violet-100 dark:bg-violet-900/30 px-1 py-0.5 rounded"
+                    >[[term]]</code
+                  >
+                  <span class="text-gray-600 dark:text-gray-400"
+                    >- Auto link (queries both w and d tags)</span
+                  >
+                </li>
+                <li>
+                  <code
+                    class="bg-cyan-100 dark:bg-cyan-900/30 px-1 py-0.5 rounded"
+                    >[[w:term]]</code
+                  >
+                  <span class="text-gray-600 dark:text-gray-400"
+                    >- Reference/mention (backward link)</span
+                  >
+                </li>
+                <li>
+                  <code
+                    class="bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded"
+                    >[[d:term]]</code
+                  >
+                  <span class="text-gray-600 dark:text-gray-400"
+                    >- Definition link (forward link)</span
+                  >
+                </li>
+                <li class="mt-2">
+                  <strong>Custom text:</strong>
+                  <code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded"
+                    >[[term|display text]]</code
+                  >
+                </li>
+              </ul>
+              <p class="text-xs mt-2 text-gray-600 dark:text-gray-400">
+                Example: "The concept of [[Knowledge Graphs]] enables..."
+                creates a w-tag automatically.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1372,7 +1691,7 @@ Understanding the nature of knowledge...
               <!-- Hierarchical structure -->
               <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                 <div class="font-mono text-xs space-y-1">
-                  {#snippet renderEventNode(node, depth = 0)}
+                  {#snippet renderEventNode(node: any, depth = 0)}
                     <div class="py-0.5" style="margin-left: {depth * 1}rem;">
                       {node.eventKind === 30040 ? "📁" : "📄"}
                       [{node.eventKind}] {node.title || "Untitled"}
@@ -1454,3 +1773,43 @@ Understanding the nature of knowledge...
     {/if}
   </div>
 </div>
+
+<style>
+  /* Wiki link styling in preview */
+  :global(.prose .wiki-link) {
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+    transition: all 0.2s;
+  }
+
+  :global(.prose .wiki-link:hover) {
+    border-bottom-style: solid;
+  }
+
+  /* Use theme primary colors (leather tones) */
+  :global(.prose .wiki-link-auto) {
+    color: var(--color-primary-700); /* medium leather */
+  }
+
+  :global(.prose .wiki-link-ref) {
+    color: var(--color-primary-800); /* darker leather */
+  }
+
+  :global(.prose .wiki-link-def) {
+    color: var(--color-warning-600); /* amber/yellow for definitions */
+    font-weight: 500;
+  }
+
+  /* Dark mode - use lighter shades for contrast */
+  :global(.dark .prose .wiki-link-auto) {
+    color: var(--color-primary-300); /* lighter leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-ref) {
+    color: var(--color-primary-400); /* medium-light leather for dark mode */
+  }
+
+  :global(.dark .prose .wiki-link-def) {
+    color: var(--color-warning-400); /* brighter amber for dark mode */
+  }
+</style>

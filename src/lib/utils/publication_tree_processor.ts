@@ -11,9 +11,10 @@ import { PublicationTree } from "$lib/data_structures/publication_tree";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import { getMimeTags } from "$lib/utils/mime";
+import { extractWikiLinks, wikiLinksToTags } from "$lib/utils/wiki_links";
 
 // For debugging tree structure
-const DEBUG = process.env.DEBUG_TREE_PROCESSOR === false;
+const DEBUG = process.env.DEBUG_TREE_PROCESSOR === "true";
 export interface ProcessorResult {
   tree: PublicationTree;
   indexEvent: NDKEvent | null;
@@ -126,7 +127,9 @@ export function registerPublicationTreeProcessor(
         };
 
         console.log(
-          `[TreeProcessor] Built tree with ${contentEvents.length} content events and ${indexEvent ? "1" : "0"} index events`,
+          `[TreeProcessor] Built tree with ${contentEvents.length} content events and ${
+            indexEvent ? "1" : "0"
+          } index events`,
         );
       } catch (error) {
         console.error("[TreeProcessor] Error processing document:", error);
@@ -332,11 +335,11 @@ function parseSegmentContent(
 
   // Extract content (everything after attributes, but stop at child sections)
   const contentLines = sectionLines.slice(contentStartIdx);
-  
+
   // Find where to stop content extraction based on parse level
   let contentEndIdx = contentLines.length;
   const currentSectionLevel = sectionLines[0].match(/^(=+)/)?.[1].length || 2;
-  
+
   for (let i = 0; i < contentLines.length; i++) {
     const line = contentLines[i];
     const headerMatch = line.match(/^(=+)\s+/);
@@ -349,7 +352,7 @@ function parseSegmentContent(
       }
     }
   }
-  
+
   const content = contentLines.slice(0, contentEndIdx).join("\n").trim();
 
   // Debug logging for Level 3+ content extraction
@@ -361,7 +364,6 @@ function parseSegmentContent(
     console.log(`  contentEndIdx: ${contentEndIdx}`);
     console.log(`  extracted content:`, JSON.stringify(content));
   }
-
 
   return { attributes, content };
 }
@@ -377,8 +379,8 @@ function detectContentType(
   const hasSections = segments.length > 0;
 
   // Check if the title matches the first section title
-  const titleMatchesFirstSection =
-    segments.length > 0 && title === segments[0].title;
+  const titleMatchesFirstSection = segments.length > 0 &&
+    title === segments[0].title;
 
   if (hasDocTitle && hasSections && !titleMatchesFirstSection) {
     return "article";
@@ -435,6 +437,7 @@ function buildScatteredNotesStructure(
   const eventStructure: EventStructureNode[] = [];
 
   const firstSegment = segments[0];
+  // No publication title for scattered notes
   const rootEvent = createContentEvent(firstSegment, ndk);
   const tree = new PublicationTree(rootEvent, ndk);
   contentEvents.push(rootEvent);
@@ -528,21 +531,31 @@ function buildLevel2Structure(
 
   // Group segments by level 2 sections
   const level2Groups = groupSegmentsByLevel2(segments);
-  console.log(`[TreeProcessor] Level 2 groups:`, level2Groups.length, level2Groups.map(g => g.title));
+  console.log(
+    `[TreeProcessor] Level 2 groups:`,
+    level2Groups.length,
+    level2Groups.map((g) => g.title),
+  );
+
+  // Generate publication abbreviation for namespacing
+  const pubAbbrev = generateTitleAbbreviation(title);
 
   for (const group of level2Groups) {
-    const contentEvent = createContentEvent(group, ndk);
+    const contentEvent = createContentEvent(group, ndk, title);
     contentEvents.push(contentEvent);
+
+    const sectionDTag = generateDTag(group.title);
+    const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
 
     const childNode = {
       title: group.title,
       level: group.level,
       eventType: "content" as const,
       eventKind: 30041 as const,
-      dTag: generateDTag(group.title),
+      dTag: namespacedDTag,
       children: [],
     };
-    
+
     console.log(`[TreeProcessor] Adding child node:`, childNode.title);
     eventStructure[0].children.push(childNode);
   }
@@ -590,7 +603,8 @@ function buildHierarchicalStructure(
     rootNode,
     contentEvents,
     ndk,
-    parseLevel
+    parseLevel,
+    title,
   );
 
   return { tree, indexEvent, contentEvents, eventStructure };
@@ -618,10 +632,15 @@ function createIndexEvent(
   // Add document attributes as tags
   addDocumentAttributesToTags(tags, attributes, event.pubkey);
 
+  // Generate publication abbreviation for namespacing sections
+  const pubAbbrev = generateTitleAbbreviation(title);
+
   // Add a-tags for each content section
+  // Using new format: kind:pubkey:{abbv}-{section-d-tag}
   segments.forEach((segment) => {
     const sectionDTag = generateDTag(segment.title);
-    tags.push(["a", `30041:${event.pubkey}:${sectionDTag}`]);
+    const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+    tags.push(["a", `30041:${event.pubkey}:${namespacedDTag}`]);
   });
 
   event.tags = tags;
@@ -635,13 +654,25 @@ function createIndexEvent(
 /**
  * Create a 30041 content event from segment
  */
-function createContentEvent(segment: ContentSegment, ndk: NDK): NDKEvent {
+function createContentEvent(
+  segment: ContentSegment,
+  ndk: NDK,
+  publicationTitle?: string,
+): NDKEvent {
   const event = new NDKEvent(ndk);
   event.kind = 30041;
   event.created_at = Math.floor(Date.now() / 1000);
   event.pubkey = ndk.activeUser?.pubkey || "preview-placeholder-pubkey";
 
-  const dTag = generateDTag(segment.title);
+  // Generate namespaced d-tag if publication title is provided
+  const sectionDTag = generateDTag(segment.title);
+  let dTag = sectionDTag;
+
+  if (publicationTitle) {
+    const pubAbbrev = generateTitleAbbreviation(publicationTitle);
+    dTag = `${pubAbbrev}-${sectionDTag}`;
+  }
+
   const [mTag, MTag] = getMimeTags(30041);
 
   const tags: string[][] = [["d", dTag], mTag, MTag, ["title", segment.title]];
@@ -649,9 +680,19 @@ function createContentEvent(segment: ContentSegment, ndk: NDK): NDKEvent {
   // Add segment attributes as tags
   addSectionAttributesToTags(tags, segment.attributes);
 
+  // Extract and add wiki link tags from content
+  const wikiLinks = extractWikiLinks(segment.content);
+  if (wikiLinks.length > 0) {
+    const wikiTags = wikiLinksToTags(wikiLinks);
+    tags.push(...wikiTags);
+    console.log(
+      `[TreeProcessor] Added ${wikiTags.length} wiki link tags:`,
+      wikiTags,
+    );
+  }
+
   event.tags = tags;
   event.content = segment.content;
-
 
   return event;
 }
@@ -688,6 +729,32 @@ function generateDTag(title: string): string {
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "") || "untitled"
   );
+}
+
+/**
+ * Generate title abbreviation from first letters of each word
+ * Used for namespacing section a-tags
+ * @param title - The publication title
+ * @returns Abbreviation string (e.g., "My Test Article" → "mta")
+ */
+function generateTitleAbbreviation(title: string): string {
+  if (!title || !title.trim()) {
+    return "u"; // "untitled"
+  }
+
+  // Split on non-alphanumeric characters and filter out empty strings
+  const words = title
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return "u";
+  }
+
+  // Take first letter of each word and join
+  return words
+    .map((word) => word.charAt(0).toLowerCase())
+    .join("");
 }
 
 /**
@@ -820,16 +887,17 @@ function groupSegmentsByLevel2(segments: ContentSegment[]): ContentSegment[] {
           s.level > 2 &&
           s.startLine > segment.startLine &&
           (segments.find(
-            (next) => next.level <= 2 && next.startLine > segment.startLine,
-          )?.startLine || Infinity) > s.startLine,
+              (next) => next.level <= 2 && next.startLine > segment.startLine,
+            )?.startLine || Infinity) > s.startLine,
       );
 
       // Combine the level 2 content with all nested content
       let combinedContent = segment.content;
       for (const nested of nestedSegments) {
-        combinedContent += `\n\n${"=".repeat(nested.level)} ${nested.title}\n${nested.content}`;
+        combinedContent += `\n\n${
+          "=".repeat(nested.level)
+        } ${nested.title}\n${nested.content}`;
       }
-
 
       level2Groups.push({
         ...segment,
@@ -847,22 +915,22 @@ function groupSegmentsByLevel2(segments: ContentSegment[]): ContentSegment[] {
  */
 function buildHierarchicalGroups(
   segments: ContentSegment[],
-  parseLevel: number
+  parseLevel: number,
 ): HierarchicalNode[] {
   const groups: HierarchicalNode[] = [];
-  
+
   // Group segments by their parent-child relationships
   const segmentsByLevel: Map<number, ContentSegment[]> = new Map();
   for (let level = 2; level <= parseLevel; level++) {
-    segmentsByLevel.set(level, segments.filter(s => s.level === level));
+    segmentsByLevel.set(level, segments.filter((s) => s.level === level));
   }
-  
+
   // Build the hierarchy from level 2 down to parseLevel
   for (const segment of segmentsByLevel.get(2) || []) {
     const node = buildNodeHierarchy(segment, segments, parseLevel);
     groups.push(node);
   }
-  
+
   return groups;
 }
 
@@ -872,22 +940,23 @@ function buildHierarchicalGroups(
 function buildNodeHierarchy(
   segment: ContentSegment,
   allSegments: ContentSegment[],
-  parseLevel: number
+  parseLevel: number,
 ): HierarchicalNode {
   // Find direct children (one level deeper)
-  const directChildren = allSegments.filter(s => {
+  const directChildren = allSegments.filter((s) => {
     if (s.level !== segment.level + 1) return false;
     if (s.startLine <= segment.startLine) return false;
-    
+
     // Check if this segment is within our section's bounds
     const nextSibling = allSegments.find(
-      next => next.level <= segment.level && next.startLine > segment.startLine
+      (next) =>
+        next.level <= segment.level && next.startLine > segment.startLine,
     );
     const endLine = nextSibling?.startLine || Infinity;
-    
+
     return s.startLine < endLine;
   });
-  
+
   // Recursively build child nodes
   const childNodes: HierarchicalNode[] = [];
   for (const child of directChildren) {
@@ -899,15 +968,15 @@ function buildNodeHierarchy(
       childNodes.push({
         segment: child,
         children: [],
-        hasChildren: false
+        hasChildren: false,
       });
     }
   }
-  
+
   return {
     segment,
     children: childNodes,
-    hasChildren: childNodes.length > 0
+    hasChildren: childNodes.length > 0,
   };
 }
 
@@ -925,21 +994,35 @@ function processHierarchicalGroup(
   parentStructureNode: EventStructureNode,
   contentEvents: NDKEvent[],
   ndk: NDK,
-  parseLevel: number
+  parseLevel: number,
+  publicationTitle: string,
 ): void {
+  const pubAbbrev = generateTitleAbbreviation(publicationTitle);
+
   for (const node of nodes) {
     if (node.hasChildren && node.segment.level < parseLevel) {
       // This section has children and is not at parse level
       // Create BOTH an index event AND a content event
-      
+
       // 1. Create the index event (30040)
-      const indexEvent = createIndexEventForHierarchicalNode(node, ndk);
+      const indexEvent = createIndexEventForHierarchicalNode(
+        node,
+        ndk,
+        publicationTitle,
+      );
       contentEvents.push(indexEvent);
-      
+
       // 2. Create the content event (30041) for the section's own content
-      const contentEvent = createContentEvent(node.segment, ndk);
+      const contentEvent = createContentEvent(
+        node.segment,
+        ndk,
+        publicationTitle,
+      );
       contentEvents.push(contentEvent);
-      
+
+      const sectionDTag = generateDTag(node.segment.title);
+      const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+
       // 3. Add index node to structure
       const indexNode: EventStructureNode = {
         title: node.segment.title,
@@ -950,36 +1033,44 @@ function processHierarchicalGroup(
         children: [],
       };
       parentStructureNode.children.push(indexNode);
-      
+
       // 4. Add content node as first child of index
       indexNode.children.push({
         title: node.segment.title,
         level: node.segment.level,
         eventType: "content",
         eventKind: 30041,
-        dTag: generateDTag(node.segment.title),
+        dTag: namespacedDTag,
         children: [],
       });
-      
+
       // 5. Process children recursively
       processHierarchicalGroup(
         node.children,
         indexNode,
         contentEvents,
         ndk,
-        parseLevel
+        parseLevel,
+        publicationTitle,
       );
     } else {
       // This is either a leaf node or at parse level - just create content event
-      const contentEvent = createContentEvent(node.segment, ndk);
+      const contentEvent = createContentEvent(
+        node.segment,
+        ndk,
+        publicationTitle,
+      );
       contentEvents.push(contentEvent);
-      
+
+      const sectionDTag = generateDTag(node.segment.title);
+      const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+
       parentStructureNode.children.push({
         title: node.segment.title,
         level: node.segment.level,
         eventType: "content",
         eventKind: 30041,
-        dTag: generateDTag(node.segment.title),
+        dTag: namespacedDTag,
         children: [],
       });
     }
@@ -991,7 +1082,8 @@ function processHierarchicalGroup(
  */
 function createIndexEventForHierarchicalNode(
   node: HierarchicalNode,
-  ndk: NDK
+  ndk: NDK,
+  publicationTitle: string,
 ): NDKEvent {
   const event = new NDKEvent(ndk);
   event.kind = 30040;
@@ -1001,32 +1093,41 @@ function createIndexEventForHierarchicalNode(
   const dTag = generateDTag(node.segment.title);
   const [mTag, MTag] = getMimeTags(30040);
 
-  const tags: string[][] = [["d", dTag], mTag, MTag, ["title", node.segment.title]];
+  const tags: string[][] = [
+    ["d", dTag],
+    mTag,
+    MTag,
+    ["title", node.segment.title],
+  ];
 
   // Add section attributes as tags
   addSectionAttributesToTags(tags, node.segment.attributes);
 
-  // Add a-tags for the section's own content event
-  tags.push(["a", `30041:${event.pubkey}:${dTag}`]);
-  
-  // Add a-tags for each child section
+  const pubAbbrev = generateTitleAbbreviation(publicationTitle);
+
+  // Add a-tags for the section's own content event with namespace
+  const sectionDTag = generateDTag(node.segment.title);
+  const namespacedDTag = `${pubAbbrev}-${sectionDTag}`;
+  tags.push(["a", `30041:${event.pubkey}:${namespacedDTag}`]);
+
+  // Add a-tags for each child section with namespace
   for (const child of node.children) {
     const childDTag = generateDTag(child.segment.title);
+    const namespacedChildDTag = `${pubAbbrev}-${childDTag}`;
     if (child.hasChildren && child.segment.level < node.segment.level + 1) {
       // Child will be an index
       tags.push(["a", `30040:${event.pubkey}:${childDTag}`]);
     } else {
-      // Child will be content
-      tags.push(["a", `30041:${event.pubkey}:${childDTag}`]);
+      // Child will be content with namespace
+      tags.push(["a", `30041:${event.pubkey}:${namespacedChildDTag}`]);
     }
   }
 
   event.tags = tags;
-  event.content = "";  // NKBIP-01: Index events must have empty content
+  event.content = ""; // NKBIP-01: Index events must have empty content
 
   return event;
 }
-
 
 /**
  * Build hierarchical segment structure for Level 3+ parsing
@@ -1043,8 +1144,9 @@ function buildSegmentHierarchy(
         s.level > 2 &&
         s.startLine > level2Segment.startLine &&
         (segments.find(
-          (next) => next.level <= 2 && next.startLine > level2Segment.startLine,
-        )?.startLine || Infinity) > s.startLine,
+            (next) =>
+              next.level <= 2 && next.startLine > level2Segment.startLine,
+          )?.startLine || Infinity) > s.startLine,
     );
 
     hierarchy.push({
@@ -1059,10 +1161,13 @@ function buildSegmentHierarchy(
 
 /**
  * Create a 30040 index event for a section with children
+ * Note: This function appears to be unused in the current codebase
+ * but is updated for consistency with the new namespacing scheme
  */
 function createIndexEventForSection(
   section: HierarchicalSegment,
   ndk: NDK,
+  publicationTitle: string,
 ): NDKEvent {
   const event = new NDKEvent(ndk);
   event.kind = 30040;
@@ -1077,10 +1182,13 @@ function createIndexEventForSection(
   // Add section attributes as tags
   addSectionAttributesToTags(tags, section.attributes);
 
-  // Add a-tags for each child content section
+  const pubAbbrev = generateTitleAbbreviation(publicationTitle);
+
+  // Add a-tags for each child content section with namespace
   section.children.forEach((child) => {
     const childDTag = generateDTag(child.title);
-    tags.push(["a", `30041:${event.pubkey}:${childDTag}`]);
+    const namespacedChildDTag = `${pubAbbrev}-${childDTag}`;
+    tags.push(["a", `30041:${event.pubkey}:${namespacedChildDTag}`]);
   });
 
   event.tags = tags;

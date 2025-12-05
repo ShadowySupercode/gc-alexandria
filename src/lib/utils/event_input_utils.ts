@@ -5,9 +5,7 @@ import {
   extractDocumentMetadata,
   metadataToTags,
 } from "./asciidoc_metadata.ts";
-import {
-  parseAsciiDocWithMetadata,
-} from "./asciidoc_parser.ts";
+import { parseAsciiDocWithMetadata } from "./asciidoc_parser.ts";
 
 // =========================
 // Validation

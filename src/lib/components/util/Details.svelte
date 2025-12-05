@@ -14,7 +14,11 @@
   // isModal
   //  - don't show interactions in modal view
   //  - don't show all the details when _not_ in modal view
-  let { event, isModal = false } = $props();
+  let { event, isModal = false, onDelete } = $props<{
+    event: any;
+    isModal?: boolean;
+    onDelete?: () => void;
+  }>();
 
   let title: string = $derived(getMatchingTags(event, "title")[0]?.[1]);
   let author: string = $derived(
@@ -43,6 +47,7 @@
   );
   let rootId: string = $derived(getMatchingTags(event, "d")[0]?.[1] ?? null);
   let kind = $derived(event.kind);
+  let address: string = $derived(`${kind}:${event.pubkey}:${rootId}`);
 
   let authorTag: string = $derived(
     getMatchingTags(event, "author")[0]?.[1] ?? "",
@@ -67,7 +72,9 @@
       <P class="text-base font-normal"
         >{@render userBadge(event.pubkey, undefined, ndk)}</P
       >
-      <CardActions {event}></CardActions>
+      <div class="flex flex-row gap-2 items-center">
+        <CardActions {event} {onDelete}></CardActions>
+      </div>
     </div>
   {/if}
   <div

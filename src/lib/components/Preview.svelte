@@ -253,9 +253,9 @@
   {#if hasCoverImage(rootId, index)}
     {@const event = blogEntries[index][1]}
     <div class="coverImage depth-{depth}">
-      <LazyImage 
-        src={hasCoverImage(rootId, index)} 
-        alt={title || "Cover image"} 
+      <LazyImage
+        src={hasCoverImage(rootId, index)}
+        alt={title || "Cover image"}
         eventId={event?.id || rootId}
         className="w-full h-full object-cover"
       />
@@ -274,15 +274,15 @@
 
 {#snippet contentParagraph(content: string, publicationType: string)}
   {#if publicationType === "novel"}
-    <P class="whitespace-normal" firstupper={isSectionStart}>
+    <P class="whitespace-normal" firstUpper={isSectionStart}>
       {@html content}
     </P>
   {:else if publicationType === "blog"}
-    <P class="whitespace-normal" firstupper={false}>
+    <P class="whitespace-normal" firstUpper={false}>
       {@html content}
     </P>
   {:else}
-    <P class="whitespace-normal" firstupper={false}>
+    <P class="whitespace-normal" firstUpper={false}>
       {@html content}
     </P>
   {/if}
@@ -305,25 +305,27 @@
             class="textarea-leather w-full whitespace-normal"
             bind:value={currentContent}
           >
-            <div slot="footer" class="flex space-x-2 justify-end">
-              <Button
-                type="reset"
-                class="btn-leather min-w-fit"
-                size="sm"
-                outline
-                onclick={() => toggleEditing(rootId, false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                class="btn-leather min-w-fit"
-                size="sm"
-                onclick={() => toggleEditing(rootId, true)}
-              >
-                Save
-              </Button>
-            </div>
+            {#snippet footer()}
+              <div class="flex space-x-2 justify-end">
+                <Button
+                  type="reset"
+                  class="btn-leather min-w-fit"
+                  size="sm"
+                  outline
+                  onclick={() => toggleEditing(rootId, false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  class="btn-leather min-w-fit"
+                  size="sm"
+                  onclick={() => toggleEditing(rootId, true)}
+                >
+                  Save
+                </Button>
+              </div>
+            {/snippet}
           </Textarea>
         </form>
       {:else}
@@ -335,10 +337,9 @@
       {#if isEditing}
         <ButtonGroup class="w-full">
           <Input type="text" class="input-leather" size="lg" bind:value={title}>
-            <CloseButton
-              slot="right"
-              onclick={() => toggleEditing(rootId, false)}
-            />
+            {#snippet right()}
+              <CloseButton onclick={() => toggleEditing(rootId, false)} />
+            {/snippet}
           </Input>
           <Button
             class="btn-leather"

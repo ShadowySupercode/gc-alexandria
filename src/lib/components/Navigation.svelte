@@ -11,7 +11,7 @@
   import { userStore } from "$lib/stores/userStore";
 
   let { class: className = "" } = $props();
-  
+
   let userState = $derived($userStore);
 </script>
 
@@ -20,12 +20,14 @@
     <NavBrand href="/">
       <div class="flex flex-col">
         <h1 class="text-2xl font-bold">Alexandria</h1>
-        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem]">READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.</p>
+        <p class="text-xs font-semibold tracking-wide max-sm:max-w-[11rem]">
+          READ THE ORIGINAL. MAKE CONNECTIONS. CULTIVATE KNOWLEDGE.
+        </p>
       </div>
     </NavBrand>
   </div>
   <div class="flex md:order-2">
-    <Profile isNav={true} />
+    <Profile />
     <NavHamburger class="btn-leather" />
   </div>
   <NavUl class="ul-leather">
@@ -40,7 +42,7 @@
     <NavLi href="/about">About</NavLi>
     <NavLi href="/contact">Contact</NavLi>
     <NavLi>
-      <DarkMode btnClass="btn-leather p-0" />
+      <DarkMode class="btn-leather p-0" />
     </NavLi>
   </NavUl>
 </Navbar>
