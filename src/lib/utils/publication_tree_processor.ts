@@ -127,7 +127,9 @@ export function registerPublicationTreeProcessor(
         };
 
         console.log(
-          `[TreeProcessor] Built tree with ${contentEvents.length} content events and ${indexEvent ? "1" : "0"} index events`,
+          `[TreeProcessor] Built tree with ${contentEvents.length} content events and ${
+            indexEvent ? "1" : "0"
+          } index events`,
         );
       } catch (error) {
         console.error("[TreeProcessor] Error processing document:", error);
@@ -333,11 +335,11 @@ function parseSegmentContent(
 
   // Extract content (everything after attributes, but stop at child sections)
   const contentLines = sectionLines.slice(contentStartIdx);
-  
+
   // Find where to stop content extraction based on parse level
   let contentEndIdx = contentLines.length;
   const currentSectionLevel = sectionLines[0].match(/^(=+)/)?.[1].length || 2;
-  
+
   for (let i = 0; i < contentLines.length; i++) {
     const line = contentLines[i];
     const headerMatch = line.match(/^(=+)\s+/);
@@ -350,7 +352,7 @@ function parseSegmentContent(
       }
     }
   }
-  
+
   const content = contentLines.slice(0, contentEndIdx).join("\n").trim();
 
   // Debug logging for Level 3+ content extraction
@@ -362,7 +364,6 @@ function parseSegmentContent(
     console.log(`  contentEndIdx: ${contentEndIdx}`);
     console.log(`  extracted content:`, JSON.stringify(content));
   }
-
 
   return { attributes, content };
 }
@@ -378,8 +379,8 @@ function detectContentType(
   const hasSections = segments.length > 0;
 
   // Check if the title matches the first section title
-  const titleMatchesFirstSection =
-    segments.length > 0 && title === segments[0].title;
+  const titleMatchesFirstSection = segments.length > 0 &&
+    title === segments[0].title;
 
   if (hasDocTitle && hasSections && !titleMatchesFirstSection) {
     return "article";
@@ -530,7 +531,11 @@ function buildLevel2Structure(
 
   // Group segments by level 2 sections
   const level2Groups = groupSegmentsByLevel2(segments);
-  console.log(`[TreeProcessor] Level 2 groups:`, level2Groups.length, level2Groups.map(g => g.title));
+  console.log(
+    `[TreeProcessor] Level 2 groups:`,
+    level2Groups.length,
+    level2Groups.map((g) => g.title),
+  );
 
   // Generate publication abbreviation for namespacing
   const pubAbbrev = generateTitleAbbreviation(title);
@@ -550,7 +555,7 @@ function buildLevel2Structure(
       dTag: namespacedDTag,
       children: [],
     };
-    
+
     console.log(`[TreeProcessor] Adding child node:`, childNode.title);
     eventStructure[0].children.push(childNode);
   }
@@ -599,7 +604,7 @@ function buildHierarchicalStructure(
     contentEvents,
     ndk,
     parseLevel,
-    title
+    title,
   );
 
   return { tree, indexEvent, contentEvents, eventStructure };
@@ -680,7 +685,10 @@ function createContentEvent(
   if (wikiLinks.length > 0) {
     const wikiTags = wikiLinksToTags(wikiLinks);
     tags.push(...wikiTags);
-    console.log(`[TreeProcessor] Added ${wikiTags.length} wiki link tags:`, wikiTags);
+    console.log(
+      `[TreeProcessor] Added ${wikiTags.length} wiki link tags:`,
+      wikiTags,
+    );
   }
 
   event.tags = tags;
@@ -879,16 +887,17 @@ function groupSegmentsByLevel2(segments: ContentSegment[]): ContentSegment[] {
           s.level > 2 &&
           s.startLine > segment.startLine &&
           (segments.find(
-            (next) => next.level <= 2 && next.startLine > segment.startLine,
-          )?.startLine || Infinity) > s.startLine,
+              (next) => next.level <= 2 && next.startLine > segment.startLine,
+            )?.startLine || Infinity) > s.startLine,
       );
 
       // Combine the level 2 content with all nested content
       let combinedContent = segment.content;
       for (const nested of nestedSegments) {
-        combinedContent += `\n\n${"=".repeat(nested.level)} ${nested.title}\n${nested.content}`;
+        combinedContent += `\n\n${
+          "=".repeat(nested.level)
+        } ${nested.title}\n${nested.content}`;
       }
-
 
       level2Groups.push({
         ...segment,
@@ -906,22 +915,22 @@ function groupSegmentsByLevel2(segments: ContentSegment[]): ContentSegment[] {
  */
 function buildHierarchicalGroups(
   segments: ContentSegment[],
-  parseLevel: number
+  parseLevel: number,
 ): HierarchicalNode[] {
   const groups: HierarchicalNode[] = [];
-  
+
   // Group segments by their parent-child relationships
   const segmentsByLevel: Map<number, ContentSegment[]> = new Map();
   for (let level = 2; level <= parseLevel; level++) {
-    segmentsByLevel.set(level, segments.filter(s => s.level === level));
+    segmentsByLevel.set(level, segments.filter((s) => s.level === level));
   }
-  
+
   // Build the hierarchy from level 2 down to parseLevel
   for (const segment of segmentsByLevel.get(2) || []) {
     const node = buildNodeHierarchy(segment, segments, parseLevel);
     groups.push(node);
   }
-  
+
   return groups;
 }
 
@@ -931,22 +940,23 @@ function buildHierarchicalGroups(
 function buildNodeHierarchy(
   segment: ContentSegment,
   allSegments: ContentSegment[],
-  parseLevel: number
+  parseLevel: number,
 ): HierarchicalNode {
   // Find direct children (one level deeper)
-  const directChildren = allSegments.filter(s => {
+  const directChildren = allSegments.filter((s) => {
     if (s.level !== segment.level + 1) return false;
     if (s.startLine <= segment.startLine) return false;
-    
+
     // Check if this segment is within our section's bounds
     const nextSibling = allSegments.find(
-      next => next.level <= segment.level && next.startLine > segment.startLine
+      (next) =>
+        next.level <= segment.level && next.startLine > segment.startLine,
     );
     const endLine = nextSibling?.startLine || Infinity;
-    
+
     return s.startLine < endLine;
   });
-  
+
   // Recursively build child nodes
   const childNodes: HierarchicalNode[] = [];
   for (const child of directChildren) {
@@ -958,15 +968,15 @@ function buildNodeHierarchy(
       childNodes.push({
         segment: child,
         children: [],
-        hasChildren: false
+        hasChildren: false,
       });
     }
   }
-  
+
   return {
     segment,
     children: childNodes,
-    hasChildren: childNodes.length > 0
+    hasChildren: childNodes.length > 0,
   };
 }
 
@@ -1119,7 +1129,6 @@ function createIndexEventForHierarchicalNode(
   return event;
 }
 
-
 /**
  * Build hierarchical segment structure for Level 3+ parsing
  */
@@ -1135,8 +1144,9 @@ function buildSegmentHierarchy(
         s.level > 2 &&
         s.startLine > level2Segment.startLine &&
         (segments.find(
-          (next) => next.level <= 2 && next.startLine > level2Segment.startLine,
-        )?.startLine || Infinity) > s.startLine,
+            (next) =>
+              next.level <= 2 && next.startLine > level2Segment.startLine,
+          )?.startLine || Infinity) > s.startLine,
     );
 
     hierarchy.push({

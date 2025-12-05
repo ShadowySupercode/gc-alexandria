@@ -19,7 +19,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
  */
 export async function fetchHighlightsForPublication(
   publicationEvent: NDKEvent,
-  ndk: NDK
+  ndk: NDK,
 ): Promise<Map<string, NDKEvent[]>> {
   // Extract all "a" tags from the publication event
   const aTags = publicationEvent.getMatchingTags("a");

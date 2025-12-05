@@ -189,8 +189,8 @@ function detectContentType(
 
   // Check if the "title" is actually just the first section title
   // This happens when AsciiDoc starts with == instead of =
-  const titleMatchesFirstSection =
-    parsed.sections.length > 0 && parsed.title === parsed.sections[0].title;
+  const titleMatchesFirstSection = parsed.sections.length > 0 &&
+    parsed.title === parsed.sections[0].title;
 
   if (hasDocTitle && hasSections && !titleMatchesFirstSection) {
     return "article";
@@ -286,8 +286,9 @@ function inheritDocumentAttributes(
   documentAttributes: Record<string, string>,
 ) {
   // Inherit selected document attributes
-  if (documentAttributes.language)
+  if (documentAttributes.language) {
     tags.push(["language", documentAttributes.language]);
+  }
   if (documentAttributes.type) tags.push(["type", documentAttributes.type]);
 }
 
@@ -368,9 +369,11 @@ function generateIndexContent(parsed: any): string {
 
 ${parsed.sections.length} sections available:
 
-${parsed.sections
-  .map((section: any, i: number) => `${i + 1}. ${section.title}`)
-  .join("\n")}`;
+${
+    parsed.sections
+      .map((section: any, i: number) => `${i + 1}. ${section.title}`)
+      .join("\n")
+  }`;
 }
 
 /**

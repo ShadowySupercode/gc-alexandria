@@ -1,6 +1,6 @@
 /**
  * AST-based AsciiDoc parsing using Asciidoctor's native document structure
- * 
+ *
  * This replaces the manual regex parsing in asciidoc_metadata.ts with proper
  * AST traversal, leveraging Asciidoctor's built-in parsing capabilities.
  */
@@ -30,27 +30,33 @@ export interface ASTParsedDocument {
 /**
  * Parse AsciiDoc content using Asciidoctor's AST instead of manual regex
  */
-export function parseAsciiDocAST(content: string, parseLevel: number = 2): ASTParsedDocument {
+export function parseAsciiDocAST(
+  content: string,
+  parseLevel: number = 2,
+): ASTParsedDocument {
   const asciidoctor = Processor();
   const document = asciidoctor.load(content, { standalone: false }) as Document;
-  
+
   return {
-    title: document.getTitle() || '',
-    content: document.getContent() || '',
+    title: document.getTitle() || "",
+    content: document.getContent() || "",
     attributes: document.getAttributes(),
-    sections: extractSectionsFromAST(document, parseLevel)
+    sections: extractSectionsFromAST(document, parseLevel),
   };
 }
 
 /**
  * Extract sections from Asciidoctor AST based on parse level
  */
-function extractSectionsFromAST(document: Document, parseLevel: number): ASTSection[] {
+function extractSectionsFromAST(
+  document: Document,
+  parseLevel: number,
+): ASTSection[] {
   const directSections = document.getSections();
-  
+
   // Collect all sections at all levels up to parseLevel
   const allSections: ASTSection[] = [];
-  
+
   function collectSections(sections: any[]) {
     for (const section of sections) {
       const asciidoctorLevel = section.getLevel();
@@ -58,17 +64,17 @@ function extractSectionsFromAST(document: Document, parseLevel: number): ASTSect
       // Asciidoctor: == is level 1, === is level 2, etc.
       // Our app: == is level 2, === is level 3, etc.
       const appLevel = asciidoctorLevel + 1;
-      
+
       if (appLevel <= parseLevel) {
         allSections.push({
-          title: section.getTitle() || '',
-          content: section.getContent() || '',
+          title: section.getTitle() || "",
+          content: section.getContent() || "",
           level: appLevel,
           attributes: section.getAttributes() || {},
-          subsections: []
+          subsections: [],
         });
       }
-      
+
       // Recursively collect subsections
       const subsections = section.getSections?.() || [];
       if (subsections.length > 0) {
@@ -76,9 +82,9 @@ function extractSectionsFromAST(document: Document, parseLevel: number): ASTSect
       }
     }
   }
-  
+
   collectSections(directSections);
-  
+
   return allSections;
 }
 
@@ -87,15 +93,15 @@ function extractSectionsFromAST(document: Document, parseLevel: number): ASTSect
  */
 function extractSubsections(section: any, parseLevel: number): ASTSection[] {
   const subsections = section.getSections?.() || [];
-  
+
   return subsections
     .filter((sub: any) => (sub.getLevel() + 1) <= parseLevel)
     .map((sub: any) => ({
-      title: sub.getTitle() || '',
-      content: sub.getContent() || '',
+      title: sub.getTitle() || "",
+      content: sub.getContent() || "",
       level: sub.getLevel() + 1, // Convert to app level
       attributes: sub.getAttributes() || {},
-      subsections: extractSubsections(sub, parseLevel)
+      subsections: extractSubsections(sub, parseLevel),
     }));
 }
 
@@ -130,7 +136,10 @@ export async function createPublicationTreeFromAST(
 /**
  * Create a 30040 index event from AST document metadata
  */
-function createIndexEventFromAST(parsed: ASTParsedDocument, ndk: NDK): NDKEvent {
+function createIndexEventFromAST(
+  parsed: ASTParsedDocument,
+  ndk: NDK,
+): NDKEvent {
   const event = new NDKEvent(ndk);
   event.kind = 30040;
   event.created_at = Math.floor(Date.now() / 1000);
@@ -251,29 +260,63 @@ function generateTitleAbbreviation(title: string): string {
 /**
  * Add AsciiDoc attributes as Nostr event tags, filtering out system attributes
  */
-function addAttributesAsTags(tags: string[][], attributes: Record<string, string>) {
+function addAttributesAsTags(
+  tags: string[][],
+  attributes: Record<string, string>,
+) {
   const systemAttributes = [
-    'attribute-undefined', 'attribute-missing', 'appendix-caption', 'appendix-refsig',
-    'caution-caption', 'chapter-refsig', 'example-caption', 'figure-caption',
-    'important-caption', 'last-update-label', 'manname-title', 'note-caption',
-    'part-refsig', 'preface-title', 'section-refsig', 'table-caption',
-    'tip-caption', 'toc-title', 'untitled-label', 'version-label', 'warning-caption',
-    'asciidoctor', 'asciidoctor-version', 'safe-mode-name', 'backend', 'doctype',
-    'basebackend', 'filetype', 'outfilesuffix', 'stylesdir', 'iconsdir',
-    'localdate', 'localyear', 'localtime', 'localdatetime', 'docdate',
-    'docyear', 'doctime', 'docdatetime', 'doctitle', 'embedded', 'notitle'
+    "attribute-undefined",
+    "attribute-missing",
+    "appendix-caption",
+    "appendix-refsig",
+    "caution-caption",
+    "chapter-refsig",
+    "example-caption",
+    "figure-caption",
+    "important-caption",
+    "last-update-label",
+    "manname-title",
+    "note-caption",
+    "part-refsig",
+    "preface-title",
+    "section-refsig",
+    "table-caption",
+    "tip-caption",
+    "toc-title",
+    "untitled-label",
+    "version-label",
+    "warning-caption",
+    "asciidoctor",
+    "asciidoctor-version",
+    "safe-mode-name",
+    "backend",
+    "doctype",
+    "basebackend",
+    "filetype",
+    "outfilesuffix",
+    "stylesdir",
+    "iconsdir",
+    "localdate",
+    "localyear",
+    "localtime",
+    "localdatetime",
+    "docdate",
+    "docyear",
+    "doctime",
+    "docdatetime",
+    "doctitle",
+    "embedded",
+    "notitle",
   ];
-  
+
   // Add standard metadata tags
   if (attributes.author) tags.push(["author", attributes.author]);
   if (attributes.version) tags.push(["version", attributes.version]);
   if (attributes.description) tags.push(["summary", attributes.description]);
   if (attributes.tags) {
-    attributes.tags.split(',').forEach(tag => 
-      tags.push(["t", tag.trim()])
-    );
+    attributes.tags.split(",").forEach((tag) => tags.push(["t", tag.trim()]));
   }
-  
+
   // Add custom attributes (non-system)
   Object.entries(attributes).forEach(([key, value]) => {
     if (!systemAttributes.includes(key) && value) {
@@ -286,14 +329,21 @@ function addAttributesAsTags(tags: string[][], attributes: Record<string, string
  * Tree processor extension for Asciidoctor
  * This can be registered to automatically populate PublicationTree during parsing
  */
-export function createPublicationTreeProcessor(ndk: NDK, parseLevel: number = 2) {
-  return function(extensions: any) {
-    extensions.treeProcessor(function(this: any) {
+export function createPublicationTreeProcessor(
+  ndk: NDK,
+  parseLevel: number = 2,
+) {
+  return function (extensions: any) {
+    extensions.treeProcessor(function (this: any) {
       const dsl = this;
-      dsl.process(function(this: any, document: Document) {
+      dsl.process(function (this: any, document: Document) {
         // Create PublicationTree and store on document for later retrieval
-        const publicationTree = createPublicationTreeFromDocument(document, ndk, parseLevel);
-        document.setAttribute('publicationTree', publicationTree);
+        const publicationTree = createPublicationTreeFromDocument(
+          document,
+          ndk,
+          parseLevel,
+        );
+        document.setAttribute("publicationTree", publicationTree);
       });
     });
   };

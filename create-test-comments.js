@@ -1,5 +1,5 @@
-import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
-import WebSocket from 'ws';
+import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools";
+import WebSocket from "ws";
 
 // Test user keys (generate fresh ones)
 const testUserKey = generateSecretKey();
@@ -8,12 +8,14 @@ const testUserPubkey = getPublicKey(testUserKey);
 const testUser2Key = generateSecretKey();
 const testUser2Pubkey = getPublicKey(testUser2Key);
 
-console.log('Test User 1 pubkey:', testUserPubkey);
-console.log('Test User 2 pubkey:', testUser2Pubkey);
+console.log("Test User 1 pubkey:", testUserPubkey);
+console.log("Test User 2 pubkey:", testUser2Pubkey);
 
 // The publication details from the article (REAL VALUES)
-const publicationPubkey = 'dc4cd086cd7ce5b1832adf4fdd1211289880d2c7e295bcb0e684c01acee77c06';
-const rootAddress = `30040:${publicationPubkey}:anarchistic-knowledge-the-art-of-thinking-without-permission`;
+const publicationPubkey =
+  "dc4cd086cd7ce5b1832adf4fdd1211289880d2c7e295bcb0e684c01acee77c06";
+const rootAddress =
+  `30040:${publicationPubkey}:anarchistic-knowledge-the-art-of-thinking-without-permission`;
 
 // Section addresses (from the actual publication structure)
 const sections = [
@@ -25,15 +27,16 @@ const sections = [
 
 // Relays to publish to (matching CommentLayer's relay list)
 const relays = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
+  "wss://relay.damus.io",
+  "wss://relay.nostr.band",
+  "wss://nostr.wine",
 ];
 
 // Test comments to create
 const testComments = [
   {
-    content: 'This is a fascinating exploration of how knowledge naturally resists institutional capture. The analogy to flowing water is particularly apt.',
+    content:
+      "This is a fascinating exploration of how knowledge naturally resists institutional capture. The analogy to flowing water is particularly apt.",
     targetAddress: sections[0],
     targetKind: 30041,
     author: testUserKey,
@@ -41,7 +44,8 @@ const testComments = [
     isReply: false,
   },
   {
-    content: 'I love this concept! It reminds me of how open source projects naturally organize without top-down control.',
+    content:
+      "I love this concept! It reminds me of how open source projects naturally organize without top-down control.",
     targetAddress: sections[0],
     targetKind: 30041,
     author: testUser2Key,
@@ -49,7 +53,8 @@ const testComments = [
     isReply: false,
   },
   {
-    content: 'The section on institutional capture really resonates with my experience in academia.',
+    content:
+      "The section on institutional capture really resonates with my experience in academia.",
     targetAddress: sections[1],
     targetKind: 30041,
     author: testUserKey,
@@ -57,7 +62,8 @@ const testComments = [
     isReply: false,
   },
   {
-    content: 'Excellent point about underground networks of understanding. This is exactly how most practical knowledge develops.',
+    content:
+      "Excellent point about underground networks of understanding. This is exactly how most practical knowledge develops.",
     targetAddress: sections[2],
     targetKind: 30041,
     author: testUser2Key,
@@ -65,7 +71,8 @@ const testComments = [
     isReply: false,
   },
   {
-    content: 'This is a brilliant piece of work! Really captures the tension between institutional knowledge and living understanding.',
+    content:
+      "This is a brilliant piece of work! Really captures the tension between institutional knowledge and living understanding.",
     targetAddress: rootAddress,
     targetKind: 30040,
     author: testUserKey,
@@ -79,16 +86,18 @@ async function publishEvent(event, relayUrl) {
     const ws = new WebSocket(relayUrl);
     let published = false;
 
-    ws.on('open', () => {
+    ws.on("open", () => {
       console.log(`Connected to ${relayUrl}`);
-      ws.send(JSON.stringify(['EVENT', event]));
+      ws.send(JSON.stringify(["EVENT", event]));
     });
 
-    ws.on('message', (data) => {
+    ws.on("message", (data) => {
       const message = JSON.parse(data.toString());
-      if (message[0] === 'OK' && message[1] === event.id) {
+      if (message[0] === "OK" && message[1] === event.id) {
         if (message[2]) {
-          console.log(`✓ Published event ${event.id.substring(0, 8)} to ${relayUrl}`);
+          console.log(
+            `✓ Published event ${event.id.substring(0, 8)} to ${relayUrl}`,
+          );
           published = true;
           ws.close();
           resolve();
@@ -100,14 +109,14 @@ async function publishEvent(event, relayUrl) {
       }
     });
 
-    ws.on('error', (error) => {
+    ws.on("error", (error) => {
       console.error(`WebSocket error: ${error.message}`);
       reject(error);
     });
 
-    ws.on('close', () => {
+    ws.on("close", () => {
       if (!published) {
-        reject(new Error('Connection closed before OK received'));
+        reject(new Error("Connection closed before OK received"));
       }
     });
 
@@ -115,14 +124,14 @@ async function publishEvent(event, relayUrl) {
     setTimeout(() => {
       if (!published) {
         ws.close();
-        reject(new Error('Timeout'));
+        reject(new Error("Timeout"));
       }
     }, 10000);
   });
 }
 
 async function createAndPublishComments() {
-  console.log('\n=== Creating Test Comments ===\n');
+  console.log("\n=== Creating Test Comments ===\n");
 
   const publishedEvents = [];
 
@@ -134,14 +143,14 @@ async function createAndPublishComments() {
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           // Root scope - uppercase tags
-          ['A', comment.targetAddress, relays[0], publicationPubkey],
-          ['K', comment.targetKind.toString()],
-          ['P', publicationPubkey, relays[0]],
+          ["A", comment.targetAddress, relays[0], publicationPubkey],
+          ["K", comment.targetKind.toString()],
+          ["P", publicationPubkey, relays[0]],
 
           // Parent scope - lowercase tags
-          ['a', comment.targetAddress, relays[0]],
-          ['k', comment.targetKind.toString()],
-          ['p', publicationPubkey, relays[0]],
+          ["a", comment.targetAddress, relays[0]],
+          ["k", comment.targetKind.toString()],
+          ["p", publicationPubkey, relays[0]],
         ],
         content: comment.content,
         pubkey: comment.authorPubkey,
@@ -149,14 +158,18 @@ async function createAndPublishComments() {
 
       // If this is a reply, add reply tags
       if (comment.isReply && comment.replyToId) {
-        unsignedEvent.tags.push(['e', comment.replyToId, relay, 'reply']);
-        unsignedEvent.tags.push(['p', comment.replyToAuthor, relay]);
+        unsignedEvent.tags.push(["e", comment.replyToId, relay, "reply"]);
+        unsignedEvent.tags.push(["p", comment.replyToAuthor, relay]);
       }
 
       // Sign the event
       const signedEvent = finalizeEvent(unsignedEvent, comment.author);
 
-      console.log(`\nCreating comment on ${comment.targetKind === 30040 ? 'collection' : 'section'}:`);
+      console.log(
+        `\nCreating comment on ${
+          comment.targetKind === 30040 ? "collection" : "section"
+        }:`,
+      );
       console.log(`  Content: "${comment.content.substring(0, 60)}..."`);
       console.log(`  Target: ${comment.targetAddress}`);
       console.log(`  Event ID: ${signedEvent.id}`);
@@ -169,19 +182,19 @@ async function createAndPublishComments() {
       comment.eventId = signedEvent.id;
 
       // Delay between publishes to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     } catch (error) {
       console.error(`Failed to publish comment: ${error.message}`);
     }
   }
 
   // Now create some threaded replies
-  console.log('\n=== Creating Threaded Replies ===\n');
+  console.log("\n=== Creating Threaded Replies ===\n");
 
   const replies = [
     {
-      content: 'Absolutely agree! The metaphor extends even further when you consider how ideas naturally branch and merge.',
+      content:
+        "Absolutely agree! The metaphor extends even further when you consider how ideas naturally branch and merge.",
       targetAddress: sections[0],
       targetKind: 30041,
       author: testUser2Key,
@@ -191,7 +204,8 @@ async function createAndPublishComments() {
       replyToAuthor: testComments[0].authorPubkey,
     },
     {
-      content: 'Great connection! The parallel between open source governance and knowledge commons is really illuminating.',
+      content:
+        "Great connection! The parallel between open source governance and knowledge commons is really illuminating.",
       targetAddress: sections[0],
       targetKind: 30041,
       author: testUserKey,
@@ -209,17 +223,17 @@ async function createAndPublishComments() {
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           // Root scope
-          ['A', reply.targetAddress, relays[0], publicationPubkey],
-          ['K', reply.targetKind.toString()],
-          ['P', publicationPubkey, relays[0]],
+          ["A", reply.targetAddress, relays[0], publicationPubkey],
+          ["K", reply.targetKind.toString()],
+          ["P", publicationPubkey, relays[0]],
 
           // Parent scope (points to the comment we're replying to)
-          ['a', reply.targetAddress, relays[0]],
-          ['k', reply.targetKind.toString()],
-          ['p', reply.replyToAuthor, relays[0]],
+          ["a", reply.targetAddress, relays[0]],
+          ["k", reply.targetKind.toString()],
+          ["p", reply.replyToAuthor, relays[0]],
 
           // Reply markers
-          ['e', reply.replyToId, relays[0], 'reply'],
+          ["e", reply.replyToId, relays[0], "reply"],
         ],
         content: reply.content,
         pubkey: reply.authorPubkey,
@@ -233,16 +247,19 @@ async function createAndPublishComments() {
       console.log(`  Event ID: ${signedEvent.id}`);
 
       await publishEvent(signedEvent, relays[0]);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Longer delay to avoid rate limiting
-
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Longer delay to avoid rate limiting
     } catch (error) {
       console.error(`Failed to publish reply: ${error.message}`);
     }
   }
 
-  console.log('\n=== Done! ===');
-  console.log(`\nPublished ${publishedEvents.length + replies.length} total comments/replies`);
-  console.log('\nRefresh the page to see the comments in the Comment Panel.');
+  console.log("\n=== Done! ===");
+  console.log(
+    `\nPublished ${
+      publishedEvents.length + replies.length
+    } total comments/replies`,
+  );
+  console.log("\nRefresh the page to see the comments in the Comment Panel.");
 }
 
 // Run it

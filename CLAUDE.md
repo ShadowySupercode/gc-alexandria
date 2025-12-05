@@ -1,14 +1,19 @@
 # Alexandria Codebase - Local Instructions
 
-This document provides project-specific instructions for working with the Alexandria codebase, based on existing Cursor rules and project conventions.
+This document provides project-specific instructions for working with the
+Alexandria codebase, based on existing Cursor rules and project conventions.
 
 ## Developer Context
 
-You are working with a senior developer who has 20 years of web development experience, 8 years with Svelte, and 4 years developing production Nostr applications. Assume high technical proficiency.
+You are working with a senior developer who has 20 years of web development
+experience, 8 years with Svelte, and 4 years developing production Nostr
+applications. Assume high technical proficiency.
 
 ## Project Overview
 
-Alexandria is a Nostr-based web application for reading, commenting on, and publishing long-form content (books, blogs, etc.) stored on Nostr relays. Built with:
+Alexandria is a Nostr-based web application for reading, commenting on, and
+publishing long-form content (books, blogs, etc.) stored on Nostr relays. Built
+with:
 
 - **Svelte 5** and **SvelteKit 2** (latest versions)
 - **TypeScript** (exclusively, no plain JavaScript)
@@ -22,19 +27,22 @@ The project follows a Model-View-Controller (MVC) pattern:
 
 - **Model**: Nostr relays (via WebSocket APIs) and browser storage
 - **View**: Reactive UI with SvelteKit pages and Svelte components
-- **Controller**: TypeScript modules with utilities, services, and data preparation
+- **Controller**: TypeScript modules with utilities, services, and data
+  preparation
 
 ## Critical Development Guidelines
 
 ### Prime Directive
 
-**NEVER assume developer intent.** If unsure, ALWAYS ask for clarification before proceeding.
+**NEVER assume developer intent.** If unsure, ALWAYS ask for clarification
+before proceeding.
 
 ### AI Anchor Comments System
 
 Before any work, search for `AI-` anchor comments in relevant directories:
 
-- `AI-NOTE:`, `AI-TODO:`, `AI-QUESTION:` - Context sharing between AI and developers
+- `AI-NOTE:`, `AI-TODO:`, `AI-QUESTION:` - Context sharing between AI and
+  developers
 - `AI-<MM/DD/YYYY>:` - Developer-recorded context (read but don't write)
 - **Always update relevant anchor comments when modifying code**
 - Add new anchors for complex, critical, or confusing code
@@ -101,7 +109,8 @@ Before any work, search for `AI-` anchor comments in relevant directories:
 
 ### Core Classes to Use
 
-- `WebSocketPool` (`src/lib/data_structures/websocket_pool.ts`) - For WebSocket management
+- `WebSocketPool` (`src/lib/data_structures/websocket_pool.ts`) - For WebSocket
+  management
 - `PublicationTree` - For hierarchical publication structure
 - `ZettelParser` - For AsciiDoc parsing
 
