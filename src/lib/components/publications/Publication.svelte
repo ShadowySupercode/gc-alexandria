@@ -240,11 +240,12 @@
   }
 
   function loadBlog(rootId: string) {
-    // depending on the size of the screen, also toggle blog list & discussion visibility
+    // depending on the size of the screen, also toggle discussion visibility
     publicationColumnVisibility.update((current) => {
       const updated = current;
       if (window.innerWidth < 1024) {
-        updated.blog = false;
+        // Don't set blog = false on mobile - we need it to show the article
+        // The blog list is already hidden via CSS (hidden md:flex)
         updated.discussion = false;
       }
       updated.inner = true;
@@ -659,38 +660,58 @@
         </div>
       {/if}
 
-      <!-- Blog list -->
+      <!-- Blog view: two-column layout on desktop, single column on mobile -->
       {#if $publicationColumnVisibility.blog}
-        <!-- Remove overflow-auto -->
-        <div
-          class={`flex flex-col p-4 space-y-4 max-w-xl flex-grow-1 ${isInnerActive() ? "discreet" : ""}`}
-        >
+        <div class="flex flex-col md:flex-row gap-4 w-full">
+          <!-- Blog list: centered when no article, left when article is open -->
           <div
-            class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+            class={`flex flex-col p-4 space-y-4 ${isInnerActive()
+              ? 'md:flex-shrink-0 md:w-[500px]'
+              : 'mx-auto md:mx-auto max-w-3xl'} ${isInnerActive() ? 'hidden md:flex' : ''}`}
           >
-            <Details event={indexEvent} onDelete={handleDeletePublication} />
+            <div
+              class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+            >
+              <Details event={indexEvent} onDelete={handleDeletePublication} />
+            </div>
+            <!-- List blog excerpts -->
+            {#each leaves as leaf, i}
+              {#if leaf}
+                <BlogHeader
+                  rootId={leaf.tagAddress()}
+                  event={leaf}
+                  onBlogUpdate={loadBlog}
+                  active={!isInnerActive()}
+                />
+              {/if}
+            {/each}
           </div>
-          <!-- List blog excerpts -->
-          {#each leaves as leaf, i}
-            {#if leaf}
-              <BlogHeader
-                rootId={leaf.tagAddress()}
-                event={leaf}
-                onBlogUpdate={loadBlog}
-                active={!isInnerActive()}
-              />
-            {/if}
-          {/each}
-        </div>
-      {/if}
 
-      {#if isInnerActive()}
-        {#key currentBlog}
-          <!-- Remove overflow-auto & sticky; allow page scroll -->
-          <div class="flex flex-col p-4 max-w-3xl flex-grow-2">
-            <!-- ...existing code... -->
-          </div>
-        {/key}
+          <!-- Selected article: right column on desktop, replaces TOC on mobile -->
+          {#if isInnerActive()}
+            {#key currentBlog}
+              <div class="flex flex-col p-4 max-w-3xl md:flex-grow min-w-0 mx-auto md:mx-0">
+                {#if currentBlogEvent && currentBlog}
+                  {@const address = currentBlog}
+                  <PublicationSection
+                    {rootAddress}
+                    {leaves}
+                    {address}
+                    {publicationTree}
+                    {toc}
+                    allComments={comments}
+                    {commentsVisible}
+                    ref={(el) => onPublicationSectionMounted(el, address)}
+                  />
+                {:else}
+                  <div class="text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">Loading article...</p>
+                  </div>
+                {/if}
+              </div>
+            {/key}
+          {/if}
+        </div>
       {/if}
     </div>
   </div>

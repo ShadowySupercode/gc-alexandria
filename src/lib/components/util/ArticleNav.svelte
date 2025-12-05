@@ -93,6 +93,16 @@
     });
   }
 
+  function handleBlogTocClick() {
+    if ($publicationColumnVisibility.inner) {
+      // Viewing article: go back to TOC
+      backToBlog();
+    } else if ($publicationColumnVisibility.blog) {
+      // Showing TOC: toggle it (though it should stay visible)
+      toggleColumn("blog");
+    }
+  }
+
   function handleScroll() {
     if (window.innerWidth < 768) {
       const currentScrollY = window.scrollY;
@@ -160,11 +170,13 @@
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if isIndexEvent}
         {#if publicationType === "blog"}
+          <!-- Blog view: disabled when showing blog list, active when viewing article -->
           <Button
-            class={`btn-leather !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}
+            class={`btn-leather !w-auto ${$publicationColumnVisibility.inner ? "active" : ""}`}
             outline={true}
-            onclick={() => toggleColumn("blog")}
-            title="Table of Contents"
+            disabled={$publicationColumnVisibility.blog && !$publicationColumnVisibility.inner}
+            onclick={handleBlogTocClick}
+            title={$publicationColumnVisibility.inner ? "Back to Table of Contents" : "Table of Contents"}
           >
             <BookOutline class="!fill-none" />
           </Button>
