@@ -468,7 +468,7 @@
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
 <div
-  class="relative grid gap-4 items-start grid-cols-[1fr_1fr] grid-rows-[auto_1fr]"
+  class="relative grid gap-4 items-start grid-cols-1 grid-rows-[auto_1fr]"
 >
   <!-- Full-width ArticleNav row -->
   <ArticleNav {publicationType} rootId={indexEvent.id} {indexEvent} />
@@ -488,10 +488,10 @@
       }, 500);
     }}
   />
-  <!-- Three-column row -->
-  <div class="contents">
+  <!-- Content row -->
+  <div class="contents flex justify-center">
     <!-- Table of contents column removed - using overlay drawer instead -->
-    <div class="mt-[70px]">
+    <div class="mt-[70px] w-full max-w-7xl">
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
@@ -693,20 +693,22 @@
         {/key}
       {/if}
     </div>
+  </div>
+</div>
 
-    <div
-      class="mt-[70px] relative {$publicationColumnVisibility.discussion
-        ? 'w-64'
-        : 'w-auto'}"
+<!-- Discussion sidebar (overlay, outside layout) -->
+<div
+  class="mt-[70px] relative {$publicationColumnVisibility.discussion
+    ? 'w-64'
+    : 'w-auto'}"
+>
+  {#if $publicationColumnVisibility.discussion}
+    <Sidebar
+      class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
+      classes={{
+        div: "bg-transparent",
+      }}
     >
-      <!-- Discussion sidebar -->
-      {#if $publicationColumnVisibility.discussion}
-        <Sidebar
-          class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
-          classes={{
-            div: "bg-transparent",
-          }}
-        >
           <SidebarWrapper>
             <SidebarGroup>
               <div class="flex justify-between items-baseline">
@@ -752,8 +754,6 @@
           </SidebarWrapper>
         </Sidebar>
       {/if}
-    </div>
-  </div>
 </div>
 
 <!-- Table of Contents Drawer (overlay, works on mobile and desktop) -->
