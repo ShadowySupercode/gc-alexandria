@@ -25,7 +25,8 @@ export async function deleteEvent(
   options: DeletionOptions,
   ndk: NDK,
 ): Promise<DeletionResult> {
-  const { eventId, eventAddress, eventKind, reason = "", onSuccess, onError } = options;
+  const { eventId, eventAddress, eventKind, reason = "", onSuccess, onError } =
+    options;
 
   if (!eventId && !eventAddress) {
     const error = "Either eventId or eventAddress must be provided";
@@ -52,17 +53,17 @@ export async function deleteEvent(
 
     if (eventId) {
       // Add 'e' tag for event ID
-      tags.push(['e', eventId]);
+      tags.push(["e", eventId]);
     }
 
     if (eventAddress) {
       // Add 'a' tag for replaceable event address
-      tags.push(['a', eventAddress]);
+      tags.push(["a", eventAddress]);
     }
 
     if (eventKind) {
       // Add 'k' tag for event kind (recommended by NIP-09)
-      tags.push(['k', eventKind.toString()]);
+      tags.push(["k", eventKind.toString()]);
     }
 
     deletionEvent.tags = tags;
@@ -93,8 +94,9 @@ export async function deleteEvent(
       throw new Error("Failed to publish deletion request to any relays");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
     console.error(`[deletion.ts] Error deleting event: ${errorMessage}`);
     onError?.(errorMessage);
     return { success: false, error: errorMessage };

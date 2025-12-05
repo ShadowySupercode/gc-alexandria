@@ -17,7 +17,9 @@ function getTextNodes(element: HTMLElement): Text[] {
       acceptNode: (node) => {
         // Skip text in script/style tags
         const parent = node.parentElement;
-        if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
+        if (
+          parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")
+        ) {
           return NodeFilter.FILTER_REJECT;
         }
         // Skip empty text nodes
@@ -25,8 +27,8 @@ function getTextNodes(element: HTMLElement): Text[] {
           return NodeFilter.FILTER_REJECT;
         }
         return NodeFilter.FILTER_ACCEPT;
-      }
-    }
+      },
+    },
   );
 
   let node: Node | null;
@@ -41,7 +43,10 @@ function getTextNodes(element: HTMLElement): Text[] {
  * Calculate the total text length from text nodes
  */
 function getTotalTextLength(textNodes: Text[]): number {
-  return textNodes.reduce((total, node) => total + (node.textContent?.length || 0), 0);
+  return textNodes.reduce(
+    (total, node) => total + (node.textContent?.length || 0),
+    0,
+  );
 }
 
 /**
@@ -49,7 +54,7 @@ function getTotalTextLength(textNodes: Text[]): number {
  */
 function findNodeAtOffset(
   textNodes: Text[],
-  globalOffset: number
+  globalOffset: number,
 ): { node: Text; localOffset: number } | null {
   let currentOffset = 0;
 
@@ -59,7 +64,7 @@ function findNodeAtOffset(
     if (globalOffset < currentOffset + nodeLength) {
       return {
         node,
-        localOffset: globalOffset - currentOffset
+        localOffset: globalOffset - currentOffset,
       };
     }
 
@@ -82,13 +87,17 @@ export function highlightByOffset(
   container: HTMLElement,
   startOffset: number,
   endOffset: number,
-  color: string
+  color: string,
 ): boolean {
-  console.log(`[highlightByOffset] Attempting to highlight chars ${startOffset}-${endOffset}`);
+  console.log(
+    `[highlightByOffset] Attempting to highlight chars ${startOffset}-${endOffset}`,
+  );
 
   // Validate inputs
   if (startOffset < 0 || endOffset <= startOffset) {
-    console.warn(`[highlightByOffset] Invalid offsets: ${startOffset}-${endOffset}`);
+    console.warn(
+      `[highlightByOffset] Invalid offsets: ${startOffset}-${endOffset}`,
+    );
     return false;
   }
 
@@ -100,11 +109,15 @@ export function highlightByOffset(
   }
 
   const totalLength = getTotalTextLength(textNodes);
-  console.log(`[highlightByOffset] Total text length: ${totalLength}, nodes: ${textNodes.length}`);
+  console.log(
+    `[highlightByOffset] Total text length: ${totalLength}, nodes: ${textNodes.length}`,
+  );
 
   // Validate offsets are within bounds
   if (startOffset >= totalLength) {
-    console.warn(`[highlightByOffset] Start offset ${startOffset} exceeds total length ${totalLength}`);
+    console.warn(
+      `[highlightByOffset] Start offset ${startOffset} exceeds total length ${totalLength}`,
+    );
     return false;
   }
 
@@ -124,16 +137,16 @@ export function highlightByOffset(
     startNode: startPos.node.textContent?.substring(0, 20),
     startLocal: startPos.localOffset,
     endNode: endPos.node.textContent?.substring(0, 20),
-    endLocal: endPos.localOffset
+    endLocal: endPos.localOffset,
   });
 
   // Create the highlight mark element
   const createHighlightMark = (text: string): HTMLElement => {
-    const mark = document.createElement('mark');
-    mark.className = 'highlight';
+    const mark = document.createElement("mark");
+    mark.className = "highlight";
     mark.style.backgroundColor = color;
-    mark.style.borderRadius = '2px';
-    mark.style.padding = '2px 0';
+    mark.style.borderRadius = "2px";
+    mark.style.padding = "2px 0";
     mark.textContent = text;
     return mark;
   };
@@ -141,9 +154,12 @@ export function highlightByOffset(
   try {
     // Case 1: Highlight is within a single text node
     if (startPos.node === endPos.node) {
-      const text = startPos.node.textContent || '';
+      const text = startPos.node.textContent || "";
       const before = text.substring(0, startPos.localOffset);
-      const highlighted = text.substring(startPos.localOffset, endPos.localOffset);
+      const highlighted = text.substring(
+        startPos.localOffset,
+        endPos.localOffset,
+      );
       const after = text.substring(endPos.localOffset);
 
       const parent = startPos.node.parentNode;
@@ -156,7 +172,9 @@ export function highlightByOffset(
       if (after) fragment.appendChild(document.createTextNode(after));
 
       parent.replaceChild(fragment, startPos.node);
-      console.log(`[highlightByOffset] Applied single-node highlight: "${highlighted}"`);
+      console.log(
+        `[highlightByOffset] Applied single-node highlight: "${highlighted}"`,
+      );
       return true;
     }
 
@@ -169,7 +187,7 @@ export function highlightByOffset(
       const parent = currentNode.parentNode;
       if (!parent) break;
 
-      const text = currentNode.textContent || '';
+      const text = currentNode.textContent || "";
       let fragment = document.createDocumentFragment();
 
       if (isFirstNode) {
@@ -200,7 +218,6 @@ export function highlightByOffset(
 
     console.log(`[highlightByOffset] Applied multi-node highlight`);
     return true;
-
   } catch (err) {
     console.error(`[highlightByOffset] Error applying highlight:`, err);
     return false;
@@ -213,7 +230,7 @@ export function highlightByOffset(
  */
 export function getPlainText(element: HTMLElement): string {
   const textNodes = getTextNodes(element);
-  return textNodes.map(node => node.textContent).join('');
+  return textNodes.map((node) => node.textContent).join("");
 }
 
 /**

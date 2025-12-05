@@ -73,7 +73,7 @@
       tags: tags,
       content: selectedText,
       id: "<calculated-on-signing>",
-      sig: "<calculated-on-signing>"
+      sig: "<calculated-on-signing>",
     };
   });
 
@@ -110,7 +110,7 @@
       address: sectionAddress,
       eventId: sectionEventId,
       allDataAttrs: publicationSection.dataset,
-      sectionId: publicationSection.id
+      sectionId: publicationSection.id,
     });
 
     currentSelection = selection;
@@ -151,13 +151,14 @@
       event.pubkey = $userStore.pubkey; // Set pubkey from user store
 
       // Use the specific section's address/ID if available, otherwise fall back to publication event
-      const useAddress = selectedSectionAddress || publicationEvent.tagAddress();
+      const useAddress =
+        selectedSectionAddress || publicationEvent.tagAddress();
       const useEventId = selectedSectionEventId || publicationEvent.id;
 
       console.log("[HighlightSelectionHandler] Creating highlight with:", {
         address: useAddress,
         eventId: useEventId,
-        fallbackUsed: !selectedSectionAddress
+        fallbackUsed: !selectedSectionAddress,
       });
 
       const tags: string[][] = [];
@@ -202,7 +203,11 @@
         content: String(event.content),
       };
 
-      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
+      if (
+        typeof window !== "undefined" &&
+        window.nostr &&
+        window.nostr.signEvent
+      ) {
         const signed = await window.nostr.signEvent(plainEvent);
         event.sig = signed.sig;
         if ("id" in signed) {
@@ -222,7 +227,10 @@
       // Remove duplicates
       const uniqueRelays = Array.from(new Set(relays));
 
-      console.log("[HighlightSelectionHandler] Publishing to relays:", uniqueRelays);
+      console.log(
+        "[HighlightSelectionHandler] Publishing to relays:",
+        uniqueRelays,
+      );
 
       const signedEvent = {
         ...plainEvent,
@@ -248,11 +256,15 @@
                 clearTimeout(timeout);
                 if (ok) {
                   publishedCount++;
-                  console.log(`[HighlightSelectionHandler] Published to ${relayUrl}`);
+                  console.log(
+                    `[HighlightSelectionHandler] Published to ${relayUrl}`,
+                  );
                   WebSocketPool.instance.release(ws);
                   resolve();
                 } else {
-                  console.warn(`[HighlightSelectionHandler] ${relayUrl} rejected: ${message}`);
+                  console.warn(
+                    `[HighlightSelectionHandler] ${relayUrl} rejected: ${message}`,
+                  );
                   WebSocketPool.instance.release(ws);
                   reject(new Error(message));
                 }
@@ -263,7 +275,10 @@
             ws.send(JSON.stringify(["EVENT", signedEvent]));
           });
         } catch (e) {
-          console.error(`[HighlightSelectionHandler] Failed to publish to ${relayUrl}:`, e);
+          console.error(
+            `[HighlightSelectionHandler] Failed to publish to ${relayUrl}:`,
+            e,
+          );
         }
       }
 
@@ -271,7 +286,10 @@
         throw new Error("Failed to publish to any relays");
       }
 
-      showFeedbackMessage(`Highlight created and published to ${publishedCount} relay(s)!`, "success");
+      showFeedbackMessage(
+        `Highlight created and published to ${publishedCount} relay(s)!`,
+        "success",
+      );
 
       // Clear the selection
       if (currentSelection) {
@@ -294,7 +312,10 @@
       }
     } catch (error) {
       console.error("Failed to create highlight:", error);
-      showFeedbackMessage("Failed to create highlight. Please try again.", "error");
+      showFeedbackMessage(
+        "Failed to create highlight. Please try again.",
+        "error",
+      );
     } finally {
       isSubmitting = false;
     }
@@ -349,11 +370,18 @@
 </script>
 
 {#if showConfirmModal}
-  <Modal title="Create Highlight" bind:open={showConfirmModal} autoclose={false} size="md">
+  <Modal
+    title="Create Highlight"
+    bind:open={showConfirmModal}
+    autoclose={false}
+    size="md"
+  >
     <div class="space-y-4">
       <div>
         <P class="text-sm font-semibold mb-2">Selected Text:</P>
-        <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg max-h-32 overflow-y-auto">
+        <div
+          class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg max-h-32 overflow-y-auto"
+        >
           <P class="text-sm italic">"{selectedText}"</P>
         </div>
       </div>
@@ -366,16 +394,21 @@
           id="comment"
           bind:value={comment}
           placeholder="Share your thoughts about this highlight..."
-          rows="3"
+          rows={3}
           class="w-full"
         />
       </div>
 
       <!-- JSON Preview Section -->
       {#if showJsonPreview && previewJson}
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
+        <div
+          class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-900"
+        >
           <P class="text-sm font-semibold mb-2">Event JSON Preview:</P>
-          <pre class="text-xs bg-white dark:bg-gray-800 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700"><code>{JSON.stringify(previewJson, null, 2)}</code></pre>
+          <pre
+            class="text-xs bg-white dark:bg-gray-800 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700"><code
+              >{JSON.stringify(previewJson, null, 2)}</code
+            ></pre>
         </div>
       {/if}
 
@@ -383,7 +416,7 @@
         <Button
           color="light"
           size="sm"
-          onclick={() => showJsonPreview = !showJsonPreview}
+          onclick={() => (showJsonPreview = !showJsonPreview)}
           class="flex items-center gap-1"
         >
           {#if showJsonPreview}
@@ -395,10 +428,18 @@
         </Button>
 
         <div class="flex space-x-2">
-          <Button color="alternative" onclick={cancelHighlight} disabled={isSubmitting}>
+          <Button
+            color="alternative"
+            onclick={cancelHighlight}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
-          <Button color="primary" onclick={createHighlight} disabled={isSubmitting}>
+          <Button
+            color="primary"
+            onclick={createHighlight}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Creating..." : "Create Highlight"}
           </Button>
         </div>
@@ -409,7 +450,9 @@
 
 {#if showFeedback}
   <div
-    class="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg {feedbackMessage.includes('success')
+    class="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg {feedbackMessage.includes(
+      'success',
+    )
       ? 'bg-green-500 text-white'
       : 'bg-red-500 text-white'}"
   >

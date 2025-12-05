@@ -47,7 +47,7 @@ function createMockComment(
   targetAddress: string,
   createdAt: number,
   replyToId?: string,
-  replyToAuthor?: string
+  replyToAuthor?: string,
 ): any {
   const tags: string[][] = [
     ["A", targetAddress, "wss://relay.damus.io", pubkey],
@@ -85,7 +85,7 @@ function createMockComment(
 export function generateMockComments(
   sectionAddress: string,
   numRootComments: number = 3,
-  numRepliesPerThread: number = 2
+  numRepliesPerThread: number = 2,
 ): any[] {
   const comments: any[] = [];
   const now = Math.floor(Date.now() / 1000);
@@ -103,7 +103,7 @@ export function generateMockComments(
       rootContent,
       rootPubkey,
       sectionAddress,
-      rootCreatedAt
+      rootCreatedAt,
     );
 
     comments.push(rootComment);
@@ -112,7 +112,8 @@ export function generateMockComments(
     for (let j = 0; j < numRepliesPerThread; j++) {
       const replyId = `mock-reply-${i}-${j}-${Date.now()}`;
       const replyPubkey = mockPubkeys[(i + j + 1) % mockPubkeys.length];
-      const replyContent = loremIpsumReplies[commentIndex % loremIpsumReplies.length];
+      const replyContent =
+        loremIpsumReplies[commentIndex % loremIpsumReplies.length];
       const replyCreatedAt = rootCreatedAt + (j + 1) * 1800; // 30 min after each
 
       const reply = createMockComment(
@@ -122,7 +123,7 @@ export function generateMockComments(
         sectionAddress,
         replyCreatedAt,
         rootId,
-        rootPubkey
+        rootPubkey,
       );
 
       comments.push(reply);
@@ -131,7 +132,8 @@ export function generateMockComments(
       if (j === 0 && i < 2) {
         const nestedId = `mock-nested-${i}-${j}-${Date.now()}`;
         const nestedPubkey = mockPubkeys[(i + j + 2) % mockPubkeys.length];
-        const nestedContent = loremIpsumReplies[(commentIndex + 1) % loremIpsumReplies.length];
+        const nestedContent =
+          loremIpsumReplies[(commentIndex + 1) % loremIpsumReplies.length];
         const nestedCreatedAt = replyCreatedAt + 900; // 15 min after reply
 
         const nested = createMockComment(
@@ -141,7 +143,7 @@ export function generateMockComments(
           sectionAddress,
           nestedCreatedAt,
           replyId,
-          replyPubkey
+          replyPubkey,
         );
 
         comments.push(nested);
@@ -160,7 +162,7 @@ export function generateMockComments(
  * @returns Array of all mock comments across all sections
  */
 export function generateMockCommentsForSections(
-  sectionAddresses: string[]
+  sectionAddresses: string[],
 ): any[] {
   const allComments: any[] = [];
 

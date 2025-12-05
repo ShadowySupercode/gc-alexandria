@@ -9,9 +9,9 @@
 import Processor from "asciidoctor";
 import type { Document } from "asciidoctor";
 import {
-  parseSimpleAttributes,
   extractDocumentMetadata,
   extractSectionMetadata,
+  parseSimpleAttributes,
 } from "./asciidoc_metadata.ts";
 
 export interface ParsedAsciiDoc {
@@ -418,8 +418,7 @@ export function generateNostrEvents(
     const hasChildrenAtTargetLevel = children.some(
       (child) => child.level === parseLevel,
     );
-    const shouldBeIndex =
-      level < parseLevel &&
+    const shouldBeIndex = level < parseLevel &&
       (hasChildrenAtTargetLevel ||
         children.some((child) => child.level <= parseLevel));
 
@@ -461,8 +460,8 @@ export function generateNostrEvents(
         const childHasSubChildren = child.children.some(
           (grandchild) => grandchild.level <= parseLevel,
         );
-        const childShouldBeIndex =
-          child.level < parseLevel && childHasSubChildren;
+        const childShouldBeIndex = child.level < parseLevel &&
+          childHasSubChildren;
         const childKind = childShouldBeIndex ? 30040 : 30041;
         childATags.push([
           "a",
@@ -563,8 +562,8 @@ export function generateNostrEvents(
 export function detectContentType(
   content: string,
 ): "article" | "scattered-notes" | "none" {
-  const hasDocTitle =
-    content.trim().startsWith("=") && !content.trim().startsWith("==");
+  const hasDocTitle = content.trim().startsWith("=") &&
+    !content.trim().startsWith("==");
   const hasSections = content.includes("==");
 
   if (hasDocTitle) {

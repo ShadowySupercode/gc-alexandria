@@ -12,7 +12,11 @@
   import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import { neventEncode, naddrEncode } from "$lib/utils";
-  import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import {
+    activeInboxRelays,
+    activeOutboxRelays,
+    getNdkContext,
+  } from "$lib/ndk";
   import { userStore } from "$lib/stores/userStore";
   import { goto } from "$app/navigation";
   import type { NDKEvent } from "$lib/utils/nostrUtils";
@@ -104,19 +108,20 @@
       ],
       content: commentContent,
       id: "<calculated-on-signing>",
-      sig: "<calculated-on-signing>"
+      sig: "<calculated-on-signing>",
     };
   });
 
   // Check if user can delete this event (must be the author)
   let canDelete = $derived.by(() => {
-    const result = user.signedIn && user.pubkey === event.pubkey && onDelete !== undefined;
-    console.log('[CardActions] canDelete check:', {
+    const result =
+      user.signedIn && user.pubkey === event.pubkey && onDelete !== undefined;
+    console.log("[CardActions] canDelete check:", {
       userSignedIn: user.signedIn,
       userPubkey: user.pubkey,
       eventPubkey: event.pubkey,
       onDeleteProvided: onDelete !== undefined,
-      canDelete: result
+      canDelete: result,
     });
     return result;
   });
@@ -221,7 +226,9 @@
   /**
    * Parse address to get event details
    */
-  function parseAddress(address: string): { kind: number; pubkey: string; dTag: string } | null {
+  function parseAddress(
+    address: string,
+  ): { kind: number; pubkey: string; dTag: string } | null {
     const parts = address.split(":");
     if (parts.length !== 3) {
       console.error("[CardActions] Invalid address format:", address);
@@ -301,12 +308,18 @@
       const plainEvent = {
         kind: Number(commentEvent.kind),
         pubkey: String(commentEvent.pubkey),
-        created_at: Number(commentEvent.created_at ?? Math.floor(Date.now() / 1000)),
+        created_at: Number(
+          commentEvent.created_at ?? Math.floor(Date.now() / 1000),
+        ),
         tags: commentEvent.tags.map((tag) => tag.map(String)),
         content: String(commentEvent.content),
       };
 
-      if (typeof window !== "undefined" && window.nostr && window.nostr.signEvent) {
+      if (
+        typeof window !== "undefined" &&
+        window.nostr &&
+        window.nostr.signEvent
+      ) {
         const signed = await window.nostr.signEvent(plainEvent);
         commentEvent.sig = signed.sig;
         if ("id" in signed) {
@@ -373,10 +386,10 @@
         commentContent = "";
         showJsonPreview = false;
       }, 2000);
-
     } catch (err) {
       console.error("[CardActions] Error submitting comment:", err);
-      commentError = err instanceof Error ? err.message : "Failed to post comment";
+      commentError =
+        err instanceof Error ? err.message : "Failed to post comment";
     } finally {
       isSubmittingComment = false;
     }
@@ -404,7 +417,7 @@
     type="button"
     id="dots-{event.id}"
     class=" hover:bg-primary-50 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
-    color="none"
+    color="primary"
     data-popover-target="popover-actions"
   >
     <DotsVerticalOutline class="h-6 w-6" />
@@ -463,7 +476,8 @@
                     onDelete?.();
                   }}
                 >
-                  <TrashBinOutline class="inline mr-2" /> {deleteButtonText}
+                  <TrashBinOutline class="inline mr-2" />
+                  {deleteButtonText}
                 </button>
               </li>
             {/if}
@@ -570,7 +584,9 @@
     >
       <div class="space-y-4">
         {#if user.profile}
-          <div class="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div
+            class="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700"
+          >
             {#if user.profile.picture}
               <img
                 src={user.profile.picture}
@@ -597,14 +613,21 @@
         {/if}
 
         {#if commentSuccess}
-          <P class="text-green-600 dark:text-green-400 text-sm">Comment posted successfully!</P>
+          <P class="text-green-600 dark:text-green-400 text-sm"
+            >Comment posted successfully!</P
+          >
         {/if}
 
         <!-- JSON Preview Section -->
         {#if showJsonPreview && previewJson}
-          <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
+          <div
+            class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-900"
+          >
             <P class="text-sm font-semibold mb-2">Event JSON Preview:</P>
-            <pre class="text-xs bg-white dark:bg-gray-800 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700"><code>{JSON.stringify(previewJson, null, 2)}</code></pre>
+            <pre
+              class="text-xs bg-white dark:bg-gray-800 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700"><code
+                >{JSON.stringify(previewJson, null, 2)}</code
+              ></pre>
           </div>
         {/if}
 
@@ -612,7 +635,7 @@
           <Button
             color="light"
             size="sm"
-            onclick={() => showJsonPreview = !showJsonPreview}
+            onclick={() => (showJsonPreview = !showJsonPreview)}
             class="flex items-center gap-1"
           >
             {#if showJsonPreview}
@@ -624,20 +647,20 @@
           </Button>
 
           <div class="flex gap-3">
-          <Button
-            color="alternative"
-            onclick={cancelComment}
-            disabled={isSubmittingComment}
-          >
-            Cancel
-          </Button>
-          <Button
-            color="primary"
-            onclick={submitComment}
-            disabled={isSubmittingComment || !commentContent.trim()}
-          >
-            {isSubmittingComment ? "Posting..." : "Post Comment"}
-          </Button>
+            <Button
+              color="alternative"
+              onclick={cancelComment}
+              disabled={isSubmittingComment}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="primary"
+              onclick={submitComment}
+              disabled={isSubmittingComment || !commentContent.trim()}
+            >
+              {isSubmittingComment ? "Posting..." : "Post Comment"}
+            </Button>
           </div>
         </div>
       </div>

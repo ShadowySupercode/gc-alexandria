@@ -42,11 +42,11 @@
 
   // Filter comments for this section
   let sectionComments = $derived(
-    allComments.filter(comment => {
+    allComments.filter((comment) => {
       // Check if comment targets this section via #a tag
-      const aTag = comment.tags.find(t => t[0] === 'a');
+      const aTag = comment.tags.find((t) => t[0] === "a");
       return aTag && aTag[1] === address;
-    })
+    }),
   );
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
@@ -56,10 +56,13 @@
   let leafEventId = $state<string>("");
 
   $effect(() => {
-    leafEvent.then(e => {
+    leafEvent.then((e) => {
       if (e?.id) {
         leafEventId = e.id;
-        console.log(`[PublicationSection] Set leafEventId for ${address}:`, e.id);
+        console.log(
+          `[PublicationSection] Set leafEventId for ${address}:`,
+          e.id,
+        );
       }
     });
   });
@@ -83,7 +86,7 @@
   let leafContent: Promise<string | Document> = $derived.by(async () => {
     const event = await leafEvent;
     const content = event?.content ?? "";
-    
+
     // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
     // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
     if (event?.kind === 30023) {
@@ -91,7 +94,10 @@
     } else {
       // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
       const converted = asciidoctor.convert(content);
-      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString(), ndk);
+      const processed = await postProcessAdvancedAsciidoctorHtml(
+        converted.toString(),
+        ndk,
+      );
       return processed;
     }
   });
@@ -169,26 +175,32 @@
     if (!event) return;
 
     const confirmed = confirm(
-      "Are you sure you want to delete this section? This action will publish a deletion request to all relays."
+      "Are you sure you want to delete this section? This action will publish a deletion request to all relays.",
     );
 
     if (!confirmed) return;
 
     try {
-      await deleteEvent({
-        eventAddress: address,
-        eventKind: event.kind,
-        reason: "User deleted section",
-        onSuccess: (deletionEventId) => {
-          console.log("[PublicationSection] Deletion event published:", deletionEventId);
-          // Refresh the page to reflect the deletion
-          window.location.reload();
+      await deleteEvent(
+        {
+          eventAddress: address,
+          eventKind: event.kind,
+          reason: "User deleted section",
+          onSuccess: (deletionEventId) => {
+            console.log(
+              "[PublicationSection] Deletion event published:",
+              deletionEventId,
+            );
+            // Refresh the page to reflect the deletion
+            window.location.reload();
+          },
+          onError: (error) => {
+            console.error("[PublicationSection] Deletion failed:", error);
+            alert(`Failed to delete section: ${error}`);
+          },
         },
-        onError: (error) => {
-          console.error("[PublicationSection] Deletion failed:", error);
-          alert(`Failed to delete section: ${error}`);
-        },
-      }, ndk);
+        ndk,
+      );
     } catch (error) {
       console.error("[PublicationSection] Deletion error:", error);
     }
@@ -206,7 +218,7 @@
       address,
       leafEventId,
       dataAddress: sectionRef.dataset.eventAddress,
-      dataEventId: sectionRef.dataset.eventId
+      dataEventId: sectionRef.dataset.eventId,
     });
   });
 </script>
@@ -221,7 +233,7 @@
     data-event-id={leafEventId}
   >
     {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
-      <TextPlaceholder size="xxl" />
+      <TextPlaceholder size="2xl" />
     {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
       <!-- Main content area - centered -->
       <div class="section-content relative max-w-4xl mx-auto px-4">
@@ -229,7 +241,11 @@
         <div class="xl:hidden absolute top-2 right-2 z-10">
           {#await leafEvent then event}
             {#if event}
-              <CardActions {event} sectionAddress={address} onDelete={handleDelete} />
+              <CardActions
+                {event}
+                sectionAddress={address}
+                onDelete={handleDelete}
+              />
             {/if}
           {/await}
         </div>
@@ -265,14 +281,18 @@
   {#await leafEvent then event}
     {#if event}
       <!-- Three-dot menu - positioned at top-center on XL+ screens -->
-      <div class="hidden xl:block absolute left-[calc(50%+26rem)] top-[20%] z-10">
+      <div
+        class="hidden xl:block absolute left-[calc(50%+26rem)] top-[20%] z-10"
+      >
         <CardActions {event} sectionAddress={address} onDelete={handleDelete} />
       </div>
     {/if}
   {/await}
 
   <!-- Comments area: positioned below menu, top-center of section -->
-  <div class="hidden xl:block absolute left-[calc(50%+26rem)] top-[calc(20%+3rem)] w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]">
+  <div
+    class="hidden xl:block absolute left-[calc(50%+26rem)] top-[calc(20%+3rem)] w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
+  >
     <SectionComments
       sectionAddress={address}
       comments={sectionComments}
