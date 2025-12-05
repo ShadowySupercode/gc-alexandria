@@ -8,7 +8,6 @@
     SidebarWrapper,
     Heading,
     CloseButton,
-    uiHelpers,
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
@@ -227,9 +226,6 @@
   let currentBlogEvent: null | NDKEvent = $state(null);
   const isLeaf = $derived(indexEvent.kind === 30041);
 
-  const tocSidebarUi = uiHelpers();
-  const closeTocSidebar = tocSidebarUi.close;
-  const isTocOpen = $state($publicationColumnVisibility.toc);
 
   function isInnerActive() {
     return currentBlog !== null && $publicationColumnVisibility.inner;
@@ -472,7 +468,7 @@
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
 <div
-  class="relative grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]"
+  class="relative grid gap-4 items-start grid-cols-[1fr_1fr] grid-rows-[auto_1fr]"
 >
   <!-- Full-width ArticleNav row -->
   <ArticleNav {publicationType} rootId={indexEvent.id} {indexEvent} />
@@ -494,46 +490,7 @@
   />
   <!-- Three-column row -->
   <div class="contents">
-    <!-- Table of contents -->
-    <div
-      class="mt-[70px] relative {$publicationColumnVisibility.toc
-        ? 'w-64'
-        : 'w-auto'}"
-    >
-      {#if publicationType !== "blog" && !isLeaf}
-        {#if $publicationColumnVisibility.toc}
-          <Sidebar
-            class="z-10 ml-2 fixed top-[162px] max-h-[calc(100vh-165px)] overflow-y-auto dark:bg-primary-900 bg-primary-50 rounded"
-            activeUrl={`#${activeAddress ?? ""}`}
-            classes={{
-              div: "dark:bg-primary-900 bg-primary-50",
-              active: "bg-primary-100 dark:bg-primary-800 p-2 rounded-lg",
-              nonactive: "bg-primary-50 dark:bg-primary-900",
-            }}
-          >
-            <SidebarWrapper>
-              <CloseButton
-                color="secondary"
-                class="m-2 dark:text-primary-100"
-                onclick={closeToc}
-              ></CloseButton>
-              <TableOfContents
-                {rootAddress}
-                {toc}
-                depth={2}
-                onSectionFocused={(address: string) =>
-                  publicationTree.setBookmark(address)}
-                onLoadMore={() => {
-                  if (!isLoading && !isDone && publicationTree) {
-                    loadMore(4);
-                  }
-                }}
-              />
-            </SidebarWrapper>
-          </Sidebar>
-        {/if}
-      {/if}
-    </div>
+    <!-- Table of contents column removed - using overlay drawer instead -->
     <div class="mt-[70px]">
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
@@ -798,6 +755,56 @@
     </div>
   </div>
 </div>
+
+<!-- Table of Contents Drawer (overlay, works on mobile and desktop) -->
+{#if publicationType !== "blog" && !isLeaf}
+  <!-- Backdrop overlay -->
+  <div
+    class="fixed inset-0 bg-black/50 z-[100] transition-opacity duration-300 {$publicationColumnVisibility.toc
+      ? 'opacity-100 pointer-events-auto'
+      : 'opacity-0 pointer-events-none'}"
+    onclick={closeToc}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        closeToc();
+      }
+    }}
+  ></div>
+  
+  <!-- Drawer -->
+  <div
+    class="fixed top-[162px] left-0 h-[calc(100vh-162px)] w-fit min-w-[280px] max-w-[min(98vw,500px)] z-[110] dark:bg-primary-900 bg-primary-50 rounded-r-lg shadow-xl transition-transform duration-300 ease-in-out {$publicationColumnVisibility.toc
+      ? 'translate-x-0'
+      : '-translate-x-full'}"
+  >
+    <div class="h-full flex flex-col overflow-hidden">
+      <div class="flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700">
+        <CloseButton
+          color="secondary"
+          class="dark:text-primary-100"
+          onclick={closeToc}
+        ></CloseButton>
+      </div>
+      <div class="flex-1 overflow-y-auto overflow-x-visible px-2 w-full">
+        <TableOfContents
+          {rootAddress}
+          {toc}
+          depth={2}
+          onSectionFocused={(address: string) =>
+            publicationTree.setBookmark(address)}
+          onLoadMore={() => {
+            if (!isLoading && !isDone && publicationTree) {
+              loadMore(4);
+            }
+          }}
+          onClose={closeToc}
+        />
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- Highlight Layer Component -->
 <HighlightLayer

@@ -12,12 +12,13 @@
   import Self from "./TableOfContents.svelte";
   import { onMount, onDestroy } from "svelte";
 
-  let { depth, onSectionFocused, onLoadMore, toc } = $props<{
+  let { depth, onSectionFocused, onLoadMore, onClose, toc } = $props<{
     rootAddress: string;
     depth: number;
     toc: TableOfContents;
     onSectionFocused?: (address: string) => void;
     onLoadMore?: () => void;
+    onClose?: () => void;
   }>();
 
   let entries = $derived.by<TocEntry[]>(() => {
@@ -58,6 +59,9 @@
     }
     
     onSectionFocused?.(address);
+    
+    // Close the drawer after navigation
+    onClose?.();
     
     // Check if this is the last entry and trigger loading more events
     const currentEntries = entries;
@@ -172,10 +176,11 @@
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} "
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} whitespace-nowrap min-w-fit"
+        class="w-full"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} />
+        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} {onClose} />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

@@ -152,7 +152,7 @@
 </script>
 
 <nav
-  class="Navbar navbar-leather col-span-3 flex fixed top-[100px] sm:top-[92px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+  class="Navbar navbar-leather col-span-2 flex fixed top-[100px] sm:top-[92px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
     ? 'translate-y-0'
     : '-translate-y-full'}"
 >
@@ -171,21 +171,21 @@
       {#if isIndexEvent}
         {#if publicationType === "blog"}
           <Button
-            class={`btn-leather hidden sm:flex !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}
+            class={`btn-leather !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}
             outline={true}
             onclick={() => toggleColumn("blog")}
+            title="Table of Contents"
           >
-            <BookOutline class="!fill-none inline mr-1" />
-            <span class="hidden sm:inline">Table of Contents</span>
+            <BookOutline class="!fill-none" />
           </Button>
-        {:else if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
+        {:else if !$publicationColumnVisibility.discussion}
           <Button
             class={`btn-leather !w-auto ${$publicationColumnVisibility.toc ? "active" : ""}`}
             outline={true}
             onclick={() => toggleColumn("toc")}
+            title="Table of Contents"
           >
-            <BookOutline class="!fill-none inline mr-1" />
-            <span class="hidden sm:inline">Table of Contents</span>
+            <BookOutline class="!fill-none" />
           </Button>
         {/if}
       {/if}
