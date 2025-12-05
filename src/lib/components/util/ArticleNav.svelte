@@ -158,16 +158,6 @@
 >
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
-      {#if shouldShowBack()}
-        <Button
-          class="btn-leather !w-auto sm:hidden"
-          outline={true}
-          onclick={backToMain}
-        >
-          <CaretLeftOutline class="!fill-none inline mr-1" />
-          <span class="hidden sm:inline">Back</span>
-        </Button>
-      {/if}
       {#if isIndexEvent}
         {#if publicationType === "blog"}
           <Button
