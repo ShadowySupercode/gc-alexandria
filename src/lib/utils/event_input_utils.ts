@@ -4,8 +4,8 @@ import { EVENT_KINDS } from "./search_constants";
 import {
   extractDocumentMetadata,
   metadataToTags,
-  parseAsciiDocWithMetadata,
 } from "./asciidoc_metadata.ts";
+import { parseAsciiDocWithMetadata } from "./asciidoc_parser.ts";
 
 // =========================
 // Validation

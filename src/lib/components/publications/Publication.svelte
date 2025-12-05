@@ -7,7 +7,8 @@
     SidebarGroup,
     SidebarWrapper,
     Heading,
-    CloseButton, uiHelpers
+    CloseButton,
+    uiHelpers,
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
@@ -24,14 +25,90 @@
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
   import ArticleNav from "$components/util/ArticleNav.svelte";
+  import { deleteEvent } from "$lib/services/deletion";
+  import { getNdkContext, activeOutboxRelays } from "$lib/ndk";
+  import { goto } from "$app/navigation";
+  import HighlightLayer from "./HighlightLayer.svelte";
+  import { EyeOutline, EyeSlashOutline } from "flowbite-svelte-icons";
+  import HighlightButton from "./HighlightButton.svelte";
+  import HighlightSelectionHandler from "./HighlightSelectionHandler.svelte";
+  import CommentLayer from "./CommentLayer.svelte";
+  import CommentButton from "./CommentButton.svelte";
+  import SectionComments from "./SectionComments.svelte";
+  import { Textarea, P } from "flowbite-svelte";
+  import { userStore } from "$lib/stores/userStore";
 
-  let { rootAddress, publicationType, indexEvent, publicationTree, toc } = $props<{
-    rootAddress: string;
-    publicationType: string;
-    indexEvent: NDKEvent;
-    publicationTree: SveltePublicationTree;
-    toc: TocType;
-  }>();
+  let { rootAddress, publicationType, indexEvent, publicationTree, toc } =
+    $props<{
+      rootAddress: string;
+      publicationType: string;
+      indexEvent: NDKEvent;
+      publicationTree: SveltePublicationTree;
+      toc: TocType;
+    }>();
+
+  const ndk = getNdkContext();
+
+  // Highlight layer state
+  let highlightsVisible = $state(false);
+  let highlightLayerRef: any = null;
+  let publicationContentRef: HTMLElement | null = $state(null);
+
+  // Comment layer state
+  let commentsVisible = $state(true);
+  let comments = $state<NDKEvent[]>([]);
+  let commentLayerRef: any = null;
+  let showArticleCommentUI = $state(false);
+  let articleCommentContent = $state("");
+  let isSubmittingArticleComment = $state(false);
+  let articleCommentError = $state<string | null>(null);
+  let articleCommentSuccess = $state(false);
+
+  // Toggle between mock and real data for testing (DEBUG MODE)
+  // Can be controlled via VITE_USE_MOCK_COMMENTS and VITE_USE_MOCK_HIGHLIGHTS environment variables
+  let useMockComments = $state(
+    import.meta.env.VITE_USE_MOCK_COMMENTS === "true",
+  );
+  let useMockHighlights = $state(
+    import.meta.env.VITE_USE_MOCK_HIGHLIGHTS === "true",
+  );
+
+  // Log initial state for debugging
+  console.log("[Publication] Mock data initialized:", {
+    envVars: {
+      VITE_USE_MOCK_COMMENTS: import.meta.env.VITE_USE_MOCK_COMMENTS,
+      VITE_USE_MOCK_HIGHLIGHTS: import.meta.env.VITE_USE_MOCK_HIGHLIGHTS,
+    },
+  });
+
+  // Derive all event IDs and addresses for highlight fetching
+  let allEventIds = $derived.by(() => {
+    const ids = [indexEvent.id];
+    leaves.forEach((leaf) => {
+      if (leaf?.id) ids.push(leaf.id);
+    });
+    return ids;
+  });
+
+  let allEventAddresses = $derived.by(() => {
+    const addresses = [rootAddress];
+    leaves.forEach((leaf) => {
+      if (leaf) {
+        const addr = leaf.tagAddress();
+        if (addr) addresses.push(addr);
+      }
+    });
+    return addresses;
+  });
+
+  // Filter comments for the root publication (kind 30040)
+  let articleComments = $derived(
+    comments.filter((comment) => {
+      // Check if comment targets the root publication via #a tag
+      const aTag = comment.tags.find((t) => t[0] === "a");
+      return aTag && aTag[1] === rootAddress;
+    }),
+  );
 
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
@@ -41,6 +118,8 @@
   let activeAddress = $state<string | null>(null);
   let loadedAddresses = $state<Set<string>>(new Set());
   let hasInitialized = $state(false);
+  let highlightModeActive = $state(false);
+  let publicationDeleted = $state(false);
 
   let observer: IntersectionObserver;
 
@@ -49,9 +128,11 @@
       console.warn("[Publication] publicationTree is not available");
       return;
     }
-    
-    console.log(`[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
-    
+
+    console.log(
+      `[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
+    );
+
     isLoading = true;
 
     try {
@@ -84,7 +165,9 @@
       console.error("[Publication] Error loading more content:", error);
     } finally {
       isLoading = false;
-      console.log(`[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`);
+      console.log(
+        `[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
+      );
     }
   }
 
@@ -121,12 +204,12 @@
       lastElementRef = null;
       loadedAddresses = new Set();
       hasInitialized = false;
-      
+
       // Reset the publication tree iterator to prevent duplicate events
-      if (typeof publicationTree.resetIterator === 'function') {
+      if (typeof publicationTree.resetIterator === "function") {
         publicationTree.resetIterator();
       }
-      
+
       // AI-NOTE:  Use setTimeout to ensure iterator reset completes before loading
       // This prevents race conditions where loadMore is called before the iterator is fully reset
       setTimeout(() => {
@@ -184,6 +267,129 @@
     return currentBlog && currentBlogEvent && window.innerWidth < 1140;
   }
 
+  function toggleHighlights() {
+    highlightsVisible = !highlightsVisible;
+  }
+
+  function toggleComments() {
+    commentsVisible = !commentsVisible;
+  }
+
+  function handleCommentPosted() {
+    console.log("[Publication] Comment posted, refreshing comment layer");
+    // Refresh the comment layer after a short delay to allow relay indexing
+    setTimeout(() => {
+      if (commentLayerRef) {
+        commentLayerRef.refresh();
+      }
+    }, 500);
+  }
+
+  async function submitArticleComment() {
+    if (!articleCommentContent.trim()) {
+      articleCommentError = "Comment cannot be empty";
+      return;
+    }
+
+    isSubmittingArticleComment = true;
+    articleCommentError = null;
+    articleCommentSuccess = false;
+
+    try {
+      // Parse the root address to get event details
+      const parts = rootAddress.split(":");
+      if (parts.length !== 3) {
+        throw new Error("Invalid address format");
+      }
+
+      const [kindStr, authorPubkey, dTag] = parts;
+      const kind = parseInt(kindStr);
+
+      // Create comment event (kind 1111)
+      const commentEvent = new (await import("@nostr-dev-kit/ndk")).NDKEvent(
+        ndk,
+      );
+      commentEvent.kind = 1111;
+      commentEvent.content = articleCommentContent;
+
+      // Get relay hint
+      const relayHint = $activeOutboxRelays[0] || "";
+
+      // Add tags following NIP-22
+      commentEvent.tags = [
+        ["A", rootAddress, relayHint, authorPubkey],
+        ["K", kind.toString()],
+        ["P", authorPubkey, relayHint],
+        ["a", rootAddress, relayHint],
+        ["k", kind.toString()],
+        ["p", authorPubkey, relayHint],
+      ];
+
+      // Sign and publish
+      await commentEvent.sign();
+      await commentEvent.publish();
+
+      console.log("[Publication] Article comment published:", commentEvent.id);
+
+      articleCommentSuccess = true;
+      articleCommentContent = "";
+
+      // Close UI and refresh after delay
+      setTimeout(() => {
+        showArticleCommentUI = false;
+        articleCommentSuccess = false;
+        handleCommentPosted();
+      }, 1500);
+    } catch (err) {
+      console.error("[Publication] Error posting article comment:", err);
+      articleCommentError =
+        err instanceof Error ? err.message : "Failed to post comment";
+    } finally {
+      isSubmittingArticleComment = false;
+    }
+  }
+
+  /**
+   * Handles deletion of the entire publication
+   */
+  async function handleDeletePublication() {
+    const confirmed = confirm(
+      "Are you sure you want to delete this entire publication? This action will publish a deletion request to all relays.",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteEvent(
+        {
+          eventAddress: indexEvent.tagAddress(),
+          eventKind: indexEvent.kind,
+          reason: "User deleted publication",
+          onSuccess: (deletionEventId) => {
+            console.log(
+              "[Publication] Deletion event published:",
+              deletionEventId,
+            );
+            publicationDeleted = true;
+
+            // Redirect after 2 seconds
+            setTimeout(() => {
+              goto("/publications");
+            }, 2000);
+          },
+          onError: (error) => {
+            console.error("[Publication] Failed to delete publication:", error);
+            alert(`Failed to delete publication: ${error}`);
+          },
+        },
+        ndk,
+      );
+    } catch (error) {
+      console.error("[Publication] Error deleting publication:", error);
+      alert(`Error: ${error}`);
+    }
+  }
+
   // #endregion
 
   /**
@@ -232,14 +438,19 @@
     observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isLoading && !isDone && publicationTree) {
+          if (
+            entry.isIntersecting &&
+            !isLoading &&
+            !isDone &&
+            publicationTree
+          ) {
             loadMore(1);
           }
         });
       },
       { threshold: 0.5 },
     );
-    
+
     // AI-NOTE:  Removed duplicate loadMore call
     // Initial content loading is handled by the $effect that watches publicationTree
     // This prevents duplicate loading when both onMount and $effect trigger
@@ -249,62 +460,211 @@
     };
   });
 
+  // Setup highlight layer container reference
+  $effect(() => {
+    if (publicationContentRef && highlightLayerRef) {
+      highlightLayerRef.setContainer(publicationContentRef);
+    }
+  });
+
   // #endregion
 </script>
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
-<div class="relative grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]">
+<div
+  class="relative grid gap-4 items-start grid-cols-[1fr_3fr_1fr] grid-rows-[auto_1fr]"
+>
   <!-- Full-width ArticleNav row -->
-    <ArticleNav
-      publicationType={publicationType}
-      rootId={indexEvent.id}
-      indexEvent={indexEvent}
-    />
+  <ArticleNav {publicationType} rootId={indexEvent.id} {indexEvent} />
+
+  <!-- Highlight selection handler -->
+  <HighlightSelectionHandler
+    isActive={highlightModeActive}
+    publicationEvent={indexEvent}
+    onHighlightCreated={() => {
+      highlightModeActive = false;
+      // Refresh highlights after a short delay to allow relay indexing
+      setTimeout(() => {
+        if (highlightLayerRef) {
+          console.log("[Publication] Refreshing highlights after creation");
+          highlightLayerRef.refresh();
+        }
+      }, 500);
+    }}
+  />
   <!-- Three-column row -->
   <div class="contents">
     <!-- Table of contents -->
-    <div class="mt-[70px] relative {$publicationColumnVisibility.toc ? 'w-64' : 'w-auto'}">
+    <div
+      class="mt-[70px] relative {$publicationColumnVisibility.toc
+        ? 'w-64'
+        : 'w-auto'}"
+    >
       {#if publicationType !== "blog" && !isLeaf}
         {#if $publicationColumnVisibility.toc}
           <Sidebar
             class="z-10 ml-2 fixed top-[162px] max-h-[calc(100vh-165px)] overflow-y-auto dark:bg-primary-900 bg-primary-50 rounded"
             activeUrl={`#${activeAddress ?? ""}`}
             classes={{
-          div: 'dark:bg-primary-900 bg-primary-50',
-          active: 'bg-primary-100 dark:bg-primary-800 p-2 rounded-lg',
-          nonactive: 'bg-primary-50 dark:bg-primary-900',
-        }}
+              div: "dark:bg-primary-900 bg-primary-50",
+              active: "bg-primary-100 dark:bg-primary-800 p-2 rounded-lg",
+              nonactive: "bg-primary-50 dark:bg-primary-900",
+            }}
           >
             <SidebarWrapper>
-              <CloseButton color="secondary" class="m-2 dark:text-primary-100" onclick={closeToc} ></CloseButton>
+              <CloseButton
+                color="secondary"
+                class="m-2 dark:text-primary-100"
+                onclick={closeToc}
+              ></CloseButton>
               <TableOfContents
                 {rootAddress}
                 {toc}
                 depth={2}
-                onSectionFocused={(address: string) => publicationTree.setBookmark(address)}
+                onSectionFocused={(address: string) =>
+                  publicationTree.setBookmark(address)}
                 onLoadMore={() => {
-              if (!isLoading && !isDone && publicationTree) {
-                loadMore(4);
-              }
-            }}
+                  if (!isLoading && !isDone && publicationTree) {
+                    loadMore(4);
+                  }
+                }}
               />
-
             </SidebarWrapper>
           </Sidebar>
         {/if}
       {/if}
-
     </div>
     <div class="mt-[70px]">
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
-        <div class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto">
-          <div
-            class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
-          >
-            <Details event={indexEvent} />
+        <div
+          class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto"
+          bind:this={publicationContentRef}
+        >
+          <!-- Publication header with comments (similar to section layout) -->
+          <div class="relative">
+            <!-- Main header content - centered -->
+            <div class="max-w-4xl mx-auto px-4">
+              <div
+                class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+              >
+                <Details
+                  event={indexEvent}
+                  onDelete={handleDeletePublication}
+                />
+              </div>
+
+              {#if publicationDeleted}
+                <Alert color="yellow" class="mb-4">
+                  <ExclamationCircleOutline class="w-5 h-5 inline mr-2" />
+                  Publication deleted. Redirecting to publications page...
+                </Alert>
+              {/if}
+            </div>
+
+            <!-- Mobile article comments - shown below header on smaller screens -->
+            <div class="xl:hidden mt-4 max-w-4xl mx-auto px-4">
+              <SectionComments
+                sectionAddress={rootAddress}
+                comments={articleComments}
+                visible={commentsVisible}
+              />
+            </div>
+
+            <!-- Desktop article comments - positioned on right side on XL+ screens -->
+            <div
+              class="hidden xl:block absolute left-[calc(50%+26rem)] top-0 w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
+            >
+              <SectionComments
+                sectionAddress={rootAddress}
+                comments={articleComments}
+                visible={commentsVisible}
+              />
+            </div>
           </div>
+
+          <!-- Action buttons row -->
+          <div class="flex justify-between gap-2 mb-4">
+            <div class="flex gap-2">
+              <Button
+                color="light"
+                size="sm"
+                onclick={() => (showArticleCommentUI = !showArticleCommentUI)}
+              >
+                {showArticleCommentUI ? "Close Comment" : "Comment On Article"}
+              </Button>
+              <HighlightButton bind:isActive={highlightModeActive} />
+            </div>
+            <div class="flex gap-2">
+              <Button color="light" size="sm" onclick={toggleComments}>
+                {#if commentsVisible}
+                  <EyeSlashOutline class="w-4 h-4 mr-2" />
+                  Hide Comments
+                {:else}
+                  <EyeOutline class="w-4 h-4 mr-2" />
+                  Show Comments
+                {/if}
+              </Button>
+              <Button color="light" size="sm" onclick={toggleHighlights}>
+                {#if highlightsVisible}
+                  <EyeSlashOutline class="w-4 h-4 mr-2" />
+                  Hide Highlights
+                {:else}
+                  <EyeOutline class="w-4 h-4 mr-2" />
+                  Show Highlights
+                {/if}
+              </Button>
+            </div>
+          </div>
+
+          <!-- Article Comment UI -->
+          {#if showArticleCommentUI}
+            <div
+              class="mb-4 border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800"
+            >
+              <div class="space-y-3">
+                <h4 class="font-semibold text-gray-900 dark:text-white">
+                  Comment on Article
+                </h4>
+
+                <Textarea
+                  bind:value={articleCommentContent}
+                  placeholder="Write your comment on this article..."
+                  rows={4}
+                  disabled={isSubmittingArticleComment}
+                />
+
+                {#if articleCommentError}
+                  <P class="text-red-600 dark:text-red-400 text-sm"
+                    >{articleCommentError}</P
+                  >
+                {/if}
+
+                {#if articleCommentSuccess}
+                  <P class="text-green-600 dark:text-green-400 text-sm"
+                    >Comment posted successfully!</P
+                  >
+                {/if}
+
+                <div class="flex gap-2">
+                  <Button
+                    onclick={submitArticleComment}
+                    disabled={isSubmittingArticleComment}
+                  >
+                    {isSubmittingArticleComment ? "Posting..." : "Post Comment"}
+                  </Button>
+                  <Button
+                    color="light"
+                    onclick={() => (showArticleCommentUI = false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          {/if}
+
           <!-- Publication sections/cards -->
           {#each leaves as leaf, i}
             {#if leaf == null}
@@ -320,6 +680,8 @@
                 {address}
                 {publicationTree}
                 {toc}
+                allComments={comments}
+                {commentsVisible}
                 ref={(el) => onPublicationSectionMounted(el, address)}
               />
             {/if}
@@ -328,7 +690,9 @@
             {#if isLoading}
               <Button disabled color="primary">Loading...</Button>
             {:else if !isDone}
-              <Button color="primary" onclick={() => loadMore(1)}>Show More</Button>
+              <Button color="primary" onclick={() => loadMore(1)}
+                >Show More</Button
+              >
             {:else}
               <p class="text-gray-500 dark:text-gray-400">
                 You've reached the end of the publication.
@@ -347,7 +711,7 @@
           <div
             class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
           >
-            <Details event={indexEvent} />
+            <Details event={indexEvent} onDelete={handleDeletePublication} />
           </div>
           <!-- List blog excerpts -->
           {#each leaves as leaf, i}
@@ -373,57 +737,82 @@
       {/if}
     </div>
 
-    <div class="mt-[70px] relative {$publicationColumnVisibility.discussion ? 'w-64' : 'w-auto'}">
+    <div
+      class="mt-[70px] relative {$publicationColumnVisibility.discussion
+        ? 'w-64'
+        : 'w-auto'}"
+    >
       <!-- Discussion sidebar -->
-    {#if $publicationColumnVisibility.discussion}
-      <Sidebar
-        class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
-        classes={{
-          div: 'bg-transparent'
-        }}
-      >
-        <SidebarWrapper>
-          <SidebarGroup>
-            <div class="flex justify-between items-baseline">
-              <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading>
-              <Button
-                class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-gray-800"
-                outline
-                onclick={closeDiscussion}
-              >
-                <CloseOutline />
-              </Button>
-            </div>
-            <div class="flex flex-col space-y-4">
-              <!-- TODO
+      {#if $publicationColumnVisibility.discussion}
+        <Sidebar
+          class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
+          classes={{
+            div: "bg-transparent",
+          }}
+        >
+          <SidebarWrapper>
+            <SidebarGroup>
+              <div class="flex justify-between items-baseline">
+                <Heading tag="h1" class="h-leather !text-lg">Discussion</Heading
+                >
+                <Button
+                  class="btn-leather hidden sm:flex z-30 !p-1 bg-primary-50 dark:bg-gray-800"
+                  outline
+                  onclick={closeDiscussion}
+                >
+                  <CloseOutline />
+                </Button>
+              </div>
+              <div class="flex flex-col space-y-4">
+                <!-- TODO
                     alternative for other publications and
                     when blog is not opened, but discussion is opened from the list
               -->
-              {#if showBlogHeader() && currentBlog && currentBlogEvent}
-                <BlogHeader
-                  rootId={currentBlog}
-                  event={currentBlogEvent}
-                  onBlogUpdate={loadBlog}
-                  active={true}
-                />
-              {/if}
-              <div class="flex flex-col w-full space-y-4">
-                <Card class="ArticleBox card-leather w-full grid max-w-xl">
-                  <div class="flex flex-col my-2">
-                    <span>Unknown</span>
-                    <span class="text-gray-500">1.1.1970</span>
-                  </div>
-                  <div class="flex flex-col flex-grow space-y-4">
-                    This is a very intelligent comment placeholder that applies to
-                    all the content equally well.
-                  </div>
-                </Card>
+                {#if showBlogHeader() && currentBlog && currentBlogEvent}
+                  <BlogHeader
+                    rootId={currentBlog}
+                    event={currentBlogEvent}
+                    onBlogUpdate={loadBlog}
+                    active={true}
+                  />
+                {/if}
+                <div class="flex flex-col w-full space-y-4">
+                  <SectionComments
+                    sectionAddress={rootAddress}
+                    comments={articleComments}
+                    visible={commentsVisible}
+                  />
+                  {#if articleComments.length === 0}
+                    <p
+                      class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
+                    >
+                      No comments yet. Be the first to comment!
+                    </p>
+                  {/if}
+                </div>
               </div>
-            </div>
-          </SidebarGroup>
-        </SidebarWrapper>
-      </Sidebar>
-    {/if}
+            </SidebarGroup>
+          </SidebarWrapper>
+        </Sidebar>
+      {/if}
     </div>
   </div>
 </div>
+
+<!-- Highlight Layer Component -->
+<HighlightLayer
+  bind:this={highlightLayerRef}
+  eventIds={allEventIds}
+  eventAddresses={allEventAddresses}
+  bind:visible={highlightsVisible}
+  {useMockHighlights}
+/>
+
+<!-- Comment Layer Component -->
+<CommentLayer
+  bind:this={commentLayerRef}
+  eventIds={allEventIds}
+  eventAddresses={allEventAddresses}
+  bind:comments
+  {useMockComments}
+/>

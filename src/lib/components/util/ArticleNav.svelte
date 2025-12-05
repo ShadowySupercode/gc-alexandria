@@ -211,7 +211,7 @@
           <span class="hidden sm:inline">Close</span>
         </Button>
       {/if}
-      {#if publicationType !== "blog" && !$publicationColumnVisibility.discussion}
+      {#if !$publicationColumnVisibility.discussion}
         <Button
           class="btn-leather !hidden sm:flex !w-auto"
           outline={true}

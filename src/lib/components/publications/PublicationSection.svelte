@@ -13,6 +13,9 @@
   import { postProcessAdvancedAsciidoctorHtml } from "$lib/utils/markup/advancedAsciidoctorPostProcessor";
   import { parseAdvancedmarkup } from "$lib/utils/markup/advancedMarkupParser";
   import NDK from "@nostr-dev-kit/ndk";
+  import CardActions from "$components/util/CardActions.svelte";
+  import SectionComments from "./SectionComments.svelte";
+  import { deleteEvent } from "$lib/services/deletion";
 
   let {
     address,
@@ -21,6 +24,8 @@
     publicationTree,
     toc,
     ref,
+    allComments = [],
+    commentsVisible = true,
   }: {
     address: string;
     rootAddress: string;
@@ -28,14 +33,39 @@
     publicationTree: SveltePublicationTree;
     toc: TocType;
     ref: (ref: HTMLElement) => void;
+    allComments?: NDKEvent[];
+    commentsVisible?: boolean;
   } = $props();
 
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
   const ndk: NDK = getContext("ndk");
 
+  // Filter comments for this section
+  let sectionComments = $derived(
+    allComments.filter((comment) => {
+      // Check if comment targets this section via #a tag
+      const aTag = comment.tags.find((t) => t[0] === "a");
+      return aTag && aTag[1] === address;
+    }),
+  );
+
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(address),
   );
+
+  let leafEventId = $state<string>("");
+
+  $effect(() => {
+    leafEvent.then((e) => {
+      if (e?.id) {
+        leafEventId = e.id;
+        console.log(
+          `[PublicationSection] Set leafEventId for ${address}:`,
+          e.id,
+        );
+      }
+    });
+  });
 
   let rootEvent: Promise<NDKEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(rootAddress),
@@ -56,7 +86,7 @@
   let leafContent: Promise<string | Document> = $derived.by(async () => {
     const event = await leafEvent;
     const content = event?.content ?? "";
-    
+
     // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
     // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
     if (event?.kind === 30023) {
@@ -64,7 +94,10 @@
     } else {
       // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
       const converted = asciidoctor.convert(content);
-      const processed = await postProcessAdvancedAsciidoctorHtml(converted.toString(), ndk);
+      const processed = await postProcessAdvancedAsciidoctorHtml(
+        converted.toString(),
+        ndk,
+      );
       return processed;
     }
   });
@@ -134,37 +167,146 @@
 
   let sectionRef: HTMLElement;
 
+  /**
+   * Handle deletion of this section
+   */
+  async function handleDelete() {
+    const event = await leafEvent;
+    if (!event) return;
+
+    const confirmed = confirm(
+      "Are you sure you want to delete this section? This action will publish a deletion request to all relays.",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteEvent(
+        {
+          eventAddress: address,
+          eventKind: event.kind,
+          reason: "User deleted section",
+          onSuccess: (deletionEventId) => {
+            console.log(
+              "[PublicationSection] Deletion event published:",
+              deletionEventId,
+            );
+            // Refresh the page to reflect the deletion
+            window.location.reload();
+          },
+          onError: (error) => {
+            console.error("[PublicationSection] Deletion failed:", error);
+            alert(`Failed to delete section: ${error}`);
+          },
+        },
+        ndk,
+      );
+    } catch (error) {
+      console.error("[PublicationSection] Deletion error:", error);
+    }
+  }
+
   $effect(() => {
     if (!sectionRef) {
       return;
     }
 
     ref(sectionRef);
+
+    // Log data attributes for debugging
+    console.log(`[PublicationSection] Section mounted:`, {
+      address,
+      leafEventId,
+      dataAddress: sectionRef.dataset.eventAddress,
+      dataEventId: sectionRef.dataset.eventId,
+    });
   });
 </script>
 
-<section
-  id={address}
-  bind:this={sectionRef}
-  class="publication-leather content-visibility-auto"
->
-  {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
-    <TextPlaceholder size="xxl" />
-  {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
-    {#each divergingBranches as [branch, depth]}
-      {@render sectionHeading(
-        getMatchingTags(branch, "title")[0]?.[1] ?? "",
-        depth,
-      )}
-    {/each}
-    {#if leafTitle}
-      {@const leafDepth = leafHierarchy.length - 1}
-      {@render sectionHeading(leafTitle, leafDepth)}
+<!-- Wrapper for positioning context -->
+<div class="relative w-full">
+  <section
+    id={address}
+    bind:this={sectionRef}
+    class="publication-leather content-visibility-auto section-with-comment"
+    data-event-address={address}
+    data-event-id={leafEventId}
+  >
+    {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
+      <TextPlaceholder size="2xl" />
+    {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
+      <!-- Main content area - centered -->
+      <div class="section-content relative max-w-4xl mx-auto px-4">
+        <!-- Mobile menu - shown only on smaller screens -->
+        <div class="xl:hidden absolute top-2 right-2 z-10">
+          {#await leafEvent then event}
+            {#if event}
+              <CardActions
+                {event}
+                sectionAddress={address}
+                onDelete={handleDelete}
+              />
+            {/if}
+          {/await}
+        </div>
+        {#each divergingBranches as [branch, depth]}
+          {@render sectionHeading(
+            getMatchingTags(branch, "title")[0]?.[1] ?? "",
+            depth,
+          )}
+        {/each}
+        {#if leafTitle}
+          {@const leafDepth = leafHierarchy.length - 1}
+          {@render sectionHeading(leafTitle, leafDepth)}
+        {/if}
+        {@render contentParagraph(
+          leafContent.toString(),
+          publicationType ?? "article",
+          false,
+        )}
+      </div>
+
+      <!-- Mobile comments - shown below content on smaller screens -->
+      <div class="xl:hidden mt-8 max-w-4xl mx-auto px-4">
+        <SectionComments
+          sectionAddress={address}
+          comments={sectionComments}
+          visible={commentsVisible}
+        />
+      </div>
+    {/await}
+  </section>
+
+  <!-- Right sidebar elements - positioned very close to content, responsive width -->
+  {#await leafEvent then event}
+    {#if event}
+      <!-- Three-dot menu - positioned at top-center on XL+ screens -->
+      <div
+        class="hidden xl:block absolute left-[calc(50%+26rem)] top-[20%] z-10"
+      >
+        <CardActions {event} sectionAddress={address} onDelete={handleDelete} />
+      </div>
     {/if}
-    {@render contentParagraph(
-      leafContent.toString(),
-      publicationType ?? "article",
-      false,
-    )}
   {/await}
-</section>
+
+  <!-- Comments area: positioned below menu, top-center of section -->
+  <div
+    class="hidden xl:block absolute left-[calc(50%+26rem)] top-[calc(20%+3rem)] w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
+  >
+    <SectionComments
+      sectionAddress={address}
+      comments={sectionComments}
+      visible={commentsVisible}
+    />
+  </div>
+</div>
+
+<style>
+  .section-with-comment {
+    position: relative;
+  }
+
+  .section-with-comment:hover :global(.single-line-button) {
+    opacity: 1 !important;
+  }
+</style>
