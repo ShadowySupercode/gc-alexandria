@@ -14,8 +14,8 @@
   import { navigateToEvent } from "$lib/utils/nostrEventService";
   import ContainingIndexes from "$lib/components/util/ContainingIndexes.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
-  import { 
-    repostContent, 
+  import {
+    repostContent,
     quotedContent,
   } from "$lib/snippets/EmbeddedSnippets.svelte";
   import { repostKinds } from "$lib/consts";
@@ -41,7 +41,10 @@
   let authorDisplayName = $state<string | undefined>(undefined);
   let showFullContent = $state(false);
   let shouldTruncate = $derived(event.content.length > 250 && !showFullContent);
-  let isRepost = $derived(repostKinds.includes(event.kind) || (event.kind === 1 && event.getMatchingTags("q").length > 0));
+  let isRepost = $derived(
+    repostKinds.includes(event.kind) ||
+      (event.kind === 1 && event.getMatchingTags("q").length > 0),
+  );
 
   function getEventTitle(event: NDKEvent): string {
     // First try to get title from title tag
@@ -253,13 +256,15 @@
       return;
     }
 
-    getUserMetadata(toNpub(event.pubkey) as string, undefined).then((profile) => {
-      authorDisplayName =
-        profile.displayName ||
-        (profile as any).display_name ||
-        profile.name ||
-        event.pubkey;
-    });
+    getUserMetadata(toNpub(event.pubkey) as string, undefined).then(
+      (profile) => {
+        authorDisplayName =
+          profile.displayName ||
+          (profile as any).display_name ||
+          profile.name ||
+          event.pubkey;
+      },
+    );
   });
 
   // --- Identifier helpers ---
@@ -300,7 +305,11 @@
         ids.push({ label: "naddr", value: naddr, link: `/events?id=${naddr}` });
       } catch {}
       // hex id - make it a clickable link to search for the event ID
-      ids.push({ label: "id", value: event.id, link: `/events?id=${event.id}` });
+      ids.push({
+        label: "id",
+        value: event.id,
+        link: `/events?id=${event.id}`,
+      });
     }
     return ids;
   }
@@ -333,17 +342,17 @@
 
     <div class="flex items-center space-x-2 min-w-0">
       {#if toNpub(event.pubkey)}
-      <span class="text-gray-600 dark:text-gray-400 min-w-0"
-      >Author: {@render userBadge(
-        toNpub(event.pubkey) || '',
-        profile?.display_name || undefined,
-        ndk,
-      )}</span
-      >
+        <span class="text-gray-600 dark:text-gray-400 min-w-0"
+          >Author: {@render userBadge(
+            toNpub(event.pubkey) || "",
+            profile?.display_name || undefined,
+            ndk,
+          )}</span
+        >
       {:else}
-      <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
-      >Author: {profile?.display_name || event.pubkey}</span
-      >
+        <span class="text-gray-600 dark:text-gray-400 min-w-0 break-words"
+          >Author: {profile?.display_name || event.pubkey}</span
+        >
       {/if}
     </div>
 
@@ -351,13 +360,15 @@
       <span class="text-gray-700 dark:text-gray-300 flex-shrink-0">Kind:</span>
       <span class="font-mono flex-shrink-0">{event.kind}</span>
       <span class="text-gray-700 dark:text-gray-300 flex-shrink-0"
-      >({getEventTypeDisplay(event)})</span
+        >({getEventTypeDisplay(event)})</span
       >
     </div>
 
     <div class="flex flex-col space-y-1 min-w-0">
       <span class="text-gray-700 dark:text-gray-300">Summary:</span>
-      <div class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0">
+      <div
+        class="prose dark:prose-invert max-w-none text-gray-900 dark:text-gray-100 break-words overflow-wrap-anywhere min-w-0"
+      >
         {@render basicMarkup(getEventSummary(event), ndk)}
       </div>
     </div>
@@ -370,29 +381,41 @@
   {#if event.kind !== 0}
     {@const kind = event.kind}
     {@const content = event.content.trim()}
-    <div class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden">
+    <div
+      class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border max-w-full overflow-hidden"
+    >
       <div class="flex flex-col space-y-1 min-w-0">
-        <span class="text-gray-700 dark:text-gray-300 font-semibold">Content:</span>
-        <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+        <span class="text-gray-700 dark:text-gray-300 font-semibold"
+          >Content:</span
+        >
+        <div class={shouldTruncate ? "max-h-32 overflow-hidden" : ""}>
           {#if isRepost}
             <!-- Repost content handling -->
             {#if repostKinds.includes(event.kind)}
               <!-- Kind 6 and 16 reposts - stringified JSON content -->
-              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div
+                class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2"
+              >
                 <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  {event.kind === 6 ? 'Reposted content:' : 'Generic reposted content:'}
+                  {event.kind === 6
+                    ? "Reposted content:"
+                    : "Generic reposted content:"}
                 </div>
                 {@render repostContent(event.content)}
               </div>
             {:else if event.kind === 1 && event.getMatchingTags("q").length > 0}
               <!-- Quote repost - kind 1 with q tag -->
-              <div class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2">
+              <div
+                class="border-l-4 border-primary-300 dark:border-primary-600 pl-3 mb-2"
+              >
                 <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Quote repost:
                 </div>
                 {@render quotedContent(event, [], ndk)}
                 {#if content}
-                  <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div
+                    class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700"
+                  >
                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
                       Added comment:
                     </div>
@@ -407,7 +430,7 @@
             {/if}
           {:else}
             <!-- Regular content -->
-            <div class={shouldTruncate ? 'max-h-32 overflow-hidden' : ''}>
+            <div class={shouldTruncate ? "max-h-32 overflow-hidden" : ""}>
               {#if repostKinds.includes(kind)}
                 {@html content}
               {:else}
@@ -428,35 +451,46 @@
 
   <!-- If event is profile -->
   {#if event.kind === 0}
-    <AProfilePreview event={event} profile={profile} communityStatusMap={communityStatusMap} />
+    <AProfilePreview {event} {profile} {communityStatusMap} />
   {/if}
 
   <ATechBlock>
     {#snippet content()}
-      <Heading tag="h3" class="h-leather my-6">
-        Technical details
-      </Heading>
+      <Heading tag="h3" class="h-leather my-6">Technical details</Heading>
 
       <Accordion flush class="w-full">
-        <AccordionItem open={false} >
+        <AccordionItem open={false}>
           {#snippet header()}Identifiers{/snippet}
           {#if event}
             <div class="flex flex-col gap-2">
               {#each getIdentifiers(event, profile) as identifier}
-                <div class="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-start gap-2 min-w-0">
-                  <span class="min-w-24 text-gray-600 dark:text-gray-400">{identifier.label}:</span>
+                <div
+                  class="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-start gap-2 min-w-0"
+                >
+                  <span class="min-w-24 text-gray-600 dark:text-gray-400"
+                    >{identifier.label}:</span
+                  >
                   <div class="min-w-0">
                     {#if identifier.link}
-                      <button class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left"
-                              onclick={() => navigateToIdentifier(identifier.link)}>
+                      <button
+                        class="font-mono text-sm text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 break-all cursor-pointer bg-transparent border-none p-0 text-left"
+                        onclick={() =>
+                          navigateToIdentifier(identifier.link ?? "")}
+                      >
                         {identifier.value}
                       </button>
                     {:else}
-                      <span class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{identifier.value}</span>
+                      <span
+                        class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all"
+                        >{identifier.value}</span
+                      >
                     {/if}
                   </div>
                   <div class="justify-self-end">
-                    <CopyToClipboard displayText="" copyText={identifier.value} />
+                    <CopyToClipboard
+                      displayText=""
+                      copyText={identifier.value}
+                    />
                   </div>
                 </div>
               {/each}
@@ -494,8 +528,10 @@
             />
           </div>
           {#if event}
-            <pre class="p-4 wrap-break-word  bg-highlight dark:bg-primary-900">
-              <code class="text-wrap">{JSON.stringify(event.rawEvent(), null, 2)}</code>
+            <pre class="p-4 wrap-break-word bg-highlight dark:bg-primary-900">
+              <code class="text-wrap"
+                >{JSON.stringify(event.rawEvent(), null, 2)}</code
+              >
             </pre>
           {/if}
         </AccordionItem>

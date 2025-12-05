@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { NDK, NDKEvent } from "@nostr-dev-kit/ndk";
-import { fetchHighlightsForPublication } from "../../src/lib/utils/fetch_publication_highlights";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
+import type NDK from "@nostr-dev-kit/ndk";
+import { fetchHighlightsForPublication } from "../../src/lib/utils/fetch_publication_highlights.ts";
 
 // Mock NDKEvent class
 class MockNDKEvent {
@@ -83,7 +84,8 @@ describe("fetchHighlightsForPublication", () => {
       ],
       created_at: 1744910311,
       id: "4585ed74a0be37655aa887340d239f0bbb9df5476165d912f098c55a71196fef",
-      sig: "e6a832dcfc919c913acee62cb598211544bc8e03a3f61c016eb3bf6c8cb4fb333eff8fecc601517604c7a8029dfa73591f3218465071a532f4abfe8c0bf3662d",
+      sig:
+        "e6a832dcfc919c913acee62cb598211544bc8e03a3f61c016eb3bf6c8cb4fb333eff8fecc601517604c7a8029dfa73591f3218465071a532f4abfe8c0bf3662d",
     }) as unknown as NDKEvent;
 
     // Create mock highlight events for different sections
@@ -156,7 +158,7 @@ describe("fetchHighlightsForPublication", () => {
           return new Set(
             mockHighlights.filter((highlight) =>
               aTagFilter.includes(highlight.tagValue("a") || "")
-            )
+            ),
           );
         }
         return new Set();
@@ -167,33 +169,33 @@ describe("fetchHighlightsForPublication", () => {
   it("should extract section references from 30040 publication event", async () => {
     const result = await fetchHighlightsForPublication(
       publicationEvent,
-      mockNDK
+      mockNDK,
     );
 
     // Should have results for the sections that have highlights
     expect(result.size).toBeGreaterThan(0);
     expect(
       result.has(
-        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading"
-      )
+        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading",
+      ),
     ).toBe(true);
   });
 
   it("should fetch highlights for each section reference", async () => {
     const result = await fetchHighlightsForPublication(
       publicationEvent,
-      mockNDK
+      mockNDK,
     );
 
     // First section should have 2 highlights
     const firstSectionHighlights = result.get(
-      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading"
+      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading",
     );
     expect(firstSectionHighlights?.length).toBe(2);
 
     // Second section should have 1 highlight
     const secondSectionHighlights = result.get(
-      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:another-first-level-heading"
+      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:another-first-level-heading",
     );
     expect(secondSectionHighlights?.length).toBe(1);
   });
@@ -201,38 +203,38 @@ describe("fetchHighlightsForPublication", () => {
   it("should group highlights by section address", async () => {
     const result = await fetchHighlightsForPublication(
       publicationEvent,
-      mockNDK
+      mockNDK,
     );
 
     const firstSectionHighlights = result.get(
-      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading"
+      "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading",
     );
 
     // Verify the highlights are correctly grouped
     expect(firstSectionHighlights?.[0].content).toBe(
-      "This is an interesting point"
+      "This is an interesting point",
     );
     expect(firstSectionHighlights?.[1].content).toBe(
-      "Another highlight on same section"
+      "Another highlight on same section",
     );
   });
 
   it("should not include sections without highlights", async () => {
     const result = await fetchHighlightsForPublication(
       publicationEvent,
-      mockNDK
+      mockNDK,
     );
 
     // Sections without highlights should not be in the result
     expect(
       result.has(
-        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:a-third-first-level-heading"
-      )
+        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:a-third-first-level-heading",
+      ),
     ).toBe(false);
     expect(
       result.has(
-        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:asciimath-test-document"
-      )
+        "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:asciimath-test-document",
+      ),
     ).toBe(false);
   });
 
@@ -249,7 +251,7 @@ describe("fetchHighlightsForPublication", () => {
 
     const result = await fetchHighlightsForPublication(
       emptyPublication,
-      mockNDK
+      mockNDK,
     );
 
     expect(result.size).toBe(0);
@@ -273,7 +275,7 @@ describe("fetchHighlightsForPublication", () => {
 
     const result = await fetchHighlightsForPublication(
       mixedPublication,
-      mockNDK
+      mockNDK,
     );
 
     // Should call fetchEvents with only the 30041 reference
@@ -283,7 +285,7 @@ describe("fetchHighlightsForPublication", () => {
         "#a": [
           "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:first-level-heading",
         ],
-      })
+      }),
     );
   });
 
@@ -303,7 +305,7 @@ describe("fetchHighlightsForPublication", () => {
 
     const result = await fetchHighlightsForPublication(
       colonPublication,
-      mockNDK
+      mockNDK,
     );
 
     // Should correctly parse the section address with colons
@@ -312,7 +314,7 @@ describe("fetchHighlightsForPublication", () => {
         "#a": [
           "30041:fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1:section:with:colons",
         ],
-      })
+      }),
     );
   });
 });

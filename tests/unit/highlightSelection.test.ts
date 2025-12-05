@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 
 // Mock flowbite-svelte components
 vi.mock("flowbite-svelte", () => ({
   Button: vi.fn().mockImplementation((props) => ({
-    $$render: () => `<button data-testid="button">${props.children || ""}</button>`,
+    $$render: () =>
+      `<button data-testid="button">${props.children || ""}</button>`,
   })),
   Modal: vi.fn().mockImplementation(() => ({
     $$render: () => `<div data-testid="modal"></div>`,
@@ -277,11 +278,14 @@ describe("HighlightSelectionHandler Component Logic", () => {
   describe("Context Extraction", () => {
     it("should extract context from parent paragraph", () => {
       const paragraph = {
-        textContent: "This is the full paragraph context with selected text inside.",
+        textContent:
+          "This is the full paragraph context with selected text inside.",
       };
 
       const context = paragraph.textContent?.trim() || "";
-      expect(context).toBe("This is the full paragraph context with selected text inside.");
+      expect(context).toBe(
+        "This is the full paragraph context with selected text inside.",
+      );
     });
 
     it("should extract context from parent section", () => {
@@ -654,7 +658,10 @@ describe("HighlightSelectionHandler Component Logic", () => {
       document.addEventListener = mockAddEventListener;
 
       document.addEventListener("mouseup", () => {});
-      expect(mockAddEventListener).toHaveBeenCalledWith("mouseup", expect.any(Function));
+      expect(mockAddEventListener).toHaveBeenCalledWith(
+        "mouseup",
+        expect.any(Function),
+      );
     });
 
     it("should remove mouseup listener on unmount", () => {
@@ -689,7 +696,9 @@ describe("HighlightSelectionHandler Component Logic", () => {
 
       // Simulate inactive mode
       document.body.classList.remove("highlight-mode-active");
-      expect(mockClassList.remove).toHaveBeenCalledWith("highlight-mode-active");
+      expect(mockClassList.remove).toHaveBeenCalledWith(
+        "highlight-mode-active",
+      );
     });
 
     it("should clean up class on unmount", () => {
@@ -701,7 +710,9 @@ describe("HighlightSelectionHandler Component Logic", () => {
 
       // Simulate cleanup
       document.body.classList.remove("highlight-mode-active");
-      expect(mockClassList.remove).toHaveBeenCalledWith("highlight-mode-active");
+      expect(mockClassList.remove).toHaveBeenCalledWith(
+        "highlight-mode-active",
+      );
     });
   });
 
@@ -766,17 +777,6 @@ describe("HighlightSelectionHandler Component Logic", () => {
 
       // Simulate failed creation - callback not called
       expect(mockCallback).not.toHaveBeenCalled();
-    });
-
-    it("should handle missing callback gracefully", () => {
-      const callback = undefined;
-
-      // Should not throw error
-      expect(() => {
-        if (callback) {
-          callback();
-        }
-      }).not.toThrow();
     });
   });
 
