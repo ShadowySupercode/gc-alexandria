@@ -127,112 +127,215 @@
   let leaves = $state<Array<NDKEvent | null>>([]);
   let isLoading = $state(false);
   let isDone = $state(false);
-  let lastElementRef = $state<HTMLElement | null>(null);
+  let sentinelRef = $state<HTMLElement | null>(null);
   let activeAddress = $state<string | null>(null);
   let loadedAddresses = $state<Set<string>>(new Set());
   let hasInitialized = $state(false);
   let highlightModeActive = $state(false);
   let publicationDeleted = $state(false);
   let sidebarTop = $state(162); // Default to 162px (100px navbar + 62px ArticleNav)
+  
+  // AI-NOTE: Cooldown to prevent rapid re-triggering of loadMore
+  let lastLoadTime = $state<number>(0);
+  const LOAD_COOLDOWN_MS = 500; // Reduced to 500ms for more responsive loading
 
-  let observer: IntersectionObserver;
+  // AI-NOTE: Batch loading configuration for improved lazy-loading
+  // Initial load fills ~2 viewport heights, auto-load batches for smooth infinite scroll
+  const INITIAL_LOAD_COUNT = 30;
+  const AUTO_LOAD_BATCH_SIZE = 25;
 
+  /**
+   * Loads more events from the publication tree.
+   * 
+   * @param count Number of events to load in this batch
+   */
   async function loadMore(count: number) {
     if (!publicationTree) {
       console.warn("[Publication] publicationTree is not available");
       return;
     }
 
-    console.log(
-      `[Publication] Loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
-    );
-
-    isLoading = true;
-
-    try {
-      for (let i = 0; i < count; i++) {
-        const iterResult = await publicationTree.next();
-        const { done, value } = iterResult;
-
-        if (done) {
-          console.log("[Publication] Iterator done, no more events");
-          isDone = true;
-          break;
-        }
-
-        if (value) {
-          const address = value.tagAddress();
-          console.log(`[Publication] Got event: ${address} (${value.id})`);
-          if (!loadedAddresses.has(address)) {
-            loadedAddresses.add(address);
-            leaves.push(value);
-            console.log(`[Publication] Added event: ${address}`);
-          } else {
-            console.warn(`[Publication] Duplicate event detected: ${address}`);
-          }
-        } else {
-          console.log("[Publication] Got null event");
-          leaves.push(null);
-        }
-      }
-    } catch (error) {
-      console.error("[Publication] Error loading more content:", error);
-    } finally {
-      isLoading = false;
-      console.log(
-        `[Publication] Finished loading. Total leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
-      );
+    if (isLoading) {
+      console.debug("[Publication] Already loading, skipping");
+      return;
     }
-  }
 
-  function setLastElementRef(el: HTMLElement, i: number) {
-    if (i === leaves.length - 1) {
-      lastElementRef = el;
-    }
-  }
-
-  $effect(() => {
-    if (!lastElementRef) {
+    // Cooldown check to prevent rapid re-triggering
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastLoadTime;
+    if (timeSinceLastLoad < LOAD_COOLDOWN_MS) {
+      console.debug(`[Publication] Load cooldown active (${timeSinceLastLoad}ms < ${LOAD_COOLDOWN_MS}ms), skipping`);
       return;
     }
 
     if (isDone) {
-      observer?.unobserve(lastElementRef!);
+      console.debug("[Publication] Already done, skipping loadMore");
       return;
     }
 
-    observer?.observe(lastElementRef!);
-    return () => observer?.unobserve(lastElementRef!);
-  });
+    console.log(
+      `[Publication] Auto-loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
+    );
+
+    isLoading = true;
+    lastLoadTime = now;
+
+    try {
+      const newEvents: Array<NDKEvent | null> = [];
+      let consecutiveNulls = 0;
+      const MAX_CONSECUTIVE_NULLS = 10; // Break if we get too many nulls in a row
+      const LOAD_TIMEOUT = 30000; // 30 second timeout per load operation
+      
+      // Create a timeout promise to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Load timeout after ${LOAD_TIMEOUT}ms`));
+        }, LOAD_TIMEOUT);
+      });
+      
+      // Load events sequentially to maintain order, but build batches for TOC updates
+      for (let i = 0; i < count; i++) {
+        try {
+          const iterResult = await Promise.race([
+            publicationTree.next(),
+            timeoutPromise,
+          ]);
+          
+          const { done, value } = iterResult;
+
+          if (done) {
+            console.log("[Publication] Iterator done, no more events");
+            isDone = true;
+            break;
+          }
+
+          if (value) {
+            consecutiveNulls = 0; // Reset null counter
+            const address = value.tagAddress();
+            if (!loadedAddresses.has(address)) {
+              loadedAddresses.add(address);
+              newEvents.push(value);
+              console.debug(`[Publication] Queued event: ${address} (${value.id})`);
+            } else {
+              console.warn(`[Publication] Duplicate event detected: ${address}`);
+              newEvents.push(null); // Keep index consistent
+            }
+          } else {
+            consecutiveNulls++;
+            console.log(`[Publication] Got null event (${consecutiveNulls}/${MAX_CONSECUTIVE_NULLS} consecutive nulls)`);
+            
+            // Break early if we're getting too many nulls - likely no more content
+            if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
+              console.log("[Publication] Too many consecutive null events, assuming no more content");
+              isDone = true;
+              break;
+            }
+            
+            newEvents.push(null);
+          }
+        } catch (error) {
+          console.error(`[Publication] Error getting next event (iteration ${i + 1}/${count}):`, error);
+          // Continue to next iteration instead of breaking entirely
+          newEvents.push(null);
+          consecutiveNulls++;
+          
+          if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
+            console.log("[Publication] Too many errors/consecutive nulls, stopping load");
+            break;
+          }
+        }
+      }
+
+      // Add all new events at once for better performance and to trigger TOC updates in parallel
+      const validEvents = newEvents.filter(e => e !== null);
+      if (validEvents.length > 0) {
+        const previousLeavesCount = leaves.length;
+        leaves = [...leaves, ...newEvents];
+        console.log(
+          `[Publication] Added ${validEvents.length} events. Previous: ${previousLeavesCount}, Total: ${leaves.length}`,
+        );
+        
+        // Log sentinel position after adding content
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (sentinelRef) {
+              const rect = sentinelRef.getBoundingClientRect();
+              const viewportHeight = window.innerHeight;
+              const distanceBelowViewport = rect.top - viewportHeight;
+              console.log("[Publication] Sentinel position after loadMore", {
+                leavesCount: leaves.length,
+                sentinelTop: rect.top,
+                viewportHeight,
+                distanceBelowViewport,
+                isConnected: sentinelRef.isConnected,
+              });
+            }
+          });
+        });
+      } else if (newEvents.length > 0) {
+        // We got through the loop but no valid events - might be done
+        console.log("[Publication] Completed load but got no valid events", {
+          newEventsLength: newEvents.length,
+          consecutiveNulls,
+        });
+        if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
+          isDone = true;
+        }
+      } else {
+        console.warn("[Publication] loadMore completed but no events were loaded", {
+          count,
+          newEventsLength: newEvents.length,
+          validEventsLength: validEvents.length,
+        });
+      }
+    } catch (error) {
+      console.error("[Publication] Error loading more content:", error);
+      // Don't mark as done on error - might be transient network issue
+    } finally {
+      isLoading = false;
+      console.log(`[Publication] Load complete. isLoading: ${isLoading}, isDone: ${isDone}, leaves: ${leaves.length}`);
+      
+      // AI-NOTE: The ResizeObserver effect will handle checking sentinel position
+      // after content actually renders, so we don't need aggressive post-load checks here
+    }
+  }
 
   // #endregion
 
-  // AI-NOTE:  Combined effect to handle publicationTree changes and initial loading
+  // AI-NOTE: Combined effect to handle publicationTree changes and initial loading
   // This prevents conflicts between separate effects that could cause duplicate loading
+  let publicationTreeInstance = $state<SveltePublicationTree | null>(null);
+  
   $effect(() => {
-    if (publicationTree) {
-      // Reset state when publicationTree changes
-      leaves = [];
-      isLoading = false;
-      isDone = false;
-      lastElementRef = null;
-      loadedAddresses = new Set();
-      hasInitialized = false;
-
-      // Reset the publication tree iterator to prevent duplicate events
-      if (typeof publicationTree.resetIterator === "function") {
-        publicationTree.resetIterator();
-      }
-
-      // AI-NOTE:  Use setTimeout to ensure iterator reset completes before loading
-      // This prevents race conditions where loadMore is called before the iterator is fully reset
-      setTimeout(() => {
-        // Load initial content after reset
-        console.log("[Publication] Loading initial content after reset");
-        hasInitialized = true;
-        loadMore(12);
-      }, 0);
+    if (!publicationTree) {
+      return;
     }
+
+    // Only reset if publicationTree actually changed (different instance)
+    if (publicationTree === publicationTreeInstance && hasInitialized) {
+      return; // Already initialized with this tree, don't reset
+    }
+
+    console.log("[Publication] New publication tree detected, resetting state");
+    
+    // Reset state when publicationTree changes
+    leaves = [];
+    isLoading = false;
+    isDone = false;
+    sentinelRef = null;
+    loadedAddresses = new Set();
+    hasInitialized = false;
+    publicationTreeInstance = publicationTree;
+
+    // Reset the publication tree iterator to prevent duplicate events
+    if (typeof publicationTree.resetIterator === "function") {
+      publicationTree.resetIterator();
+    }
+
+    // Load initial content after reset
+    console.log("[Publication] Loading initial content");
+    hasInitialized = true;
+    loadMore(INITIAL_LOAD_COUNT);
   });
 
   // #region Columns visibility
@@ -416,14 +519,15 @@
    * @param address The address of the event that was mounted.
    */
   function onPublicationSectionMounted(el: HTMLElement, address: string) {
-    // Update last element ref for the intersection observer.
-    setLastElementRef(el, leaves.length);
+    // AI-NOTE: Using sentinel element for intersection observer instead of tracking last element
+    // The sentinel is a dedicated element placed after all sections for better performance
 
     // Michael J - 08 July 2025 - NOTE: Updating the ToC from here somewhat breaks separation of
     // concerns, since the TableOfContents component is primarily responsible for working with the
     // ToC data structure. However, the Publication component has direct access to the needed DOM
     // element already, and I want to avoid complicated callbacks between the two components.
     // Update the ToC from the contents of the leaf section.
+    // AI-NOTE: TOC updates happen in parallel as sections mount, improving performance
     const entry = toc.getEntry(address);
     if (!entry) {
       console.warn(`[Publication] No parent found for ${address}`);
@@ -464,53 +568,6 @@
     if (isLeaf || isBlog) {
       publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
     }
-    
-    // Set up the intersection observer.
-    observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (
-            entry.isIntersecting &&
-            !isLoading &&
-            !isDone &&
-            publicationTree
-          ) {
-            loadMore(1);
-          }
-        });
-      },
-      { threshold: 0.5 },
-    );
-
-    // AI-NOTE:  Removed duplicate loadMore call
-    // Initial content loading is handled by the $effect that watches publicationTree
-    // This prevents duplicate loading when both onMount and $effect trigger
-
-    // Set up the intersection observer.
-    observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (
-            entry.isIntersecting &&
-            !isLoading &&
-            !isDone &&
-            publicationTree
-          ) {
-            loadMore(1);
-          }
-        });
-      },
-      { threshold: 0.5 },
-    );
-
-    // AI-NOTE:  Removed duplicate loadMore call
-    // Initial content loading is handled by the $effect that watches publicationTree
-    // This prevents duplicate loading when both onMount and $effect trigger
-
-
-    return () => {
-      observer.disconnect();
-    };
   });
 
   // Setup highlight layer container reference
@@ -518,6 +575,140 @@
     if (publicationContentRef && highlightLayerRef) {
       highlightLayerRef.setContainer(publicationContentRef);
     }
+  });
+
+  // AI-NOTE: Simple IntersectionObserver-based infinite scroll
+  // Uses a single, reliable mechanism to detect when sentinel is near viewport
+  // Queries DOM directly to avoid bind:this timing issues
+  $effect(() => {
+    // Track reactive dependencies
+    const initialized = hasInitialized;
+    const tree = publicationTree;
+    
+    // Early return if not ready
+    if (!initialized || !tree) {
+      return;
+    }
+
+    let observer: IntersectionObserver | null = null;
+    let checkInterval: number | null = null;
+    let setupInterval: number | null = null;
+    let isSetup = false;
+    
+    const getSentinel = (): HTMLElement | null => {
+      return document.getElementById("publication-sentinel");
+    };
+    
+    const checkAndLoad = () => {
+      if (isLoading || isDone) {
+        return;
+      }
+      
+      const currentSentinel = getSentinel();
+      if (!currentSentinel || !currentSentinel.isConnected) {
+        return;
+      }
+      
+      const rect = currentSentinel.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const distanceBelowViewport = rect.top - viewportHeight;
+      
+      // Load if sentinel is within 1000px of viewport
+      if (distanceBelowViewport <= 1000 && distanceBelowViewport > -100) {
+        console.log("[Publication] Sentinel near viewport, loading more", {
+          distanceBelowViewport,
+          sentinelTop: rect.top,
+          viewportHeight,
+        });
+        loadMore(AUTO_LOAD_BATCH_SIZE);
+      }
+    };
+    
+    const setupObserver = () => {
+      if (isSetup || !hasInitialized || !publicationTree) {
+        return;
+      }
+      
+      const sentinel = getSentinel();
+      if (!sentinel || !sentinel.isConnected) {
+        return;
+      }
+
+      // Already set up
+      if (observer) {
+        return;
+      }
+
+      console.log("[Publication] Setting up IntersectionObserver for infinite scroll", {
+        hasSentinel: !!sentinel,
+        isConnected: sentinel.isConnected,
+      });
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          // Check current state
+          if (isLoading || isDone) {
+            return;
+          }
+          
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              console.log("[Publication] Sentinel intersecting, loading more", {
+                intersectionRatio: entry.intersectionRatio,
+                boundingClientRect: entry.boundingClientRect,
+              });
+              
+              loadMore(AUTO_LOAD_BATCH_SIZE);
+              break;
+            }
+          }
+        },
+        {
+          // Trigger when sentinel is 1000px below viewport
+          rootMargin: "0px 0px 1000px 0px",
+          threshold: 0,
+        },
+      );
+
+      observer.observe(sentinel);
+      isSetup = true;
+      
+      // Clear setup interval since we're now set up
+      if (setupInterval !== null) {
+        clearInterval(setupInterval);
+        setupInterval = null;
+      }
+      
+      console.log("[Publication] Observing sentinel", {
+        sentinelTop: sentinel.getBoundingClientRect().top,
+        viewportHeight: window.innerHeight,
+      });
+    };
+
+    // Try to set up immediately
+    setupObserver();
+    
+    // Poll to set up observer when sentinel becomes available
+    setupInterval = window.setInterval(setupObserver, 100);
+    
+    // Fallback: check periodically in case IntersectionObserver doesn't fire
+    checkInterval = window.setInterval(checkAndLoad, 1000);
+
+    // Cleanup
+    return () => {
+      if (setupInterval !== null) {
+        clearInterval(setupInterval);
+      }
+      if (checkInterval !== null) {
+        clearInterval(checkInterval);
+      }
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+      isSetup = false;
+      console.log("[Publication] Cleaned up IntersectionObserver");
+    };
   });
 
   // #endregion
@@ -809,17 +1000,25 @@
               />
             {/if}
           {/each}
-          <div class="flex justify-center my-4">
-            {#if isLoading}
-              <Button disabled color="primary">Loading...</Button>
-            {:else if !isDone}
-              <Button color="primary" onclick={() => loadMore(1)}
-                >Show More</Button
-              >
-            {:else}
+          
+          <!-- AI-NOTE: Sentinel element for intersection observer auto-loading -->
+          <!-- Triggers automatic loading when user scrolls near the last rendered event -->
+          <!-- Always render sentinel to ensure it's observable, even when done -->
+          <div
+            id="publication-sentinel"
+            bind:this={sentinelRef}
+            class="flex justify-center items-center my-8 min-h-[100px] w-full"
+            data-sentinel="true"
+          >
+            {#if isDone}
               <p class="text-gray-500 dark:text-gray-400">
                 You've reached the end of the publication.
               </p>
+            {:else if isLoading}
+              <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-primary-600"></div>
+                <span>Loading more...</span>
+              </div>
             {/if}
           </div>
         </div>
@@ -984,7 +1183,8 @@
             publicationTree.setBookmark(address)}
           onLoadMore={() => {
             if (!isLoading && !isDone && publicationTree) {
-              loadMore(4);
+              // AI-NOTE: TOC load more triggers auto-loading with standard batch size
+              loadMore(AUTO_LOAD_BATCH_SIZE);
             }
           }}
           onClose={closeToc}
