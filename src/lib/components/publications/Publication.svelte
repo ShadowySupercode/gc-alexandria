@@ -136,20 +136,10 @@
   let publicationDeleted = $state(false);
   let sidebarTop = $state(162); // Default to 162px (100px navbar + 62px ArticleNav)
   
-  // AI-NOTE: Cooldown to prevent rapid re-triggering of loadMore
-  let lastLoadTime = $state<number>(0);
-  let lastLoadBeforeTime = $state<number>(0);
-  let lastLoadBeforeAddress = $state<string | null>(null);
-  let justLoadedBefore = $state<boolean>(false); // Flag to prevent immediate re-triggering
-  const LOAD_COOLDOWN_MS = 2000; // Increased to 2 seconds to prevent loops
-
-  // AI-NOTE: Batch loading configuration for improved lazy-loading
-  // Initial load fills ~2 viewport heights, auto-load batches for smooth infinite scroll
+  // AI-NOTE: Batch loading configuration
   const INITIAL_LOAD_COUNT = 30;
   const AUTO_LOAD_BATCH_SIZE = 25;
-  
-  // AI-NOTE: Jump-to-section configuration
-  const JUMP_WINDOW_SIZE = 5; // Load 5 sections before and 5 after the target
+  const JUMP_WINDOW_SIZE = 5;
 
   /**
    * Loads more events from the publication tree.
@@ -162,30 +152,11 @@
       return;
     }
 
-    if (isLoading) {
-      console.debug("[Publication] Already loading, skipping");
+    if (isLoading || isDone) {
       return;
     }
-
-    // Cooldown check to prevent rapid re-triggering
-    const now = Date.now();
-    const timeSinceLastLoad = now - lastLoadTime;
-    if (timeSinceLastLoad < LOAD_COOLDOWN_MS) {
-      console.debug(`[Publication] Load cooldown active (${timeSinceLastLoad}ms < ${LOAD_COOLDOWN_MS}ms), skipping`);
-      return;
-    }
-
-    if (isDone) {
-      console.debug("[Publication] Already done, skipping loadMore");
-      return;
-    }
-
-    console.log(
-      `[Publication] Auto-loading ${count} more events. Current leaves: ${leaves.length}, loaded addresses: ${loadedAddresses.size}`,
-    );
 
     isLoading = true;
-    lastLoadTime = now;
 
     try {
       const newEvents: Array<NDKEvent | null> = [];
@@ -219,13 +190,13 @@
           if (value) {
             consecutiveNulls = 0; // Reset null counter
             const address = value.tagAddress();
-            if (!loadedAddresses.has(address)) {
+            // Check both loadedAddresses and leaves to prevent duplicates
+            const alreadyInLeaves = leaves.some(leaf => leaf?.tagAddress() === address);
+            if (!loadedAddresses.has(address) && !alreadyInLeaves) {
               loadedAddresses.add(address);
               newEvents.push(value);
-              console.debug(`[Publication] Queued event: ${address} (${value.id})`);
             } else {
-              console.warn(`[Publication] Duplicate event detected: ${address}`);
-              newEvents.push(null); // Keep index consistent
+              newEvents.push(null);
             }
           } else {
             consecutiveNulls++;
@@ -308,65 +279,48 @@
   }
 
   /**
+   * Gets all section addresses (leaf entries only) from TOC in depth-first order.
+   */
+  function getAllSectionAddresses(): string[] {
+    const addresses: string[] = [];
+    for (const entry of toc) {
+      // Only include leaf entries (sections), not chapters
+      if (toc.leaves.has(entry.address)) {
+        addresses.push(entry.address);
+      }
+    }
+    return addresses;
+  }
+
+  /**
    * Loads sections before a given address in the TOC order.
-   * 
-   * @param referenceAddress The address to load sections before
-   * @param count Number of sections to load
    */
   async function loadSectionsBefore(referenceAddress: string, count: number = AUTO_LOAD_BATCH_SIZE) {
     if (!publicationTree || !toc || isLoading) {
       return;
     }
 
-    // Cooldown check to prevent rapid re-triggering
-    const now = Date.now();
-    const timeSinceLastLoad = now - lastLoadBeforeTime;
-    if (timeSinceLastLoad < LOAD_COOLDOWN_MS) {
-      console.debug(`[Publication] Load before cooldown active (${timeSinceLastLoad}ms < ${LOAD_COOLDOWN_MS}ms), skipping`);
-      return;
-    }
-
-    // Prevent loading the same address repeatedly
-    if (lastLoadBeforeAddress === referenceAddress && timeSinceLastLoad < LOAD_COOLDOWN_MS * 2) {
-      console.debug(`[Publication] Already loading before ${referenceAddress}, skipping`);
-      return;
-    }
-
-    // Get all addresses from TOC in depth-first order
-    const allAddresses: string[] = [];
-    for (const entry of toc) {
-      allAddresses.push(entry.address);
-    }
-
+    const allAddresses = getAllSectionAddresses();
     const referenceIndex = allAddresses.indexOf(referenceAddress);
-    if (referenceIndex === -1) {
-      console.warn(`[Publication] Reference address ${referenceAddress} not found in TOC`);
-      return;
+    
+    if (referenceIndex === -1 || referenceIndex === 0) {
+      return; // Not found or already at beginning
     }
 
-    // Check if we've reached the beginning
-    if (referenceIndex === 0) {
-      console.debug(`[Publication] Already at beginning of publication, no more sections to load before`);
-      return;
-    }
-
-    // Get addresses before the reference
     const startIndex = Math.max(0, referenceIndex - count);
-    const addressesToLoad = allAddresses.slice(startIndex, referenceIndex).reverse(); // Reverse to load closest first
+    const addressesToLoad = allAddresses.slice(startIndex, referenceIndex).reverse();
 
-    // Filter out already loaded addresses
-    const addressesToLoadFiltered = addressesToLoad.filter(addr => !loadedAddresses.has(addr));
+    // Filter out already loaded
+    const existingAddresses = new Set(leaves.map(leaf => leaf?.tagAddress()).filter(Boolean));
+    const addressesToLoadFiltered = addressesToLoad.filter(addr => 
+      !loadedAddresses.has(addr) && !existingAddresses.has(addr)
+    );
     
     if (addressesToLoadFiltered.length === 0) {
-      console.debug(`[Publication] All sections before ${referenceAddress} are already loaded`);
       return;
     }
 
-    console.log(`[Publication] Loading ${addressesToLoadFiltered.length} sections before ${referenceAddress}`);
-
     isLoading = true;
-    lastLoadBeforeTime = now;
-    lastLoadBeforeAddress = referenceAddress;
     const newEvents: Array<NDKEvent | null> = [];
 
     for (const address of addressesToLoadFiltered) {
@@ -384,23 +338,9 @@
       }
     }
 
-    // Insert at the beginning of leaves array
     const validEvents = newEvents.filter(e => e !== null);
     if (validEvents.length > 0) {
-      leaves = [...newEvents.reverse(), ...leaves]; // Reverse back to maintain order
-      console.log(`[Publication] Loaded ${validEvents.length} sections before ${referenceAddress}`);
-      
-      // Set flag to prevent immediate re-triggering
-      justLoadedBefore = true;
-      setTimeout(() => {
-        justLoadedBefore = false;
-      }, LOAD_COOLDOWN_MS * 2); // Keep flag for 4 seconds
-      
-      // Note: setupObserver runs periodically and will pick up the new first section
-    } else {
-      // No new sections loaded - clear the tracking to allow retry later
-      lastLoadBeforeAddress = null;
-      justLoadedBefore = false;
+      leaves = [...newEvents.reverse(), ...leaves];
     }
 
     isLoading = false;
@@ -408,42 +348,36 @@
 
   /**
    * Loads sections after a given address in the TOC order.
-   * 
-   * @param referenceAddress The address to load sections after
-   * @param count Number of sections to load
    */
   async function loadSectionsAfter(referenceAddress: string, count: number = AUTO_LOAD_BATCH_SIZE) {
     if (!publicationTree || !toc || isLoading) {
       return;
     }
 
-    // Get all addresses from TOC in depth-first order
-    const allAddresses: string[] = [];
-    for (const entry of toc) {
-      allAddresses.push(entry.address);
-    }
-
+    const allAddresses = getAllSectionAddresses();
     const referenceIndex = allAddresses.indexOf(referenceAddress);
+    
     if (referenceIndex === -1) {
-      console.warn(`[Publication] Reference address ${referenceAddress} not found in TOC`);
       return;
     }
 
-    // Get addresses after the reference
     const endIndex = Math.min(allAddresses.length - 1, referenceIndex + count);
     const addressesToLoad = allAddresses.slice(referenceIndex + 1, endIndex + 1);
 
-    console.log(`[Publication] Loading ${addressesToLoad.length} sections after ${referenceAddress}`);
+    // Filter out already loaded
+    const existingAddresses = new Set(leaves.map(leaf => leaf?.tagAddress()).filter(Boolean));
+    const addressesToLoadFiltered = addressesToLoad.filter(addr => 
+      !loadedAddresses.has(addr) && !existingAddresses.has(addr)
+    );
+
+    if (addressesToLoadFiltered.length === 0) {
+      return;
+    }
 
     isLoading = true;
     const newEvents: Array<NDKEvent | null> = [];
 
-    for (const address of addressesToLoad) {
-      // Skip if already loaded
-      if (loadedAddresses.has(address)) {
-        continue;
-      }
-
+    for (const address of addressesToLoadFiltered) {
       try {
         const event = await publicationTree.getEvent(address);
         if (event) {
@@ -458,23 +392,18 @@
       }
     }
 
-    // Find where to insert in leaves array (after the reference address)
     if (newEvents.length > 0) {
       const referenceIndexInLeaves = leaves.findIndex(
         leaf => leaf?.tagAddress() === referenceAddress
       );
       
       if (referenceIndexInLeaves !== -1) {
-        // Insert after the reference
         const before = leaves.slice(0, referenceIndexInLeaves + 1);
         const after = leaves.slice(referenceIndexInLeaves + 1);
         leaves = [...before, ...newEvents, ...after];
       } else {
-        // Reference not in leaves, append to end
         leaves = [...leaves, ...newEvents];
       }
-      
-      console.log(`[Publication] Loaded ${newEvents.filter(e => e !== null).length} sections after ${referenceAddress}`);
     }
 
     isLoading = false;
@@ -505,36 +434,27 @@
       return;
     }
 
-    console.log(`[Publication] Jumping to section ${targetAddress} with window size ${windowSize}`);
-
-    // Get all addresses from TOC in depth-first order
-    const allAddresses: string[] = [];
-    for (const entry of toc) {
-      allAddresses.push(entry.address);
-    }
-
-    // Find target address index
+    const allAddresses = getAllSectionAddresses();
     const targetIndex = allAddresses.indexOf(targetAddress);
+    
     if (targetIndex === -1) {
       console.warn(`[Publication] Target address ${targetAddress} not found in TOC`);
       return;
     }
 
-    // Calculate window bounds
     const startIndex = Math.max(0, targetIndex - windowSize);
     const endIndex = Math.min(allAddresses.length - 1, targetIndex + windowSize);
     const windowAddresses = allAddresses.slice(startIndex, endIndex + 1);
 
-    console.log(`[Publication] Loading window: ${windowAddresses.length} sections (indices ${startIndex}-${endIndex})`);
+    // Filter out already loaded
+    const existingAddresses = new Set(leaves.map(leaf => leaf?.tagAddress()).filter(Boolean));
+    const addressesToLoad = windowAddresses.filter(addr => 
+      !loadedAddresses.has(addr) && !existingAddresses.has(addr)
+    );
 
-    // Load events for the window
+    // Load events
     const windowEvents: Array<{ address: string; event: NDKEvent | null; index: number }> = [];
-    for (const address of windowAddresses) {
-      // Skip if already loaded
-      if (loadedAddresses.has(address)) {
-        continue;
-      }
-
+    for (const address of addressesToLoad) {
       try {
         const event = await publicationTree.getEvent(address);
         if (event) {
@@ -546,16 +466,15 @@
       }
     }
 
-    // Insert events into leaves array at correct positions
-    // We need to maintain order based on TOC order
+    // Insert events in TOC order
     const newLeaves = [...leaves];
-    
     for (const { address, event, index } of windowEvents) {
-      // Find where to insert this event in the leaves array
-      // We want to insert it at a position that maintains TOC order
-      let insertIndex = newLeaves.length;
+      // Skip if already in leaves
+      if (newLeaves.some(leaf => leaf?.tagAddress() === address)) {
+        continue;
+      }
       
-      // Find the first position where the next address in TOC order appears
+      let insertIndex = newLeaves.length;
       for (let i = 0; i < newLeaves.length; i++) {
         const leafAddress = newLeaves[i]?.tagAddress();
         if (leafAddress) {
@@ -566,13 +485,9 @@
           }
         }
       }
-      
-      // Insert the event at the calculated position
       newLeaves.splice(insertIndex, 0, event);
-      console.log(`[Publication] Inserted section ${address} at position ${insertIndex}`);
     }
 
-    // Update leaves array
     leaves = newLeaves;
 
     // Set bookmark to target address for future sequential loading
@@ -968,267 +883,78 @@
   });
 
   // AI-NOTE: Simple IntersectionObserver-based infinite scroll
-  // Uses a single, reliable mechanism to detect when sentinel is near viewport
-  // Queries DOM directly to avoid bind:this timing issues
   $effect(() => {
-    // Track reactive dependencies
-    const initialized = hasInitialized;
-    const tree = publicationTree;
-    
-    // Early return if not ready
-    if (!initialized || !tree) {
+    if (!hasInitialized || !publicationTree || !toc) {
       return;
     }
 
     let observer: IntersectionObserver | null = null;
-    let checkInterval: number | null = null;
-    let setupInterval: number | null = null;
-    let isSetup = false;
-    
-    const getSentinel = (): HTMLElement | null => {
-      return document.getElementById("publication-sentinel");
-    };
-    
-    const getTopSentinel = (): HTMLElement | null => {
-      return document.getElementById("publication-top-sentinel");
-    };
-    
-    let lastCheckTime = 0;
-    const CHECK_COOLDOWN_MS = 2000; // Only check every 2 seconds to prevent loops
-    
-    const checkAndLoad = () => {
-      // Cooldown check to prevent rapid checking
-      const now = Date.now();
-      if (now - lastCheckTime < CHECK_COOLDOWN_MS) {
-        return;
-      }
-      lastCheckTime = now;
-      
-      if (isLoading || isDone || !toc) {
-        return;
-      }
-      
-      // Check bottom sentinel for loading more sections after
-      const bottomSentinel = getSentinel();
-      if (bottomSentinel && bottomSentinel.isConnected) {
-        const rect = bottomSentinel.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const distanceBelowViewport = rect.top - viewportHeight;
-        
-        // Load if sentinel is within 1000px of viewport
-        if (distanceBelowViewport <= 1000 && distanceBelowViewport > -100) {
-          // Find the last loaded section
-          const lastLoadedSection = leaves.filter(l => l !== null).slice(-1)[0];
-          if (lastLoadedSection) {
-            const lastAddress = lastLoadedSection.tagAddress();
-            console.log("[Publication] Bottom sentinel near viewport, loading more after", lastAddress);
-            loadSectionsAfter(lastAddress, AUTO_LOAD_BATCH_SIZE);
-          } else {
-            loadMore(AUTO_LOAD_BATCH_SIZE);
-          }
-        }
-      }
-      
-      // Check if we're near the top - load sections before when scrolling up
-      const firstLoadedSection = leaves.filter(l => l !== null)[0];
-      
-      if (firstLoadedSection) {
-        const firstAddress = firstLoadedSection.tagAddress();
-        
-        // Check if we're at the beginning - don't load if first section is the root
-        if (firstAddress === rootAddress) {
-          // Already at beginning, skip
-          return;
-        }
-        
-        const firstSectionElement = document.getElementById(firstAddress);
-        if (firstSectionElement) {
-          const rect = firstSectionElement.getBoundingClientRect();
-          const distanceFromTop = rect.top;
-          const scrollY = window.scrollY || window.pageYOffset;
-          
-          // Load if:
-          // 1. First section is visible or near viewport (within 2000px below top), OR
-          // 2. First section is above viewport but within 3000px (user scrolling up toward it), OR
-          // 3. User has scrolled near the top of the document (scrollY < 1000) and first section is above viewport
-          const isNearOrVisible = distanceFromTop <= 2000 && distanceFromTop > -100;
-          const isAboveButClose = distanceFromTop < -100 && distanceFromTop > -3000;
-          const isScrolledToTop = scrollY < 1000 && distanceFromTop < 0;
-          
-          if (isNearOrVisible || isAboveButClose || isScrolledToTop) {
-            // Double-check we're not already loading, haven't just loaded, and haven't just loaded before
-            if (!isLoading && !justLoadedBefore && lastLoadBeforeAddress !== firstAddress) {
-              console.log("[Publication] checkAndLoad: First section near viewport, loading more before", firstAddress, {
-                distanceFromTop,
-                scrollY,
-                firstSectionTop: rect.top,
-                viewportHeight: window.innerHeight,
-                isNearOrVisible,
-                isAboveButClose,
-                isScrolledToTop,
-              });
-              loadSectionsBefore(firstAddress, AUTO_LOAD_BATCH_SIZE);
-            } else {
-              console.debug("[Publication] checkAndLoad: Skipping", {
-                isLoading,
-                justLoadedBefore,
-                lastLoadBeforeAddress,
-                firstAddress,
-              });
-            }
-          } else {
-            console.debug("[Publication] checkAndLoad: First section not near enough", {
-              firstAddress,
-              distanceFromTop,
-              scrollY,
-              threshold: "2000px to -3000px or scrollY < 1000",
-            });
-          }
-        } else {
-          console.debug("[Publication] checkAndLoad: First section element not found in DOM", firstAddress);
-        }
-      } else {
-        console.debug("[Publication] checkAndLoad: No first loaded section");
-      }
-    };
-    
-    const setupObserver = () => {
-      if (isSetup || !hasInitialized || !publicationTree) {
-        return;
-      }
-      
-      const sentinel = getSentinel();
-      const topSentinel = getTopSentinel();
-      
-      // Need at least one sentinel to be ready
-      if ((!sentinel || !sentinel.isConnected) && (!topSentinel || !topSentinel.isConnected)) {
-        return;
-      }
+    let setupTimeout: number | null = null;
 
-      // Already set up
+    const setupObserver = () => {
       if (observer) {
         return;
       }
 
-      console.log("[Publication] Setting up IntersectionObserver for infinite scroll", {
-        hasBottomSentinel: !!sentinel,
-        hasTopSentinel: !!topSentinel,
-        bottomSentinelConnected: sentinel?.isConnected,
-        topSentinelConnected: topSentinel?.isConnected,
-      });
+      const bottomSentinel = document.getElementById("publication-sentinel");
+      const topSentinel = document.getElementById("publication-top-sentinel");
+      
+      if (!bottomSentinel && !topSentinel) {
+        return;
+      }
 
       observer = new IntersectionObserver(
         (entries) => {
-          // Check current state
-          if (isLoading || isDone || !toc) {
+          if (isLoading || isDone) {
             return;
           }
           
           for (const entry of entries) {
-            if (entry.isIntersecting) {
-              const sentinelId = entry.target.id;
-              
-              if (sentinelId === "publication-sentinel") {
-                // Bottom sentinel - load sections after
-                const lastLoadedSection = leaves.filter(l => l !== null).slice(-1)[0];
-                if (lastLoadedSection) {
-                  const lastAddress = lastLoadedSection.tagAddress();
-                  console.log("[Publication] Bottom sentinel intersecting, loading more after", lastAddress);
-                  loadSectionsAfter(lastAddress, AUTO_LOAD_BATCH_SIZE);
-                } else {
-                  loadMore(AUTO_LOAD_BATCH_SIZE);
-                }
-              } else if (sentinelId === "publication-top-sentinel") {
-                // Top sentinel - load sections before
-                const firstLoadedSection = leaves.filter(l => l !== null)[0];
-                if (firstLoadedSection) {
-                  const firstAddress = firstLoadedSection.tagAddress();
-                  // Don't load if we're at the root
-                  if (firstAddress !== rootAddress) {
-                    console.log("[Publication] Top sentinel intersecting, loading more before", firstAddress);
-                    loadSectionsBefore(firstAddress, AUTO_LOAD_BATCH_SIZE);
-                  }
-                }
-              } else {
-                // Check if this is the first section element
-                const firstLoadedSection = leaves.filter(l => l !== null)[0];
-                if (firstLoadedSection && entry.target.id === firstLoadedSection.tagAddress()) {
-                  const firstAddress = firstLoadedSection.tagAddress();
-                  // Don't load if we're at the root
-                  if (firstAddress !== rootAddress) {
-                    console.log("[Publication] First section intersecting near top, loading more before", firstAddress);
-                    loadSectionsBefore(firstAddress, AUTO_LOAD_BATCH_SIZE);
-                  }
-                }
-              }
-              break;
+            if (!entry.isIntersecting) {
+              continue;
             }
+
+            const targetId = entry.target.id;
+            
+            if (targetId === "publication-sentinel") {
+              const lastSection = leaves.filter(l => l !== null).slice(-1)[0];
+              if (lastSection) {
+                loadSectionsAfter(lastSection.tagAddress(), AUTO_LOAD_BATCH_SIZE);
+              } else {
+                loadMore(AUTO_LOAD_BATCH_SIZE);
+              }
+            } else if (targetId === "publication-top-sentinel") {
+              const firstSection = leaves.filter(l => l !== null)[0];
+              if (firstSection && firstSection.tagAddress() !== rootAddress) {
+                loadSectionsBefore(firstSection.tagAddress(), AUTO_LOAD_BATCH_SIZE);
+              }
+            }
+            break;
           }
         },
         {
-          // Trigger when sentinel is 2000px from viewport (above or below)
-          // Larger margin for upward scrolling detection
-          rootMargin: "2000px 0px 2000px 0px",
+          rootMargin: "1000px 0px 1000px 0px",
           threshold: 0,
         },
       );
 
-      // Observe both sentinels
-      if (sentinel) {
-        observer.observe(sentinel);
+      if (bottomSentinel) {
+        observer.observe(bottomSentinel);
       }
       if (topSentinel) {
         observer.observe(topSentinel);
       }
-      
-      // Also observe the first section element if available
-      const firstLoadedSection = leaves.filter(l => l !== null)[0];
-      if (firstLoadedSection) {
-        const firstSectionElement = document.getElementById(firstLoadedSection.tagAddress());
-        if (firstSectionElement) {
-          observer.observe(firstSectionElement);
-        }
-      }
-      
-      isSetup = true;
-      
-      // Clear setup interval since we're now set up
-      if (setupInterval !== null) {
-        clearInterval(setupInterval);
-        setupInterval = null;
-      }
-      
-      console.log("[Publication] Observing sentinels", {
-        hasBottomSentinel: !!sentinel,
-        hasTopSentinel: !!topSentinel,
-        viewportHeight: window.innerHeight,
-      });
     };
 
-    // Try to set up immediately
-    setupObserver();
-    
-    // Poll to set up observer when sentinel becomes available
-    setupInterval = window.setInterval(setupObserver, 100);
-    
-    // Fallback: check periodically in case IntersectionObserver doesn't fire
-    // Increased interval to 3 seconds to prevent loops (cooldown is 2 seconds)
-    checkInterval = window.setInterval(checkAndLoad, 3000);
+    setupTimeout = window.setTimeout(setupObserver, 100);
 
-    // Cleanup
     return () => {
-      if (setupInterval !== null) {
-        clearInterval(setupInterval);
-      }
-      if (checkInterval !== null) {
-        clearInterval(checkInterval);
+      if (setupTimeout !== null) {
+        clearTimeout(setupTimeout);
       }
       if (observer) {
         observer.disconnect();
-        observer = null;
       }
-      isSetup = false;
-      console.log("[Publication] Cleaned up IntersectionObserver");
     };
   });
 
