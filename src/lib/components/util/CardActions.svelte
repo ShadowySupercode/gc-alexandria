@@ -408,7 +408,7 @@
 </script>
 
 <div
-  class="group bg-highlight dark:bg-primary-1000 rounded"
+  class="group bg-transparent rounded"
   role="group"
   onmouseenter={openPopover}
 >
@@ -416,8 +416,7 @@
   <Button
     type="button"
     id="dots-{event.id}"
-    class=" hover:bg-primary-50 dark:text-highlight dark:hover:bg-primary-800 p-1 dots"
-    color="primary"
+    class="!bg-transparent hover:!bg-primary-100 dark:hover:!bg-primary-800 text-primary-600 dark:text-gray-300 hover:text-primary-700 dark:hover:text-gray-200 p-1 dots !border-0 !shadow-none"
     data-popover-target="popover-actions"
   >
     <DotsVerticalOutline class="h-6 w-6" />

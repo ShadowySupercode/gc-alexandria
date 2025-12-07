@@ -505,7 +505,7 @@
             <!-- Main header content - centered -->
             <div class="max-w-4xl mx-auto px-4">
               <div
-                class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+                class="card-leather bg-highlight dark:bg-primary-900 p-4 mb-4 rounded-lg border"
               >
                 <Details
                   event={indexEvent}
@@ -543,8 +543,8 @@
           </div>
 
           <!-- Action buttons row -->
-          <div class="flex justify-between gap-2 mb-4">
-            <div class="flex gap-2">
+          <div class="flex justify-between gap-2 mb-4 bg-transparent">
+            <div class="flex gap-2 bg-transparent">
               <Button
                 color="light"
                 size="sm"
@@ -554,7 +554,7 @@
               </Button>
               <HighlightButton bind:isActive={highlightModeActive} />
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 bg-transparent">
               <Button color="light" size="sm" onclick={toggleComments}>
                 {#if commentsVisible}
                   <EyeSlashOutline class="w-4 h-4 mr-2" />
@@ -670,7 +670,7 @@
               : 'mx-auto md:mx-auto max-w-3xl'} ${isInnerActive() ? 'hidden md:flex' : ''}`}
           >
             <div
-              class="card-leather bg-highlight dark:bg-primary-800 p-4 mb-4 rounded-lg border"
+              class="card-leather bg-highlight dark:bg-primary-900 p-4 mb-4 rounded-lg border"
             >
               <Details event={indexEvent} onDelete={handleDeletePublication} />
             </div>

@@ -202,7 +202,7 @@
     @apply text-base font-semibold;
   }
 
-  /* Heading links - primary-600 (light) / primary-400 (dark) for hover */
+  /* Heading links - primary-600 (light, more golden) / primary-300 (dark) for hover */
   h1 a,
   h2 a,
   h3 a,
@@ -216,7 +216,7 @@
   h5.h-leather a,
   h6.h-leather a {
     @apply text-gray-900 dark:text-gray-100 hover:text-primary-600
-      dark:hover:text-primary-400;
+      dark:hover:text-primary-300;
   }
 
   /* === LEATHER COMPONENTS === */
@@ -242,8 +242,8 @@
   }
 
   div[role="tooltip"] button.btn-leather {
-    @apply hover:text-primary-600 dark:hover:text-primary-400
-      hover:border-primary-600 dark:hover:border-primary-400 hover:bg-gray-200
+    @apply hover:text-primary-700 dark:hover:text-primary-300
+      hover:border-primary-700 dark:hover:border-primary-300 hover:bg-gray-200
       dark:hover:bg-gray-700;
   }
 
@@ -301,7 +301,7 @@
   div.modal-leather > div > h4 a,
   div.modal-leather > div > h5 a,
   div.modal-leather > div > h6 a {
-    @apply hover:text-primary-600 dark:hover:text-primary-400;
+    @apply hover:text-primary-700 dark:hover:text-primary-300;
   }
 
   /* Navbar */
@@ -314,15 +314,68 @@
   }
 
   nav.navbar-leather svg {
-    @apply fill-gray-900 hover:fill-primary-600 dark:fill-gray-100
-      dark:hover:fill-primary-400;
+    @apply fill-gray-900 hover:fill-primary-700 dark:fill-gray-100
+      dark:hover:fill-primary-300;
   }
 
   /* NavBrand hover - all text highlights together */
   #navi a:hover h1,
   #navi a:hover p {
-    @apply !text-primary-600 dark:!text-primary-400;
+    @apply !text-primary-600 dark:!text-primary-300;
     transition: color 0.2s ease-in-out;
+  }
+
+  /* Navbar menu items hover effect - ALL items get same background hover */
+  #navi ul li.navbar-menu-item,
+  #navi ul li:has(.navbar-menu-item),
+  #navi li.navbar-menu-item {
+    @apply rounded px-2 py-1 transition-colors;
+  }
+
+  #navi ul li.navbar-menu-item:hover,
+  #navi ul li:has(.navbar-menu-item):hover,
+  #navi li.navbar-menu-item:hover,
+  #navi ul li.navbar-menu-item:has(button:hover),
+  #navi ul li.navbar-menu-item:has(div:hover),
+  #navi ul li.navbar-menu-item:has(span:hover),
+  #navi ul li.navbar-menu-item:has(a:hover),
+  #navi ul li.navbar-menu-item:has(img:hover),
+  #navi ul li.navbar-menu-item:has(svg:hover),
+  #navi ul li.navbar-menu-item:has([class*="Avatar"]:hover) {
+    @apply !bg-primary-100;
+  }
+
+  .dark #navi ul li.navbar-menu-item:hover,
+  .dark #navi ul li:has(.navbar-menu-item):hover,
+  .dark #navi li.navbar-menu-item:hover,
+  .dark #navi ul li.navbar-menu-item:has(button:hover),
+  .dark #navi ul li.navbar-menu-item:has(div:hover),
+  .dark #navi ul li.navbar-menu-item:has(span:hover),
+  .dark #navi ul li.navbar-menu-item:has(a:hover),
+  .dark #navi ul li.navbar-menu-item:has(img:hover),
+  .dark #navi ul li.navbar-menu-item:has(svg:hover),
+  .dark #navi ul li.navbar-menu-item:has([class*="Avatar"]:hover) {
+    @apply !bg-primary-800;
+  }
+
+  /* Explore text color - matches chevron in dark mode */
+  #navi ul li.navbar-menu-item:first-of-type {
+    @apply text-primary-800 dark:text-white cursor-pointer;
+  }
+
+  /* Remove ALL backgrounds from ALL child elements - use universal selector with max specificity */
+  #navi ul li.navbar-menu-item *,
+  #navi ul li.navbar-menu-item *:hover,
+  #navi ul li.navbar-menu-item *:focus,
+  #navi ul li.navbar-menu-item *:active,
+  #navi ul li.navbar-menu-item:hover *,
+  #navi ul li.navbar-menu-item:hover *:hover,
+  #navi ul li.navbar-menu-item:hover *:focus,
+  #navi ul li.navbar-menu-item:hover *:active {
+    background-color: transparent !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
   }
 
   nav.navbar-leather h1,
@@ -340,7 +393,7 @@
   nav.navbar-leather h4 a,
   nav.navbar-leather h5 a,
   nav.navbar-leather h6 a {
-    @apply hover:text-primary-600 dark:hover:text-primary-400;
+    @apply hover:text-primary-700 dark:hover:text-primary-300;
   }
 
   div.textarea-leather {
@@ -430,29 +483,42 @@
   /* Lists */
   .ol-leather li a,
   .ul-leather li a {
-    @apply text-gray-900 dark:text-gray-100 hover:text-primary-600
-      dark:hover:text-primary-400;
+    @apply text-gray-900 dark:text-gray-100 hover:text-primary-700
+      dark:hover:text-primary-300;
   }
 
-  /* Links - consistent hover colors */
+  /* Links - consistent hover colors - improved contrast */
   .link {
-    @apply underline cursor-pointer hover:text-primary-600
-      dark:hover:text-primary-400;
+    @apply underline cursor-pointer hover:text-primary-700
+      dark:hover:text-primary-300;
   }
 
   .npub-badge {
-    @apply inline-flex space-x-1 items-center text-primary-600
-      dark:text-primary-500 hover:underline me-2 px-2 py-0.5 rounded-sm border
-      border-primary-600 dark:border-primary-500;
+    @apply inline-flex space-x-1 items-center text-primary-700
+      dark:text-primary-300 hover:underline me-2 px-2 py-0.5 rounded-sm border
+      border-primary-700 dark:border-primary-300;
 
     svg {
-      @apply fill-primary-600 dark:fill-primary-500;
+      @apply fill-primary-700 dark:fill-primary-300;
     }
   }
 
   [data-tech="off"] .tech-detail {
     @apply !hidden;
   }
+}
+
+/* Force remove backgrounds from DarkMode button - outside layer for max priority */
+#navi ul li.navbar-menu-item:nth-child(2) *,
+#navi ul li.navbar-menu-item:nth-child(2) *:hover,
+#navi ul li.navbar-menu-item:nth-child(2) *:focus,
+#navi ul li.navbar-menu-item:nth-child(2) *:active,
+#navi ul li.navbar-menu-item:nth-child(2):hover *,
+#navi ul li.navbar-menu-item:nth-child(2):hover *:hover {
+  background-color: transparent !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 @layer components {
@@ -462,6 +528,23 @@
 
   canvas.qr-code {
     @apply block mx-auto my-4;
+  }
+
+  /* Fix white wrapper behind buttons on publication content in light mode */
+  main.publication div.flex.gap-2,
+  main.publication div.flex.justify-between {
+    @apply bg-transparent;
+  }
+
+  /* Override Flowbite light button white background in light mode to be more subtle */
+  main.publication :global(button.bg-gray-100),
+  main.publication :global(button.bg-gray-50) {
+    @apply !bg-primary-100 !border-primary-200 !text-primary-800;
+  }
+
+  main.publication :global(button.bg-gray-100:hover),
+  main.publication :global(button.bg-gray-50:hover) {
+    @apply !bg-primary-200 !border-primary-300;
   }
 
   /* Legend */
@@ -488,7 +571,7 @@
   }
 
   .leather-legend button {
-    @apply dark:text-white;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   .publication-leather {
@@ -527,10 +610,10 @@
     }
   }
 
-  /* All links - consistent hover behavior */
+  /* All links - consistent hover behavior - improved contrast */
   a {
-    @apply underline cursor-pointer hover:text-primary-600
-      dark:hover:text-primary-400;
+    @apply underline cursor-pointer hover:text-primary-700
+      dark:hover:text-primary-300;
   }
 
   .imageblock {
@@ -567,10 +650,14 @@
     }
   }
 
-  /* Footnotes */
+  /* Footnotes - improved contrast */
   .footnote-ref {
     text-decoration: none;
-    color: var(--color-primary-500);
+    color: var(--color-primary-700);
+  }
+
+  .dark .footnote-ref {
+    color: var(--color-primary-300);
   }
 
   .footnotes {
@@ -600,12 +687,21 @@
   .footnote-backref {
     text-decoration: none;
     margin-left: 0.5rem;
-    color: var(--color-primary-500);
+    color: var(--color-primary-700);
+  }
+
+  .dark .footnote-backref {
+    color: var(--color-primary-300);
   }
 
   .note-leather .footnote-ref,
   .note-leather .footnote-backref {
-    color: var(--color-primary-500);
+    color: var(--color-primary-700);
+  }
+
+  .dark .note-leather .footnote-ref,
+  .dark .note-leather .footnote-backref {
+    color: var(--color-primary-300);
   }
 
   /* Scrollable content */
@@ -678,10 +774,10 @@
     @apply focus:border-primary-600 dark:focus:border-primary-400;
   }
 
-  /* Table of Contents highlighting */
+  /* Table of Contents highlighting - improved contrast */
   .toc-highlight {
-    @apply bg-primary-300 dark:bg-primary-700 border-s-4 border-primary-600
-      rounded dark:border-primary-400 font-medium;
+    @apply bg-primary-300 dark:bg-primary-700 border-s-4 border-primary-700
+      rounded dark:border-primary-300 font-medium text-gray-900 dark:text-gray-100;
     transition: all 0.2s ease-in-out;
   }
 
