@@ -225,6 +225,39 @@
     @apply text-gray-900 dark:text-gray-100;
   }
 
+  /* Override Flowbite button hover in light mode - make it subtle like nav bar */
+  /* Target all buttons in light mode */
+  button:hover {
+    background-color: var(--color-primary-100) !important;
+  }
+
+  /* Override outline buttons specifically */
+  button[class*="outline"]:hover {
+    background-color: var(--color-primary-100) !important;
+    border-color: var(--color-primary-200) !important;
+    color: var(--color-primary-800) !important;
+  }
+
+  /* Override btn-leather buttons */
+  button.btn-leather:hover {
+    background-color: var(--color-primary-100) !important;
+  }
+
+  /* Dark mode overrides */
+  .dark button:hover {
+    background-color: var(--color-primary-800) !important;
+  }
+
+  .dark button[class*="outline"]:hover {
+    background-color: var(--color-primary-800) !important;
+    border-color: var(--color-primary-600) !important;
+    color: var(--color-primary-100) !important;
+  }
+
+  .dark button.btn-leather:hover {
+    background-color: var(--color-primary-800) !important;
+  }
+
   .btn-leather.text-xs {
     @apply px-2 py-1;
   }
