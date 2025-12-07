@@ -80,9 +80,9 @@
 </script>
 
 {#if title != null && href != null}
-  <Card class="ArticleBox max-h-52 card-leather w-full relative flex flex-col sm:flex-row sm:space-x-2 overflow-hidden">
-    <!-- Image block: full width on mobile, fixed side on md+ -->
-    <div class="w-full sm:min-w-40 sm:w-40 overflow-hidden flex items-center justify-center sm:rounded-l rounded-t sm:rounded-t-none">
+  <Card class="ArticleBox max-h-52 card-leather w-full relative flex flex-row space-x-2 overflow-hidden">
+    <!-- Image block: thumbnail on mobile, fixed side on sm+ -->
+    <div class="w-24 min-w-24 sm:min-w-40 sm:w-40 overflow-hidden flex items-center justify-center rounded-l">
       {#if image}
         <LazyImage
           src={image}
