@@ -132,6 +132,32 @@
           const ws = await WebSocketPool.instance.acquire(relayUrl);
 
           return new Promise<void>((resolve) => {
+            let released = false;
+            let resolved = false;
+            
+            const releaseConnection = () => {
+              if (released) {
+                return;
+              }
+              released = true;
+              try {
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                  ws.send(JSON.stringify(["CLOSE", subscriptionId]));
+                }
+                ws.removeEventListener("message", messageHandler);
+                WebSocketPool.instance.release(ws);
+              } catch (err) {
+                console.error(`[CommentLayer] Error releasing connection to ${relayUrl}:`, err);
+              }
+            };
+            
+            const safeResolve = () => {
+              if (!resolved) {
+                resolved = true;
+                resolve();
+              }
+            };
+            
             const messageHandler = (event: MessageEvent) => {
               try {
                 const message = JSON.parse(event.data);
@@ -163,11 +189,9 @@
                   eoseCount++;
                   console.log(`[CommentLayer] EOSE from ${relayUrl} (${eoseCount}/${uniqueRelays.length})`);
 
-                  // Close subscription
-                  ws.send(JSON.stringify(["CLOSE", subscriptionId]));
-                  ws.removeEventListener("message", messageHandler);
-                  WebSocketPool.instance.release(ws);
-                  resolve();
+                  // Close subscription and release connection
+                  releaseConnection();
+                  safeResolve();
                 } else if (message[0] === "NOTICE") {
                   console.warn(`[CommentLayer] NOTICE from ${relayUrl}:`, message[1]);
                 }
@@ -189,12 +213,8 @@
 
             // Timeout per relay (5 seconds)
             setTimeout(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(["CLOSE", subscriptionId]));
-                ws.removeEventListener("message", messageHandler);
-                WebSocketPool.instance.release(ws);
-              }
-              resolve();
+              releaseConnection();
+              safeResolve();
             }, 5000);
           });
         } catch (err) {

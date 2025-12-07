@@ -351,14 +351,31 @@
    * Loads sections before a given address in the TOC order.
    */
   async function loadSectionsBefore(referenceAddress: string, count: number = AUTO_LOAD_BATCH_SIZE) {
-    if (!publicationTree || !toc || isLoading) {
+    console.log("[Publication] loadSectionsBefore called:", {
+      referenceAddress,
+      count,
+      hasPublicationTree: !!publicationTree,
+      hasToc: !!toc,
+      isLoading,
+      isLoadingUpward
+    });
+    
+    if (!publicationTree || !toc) {
+      console.log("[Publication] loadSectionsBefore: Early return (missing dependencies)");
       return;
     }
 
     const allAddresses = getAllSectionAddresses();
     const referenceIndex = allAddresses.indexOf(referenceAddress);
     
+    console.log("[Publication] loadSectionsBefore: Reference index:", {
+      referenceIndex,
+      totalAddresses: allAddresses.length,
+      referenceAddress
+    });
+    
     if (referenceIndex === -1 || referenceIndex === 0) {
+      console.log("[Publication] loadSectionsBefore: Early return (not found or at beginning)");
       return; // Not found or already at beginning
     }
 
@@ -371,7 +388,14 @@
       !loadedAddresses.has(addr) && !existingAddresses.has(addr)
     );
     
+    console.log("[Publication] loadSectionsBefore: Addresses to load:", {
+      total: addressesToLoad.length,
+      filtered: addressesToLoadFiltered.length,
+      addresses: addressesToLoadFiltered
+    });
+    
     if (addressesToLoadFiltered.length === 0) {
+      console.log("[Publication] loadSectionsBefore: Early return (no addresses to load)");
       return;
     }
 
@@ -393,8 +417,19 @@
       }
     }
 
+    console.log("[Publication] loadSectionsBefore: Loaded events:", {
+      total: newEvents.length,
+      valid: newEvents.filter(e => e !== null).length
+    });
+
     if (newEvents.length > 0) {
+      const beforeCount = leaves.length;
       leaves = insertEventsInOrder(newEvents, allAddresses);
+      console.log("[Publication] loadSectionsBefore: Updated leaves:", {
+        before: beforeCount,
+        after: leaves.length,
+        added: leaves.length - beforeCount
+      });
     }
 
     isLoading = false;
@@ -456,6 +491,7 @@
   /**
    * Jumps to a specific section and loads a window of sections around it.
    * This allows users to jump forward to sections that haven't been rendered yet.
+   * Also fills in any gaps between initially loaded sections and the jump window.
    * 
    * @param targetAddress The address of the section to jump to
    * @param windowSize Number of sections to load before and after the target (default: JUMP_WINDOW_SIZE)
@@ -486,15 +522,52 @@
       return;
     }
 
-    const startIndex = Math.max(0, targetIndex - windowSize);
-    const endIndex = Math.min(allAddresses.length - 1, targetIndex + windowSize);
-    const windowAddresses = allAddresses.slice(startIndex, endIndex + 1);
-
-    // Filter out already loaded
+    // Find the last loaded section index
     const existingAddresses = new Set(leaves.map(leaf => leaf?.tagAddress()).filter(Boolean));
-    const addressesToLoad = windowAddresses.filter(addr => 
-      !loadedAddresses.has(addr) && !existingAddresses.has(addr)
-    );
+    let lastLoadedIndex = -1;
+    for (let i = 0; i < allAddresses.length; i++) {
+      if (existingAddresses.has(allAddresses[i])) {
+        lastLoadedIndex = i;
+      }
+    }
+
+    // Calculate jump window
+    const jumpStartIndex = Math.max(0, targetIndex - windowSize);
+    const jumpEndIndex = Math.min(allAddresses.length - 1, targetIndex + windowSize);
+    
+    // Determine if we need to fill a gap between last loaded and jump window
+    let gapStartIndex = -1;
+    let gapEndIndex = -1;
+    
+    if (lastLoadedIndex >= 0 && jumpStartIndex > lastLoadedIndex + 1) {
+      // There's a gap - fill it
+      gapStartIndex = lastLoadedIndex + 1;
+      gapEndIndex = jumpStartIndex - 1;
+      console.log(`[Publication] Gap detected: sections ${gapStartIndex}-${gapEndIndex} need to be loaded`);
+    }
+
+    // Collect all addresses to load (gap + jump window)
+    const addressesToLoad: string[] = [];
+    
+    // Add gap addresses if needed
+    if (gapStartIndex >= 0 && gapEndIndex >= gapStartIndex) {
+      for (let i = gapStartIndex; i <= gapEndIndex; i++) {
+        const addr = allAddresses[i];
+        if (!loadedAddresses.has(addr) && !existingAddresses.has(addr)) {
+          addressesToLoad.push(addr);
+        }
+      }
+    }
+    
+    // Add jump window addresses
+    for (let i = jumpStartIndex; i <= jumpEndIndex; i++) {
+      const addr = allAddresses[i];
+      if (!loadedAddresses.has(addr) && !existingAddresses.has(addr)) {
+        addressesToLoad.push(addr);
+      }
+    }
+
+    console.log(`[Publication] Jump-to-section: loading ${addressesToLoad.length} sections (gap: ${gapStartIndex >= 0 ? `${gapStartIndex}-${gapEndIndex}` : 'none'}, window: ${jumpStartIndex}-${jumpEndIndex})`);
 
     // Load events
     const windowEvents: Array<{ address: string; event: NDKEvent | null; index: number }> = [];
@@ -523,6 +596,8 @@
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+      // Update observer after DOM updates
+      updateFirstSectionObserver();
     }, 100);
 
     console.log(`[Publication] Jump-to-section complete. Loaded ${windowEvents.length} sections around ${targetAddress}`);
@@ -906,20 +981,109 @@
     }
   });
 
-  // AI-NOTE: Simple IntersectionObserver-based infinite scroll
+  // AI-NOTE: IntersectionObserver-based infinite scroll with debouncing
   // Observes sentinels and first section element for upward scrolling
+  // Simplified to prevent reactive loops - observer updates happen explicitly after loading
+  let lastUpwardLoadTime = 0;
+  const UPWARD_LOAD_DEBOUNCE_MS = 3000; // Prevent loading more than once per 3 seconds
+  let isUpdatingObserver = false; // Prevent concurrent observer updates
+  let isLoadingUpward = false; // Prevent multiple simultaneous upward loads
+  
+  // Store observer and state in module scope
+  let scrollObserver: IntersectionObserver | null = null;
+  let observedFirstSectionAddress: string | null = null;
+  let observerUpdateTimeout: number | null = null;
+  let ignoreNextFirstSectionIntersection = false; // Ignore first intersection when we just started observing
+  
+  /**
+   * Updates the observer to watch the current first section element.
+   * Called explicitly after loading sections before to avoid reactive loops.
+   */
+  function updateFirstSectionObserver() {
+    if (!scrollObserver || isLoading || isUpdatingObserver || isLoadingUpward) {
+      console.log("[Publication] updateFirstSectionObserver skipped:", {
+        hasObserver: !!scrollObserver,
+        isLoading,
+        isUpdatingObserver,
+        isLoadingUpward
+      });
+      return;
+    }
+
+    // Clear any pending update
+    if (observerUpdateTimeout !== null) {
+      clearTimeout(observerUpdateTimeout);
+      observerUpdateTimeout = null;
+    }
+
+    // Debounce updates
+    observerUpdateTimeout = window.setTimeout(() => {
+      if (!scrollObserver || isLoading || isUpdatingObserver || isLoadingUpward) {
+        console.log("[Publication] updateFirstSectionObserver timeout skipped:", {
+          hasObserver: !!scrollObserver,
+          isLoading,
+          isUpdatingObserver,
+          isLoadingUpward
+        });
+        return;
+      }
+
+      const firstSection = leaves.filter(l => l !== null)[0];
+      if (!firstSection) {
+        console.log("[Publication] updateFirstSectionObserver: No first section found");
+        return;
+      }
+
+      const firstAddress = firstSection.tagAddress();
+      
+      // Don't observe root address or if already observing this section
+      if (firstAddress === rootAddress || firstAddress === observedFirstSectionAddress) {
+        console.log("[Publication] updateFirstSectionObserver: Skipping (root or already observed):", {
+          firstAddress,
+          rootAddress,
+          observedFirstSectionAddress
+        });
+        return;
+      }
+
+      console.log("[Publication] updateFirstSectionObserver: Observing new first section:", firstAddress);
+      isUpdatingObserver = true;
+
+      // Unobserve previous first section if it changed
+      if (observedFirstSectionAddress) {
+        const prevElement = document.getElementById(observedFirstSectionAddress);
+        if (prevElement && scrollObserver) {
+          scrollObserver.unobserve(prevElement);
+          console.log("[Publication] Unobserved previous first section:", observedFirstSectionAddress);
+        }
+      }
+
+      // Observe new first section
+      const firstElement = document.getElementById(firstAddress);
+      if (firstElement && scrollObserver) {
+        scrollObserver.observe(firstElement);
+        observedFirstSectionAddress = firstAddress;
+        // Ignore the first intersection event (it will fire immediately if element is already in viewport)
+        ignoreNextFirstSectionIntersection = true;
+        console.log("[Publication] Now observing first section:", firstAddress, "(will ignore first intersection)");
+      } else {
+        console.warn("[Publication] First section element not found in DOM:", firstAddress);
+      }
+      
+      isUpdatingObserver = false;
+      observerUpdateTimeout = null;
+    }, 800); // Increased delay to allow DOM to fully render and stabilize
+  }
+  
   $effect(() => {
     if (!hasInitialized || !publicationTree || !toc) {
       return;
     }
 
-    let observer: IntersectionObserver | null = null;
     let setupTimeout: number | null = null;
-    let updateInterval: number | null = null;
-    let observedFirstSection: string | null = null;
 
     const setupObserver = () => {
-      if (observer) {
+      if (scrollObserver) {
         return;
       }
 
@@ -930,11 +1094,13 @@
         return;
       }
 
-      observer = new IntersectionObserver(
+      scrollObserver = new IntersectionObserver(
         (entries) => {
-          if (isLoading || isDone) {
+          if (isLoading || isDone || isUpdatingObserver || isLoadingUpward) {
             return;
           }
+          
+          const now = Date.now();
           
           for (const entry of entries) {
             if (!entry.isIntersecting) {
@@ -951,15 +1117,159 @@
                 loadMore(AUTO_LOAD_BATCH_SIZE);
               }
             } else if (targetId === "publication-top-sentinel") {
+              // Double-check isLoadingUpward here as well (defensive check)
+              if (isLoadingUpward) {
+                console.log("[Publication] Top sentinel intersection ignored (already loading upward)");
+                return;
+              }
+              
+              // Debounce upward loads
+              if ((now - lastUpwardLoadTime) < UPWARD_LOAD_DEBOUNCE_MS) {
+                console.log("[Publication] Upward load debounced, time since last:", now - lastUpwardLoadTime);
+                return;
+              }
               const firstSection = leaves.filter(l => l !== null)[0];
               if (firstSection && firstSection.tagAddress() !== rootAddress) {
-                loadSectionsBefore(firstSection.tagAddress(), AUTO_LOAD_BATCH_SIZE);
+                const firstAddress = firstSection.tagAddress();
+                console.log("[Publication] Top sentinel intersecting, loading sections before:", firstAddress);
+                
+                // Prevent multiple simultaneous upward loads
+                isLoadingUpward = true;
+                lastUpwardLoadTime = now;
+                
+                // Temporarily unobserve first section and top sentinel to prevent loop
+                if (observedFirstSectionAddress && scrollObserver) {
+                  const firstElement = document.getElementById(observedFirstSectionAddress);
+                  if (firstElement) {
+                    scrollObserver.unobserve(firstElement);
+                    console.log("[Publication] Unobserved first section for upward load:", observedFirstSectionAddress);
+                  }
+                }
+                if (scrollObserver && entry.target) {
+                  scrollObserver.unobserve(entry.target);
+                  console.log("[Publication] Unobserved top sentinel to prevent loop");
+                }
+                
+                Promise.resolve(loadSectionsBefore(firstAddress, AUTO_LOAD_BATCH_SIZE))
+                  .then(() => {
+                    console.log("[Publication] Upward load complete, waiting for DOM stabilization");
+                    // Wait longer for DOM to fully stabilize before updating observer
+                    setTimeout(() => {
+                      // Only update observer if we're not still loading upward
+                      if (!isLoadingUpward) {
+                        // Re-observe top sentinel
+                        if (scrollObserver && topSentinelRef) {
+                          scrollObserver.observe(topSentinelRef);
+                          console.log("[Publication] Re-observed top sentinel");
+                        }
+                        updateFirstSectionObserver();
+                      } else {
+                        console.log("[Publication] Skipping observer update (still loading upward)");
+                        // Still re-observe top sentinel even if we skip the update
+                        if (scrollObserver && topSentinelRef) {
+                          scrollObserver.observe(topSentinelRef);
+                        }
+                      }
+                    }, 500);
+                  })
+                  .catch((error) => {
+                    console.error("[Publication] Error loading sections before:", error);
+                    // Re-observe top sentinel and first section even on error
+                    setTimeout(() => {
+                      // Only update observer if we're not still loading upward
+                      if (!isLoadingUpward) {
+                        if (scrollObserver && topSentinelRef) {
+                          scrollObserver.observe(topSentinelRef);
+                        }
+                        updateFirstSectionObserver();
+                      } else {
+                        console.log("[Publication] Skipping observer update on error (still loading upward)");
+                        // Still re-observe top sentinel even if we skip the update
+                        if (scrollObserver && topSentinelRef) {
+                          scrollObserver.observe(topSentinelRef);
+                        }
+                      }
+                    }, 500);
+                  })
+                  .finally(() => {
+                    isLoadingUpward = false;
+                    console.log("[Publication] isLoadingUpward reset to false");
+                  });
+              } else {
+                console.log("[Publication] Top sentinel intersecting but no valid first section or at root");
               }
             } else {
               // This is the first section element
+              
+              // Double-check isLoadingUpward here as well (defensive check)
+              if (isLoadingUpward) {
+                console.log("[Publication] First section intersection ignored (already loading upward)");
+                return;
+              }
+              
+              // Ignore first intersection event when we just started observing (prevents immediate loop)
+              if (ignoreNextFirstSectionIntersection) {
+                console.log("[Publication] Ignoring first intersection event (just started observing)");
+                ignoreNextFirstSectionIntersection = false;
+                return;
+              }
+              
+              // Debounce upward loads
+              if ((now - lastUpwardLoadTime) < UPWARD_LOAD_DEBOUNCE_MS) {
+                console.log("[Publication] First section load debounced, time since last:", now - lastUpwardLoadTime);
+                return;
+              }
               const firstSection = leaves.filter(l => l !== null)[0];
               if (firstSection && targetId === firstSection.tagAddress() && targetId !== rootAddress) {
-                loadSectionsBefore(targetId, AUTO_LOAD_BATCH_SIZE);
+                console.log("[Publication] First section element intersecting, loading sections before:", targetId);
+                
+                // Prevent multiple simultaneous upward loads
+                isLoadingUpward = true;
+                lastUpwardLoadTime = now;
+                
+                // Temporarily unobserve this element to prevent loop
+                if (scrollObserver) {
+                  scrollObserver.unobserve(entry.target);
+                  console.log("[Publication] Unobserved first section element for upward load:", targetId);
+                }
+                
+                Promise.resolve(loadSectionsBefore(targetId, AUTO_LOAD_BATCH_SIZE))
+                  .then(() => {
+                    console.log("[Publication] Upward load complete (first section), waiting for DOM stabilization");
+                    // Wait longer for DOM to fully stabilize before updating observer
+                    setTimeout(() => {
+                      // Only update observer if we're not still loading upward
+                      if (!isLoadingUpward) {
+                        updateFirstSectionObserver();
+                      } else {
+                        console.log("[Publication] Skipping updateFirstSectionObserver (still loading upward)");
+                      }
+                    }, 500);
+                  })
+                  .catch((error) => {
+                    console.error("[Publication] Error loading sections before:", error);
+                    // Re-observe first section even on error
+                    setTimeout(() => {
+                      // Only update observer if we're not still loading upward
+                      if (!isLoadingUpward) {
+                        updateFirstSectionObserver();
+                      } else {
+                        console.log("[Publication] Skipping updateFirstSectionObserver on error (still loading upward)");
+                      }
+                    }, 500);
+                  })
+                  .finally(() => {
+                    isLoadingUpward = false;
+                    console.log("[Publication] isLoadingUpward (first section) reset to false");
+                  });
+              } else {
+                console.log("[Publication] First section element intersecting but conditions not met:", {
+                  hasFirstSection: !!firstSection,
+                  targetId,
+                  firstAddress: firstSection?.tagAddress(),
+                  isRoot: targetId === rootAddress,
+                  matches: firstSection && targetId === firstSection.tagAddress()
+                });
               }
             }
             break;
@@ -972,60 +1282,33 @@
       );
 
       if (bottomSentinel) {
-        observer.observe(bottomSentinel);
+        scrollObserver.observe(bottomSentinel);
       }
       if (topSentinel) {
-        observer.observe(topSentinel);
+        scrollObserver.observe(topSentinel);
       }
-    };
-
-    // Update observer when first section changes (e.g., after jump)
-    const updateFirstSectionObserver = () => {
-      if (!observer || leaves.length === 0) {
-        return;
-      }
-
-      const firstSection = leaves.filter(l => l !== null)[0];
-      if (!firstSection) {
-        return;
-      }
-
-      const firstAddress = firstSection.tagAddress();
-      if (firstAddress === observedFirstSection || firstAddress === rootAddress) {
-        return;
-      }
-
-      // Unobserve previous first section if it changed
-      if (observedFirstSection) {
-        const prevElement = document.getElementById(observedFirstSection);
-        if (prevElement) {
-          observer.unobserve(prevElement);
-        }
-      }
-
-      // Observe new first section
-      const firstElement = document.getElementById(firstAddress);
-      if (firstElement) {
-        observer.observe(firstElement);
-        observedFirstSection = firstAddress;
-      }
+      
+      // Initial observer update after setup
+      setTimeout(() => {
+        updateFirstSectionObserver();
+      }, 200);
     };
 
     setupTimeout = window.setTimeout(() => {
       setupObserver();
-      // Start updating when first section changes
-      updateInterval = window.setInterval(updateFirstSectionObserver, 500);
     }, 100);
 
     return () => {
       if (setupTimeout !== null) {
         clearTimeout(setupTimeout);
       }
-      if (updateInterval !== null) {
-        clearInterval(updateInterval);
+      if (observerUpdateTimeout !== null) {
+        clearTimeout(observerUpdateTimeout);
       }
-      if (observer) {
-        observer.disconnect();
+      if (scrollObserver) {
+        scrollObserver.disconnect();
+        scrollObserver = null;
+        observedFirstSectionAddress = null;
       }
     };
   });
