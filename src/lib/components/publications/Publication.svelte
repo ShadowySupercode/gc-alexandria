@@ -572,7 +572,7 @@
                 
                 <!-- Publication actions menu button - positioned at top-right -->
                 <div 
-                  class="absolute top-2 right-2 card-actions z-20"
+                  class="absolute top-2 right-2 card-actions z-0"
                   role="button"
                   tabindex={0}
                   onclick={(e) => e.stopPropagation()}
