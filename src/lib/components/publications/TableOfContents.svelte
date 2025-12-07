@@ -157,6 +157,24 @@
 <!-- TODO: Figure out how to style indentations. -->
 <!-- TODO: Make group title fonts the same as entry title fonts. -->
 <SidebarGroup>
+  <!-- Beginning entry - scrolls to top of page -->
+  {#if depth === 2}
+    <SidebarItem
+      label="Beginning"
+      href="#"
+      spanClass="px-2 text-ellipsis"
+      onclick={(e) => {
+        e.preventDefault();
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth',
+        });
+        onClose?.();
+      }}
+    >
+      <!-- Beginning entry -->
+    </SidebarItem>
+  {/if}
   <!-- Root entry (publication header) -->
   {#if depth === 2}
     {@const rootEntry = toc.getRootEntry()}
