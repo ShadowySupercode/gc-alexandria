@@ -171,7 +171,8 @@
         }, LOAD_TIMEOUT);
       });
       
-      // Load events sequentially to maintain order, but build batches for TOC updates
+      // AI-NOTE: Load events incrementally so users see content immediately instead of staring at empty page
+      // Load events sequentially to maintain order, displaying them as they're loaded
       for (let i = 0; i < count; i++) {
         try {
           const iterResult = await Promise.race([
@@ -194,7 +195,10 @@
             const alreadyInLeaves = leaves.some(leaf => leaf?.tagAddress() === address);
             if (!loadedAddresses.has(address) && !alreadyInLeaves) {
               loadedAddresses.add(address);
+              // AI-NOTE: Add event immediately to leaves so user sees it right away
+              leaves = [...leaves, value];
               newEvents.push(value);
+              console.log(`[Publication] Added event ${i + 1}/${count} immediately. Total: ${leaves.length}`);
             } else {
               newEvents.push(null);
             }
@@ -224,13 +228,11 @@
         }
       }
 
-      // Add all new events at once for better performance and to trigger TOC updates in parallel
+      // Log final summary (events already added incrementally above)
       const validEvents = newEvents.filter(e => e !== null);
       if (validEvents.length > 0) {
-        const previousLeavesCount = leaves.length;
-        leaves = [...leaves, ...newEvents];
         console.log(
-          `[Publication] Added ${validEvents.length} events. Previous: ${previousLeavesCount}, Total: ${leaves.length}`,
+          `[Publication] Load complete. Added ${validEvents.length} events. Total: ${leaves.length}`,
         );
         
         // Log sentinel position after adding content
