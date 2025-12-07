@@ -26,10 +26,16 @@
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
 
   // Component props
-  let { event, onDelete, sectionAddress } = $props<{
+  let { 
+    event, 
+    onDelete, 
+    sectionAddress,
+    detailsModalOpen = $bindable(false)
+  } = $props<{
     event: NDKEvent;
     onDelete?: () => void;
     sectionAddress?: string; // If provided, shows "Comment on section" option
+    detailsModalOpen?: boolean; // Bindable prop to control modal from outside
   }>();
 
   const ndk = getNdkContext();
@@ -72,8 +78,7 @@
     event.tags.find((t: string[]) => t[0] === "identifier")?.[1] ?? null,
   );
 
-  // UI state
-  let detailsModalOpen: boolean = $state(false);
+  // UI state - detailsModalOpen is now a bindable prop
   let isOpen: boolean = $state(false);
 
   // Comment modal state
@@ -535,7 +540,7 @@
 
     <div class="flex flex-row">
       <h4 class="text-base font-normal mt-2">
-        Index author: {@render userBadge(event.pubkey, author, ndk)}
+        {event.kind === 30040 ? "Index author" : "Article author"}: {@render userBadge(event.pubkey, author, ndk)}
       </h4>
     </div>
 

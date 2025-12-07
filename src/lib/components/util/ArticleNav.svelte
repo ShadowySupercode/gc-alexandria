@@ -40,8 +40,10 @@
 
   // Function to toggle column visibility
   function toggleColumn(column: "toc" | "blog" | "inner" | "discussion") {
+    console.log("[ArticleNav] toggleColumn called with:", column);
     publicationColumnVisibility.update((current) => {
       const newValue = !current[column];
+      console.log("[ArticleNav] Toggling", column, "from", current[column], "to", newValue);
       const updated = { ...current, [column]: newValue };
 
       if (window.innerWidth < 1400 && column === "blog" && newValue) {

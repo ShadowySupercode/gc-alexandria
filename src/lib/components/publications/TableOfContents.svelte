@@ -157,6 +157,31 @@
 <!-- TODO: Figure out how to style indentations. -->
 <!-- TODO: Make group title fonts the same as entry title fonts. -->
 <SidebarGroup>
+  <!-- Root entry (publication header) -->
+  {#if depth === 2}
+    {@const rootEntry = toc.getRootEntry()}
+    {#if rootEntry}
+      {@const isVisible = isEntryVisible(rootEntry.address)}
+      <SidebarItem
+        label={rootEntry.title}
+        href={`#${rootEntry.address}`}
+        spanClass="px-2 text-ellipsis"
+        class={`${isVisible ? "toc-highlight" : ""} `}
+        onclick={() => {
+          const element = document.getElementById(rootEntry.address);
+          if (element) {
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }
+          onClose?.();
+        }}
+      >
+        <!-- Publication header entry -->
+      </SidebarItem>
+    {/if}
+  {/if}
   {#each entries as entry, index}
     {@const address = entry.address}
     {@const expanded = toc.expandedMap.get(address) ?? false}

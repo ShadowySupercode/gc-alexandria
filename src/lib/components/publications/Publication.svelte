@@ -8,18 +8,30 @@
     SidebarWrapper,
     Heading,
     CloseButton,
+    Textarea,
+    Popover,
+    P,
+    Modal,
   } from "flowbite-svelte";
   import { getContext, onDestroy, onMount } from "svelte";
   import {
     CloseOutline,
     ExclamationCircleOutline,
+    MessageDotsOutline,
+    FilePenOutline,
+    DotsVerticalOutline,
+    EyeOutline,
+    EyeSlashOutline,
+    ClipboardCleanOutline,
+    TrashBinOutline,
   } from "flowbite-svelte-icons";
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import PublicationSection from "./PublicationSection.svelte";
   import Details from "$components/util/Details.svelte";
+  import CopyToClipboard from "$components/util/CopyToClipboard.svelte";
+  import { neventEncode, naddrEncode } from "$lib/utils";
   import { publicationColumnVisibility } from "$lib/stores";
   import BlogHeader from "$components/cards/BlogHeader.svelte";
-  import Interactions from "$components/util/Interactions.svelte";
   import type { SveltePublicationTree } from "./svelte_publication_tree.svelte";
   import TableOfContents from "./TableOfContents.svelte";
   import type { TableOfContents as TocType } from "./table_of_contents.svelte";
@@ -27,15 +39,13 @@
   import { deleteEvent } from "$lib/services/deletion";
   import { getNdkContext, activeOutboxRelays } from "$lib/ndk";
   import { goto } from "$app/navigation";
+  import { getMatchingTags } from "$lib/utils/nostrUtils";
   import HighlightLayer from "./HighlightLayer.svelte";
-  import { EyeOutline, EyeSlashOutline } from "flowbite-svelte-icons";
-  import HighlightButton from "./HighlightButton.svelte";
   import HighlightSelectionHandler from "./HighlightSelectionHandler.svelte";
   import CommentLayer from "./CommentLayer.svelte";
-  import CommentButton from "./CommentButton.svelte";
   import SectionComments from "./SectionComments.svelte";
-  import { Textarea, P } from "flowbite-svelte";
   import { userStore } from "$lib/stores/userStore";
+  import CardActions from "$components/util/CardActions.svelte";
 
   let { rootAddress, publicationType, indexEvent, publicationTree, toc } =
     $props<{
@@ -62,6 +72,10 @@
   let isSubmittingArticleComment = $state(false);
   let articleCommentError = $state<string | null>(null);
   let articleCommentSuccess = $state(false);
+  
+  // Publication header actions menu state
+  let publicationActionsOpen = $state(false);
+  let detailsModalOpen = $state(false);
 
   // Toggle between mock and real data for testing (DEBUG MODE)
   // Can be controlled via VITE_USE_MOCK_COMMENTS and VITE_USE_MOCK_HIGHLIGHTS environment variables
@@ -238,6 +252,11 @@
 
   function closeDiscussion() {
     publicationColumnVisibility.update((v) => ({ ...v, discussion: false }));
+  }
+
+  function viewDetails() {
+    detailsModalOpen = true;
+    publicationActionsOpen = false;
   }
 
   function loadBlog(rootId: string) {
@@ -445,6 +464,27 @@
     if (isLeaf || isBlog) {
       publicationColumnVisibility.update((v) => ({ ...v, toc: false }));
     }
+    
+    // Set up the intersection observer.
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (
+            entry.isIntersecting &&
+            !isLoading &&
+            !isDone &&
+            publicationTree
+          ) {
+            loadMore(1);
+          }
+        });
+      },
+      { threshold: 0.5 },
+    );
+
+    // AI-NOTE:  Removed duplicate loadMore call
+    // Initial content loading is handled by the $effect that watches publicationTree
+    // This prevents duplicate loading when both onMount and $effect trigger
 
     // Set up the intersection observer.
     observer = new IntersectionObserver(
@@ -467,6 +507,7 @@
     // Initial content loading is handled by the $effect that watches publicationTree
     // This prevents duplicate loading when both onMount and $effect trigger
 
+
     return () => {
       observer.disconnect();
     };
@@ -484,7 +525,7 @@
 
 <!-- Add gap & items-start so sticky sidebars size correctly -->
 <div
-  class="relative grid gap-4 items-start grid-cols-1 grid-rows-[auto_1fr]"
+  class="relative grid gap-4 items-start grid-cols-1 grid-rows-[auto_1fr] overflow-x-hidden"
 >
   <!-- Full-width ArticleNav row -->
   <ArticleNav {publicationType} rootId={indexEvent.id} {indexEvent} />
@@ -505,14 +546,14 @@
     }}
   />
   <!-- Content row -->
-  <div class="contents flex justify-center">
+  <div class="contents">
     <!-- Table of contents column removed - using overlay drawer instead -->
-    <div class="mt-[70px] w-full max-w-7xl">
+    <div class="mt-[70px] w-full max-w-full md:max-w-7xl mx-auto">
       <!-- Default publications -->
       {#if $publicationColumnVisibility.main}
         <!-- Remove overflow-auto so page scroll drives it -->
         <div
-          class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto"
+          class="flex flex-col p-4 space-y-4 max-w-3xl flex-grow-2 mx-auto text-left"
           bind:this={publicationContentRef}
         >
           <!-- Publication header with comments (similar to section layout) -->
@@ -520,12 +561,150 @@
             <!-- Main header content - centered -->
             <div class="max-w-4xl mx-auto px-4">
               <div
-                class="card-leather bg-highlight dark:bg-primary-900 p-4 mb-4 rounded-lg border"
+                class="card-leather bg-highlight dark:bg-primary-900 p-4 mb-4 rounded-lg border relative"
+                id={rootAddress}
               >
                 <Details
                   event={indexEvent}
                   onDelete={handleDeletePublication}
+                  hideActions={true}
                 />
+                
+                <!-- Publication actions menu button - positioned at top-right -->
+                <div 
+                  class="absolute top-2 right-2 card-actions z-20"
+                  role="button"
+                  tabindex={0}
+                  onclick={(e) => e.stopPropagation()}
+                  onkeydown={(e) => e.stopPropagation()}
+                >
+                  <div
+                    class="group bg-transparent rounded relative"
+                    role="group"
+                    onmouseenter={() => (publicationActionsOpen = true)}
+                  >
+                    <Button
+                      type="button"
+                      id="publication-actions"
+                      class="!bg-transparent hover:!bg-primary-100 dark:hover:!bg-primary-800 text-primary-600 dark:text-gray-300 hover:text-primary-700 dark:hover:text-gray-200 p-1 dots !border-0 !shadow-none"
+                      data-popover-target="popover-publication-actions"
+                    >
+                      <DotsVerticalOutline class="h-6 w-6" />
+                      <span class="sr-only">Open publication actions menu</span>
+                    </Button>
+
+                    {#if publicationActionsOpen}
+                      <Popover
+                        id="popover-publication-actions"
+                        placement="bottom"
+                        trigger="click"
+                        class="popover-leather w-fit z-10"
+                        onmouseleave={() => (publicationActionsOpen = false)}
+                      >
+                        <div class="flex flex-row justify-between space-x-4">
+                          <div class="flex flex-col text-nowrap">
+                            <ul class="space-y-2">
+                              <li>
+                                <button
+                                  class="btn-leather w-full text-left"
+                                  onclick={() => {
+                                    showArticleCommentUI = !showArticleCommentUI;
+                                    publicationActionsOpen = false;
+                                  }}
+                                >
+                                  <MessageDotsOutline class="inline mr-2" />
+                                  {showArticleCommentUI ? "Close Comment" : "Comment On Article"}
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  class="btn-leather w-full text-left"
+                                  onclick={() => {
+                                    highlightModeActive = !highlightModeActive;
+                                    publicationActionsOpen = false;
+                                  }}
+                                >
+                                  <FilePenOutline class="inline mr-2" />
+                                  {highlightModeActive ? "Exit Highlight Mode" : "Add Highlight"}
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  class="btn-leather w-full text-left"
+                                  onclick={() => {
+                                    toggleComments();
+                                    publicationActionsOpen = false;
+                                  }}
+                                >
+                                  {#if commentsVisible}
+                                    <EyeSlashOutline class="inline mr-2" />
+                                    Hide Comments
+                                  {:else}
+                                    <EyeOutline class="inline mr-2" />
+                                    Show Comments
+                                  {/if}
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  class="btn-leather w-full text-left"
+                                  onclick={() => {
+                                    toggleHighlights();
+                                    publicationActionsOpen = false;
+                                  }}
+                                >
+                                  {#if highlightsVisible}
+                                    <EyeSlashOutline class="inline mr-2" />
+                                    Hide Highlights
+                                  {:else}
+                                    <EyeOutline class="inline mr-2" />
+                                    Show Highlights
+                                  {/if}
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  class="btn-leather w-full text-left"
+                                  onclick={viewDetails}
+                                >
+                                  <EyeOutline class="inline mr-2" /> View details
+                                </button>
+                              </li>
+                              <li>
+                                <CopyToClipboard
+                                  displayText="Copy naddr address"
+                                  copyText={naddrEncode(indexEvent, $activeOutboxRelays)}
+                                  icon={ClipboardCleanOutline}
+                                />
+                              </li>
+                              <li>
+                                <CopyToClipboard
+                                  displayText="Copy nevent address"
+                                  copyText={neventEncode(indexEvent, $activeOutboxRelays)}
+                                  icon={ClipboardCleanOutline}
+                                />
+                              </li>
+                              {#if $userStore.signedIn && $userStore.pubkey === indexEvent.pubkey}
+                                <li>
+                                  <button
+                                    class="btn-leather w-full text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    onclick={() => {
+                                      publicationActionsOpen = false;
+                                      handleDeletePublication();
+                                    }}
+                                  >
+                                    <TrashBinOutline class="inline mr-2" />
+                                    Delete publication
+                                  </button>
+                                </li>
+                              {/if}
+                            </ul>
+                          </div>
+                        </div>
+                      </Popover>
+                    {/if}
+                  </div>
+                </div>
               </div>
 
               {#if publicationDeleted}
@@ -557,39 +736,6 @@
             </div>
           </div>
 
-          <!-- Action buttons row -->
-          <div class="flex justify-between gap-2 mb-4 bg-transparent">
-            <div class="flex gap-2 bg-transparent">
-              <Button
-                color="light"
-                size="sm"
-                onclick={() => (showArticleCommentUI = !showArticleCommentUI)}
-              >
-                {showArticleCommentUI ? "Close Comment" : "Comment On Article"}
-              </Button>
-              <HighlightButton bind:isActive={highlightModeActive} />
-            </div>
-            <div class="flex gap-2 bg-transparent">
-              <Button color="light" size="sm" onclick={toggleComments}>
-                {#if commentsVisible}
-                  <EyeSlashOutline class="w-4 h-4 mr-2" />
-                  Hide Comments
-                {:else}
-                  <EyeOutline class="w-4 h-4 mr-2" />
-                  Show Comments
-                {/if}
-              </Button>
-              <Button color="light" size="sm" onclick={toggleHighlights}>
-                {#if highlightsVisible}
-                  <EyeSlashOutline class="w-4 h-4 mr-2" />
-                  Hide Highlights
-                {:else}
-                  <EyeOutline class="w-4 h-4 mr-2" />
-                  Show Highlights
-                {/if}
-              </Button>
-            </div>
-          </div>
 
           <!-- Article Comment UI -->
           {#if showArticleCommentUI}
@@ -647,6 +793,8 @@
               </Alert>
             {:else}
               {@const address = leaf.tagAddress()}
+              {@const publicationTitle = getMatchingTags(indexEvent, "title")[0]?.[1]}
+              {@const isFirstSection = i === 0}
               <PublicationSection
                 {rootAddress}
                 {leaves}
@@ -655,6 +803,8 @@
                 {toc}
                 allComments={comments}
                 {commentsVisible}
+                publicationTitle={publicationTitle}
+                {isFirstSection}
                 ref={(el) => onPublicationSectionMounted(el, address)}
               />
             {/if}
@@ -861,3 +1011,11 @@
   bind:comments
   {useMockComments}
 />
+
+<!-- CardActions component to reuse its modal (button visually hidden but still functional) -->
+<div style="position: fixed; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+  <CardActions 
+    event={indexEvent} 
+    bind:detailsModalOpen={detailsModalOpen}
+  />
+</div>

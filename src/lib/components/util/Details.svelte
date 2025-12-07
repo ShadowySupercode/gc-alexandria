@@ -14,10 +14,11 @@
   // isModal
   //  - don't show interactions in modal view
   //  - don't show all the details when _not_ in modal view
-  let { event, isModal = false, onDelete } = $props<{
+  let { event, isModal = false, onDelete, hideActions = false } = $props<{
     event: any;
     isModal?: boolean;
     onDelete?: () => void;
+    hideActions?: boolean;
   }>();
 
   let title: string = $derived(getMatchingTags(event, "title")[0]?.[1]);
@@ -66,7 +67,7 @@
 </script>
 
 <div class="flex flex-col relative mb-2">
-  {#if !isModal}
+  {#if !isModal && !hideActions}
     <div class="flex flex-row justify-between items-center">
       <!-- Index author badge -->
       <P class="text-base font-normal"
@@ -75,6 +76,13 @@
       <div class="flex flex-row gap-2 items-center">
         <CardActions {event} {onDelete}></CardActions>
       </div>
+    </div>
+  {:else if !isModal && hideActions}
+    <div class="flex flex-row justify-between items-center">
+      <!-- Index author badge -->
+      <P class="text-base font-normal"
+        >{@render userBadge(event.pubkey, undefined, ndk)}</P
+      >
     </div>
   {/if}
   <div

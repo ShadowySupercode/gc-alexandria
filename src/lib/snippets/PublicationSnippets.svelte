@@ -8,7 +8,7 @@
   {@const headingLevel = Math.min(depth + 1, 6)}
 
   <!-- TODO: Handle floating titles. -->
-  <svelte:element this={`h${headingLevel}`} class="h-leather">
+  <svelte:element this={`h${headingLevel}`} class="h-leather text-left">
     {title}
   </svelte:element>
 {/snippet}
