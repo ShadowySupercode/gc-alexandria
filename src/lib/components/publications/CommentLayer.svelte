@@ -124,7 +124,17 @@
        */
       const subscriptionId = `comments-${Date.now()}`;
       const receivedEventIds = new Set<string>();
-      let eoseCount = 0;
+      let responseCount = 0;
+      const totalRelays = uniqueRelays.length;
+
+      // AI-NOTE: Helper to check if all relays have responded and clear loading state early
+      const checkAllResponses = () => {
+        responseCount++;
+        if (responseCount >= totalRelays && loading) {
+          console.log(`[CommentLayer] All ${totalRelays} relays have responded, clearing loading state`);
+          loading = false;
+        }
+      };
 
       const fetchPromises = uniqueRelays.map(async (relayUrl) => {
         try {
@@ -154,6 +164,7 @@
             const safeResolve = () => {
               if (!resolved) {
                 resolved = true;
+                checkAllResponses();
                 resolve();
               }
             };
@@ -186,8 +197,7 @@
                     console.log(`[CommentLayer] Added comment, total now: ${comments.length}`);
                   }
                 } else if (message[0] === "EOSE" && message[1] === subscriptionId) {
-                  eoseCount++;
-                  console.log(`[CommentLayer] EOSE from ${relayUrl} (${eoseCount}/${uniqueRelays.length})`);
+                  console.log(`[CommentLayer] EOSE from ${relayUrl} (${responseCount + 1}/${totalRelays})`);
 
                   // Close subscription and release connection
                   releaseConnection();
@@ -219,11 +229,16 @@
           });
         } catch (err) {
           console.error(`[CommentLayer] Error connecting to ${relayUrl}:`, err);
+          // Mark this relay as responded if connection fails
+          checkAllResponses();
         }
       });
 
       // Wait for all relays to respond or timeout
-      await Promise.all(fetchPromises);
+      await Promise.allSettled(fetchPromises);
+      
+      // Ensure loading is cleared even if checkAllResponses didn't fire
+      loading = false;
 
       console.log(`[CommentLayer] Fetched ${comments.length} comments`);
 
@@ -234,8 +249,6 @@
           author: c.pubkey.substring(0, 8)
         })));
       }
-
-      loading = false;
 
     } catch (err) {
       console.error(`[CommentLayer] Error fetching comments:`, err);
