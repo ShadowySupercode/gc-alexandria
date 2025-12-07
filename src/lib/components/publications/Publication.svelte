@@ -300,6 +300,94 @@
     }
   }
 
+  /**
+   * Background-loads all events in the publication tree in breadth-first order (level by level).
+   * This ensures the TOC is fully populated with all sections.
+   * 
+   * Loads: root -> level 1 children -> level 2 children -> etc.
+   * Also resolves children for each entry to establish parent relationships in TOC.
+   * 
+   * AI-NOTE: Throttled to avoid blocking main publication loading. Processes in small batches
+   * with delays to prevent overwhelming relays.
+   */
+  async function backgroundLoadAllEvents() {
+    if (!publicationTree || !toc) {
+      console.warn("[Publication] publicationTree or toc is not available for background loading");
+      return;
+    }
+
+    console.log("[Publication] Starting background load of all events in level-layers (throttled)");
+    
+    // Throttling configuration
+    const BATCH_SIZE = 10; // Process 3 addresses at a time
+    const BATCH_DELAY_MS = 200; // 200ms delay between batches
+    const LEVEL_DELAY_MS = 500; // 500ms delay between levels
+    
+    // Track which addresses we've processed to avoid duplicates
+    const processedAddresses = new Set<string>();
+    
+    // Start with root address
+    const queue: string[] = [rootAddress];
+    processedAddresses.add(rootAddress);
+    
+    // Process level by level (breadth-first)
+    while (queue.length > 0) {
+      const currentLevelAddresses = [...queue];
+      queue.length = 0; // Clear queue for next level
+      
+      // Process addresses in small batches to avoid overwhelming relays
+      for (let i = 0; i < currentLevelAddresses.length; i += BATCH_SIZE) {
+        const batch = currentLevelAddresses.slice(i, i + BATCH_SIZE);
+        
+        // Process batch in parallel
+        const batchPromises = batch.map(async (address) => {
+          try {
+            // Get child addresses for this node - this triggers node resolution
+            const childAddresses = await publicationTree.getChildAddresses(address);
+            
+            // Resolve children for this entry to establish parent relationships in TOC
+            const entry = toc.getEntry(address);
+            if (entry && !entry.childrenResolved) {
+              await entry.resolveChildren();
+            }
+            
+            // Add valid children to queue for next level
+            for (const childAddress of childAddresses) {
+              if (childAddress && !processedAddresses.has(childAddress)) {
+                processedAddresses.add(childAddress);
+                queue.push(childAddress);
+                
+                // Resolve the child event to populate TOC (non-blocking)
+                publicationTree.getEvent(childAddress).catch((error: unknown) => {
+                  console.debug(`[Publication] Error fetching child event ${childAddress}:`, error);
+                });
+              }
+            }
+          } catch (error) {
+            console.error(`[Publication] Error loading children for ${address}:`, error);
+          }
+        });
+        
+        // Wait for batch to complete
+        await Promise.all(batchPromises);
+        
+        // Small delay between batches to avoid blocking main loading
+        if (i + BATCH_SIZE < currentLevelAddresses.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+      
+      console.log(`[Publication] Completed level, processed ${currentLevelAddresses.length} addresses, queued ${queue.length} for next level`);
+      
+      // Delay between levels to give main loading priority
+      if (queue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, LEVEL_DELAY_MS));
+      }
+    }
+    
+    console.log("[Publication] Background load complete, processed", processedAddresses.size, "addresses");
+  }
+
   // #endregion
 
   // AI-NOTE: Combined effect to handle publicationTree changes and initial loading
@@ -336,6 +424,19 @@
     console.log("[Publication] Loading initial content");
     hasInitialized = true;
     loadMore(INITIAL_LOAD_COUNT);
+    
+    // Start background loading all events in level-layers for TOC
+    // This runs in the background and doesn't block the UI
+    // Wait a bit for toc to be initialized
+    setTimeout(() => {
+      if (toc && publicationTree) {
+        backgroundLoadAllEvents().catch((error) => {
+          console.error("[Publication] Error in background loading:", error);
+        });
+      } else {
+        console.warn("[Publication] toc or publicationTree not available for background loading");
+      }
+    }, 100);
   });
 
   // #region Columns visibility

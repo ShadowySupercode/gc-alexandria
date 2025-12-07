@@ -12,7 +12,7 @@
   import Self from "./TableOfContents.svelte";
   import { onMount, onDestroy } from "svelte";
 
-  let { depth, onSectionFocused, onLoadMore, onClose, toc } = $props<{
+  let { rootAddress, depth, onSectionFocused, onLoadMore, onClose, toc } = $props<{
     rootAddress: string;
     depth: number;
     toc: TableOfContents;
@@ -23,11 +23,36 @@
 
   let entries = $derived.by<TocEntry[]>(() => {
     const newEntries = [];
+    const rootEntry = rootAddress === toc.getRootEntry()?.address 
+      ? toc.getRootEntry() 
+      : toc.getEntry(rootAddress);
+    
+    if (!rootEntry) {
+      return [];
+    }
+    
+    // Filter entries that are direct children of rootAddress at the correct depth
     for (const [_, entry] of toc.addressMap) {
+      // Must match the depth
       if (entry.depth !== depth) {
         continue;
       }
-
+      
+      // Check if entry is a direct child of rootAddress
+      // Primary check: parent relationship (set when resolveChildren is called)
+      // Fallback: entry is in rootEntry's children array
+      // Final fallback: depth-based check for root's direct children only
+      const isDirectChild = 
+        entry.parent?.address === rootAddress ||
+        rootEntry.children.some((child: TocEntry) => child.address === entry.address) ||
+        (entry.depth === rootEntry.depth + 1 && 
+         rootAddress === toc.getRootEntry()?.address &&
+         !entry.parent); // Only use depth check if parent not set (temporary state)
+      
+      if (!isDirectChild) {
+        continue;
+      }
+      
       newEntries.push(entry);
     }
 
