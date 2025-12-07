@@ -181,16 +181,21 @@
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
       {#if isIndexEvent}
         {#if publicationType === "blog"}
-          <!-- Blog view: disabled when showing blog list, active when viewing article -->
-          <Button
-            class={`btn-leather !w-auto ${$publicationColumnVisibility.inner ? "active" : ""}`}
-            outline={true}
-            disabled={$publicationColumnVisibility.blog && !$publicationColumnVisibility.inner}
-            onclick={handleBlogTocClick}
-            title={$publicationColumnVisibility.inner ? "Back to Table of Contents" : "Table of Contents"}
-          >
-            <BookOutline class="!fill-none" />
-          </Button>
+          <!-- Blog view: hidden when showing blog list, shows back arrow when viewing article -->
+          {#if !($publicationColumnVisibility.blog && !$publicationColumnVisibility.inner)}
+            <Button
+              class={`btn-leather !w-auto ${$publicationColumnVisibility.inner ? "active" : ""}`}
+              outline={true}
+              onclick={handleBlogTocClick}
+              title={$publicationColumnVisibility.inner ? "Back to Table of Contents" : "Table of Contents"}
+            >
+              {#if $publicationColumnVisibility.inner}
+                <CaretLeftOutline class="!fill-none" />
+              {:else}
+                <BookOutline class="!fill-none" />
+              {/if}
+            </Button>
+          {/if}
         {:else if !$publicationColumnVisibility.discussion}
           <Button
             class={`btn-leather !w-auto ${$publicationColumnVisibility.toc ? "active" : ""}`}
