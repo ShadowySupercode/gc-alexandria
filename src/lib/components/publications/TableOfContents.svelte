@@ -77,6 +77,27 @@
     return currentVisibleSection === address;
   }
 
+  // Calculate indentation based on depth
+  // Depth 2 = no indent (Beginning, root entry)
+  // Depth 3 = indent level 1 (30041 sections under 30040)
+  // Depth 4+ = more indentation
+  function getIndentClass(depth: number): string {
+    if (depth <= 2) {
+      return "";
+    }
+    // Each level beyond 2 adds 1rem (16px) of padding
+    const indentLevel = depth - 2;
+    // Use standard Tailwind classes: pl-4 (1rem), pl-8 (2rem), pl-12 (3rem), etc.
+    const paddingMap: Record<number, string> = {
+      1: "pl-4",   // 1rem
+      2: "pl-8",   // 2rem
+      3: "pl-12",  // 3rem
+      4: "pl-16",  // 4rem
+      5: "pl-20",  // 5rem
+    };
+    return paddingMap[indentLevel] || `pl-[${indentLevel}rem]`;
+  }
+
   // Set up intersection observer to track visible sections
   onMount(() => {
     observer = new IntersectionObserver(
@@ -163,6 +184,7 @@
       label="Beginning"
       href="#"
       spanClass="px-2 text-ellipsis"
+      class={getIndentClass(2)}
       onclick={(e) => {
         e.preventDefault();
         window.scrollTo({
@@ -184,7 +206,7 @@
         label={rootEntry.title}
         href={`#${rootEntry.address}`}
         spanClass="px-2 text-ellipsis"
-        class={`${isVisible ? "toc-highlight" : ""} `}
+        class={`${getIndentClass(rootEntry.depth)} ${isVisible ? "toc-highlight" : ""} `}
         onclick={() => {
           const element = document.getElementById(rootEntry.address);
           if (element) {
@@ -205,12 +227,13 @@
     {@const expanded = toc.expandedMap.get(address) ?? false}
     {@const isLeaf = toc.leaves.has(address)}
     {@const isVisible = isEntryVisible(address)}
+    {@const indentClass = getIndentClass(entry.depth)}
     {#if isLeaf}
       <SidebarItem
         label={entry.title}
         href={`#${address}`}
         spanClass="px-2 text-ellipsis"
-        class={`${isVisible ? "toc-highlight" : ""} `}
+        class={`${indentClass} ${isVisible ? "toc-highlight" : ""} `}
         onclick={() => handleSectionClick(address)}
       >
         <!-- Empty for now - could add icons or labels here in the future -->
@@ -219,7 +242,7 @@
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} whitespace-nowrap min-w-fit"
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} whitespace-nowrap min-w-fit {indentClass}"
         class="w-full"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
