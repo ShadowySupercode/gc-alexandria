@@ -1488,11 +1488,11 @@
           <div
             id="publication-top-sentinel"
             bind:this={topSentinelRef}
-            class="flex justify-center items-center my-8 min-h-[100px] w-full"
+            class="flex justify-center items-center my-2 min-h-[20px] w-full"
             data-sentinel="top"
           >
             {#if isLoading && leaves.length > 0}
-              <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-2">
                 <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-primary-600"></div>
                 <span>Loading previous sections...</span>
               </div>
