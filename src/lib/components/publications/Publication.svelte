@@ -293,6 +293,61 @@
   }
 
   /**
+   * Inserts events into leaves array in TOC order, ensuring no duplicates.
+   * Returns the updated leaves array.
+   */
+  function insertEventsInOrder(
+    eventsToInsert: Array<NDKEvent | null>,
+    allAddresses: string[]
+  ): Array<NDKEvent | null> {
+    const existingAddresses = new Set(leaves.map(leaf => leaf?.tagAddress()).filter(Boolean));
+    const newLeaves = [...leaves];
+    
+    // Filter out nulls and duplicates
+    const validEvents = eventsToInsert.filter(event => {
+      if (!event) {
+        return false;
+      }
+      const address = event.tagAddress();
+      return address && !existingAddresses.has(address);
+    });
+
+    // Sort events by their TOC index
+    const sortedEvents = validEvents.sort((a, b) => {
+      const indexA = allAddresses.indexOf(a!.tagAddress());
+      const indexB = allAddresses.indexOf(b!.tagAddress());
+      return indexA - indexB;
+    });
+
+    // Insert each event at the correct position
+    for (const event of sortedEvents) {
+      const address = event!.tagAddress();
+      const index = allAddresses.indexOf(address);
+      
+      // Find insertion point
+      let insertIndex = newLeaves.length;
+      for (let i = 0; i < newLeaves.length; i++) {
+        const leafAddress = newLeaves[i]?.tagAddress();
+        if (leafAddress) {
+          const leafIndex = allAddresses.indexOf(leafAddress);
+          if (leafIndex > index) {
+            insertIndex = i;
+            break;
+          }
+        }
+      }
+      
+      // Only insert if not already present
+      if (!newLeaves.some(leaf => leaf?.tagAddress() === address)) {
+        newLeaves.splice(insertIndex, 0, event);
+        existingAddresses.add(address);
+      }
+    }
+
+    return newLeaves;
+  }
+
+  /**
    * Loads sections before a given address in the TOC order.
    */
   async function loadSectionsBefore(referenceAddress: string, count: number = AUTO_LOAD_BATCH_SIZE) {
@@ -338,9 +393,8 @@
       }
     }
 
-    const validEvents = newEvents.filter(e => e !== null);
-    if (validEvents.length > 0) {
-      leaves = [...newEvents.reverse(), ...leaves];
+    if (newEvents.length > 0) {
+      leaves = insertEventsInOrder(newEvents, allAddresses);
     }
 
     isLoading = false;
@@ -393,17 +447,7 @@
     }
 
     if (newEvents.length > 0) {
-      const referenceIndexInLeaves = leaves.findIndex(
-        leaf => leaf?.tagAddress() === referenceAddress
-      );
-      
-      if (referenceIndexInLeaves !== -1) {
-        const before = leaves.slice(0, referenceIndexInLeaves + 1);
-        const after = leaves.slice(referenceIndexInLeaves + 1);
-        leaves = [...before, ...newEvents, ...after];
-      } else {
-        leaves = [...leaves, ...newEvents];
-      }
+      leaves = insertEventsInOrder(newEvents, allAddresses);
     }
 
     isLoading = false;
@@ -466,29 +510,9 @@
       }
     }
 
-    // Insert events in TOC order
-    const newLeaves = [...leaves];
-    for (const { address, event, index } of windowEvents) {
-      // Skip if already in leaves
-      if (newLeaves.some(leaf => leaf?.tagAddress() === address)) {
-        continue;
-      }
-      
-      let insertIndex = newLeaves.length;
-      for (let i = 0; i < newLeaves.length; i++) {
-        const leafAddress = newLeaves[i]?.tagAddress();
-        if (leafAddress) {
-          const leafIndex = allAddresses.indexOf(leafAddress);
-          if (leafIndex > index) {
-            insertIndex = i;
-            break;
-          }
-        }
-      }
-      newLeaves.splice(insertIndex, 0, event);
-    }
-
-    leaves = newLeaves;
+    // Insert events in TOC order, ensuring no duplicates
+    const eventsToInsert: Array<NDKEvent | null> = windowEvents.map(({ event }) => event);
+    leaves = insertEventsInOrder(eventsToInsert, allAddresses);
 
     // Set bookmark to target address for future sequential loading
     publicationTree.setBookmark(targetAddress);
@@ -883,6 +907,7 @@
   });
 
   // AI-NOTE: Simple IntersectionObserver-based infinite scroll
+  // Observes sentinels and first section element for upward scrolling
   $effect(() => {
     if (!hasInitialized || !publicationTree || !toc) {
       return;
@@ -890,6 +915,8 @@
 
     let observer: IntersectionObserver | null = null;
     let setupTimeout: number | null = null;
+    let updateInterval: number | null = null;
+    let observedFirstSection: string | null = null;
 
     const setupObserver = () => {
       if (observer) {
@@ -928,6 +955,12 @@
               if (firstSection && firstSection.tagAddress() !== rootAddress) {
                 loadSectionsBefore(firstSection.tagAddress(), AUTO_LOAD_BATCH_SIZE);
               }
+            } else {
+              // This is the first section element
+              const firstSection = leaves.filter(l => l !== null)[0];
+              if (firstSection && targetId === firstSection.tagAddress() && targetId !== rootAddress) {
+                loadSectionsBefore(targetId, AUTO_LOAD_BATCH_SIZE);
+              }
             }
             break;
           }
@@ -946,11 +979,50 @@
       }
     };
 
-    setupTimeout = window.setTimeout(setupObserver, 100);
+    // Update observer when first section changes (e.g., after jump)
+    const updateFirstSectionObserver = () => {
+      if (!observer || leaves.length === 0) {
+        return;
+      }
+
+      const firstSection = leaves.filter(l => l !== null)[0];
+      if (!firstSection) {
+        return;
+      }
+
+      const firstAddress = firstSection.tagAddress();
+      if (firstAddress === observedFirstSection || firstAddress === rootAddress) {
+        return;
+      }
+
+      // Unobserve previous first section if it changed
+      if (observedFirstSection) {
+        const prevElement = document.getElementById(observedFirstSection);
+        if (prevElement) {
+          observer.unobserve(prevElement);
+        }
+      }
+
+      // Observe new first section
+      const firstElement = document.getElementById(firstAddress);
+      if (firstElement) {
+        observer.observe(firstElement);
+        observedFirstSection = firstAddress;
+      }
+    };
+
+    setupTimeout = window.setTimeout(() => {
+      setupObserver();
+      // Start updating when first section changes
+      updateInterval = window.setInterval(updateFirstSectionObserver, 500);
+    }, 100);
 
     return () => {
       if (setupTimeout !== null) {
         clearTimeout(setupTimeout);
+      }
+      if (updateInterval !== null) {
+        clearInterval(updateInterval);
       }
       if (observer) {
         observer.disconnect();
