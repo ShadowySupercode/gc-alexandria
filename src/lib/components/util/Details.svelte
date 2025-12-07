@@ -142,7 +142,7 @@
     {#each hashtags as tag}
       <button
         onclick={() => goto(`/events?t=${encodeURIComponent(tag)}`)}
-        class="text-sm hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer mr-2"
+        class="text-sm text-primary-700 dark:text-primary-300 hover:text-primary-800 dark:hover:text-primary-200 cursor-pointer mr-2"
         >#{tag}</button
       >
     {/each}

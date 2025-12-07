@@ -144,7 +144,7 @@
           {#if hashtags}
             <div class="tags">
               {#each hashtags as tag}
-                <span class="mr-2">#{tag}</span>
+                <span>#{tag}</span>
               {/each}
             </div>
           {/if}
