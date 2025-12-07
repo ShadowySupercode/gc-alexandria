@@ -119,6 +119,7 @@
   let hasInitialized = $state(false);
   let highlightModeActive = $state(false);
   let publicationDeleted = $state(false);
+  let sidebarTop = $state(162); // Default to 162px (100px navbar + 62px ArticleNav)
 
   let observer: IntersectionObserver;
 
@@ -420,6 +421,20 @@
   });
 
   onMount(() => {
+    // Measure the actual navbar and ArticleNav heights to position sidebars correctly
+    const navbar = document.getElementById("navi");
+    const articleNav = document.querySelector("nav.navbar-leather");
+    
+    if (navbar && articleNav) {
+      const navbarRect = navbar.getBoundingClientRect();
+      const articleNavRect = articleNav.getBoundingClientRect();
+      sidebarTop = articleNavRect.bottom;
+    } else if (navbar) {
+      // Fallback: if ArticleNav not found, use navbar height + estimated ArticleNav height
+      const navbarRect = navbar.getBoundingClientRect();
+      sidebarTop = navbarRect.bottom + 62; // Estimated ArticleNav height
+    }
+
     // Set current columns depending on the publication type
     const isBlog = publicationType === "blog";
     publicationColumnVisibility.update((v) => ({
@@ -725,7 +740,8 @@
 >
   {#if $publicationColumnVisibility.discussion}
     <Sidebar
-      class="z-10 ml-4 fixed top-[162px] h-[calc(100vh-165px)] overflow-y-auto"
+      class="z-10 ml-4 fixed overflow-y-auto"
+      style="top: {sidebarTop}px; height: calc(100vh - {sidebarTop + 3}px);"
       classes={{
         div: "bg-transparent",
       }}
@@ -796,9 +812,10 @@
   
   <!-- Drawer -->
   <div
-    class="fixed top-[162px] left-0 h-[calc(100vh-162px)] w-fit min-w-[280px] max-w-[min(98vw,500px)] z-[110] dark:bg-primary-900 bg-primary-50 rounded-r-lg shadow-xl transition-transform duration-300 ease-in-out {$publicationColumnVisibility.toc
+    class="fixed left-0 w-fit min-w-[280px] max-w-[min(98vw,500px)] z-[110] dark:bg-primary-900 bg-primary-50 rounded-r-lg shadow-xl transition-transform duration-300 ease-in-out {$publicationColumnVisibility.toc
       ? 'translate-x-0'
       : '-translate-x-full'}"
+    style="top: {sidebarTop}px; height: calc(100vh - {sidebarTop}px);"
   >
     <div class="h-full flex flex-col overflow-hidden">
       <div class="flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700">

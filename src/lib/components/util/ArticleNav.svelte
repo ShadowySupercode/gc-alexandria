@@ -36,6 +36,7 @@
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
+  let navbarTop = $state(100); // Default to 100px
 
   // Function to toggle column visibility
   function toggleColumn(column: "toc" | "blog" | "inner" | "discussion") {
@@ -149,6 +150,13 @@
 
   let unsubscribe: () => void;
   onMount(() => {
+    // Measure the actual navbar height to position ArticleNav correctly
+    const navbar = document.getElementById("navi");
+    if (navbar) {
+      const rect = navbar.getBoundingClientRect();
+      navbarTop = rect.bottom;
+    }
+    
     window.addEventListener("scroll", handleScroll);
     unsubscribe = publicationColumnVisibility.subscribe(() => {
       isVisible = true; // show navbar when store changes
@@ -162,9 +170,10 @@
 </script>
 
 <nav
-  class="Navbar navbar-leather col-span-2 flex fixed top-[100px] sm:top-[92px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+  class="Navbar navbar-leather col-span-2 flex fixed w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
     ? 'translate-y-0'
     : '-translate-y-full'}"
+  style="top: {navbarTop}px;"
 >
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
