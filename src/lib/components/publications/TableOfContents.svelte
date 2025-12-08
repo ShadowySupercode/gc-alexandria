@@ -71,6 +71,36 @@
 
     toc.expandedMap.set(address, expanded);
     entry.resolveChildren();
+
+    // AI-NOTE: When expanding a chapter, scroll it to the top of the TOC so its children are visible
+    if (expanded) {
+      // Use setTimeout to allow the expansion animation to start and DOM to update
+      setTimeout(() => {
+        // Find the scrollable container (the div with overflow-y-auto in the TOC drawer)
+        const scrollableContainer = document.querySelector('.overflow-y-auto');
+        if (!scrollableContainer) {
+          return;
+        }
+
+        // Find all buttons in the TOC that match the entry title
+        const buttons = scrollableContainer.querySelectorAll('button');
+        for (const button of buttons) {
+          const buttonText = button.textContent?.trim();
+          if (buttonText === entry.title) {
+            // Find the parent container of the dropdown (the SidebarDropdownWrapper)
+            const dropdownContainer = button.closest('[class*="w-full"]');
+            if (dropdownContainer) {
+              // Scroll the chapter to the top of the TOC container
+              dropdownContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
+            }
+            break;
+          }
+        }
+      }, 150);
+    }
   }
 
   function handleSectionClick(address: string) {
