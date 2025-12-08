@@ -64,7 +64,7 @@
   let publicationContentRef: HTMLElement | null = $state(null);
 
   // Comment layer state
-  let commentsVisible = $state(true);
+  let commentsVisible = $state(false);
   let comments = $state<NDKEvent[]>([]);
   let commentLayerRef: any = null;
   let showArticleCommentUI = $state(false);
@@ -1734,8 +1734,8 @@
 <!-- Comment Layer Component -->
 <CommentLayer
   bind:this={commentLayerRef}
-  eventIds={allEventIds}
-  eventAddresses={allEventAddresses}
+  eventIds={commentsVisible ? allEventIds : []}
+  eventAddresses={commentsVisible ? allEventAddresses : []}
   bind:comments
   {useMockComments}
 />
