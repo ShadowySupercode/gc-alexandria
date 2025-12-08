@@ -75,7 +75,6 @@
   async function fetchHighlights() {
     // Prevent concurrent fetches
     if (loading) {
-      console.log("[HighlightLayer] Already loading, skipping fetch");
       return;
     }
 
@@ -99,10 +98,6 @@
     // AI-NOTE: Mock mode allows testing highlight UI without publishing to relays
     // This is useful for development and demonstrating the highlight system
     if (useMockHighlights) {
-      console.log(
-        `[HighlightLayer] MOCK MODE - Generating mock highlights for ${allAddresses.length} sections`,
-      );
-
       try {
         // Generate mock highlight data
         const mockHighlights = generateMockHighlightsForSections(allAddresses);
@@ -112,9 +107,6 @@
           (rawEvent) => new NDKEventClass(ndk, rawEvent),
         );
 
-        console.log(
-          `[HighlightLayer] Generated ${highlights.length} mock highlights`,
-        );
         loading = false;
         return;
       } catch (err) {
@@ -126,11 +118,6 @@
         return;
       }
     }
-
-    console.log(`[HighlightLayer] Fetching highlights for:`, {
-      eventIds: allEventIds,
-      addresses: allAddresses,
-    });
 
     try {
       // Build filter for kind 9802 highlight events
@@ -149,11 +136,6 @@
         filter["#e"] = allEventIds;
       }
 
-      console.log(
-        `[HighlightLayer] Fetching with filter:`,
-        JSON.stringify(filter, null, 2),
-      );
-
       // Build explicit relay set (same pattern as HighlightSelectionHandler and CommentButton)
       const relays = [
         ...communityRelays,
@@ -161,10 +143,6 @@
         ...$activeInboxRelays,
       ];
       const uniqueRelays = Array.from(new Set(relays));
-      console.log(
-        `[HighlightLayer] Fetching from ${uniqueRelays.length} relays:`,
-        uniqueRelays,
-      );
 
       /**
        * Use WebSocketPool with nostr-tools protocol instead of NDK
@@ -186,7 +164,6 @@
 
       const fetchPromises = uniqueRelays.map(async (relayUrl) => {
         try {
-          console.log(`[HighlightLayer] Connecting to ${relayUrl}`);
           const ws = await WebSocketPool.instance.acquire(relayUrl);
 
           return new Promise<void>((resolve) => {
@@ -220,22 +197,8 @@
               try {
                 const message = JSON.parse(event.data);
 
-                // Log ALL messages from relay.nostr.band for debugging
-                if (relayUrl.includes("relay.nostr.band")) {
-                  console.log(
-                    `[HighlightLayer] RAW message from ${relayUrl}:`,
-                    message,
-                  );
-                }
-
                 if (message[0] === "EVENT" && message[1] === subscriptionId) {
                   const rawEvent = message[2];
-                  console.log(`[HighlightLayer] EVENT from ${relayUrl}:`, {
-                    id: rawEvent.id,
-                    kind: rawEvent.kind,
-                    content: rawEvent.content.substring(0, 50),
-                    tags: rawEvent.tags,
-                  });
 
                   // Avoid duplicates
                   if (!receivedEventIds.has(rawEvent.id)) {
@@ -244,27 +207,16 @@
                     // Convert to NDKEvent
                     const ndkEvent = new NDKEventClass(ndk, rawEvent);
                     highlights = [...highlights, ndkEvent];
-                    console.log(
-                      `[HighlightLayer] Added highlight, total now: ${highlights.length}`,
-                    );
                   }
                 } else if (
                   message[0] === "EOSE" &&
                   message[1] === subscriptionId
                 ) {
                   eoseCount++;
-                  console.log(
-                    `[HighlightLayer] EOSE from ${relayUrl} (${eoseCount}/${uniqueRelays.length})`,
-                  );
 
                   // Close subscription and release connection
                   releaseConnection();
                   safeResolve();
-                } else if (message[0] === "NOTICE") {
-                  console.warn(
-                    `[HighlightLayer] NOTICE from ${relayUrl}:`,
-                    message[1],
-                  );
                 }
               } catch (err) {
                 console.error(
@@ -278,14 +230,6 @@
 
             // Send REQ
             const req = ["REQ", subscriptionId, filter];
-            if (relayUrl.includes("relay.nostr.band")) {
-              console.log(
-                `[HighlightLayer] Sending REQ to ${relayUrl}:`,
-                JSON.stringify(req),
-              );
-            } else {
-              console.log(`[HighlightLayer] Sending REQ to ${relayUrl}`);
-            }
             ws.send(JSON.stringify(req));
 
             // Timeout per relay (5 seconds)
@@ -304,19 +248,6 @@
 
       // Wait for all relays to respond or timeout
       await Promise.all(fetchPromises);
-
-      console.log(`[HighlightLayer] Fetched ${highlights.length} highlights`);
-
-      if (highlights.length > 0) {
-        console.log(
-          `[HighlightLayer] Highlights summary:`,
-          highlights.map((h) => ({
-            content: h.content.substring(0, 30) + "...",
-            address: h.tags.find((t) => t[0] === "a")?.[1],
-            author: h.pubkey.substring(0, 8),
-          })),
-        );
-      }
 
       loading = false;
 
@@ -341,9 +272,6 @@
     targetAddress?: string,
   ): boolean {
     if (!containerRef) {
-      console.log(
-        `[HighlightLayer] Cannot highlight by position - no containerRef`,
-      );
       return false;
     }
 
@@ -353,30 +281,10 @@
       const sectionElement = document.getElementById(targetAddress);
       if (sectionElement) {
         searchRoot = sectionElement;
-        console.log(
-          `[HighlightLayer] Highlighting in specific section: ${targetAddress}`,
-        );
-      } else {
-        console.log(
-          `[HighlightLayer] Section ${targetAddress} not found in DOM, searching globally`,
-        );
       }
     }
 
-    console.log(
-      `[HighlightLayer] Applying position-based highlight ${offsetStart}-${offsetEnd}`,
-    );
-    const result = highlightByOffset(searchRoot, offsetStart, offsetEnd, color);
-
-    if (result) {
-      console.log(
-        `[HighlightLayer] Successfully applied position-based highlight`,
-      );
-    } else {
-      console.log(`[HighlightLayer] Failed to apply position-based highlight`);
-    }
-
-    return result;
+    return highlightByOffset(searchRoot, offsetStart, offsetEnd, color);
   }
 
   /**
@@ -391,9 +299,6 @@
     targetAddress?: string,
   ): void {
     if (!containerRef || !text || text.trim().length === 0) {
-      console.log(
-        `[HighlightLayer] Cannot highlight - containerRef: ${!!containerRef}, text: "${text}"`,
-      );
       return;
     }
 
@@ -403,20 +308,8 @@
       const sectionElement = document.getElementById(targetAddress);
       if (sectionElement) {
         searchRoot = sectionElement;
-        console.log(
-          `[HighlightLayer] Searching in specific section: ${targetAddress}`,
-        );
-      } else {
-        console.log(
-          `[HighlightLayer] Section ${targetAddress} not found in DOM, searching globally`,
-        );
       }
     }
-
-    console.log(
-      `[HighlightLayer] Searching for text: "${text}" in`,
-      searchRoot,
-    );
 
     // Use TreeWalker to find all text nodes
     const walker = document.createTreeWalker(
@@ -432,22 +325,11 @@
     }
 
     // Search for the highlight text in text nodes
-    console.log(
-      `[HighlightLayer] Searching through ${textNodes.length} text nodes`,
-    );
-
     for (const textNode of textNodes) {
       const nodeText = textNode.textContent || "";
       const index = nodeText.toLowerCase().indexOf(text.toLowerCase());
 
       if (index !== -1) {
-        console.log(
-          `[HighlightLayer] Found match in text node:`,
-          nodeText.substring(
-            Math.max(0, index - 20),
-            Math.min(nodeText.length, index + text.length + 20),
-          ),
-        );
         const parent = textNode.parentNode;
         if (!parent) continue;
 
@@ -479,43 +361,25 @@
 
         parent.replaceChild(fragment, textNode);
 
-        console.log(`[HighlightLayer] Highlighted text:`, match);
         return; // Only highlight first occurrence to avoid multiple highlights
       }
     }
-
-    console.log(`[HighlightLayer] No match found for text: "${text}"`);
   }
 
   /**
    * Render all highlights on the page
    */
   function renderHighlights() {
-    console.log(
-      `[HighlightLayer] renderHighlights called - visible: ${visible}, containerRef: ${!!containerRef}, highlights: ${highlights.length}`,
-    );
-
     if (!visible || !containerRef) {
-      console.log(
-        `[HighlightLayer] Skipping render - visible: ${visible}, containerRef: ${!!containerRef}`,
-      );
       return;
     }
 
     if (highlights.length === 0) {
-      console.log(`[HighlightLayer] No highlights to render`);
       return;
     }
 
     // Clear existing highlights
     clearHighlights();
-
-    console.log(`[HighlightLayer] Rendering ${highlights.length} highlights`);
-    console.log(`[HighlightLayer] Container element:`, containerRef);
-    console.log(
-      `[HighlightLayer] Container has children:`,
-      containerRef.children.length,
-    );
 
     // Apply each highlight
     for (const highlight of highlights) {
@@ -531,42 +395,19 @@
       const hasOffset =
         offsetTag && offsetTag[1] !== undefined && offsetTag[2] !== undefined;
 
-      console.log(`[HighlightLayer] Rendering highlight:`, {
-        hasOffset,
-        offsetTag,
-        content: content.substring(0, 50),
-        contentLength: content.length,
-        targetAddress,
-        color,
-        allTags: highlight.tags,
-      });
-
       if (hasOffset) {
         // Use position-based highlighting
         const offsetStart = parseInt(offsetTag[1], 10);
         const offsetEnd = parseInt(offsetTag[2], 10);
 
         if (!isNaN(offsetStart) && !isNaN(offsetEnd)) {
-          console.log(
-            `[HighlightLayer] Using position-based highlighting: ${offsetStart}-${offsetEnd}`,
-          );
           highlightByPosition(offsetStart, offsetEnd, color, targetAddress);
-        } else {
-          console.log(
-            `[HighlightLayer] Invalid offset values, falling back to text search`,
-          );
-          if (content && content.trim().length > 0) {
-            findAndHighlightText(content, color, targetAddress);
-          }
-        }
-      } else {
-        // Fall back to text-based highlighting
-        console.log(`[HighlightLayer] Using text-based highlighting`);
-        if (content && content.trim().length > 0) {
+        } else if (content && content.trim().length > 0) {
           findAndHighlightText(content, color, targetAddress);
-        } else {
-          console.log(`[HighlightLayer] Skipping highlight - empty content`);
         }
+      } else if (content && content.trim().length > 0) {
+        // Fall back to text-based highlighting
+        findAndHighlightText(content, color, targetAddress);
       }
     }
 
@@ -595,10 +436,6 @@
         parent.normalize();
       }
     });
-
-    console.log(
-      `[HighlightLayer] Cleared ${highlightElements.length} highlights`,
-    );
   }
 
   // Track the last fetched event count to know when to refetch
@@ -609,10 +446,6 @@
   $effect(() => {
     const currentCount = eventIds.length + eventAddresses.length;
     const hasEventData = currentCount > 0;
-
-    console.log(
-      `[HighlightLayer] Event data effect - count: ${currentCount}, lastFetched: ${lastFetchedCount}, loading: ${loading}`,
-    );
 
     // Only fetch if:
     // 1. We have event data
@@ -626,9 +459,6 @@
 
       // Debounce: wait 500ms for more events to arrive before fetching
       fetchTimeout = setTimeout(() => {
-        console.log(
-          `[HighlightLayer] Event data stabilized at ${currentCount} events, fetching highlights...`,
-        );
         lastFetchedCount = currentCount;
         fetchHighlights();
       }, 500);
@@ -646,14 +476,8 @@
   $effect(() => {
     // This effect runs when either visible or highlights.length changes
     const highlightCount = highlights.length;
-    console.log(
-      `[HighlightLayer] Visibility/highlights effect - visible: ${visible}, highlights: ${highlightCount}`,
-    );
 
     if (visible && highlightCount > 0) {
-      console.log(
-        `[HighlightLayer] Both visible and highlights ready, rendering...`,
-      );
       renderHighlights();
     } else if (!visible) {
       clearHighlights();
@@ -673,9 +497,6 @@
    */
   async function fetchAuthorProfiles() {
     const uniquePubkeys = Array.from(groupedHighlights.keys());
-    console.log(
-      `[HighlightLayer] Fetching profiles for ${uniquePubkeys.length} authors`,
-    );
 
     for (const pubkey of uniquePubkeys) {
       try {
@@ -713,27 +534,17 @@
    * Scroll to a specific highlight in the document
    */
   function scrollToHighlight(highlight: NDKEvent) {
-    console.log(
-      `[HighlightLayer] scrollToHighlight called for:`,
-      highlight.content.substring(0, 50),
-    );
-
     if (!containerRef) {
-      console.warn(`[HighlightLayer] No containerRef available`);
       return;
     }
 
     const content = highlight.content;
     if (!content || content.trim().length === 0) {
-      console.warn(`[HighlightLayer] No content in highlight`);
       return;
     }
 
     // Find the highlight mark element
     const highlightMarks = containerRef.querySelectorAll("mark.highlight");
-    console.log(
-      `[HighlightLayer] Found ${highlightMarks.length} highlight marks in DOM`,
-    );
 
     // Try exact match first
     for (const mark of highlightMarks) {
@@ -741,9 +552,6 @@
       const searchText = content.toLowerCase();
 
       if (markText === searchText) {
-        console.log(
-          `[HighlightLayer] Found exact match, scrolling and flashing`,
-        );
         // Scroll to this element
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -762,9 +570,6 @@
       const searchText = content.toLowerCase();
 
       if (markText.includes(searchText) || searchText.includes(markText)) {
-        console.log(
-          `[HighlightLayer] Found partial match, scrolling and flashing`,
-        );
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
         mark.classList.add("highlight-flash");
         setTimeout(() => {
@@ -773,11 +578,6 @@
         return;
       }
     }
-
-    console.warn(
-      `[HighlightLayer] Could not find highlight mark for:`,
-      content.substring(0, 50),
-    );
   }
 
   /**
@@ -790,7 +590,6 @@
     try {
       await navigator.clipboard.writeText(naddr);
       copyFeedback = highlight.id;
-      console.log(`[HighlightLayer] Copied naddr to clipboard:`, naddr);
 
       // Clear feedback after 2 seconds
       setTimeout(() => {
@@ -812,8 +611,6 @@
    * Public method to refresh highlights (e.g., after creating a new one)
    */
   export function refresh() {
-    console.log("[HighlightLayer] Manual refresh triggered");
-
     // Clear existing highlights
     highlights = [];
     clearHighlights();

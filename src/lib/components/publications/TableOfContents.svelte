@@ -92,7 +92,6 @@
     const currentEntries = entries;
     const lastEntry = currentEntries[currentEntries.length - 1];
     if (lastEntry && lastEntry.address === address) {
-      console.debug('[TableOfContents] Last entry clicked, triggering load more');
       onLoadMore?.();
     }
   }

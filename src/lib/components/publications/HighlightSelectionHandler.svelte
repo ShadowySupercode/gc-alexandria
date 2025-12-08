@@ -97,21 +97,12 @@
     // Don't use closest('.publication-leather') as Details also has that class
     const publicationSection = target.closest("section[id]") as HTMLElement;
     if (!publicationSection) {
-      console.log("[HighlightSelectionHandler] No section[id] found, aborting");
       return;
     }
 
     // Get the specific section's event address and ID from data attributes
     const sectionAddress = publicationSection.dataset.eventAddress;
     const sectionEventId = publicationSection.dataset.eventId;
-
-    console.log("[HighlightSelectionHandler] Selection in section:", {
-      element: publicationSection,
-      address: sectionAddress,
-      eventId: sectionEventId,
-      allDataAttrs: publicationSection.dataset,
-      sectionId: publicationSection.id,
-    });
 
     currentSelection = selection;
     selectedText = text;
@@ -154,12 +145,6 @@
       const useAddress =
         selectedSectionAddress || publicationEvent.tagAddress();
       const useEventId = selectedSectionEventId || publicationEvent.id;
-
-      console.log("[HighlightSelectionHandler] Creating highlight with:", {
-        address: useAddress,
-        eventId: useEventId,
-        fallbackUsed: !selectedSectionAddress,
-      });
 
       const tags: string[][] = [];
 
@@ -227,11 +212,6 @@
       // Remove duplicates
       const uniqueRelays = Array.from(new Set(relays));
 
-      console.log(
-        "[HighlightSelectionHandler] Publishing to relays:",
-        uniqueRelays,
-      );
-
       const signedEvent = {
         ...plainEvent,
         id: event.id,
@@ -256,15 +236,9 @@
                 clearTimeout(timeout);
                 if (ok) {
                   publishedCount++;
-                  console.log(
-                    `[HighlightSelectionHandler] Published to ${relayUrl}`,
-                  );
                   WebSocketPool.instance.release(ws);
                   resolve();
                 } else {
-                  console.warn(
-                    `[HighlightSelectionHandler] ${relayUrl} rejected: ${message}`,
-                  );
                   WebSocketPool.instance.release(ws);
                   reject(new Error(message));
                 }

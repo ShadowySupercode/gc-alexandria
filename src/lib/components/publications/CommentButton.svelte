@@ -129,12 +129,6 @@
       commentEvent.tags.push(["e", eventId, relayHint]);
     }
 
-    console.log("[CommentButton] Created NIP-22 comment event:", {
-      kind: commentEvent.kind,
-      tags: commentEvent.tags,
-      content: commentEvent.content,
-    });
-
     return commentEvent;
   }
 
@@ -179,8 +173,6 @@
         await commentEvent.sign($userStore.signer);
       }
 
-      console.log("[CommentButton] Signed comment event:", commentEvent.rawEvent());
-
       // Build relay list following the same pattern as eventServices
       const relays = [
         ...communityRelays,
@@ -190,8 +182,6 @@
 
       // Remove duplicates
       const uniqueRelays = Array.from(new Set(relays));
-
-      console.log("[CommentButton] Publishing to relays:", uniqueRelays);
 
       const signedEvent = {
         ...plainEvent,
@@ -217,11 +207,9 @@
                 clearTimeout(timeout);
                 if (ok) {
                   publishedCount++;
-                  console.log(`[CommentButton] Published to ${relayUrl}`);
                   WebSocketPool.instance.release(ws);
                   resolve();
                 } else {
-                  console.warn(`[CommentButton] ${relayUrl} rejected: ${message}`);
                   WebSocketPool.instance.release(ws);
                   reject(new Error(message));
                 }
@@ -239,8 +227,6 @@
       if (publishedCount === 0) {
         throw new Error("Failed to publish to any relays");
       }
-
-      console.log(`[CommentButton] Published to ${publishedCount} relay(s)`);
 
       // Success!
       success = true;

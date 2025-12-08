@@ -63,10 +63,6 @@
     leafEvent.then((e) => {
       if (e?.id) {
         leafEventId = e.id;
-        console.log(
-          `[PublicationSection] Set leafEventId for ${address}:`,
-          e.id,
-        );
       }
     });
   });
@@ -205,11 +201,7 @@
           eventAddress: address,
           eventKind: event.kind,
           reason: "User deleted section",
-          onSuccess: (deletionEventId) => {
-            console.log(
-              "[PublicationSection] Deletion event published:",
-              deletionEventId,
-            );
+          onSuccess: () => {
             // Refresh the page to reflect the deletion
             window.location.reload();
           },
@@ -231,14 +223,6 @@
     }
 
     ref(sectionRef);
-
-    // Log data attributes for debugging
-    console.log(`[PublicationSection] Section mounted:`, {
-      address,
-      leafEventId,
-      dataAddress: sectionRef.dataset.eventAddress,
-      dataEventId: sectionRef.dataset.eventId,
-    });
   });
 </script>
 

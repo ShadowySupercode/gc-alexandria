@@ -86,13 +86,6 @@
     import.meta.env.VITE_USE_MOCK_HIGHLIGHTS === "true",
   );
 
-  // Log initial state for debugging
-  console.log("[Publication] Mock data initialized:", {
-    envVars: {
-      VITE_USE_MOCK_COMMENTS: import.meta.env.VITE_USE_MOCK_COMMENTS,
-      VITE_USE_MOCK_HIGHLIGHTS: import.meta.env.VITE_USE_MOCK_HIGHLIGHTS,
-    },
-  });
 
   // Derive all event IDs and addresses for highlight fetching
   let allEventIds = $derived.by(() => {
@@ -183,7 +176,6 @@
           const { done, value } = iterResult;
 
           if (done) {
-            console.log("[Publication] Iterator done, no more events");
             isDone = true;
             break;
           }
@@ -198,17 +190,14 @@
               // AI-NOTE: Add event immediately to leaves so user sees it right away
               leaves = [...leaves, value];
               newEvents.push(value);
-              console.log(`[Publication] Added event ${i + 1}/${count} immediately. Total: ${leaves.length}`);
             } else {
               newEvents.push(null);
             }
           } else {
             consecutiveNulls++;
-            console.log(`[Publication] Got null event (${consecutiveNulls}/${MAX_CONSECUTIVE_NULLS} consecutive nulls)`);
             
             // Break early if we're getting too many nulls - likely no more content
             if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
-              console.log("[Publication] Too many consecutive null events, assuming no more content");
               isDone = true;
               break;
             }
@@ -222,58 +211,24 @@
           consecutiveNulls++;
           
           if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
-            console.log("[Publication] Too many errors/consecutive nulls, stopping load");
             break;
           }
         }
       }
 
-      // Log final summary (events already added incrementally above)
+      // Check if we got valid events
       const validEvents = newEvents.filter(e => e !== null);
-      if (validEvents.length > 0) {
-        console.log(
-          `[Publication] Load complete. Added ${validEvents.length} events. Total: ${leaves.length}`,
-        );
-        
-        // Log sentinel position after adding content
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (sentinelRef) {
-              const rect = sentinelRef.getBoundingClientRect();
-              const viewportHeight = window.innerHeight;
-              const distanceBelowViewport = rect.top - viewportHeight;
-              console.log("[Publication] Sentinel position after loadMore", {
-                leavesCount: leaves.length,
-                sentinelTop: rect.top,
-                viewportHeight,
-                distanceBelowViewport,
-                isConnected: sentinelRef.isConnected,
-              });
-            }
-          });
-        });
-      } else if (newEvents.length > 0) {
+      if (validEvents.length === 0 && newEvents.length > 0) {
         // We got through the loop but no valid events - might be done
-        console.log("[Publication] Completed load but got no valid events", {
-          newEventsLength: newEvents.length,
-          consecutiveNulls,
-        });
         if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
           isDone = true;
         }
-      } else {
-        console.warn("[Publication] loadMore completed but no events were loaded", {
-          count,
-          newEventsLength: newEvents.length,
-          validEventsLength: validEvents.length,
-        });
       }
     } catch (error) {
       console.error("[Publication] Error loading more content:", error);
       // Don't mark as done on error - might be transient network issue
     } finally {
       isLoading = false;
-      console.log(`[Publication] Load complete. isLoading: ${isLoading}, isDone: ${isDone}, leaves: ${leaves.length}`);
       
       // AI-NOTE: The ResizeObserver effect will handle checking sentinel position
       // after content actually renders, so we don't need aggressive post-load checks here
@@ -353,31 +308,14 @@
    * Loads sections before a given address in the TOC order.
    */
   async function loadSectionsBefore(referenceAddress: string, count: number = AUTO_LOAD_BATCH_SIZE) {
-    console.log("[Publication] loadSectionsBefore called:", {
-      referenceAddress,
-      count,
-      hasPublicationTree: !!publicationTree,
-      hasToc: !!toc,
-      isLoading,
-      isLoadingUpward
-    });
-    
     if (!publicationTree || !toc) {
-      console.log("[Publication] loadSectionsBefore: Early return (missing dependencies)");
       return;
     }
 
     const allAddresses = getAllSectionAddresses();
     const referenceIndex = allAddresses.indexOf(referenceAddress);
     
-    console.log("[Publication] loadSectionsBefore: Reference index:", {
-      referenceIndex,
-      totalAddresses: allAddresses.length,
-      referenceAddress
-    });
-    
     if (referenceIndex === -1 || referenceIndex === 0) {
-      console.log("[Publication] loadSectionsBefore: Early return (not found or at beginning)");
       return; // Not found or already at beginning
     }
 
@@ -390,14 +328,7 @@
       !loadedAddresses.has(addr) && !existingAddresses.has(addr)
     );
     
-    console.log("[Publication] loadSectionsBefore: Addresses to load:", {
-      total: addressesToLoad.length,
-      filtered: addressesToLoadFiltered.length,
-      addresses: addressesToLoadFiltered
-    });
-    
     if (addressesToLoadFiltered.length === 0) {
-      console.log("[Publication] loadSectionsBefore: Early return (no addresses to load)");
       return;
     }
 
@@ -419,19 +350,8 @@
       }
     }
 
-    console.log("[Publication] loadSectionsBefore: Loaded events:", {
-      total: newEvents.length,
-      valid: newEvents.filter(e => e !== null).length
-    });
-
     if (newEvents.length > 0) {
-      const beforeCount = leaves.length;
       leaves = insertEventsInOrder(newEvents, allAddresses);
-      console.log("[Publication] loadSectionsBefore: Updated leaves:", {
-        before: beforeCount,
-        after: leaves.length,
-        added: leaves.length - beforeCount
-      });
     }
 
     isLoading = false;
@@ -500,14 +420,12 @@
    */
   async function jumpToSection(targetAddress: string, windowSize: number = JUMP_WINDOW_SIZE) {
     if (!publicationTree || !toc) {
-      console.warn("[Publication] publicationTree or toc not available for jump-to-section");
       return;
     }
 
     // Check if target is already loaded
     const alreadyLoaded = leaves.some(leaf => leaf?.tagAddress() === targetAddress);
     if (alreadyLoaded) {
-      console.log(`[Publication] Section ${targetAddress} already loaded, scrolling to it`);
       // Scroll to the section
       const element = document.getElementById(targetAddress);
       if (element) {
@@ -520,7 +438,6 @@
     const targetIndex = allAddresses.indexOf(targetAddress);
     
     if (targetIndex === -1) {
-      console.warn(`[Publication] Target address ${targetAddress} not found in TOC`);
       return;
     }
 
@@ -545,7 +462,6 @@
       // There's a gap - fill it
       gapStartIndex = lastLoadedIndex + 1;
       gapEndIndex = jumpStartIndex - 1;
-      console.log(`[Publication] Gap detected: sections ${gapStartIndex}-${gapEndIndex} need to be loaded`);
     }
 
     // Collect all addresses to load (gap + jump window)
@@ -568,8 +484,6 @@
         addressesToLoad.push(addr);
       }
     }
-
-    console.log(`[Publication] Jump-to-section: loading ${addressesToLoad.length} sections (gap: ${gapStartIndex >= 0 ? `${gapStartIndex}-${gapEndIndex}` : 'none'}, window: ${jumpStartIndex}-${jumpEndIndex})`);
 
     // Load events
     const windowEvents: Array<{ address: string; event: NDKEvent | null; index: number }> = [];
@@ -601,8 +515,6 @@
       // Update observer after DOM updates
       updateFirstSectionObserver();
     }, 100);
-
-    console.log(`[Publication] Jump-to-section complete. Loaded ${windowEvents.length} sections around ${targetAddress}`);
   }
 
   /**
@@ -617,11 +529,8 @@
    */
   async function backgroundLoadAllEvents() {
     if (!publicationTree || !toc) {
-      console.warn("[Publication] publicationTree or toc is not available for background loading");
       return;
     }
-
-    console.log("[Publication] Starting background load of all events in level-layers (throttled)");
     
     // Throttling configuration
     const BATCH_SIZE = 10; // Process 3 addresses at a time
@@ -663,8 +572,8 @@
                 queue.push(childAddress);
                 
                 // Resolve the child event to populate TOC (non-blocking)
-                publicationTree.getEvent(childAddress).catch((error: unknown) => {
-                  console.debug(`[Publication] Error fetching child event ${childAddress}:`, error);
+                publicationTree.getEvent(childAddress).catch(() => {
+                  // Silently handle errors in background loading
                 });
               }
             }
@@ -682,15 +591,11 @@
         }
       }
       
-      console.log(`[Publication] Completed level, processed ${currentLevelAddresses.length} addresses, queued ${queue.length} for next level`);
-      
       // Delay between levels to give main loading priority
       if (queue.length > 0) {
         await new Promise(resolve => setTimeout(resolve, LEVEL_DELAY_MS));
       }
     }
-    
-    console.log("[Publication] Background load complete, processed", processedAddresses.size, "addresses");
   }
 
   // #endregion
@@ -708,8 +613,6 @@
     if (publicationTree === publicationTreeInstance && hasInitialized) {
       return; // Already initialized with this tree, don't reset
     }
-
-    console.log("[Publication] New publication tree detected, resetting state");
     
     // Reset state when publicationTree changes
     leaves = [];
@@ -726,7 +629,6 @@
     }
 
     // Load initial content after reset
-    console.log("[Publication] Loading initial content");
     hasInitialized = true;
     loadMore(INITIAL_LOAD_COUNT);
     
@@ -735,11 +637,9 @@
     // Wait a bit for toc to be initialized
     setTimeout(() => {
       if (toc && publicationTree) {
-        backgroundLoadAllEvents().catch((error) => {
-          console.error("[Publication] Error in background loading:", error);
+        backgroundLoadAllEvents().catch(() => {
+          // Silently handle errors in background loading
         });
-      } else {
-        console.warn("[Publication] toc or publicationTree not available for background loading");
       }
     }, 100);
   });
@@ -802,7 +702,6 @@
   }
 
   function handleCommentPosted() {
-    console.log("[Publication] Comment posted, refreshing comment layer");
     // Refresh the comment layer after a short delay to allow relay indexing
     setTimeout(() => {
       if (commentLayerRef) {
@@ -855,8 +754,6 @@
       await commentEvent.sign();
       await commentEvent.publish();
 
-      console.log("[Publication] Article comment published:", commentEvent.id);
-
       articleCommentSuccess = true;
       articleCommentContent = "";
 
@@ -891,11 +788,7 @@
           eventAddress: indexEvent.tagAddress(),
           eventKind: indexEvent.kind,
           reason: "User deleted publication",
-          onSuccess: (deletionEventId) => {
-            console.log(
-              "[Publication] Deletion event published:",
-              deletionEventId,
-            );
+          onSuccess: () => {
             publicationDeleted = true;
 
             // Redirect after 2 seconds
@@ -936,7 +829,6 @@
     // AI-NOTE: TOC updates happen in parallel as sections mount, improving performance
     const entry = toc.getEntry(address);
     if (!entry) {
-      console.warn(`[Publication] No parent found for ${address}`);
       return;
     }
     toc.buildTocFromDocument(el, entry);
@@ -1004,29 +896,24 @@
    */
   async function handleUpwardLoad(referenceAddress: string, source: "top-sentinel" | "first-section") {
     if (isLoadingUpward) {
-      console.log(`[Publication] Upward load from ${source} ignored (already loading)`);
       return;
     }
     
     const now = Date.now();
     if ((now - lastUpwardLoadTime) < UPWARD_LOAD_DEBOUNCE_MS) {
-      console.log(`[Publication] Upward load from ${source} debounced, time since last:`, now - lastUpwardLoadTime);
       return;
     }
     
     const firstSection = leaves.filter(l => l !== null)[0];
     if (!firstSection || firstSection.tagAddress() === rootAddress) {
-      console.log(`[Publication] Upward load from ${source} skipped (no valid first section or at root)`);
       return;
     }
     
     const firstAddress = firstSection.tagAddress();
     if (referenceAddress !== firstAddress && source === "first-section") {
-      console.log(`[Publication] Upward load from first-section skipped (address mismatch)`);
       return;
     }
     
-    console.log(`[Publication] Upward load from ${source}, loading sections before:`, firstAddress);
     isLoadingUpward = true;
     lastUpwardLoadTime = now;
     
@@ -1043,7 +930,6 @@
     
     try {
       await loadSectionsBefore(firstAddress, AUTO_LOAD_BATCH_SIZE);
-      console.log(`[Publication] Upward load from ${source} complete`);
       
       // Wait for DOM stabilization before updating observer
       setTimeout(() => {
@@ -1240,7 +1126,6 @@
       // Refresh highlights after a short delay to allow relay indexing
       setTimeout(() => {
         if (highlightLayerRef) {
-          console.log("[Publication] Refreshing highlights after creation");
           highlightLayerRef.refresh();
         }
       }, 500);

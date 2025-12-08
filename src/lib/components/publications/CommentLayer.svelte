@@ -36,7 +36,6 @@
   async function fetchComments() {
     // Prevent concurrent fetches
     if (loading) {
-      console.log("[CommentLayer] Already loading, skipping fetch");
       return;
     }
 
@@ -55,8 +54,6 @@
     // AI-NOTE: Mock mode allows testing comment UI without publishing to relays
     // This is useful for development and demonstrating the comment system
     if (useMockComments) {
-      console.log(`[CommentLayer] MOCK MODE - Generating mock comments for ${allAddresses.length} sections`);
-
       try {
         // Generate mock comment data
         const mockComments = generateMockCommentsForSections(allAddresses);
@@ -64,7 +61,6 @@
         // Convert to NDKEvent instances (same as real events)
         comments = mockComments.map(rawEvent => new NDKEventClass(ndk, rawEvent));
 
-        console.log(`[CommentLayer] Generated ${comments.length} mock comments`);
         loading = false;
         return;
       } catch (err) {
@@ -73,11 +69,6 @@
         return;
       }
     }
-
-    console.log(`[CommentLayer] Fetching comments for:`, {
-      eventIds: allEventIds,
-      addresses: allAddresses
-    });
 
     try {
       // Build filter for kind 1111 comment events
@@ -96,8 +87,6 @@
         filter["#e"] = allEventIds;
       }
 
-      console.log(`[CommentLayer] Fetching with filter:`, JSON.stringify(filter, null, 2));
-
       // Build explicit relay set (same pattern as HighlightLayer)
       const relays = [
         ...communityRelays,
@@ -105,7 +94,6 @@
         ...$activeInboxRelays,
       ];
       const uniqueRelays = Array.from(new Set(relays));
-      console.log(`[CommentLayer] Fetching from ${uniqueRelays.length} relays:`, uniqueRelays);
 
       /**
        * Use WebSocketPool with nostr-tools protocol instead of NDK
@@ -131,14 +119,12 @@
       const checkAllResponses = () => {
         responseCount++;
         if (responseCount >= totalRelays && loading) {
-          console.log(`[CommentLayer] All ${totalRelays} relays have responded, clearing loading state`);
           loading = false;
         }
       };
 
       const fetchPromises = uniqueRelays.map(async (relayUrl) => {
         try {
-          console.log(`[CommentLayer] Connecting to ${relayUrl}`);
           const ws = await WebSocketPool.instance.acquire(relayUrl);
 
           return new Promise<void>((resolve) => {
@@ -173,19 +159,8 @@
               try {
                 const message = JSON.parse(event.data);
 
-                // Log ALL messages from relay.nostr.band for debugging
-                if (relayUrl.includes('relay.nostr.band')) {
-                  console.log(`[CommentLayer] RAW message from ${relayUrl}:`, message);
-                }
-
                 if (message[0] === "EVENT" && message[1] === subscriptionId) {
                   const rawEvent = message[2];
-                  console.log(`[CommentLayer] EVENT from ${relayUrl}:`, {
-                    id: rawEvent.id,
-                    kind: rawEvent.kind,
-                    content: rawEvent.content.substring(0, 50),
-                    tags: rawEvent.tags
-                  });
 
                   // Avoid duplicates
                   if (!receivedEventIds.has(rawEvent.id)) {
@@ -194,16 +169,11 @@
                     // Convert to NDKEvent
                     const ndkEvent = new NDKEventClass(ndk, rawEvent);
                     comments = [...comments, ndkEvent];
-                    console.log(`[CommentLayer] Added comment, total now: ${comments.length}`);
                   }
                 } else if (message[0] === "EOSE" && message[1] === subscriptionId) {
-                  console.log(`[CommentLayer] EOSE from ${relayUrl} (${responseCount + 1}/${totalRelays})`);
-
                   // Close subscription and release connection
                   releaseConnection();
                   safeResolve();
-                } else if (message[0] === "NOTICE") {
-                  console.warn(`[CommentLayer] NOTICE from ${relayUrl}:`, message[1]);
                 }
               } catch (err) {
                 console.error(`[CommentLayer] Error processing message from ${relayUrl}:`, err);
@@ -214,11 +184,6 @@
 
             // Send REQ
             const req = ["REQ", subscriptionId, filter];
-            if (relayUrl.includes('relay.nostr.band')) {
-              console.log(`[CommentLayer] Sending REQ to ${relayUrl}:`, JSON.stringify(req));
-            } else {
-              console.log(`[CommentLayer] Sending REQ to ${relayUrl}`);
-            }
             ws.send(JSON.stringify(req));
 
             // Timeout per relay (5 seconds)
@@ -240,16 +205,6 @@
       // Ensure loading is cleared even if checkAllResponses didn't fire
       loading = false;
 
-      console.log(`[CommentLayer] Fetched ${comments.length} comments`);
-
-      if (comments.length > 0) {
-        console.log(`[CommentLayer] Comments summary:`, comments.map(c => ({
-          content: c.content.substring(0, 30) + "...",
-          address: c.tags.find(t => t[0] === "a")?.[1],
-          author: c.pubkey.substring(0, 8)
-        })));
-      }
-
     } catch (err) {
       console.error(`[CommentLayer] Error fetching comments:`, err);
       loading = false;
@@ -265,8 +220,6 @@
     const currentCount = eventIds.length + eventAddresses.length;
     const hasEventData = currentCount > 0;
 
-    console.log(`[CommentLayer] Event data effect - count: ${currentCount}, lastFetched: ${lastFetchedCount}, loading: ${loading}`);
-
     // Only fetch if:
     // 1. We have event data
     // 2. The count has changed since last fetch
@@ -279,7 +232,6 @@
 
       // Debounce: wait 500ms for more events to arrive before fetching
       fetchTimeout = setTimeout(() => {
-        console.log(`[CommentLayer] Event data stabilized at ${currentCount} events, fetching comments...`);
         lastFetchedCount = currentCount;
         fetchComments();
       }, 500);
@@ -297,8 +249,6 @@
    * Public method to refresh comments (e.g., after creating a new one)
    */
   export function refresh() {
-    console.log("[CommentLayer] Manual refresh triggered");
-
     // Clear existing comments
     comments = [];
 
