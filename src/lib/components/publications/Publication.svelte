@@ -993,7 +993,7 @@
   
   let lastUpwardLoadTime = 0;
   let isUpdatingObserver = false;
-  let isLoadingUpward = false;
+  let isLoadingUpward = $state(false);
   let scrollObserver: IntersectionObserver | null = null;
   let observedFirstSectionAddress: string | null = null;
   let observerUpdateTimeout: number | null = null;
@@ -1493,7 +1493,7 @@
             class="flex justify-center items-center my-2 min-h-[20px] w-full"
             data-sentinel="top"
           >
-            {#if isLoading && leaves.length > 0}
+            {#if isLoadingUpward && leaves.length > 0}
               <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-2">
                 <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-primary-600"></div>
                 <span>Loading previous sections...</span>
@@ -1687,7 +1687,7 @@
   
   <!-- Drawer -->
   <div
-    class="fixed left-0 w-fit min-w-[280px] max-w-[min(98vw,500px)] z-[110] dark:bg-primary-900 bg-primary-50 rounded-r-lg shadow-xl transition-transform duration-300 ease-in-out {$publicationColumnVisibility.toc
+    class="fixed left-0 w-fit min-w-[280px] max-w-[min(98vw,625px)] z-[110] dark:bg-primary-900 bg-primary-50 rounded-r-lg shadow-xl transition-transform duration-300 ease-in-out {$publicationColumnVisibility.toc
       ? 'translate-x-0'
       : '-translate-x-full'}"
     style="top: {sidebarTop}px; height: calc(100vh - {sidebarTop}px);"
