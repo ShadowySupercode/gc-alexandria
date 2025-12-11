@@ -49,3 +49,21 @@ things, publication views and table of contents (ToC) views.
   - Alexandria client code can use range queries over the compound key to
     iterate over the children of a given kind 30040 index event in their
     expected display order.
+
+## Code Artifacts
+
+- `idb_transaction_scripts.ts`: Transaction scripts for IndexedDB CRUD
+  operations conforming to the feature's schema (only accessible within
+  `event_metadata_index` feature directory).
+- `event_metadata_worker.ts`: A Web Worker definition that, given a kind 30040
+  index event as a root, recursively crawls that index's hierarchy and writes
+  the metadata and ordinal mappings of events within the hierarchy to IndexedDB.
+- `event_metadata_service`: A class that:
+  - Orchestrates Web Workers to populate the IndexedDB with metadata and ordinal
+    mappings
+  - Provides an interface by which other parts of the codebase can:
+    - Trigger background processing of event hierarchies
+    - Retrieve event metadata from IndexedDB
+    - Retrieve ordered ranges of event IDs via iterators
+    - Perform reverse lookups of event IDs to retrieve parent kind 30040 indexes
+      and ordinal information
