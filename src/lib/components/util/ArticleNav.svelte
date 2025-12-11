@@ -36,11 +36,14 @@
 
   let lastScrollY = $state(0);
   let isVisible = $state(true);
+  let navbarTop = $state(100); // Default to 100px
 
   // Function to toggle column visibility
   function toggleColumn(column: "toc" | "blog" | "inner" | "discussion") {
+    console.log("[ArticleNav] toggleColumn called with:", column);
     publicationColumnVisibility.update((current) => {
       const newValue = !current[column];
+      console.log("[ArticleNav] Toggling", column, "from", current[column], "to", newValue);
       const updated = { ...current, [column]: newValue };
 
       if (window.innerWidth < 1400 && column === "blog" && newValue) {
@@ -93,6 +96,16 @@
     });
   }
 
+  function handleBlogTocClick() {
+    if ($publicationColumnVisibility.inner) {
+      // Viewing article: go back to TOC
+      backToBlog();
+    } else if ($publicationColumnVisibility.blog) {
+      // Showing TOC: toggle it (though it should stay visible)
+      toggleColumn("blog");
+    }
+  }
+
   function handleScroll() {
     if (window.innerWidth < 768) {
       const currentScrollY = window.scrollY;
@@ -139,6 +152,13 @@
 
   let unsubscribe: () => void;
   onMount(() => {
+    // Measure the actual navbar height to position ArticleNav correctly
+    const navbar = document.getElementById("navi");
+    if (navbar) {
+      const rect = navbar.getBoundingClientRect();
+      navbarTop = rect.bottom;
+    }
+    
     window.addEventListener("scroll", handleScroll);
     unsubscribe = publicationColumnVisibility.subscribe(() => {
       isVisible = true; // show navbar when store changes
@@ -152,40 +172,38 @@
 </script>
 
 <nav
-  class="Navbar navbar-leather col-span-3 flex fixed top-[100px] sm:top-[92px] w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
+  class="Navbar navbar-leather col-span-2 flex fixed w-full min-h-[70px] px-2 sm:px-4 py-2.5 z-10 transition-transform duration-300 {isVisible
     ? 'translate-y-0'
     : '-translate-y-full'}"
+  style="top: {navbarTop}px;"
 >
   <div class="mx-auto flex space-x-2 container">
     <div class="flex items-center space-x-2 md:min-w-52 min-w-8">
-      {#if shouldShowBack()}
-        <Button
-          class="btn-leather !w-auto sm:hidden"
-          outline={true}
-          onclick={backToMain}
-        >
-          <CaretLeftOutline class="!fill-none inline mr-1" />
-          <span class="hidden sm:inline">Back</span>
-        </Button>
-      {/if}
       {#if isIndexEvent}
         {#if publicationType === "blog"}
-          <Button
-            class={`btn-leather hidden sm:flex !w-auto ${$publicationColumnVisibility.blog ? "active" : ""}`}
-            outline={true}
-            onclick={() => toggleColumn("blog")}
-          >
-            <BookOutline class="!fill-none inline mr-1" />
-            <span class="hidden sm:inline">Table of Contents</span>
-          </Button>
-        {:else if !$publicationColumnVisibility.discussion && !$publicationColumnVisibility.toc}
+          <!-- Blog view: hidden when showing blog list, shows back arrow when viewing article -->
+          {#if !($publicationColumnVisibility.blog && !$publicationColumnVisibility.inner)}
+            <Button
+              class={`btn-leather !w-auto ${$publicationColumnVisibility.inner ? "active" : ""}`}
+              outline={true}
+              onclick={handleBlogTocClick}
+              title={$publicationColumnVisibility.inner ? "Back to Table of Contents" : "Table of Contents"}
+            >
+              {#if $publicationColumnVisibility.inner}
+                <CaretLeftOutline class="!fill-none" />
+              {:else}
+                <BookOutline class="!fill-none" />
+              {/if}
+            </Button>
+          {/if}
+        {:else if !$publicationColumnVisibility.discussion}
           <Button
             class={`btn-leather !w-auto ${$publicationColumnVisibility.toc ? "active" : ""}`}
             outline={true}
             onclick={() => toggleColumn("toc")}
+            title="Table of Contents"
           >
-            <BookOutline class="!fill-none inline mr-1" />
-            <span class="hidden sm:inline">Table of Contents</span>
+            <BookOutline class="!fill-none" />
           </Button>
         {/if}
       {/if}

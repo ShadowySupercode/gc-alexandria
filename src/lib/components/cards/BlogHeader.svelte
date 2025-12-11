@@ -87,60 +87,103 @@
 </script>
 
 {#if title != null}
-  <Card
-    class="ArticleBox card-leather w-full grid max-w-xl {active
-      ? 'active'
-      : ''}"
-  >
-    <div class="space-y-4 relative">
-      <div class="flex flex-row justify-between my-2">
-        <div class="flex flex-col">
-          {@render userBadge(authorPubkey, author, ndk)}
-          <span class="text-gray-700 dark:text-gray-300">{publishedAt()}</span>
+  {#if active}
+    <!-- Full card view when active -->
+    <div
+      class="ArticleBox card-leather w-full grid active cursor-pointer min-w-0"
+      role="button"
+      tabindex={0}
+      onclick={(e: MouseEvent) => {
+        // Don't trigger if clicking on CardActions or its children
+        const target = e.target as HTMLElement;
+        if (target.closest('.card-actions') || target.closest('button[type="button"]')) {
+          return;
+        }
+        showBlog();
+      }}
+      onkeydown={(e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const target = e.target as HTMLElement;
+          if (!target.closest('.card-actions') && !target.closest('button[type="button"]')) {
+            showBlog();
+          }
+        }
+      }}
+    >
+      <Card class="w-full h-full min-w-0 !max-w-none">
+      <div class="space-y-4 relative pl-4 min-w-0 w-full">
+        <div class="flex flex-row justify-between my-2">
+          <div class="flex flex-col">
+            {@render userBadge(authorPubkey, author, ndk)}
+            <span class="text-gray-700 dark:text-gray-300">{publishedAt()}</span>
+          </div>
+        </div>
+
+        <div
+          class="ArticleBoxImage flex justify-center items-center p-2 h-40 -mt-2"
+          in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
+        >
+          {#if image}
+            <LazyImage 
+              src={image} 
+              alt={title || "Publication image"}
+              eventId={event.id}
+              className="rounded w-full h-full object-cover"
+            />
+          {:else}
+            <div 
+              class="rounded w-full h-full"
+              style="background-color: {generateDarkPastelColor(event.id)};"
+            >
+            </div>
+          {/if}
+        </div>
+        
+        <div class="flex flex-col space-y-4">
+          <h2 class="text-lg font-bold line-clamp-2" {title}>{title}</h2>
+          {#if hashtags}
+            <div class="tags">
+              {#each hashtags as tag}
+                <span>#{tag}</span>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        
+        <Interactions {rootId} {event} />
+        
+        <!-- Position CardActions at bottom-right -->
+        <div 
+          class="absolute bottom-2 right-2 card-actions"
+          role="button"
+          tabindex={0}
+          onclick={(e) => e.stopPropagation()}
+          onkeydown={(e) => e.stopPropagation()}
+        >
+          <CardActions {event} onDelete={handleDelete} />
         </div>
       </div>
-
-      <div
-        class="ArticleBoxImage flex justify-center items-center p-2 h-40 -mt-2"
-        in:scale={{ start: 0.8, duration: 500, delay: 100, easing: quintOut }}
-      >
-        {#if image}
-          <LazyImage 
-            src={image} 
-            alt={title || "Publication image"}
-            eventId={event.id}
-            className="rounded w-full h-full object-cover"
-          />
-        {:else}
-          <div 
-            class="rounded w-full h-full"
-            style="background-color: {generateDarkPastelColor(event.id)};"
-          >
-          </div>
-        {/if}
-      </div>
-      
-      <div class="flex flex-col space-y-4">
-        <button onclick={() => showBlog()} class="text-left">
-          <h2 class="text-lg font-bold line-clamp-2" {title}>{title}</h2>
-        </button>
-        {#if hashtags}
-          <div class="tags">
-            {#each hashtags as tag}
-              <span class="mr-2">#{tag}</span>
-            {/each}
-          </div>
-        {/if}
-      </div>
-      
-      {#if active}
-        <Interactions {rootId} {event} />
-      {/if}
-      
-      <!-- Position CardActions at bottom-right -->
-      <div class="absolute bottom-2 right-2">
-        <CardActions {event} onDelete={handleDelete} />
+      </Card>
+    </div>
+  {:else}
+    <!-- Simple list view when collapsed -->
+    <div
+      class="py-2 pl-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      role="button"
+      tabindex="0"
+      onclick={() => showBlog()}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          showBlog();
+        }
+      }}
+    >
+      <h3 class="text-base font-medium text-gray-900 dark:text-white">{title}</h3>
+      <div class="flex items-center gap-2 mt-1">
+        <p class="text-sm text-gray-500 dark:text-gray-400">{publishedAt()}</p>
+        <span class="text-sm text-gray-400 dark:text-gray-500">•</span>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{author}</p>
       </div>
     </div>
-  </Card>
+  {/if}
 {/if}

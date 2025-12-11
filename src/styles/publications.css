@@ -5,7 +5,7 @@
   }
 
   .publication-leather p a {
-    @apply underline hover:text-primary-600 dark:hover:text-primary-400;
+    @apply underline hover:text-primary-700 dark:hover:text-primary-300;
   }
 
   .publication-leather section p {

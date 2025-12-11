@@ -26,6 +26,8 @@
     ref,
     allComments = [],
     commentsVisible = true,
+    publicationTitle,
+    isFirstSection = false,
   }: {
     address: string;
     rootAddress: string;
@@ -35,6 +37,8 @@
     ref: (ref: HTMLElement) => void;
     allComments?: NDKEvent[];
     commentsVisible?: boolean;
+    publicationTitle?: string;
+    isFirstSection?: boolean;
   } = $props();
 
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
@@ -59,10 +63,6 @@
     leafEvent.then((e) => {
       if (e?.id) {
         leafEventId = e.id;
-        console.log(
-          `[PublicationSection] Set leafEventId for ${address}:`,
-          e.id,
-        );
       }
     });
   });
@@ -89,17 +89,32 @@
 
     // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
     // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
+    let processed: string;
     if (event?.kind === 30023) {
-      return await parseAdvancedmarkup(content);
+      processed = await parseAdvancedmarkup(content);
     } else {
       // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
       const converted = asciidoctor.convert(content);
-      const processed = await postProcessAdvancedAsciidoctorHtml(
+      processed = await postProcessAdvancedAsciidoctorHtml(
         converted.toString(),
         ndk,
       );
-      return processed;
     }
+    
+    // Remove redundant h1 title from first section if it matches publication title
+    if (isFirstSection && publicationTitle && typeof processed === 'string') {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = processed;
+      const h1Elements = tempDiv.querySelectorAll('h1');
+      h1Elements.forEach((h1) => {
+        if (h1.textContent?.trim() === publicationTitle.trim()) {
+          h1.remove();
+        }
+      });
+      processed = tempDiv.innerHTML;
+    }
+    
+    return processed;
   });
 
   let previousLeafEvent: NDKEvent | null = $derived.by(() => {
@@ -186,11 +201,7 @@
           eventAddress: address,
           eventKind: event.kind,
           reason: "User deleted section",
-          onSuccess: (deletionEventId) => {
-            console.log(
-              "[PublicationSection] Deletion event published:",
-              deletionEventId,
-            );
+          onSuccess: () => {
             // Refresh the page to reflect the deletion
             window.location.reload();
           },
@@ -212,19 +223,11 @@
     }
 
     ref(sectionRef);
-
-    // Log data attributes for debugging
-    console.log(`[PublicationSection] Section mounted:`, {
-      address,
-      leafEventId,
-      dataAddress: sectionRef.dataset.eventAddress,
-      dataEventId: sectionRef.dataset.eventId,
-    });
   });
 </script>
 
 <!-- Wrapper for positioning context -->
-<div class="relative w-full">
+<div class="relative w-full overflow-x-hidden">
   <section
     id={address}
     bind:this={sectionRef}
@@ -235,20 +238,8 @@
     {#await Promise.all( [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches], )}
       <TextPlaceholder size="2xl" />
     {:then [leafTitle, leafContent, leafHierarchy, publicationType, divergingBranches]}
-      <!-- Main content area - centered -->
-      <div class="section-content relative max-w-4xl mx-auto px-4">
-        <!-- Mobile menu - shown only on smaller screens -->
-        <div class="xl:hidden absolute top-2 right-2 z-10">
-          {#await leafEvent then event}
-            {#if event}
-              <CardActions
-                {event}
-                sectionAddress={address}
-                onDelete={handleDelete}
-              />
-            {/if}
-          {/await}
-        </div>
+      <!-- Main content area - left-aligned -->
+      <div class="section-content relative w-full text-left">
         {#each divergingBranches as [branch, depth]}
           {@render sectionHeading(
             getMatchingTags(branch, "title")[0]?.[1] ?? "",
@@ -257,7 +248,21 @@
         {/each}
         {#if leafTitle}
           {@const leafDepth = leafHierarchy.length - 1}
-          {@render sectionHeading(leafTitle, leafDepth)}
+          <div class="relative">
+            <!-- Section actions button - positioned next to heading -->
+            <div class="absolute top-0 right-0 z-20">
+              {#await leafEvent then event}
+                {#if event}
+                  <CardActions
+                    {event}
+                    sectionAddress={address}
+                    onDelete={handleDelete}
+                  />
+                {/if}
+              {/await}
+            </div>
+            {@render sectionHeading(leafTitle, leafDepth)}
+          </div>
         {/if}
         {@render contentParagraph(
           leafContent.toString(),
@@ -267,7 +272,7 @@
       </div>
 
       <!-- Mobile comments - shown below content on smaller screens -->
-      <div class="xl:hidden mt-8 max-w-4xl mx-auto px-4">
+      <div class="xl:hidden mt-8 w-full text-left">
         <SectionComments
           sectionAddress={address}
           comments={sectionComments}
@@ -277,17 +282,6 @@
     {/await}
   </section>
 
-  <!-- Right sidebar elements - positioned very close to content, responsive width -->
-  {#await leafEvent then event}
-    {#if event}
-      <!-- Three-dot menu - positioned at top-center on XL+ screens -->
-      <div
-        class="hidden xl:block absolute left-[calc(50%+26rem)] top-[20%] z-10"
-      >
-        <CardActions {event} sectionAddress={address} onDelete={handleDelete} />
-      </div>
-    {/if}
-  {/await}
 
   <!-- Comments area: positioned below menu, top-center of section -->
   <div

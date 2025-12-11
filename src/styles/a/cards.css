@@ -18,12 +18,12 @@
   .card-leather h5,
   .card-leather h6 {
     @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+      dark:hover:text-primary-300;
   }
 
   .card-leather .font-thin {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
+      dark:hover:text-primary-300;
   }
 
   /* Main card leather (used in profile previews) */
@@ -61,12 +61,12 @@
   .ArticleBox h5,
   .ArticleBox h6 {
     @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+      dark:hover:text-primary-300;
   }
 
   .ArticleBox .font-thin {
-    @apply text-gray-900 hover:text-primary-600 dark:text-gray-100
-      dark:hover:text-primary-400;
+    @apply text-gray-900 hover:text-primary-700 dark:text-gray-100
+      dark:hover:text-primary-300;
   }
 
   /* Article box image transitions */
@@ -155,24 +155,24 @@
       flex items-center gap-2 flex-wrap;
   }
 
-  /* Card content text styles */
+  /* Card content text styles - improved contrast */
   .card-summary {
-    @apply text-sm text-primary-900 dark:text-primary-200 line-clamp-2;
+    @apply text-sm text-primary-900 dark:text-primary-100 line-clamp-2;
   }
 
   .card-content {
-    @apply text-sm text-gray-800 dark:text-gray-200 line-clamp-3 break-words
+    @apply text-sm text-gray-900 dark:text-gray-100 line-clamp-3 break-words
       mb-4;
   }
 
   .card-about {
-    @apply text-sm text-gray-700 dark:text-gray-300 line-clamp-3;
+    @apply text-sm text-gray-800 dark:text-gray-200 line-clamp-3;
   }
 
-  /* Deferral link styling */
+  /* Deferral link styling - improved contrast */
   .deferral-link {
-    @apply underline text-primary-700 dark:text-primary-400
-      hover:text-primary-600 dark:hover:text-primary-400 break-all
+    @apply underline text-primary-700 dark:text-primary-300
+      hover:text-primary-800 dark:hover:text-primary-200 break-all
       cursor-pointer;
   }
 
@@ -182,7 +182,7 @@
 
   .tags span {
     @apply bg-primary-50 text-primary-800 text-sm font-medium me-2 px-2.5 py-0.5
-      rounded-sm dark:bg-primary-900 dark:text-primary-200;
+      rounded-sm dark:bg-primary-900 dark:text-primary-100;
   }
 
   /* ========================================
