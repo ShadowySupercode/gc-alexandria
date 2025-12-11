@@ -13,7 +13,7 @@ theme.subscribe((v) => {
     const themeValue = String(v);
     document.documentElement.dataset.theme = themeValue;
     localStorage.setItem(KEY, themeValue);
-    
+
     // Add .dark class for non-light themes (ocean, forrest are dark themes)
     // Remove .dark class for light theme
     if (themeValue === "light") {

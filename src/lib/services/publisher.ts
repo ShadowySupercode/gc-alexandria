@@ -134,10 +134,13 @@ export async function publishSingleEvent(
       dTag: tags.find((t) => t[0] === "d")?.[1],
     });
     // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 200));
+    await new Promise((resolve) =>
+      setTimeout(resolve, 300 + Math.random() * 200)
+    );
     // Generate a fake event ID
-    const fakeEventId = Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16),
+    const fakeEventId = Array.from(
+      { length: 64 },
+      () => Math.floor(Math.random() * 16).toString(16),
     ).join("");
     return { success: true, eventId: fakeEventId };
   }
