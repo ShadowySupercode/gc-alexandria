@@ -9,6 +9,7 @@ import {
 import { get } from "svelte/store";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { searchRelays, secondaryRelays } from "../consts.ts";
+import { eventMetadataService } from "$lib/features/event_metadata_index/event_metadata_service.ts";
 
 enum PublicationTreeNodeType {
   Branch,
@@ -105,6 +106,23 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     this.#events.set(rootAddress, rootEvent);
 
     this.#ndk = ndk;
+
+    // AI-NOTE: Trigger automatic indexing of event metadata in IndexedDB
+    // This is a non-blocking call that runs in the background to populate the
+    // local metadata store for efficient title retrieval and hierarchy queries
+    this.#triggerAutoIndexing();
+  }
+
+  /**
+   * AI-NOTE: Triggers automatic indexing of the publication tree's event metadata
+   * in IndexedDB. This is a non-blocking operation that runs in the background
+   * via a Web Worker. Errors are logged but do not interrupt tree construction.
+   * The `EventMetadataService` emits an event when processing is complete.
+   */
+  #triggerAutoIndexing(): void {
+    eventMetadataService.indexHierarchy(this).catch((error: Error) => {
+      console.warn("[PublicationTree] Auto-indexing failed:", error);
+    });
   }
 
   /**
@@ -127,7 +145,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     }
 
     const node: PublicationTreeNode = {
-      type: await this.#getNodeType(event),
+      type: this.#getNodeType(event),
       status: PublicationTreeNodeStatus.Resolved,
       address,
       parent: parentNode,
@@ -956,11 +974,11 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
    * AI-NOTE:  Helper method to build a node from an event
    * This extracts the common logic for building nodes from events
    */
-  async #buildNodeFromEvent(
+  #buildNodeFromEvent(
     event: NDKEvent,
     address: string,
     parentNode: PublicationTreeNode,
-  ): Promise<PublicationTreeNode> {
+  ): PublicationTreeNode {
     this.#events.set(address, event);
 
     const childAddresses = event.tags
@@ -989,7 +1007,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
       );
 
       // For e-tags with hex IDs, fetch the referenced events to get their addresses
-      const eTagPromises = eTags.map(async (tag) => {
+      const _eTagPromises = eTags.map(async (tag) => {
         try {
           console.debug(`[PublicationTree] Fetching event for e-tag ${tag[1]}`);
           const referencedEvent = await fetchEventById(tag[1]);
