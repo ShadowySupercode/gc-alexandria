@@ -21,6 +21,27 @@ import type {
   WorkerResponse,
 } from "./event_metadata_worker.ts";
 
+type IndexingCompleteEvent = {
+  totalProcessed: number;
+  duration: number;
+};
+type IndexingErrorEvent = {
+  error: string;
+};
+type IndexingProgressEvent = {
+  processed: number;
+  total: number;
+};
+
+/**
+ * Event types emitted by EventMetadataService.
+ */
+export interface EventMetadataServiceEvents {
+  indexingComplete: IndexingCompleteEvent;
+  indexingError: IndexingErrorEvent;
+  indexingProgress: IndexingProgressEvent;
+}
+
 /**
  * Service for indexing and querying event metadata.
  *
@@ -31,6 +52,14 @@ class EventMetadataService implements Disposable {
   #db: IDBDatabase | null = null;
   #worker: Worker | null = null;
   #activeIndexing: Set<string> = new Set();
+  #eventListeners: Map<
+    keyof EventMetadataServiceEvents,
+    Set<
+      (
+        data: EventMetadataServiceEvents[keyof EventMetadataServiceEvents],
+      ) => void
+    >
+  > = new Map();
 
   /**
    * Indexes a complete hierarchy of events from a PublicationTree.
@@ -167,6 +196,71 @@ class EventMetadataService implements Disposable {
   }
 
   /**
+   * Registers an event listener for service events.
+   *
+   * @param event - Event type to listen for
+   * @param callback - Callback function to invoke when event is emitted
+   */
+  on<K extends keyof EventMetadataServiceEvents>(
+    event: K,
+    callback: (data: EventMetadataServiceEvents[K]) => void,
+  ): void {
+    if (!this.#eventListeners.has(event)) {
+      this.#eventListeners.set(event, new Set());
+    }
+
+    // AI-NOTE: Callback parameter has greater specificity than `#eventListeners` set member types
+    // due to constraint derived from `K` type param. The callback is cast to a broader type to
+    // satisfy static checking.
+    this.#eventListeners
+      .get(event)!
+      .add(
+        callback as (
+          data: EventMetadataServiceEvents[keyof EventMetadataServiceEvents],
+        ) => void,
+      );
+  }
+
+  /**
+   * Removes an event listener.
+   *
+   * @param event - Event type to stop listening for
+   * @param callback - Callback function to remove
+   */
+  off<K extends keyof EventMetadataServiceEvents>(
+    event: K,
+    callback: (data: EventMetadataServiceEvents[K]) => void,
+  ): void {
+    const listeners = this.#eventListeners.get(event);
+    if (listeners) {
+      // AI-NOTE: Callback parameter has greater specificity than `#eventListeners` set member types
+      // due to constraint derived from `K` type param. The callback is cast to a broader type to
+      // satisfy static checking.
+      listeners.delete(
+        callback as (
+          data: EventMetadataServiceEvents[keyof EventMetadataServiceEvents],
+        ) => void,
+      );
+    }
+  }
+
+  /**
+   * Emits an event to all registered listeners.
+   *
+   * @param event - Event type to emit
+   * @param data - Event data to pass to listeners
+   */
+  #emit<K extends keyof EventMetadataServiceEvents>(
+    event: K,
+    data: EventMetadataServiceEvents[K],
+  ): void {
+    const listeners = this.#eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach((callback) => callback(data));
+    }
+  }
+
+  /**
    * Cleans up resources (database connection and worker).
    */
   [Symbol.dispose](): void {
@@ -196,7 +290,7 @@ class EventMetadataService implements Disposable {
   }
 
   /**
-   * Initializes the Web Worker.
+   * Initializes the Web Worker and sets up message handling.
    */
   #initializeWorker(): void {
     this.#worker = new Worker(
@@ -209,23 +303,11 @@ class EventMetadataService implements Disposable {
     this.#worker.onerror = (error) => {
       console.error("[EventMetadataService] Worker error:", error);
     };
-  }
 
-  /**
-   * Processes events in the worker and waits for completion.
-   *
-   * @param events - Array of serializable events to process
-   * @returns Promise that resolves when processing is complete
-   */
-  #processInWorker(events: SerializableEvent[]): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.#worker) {
-        reject(new Error("Worker not initialized"));
-        return;
-      }
-
-      // Set up message handler
-      const handleMessage = (event: MessageEvent<WorkerResponse>) => {
+    // Set up persistent message handler for worker responses
+    this.#worker.addEventListener(
+      "message",
+      (event: MessageEvent<WorkerResponse>) => {
         const response = event.data;
 
         switch (response.type) {
@@ -233,15 +315,20 @@ class EventMetadataService implements Disposable {
             console.debug(
               `[EventMetadataService] Progress: ${response.payload.processed}/${response.payload.total}`,
             );
+            this.#emit("indexingProgress", {
+              processed: response.payload.processed,
+              total: response.payload.total,
+            });
             break;
 
           case "COMPLETE":
             console.log(
               `[EventMetadataService] Indexing complete: ${response.payload.totalProcessed} events in ${response.payload.duration}ms`,
             );
-            this.#worker?.removeEventListener("message", handleMessage);
-            // AI-TODO: Add event emitter from service to indicate when processing is complete
-            resolve();
+            this.#emit("indexingComplete", {
+              totalProcessed: response.payload.totalProcessed,
+              duration: response.payload.duration,
+            });
             break;
 
           case "ERROR":
@@ -249,19 +336,35 @@ class EventMetadataService implements Disposable {
               "[EventMetadataService] Worker error:",
               response.payload.error,
             );
-            this.#worker?.removeEventListener("message", handleMessage);
-            reject(new Error(response.payload.error));
+            this.#emit("indexingError", {
+              error: response.payload.error,
+            });
             break;
         }
-      };
+      },
+    );
+  }
 
-      this.#worker.addEventListener("message", handleMessage);
-
-      // Send events to worker
-      this.#worker.postMessage({
-        type: "INDEX_EVENTS",
-        payload: { events },
+  /**
+   * Sends events to the worker for background processing.
+   * Returns immediately after successfully starting the worker.
+   * Listen to service events for completion notifications.
+   *
+   * @param events - Array of serializable events to process
+   */
+  #processInWorker(events: SerializableEvent[]): void {
+    if (!this.#worker) {
+      console.error("[EventMetadataService] Worker not initialized");
+      this.#emit("indexingError", {
+        error: "Worker not initialized",
       });
+      return;
+    }
+
+    // Send events to worker (non-blocking)
+    this.#worker.postMessage({
+      type: "INDEX_EVENTS",
+      payload: { events },
     });
   }
 }
