@@ -18,7 +18,7 @@ things, publication views and table of contents (ToC) views.
 - **Name**: `event-metadata`
 - **Key**: Nostr event ID - unique 32-byte lowercase hex-encoded string
 - **Value**: JSON containing metadata or critical tag values:
-  - `title`: The event's `t` tag value
+  - `title`: The event's `title` or `T` tag value
 - **Indexes**
   - `index[title]`
 - **Notes**: The `event-metadata` store _does not store full events_. It stores

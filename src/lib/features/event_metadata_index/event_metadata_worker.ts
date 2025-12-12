@@ -51,7 +51,9 @@ export type WorkerResponse =
  * @returns Title string or empty string if not found
  */
 function extractTitle(event: SerializableEvent): string {
-  const titleTag = event.tags.find((tag) => tag[0] === "t");
+  const titleTag = event.tags.find((tag) =>
+    tag[0] === "T" || tag[0] === "title"
+  );
   return titleTag?.[1] ?? "";
 }
 
