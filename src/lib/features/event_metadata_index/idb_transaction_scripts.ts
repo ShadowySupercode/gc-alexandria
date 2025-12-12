@@ -13,6 +13,9 @@ const ORDINALS_STORE = "event-ordinals";
 export interface EventMetadata {
   id: string;
   title: string;
+  kind: number;
+  pubkey: string;
+  dTag?: string;
 }
 
 /**
@@ -261,4 +264,21 @@ export function formatOrdinal(ordinal: number): string {
     );
   }
   return ordinal.toString().padStart(7, "0");
+}
+
+/**
+ * Reconstructs an event address from metadata fields.
+ *
+ * @param metadata - Event metadata containing kind, pubkey, and dTag
+ * @returns Event address in format "kind:pubkey:dTag" or null if fields are missing
+ */
+export function computeAddress(metadata: EventMetadata): string | null {
+  if (
+    metadata.kind === undefined ||
+    metadata.pubkey === undefined ||
+    metadata.dTag === undefined
+  ) {
+    return null;
+  }
+  return `${metadata.kind}:${metadata.pubkey}:${metadata.dTag}`;
 }

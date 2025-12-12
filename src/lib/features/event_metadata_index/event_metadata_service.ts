@@ -22,13 +22,16 @@ import type {
 } from "./event_metadata_worker.ts";
 
 type IndexingCompleteEvent = {
+  rootEventId: string;
   totalProcessed: number;
   duration: number;
 };
 type IndexingErrorEvent = {
+  rootEventId: string;
   error: string;
 };
 type IndexingProgressEvent = {
+  rootEventId: string;
   processed: number;
   total: number;
 };
@@ -96,6 +99,11 @@ class EventMetadataService implements Disposable {
       const events: NDKEvent[] = [rootEvent];
 
       for await (const event of tree) {
+        // Skip null events
+        if (!event) {
+          continue;
+        }
+
         // Guard clause - avoid re-indexing sub-hierarchies already being indexed
         if (this.#activeIndexing.has(event.id)) {
           continue;
@@ -107,7 +115,7 @@ class EventMetadataService implements Disposable {
           subRoots.push(event.id);
         }
 
-        if (event && event.id !== rootId) {
+        if (event.id !== rootId) {
           events.push(event);
         }
       }
@@ -132,7 +140,7 @@ class EventMetadataService implements Disposable {
 
       // Send events to the worker
       // Do not await worker - process in background
-      this.#processInWorker(serializableEvents);
+      this.#processInWorker(serializableEvents, rootId);
     } catch (error) {
       console.error("[EventMetadataService] Error indexing hierarchy:", error);
       throw error;
@@ -183,6 +191,53 @@ class EventMetadataService implements Disposable {
       parentId: result.parentId,
       ordinal: parseInt(result.ordinal, 10),
     }));
+  }
+
+  /**
+   * Calculates the depth of an event in its hierarchy by walking the parent chain.
+   *
+   * @param eventId - Event ID to calculate depth for
+   * @param rootEventId - Root event ID of the hierarchy (optional, for early termination)
+   * @returns Promise resolving to depth (0 for root, 1 for immediate children, etc.)
+   */
+  async getDepth(eventId: string, rootEventId?: string): Promise<number> {
+    // Early termination if this is the root
+    if (rootEventId && eventId === rootEventId) {
+      return 0;
+    }
+
+    let depth = 0;
+    let currentId = eventId;
+    const visited = new Set<string>();
+
+    while (true) {
+      // Prevent infinite loops from circular references
+      if (visited.has(currentId)) {
+        console.warn(
+          `[EventMetadataService] Circular reference detected at ${currentId}`,
+        );
+        break;
+      }
+      visited.add(currentId);
+
+      const parents = await this.getParentInfo(currentId);
+
+      // Reached top of hierarchy
+      if (parents.length === 0) {
+        break;
+      }
+
+      // Use first parent (events should typically have only one parent in a hierarchy)
+      currentId = parents[0].parentId;
+      depth++;
+
+      // Early termination if we reached the known root
+      if (rootEventId && currentId === rootEventId) {
+        break;
+      }
+    }
+
+    return depth;
   }
 
   /**
@@ -316,6 +371,7 @@ class EventMetadataService implements Disposable {
               `[EventMetadataService] Progress: ${response.payload.processed}/${response.payload.total}`,
             );
             this.#emit("indexingProgress", {
+              rootEventId: response.payload.rootEventId,
               processed: response.payload.processed,
               total: response.payload.total,
             });
@@ -326,6 +382,7 @@ class EventMetadataService implements Disposable {
               `[EventMetadataService] Indexing complete: ${response.payload.totalProcessed} events in ${response.payload.duration}ms`,
             );
             this.#emit("indexingComplete", {
+              rootEventId: response.payload.rootEventId,
               totalProcessed: response.payload.totalProcessed,
               duration: response.payload.duration,
             });
@@ -337,6 +394,7 @@ class EventMetadataService implements Disposable {
               response.payload.error,
             );
             this.#emit("indexingError", {
+              rootEventId: response.payload.rootEventId,
               error: response.payload.error,
             });
             break;
@@ -351,11 +409,13 @@ class EventMetadataService implements Disposable {
    * Listen to service events for completion notifications.
    *
    * @param events - Array of serializable events to process
+   * @param rootEventId - Root event ID of the hierarchy being indexed
    */
-  #processInWorker(events: SerializableEvent[]): void {
+  #processInWorker(events: SerializableEvent[], rootEventId: string): void {
     if (!this.#worker) {
       console.error("[EventMetadataService] Worker not initialized");
       this.#emit("indexingError", {
+        rootEventId,
         error: "Worker not initialized",
       });
       return;
@@ -364,7 +424,7 @@ class EventMetadataService implements Disposable {
     // Send events to worker (non-blocking)
     this.#worker.postMessage({
       type: "INDEX_EVENTS",
-      payload: { events },
+      payload: { events, rootEventId },
     });
   }
 }

@@ -2,6 +2,11 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { SveltePublicationTree } from "./svelte_publication_tree.svelte.ts";
 import type { NDKEvent } from "../../utils/nostrUtils.ts";
 import { indexKind } from "../../consts.ts";
+import {
+  eventMetadataService,
+  type EventMetadataServiceEvents,
+} from "$lib/features/event_metadata_index/event_metadata_service.ts";
+import { computeAddress } from "$lib/features/event_metadata_index/idb_transaction_scripts.ts";
 
 export interface TocEntry {
   address: string;
@@ -21,7 +26,7 @@ export interface TocEntry {
  *
  * @see SveltePublicationTree
  */
-export class TableOfContents {
+export class TableOfContents implements Disposable {
   public addressMap: SvelteMap<string, TocEntry> = new SvelteMap();
   public expandedMap: SvelteMap<string, boolean> = new SvelteMap();
   public leaves: SvelteSet<string> = new SvelteSet();
@@ -29,6 +34,10 @@ export class TableOfContents {
   #root: TocEntry | null = null;
   #publicationTree: SveltePublicationTree;
   #pagePathname: string;
+  #rootEventId: string | null = null;
+  #metadataListenerBound:
+    | ((data: EventMetadataServiceEvents["indexingComplete"]) => void)
+    | null = null;
 
   /**
    * Constructs a `TableOfContents` from a `SveltePublicationTree`.
@@ -152,9 +161,13 @@ export class TableOfContents {
       throw new Error(`[ToC] Root event ${rootAddress} not found.`);
     }
 
+    this.#rootEventId = rootEvent.id;
     this.#root = await this.#buildTocEntry(rootAddress);
 
     this.addressMap.set(rootAddress, this.#root);
+
+    // Register metadata listener BEFORE processing resolved nodes
+    this.#registerMetadataListener();
 
     // Handle any other nodes that have already been resolved in parallel.
     await Promise.all(
@@ -167,6 +180,18 @@ export class TableOfContents {
     this.#publicationTree.onNodeResolved((address: string) => {
       this.#buildTocEntryFromResolvedNode(address);
     });
+
+    // Check if indexing already completed
+    if (
+      this.#rootEventId && !eventMetadataService.isIndexing(this.#rootEventId)
+    ) {
+      const hasMetadata = await eventMetadataService.getMetadata(
+        this.#rootEventId,
+      );
+      if (hasMetadata) {
+        await this.#updateFromIndexedDB(this.#rootEventId);
+      }
+    }
   }
 
   #getTitle(event: NDKEvent | null): string {
@@ -266,6 +291,120 @@ export class TableOfContents {
     this.#buildTocEntry(address).then((entry) => {
       this.addressMap.set(address, entry);
     });
+  }
+
+  /**
+   * Registers a listener for metadata service indexing completion events.
+   */
+  #registerMetadataListener(): void {
+    this.#metadataListenerBound = (
+      data: EventMetadataServiceEvents["indexingComplete"],
+    ) => {
+      this.#handleIndexingComplete(data);
+    };
+
+    eventMetadataService.on("indexingComplete", this.#metadataListenerBound);
+  }
+
+  /**
+   * Handles indexing completion events from the metadata service.
+   *
+   * @param data - Indexing completion event data
+   */
+  async #handleIndexingComplete(
+    data: EventMetadataServiceEvents["indexingComplete"],
+  ): Promise<void> {
+    // Filter by hierarchy
+    if (!this.#rootEventId || data.rootEventId !== this.#rootEventId) {
+      return;
+    }
+
+    console.log(`[ToC] Indexing complete for hierarchy ${data.rootEventId}`);
+    await this.#updateFromIndexedDB(this.#rootEventId);
+  }
+
+  /**
+   * Updates the ToC incrementally from IndexedDB using a BFS traversal.
+   *
+   * @param rootEventId - Root event ID of the hierarchy
+   */
+  async #updateFromIndexedDB(rootEventId: string): Promise<void> {
+    // BFS traversal using ordinal mappings
+    const queue: Array<{ eventId: string; parentEntry: TocEntry | null }> = [
+      { eventId: rootEventId, parentEntry: null },
+    ];
+    const processed = new Set<string>();
+
+    while (queue.length > 0) {
+      const { eventId, parentEntry } = queue.shift()!;
+      if (processed.has(eventId)) continue;
+      processed.add(eventId);
+
+      // Get metadata
+      const metadata = await eventMetadataService.getMetadata(eventId);
+      if (!metadata) continue;
+
+      // Compute address from metadata
+      const address = computeAddress(metadata);
+
+      // Leave out any event that doesn't have an address
+      if (!address) continue;
+
+      // Skip if entry already exists
+      if (this.addressMap.has(address)) {
+        // Optional: update title if changed
+        const existingEntry = this.addressMap.get(address)!;
+        if (existingEntry.title !== metadata.title) {
+          existingEntry.title = metadata.title;
+        }
+        continue;
+      }
+
+      // Calculate depth
+      const depth = await eventMetadataService.getDepth(eventId, rootEventId);
+
+      // Create new TocEntry
+      const entry: TocEntry = {
+        address,
+        title: metadata.title,
+        href: `${this.#pagePathname}#${address}`,
+        children: [],
+        depth,
+        parent: parentEntry ?? undefined,
+        childrenResolved: false,
+        resolveChildren: async () => {
+          // Use the existing resolver logic
+          await this.#buildTocEntry(address);
+        },
+      };
+
+      // Add to parent and maps
+      if (parentEntry) {
+        parentEntry.children.push(entry);
+      }
+      this.addressMap.set(address, entry);
+      this.expandedMap.set(address, false);
+
+      // Queue children in ordinal order
+      // IMPORTANT: getOrderedChildren() returns children sorted by ordinal
+      // from IndexedDB compound key [parentId, ordinal]. Since we use FIFO
+      // queue and push to parent.children in dequeue order, sibling order
+      // is preserved correctly.
+      const childIds = await eventMetadataService.getOrderedChildren(eventId);
+      for (const childId of childIds) {
+        queue.push({ eventId: childId, parentEntry: entry });
+      }
+    }
+  }
+
+  /**
+   * Cleanup resources when ToC is disposed.
+   */
+  [Symbol.dispose](): void {
+    if (this.#metadataListenerBound) {
+      eventMetadataService.off("indexingComplete", this.#metadataListenerBound);
+      this.#metadataListenerBound = null;
+    }
   }
 
   // #endregion

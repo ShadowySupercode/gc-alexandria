@@ -33,6 +33,7 @@ export type WorkerMessage = {
   type: "INDEX_EVENTS";
   payload: {
     events: SerializableEvent[];
+    rootEventId: string;
   };
 };
 
@@ -40,9 +41,15 @@ export type WorkerMessage = {
  * Response types sent from the worker.
  */
 export type WorkerResponse =
-  | { type: "PROGRESS"; payload: { processed: number; total: number } }
-  | { type: "COMPLETE"; payload: { totalProcessed: number; duration: number } }
-  | { type: "ERROR"; payload: { error: string } };
+  | {
+    type: "PROGRESS";
+    payload: { rootEventId: string; processed: number; total: number };
+  }
+  | {
+    type: "COMPLETE";
+    payload: { rootEventId: string; totalProcessed: number; duration: number };
+  }
+  | { type: "ERROR"; payload: { rootEventId: string; error: string } };
 
 /**
  * Extracts the title from an event's tags.
@@ -133,8 +140,12 @@ function extractOrdinals(
  * Processes events and writes metadata and ordinals to IndexedDB.
  *
  * @param events - Array of serializable events to process
+ * @param rootEventId - Root event ID of the hierarchy being indexed
  */
-async function processEvents(events: SerializableEvent[]): Promise<void> {
+async function processEvents(
+  events: SerializableEvent[],
+  rootEventId: string,
+): Promise<void> {
   const startTime = performance.now();
 
   try {
@@ -154,7 +165,15 @@ async function processEvents(events: SerializableEvent[]): Promise<void> {
     for (const event of events) {
       // Extract metadata
       const title = extractTitle(event);
-      metadataArray.push({ id: event.id, title });
+      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+
+      metadataArray.push({
+        id: event.id,
+        title,
+        kind: event.kind,
+        pubkey: event.pubkey,
+        dTag,
+      });
 
       // Extract ordinals for kind 30040 events
       const ordinals = extractOrdinals(event, addressMap);
@@ -175,6 +194,7 @@ async function processEvents(events: SerializableEvent[]): Promise<void> {
         {
           type: "COMPLETE",
           payload: {
+            rootEventId,
             totalProcessed: events.length,
             duration,
           },
@@ -189,7 +209,7 @@ async function processEvents(events: SerializableEvent[]): Promise<void> {
     self.postMessage(
       {
         type: "ERROR",
-        payload: { error: errorMessage },
+        payload: { rootEventId, error: errorMessage },
       } satisfies WorkerResponse,
     );
   }
@@ -202,6 +222,6 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const message = event.data;
 
   if (message.type === "INDEX_EVENTS") {
-    await processEvents(message.payload.events);
+    await processEvents(message.payload.events, message.payload.rootEventId);
   }
 };
