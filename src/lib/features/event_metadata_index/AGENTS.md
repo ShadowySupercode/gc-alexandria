@@ -41,8 +41,7 @@ things, publication views and table of contents (ToC) views.
 - **Notes**
   - The `event-ordinals` store contains lexicographically ordered mappings of
     kind 30040 index events to their children.
-  - The first part of the key (before the underscore) is the unique ID of a kind
-    30040 index event.
+  - The first part of the key is the unique ID of a kind 30040 index event.
   - The second part of the key is an ordinal indicating where the mapped child
     event sits among its peers.
   - The `id` field in the value is the unique ID of the mapped child event.
