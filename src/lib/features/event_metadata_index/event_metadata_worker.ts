@@ -51,10 +51,29 @@ export type WorkerResponse =
  * @returns Title string or empty string if not found
  */
 function extractTitle(event: SerializableEvent): string {
-  const titleTag = event.tags.find((tag) =>
-    tag[0] === "T" || tag[0] === "title"
+  const titleTags = event.tags.filter((tag) =>
+    tag[0] === "T" ||
+    tag[0] === "title" ||
+    tag[0] === "d"
   );
-  return titleTag?.[1] ?? "";
+
+  let title: string | null = null;
+
+  title = titleTags.find((tag) => tag[0] === "title")?.[1] ?? null;
+  if (title) {
+    return title;
+  }
+
+  title = titleTags.find((tag) => tag[1] === "T")?.[1] ?? null;
+  if (title) {
+    return title;
+  }
+
+  // We work with replaceable events primarily, so they should all at least have a d tag.
+  return titleTags[0]?.[1]
+    ?.split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ") ?? "";
 }
 
 /**
