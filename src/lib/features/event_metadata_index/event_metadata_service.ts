@@ -72,16 +72,15 @@ class EventMetadataService implements Disposable {
    */
   async indexHierarchy(tree: PublicationTree): Promise<void> {
     // Get root event to use as identifier
-    const rootIterator = tree[Symbol.asyncIterator]();
+    const rootEvent: NDKEvent | null = await tree.next(TreeTraversalMode.All);
     const rootResult = await rootIterator.next(TreeTraversalMode.All);
 
-    if (rootResult.done || !rootResult.value) {
+    if (!rootEvent) {
       console.warn("[EventMetadataService] Cannot index empty tree");
       return;
     }
 
-    const rootEvent = rootResult.value;
-    const rootId = rootEvent.id;
+    const rootId = rootEvent?.id;
 
     // Check if already indexing this hierarchy
     if (this.#activeIndexing.has(rootId)) {

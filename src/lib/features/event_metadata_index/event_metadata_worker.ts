@@ -152,6 +152,10 @@ async function processEvents(
     // Build address map
     const addressMap = new Map<string, string>();
     for (const event of events) {
+      if (!event.tags) {
+        continue;
+      }
+
       const address = buildAddress(event);
       if (address) {
         addressMap.set(address, event.id);
@@ -163,6 +167,10 @@ async function processEvents(
     const ordinalsArray: Array<EventOrdinal> = [];
 
     for (const event of events) {
+      if (!event.tags) {
+        continue;
+      }
+
       // Extract metadata
       const title = extractTitle(event);
       const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
