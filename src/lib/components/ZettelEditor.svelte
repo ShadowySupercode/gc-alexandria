@@ -8,7 +8,7 @@
   import { EditorState, StateField, StateEffect } from "@codemirror/state";
   import { markdown } from "@codemirror/lang-markdown";
   import { EditorView, Decoration, type DecorationSet } from "@codemirror/view";
-  import { basicSetup } from "@codemirror/basic-setup";
+  import { basicSetup } from "codemirror";
   import { RangeSet } from "@codemirror/state";
   import { onMount } from "svelte";
   import {
