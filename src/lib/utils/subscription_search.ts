@@ -339,6 +339,18 @@ export async function searchBySubscription(
     ndk,
   );
   console.log("subscription_search: Created search filter:", searchFilter);
+  
+  // AI-NOTE: Validate filter to prevent "No filters to merge!" error from NDK
+  if (!searchFilter.filter || Object.keys(searchFilter.filter).length === 0) {
+    console.error(
+      "subscription_search: Invalid or empty filter created:",
+      searchFilter,
+    );
+    throw new Error(
+      `Failed to create valid filter for search type: ${searchType}`,
+    );
+  }
+  
   const primaryRelaySet = createPrimaryRelaySet(searchType, ndk);
   console.log(
     "subscription_search: Created primary relay set with",
@@ -1075,6 +1087,15 @@ function searchOtherRelaysInBackground(
     "subscription_search: Background search using ALL relays:",
     Array.from(ndk.pool.relays.values()).map((r: any) => r.url),
   );
+
+  // AI-NOTE: Validate filter before subscribing to prevent "No filters to merge!" error
+  if (!searchFilter.filter || Object.keys(searchFilter.filter).length === 0) {
+    console.warn(
+      "subscription_search: Invalid or empty filter, skipping background search",
+      searchFilter,
+    );
+    return Promise.resolve(createSearchResult(searchState, searchType, ""));
+  }
 
   // Subscribe to events from other relays
   const sub = ndk.subscribe(
