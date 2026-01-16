@@ -58,13 +58,21 @@
 
   const ndk = getNdkContext();
 
+  // AI-NOTE: Default visibility logic:
+  // - Blogs: comments and highlights ON by default
+  // - Articles/sections: comments and highlights ON by default
+  // - Publication indexes (kind 30040): comments and highlights OFF by default (for undisturbed reading)
+  const isPublicationIndex = publicationType === "publication" && indexEvent.kind === 30040;
+  const defaultCommentsVisible = !isPublicationIndex;
+  const defaultHighlightsVisible = !isPublicationIndex;
+
   // Highlight layer state
-  let highlightsVisible = $state(false);
+  let highlightsVisible = $state(defaultHighlightsVisible);
   let highlightLayerRef: any = null;
   let publicationContentRef: HTMLElement | null = $state(null);
 
   // Comment layer state
-  let commentsVisible = $state(false);
+  let commentsVisible = $state(defaultCommentsVisible);
   let comments = $state<NDKEvent[]>([]);
   let commentLayerRef: any = null;
   let showArticleCommentUI = $state(false);
@@ -108,13 +116,26 @@
   });
 
   // Filter comments for the root publication (kind 30040)
+  // AI-NOTE: NIP-22: Uppercase A tag points to root scope (publication/section)
+  // Use uppercase A tag to match comments scoped to the root publication
   let articleComments = $derived(
     comments.filter((comment) => {
-      // Check if comment targets the root publication via #a tag
-      const aTag = comment.tags.find((t) => t[0] === "a");
-      return aTag && aTag[1] === rootAddress;
+      // NIP-22: Look for uppercase A tag (root scope)
+      const rootATag = comment.tags.find((t) => t[0] === "A");
+      return rootATag && rootATag[1] === rootAddress;
     }),
   );
+
+  // Filter comments for the current blog entry
+  // AI-NOTE: NIP-22: Uppercase A tag points to root scope (blog entry address)
+  let blogComments = $derived.by(() => {
+    if (!currentBlog) return [];
+    return comments.filter((comment) => {
+      // NIP-22: Look for uppercase A tag (root scope)
+      const rootATag = comment.tags.find((t) => t[0] === "A");
+      return rootATag && rootATag[1] === currentBlog;
+    });
+  });
 
   // #region Loading
   let leaves = $state<Array<NDKEvent | null>>([]);
@@ -649,6 +670,14 @@
   let currentBlog: null | string = $state(null);
   let currentBlogEvent: null | NDKEvent = $state(null);
   const isLeaf = $derived(indexEvent.kind === 30041);
+  
+  // AI-NOTE: Determine current view address for filtering highlights
+  // - If viewing a blog entry, use the blog address
+  // - If viewing a section directly (leaf), use the root address
+  // - Otherwise (publication index), undefined (show all highlights)
+  const currentViewAddress = $derived(
+    currentBlog || (isLeaf ? rootAddress : undefined)
+  );
 
 
   function isInnerActive() {
@@ -699,15 +728,29 @@
 
   function toggleComments() {
     commentsVisible = !commentsVisible;
+    
+    // AI-NOTE: When toggling comments on, ensure CommentLayer fetches comments
+    // The effect in CommentLayer should handle this, but we can also trigger a refresh
+    if (commentsVisible && commentLayerRef) {
+      console.debug("[Publication] Comments toggled on, triggering refresh");
+      // Small delay to ensure addresses are available
+      setTimeout(() => {
+        if (commentLayerRef && commentsVisible) {
+          commentLayerRef.refresh();
+        }
+      }, 100);
+    }
   }
 
   function handleCommentPosted() {
-    // Refresh the comment layer after a short delay to allow relay indexing
+    // AI-NOTE: Refresh the comment layer after a delay to allow relay indexing
+    // Increased delay to 3 seconds to give relays more time to index the new comment
     setTimeout(() => {
       if (commentLayerRef) {
+        console.debug("[Publication] Refreshing CommentLayer after comment posted");
         commentLayerRef.refresh();
       }
-    }, 500);
+    }, 3000);
   }
 
   async function submitArticleComment() {
@@ -1301,25 +1344,16 @@
               {/if}
             </div>
 
-            <!-- Mobile article comments - shown below header on smaller screens -->
-            <div class="xl:hidden mt-4 max-w-4xl mx-auto px-4">
-              <SectionComments
-                sectionAddress={rootAddress}
-                comments={articleComments}
-                visible={commentsVisible}
-              />
-            </div>
-
-            <!-- Desktop article comments - positioned on right side on XL+ screens -->
-            <div
-              class="hidden xl:block absolute left-[calc(50%+26rem)] top-0 w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
-            >
-              <SectionComments
-                sectionAddress={rootAddress}
-                comments={articleComments}
-                visible={commentsVisible}
-              />
-            </div>
+            <!-- Article comments - shown below header only when viewing full publication (not a section directly) -->
+            {#if !currentBlog && !isLeaf}
+              <div class="mt-4 max-w-4xl mx-auto px-4">
+                <SectionComments
+                  sectionAddress={rootAddress}
+                  comments={articleComments}
+                  visible={commentsVisible}
+                />
+              </div>
+            {/if}
           </div>
 
 
@@ -1338,6 +1372,7 @@
                   placeholder="Write your comment on this article..."
                   rows={4}
                   disabled={isSubmittingArticleComment}
+                  class="w-full"
                 />
 
                 {#if articleCommentError}
@@ -1407,6 +1442,7 @@
                 {commentsVisible}
                 publicationTitle={publicationTitle}
                 {isFirstSection}
+                onCommentPosted={handleCommentPosted}
                 ref={(el) => onPublicationSectionMounted(el, address)}
               />
             {/if}
@@ -1476,6 +1512,7 @@
                     {toc}
                     allComments={comments}
                     {commentsVisible}
+                    onCommentPosted={handleCommentPosted}
                     ref={(el) => onPublicationSectionMounted(el, address)}
                   />
                 {:else}
@@ -1530,22 +1567,47 @@
                     event={currentBlogEvent}
                     onBlogUpdate={loadBlog}
                     active={true}
+                    showActionsMenu={true}
+                    commentsVisible={commentsVisible}
+                    highlightsVisible={highlightsVisible}
+                    onToggleComments={toggleComments}
+                    onToggleHighlights={toggleHighlights}
                   />
                 {/if}
-                <div class="flex flex-col w-full space-y-4">
-                  <SectionComments
-                    sectionAddress={rootAddress}
-                    comments={articleComments}
-                    visible={commentsVisible}
-                  />
-                  {#if articleComments.length === 0}
-                    <p
-                      class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
-                    >
-                      No comments yet. Be the first to comment!
-                    </p>
-                  {/if}
-                </div>
+                <!-- Article comments in discussion sidebar - show for full publication or blog entry -->
+                {#if (!currentBlog && !isLeaf) || (currentBlog && currentBlogEvent)}
+                  <div class="flex flex-col w-full space-y-4">
+                    {#if currentBlog && currentBlogEvent}
+                      <!-- Blog entry comments -->
+                      <SectionComments
+                        sectionAddress={currentBlog}
+                        comments={blogComments}
+                        visible={commentsVisible}
+                      />
+                      {#if blogComments.length === 0}
+                        <p
+                          class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
+                        >
+                          No comments yet. Be the first to comment!
+                        </p>
+                      {/if}
+                    {:else}
+                      <!-- Publication article comments -->
+                      <SectionComments
+                        sectionAddress={rootAddress}
+                        comments={articleComments}
+                        visible={commentsVisible}
+                      />
+                      {#if articleComments.length === 0}
+                        <p
+                          class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
+                        >
+                          No comments yet. Be the first to comment!
+                        </p>
+                      {/if}
+                    {/if}
+                  </div>
+                {/if}
               </div>
             </SidebarGroup>
           </SidebarWrapper>
@@ -1608,12 +1670,16 @@
 {/if}
 
 <!-- Highlight Layer Component -->
+<!-- AI-NOTE: Pass currentViewAddress, rootAddress, and publicationType to filter highlights to current view -->
 <HighlightLayer
   bind:this={highlightLayerRef}
   eventIds={allEventIds}
   eventAddresses={allEventAddresses}
   bind:visible={highlightsVisible}
   {useMockHighlights}
+  currentViewAddress={currentViewAddress}
+  rootAddress={rootAddress}
+  publicationType={publicationType}
 />
 
 <!-- Comment Layer Component -->
@@ -1630,5 +1696,7 @@
   <CardActions 
     event={indexEvent} 
     bind:detailsModalOpen={detailsModalOpen}
+    sectionAddress={rootAddress}
+    onCommentPosted={handleCommentPosted}
   />
 </div>

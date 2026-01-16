@@ -1,5 +1,7 @@
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools";
 import WebSocket from "ws";
+import { activeInboxRelays } from "./src/lib/ndk.ts";
+import { secondaryRelays } from "./src/lib/consts.ts";
 
 // Test user keys (generate fresh ones)
 const testUserKey = generateSecretKey();
@@ -25,12 +27,8 @@ const sections = [
   `30041:${publicationPubkey}:the-persistent-escape-of-knowledge`,
 ];
 
-// Relays to publish to (matching CommentLayer's relay list)
-const relays = [
-  "wss://relay.damus.io",
-  "wss://relay.nostr.band",
-  "wss://nostr.wine",
-];
+// Relays to publish to - should match src/lib/consts.ts relay constants
+const relays = [...secondaryRelays, ...activeInboxRelays];
 
 // Test comments to create
 const testComments = [

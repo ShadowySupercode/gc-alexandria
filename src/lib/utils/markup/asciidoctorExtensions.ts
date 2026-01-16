@@ -76,6 +76,7 @@ export function createAdvancedExtensions(): any {
   registerDiagramBlock("plantuml");
   registerDiagramBlock("tikz");
   registerDiagramBlock("bpmn");
+  registerDiagramBlock("abc");
   // --- END NEW ---
 
   return extensions;

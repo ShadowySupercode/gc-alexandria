@@ -35,7 +35,7 @@
   let submissionSuccess = $state(false);
   let submissionError = $state("");
   let submittedEvent = $state<NDKEvent | null>(null);
-  let issueLink = $state("");
+  let issueLink = $state("https://gitworkshop.dev/silberengel@gitcitadel.com/Alexandria/issues/");
   let successfulRelays = $state<string[]>([]);
 
   // Store form data when user needs to login
@@ -47,10 +47,6 @@
   // Subscribe to userStore
   let user = $state($userStore);
   userStore.subscribe((val) => (user = val));
-
-  // Repository event address from the task
-  const repoAddress =
-    "naddr1qvzqqqrhnypzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqy88wumn8ghj7mn0wvhxcmmv9uqq5stvv4uxzmnywf5kz2elajr";
 
   // Use the new relay management system with anonymous relays as fallbacks
   const allRelays = [
@@ -198,7 +194,7 @@
 
         // Create the issue link using the repository address
         const noteId = nip19.noteEncode(event.id);
-        issueLink = `https://gitcitadel.com/r/${repoAddress}/issues/${noteId}`;
+        issueLink = `${issueLink}${noteId}`;
 
         // Clear form and show success message
         clearForm();
@@ -279,7 +275,7 @@
         "GitCitadel",
         ndk,
       )} or you can view submitted issues on the <A
-        href="https://gitcitadel.com/r/naddr1qvzqqqrhnypzquqjyy5zww7uq7hehemjt7juf0q0c9rgv6lv8r2yxcxuf0rvcx9eqy88wumn8ghj7mn0wvhxcmmv9uq3wamnwvaz7tmjv4kxz7fwdehhxarj9e3xzmny9uqsuamnwvaz7tmwdaejumr0dshsqzjpd3jhsctwv3exjcgtpg0n0/issues"
+        href="https://gitworkshop.dev/silberengel@gitcitadel.com/Alexandria/issues"
         target="_blank">Alexandria repo page.</A
       >
     </P>

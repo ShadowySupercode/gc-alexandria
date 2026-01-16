@@ -25,8 +25,9 @@ const NETWORK_ENDPOINTS = [
 export async function isNetworkOnline(): Promise<boolean> {
   for (const endpoint of NETWORK_ENDPOINTS) {
     try {
-      // Use a simple fetch without HEAD method to avoid CORS issues
-      await fetch(endpoint, {
+      // Use window.fetch explicitly for client-side network detection
+      // This is intentionally client-side code, not a SvelteKit load function
+      await window.fetch(endpoint, {
         method: "GET",
         cache: "no-cache",
         signal: AbortSignal.timeout(3000),
@@ -56,7 +57,9 @@ export async function testNetworkSpeed(): Promise<number> {
 
   for (const endpoint of NETWORK_ENDPOINTS) {
     try {
-      await fetch(endpoint, {
+      // Use window.fetch explicitly for client-side network detection
+      // This is intentionally client-side code, not a SvelteKit load function
+      await window.fetch(endpoint, {
         method: "GET",
         cache: "no-cache",
         signal: AbortSignal.timeout(5000),

@@ -98,6 +98,19 @@ class SearchCache {
   size(): number {
     return this.cache.size;
   }
+
+  /**
+   * Clear cache entries for a specific search type
+   */
+  clearType(searchType: string): void {
+    const keysToDelete: string[] = [];
+    for (const [key] of this.cache.entries()) {
+      if (key.startsWith(`${searchType}:`)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach((key) => this.cache.delete(key));
+  }
 }
 
 export const searchCache = new SearchCache();

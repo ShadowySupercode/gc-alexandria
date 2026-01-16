@@ -92,8 +92,9 @@ export async function fetchNostrEvent(
     const { searchRelays, secondaryRelays } = await import("../consts.ts");
     availableRelays = [...searchRelays, ...secondaryRelays];
 
-    if (availableRelays.length === 0) {
-      availableRelays = ["wss://thecitadel.nostr1.com"];
+    // Final fallback: use first secondary relay if all else fails
+    if (availableRelays.length === 0 && secondaryRelays.length > 0) {
+      availableRelays = [secondaryRelays[1]];
     }
   }
 

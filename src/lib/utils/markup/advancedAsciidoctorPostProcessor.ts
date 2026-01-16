@@ -8,6 +8,7 @@ import plantumlEncoder from "plantuml-encoder";
  * - PlantUML diagrams
  * - BPMN diagrams
  * - TikZ diagrams
+ * - ABC notation (music)
  */
 export async function postProcessAdvancedAsciidoctorHtml(
   html: string,
@@ -25,6 +26,8 @@ export async function postProcessAdvancedAsciidoctorHtml(
     processedHtml = processBPMNBlocks(processedHtml);
     // Process TikZ blocks
     processedHtml = processTikZBlocks(processedHtml);
+    // Process ABC notation blocks
+    processedHtml = processABCBlocks(processedHtml);
     // After all processing, apply highlight.js if available
     if (
       typeof globalThis !== "undefined" &&
@@ -364,6 +367,147 @@ function processTikZBlocks(html: string): string {
     },
   );
   return html;
+}
+
+/**
+ * Processes ABC notation blocks in HTML content
+ * Uses data attributes to mark blocks for rendering, which will be processed by a global function
+ */
+function processABCBlocks(html: string): string {
+  // Match code blocks with class 'language-abc' or 'abc'
+  html = html.replace(
+    /<div class="listingblock">\s*<div class="content">\s*<pre class="highlight">\s*<code[^>]*class="[^"]*(?:language-abc|abc)[^"]*"[^>]*>([\s\S]*?)<\/code>\s*<\/pre>\s*<\/div>\s*<\/div>/g,
+    (match, content) => {
+      try {
+        const rawContent = decodeHTMLEntities(content);
+        const blockId = `abc-${Math.random().toString(36).substring(2, 9)}`;
+        // Escape the ABC content for data attribute
+        const escapedContent = escapeHtml(rawContent).replace(/"/g, "&quot;");
+        return `<div class="abc-block my-4">
+          <div id="${blockId}" 
+               class="abc-diagram bg-white dark:bg-gray-800 px-6 py-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-lg"
+               data-abc-content="${escapedContent}"></div>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400">
+              Show ABC source
+            </summary>
+            <pre class="mt-2 p-2 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto">
+              <code>${escapeHtml(rawContent)}</code>
+            </pre>
+          </details>
+        </div>`;
+      } catch (error) {
+        console.warn("Failed to process ABC block:", error);
+        return match;
+      }
+    },
+  );
+  
+  // Fallback: match <pre> blocks whose content starts with X: (ABC notation header)
+  html = html.replace(
+    /<div class="listingblock">\s*<div class="content">\s*<pre>([\s\S]*?)<\/pre>\s*<\/div>\s*<\/div>/g,
+    (match, content) => {
+      const lines = content.trim().split("\n");
+      // ABC notation typically starts with X: (tune number) or contains ABC-specific patterns
+      if (
+        lines.some((line: string) => 
+          line.trim().startsWith("X:") ||
+          line.trim().startsWith("T:") ||
+          line.trim().startsWith("M:") ||
+          line.trim().startsWith("K:")
+        )
+      ) {
+        try {
+          const rawContent = decodeHTMLEntities(content);
+          const blockId = `abc-${Math.random().toString(36).substring(2, 9)}`;
+          const escapedContent = escapeHtml(rawContent).replace(/"/g, "&quot;");
+          return `<div class="abc-block my-4">
+            <div id="${blockId}" 
+                 class="abc-diagram bg-white dark:bg-gray-800 px-6 py-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-lg"
+                 data-abc-content="${escapedContent}"></div>
+            <details class="mt-2">
+              <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400">
+                Show ABC source
+              </summary>
+              <pre class="mt-2 p-2 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto">
+                <code>${escapeHtml(rawContent)}</code>
+              </pre>
+            </details>
+          </div>`;
+        } catch (error) {
+          console.warn("Failed to process ABC fallback block:", error);
+          return match;
+        }
+      }
+      return match;
+    },
+  );
+  
+  return html;
+}
+
+/**
+ * Initializes ABC notation rendering for all blocks marked with data-abc-content
+ * This function is called after HTML is inserted into the DOM
+ */
+function initializeABCBlocks(): void {
+  if (typeof window === "undefined") return;
+  
+  const abcBlocks = document.querySelectorAll('[data-abc-content]');
+  if (abcBlocks.length === 0) return;
+  
+  // Load abcjs from CDN if not already loaded
+  if (typeof (window as any).ABCJS === "undefined") {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/abcjs@6.2.0/dist/abcjs-basic.min.js";
+    script.onload = () => {
+      renderAllABCBlocks();
+    };
+    script.onerror = () => {
+      console.warn("Failed to load abcjs library");
+    };
+    document.head.appendChild(script);
+  } else {
+    renderAllABCBlocks();
+  }
+  
+  function renderAllABCBlocks(): void {
+    const abcjs = (window as any).ABCJS;
+    if (!abcjs) return;
+    
+    abcBlocks.forEach((block) => {
+      const container = block as HTMLElement;
+      const abcContent = container.getAttribute("data-abc-content");
+      if (!abcContent) return;
+      
+      // Decode HTML entities
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = abcContent;
+      const decodedContent = textarea.value;
+      
+      try {
+        abcjs.renderAbc(container.id || container, decodedContent, {
+          responsive: "resize",
+          staffwidth: 740,
+          scale: 1.0,
+          paddingleft: 20,
+          paddingright: 20,
+          paddingtop: 20,
+          paddingbottom: 20,
+        });
+        // Remove data attribute after rendering to avoid re-rendering
+        container.removeAttribute("data-abc-content");
+      } catch (error) {
+        console.warn("Failed to render ABC notation:", error);
+        container.innerHTML = '<p class="text-red-600 dark:text-red-400">Error rendering ABC notation. Please check the source.</p>';
+      }
+    });
+  }
+}
+
+// Make initializeABCBlocks available globally so it can be called from Svelte components
+if (typeof window !== "undefined") {
+  (window as any).initializeABCBlocks = initializeABCBlocks;
 }
 
 /**
