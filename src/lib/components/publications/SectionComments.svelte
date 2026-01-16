@@ -36,6 +36,16 @@
   // Subscribe to userStore
   let user = $derived($userStore);
 
+  // AI-NOTE: Debug logging to track component rendering and comment reception
+  $effect(() => {
+    console.debug(`[SectionComments] Component rendered/re-rendered:`, {
+      sectionAddress,
+      commentsCount: comments.length,
+      visible,
+      commentIds: comments.map(c => c.id?.substring(0, 8)),
+    });
+  });
+
   /**
    * Parse comment threading structure according to NIP-22
    * NIP-22: Uppercase tags (A, E, I, K, P) = root scope
@@ -54,7 +64,14 @@
 
     // NIP-22: First pass - identify replies by looking for lowercase e tags
     // Lowercase e tags point to the parent comment ID
+    // This works for both direct replies and nested replies (replies to replies)
     for (const comment of allComments) {
+      const commentId = comment.id?.toLowerCase();
+      if (!commentId) {
+        console.warn(`[SectionComments] Comment missing ID, skipping`);
+        continue;
+      }
+      
       // NIP-22: Look for lowercase e tag (parent item reference)
       const lowercaseETags = comment.tags.filter(t => t[0] === 'e');
       
@@ -69,6 +86,7 @@
           }
           
           // NIP-22: If lowercase e tag points to a comment in our set, it's a reply
+          // This works for both direct replies (parent is root comment) and nested replies (parent is another reply)
           if (allCommentIds.has(parentId)) {
             isReply = true;
             
@@ -76,7 +94,11 @@
               repliesByParent.set(parentId, []);
             }
             repliesByParent.get(parentId)!.push(comment);
-            console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a reply to ${parentId.substring(0, 8)} (NIP-22 lowercase e tag)`);
+            
+            // Check if this is a nested reply (reply to a reply)
+            const isNestedReply = !rootComments.some(rc => rc.id?.toLowerCase() === parentId);
+            const replyType = isNestedReply ? "nested reply (reply to reply)" : "direct reply";
+            console.debug(`[SectionComments] Comment ${commentId.substring(0, 8)} is a ${replyType} to ${parentId.substring(0, 8)} (NIP-22 lowercase e tag)`);
             break; // Found parent, no need to check other e tags
           }
         }
@@ -85,12 +107,12 @@
           // Has lowercase e tag but doesn't reference any comment in our set
           // This might be a root comment that references an external event, or malformed
           rootComments.push(comment);
-          console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a root comment (lowercase e tag references external event)`);
+          console.debug(`[SectionComments] Comment ${commentId.substring(0, 8)} is a root comment (lowercase e tag references external event)`);
         }
       } else {
         // No lowercase e tags - this is a root comment
         rootComments.push(comment);
-        console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a root comment (no lowercase e tags)`);
+        console.debug(`[SectionComments] Comment ${commentId.substring(0, 8)} is a root comment (no lowercase e tags)`);
       }
     }
 
@@ -98,6 +120,14 @@
     // AI-NOTE: Log reply details for debugging
     for (const [parentId, replies] of repliesByParent.entries()) {
       console.debug(`[SectionComments] Parent ${parentId.substring(0, 8)} has ${replies.length} replies:`, replies.map(r => r.id?.substring(0, 8)));
+      // Check if any of these replies themselves have replies (nested replies)
+      for (const reply of replies) {
+        const replyId = reply.id?.toLowerCase();
+        if (replyId && repliesByParent.has(replyId)) {
+          const nestedReplies = repliesByParent.get(replyId)!;
+          console.debug(`[SectionComments]   → Reply ${replyId.substring(0, 8)} has ${nestedReplies.length} nested replies (replies to replies)`);
+        }
+      }
     }
     return { rootComments, repliesByParent };
   }
@@ -112,6 +142,19 @@
         replyGroups: structure.repliesByParent.size,
         visible,
       });
+      // AI-NOTE: Log all parent IDs in the map to help debug nested reply lookup
+      const allParentIds = Array.from(structure.repliesByParent.keys());
+      console.debug(`[SectionComments] All parent IDs in repliesByParent map:`, allParentIds.map(id => id.substring(0, 8)));
+      // Log which replies have nested replies
+      for (const [parentId, replies] of structure.repliesByParent.entries()) {
+        for (const reply of replies) {
+          const replyId = reply.id?.toLowerCase();
+          if (replyId && structure.repliesByParent.has(replyId)) {
+            const nested = structure.repliesByParent.get(replyId)!;
+            console.debug(`[SectionComments] Reply ${replyId.substring(0, 8)} has ${nested.length} nested replies`);
+          }
+        }
+      }
     }
     return structure;
   });
@@ -230,13 +273,18 @@
     
     // AI-NOTE: Debug logging to track reply rendering
     if (replies.length > 0) {
-      console.debug(`[SectionComments] Rendering ${replies.length} replies for parent ${normalizedParentId.substring(0, 8)}`);
+      console.debug(`[SectionComments] renderReplies: Found ${replies.length} replies for parent ${normalizedParentId.substring(0, 8)} (level ${level})`);
+      // Log all parent IDs in the map for debugging
+      const allParentIds = Array.from(repliesMap.keys());
+      console.debug(`[SectionComments] renderReplies: All parent IDs in map:`, allParentIds.map(id => id.substring(0, 8)));
     } else {
       // AI-NOTE: Debug when no replies found - check if map has any entries for similar IDs
       const allParentIds = Array.from(repliesMap.keys());
       const similarIds = allParentIds.filter(id => id.substring(0, 8) === normalizedParentId.substring(0, 8));
       if (similarIds.length > 0) {
-        console.debug(`[SectionComments] No replies found for ${normalizedParentId.substring(0, 8)}, but found similar IDs:`, similarIds.map(id => id.substring(0, 8)));
+        console.debug(`[SectionComments] renderReplies: No replies found for ${normalizedParentId.substring(0, 8)}, but found similar IDs:`, similarIds.map(id => id.substring(0, 8)));
+      } else {
+        console.debug(`[SectionComments] renderReplies: No replies found for ${normalizedParentId.substring(0, 8)}. Map has ${repliesMap.size} entries.`);
       }
     }
     return replies;
@@ -412,8 +460,10 @@
 </script>
 
 <!-- AI-NOTE: Debug info for comment display -->
-{#if visible && threadStructure.rootComments.length > 0}
-  {console.debug(`[SectionComments] RENDERING: visible=${visible}, rootComments=${threadStructure.rootComments.length}, totalComments=${comments.length}`)}
+{#if visible}
+  {console.debug(`[SectionComments] RENDERING CHECK: visible=${visible}, rootComments=${threadStructure.rootComments.length}, totalComments=${comments.length}, repliesByParent.size=${threadStructure.repliesByParent.size}`)}
+  {#if threadStructure.rootComments.length > 0}
+    {console.debug(`[SectionComments] RENDERING COMMENTS: visible=${visible}, rootComments=${threadStructure.rootComments.length}, totalComments=${comments.length}`)}
   <div class="space-y-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4 shadow-lg">
     {#each threadStructure.rootComments as rootComment (rootComment.id)}
       {@const replyCount = countReplies(rootComment.id, threadStructure.repliesByParent)}
@@ -640,7 +690,7 @@
                     placeholder="Write your reply..."
                     rows={3}
                     disabled={isSubmittingReply}
-                    class="mb-2"
+                    class="w-full mb-2"
                   />
 
                   {#if replyError}
@@ -679,6 +729,14 @@
                 {console.debug(`[SectionComments] Rendering ${replyCount} replies for comment ${rootComment.id?.substring(0, 8)}`)}
                 <div class="pl-4 border-l-2 border-gray-200 dark:border-gray-600 space-y-2">
                   {#each renderReplies(rootComment.id, threadStructure.repliesByParent) as reply (reply.id)}
+                    {@const replyId = reply.id?.toLowerCase() || ""}
+                    {@const nestedReplies = replyId ? renderReplies(reply.id, threadStructure.repliesByParent) : []}
+                    {console.debug(`[SectionComments] Processing reply ${reply.id?.substring(0, 8)}, nestedReplies.length=${nestedReplies.length}, replyId=${replyId.substring(0, 8)}, checking map for: ${replyId.substring(0, 8)}`)}
+                    {#if nestedReplies.length > 0}
+                      {console.debug(`[SectionComments] ✓ Found ${nestedReplies.length} nested replies for reply ${reply.id?.substring(0, 8)}, rendering them now`)}
+                    {:else}
+                      {console.debug(`[SectionComments] ✗ No nested replies found for reply ${reply.id?.substring(0, 8)}. Map has ${threadStructure.repliesByParent.size} entries.`)}
+                    {/if}
                     <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-3">
                       <div class="flex items-center gap-2 mb-2">
                         <button
@@ -775,7 +833,7 @@
                             placeholder="Write your reply..."
                             rows={3}
                             disabled={isSubmittingReply}
-                            class="mb-2"
+                            class="w-full mb-2"
                           />
 
                           {#if replyError}
@@ -809,8 +867,10 @@
                         </div>
                       {/if}
 
-                      <!-- Nested replies (one level deep) -->
-                      {#each renderReplies(reply.id, threadStructure.repliesByParent) as nestedReply (nestedReply.id)}
+                      <!-- Nested replies (replies to replies) -->
+                      {#if nestedReplies.length > 0}
+                        {console.debug(`[SectionComments] Rendering ${nestedReplies.length} nested replies for reply ${reply.id?.substring(0, 8)}`)}
+                        {#each nestedReplies as nestedReply (nestedReply.id)}
                         <div class="ml-4 mt-2 bg-gray-100 dark:bg-gray-600/30 rounded p-2">
                           <div class="flex items-center gap-2 mb-1">
                             <button
@@ -907,7 +967,7 @@
                                 placeholder="Write your reply..."
                                 rows={2}
                                 disabled={isSubmittingReply}
-                                class="mb-2 text-xs"
+                                class="w-full mb-2 text-xs"
                               />
 
                               {#if replyError}
@@ -942,6 +1002,7 @@
                           {/if}
                         </div>
                       {/each}
+                      {/if}
                     </div>
                   {/each}
                 </div>
@@ -952,6 +1013,9 @@
       </div>
     {/each}
   </div>
+  {:else}
+    {console.debug(`[SectionComments] NOT RENDERING: visible=${visible} but no root comments (totalComments=${comments.length})`)}
+  {/if}
 {/if}
 
 <!-- Details Modal -->

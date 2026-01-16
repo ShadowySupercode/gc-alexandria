@@ -52,12 +52,13 @@
   let copyFeedback = $state<string | null>(null);
 
   // Derived state for color mapping
+  // AI-NOTE: Increased opacity from 0.3 to 0.5 for better visibility
   let colorMap = $derived.by(() => {
     const map = new Map<string, string>();
     highlights.forEach((highlight) => {
       if (!map.has(highlight.pubkey)) {
         const hue = pubkeyToHue(highlight.pubkey);
-        map.set(highlight.pubkey, `hsla(${hue}, 70%, 60%, 0.3)`);
+        map.set(highlight.pubkey, `hsla(${hue}, 70%, 60%, 0.5)`);
       }
     });
     return map;
@@ -281,34 +282,102 @@
       const sectionElement = document.getElementById(targetAddress);
       if (sectionElement) {
         searchRoot = sectionElement;
+        console.debug(`[HighlightLayer] Found section element for ${targetAddress}, using it as search root`);
+      } else {
+        console.warn(`[HighlightLayer] Section element not found for ${targetAddress}, falling back to containerRef`);
       }
     }
 
-    return highlightByOffset(searchRoot, offsetStart, offsetEnd, color);
+    const result = highlightByOffset(searchRoot, offsetStart, offsetEnd, color);
+    if (!result) {
+      console.warn(`[HighlightLayer] highlightByOffset returned false for offsets ${offsetStart}-${offsetEnd} in ${targetAddress || 'container'}`);
+    }
+    return result;
   }
+
+  // Track retry attempts for text highlighting
+  const textHighlightRetries = new Map<string, number>();
+  const MAX_TEXT_HIGHLIGHT_RETRIES = 10;
+  const TEXT_HIGHLIGHT_RETRY_DELAYS = [100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000]; // ms
 
   /**
    * Find text in the DOM and highlight it (fallback method)
    * @param text - The text to highlight
    * @param color - The color to use for highlighting
    * @param targetAddress - Optional address to limit search to specific section
+   * @param retryCount - Internal parameter for retry attempts
    */
   function findAndHighlightText(
     text: string,
     color: string,
     targetAddress?: string,
+    retryCount: number = 0,
   ): void {
-    if (!containerRef || !text || text.trim().length === 0) {
+    console.log(`[HighlightLayer] findAndHighlightText called: text="${text}", color="${color}", targetAddress="${targetAddress}", retryCount=${retryCount}`);
+    
+    if (!text || text.trim().length === 0) {
+      console.warn(`[HighlightLayer] Empty text provided, returning`);
       return;
     }
 
     // If we have a target address, search only in that section
-    let searchRoot: HTMLElement | Document = containerRef;
+    // AI-NOTE: When viewing a section directly (leaf), the section element might be outside containerRef
+    // So we search the entire document for the section element
+    let searchRoot: HTMLElement | Document | null = null;
+    let sectionElement: HTMLElement | null = null;
+    
     if (targetAddress) {
-      const sectionElement = document.getElementById(targetAddress);
+      // Search in entire document, not just containerRef
+      sectionElement = document.getElementById(targetAddress);
       if (sectionElement) {
-        searchRoot = sectionElement;
+        // AI-NOTE: The actual content is in a nested <section class="whitespace-normal publication-leather">
+        // created by contentParagraph snippet. Look for that nested section first.
+        const contentSection = sectionElement.querySelector('section.publication-leather');
+        if (contentSection) {
+          searchRoot = contentSection as HTMLElement;
+          console.debug(`[HighlightLayer] Found nested content section for ${targetAddress}, searching for text: "${text.substring(0, 50)}"`);
+        } else {
+          // Fallback to .section-content div if nested section not found
+          const contentDiv = sectionElement.querySelector(".section-content");
+          if (contentDiv) {
+            searchRoot = contentDiv as HTMLElement;
+            console.debug(`[HighlightLayer] Found section-content div for ${targetAddress}, searching for text: "${text.substring(0, 50)}"`);
+          } else {
+            // Last resort: search entire section
+            searchRoot = sectionElement;
+            console.debug(`[HighlightLayer] Found section element for ${targetAddress} (no nested content found), searching for text: "${text.substring(0, 50)}"`);
+          }
+        }
+      } else {
+        // Section not found - might not be loaded yet, retry if we haven't exceeded max retries
+        const retryKey = `${targetAddress}:${text}`;
+        const currentRetries = textHighlightRetries.get(retryKey) || 0;
+        if (currentRetries < MAX_TEXT_HIGHLIGHT_RETRIES) {
+          textHighlightRetries.set(retryKey, currentRetries + 1);
+          const delay = TEXT_HIGHLIGHT_RETRY_DELAYS[Math.min(currentRetries, TEXT_HIGHLIGHT_RETRY_DELAYS.length - 1)];
+          console.debug(`[HighlightLayer] Section element not found for ${targetAddress}, retrying in ${delay}ms (attempt ${currentRetries + 1}/${MAX_TEXT_HIGHLIGHT_RETRIES})`);
+          setTimeout(() => {
+            findAndHighlightText(text, color, targetAddress, retryCount + 1);
+          }, delay);
+          return;
+        } else {
+          console.warn(`[HighlightLayer] Section element not found for ${targetAddress} after ${MAX_TEXT_HIGHLIGHT_RETRIES} retries, giving up.`);
+          return;
+        }
       }
+    } else {
+      // No target address - use containerRef if available, otherwise document
+      if (containerRef) {
+        searchRoot = containerRef;
+        console.debug(`[HighlightLayer] No target address, searching in containerRef for text: "${text.substring(0, 50)}"`);
+      } else {
+        searchRoot = document;
+        console.debug(`[HighlightLayer] No target address and no containerRef, searching in document for text: "${text.substring(0, 50)}"`);
+      }
+    }
+
+    if (!searchRoot) {
+      return;
     }
 
     // Use TreeWalker to find all text nodes
@@ -318,39 +387,127 @@
       null,
     );
 
+    // AI-NOTE: First, check if the text exists in the full content
+    // This helps us know if we should continue searching
+    const fullText = searchRoot instanceof HTMLElement 
+      ? searchRoot.textContent || searchRoot.innerText || ""
+      : "";
+    const normalizedSearchText = text.trim().toLowerCase();
+    const normalizedFullText = fullText.toLowerCase();
+    
+    // AI-NOTE: If content is empty or very short, the section might still be loading
+    // Check if we have meaningful content (more than just whitespace/formatting)
+    const hasContent = fullText.trim().length > 5; // At least 5 characters of actual content
+    
+    if (!hasContent && sectionElement && retryCount < MAX_TEXT_HIGHLIGHT_RETRIES) {
+      // Content not loaded yet, retry
+      const retryKey = `${targetAddress || 'no-address'}:${text}`;
+      const currentRetries = textHighlightRetries.get(retryKey) || 0;
+      if (currentRetries < MAX_TEXT_HIGHLIGHT_RETRIES) {
+        textHighlightRetries.set(retryKey, currentRetries + 1);
+        const delay = TEXT_HIGHLIGHT_RETRY_DELAYS[Math.min(currentRetries, TEXT_HIGHLIGHT_RETRY_DELAYS.length - 1)];
+        console.debug(`[HighlightLayer] Section content not loaded yet for ${targetAddress}, retrying in ${delay}ms (attempt ${currentRetries + 1}/${MAX_TEXT_HIGHLIGHT_RETRIES})`);
+        setTimeout(() => {
+          findAndHighlightText(text, color, targetAddress, retryCount + 1);
+        }, delay);
+        return;
+      }
+    }
+    
+    if (!normalizedFullText.includes(normalizedSearchText)) {
+      // Text not found - retry if section exists and we haven't exceeded max retries
+      if (sectionElement && retryCount < MAX_TEXT_HIGHLIGHT_RETRIES) {
+        const retryKey = `${targetAddress || 'no-address'}:${text}`;
+        const currentRetries = textHighlightRetries.get(retryKey) || 0;
+        if (currentRetries < MAX_TEXT_HIGHLIGHT_RETRIES) {
+          textHighlightRetries.set(retryKey, currentRetries + 1);
+          const delay = TEXT_HIGHLIGHT_RETRY_DELAYS[Math.min(currentRetries, TEXT_HIGHLIGHT_RETRY_DELAYS.length - 1)];
+          console.debug(`[HighlightLayer] Text "${text}" not found in content yet, retrying in ${delay}ms (attempt ${currentRetries + 1}/${MAX_TEXT_HIGHLIGHT_RETRIES}). Full text (first 200 chars): "${fullText.substring(0, 200)}"`);
+          setTimeout(() => {
+            findAndHighlightText(text, color, targetAddress, retryCount + 1);
+          }, delay);
+          return;
+        }
+      }
+      console.warn(
+        `[HighlightLayer] Text "${text}" not found in full content. Full text (first 200 chars): "${fullText.substring(0, 200)}"`,
+      );
+      return;
+    }
+
+    console.debug(
+      `[HighlightLayer] Text "${text}" found in full content. Searching text nodes...`,
+    );
+
+    // Collect all text nodes
     const textNodes: Node[] = [];
     let node: Node | null;
     while ((node = walker.nextNode())) {
       textNodes.push(node);
     }
 
+    console.debug(`[HighlightLayer] Found ${textNodes.length} text nodes to search`);
+    
+    // Log first few text nodes for debugging
+    const sampleNodes = textNodes.slice(0, 20).filter(n => n.textContent && n.textContent.trim().length > 0);
+    console.log(`[HighlightLayer] Sample text nodes (first 20 non-empty):`, sampleNodes.map(n => `"${n.textContent?.substring(0, 50)}${(n.textContent?.length || 0) > 50 ? '...' : ''}"`));
+
     // Search for the highlight text in text nodes
-    for (const textNode of textNodes) {
+    // AI-NOTE: Use simple indexOf for exact matching - the text should match exactly
+    for (let i = 0; i < textNodes.length; i++) {
+      const textNode = textNodes[i];
       const nodeText = textNode.textContent || "";
-      const index = nodeText.toLowerCase().indexOf(text.toLowerCase());
+      if (!nodeText || nodeText.trim().length === 0) {
+        continue; // Skip empty text nodes
+      }
+      
+      // Log every text node that contains the search text (for debugging)
+      if (nodeText.toLowerCase().includes(text.toLowerCase())) {
+        console.log(`[HighlightLayer] Text node ${i} contains search text: "${nodeText}"`);
+      }
+      
+      // Try exact match first (case-sensitive)
+      let index = nodeText.indexOf(text);
+      
+      // If exact match fails, try case-insensitive
+      if (index === -1) {
+        const normalizedNodeText = nodeText.toLowerCase();
+        const normalizedSearchText = text.toLowerCase();
+        index = normalizedNodeText.indexOf(normalizedSearchText);
+      }
 
       if (index !== -1) {
         const parent = textNode.parentNode;
-        if (!parent) continue;
+        if (!parent) {
+          console.warn(`[HighlightLayer] Text node has no parent, skipping`);
+          continue;
+        }
 
         // Skip if already highlighted
         if (
           parent.nodeName === "MARK" ||
           (parent instanceof Element && parent.classList?.contains("highlight"))
         ) {
+          console.debug(`[HighlightLayer] Text node already highlighted, skipping`);
           continue;
         }
 
+        // Find the actual match - use the original text length
+        const matchLength = text.length;
         const before = nodeText.substring(0, index);
-        const match = nodeText.substring(index, index + text.length);
-        const after = nodeText.substring(index + text.length);
+        const match = nodeText.substring(index, index + matchLength);
+        const after = nodeText.substring(index + matchLength);
 
-        // Create highlight span
+        console.debug(`[HighlightLayer] Found match at index ${index}: "${match}" in node: "${nodeText.substring(0, 100)}${nodeText.length > 100 ? '...' : ''}"`);
+
+        // Create highlight span with visible styling
         const highlightSpan = document.createElement("mark");
         highlightSpan.className = "highlight";
         highlightSpan.style.backgroundColor = color;
         highlightSpan.style.borderRadius = "2px";
         highlightSpan.style.padding = "2px 0";
+        highlightSpan.style.color = "inherit"; // Ensure text color is visible
+        highlightSpan.style.fontWeight = "inherit"; // Preserve font weight
         highlightSpan.textContent = match;
 
         // Replace the text node with the highlighted version
@@ -361,7 +518,45 @@
 
         parent.replaceChild(fragment, textNode);
 
+        console.debug(
+          `[HighlightLayer] Successfully highlighted text "${match}" at index ${index} in node with text: "${nodeText.substring(0, 50)}${nodeText.length > 50 ? "..." : ""}"`,
+        );
+
+        // Clear retry count on success
+        if (targetAddress) {
+          const retryKey = `${targetAddress}:${text}`;
+          textHighlightRetries.delete(retryKey);
+        }
+
         return; // Only highlight first occurrence to avoid multiple highlights
+      }
+    }
+
+    // AI-NOTE: If no match found, log for debugging
+    console.warn(
+      `[HighlightLayer] Could not find highlight text "${text}" in section. Searched ${textNodes.length} text nodes.`,
+    );
+    if (textNodes.length > 0) {
+      // Log more text nodes and their full content to help debug
+      const sampleNodes = textNodes.slice(0, 10);
+      console.debug(
+        `[HighlightLayer] Sample text nodes (first 10):`,
+        sampleNodes.map((n, i) => ({
+          index: i,
+          text: n.textContent?.substring(0, 100) || "",
+          fullLength: n.textContent?.length || 0,
+          parentTag: n.parentElement?.tagName || "unknown",
+        })),
+      );
+      // Also log the full text content of the search root to see what's actually there
+      if (searchRoot instanceof HTMLElement) {
+        const fullText = searchRoot.textContent || "";
+        console.debug(
+          `[HighlightLayer] Full text content of search root (first 500 chars): "${fullText.substring(0, 500)}"`,
+        );
+        console.debug(
+          `[HighlightLayer] Full text contains "${text}": ${fullText.toLowerCase().includes(text.toLowerCase())}`,
+        );
       }
     }
   }
@@ -370,7 +565,7 @@
    * Render all highlights on the page
    */
   function renderHighlights() {
-    if (!visible || !containerRef) {
+    if (!visible) {
       return;
     }
 
@@ -378,17 +573,36 @@
       return;
     }
 
-    // Clear existing highlights
-    clearHighlights();
+    // AI-NOTE: When viewing a section directly (leaf), containerRef might not be set
+    // But we can still highlight by searching the document for section elements
+    // Only clear highlights if containerRef exists, otherwise clear from document
+    if (containerRef) {
+      clearHighlights();
+    } else {
+      // Clear highlights from entire document
+      const highlightElements = document.querySelectorAll("mark.highlight");
+      highlightElements.forEach((el) => {
+        const parent = el.parentNode;
+        if (parent) {
+          const textNode = document.createTextNode(el.textContent || "");
+          parent.replaceChild(textNode, el);
+          parent.normalize();
+        }
+      });
+    }
 
     // Apply each highlight
     for (const highlight of highlights) {
       const content = highlight.content;
-      const color = colorMap.get(highlight.pubkey) || "hsla(60, 70%, 60%, 0.3)";
+      const color = colorMap.get(highlight.pubkey) || "hsla(60, 70%, 60%, 0.5)";
+
+      console.log(`[HighlightLayer] Processing highlight: content="${content}", color="${color}"`);
 
       // Extract the target address from the highlight's "a" tag
       const aTag = highlight.tags.find((tag) => tag[0] === "a");
       const targetAddress = aTag ? aTag[1] : undefined;
+      
+      console.log(`[HighlightLayer] Highlight targetAddress: "${targetAddress}"`);
 
       // Check for offset tags (position-based highlighting)
       const offsetTag = highlight.tags.find((tag) => tag[0] === "offset");
@@ -412,10 +626,23 @@
     }
 
     // Check if any highlights were actually rendered
-    const renderedHighlights = containerRef.querySelectorAll("mark.highlight");
+    const renderedHighlights = containerRef 
+      ? containerRef.querySelectorAll("mark.highlight")
+      : document.querySelectorAll("mark.highlight");
     console.log(
       `[HighlightLayer] Rendered ${renderedHighlights.length} highlight marks in DOM`,
     );
+    
+    // AI-NOTE: Debug logging to help diagnose highlight visibility issues
+    if (renderedHighlights.length === 0 && highlights.length > 0) {
+      console.warn(`[HighlightLayer] No highlights rendered despite ${highlights.length} highlights available. Container:`, containerRef, "Visible:", visible);
+      // Log highlight details for debugging
+      highlights.forEach((h, i) => {
+        const aTag = h.tags.find((tag) => tag[0] === "a");
+        const offsetTag = h.tags.find((tag) => tag[0] === "offset");
+        console.debug(`[HighlightLayer] Highlight ${i}: content="${h.content.substring(0, 50)}", targetAddress="${aTag?.[1]}", hasOffset=${!!offsetTag}`);
+      });
+    }
   }
 
   /**
@@ -473,12 +700,32 @@
   });
 
   // Watch for visibility AND highlights changes - render when both are ready
+  // AI-NOTE: Also watch containerRef to ensure it's set before rendering
   $effect(() => {
-    // This effect runs when either visible or highlights.length changes
+    // This effect runs when either visible, highlights.length, or containerRef changes
     const highlightCount = highlights.length;
 
-    if (visible && highlightCount > 0) {
-      renderHighlights();
+    if (visible && highlightCount > 0 && containerRef) {
+      // AI-NOTE: Retry rendering with increasing delays to handle async content loading
+      // This is especially important when viewing sections directly
+      let retryCount = 0;
+      const maxRetries = 5;
+      const retryDelays = [100, 300, 500, 1000, 2000];
+      
+      const tryRender = () => {
+        renderHighlights();
+        const renderedCount = containerRef?.querySelectorAll("mark.highlight").length || 0;
+        
+        if (renderedCount === 0 && retryCount < maxRetries) {
+          console.debug(`[HighlightLayer] No highlights rendered, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
+          setTimeout(tryRender, retryDelays[retryCount]);
+          retryCount++;
+        } else if (renderedCount > 0) {
+          console.debug(`[HighlightLayer] Successfully rendered ${renderedCount} highlights after ${retryCount} retries`);
+        }
+      };
+      
+      tryRender();
     } else if (!visible) {
       clearHighlights();
     }
@@ -643,7 +890,7 @@
         {@const isExpanded = expandedAuthors.has(pubkey)}
         {@const profile = authorProfiles.get(pubkey)}
         {@const displayName = getAuthorDisplayName(profile, pubkey)}
-        {@const color = colorMap.get(pubkey) || "hsla(60, 70%, 60%, 0.3)"}
+        {@const color = colorMap.get(pubkey) || "hsla(60, 70%, 60%, 0.5)"}
         {@const sortedHighlights = sortHighlightsByTime(authorHighlights)}
 
         <div class="border-b border-gray-200 dark:border-gray-700 pb-2">

@@ -108,11 +108,13 @@
   });
 
   // Filter comments for the root publication (kind 30040)
+  // AI-NOTE: NIP-22: Uppercase A tag points to root scope (publication/section)
+  // Use uppercase A tag to match comments scoped to the root publication
   let articleComments = $derived(
     comments.filter((comment) => {
-      // Check if comment targets the root publication via #a tag
-      const aTag = comment.tags.find((t) => t[0] === "a");
-      return aTag && aTag[1] === rootAddress;
+      // NIP-22: Look for uppercase A tag (root scope)
+      const rootATag = comment.tags.find((t) => t[0] === "A");
+      return rootATag && rootATag[1] === rootAddress;
     }),
   );
 
@@ -1315,25 +1317,16 @@
               {/if}
             </div>
 
-            <!-- Mobile article comments - shown below header on smaller screens -->
-            <div class="xl:hidden mt-4 max-w-4xl mx-auto px-4">
-              <SectionComments
-                sectionAddress={rootAddress}
-                comments={articleComments}
-                visible={commentsVisible}
-              />
-            </div>
-
-            <!-- Desktop article comments - positioned on right side on XL+ screens -->
-            <div
-              class="hidden xl:block absolute left-[calc(50%+26rem)] top-0 w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
-            >
-              <SectionComments
-                sectionAddress={rootAddress}
-                comments={articleComments}
-                visible={commentsVisible}
-              />
-            </div>
+            <!-- Article comments - shown below header only when viewing full publication (not a section directly) -->
+            {#if !currentBlog && !isLeaf}
+              <div class="mt-4 max-w-4xl mx-auto px-4">
+                <SectionComments
+                  sectionAddress={rootAddress}
+                  comments={articleComments}
+                  visible={commentsVisible}
+                />
+              </div>
+            {/if}
           </div>
 
 
@@ -1352,6 +1345,7 @@
                   placeholder="Write your comment on this article..."
                   rows={4}
                   disabled={isSubmittingArticleComment}
+                  class="w-full"
                 />
 
                 {#if articleCommentError}
@@ -1421,6 +1415,7 @@
                 {commentsVisible}
                 publicationTitle={publicationTitle}
                 {isFirstSection}
+                onCommentPosted={handleCommentPosted}
                 ref={(el) => onPublicationSectionMounted(el, address)}
               />
             {/if}
@@ -1547,20 +1542,23 @@
                     active={true}
                   />
                 {/if}
-                <div class="flex flex-col w-full space-y-4">
-                  <SectionComments
-                    sectionAddress={rootAddress}
-                    comments={articleComments}
-                    visible={commentsVisible}
-                  />
-                  {#if articleComments.length === 0}
-                    <p
-                      class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
-                    >
-                      No comments yet. Be the first to comment!
-                    </p>
-                  {/if}
-                </div>
+                <!-- Article comments in discussion sidebar - only show when viewing full publication (not a section directly) -->
+                {#if !currentBlog && !isLeaf}
+                  <div class="flex flex-col w-full space-y-4">
+                    <SectionComments
+                      sectionAddress={rootAddress}
+                      comments={articleComments}
+                      visible={commentsVisible}
+                    />
+                    {#if articleComments.length === 0}
+                      <p
+                        class="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
+                      >
+                        No comments yet. Be the first to comment!
+                      </p>
+                    {/if}
+                  </div>
+                {/if}
               </div>
             </SidebarGroup>
           </SidebarWrapper>

@@ -116,6 +116,19 @@
     
     const filtered = Array.from(allMatchingComments);
     console.debug(`[PublicationSection] Filtered ${filtered.length} comments (${directComments.length} direct, ${filtered.length - directComments.length} replies) for section ${address} from ${allComments.length} total comments`);
+    
+    // AI-NOTE: Debug logging to check for nested replies in filtered comments
+    const filteredCommentIds = new Set(filtered.map(c => c.id?.toLowerCase()).filter(Boolean));
+    for (const comment of filtered) {
+      const lowercaseETags = comment.tags.filter(t => t[0] === "e");
+      for (const eTag of lowercaseETags) {
+        const parentId = eTag[1]?.toLowerCase();
+        if (parentId && filteredCommentIds.has(parentId)) {
+          console.debug(`[PublicationSection] Found nested reply ${comment.id?.substring(0, 8)} to filtered comment ${parentId.substring(0, 8)}`);
+        }
+      }
+    }
+    
     return filtered;
   });
 
@@ -339,8 +352,8 @@
         )}
       </div>
 
-      <!-- Mobile comments - shown below content on smaller screens -->
-      <div class="xl:hidden mt-8 w-full text-left">
+      <!-- Comments - shown below content on all screens -->
+      <div class="mt-8 w-full text-left">
         <SectionComments
           sectionAddress={address}
           comments={sectionComments}
@@ -349,20 +362,6 @@
       </div>
     {/await}
   </section>
-
-
-  <!-- Comments area: positioned to the right of section on desktop -->
-  <!-- AI-NOTE: Comments panel positioned to the right of sections on desktop (xl+ screens)
-       Positioned relative to viewport right edge to ensure visibility -->
-  <div
-    class="hidden xl:block fixed right-8 top-[calc(20%+70px)] w-80 max-h-[calc(100vh-200px)] overflow-y-auto z-30"
-  >
-    <SectionComments
-      sectionAddress={address}
-      comments={sectionComments}
-      visible={commentsVisible}
-    />
-  </div>
 </div>
 
 <style>
