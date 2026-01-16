@@ -278,6 +278,11 @@
           // Sort by created_at descending
           allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
           
+          // AI-NOTE: Clear publication search cache when new events are loaded to prevent stale results
+          // This ensures searches will re-run with the updated event set
+          searchCache.clearType("publication");
+          console.debug(`[PublicationFeed] Cleared publication search cache after loading ${newEvents.length} new events`);
+          
           // Update the view immediately with new events
           eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
           endOfFeed = allIndexEvents.length <= publicationsToDisplay;
