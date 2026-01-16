@@ -185,6 +185,11 @@
 
     <P class="mb-3">
       The app also has a powerful search interface, a composition form, and a universal publisher.
+
+      It comes along wtih two other apps, Jumble and Wikistr. <a href="https://jumble.imwald.eu/notes/naddr1qvzqqqr4tqpzq4ekxjmysc6vhtgs7fz3wasgn63ppyxegplhzh5rc4mmgcg6umkuqyw8wumn8ghj7argv43kjarpv3jkctnwdaehgu339e3k7mf0qpg9g6r9942xzmr994hkvt2sv46x2u3d2fskycnfwskkzmny948hg6r9wfej6cne94px2ct5wf5hst2sda68getj94mz6st4v35k7cn0da4hxttxwfhk6t2vd938yetkdauqrhxcs8" target="_blank">Jumble</a> is a meant as a daily driver, but also supports
+      basic Alexandria features. <a href="https://wikistr.imwald.eu/jane-eyre-an-autobiography-by-charlotte-bront%C3%AB-v-3rd-edition*fd208ee8c8f283780a9552896e4823cc9dc6bfd442063889577106940fd927c1" target="_blank">Wikistr</a> is
+       a more advanced app, with a focus on wiki pages and collaboration. It contains
+      the exporting function, utilizing an Asciidoctor server to download publications as Asciidoc, PDFs, EPUB, or HTML files.
     </P>
 
     <P class="mb-3">
