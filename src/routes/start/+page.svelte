@@ -18,11 +18,11 @@
       Alexandria opens up to the <button
         class="underline text-primary-700 bg-transparent border-none p-0"
         onclick={() => goto("./")}>landing page</button
-      >, where the user can: login (top-right), select whether to only view the
-      publications hosted on the <A
-        href="https://thecitadel.nostr1.com/"
-        target="_blank">thecitadel document relay</A
-      > or add in their own relays, and scroll/search the publications.
+      >, where the user can see the publications found on their own relays and the app's default relays.
+      The user can also search the publications by title, author, or content.
+      The relays can be viewed on the <button
+      class="underline text-primary-700 bg-transparent border-none p-0"
+      onclick={() => goto("/about/relay-stats")}>Relay Status</button> page.
     </P>
 
     <div class="flex flex-col items-center space-y-4 my-4">
@@ -32,19 +32,7 @@
         class="image-border rounded-lg"
         width="400"
       />
-      <Img
-        src="/screenshots/YourRelays.png"
-        alt="Relay selection"
-        class="image-border rounded-lg"
-        width="400"
-      />
-    </div>
-
-    <P class="mb-3">
-      There is also the ability to view the publications as a diagram, if you
-      click on "Visualize", and to publish an e-book or other document (coming
-      soon).
-    </P>
+    </div>   
 
     <P class="mb-3">
       If you click on a card, which represents a 30040 index event, the
@@ -58,8 +46,7 @@
       contents, which can be accessed from the floating icon top-left in the
       reading view. This allows for navigation within the publication.
       Publications of type "blog" have a ToC which emphasizes that each entry is
-      a blog post. (This functionality has been temporarily disabled, but the
-      TOC is visible.)
+      a blog post.
     </P>
 
     <div class="flex flex-col items-center space-y-4 my-4">
@@ -76,6 +63,23 @@
         width="400"
       />
     </div>
+
+
+    <P class="mb-3">
+      There is the ability to view and navigate the publications as a diagram, if you
+      click on <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("/visualize")}>Visualize</button>.
+    </P>
+
+    <div class="flex flex-col items-center space-y-4 my-4">
+      <Img
+        src="/screenshots/Visualization.png"
+        alt="Visualization page"
+        class="image-border rounded-lg"
+        width="400"
+      />
+    </div> 
 
     <Heading tag="h2" class="h-leather mt-4 mb-2">Typical use cases</Heading>
 
@@ -107,21 +111,10 @@
     <Heading tag="h3" class="h-leather mb-3">For scientific papers</Heading>
 
     <P class="mb-3">
-      Alexandria will also display research papers with Asciimath and LaTeX
+      Alexandria displays research papers with Asciimath and LaTeX
       embedding, and the normal advanced formatting options available for
       Asciidoc. In addition, we will be implementing special citation events,
       which will serve as an alternative or addition to the normal footnotes.
-    </P>
-
-    <P class="mb-3">
-      Correctly displaying such papers, integrating citations, and allowing them
-      to be reviewed (with kind 1111 comments), and annotated (with highlights)
-      by users, is the focus of the second minor version, Euler.
-    </P>
-
-    <P class="mb-3">
-      Euler will also pioneer the HTTP-based (rather than websocket-based)
-      e-paper compatible version of the web app.
     </P>
 
     <P class="mb-3">
@@ -177,4 +170,35 @@
       to other wiki pages, creating a web of knowledge that can be navigated and
       explored.
     </P>
-</div>
+
+    <Heading tag="h3" class="h-leather mb-3">For long-form articles</Heading>
+
+    <P class="mb-3">
+      We also display long-form articles (kind 30023), which are stand-alone documents. An example is
+      the article that launched this project's concept, <button
+        class="underline text-primary-700 bg-transparent border-none p-0"
+        onclick={() => goto("/publication/naddr/naddr1qvzqqqr4gupzphtxf40yq9jr82xdd8cqtts5szqyx5tcndvaukhsvfmduetr85ceqyw8wumn8ghj7cmgwf5hxarsd9kxctnwdaehgu339e3k7mf0qyf8wumn8ghj7mn0wd68yv339e3k7mf0qqxnzde38yerqdpexsmnyvek0wj7rv")}> Project Alexandria</button>.
+        Long-form articles utilize simple Markdown formatting.
+    </P>
+
+    <Heading tag="h3" class="h-leather mb-3">Additional features</Heading>
+
+    <P class="mb-3">
+      The app also has a powerful search interface, a composition form, and a universal publisher.
+    </P>
+
+    <P class="mb-3">
+      Thank you for your time. Feel free to explore the app and see how it works, and make sure to <button
+      class="underline text-primary-700 bg-transparent border-none p-0"
+      onclick={() => goto("/about")}>save our contact information</button>! 
+    </P>
+
+    <Img src="https://raw.githubusercontent.com/ShadowySupercode/gitcitadel/master/logos/GitCitadel_Logo.png" alt="GitCitadel Logo" class="image-border rounded-lg" width="200" />
+
+    <P class="mb-3">
+      If you have any questions or feedback, please feel free to <button
+      class="underline text-primary-700 bg-transparent border-none p-0"
+      onclick={() => goto("/contact")}>contact us</button>.
+    </P>
+    
+  </div>
