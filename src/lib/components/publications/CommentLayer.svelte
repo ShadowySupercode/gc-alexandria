@@ -72,19 +72,24 @@
 
     try {
       // Build filter for kind 1111 comment events
-      // IMPORTANT: Use only #a tags because filters are AND, not OR
-      // If we include both #e and #a, relays will only return comments that have BOTH
+      // NIP-22: Uppercase tags (A, E, I, K, P) point to root scope (section/publication)
+      // Lowercase tags (a, e, i, k, p) point to parent item (comment being replied to)
+      // IMPORTANT: Use uppercase #A filter to match NIP-22 root scope tags
+      // If we include both #e and #A, relays will only return comments that have BOTH
       const filter: any = {
         kinds: [1111],
         limit: 500,
       };
 
-      // Prefer #a (addressable events) since they're more specific and persistent
+      // NIP-22: Use uppercase #A filter to match root scope (section addresses)
+      // This will fetch both direct comments and replies (replies also have uppercase A tag)
       if (allAddresses.length > 0) {
-        filter["#a"] = allAddresses;
+        filter["#A"] = allAddresses;
+        console.debug(`[CommentLayer] Fetching comments for addresses (NIP-22 #A filter):`, allAddresses);
       } else if (allEventIds.length > 0) {
         // Fallback to #e if no addresses available
         filter["#e"] = allEventIds;
+        console.debug(`[CommentLayer] Fetching comments for event IDs:`, allEventIds);
       }
 
       // Build explicit relay set (same pattern as HighlightLayer)
@@ -168,6 +173,16 @@
 
                     // Convert to NDKEvent
                     const ndkEvent = new NDKEventClass(ndk, rawEvent);
+                    
+                    // AI-NOTE: Debug logging to track comment reception
+                    const aTags = ndkEvent.tags.filter((t: string[]) => t[0] === "a");
+                    console.debug(`[CommentLayer] Received comment event:`, {
+                      id: rawEvent.id?.substring(0, 8),
+                      kind: rawEvent.kind,
+                      aTags: aTags.map((t: string[]) => t[1]),
+                      content: rawEvent.content?.substring(0, 50),
+                    });
+                    
                     comments = [...comments, ndkEvent];
                   }
                 } else if (message[0] === "EOSE" && message[1] === subscriptionId) {
@@ -202,6 +217,16 @@
       // Wait for all relays to respond or timeout
       await Promise.allSettled(fetchPromises);
       
+      // AI-NOTE: Debug logging to track comment fetching
+      console.debug(`[CommentLayer] Fetched ${comments.length} comments for addresses:`, allAddresses);
+      if (comments.length > 0) {
+        console.debug(`[CommentLayer] Comment addresses:`, comments.map(c => {
+          // NIP-22: Look for uppercase A tag (root scope)
+          const rootATag = c.tags.find((t: string[]) => t[0] === "A");
+          return rootATag ? rootATag[1] : "no-A-tag";
+        }));
+      }
+      
       // Ensure loading is cleared even if checkAllResponses didn't fire
       loading = false;
 
@@ -214,25 +239,44 @@
   // Track the last fetched event count to know when to refetch
   let lastFetchedCount = $state(0);
   let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastAddressesString = $state("");
 
   // Watch for changes to event data - debounce and fetch when data stabilizes
   $effect(() => {
     const currentCount = eventIds.length + eventAddresses.length;
     const hasEventData = currentCount > 0;
+    
+    // AI-NOTE: Debug logging to track effect execution
+    console.debug(`[CommentLayer] Effect running:`, {
+      eventIdsCount: eventIds.length,
+      eventAddressesCount: eventAddresses.length,
+      hasEventData,
+      addresses: eventAddresses,
+    });
+    
+    // AI-NOTE: Also track the actual addresses string to detect when addresses change
+    // even if the count stays the same (e.g., when commentsVisible toggles)
+    const currentAddressesString = JSON.stringify(eventAddresses.sort());
 
     // Only fetch if:
     // 1. We have event data
-    // 2. The count has changed since last fetch
+    // 2. (The count has changed OR the addresses have changed) since last fetch
     // 3. We're not already loading
-    if (hasEventData && currentCount !== lastFetchedCount && !loading) {
+    const addressesChanged = currentAddressesString !== lastAddressesString;
+    const countChanged = currentCount !== lastFetchedCount;
+    
+    if (hasEventData && (countChanged || addressesChanged) && !loading) {
       // Clear any existing timeout
       if (fetchTimeout) {
         clearTimeout(fetchTimeout);
       }
 
+      console.debug(`[CommentLayer] Effect triggered: count=${currentCount}, addresses changed=${addressesChanged}, addresses:`, eventAddresses);
+
       // Debounce: wait 500ms for more events to arrive before fetching
       fetchTimeout = setTimeout(() => {
         lastFetchedCount = currentCount;
+        lastAddressesString = currentAddressesString;
         fetchComments();
       }, 500);
     }
@@ -249,11 +293,22 @@
    * Public method to refresh comments (e.g., after creating a new one)
    */
   export function refresh() {
+    console.debug(`[CommentLayer] refresh() called, current comments: ${comments.length}`);
+    
     // Clear existing comments
     comments = [];
 
     // Reset fetch count to force re-fetch
     lastFetchedCount = 0;
+    
+    // Collect current addresses to log what we're fetching
+    const allEventIds = [...(eventId ? [eventId] : []), ...eventIds].filter(Boolean);
+    const allAddresses = [...(eventAddress ? [eventAddress] : []), ...eventAddresses].filter(Boolean);
+    console.debug(`[CommentLayer] Refreshing comments for:`, {
+      eventIds: allEventIds,
+      addresses: allAddresses,
+    });
+    
     fetchComments();
   }
 </script>

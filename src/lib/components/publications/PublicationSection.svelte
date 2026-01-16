@@ -28,6 +28,7 @@
     commentsVisible = true,
     publicationTitle,
     isFirstSection = false,
+    onCommentPosted,
   }: {
     address: string;
     rootAddress: string;
@@ -39,19 +40,84 @@
     commentsVisible?: boolean;
     publicationTitle?: string;
     isFirstSection?: boolean;
+    onCommentPosted?: () => void;
   } = $props();
 
   const asciidoctor: Asciidoctor = getContext("asciidoctor");
   const ndk: NDK = getContext("ndk");
 
   // Filter comments for this section
-  let sectionComments = $derived(
-    allComments.filter((comment) => {
-      // Check if comment targets this section via #a tag
-      const aTag = comment.tags.find((t) => t[0] === "a");
-      return aTag && aTag[1] === address;
-    }),
-  );
+  // AI-NOTE: NIP-22: Uppercase tags (A, E, I, K, P) point to root scope (section/publication)
+  // Lowercase tags (a, e, i, k, p) point to parent item (comment being replied to)
+  // All comments scoped to this section will have uppercase A tag matching section address
+  let sectionComments = $derived.by(() => {
+    // Step 1: Find all comments scoped to this section (have uppercase A tag matching section address)
+    const directComments = allComments.filter((comment) => {
+      // NIP-22: Look for uppercase A tag (root scope)
+      const rootATag = comment.tags.find((t) => t[0] === "A");
+      const matches = rootATag && rootATag[1] === address;
+      
+      // AI-NOTE: Debug logging to help diagnose comment filtering issues
+      if (rootATag) {
+        console.debug("[PublicationSection] Comment filtering:", {
+          sectionAddress: address,
+          commentRootATag: rootATag[1],
+          matches,
+          commentId: comment.id?.substring(0, 8),
+        });
+      }
+      
+      return matches;
+    });
+    
+    // Step 2: Build a set of comment IDs that match this section (for efficient lookup)
+    const matchingCommentIds = new Set(
+      directComments.map(c => c.id?.toLowerCase()).filter(Boolean)
+    );
+    
+    // Step 3: Recursively find all replies to matching comments
+    // NIP-22: Replies have lowercase e tag pointing to parent comment ID
+    // They also have uppercase A tag matching section address (same root scope)
+    const allMatchingComments = new Set<NDKEvent>(directComments);
+    let foundNewReplies = true;
+    
+    // Keep iterating until we find no new replies (handles nested replies)
+    while (foundNewReplies) {
+      foundNewReplies = false;
+      
+      for (const comment of allComments) {
+        // Skip if already included
+        if (allMatchingComments.has(comment)) {
+          continue;
+        }
+        
+        // NIP-22: Check if this comment is scoped to this section (uppercase A tag)
+        const rootATag = comment.tags.find((t) => t[0] === "A");
+        if (!rootATag || rootATag[1] !== address) {
+          // Not scoped to this section, skip
+          continue;
+        }
+        
+        // NIP-22: Check if this is a reply (has lowercase e tag pointing to a matching comment)
+        const lowercaseETags = comment.tags.filter(t => t[0] === "e");
+        for (const eTag of lowercaseETags) {
+          const parentId = eTag[1]?.toLowerCase();
+          if (parentId && matchingCommentIds.has(parentId)) {
+            // This is a reply to a matching comment - include it
+            allMatchingComments.add(comment);
+            matchingCommentIds.add(comment.id?.toLowerCase() || "");
+            foundNewReplies = true;
+            console.debug(`[PublicationSection] Found reply ${comment.id?.substring(0, 8)} to matching comment ${parentId.substring(0, 8)} (NIP-22)`);
+            break; // Found a match, no need to check other e tags
+          }
+        }
+      }
+    }
+    
+    const filtered = Array.from(allMatchingComments);
+    console.debug(`[PublicationSection] Filtered ${filtered.length} comments (${directComments.length} direct, ${filtered.length - directComments.length} replies) for section ${address} from ${allComments.length} total comments`);
+    return filtered;
+  });
 
   let leafEvent: Promise<NDKEvent | null> = $derived.by(
     async () => await publicationTree.getEvent(address),
@@ -227,7 +293,8 @@
 </script>
 
 <!-- Wrapper for positioning context -->
-<div class="relative w-full overflow-x-hidden">
+<!-- AI-NOTE: Removed overflow-x-hidden to allow comments panel to be visible when positioned absolutely -->
+<div class="relative w-full">
   <section
     id={address}
     bind:this={sectionRef}
@@ -257,6 +324,7 @@
                     {event}
                     sectionAddress={address}
                     onDelete={handleDelete}
+                    onCommentPosted={onCommentPosted}
                   />
                 {/if}
               {/await}
@@ -283,9 +351,11 @@
   </section>
 
 
-  <!-- Comments area: positioned below menu, top-center of section -->
+  <!-- Comments area: positioned to the right of section on desktop -->
+  <!-- AI-NOTE: Comments panel positioned to the right of sections on desktop (xl+ screens)
+       Positioned relative to viewport right edge to ensure visibility -->
   <div
-    class="hidden xl:block absolute left-[calc(50%+26rem)] top-[calc(20%+3rem)] w-[max(16rem,min(24rem,calc(50vw-26rem-2rem)))]"
+    class="hidden xl:block fixed right-8 top-[calc(20%+70px)] w-80 max-h-[calc(100vh-200px)] overflow-y-auto z-30"
   >
     <SectionComments
       sectionAddress={address}

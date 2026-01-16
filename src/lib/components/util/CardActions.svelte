@@ -30,12 +30,14 @@
     event, 
     onDelete, 
     sectionAddress,
-    detailsModalOpen = $bindable(false)
+    detailsModalOpen = $bindable(false),
+    onCommentPosted
   } = $props<{
     event: NDKEvent;
     onDelete?: () => void;
     sectionAddress?: string; // If provided, shows "Comment on section" option
     detailsModalOpen?: boolean; // Bindable prop to control modal from outside
+    onCommentPosted?: () => void; // Callback when a comment is successfully posted
   }>();
 
   const ndk = getNdkContext();
@@ -385,6 +387,16 @@
       }
 
       commentSuccess = true;
+      
+      // AI-NOTE: Trigger callback to refresh comments after successful publish
+      // This allows parent components to refresh their comment displays
+      if (onCommentPosted) {
+        // Delay callback slightly to allow relay indexing
+        setTimeout(() => {
+          onCommentPosted();
+        }, 1000);
+      }
+      
       setTimeout(() => {
         commentModalOpen = false;
         commentSuccess = false;

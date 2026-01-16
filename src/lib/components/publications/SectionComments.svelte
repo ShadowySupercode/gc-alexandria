@@ -37,40 +37,98 @@
   let user = $derived($userStore);
 
   /**
-   * Parse comment threading structure
-   * Root comments have no 'e' tag with 'reply' marker
+   * Parse comment threading structure according to NIP-22
+   * NIP-22: Uppercase tags (A, E, I, K, P) = root scope
+   * Lowercase tags (a, e, i, k, p) = parent item (comment being replied to)
+   * Root comments have no lowercase e tag (or lowercase e tag pointing to section itself)
+   * Replies have lowercase e tag pointing to parent comment ID
    */
   function buildThreadStructure(allComments: NDKEvent[]) {
     const rootComments: NDKEvent[] = [];
     const repliesByParent = new Map<string, NDKEvent[]>();
+    // AI-NOTE: Normalize comment IDs to lowercase for consistent matching
+    const allCommentIds = new Set(allComments.map(c => c.id?.toLowerCase()).filter(Boolean));
 
+    // AI-NOTE: Debug logging to track comment threading
+    console.debug(`[SectionComments] Building thread structure from ${allComments.length} comments (NIP-22)`);
+
+    // NIP-22: First pass - identify replies by looking for lowercase e tags
+    // Lowercase e tags point to the parent comment ID
     for (const comment of allComments) {
-      // Check if this is a reply by looking for 'e' tags with 'reply' marker
-      const replyTag = comment.tags.find(t => t[0] === 'e' && t[3] === 'reply');
-
-      if (replyTag) {
-        const parentId = replyTag[1];
-        if (!repliesByParent.has(parentId)) {
-          repliesByParent.set(parentId, []);
+      // NIP-22: Look for lowercase e tag (parent item reference)
+      const lowercaseETags = comment.tags.filter(t => t[0] === 'e');
+      
+      if (lowercaseETags.length > 0) {
+        // Check if any lowercase e tag points to a comment in our set
+        let isReply = false;
+        for (const eTag of lowercaseETags) {
+          const parentId = eTag[1]?.trim().toLowerCase();
+          
+          if (!parentId) {
+            continue;
+          }
+          
+          // NIP-22: If lowercase e tag points to a comment in our set, it's a reply
+          if (allCommentIds.has(parentId)) {
+            isReply = true;
+            
+            if (!repliesByParent.has(parentId)) {
+              repliesByParent.set(parentId, []);
+            }
+            repliesByParent.get(parentId)!.push(comment);
+            console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a reply to ${parentId.substring(0, 8)} (NIP-22 lowercase e tag)`);
+            break; // Found parent, no need to check other e tags
+          }
         }
-        repliesByParent.get(parentId)!.push(comment);
+        
+        if (!isReply) {
+          // Has lowercase e tag but doesn't reference any comment in our set
+          // This might be a root comment that references an external event, or malformed
+          rootComments.push(comment);
+          console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a root comment (lowercase e tag references external event)`);
+        }
       } else {
-        // This is a root comment (no reply tag)
+        // No lowercase e tags - this is a root comment
         rootComments.push(comment);
+        console.debug(`[SectionComments] Comment ${comment.id?.substring(0, 8)} is a root comment (no lowercase e tags)`);
       }
     }
 
+    console.debug(`[SectionComments] Thread structure: ${rootComments.length} root comments, ${repliesByParent.size} reply groups`);
+    // AI-NOTE: Log reply details for debugging
+    for (const [parentId, replies] of repliesByParent.entries()) {
+      console.debug(`[SectionComments] Parent ${parentId.substring(0, 8)} has ${replies.length} replies:`, replies.map(r => r.id?.substring(0, 8)));
+    }
     return { rootComments, repliesByParent };
   }
 
-  let threadStructure = $derived(buildThreadStructure(comments));
+  let threadStructure = $derived.by(() => {
+    const structure = buildThreadStructure(comments);
+    // AI-NOTE: Debug logging when structure changes
+    if (structure.rootComments.length > 0 || comments.length > 0) {
+      console.debug(`[SectionComments] Thread structure updated:`, {
+        totalComments: comments.length,
+        rootComments: structure.rootComments.length,
+        replyGroups: structure.repliesByParent.size,
+        visible,
+      });
+    }
+    return structure;
+  });
 
   /**
    * Count replies for a comment thread
    */
   function countReplies(commentId: string, repliesMap: Map<string, NDKEvent[]>): number {
-    const directReplies = repliesMap.get(commentId) || [];
+    // AI-NOTE: Normalize comment ID for lookup (must match how we stored it)
+    const normalizedCommentId = commentId?.trim().toLowerCase();
+    const directReplies = repliesMap.get(normalizedCommentId) || [];
     let count = directReplies.length;
+
+    // AI-NOTE: Debug logging to track reply counting
+    if (directReplies.length > 0) {
+      console.debug(`[SectionComments] Found ${directReplies.length} direct replies for comment ${normalizedCommentId.substring(0, 8)}`);
+    }
 
     // Recursively count nested replies
     for (const reply of directReplies) {
@@ -166,7 +224,21 @@
    * Render nested replies recursively
    */
   function renderReplies(parentId: string, repliesMap: Map<string, NDKEvent[]>, level: number = 0) {
-    const replies = repliesMap.get(parentId) || [];
+    // AI-NOTE: Normalize parent ID for lookup (must match how we stored it)
+    const normalizedParentId = parentId?.trim().toLowerCase();
+    const replies = repliesMap.get(normalizedParentId) || [];
+    
+    // AI-NOTE: Debug logging to track reply rendering
+    if (replies.length > 0) {
+      console.debug(`[SectionComments] Rendering ${replies.length} replies for parent ${normalizedParentId.substring(0, 8)}`);
+    } else {
+      // AI-NOTE: Debug when no replies found - check if map has any entries for similar IDs
+      const allParentIds = Array.from(repliesMap.keys());
+      const similarIds = allParentIds.filter(id => id.substring(0, 8) === normalizedParentId.substring(0, 8));
+      if (similarIds.length > 0) {
+        console.debug(`[SectionComments] No replies found for ${normalizedParentId.substring(0, 8)}, but found similar IDs:`, similarIds.map(id => id.substring(0, 8)));
+      }
+    }
     return replies;
   }
 
@@ -339,8 +411,10 @@
   });
 </script>
 
+<!-- AI-NOTE: Debug info for comment display -->
 {#if visible && threadStructure.rootComments.length > 0}
-  <div class="space-y-1">
+  {console.debug(`[SectionComments] RENDERING: visible=${visible}, rootComments=${threadStructure.rootComments.length}, totalComments=${comments.length}`)}
+  <div class="space-y-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4 shadow-lg">
     {#each threadStructure.rootComments as rootComment (rootComment.id)}
       {@const replyCount = countReplies(rootComment.id, threadStructure.repliesByParent)}
       {@const isExpanded = expandedThreads.has(rootComment.id)}
@@ -602,6 +676,7 @@
 
               <!-- Replies -->
               {#if replyCount > 0}
+                {console.debug(`[SectionComments] Rendering ${replyCount} replies for comment ${rootComment.id?.substring(0, 8)}`)}
                 <div class="pl-4 border-l-2 border-gray-200 dark:border-gray-600 space-y-2">
                   {#each renderReplies(rootComment.id, threadStructure.repliesByParent) as reply (reply.id)}
                     <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-3">

@@ -699,15 +699,29 @@
 
   function toggleComments() {
     commentsVisible = !commentsVisible;
+    
+    // AI-NOTE: When toggling comments on, ensure CommentLayer fetches comments
+    // The effect in CommentLayer should handle this, but we can also trigger a refresh
+    if (commentsVisible && commentLayerRef) {
+      console.debug("[Publication] Comments toggled on, triggering refresh");
+      // Small delay to ensure addresses are available
+      setTimeout(() => {
+        if (commentLayerRef && commentsVisible) {
+          commentLayerRef.refresh();
+        }
+      }, 100);
+    }
   }
 
   function handleCommentPosted() {
-    // Refresh the comment layer after a short delay to allow relay indexing
+    // AI-NOTE: Refresh the comment layer after a delay to allow relay indexing
+    // Increased delay to 3 seconds to give relays more time to index the new comment
     setTimeout(() => {
       if (commentLayerRef) {
+        console.debug("[Publication] Refreshing CommentLayer after comment posted");
         commentLayerRef.refresh();
       }
-    }, 500);
+    }, 3000);
   }
 
   async function submitArticleComment() {
@@ -1476,6 +1490,7 @@
                     {toc}
                     allComments={comments}
                     {commentsVisible}
+                    onCommentPosted={handleCommentPosted}
                     ref={(el) => onPublicationSectionMounted(el, address)}
                   />
                 {:else}
@@ -1630,5 +1645,7 @@
   <CardActions 
     event={indexEvent} 
     bind:detailsModalOpen={detailsModalOpen}
+    sectionAddress={rootAddress}
+    onCommentPosted={handleCommentPosted}
   />
 </div>
