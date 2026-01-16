@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { NDKEvent } from "@nostr-dev-kit/ndk";
   import { scale } from "svelte/transition";
-  import { Card } from "flowbite-svelte";
+  import { Card, Button, Popover } from "flowbite-svelte";
   import { userBadge } from "$lib/snippets/UserSnippets.svelte";
   import Interactions from "$components/util/Interactions.svelte";
   import { quintOut } from "svelte/easing";
@@ -11,17 +11,32 @@
   import { generateDarkPastelColor } from "$lib/utils/image_utils";
   import { getNdkContext } from "$lib/ndk";
   import { deleteEvent } from "$lib/services/deletion";
+  import {
+    EyeOutline,
+    EyeSlashOutline,
+    DotsVerticalOutline,
+  } from "flowbite-svelte-icons";
 
   const {
     rootId,
     event,
     onBlogUpdate,
     active = true,
+    showActionsMenu = false,
+    commentsVisible = false,
+    highlightsVisible = false,
+    onToggleComments,
+    onToggleHighlights,
   } = $props<{
     rootId: string;
     event: NDKEvent;
     onBlogUpdate?: any;
     active: boolean;
+    showActionsMenu?: boolean;
+    commentsVisible?: boolean;
+    highlightsVisible?: boolean;
+    onToggleComments?: () => void;
+    onToggleHighlights?: () => void;
   }>();
 
   const ndk = getNdkContext();
@@ -84,6 +99,8 @@
   function showBlog() {
     onBlogUpdate?.(rootId);
   }
+
+  let actionsMenuOpen = $state(false);
 </script>
 
 {#if title != null}
@@ -117,6 +134,68 @@
             {@render userBadge(authorPubkey, author, ndk)}
             <span class="text-gray-700 dark:text-gray-300">{publishedAt()}</span>
           </div>
+          {#if showActionsMenu}
+            <div class="flex items-center">
+              <Button
+                type="button"
+                class="btn-leather !p-1 bg-primary-50 dark:bg-gray-800"
+                outline
+                onmouseenter={() => (actionsMenuOpen = true)}
+              >
+                <DotsVerticalOutline class="w-5 h-5" />
+              </Button>
+              {#if actionsMenuOpen}
+                <Popover
+                  id="popover-blog-actions"
+                  placement="bottom-end"
+                  trigger="click"
+                  class="popover-leather w-fit z-10"
+                  onmouseleave={() => (actionsMenuOpen = false)}
+                >
+                  <div class="flex flex-row justify-between space-x-4">
+                    <div class="flex flex-col text-nowrap">
+                      <ul class="space-y-2">
+                        <li>
+                          <button
+                            class="btn-leather w-full text-left"
+                            onclick={() => {
+                              onToggleComments?.();
+                              actionsMenuOpen = false;
+                            }}
+                          >
+                            {#if commentsVisible}
+                              <EyeSlashOutline class="inline mr-2" />
+                              Hide Comments
+                            {:else}
+                              <EyeOutline class="inline mr-2" />
+                              Show Comments
+                            {/if}
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            class="btn-leather w-full text-left"
+                            onclick={() => {
+                              onToggleHighlights?.();
+                              actionsMenuOpen = false;
+                            }}
+                          >
+                            {#if highlightsVisible}
+                              <EyeSlashOutline class="inline mr-2" />
+                              Hide Highlights
+                            {:else}
+                              <EyeOutline class="inline mr-2" />
+                              Show Highlights
+                            {/if}
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </Popover>
+              {/if}
+            </div>
+          {/if}
         </div>
 
         <div

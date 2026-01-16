@@ -303,6 +303,27 @@
 
     ref(sectionRef);
   });
+
+  // Initialize ABC notation blocks after content is rendered
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    
+    // Watch for content changes
+    leafContent.then(() => {
+      // Wait for content to be rendered in DOM
+      const initABC = () => {
+        if (typeof (window as any).initializeABCBlocks === "function") {
+          (window as any).initializeABCBlocks();
+        } else {
+          // If function not available yet, wait a bit and try again
+          setTimeout(initABC, 100);
+        }
+      };
+      
+      // Initialize after a short delay to ensure DOM is ready
+      setTimeout(initABC, 200);
+    });
+  });
 </script>
 
 <!-- Wrapper for positioning context -->
