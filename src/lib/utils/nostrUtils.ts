@@ -646,11 +646,17 @@ export function pubkeyToHue(pubkey: string): number {
  * if they are not already prefixed and are not part of a hyperlink
  */
 export function prefixNostrAddresses(content: string): string {
+  // Early exit: if content already has double-prefixed addresses, return as-is to prevent further damage
+  if (content.includes("nostr:nostr:")) {
+    return content;
+  }
+  
   // Regex to match Nostr addresses that are not already prefixed with "nostr:"
   // and are not part of a markdown link or HTML link
   // Must be followed by at least 20 alphanumeric characters to be considered an address
+  // Use negative lookbehind to prevent matching if "nostr:" is immediately before
   const nostrAddressPattern =
-    /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
+    /(?<!nostr:)\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
 
   return content.replace(nostrAddressPattern, (match, offset) => {
     // Check if this match is part of a markdown link [text](url)
@@ -682,12 +688,23 @@ export function prefixNostrAddresses(content: string): string {
     }
 
     // Check if it's already prefixed with "nostr:"
+    // First check: is "nostr:" immediately before the match (last 6 characters)?
+    const textBeforeMatch = beforeMatch.slice(-6);
+    if (textBeforeMatch === "nostr:") {
+      return match; // Already prefixed with "nostr:", don't add another prefix
+    }
+    // Second check: is there "nostr:" anywhere before with no whitespace between it and the match?
     const beforeNostr = beforeMatch.lastIndexOf("nostr:");
     if (beforeNostr !== -1) {
       const textAfterNostr = beforeMatch.substring(beforeNostr + 6);
-      if (!textAfterNostr.includes(" ")) {
-        return match; // Already prefixed
+      // If there's no whitespace or newline between "nostr:" and the match, it's already prefixed
+      if (!/[\s\n\r\t]/.test(textAfterNostr)) {
+        return match; // Already prefixed, don't add another prefix
       }
+    }
+    // Third check: does the match itself start with "nostr:"? (shouldn't happen, but safety check)
+    if (match.startsWith("nostr:")) {
+      return match; // Already prefixed, don't add another prefix
     }
 
     // Additional check: ensure it's actually a valid Nostr address format
