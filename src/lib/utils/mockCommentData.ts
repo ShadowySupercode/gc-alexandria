@@ -1,5 +1,6 @@
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
+import { secondaryRelays } from "../consts.ts";
 
 /**
  * Generate mock comment data for testing comment UI and threading
@@ -49,18 +50,20 @@ function createMockComment(
   replyToId?: string,
   replyToAuthor?: string,
 ): any {
+  // Use first search relay from constants instead of hard-coded relay
+  const relayUrl = secondaryRelays[0] || "wss://thecitadel.nostr1.com";
   const tags: string[][] = [
-    ["A", targetAddress, "wss://relay.damus.io", pubkey],
+    ["A", targetAddress, relayUrl, pubkey],
     ["K", "30041"],
-    ["P", pubkey, "wss://relay.damus.io"],
-    ["a", targetAddress, "wss://relay.damus.io"],
+    ["P", pubkey, relayUrl],
+    ["a", targetAddress, relayUrl],
     ["k", "30041"],
-    ["p", pubkey, "wss://relay.damus.io"],
+    ["p", pubkey, relayUrl],
   ];
 
   if (replyToId && replyToAuthor) {
-    tags.push(["e", replyToId, "wss://relay.damus.io", "reply"]);
-    tags.push(["p", replyToAuthor, "wss://relay.damus.io"]);
+    tags.push(["e", replyToId, relayUrl, "reply"]);
+    tags.push(["p", replyToAuthor, relayUrl]);
   }
 
   // Return a plain object that matches NDKEvent structure

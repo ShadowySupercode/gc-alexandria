@@ -11,12 +11,11 @@ export const communityRelays = [
 ];
 
 export const searchRelays = [
-  "wss://profiles.nostr1.com",
+  "wss://thecitadel.nostr1.com",
   "wss://aggr.nostr.land",
   "wss://relay.noswhere.com",
   "wss://nostr.wine",
   "wss://relay.damus.io",
-  "wss://relay.nostr.band",
   "wss://freelay.sovbit.host",
 ];
 
@@ -46,6 +45,7 @@ export const localRelays: string[] = [
   "ws://localhost:8080",
   "ws://localhost:4869",
   "ws://localhost:3334",
+  "ws://localhost:7777"
 ];
 
 export enum FeedType {

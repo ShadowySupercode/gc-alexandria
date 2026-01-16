@@ -298,6 +298,8 @@
     isLoadingExtension = false;
     try {
       const ndk = new NDK();
+      // AI-NOTE: relay.nsec.app is the specific relay for Amber/NIP-46 signer service
+      // This is service-specific and not a general-purpose relay, so it remains hard-coded
       const relay = "wss://relay.nsec.app";
       const localNsec =
         localStorage.getItem("amber/nsec") ??

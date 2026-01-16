@@ -1,3 +1,5 @@
+import { secondaryRelays } from "../consts.ts";
+
 /**
  * Generate mock highlight data (kind 9802) for testing highlight UI
  * Creates realistic highlight events with context and optional annotations
@@ -76,10 +78,12 @@ function createMockHighlight(
   offsetStart?: number,
   offsetEnd?: number,
 ): any {
+  // Use first search relay from constants instead of hard-coded relay
+  const relayUrl = secondaryRelays[0] || "wss://thecitadel.nostr1.com";
   const tags: string[][] = [
-    ["a", targetAddress, "wss://relay.damus.io"],
+    ["a", targetAddress, relayUrl],
     ["context", context],
-    ["p", authorPubkey, "wss://relay.damus.io", "author"],
+    ["p", authorPubkey, relayUrl, "author"],
   ];
 
   // Add optional annotation

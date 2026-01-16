@@ -13,7 +13,7 @@ const rootAddress = `${data.kind}:${data.pubkey}:${data.identifier}`;
 console.log("\nRoot Address:", rootAddress);
 
 // Fetch the index event to see what sections it references
-const relay = "wss://relay.nostr.band";
+const relay = "wss://thecitadel.nostr1.com";
 
 async function fetchPublication() {
   return new Promise((resolve, reject) => {
