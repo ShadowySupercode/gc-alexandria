@@ -1,5 +1,6 @@
 <script lang="ts">
   import { indexKind } from "$lib/consts";
+  import { SEARCH_LIMITS } from "$lib/utils/search_constants.ts";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
   import { Button, P, Skeleton, Spinner } from "flowbite-svelte";
@@ -241,7 +242,7 @@
           ws.send(JSON.stringify([
             "REQ", 
             subId, 
-            { kinds: [indexKind], limit: 1000 }
+            { kinds: [indexKind], limit: SEARCH_LIMITS.PUBLICATION_FEED_LIMIT }
           ]));
           
           // Set up cleanup
@@ -276,6 +277,11 @@
           allIndexEvents = Array.from(eventMap.values());
           // Sort by created_at descending
           allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
+          
+          // AI-NOTE: Clear publication search cache when new events are loaded to prevent stale results
+          // This ensures searches will re-run with the updated event set
+          searchCache.clearType("publication");
+          console.debug(`[PublicationFeed] Cleared publication search cache after loading ${newEvents.length} new events`);
           
           // Update the view immediately with new events
           eventsInView = allIndexEvents.slice(0, publicationsToDisplay);

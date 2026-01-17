@@ -4,8 +4,10 @@ import {
   extractSectionMetadata,
   extractSmartMetadata,
   metadataToTags,
-  parseAsciiDocWithMetadata,
 } from "../../src/lib/utils/asciidoc_metadata.ts";
+import {
+  parseAsciiDocWithMetadata,
+} from "../../src/lib/utils/asciidoc_parser.ts";
 
 describe("AsciiDoc Metadata Extraction", () => {
   const testContent = `= Test Document with Metadata

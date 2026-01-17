@@ -178,19 +178,39 @@ export class WebSocketPool {
    * URL, the connection is passed to the requestor in the queue. Otherwise, the connection is
    * marked as available.
    *
-   * @param handle - The WebSocketHandle to release.
+   * This method is defensive: if the connection is no longer in the pool (e.g., it was already
+   * closed and removed), it returns silently rather than throwing an error.
+   *
+   * @param ws - The WebSocket connection to release.
    */
   public release(ws: WebSocket): void {
-    const normalizedUrl = this.#normalizeUrl(ws.url);
-    const handle = this.#pool.get(normalizedUrl);
-    if (!handle) {
-      throw new Error(
-        "[WebSocketPool] Attempted to release an unmanaged WebSocket connection.",
+    // AI-NOTE: Defensive check - if WebSocket is closed or doesn't have a URL, skip release
+    if (!ws || !ws.url) {
+      console.warn(
+        "[WebSocketPool] Attempted to release an invalid WebSocket connection (no URL).",
       );
+      return;
     }
 
-    if (--handle.refCount === 0) {
-      this.#startIdleTimer(handle);
+    try {
+      const normalizedUrl = this.#normalizeUrl(ws.url);
+      const handle = this.#pool.get(normalizedUrl);
+      if (!handle) {
+        // AI-NOTE: Connection may have been removed due to closure or error - this is acceptable
+        console.debug(
+          `[WebSocketPool] Connection to ${normalizedUrl} is no longer in pool (likely already closed).`,
+        );
+        return;
+      }
+
+      if (--handle.refCount === 0) {
+        this.#startIdleTimer(handle);
+      }
+    } catch (error) {
+      // AI-NOTE: If URL normalization fails or other errors occur, log but don't throw
+      console.warn(
+        `[WebSocketPool] Error releasing connection: ${error}. This may occur if the connection was already closed.`,
+      );
     }
   }
 

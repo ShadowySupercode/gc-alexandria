@@ -90,8 +90,6 @@
   function initializePublicationComponents(event: NDKEvent) {
     if (!data.ndk) return;
     
-    console.log("[Publication] Initializing publication components for event:", event.tagAddress());
-    
     publicationTree = new SveltePublicationTree(event, data.ndk);
     toc = new TableOfContents(
       event.tagAddress(),

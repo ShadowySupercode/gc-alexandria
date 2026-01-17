@@ -50,15 +50,15 @@
   background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 }
 
-/* Filter button states */
+/* Filter button states - improved contrast */
 .filter-button-active {
-  background-color: rgb(107 114 128);
-  color: rgb(243 244 246);
+  background-color: rgb(75 85 99);
+  color: rgb(255 255 255);
 }
 
 .dark .filter-button-active {
   background-color: rgb(107 114 128);
-  color: rgb(243 244 246);
+  color: rgb(255 255 255);
 }
 
 /* Reply button hover states */
@@ -181,11 +181,11 @@
 }
 
 .mode-toggle-button.inactive {
-  color: rgb(55 65 81);
+  color: rgb(31 41 55);
 }
 
 .dark .mode-toggle-button.inactive {
-  color: rgb(156 163 175);
+  color: rgb(209 213 219);
 }
 
 .mode-toggle-button.inactive:hover {

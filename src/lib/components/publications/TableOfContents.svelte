@@ -12,21 +12,47 @@
   import Self from "./TableOfContents.svelte";
   import { onMount, onDestroy } from "svelte";
 
-  let { depth, onSectionFocused, onLoadMore, toc } = $props<{
+  let { rootAddress, depth, onSectionFocused, onLoadMore, onClose, toc } = $props<{
     rootAddress: string;
     depth: number;
     toc: TableOfContents;
     onSectionFocused?: (address: string) => void;
     onLoadMore?: () => void;
+    onClose?: () => void;
   }>();
 
   let entries = $derived.by<TocEntry[]>(() => {
     const newEntries = [];
+    const rootEntry = rootAddress === toc.getRootEntry()?.address 
+      ? toc.getRootEntry() 
+      : toc.getEntry(rootAddress);
+    
+    if (!rootEntry) {
+      return [];
+    }
+    
+    // Filter entries that are direct children of rootAddress at the correct depth
     for (const [_, entry] of toc.addressMap) {
+      // Must match the depth
       if (entry.depth !== depth) {
         continue;
       }
-
+      
+      // Check if entry is a direct child of rootAddress
+      // Primary check: parent relationship (set when resolveChildren is called)
+      // Fallback: entry is in rootEntry's children array
+      // Final fallback: depth-based check for root's direct children only
+      const isDirectChild = 
+        entry.parent?.address === rootAddress ||
+        rootEntry.children.some((child: TocEntry) => child.address === entry.address) ||
+        (entry.depth === rootEntry.depth + 1 && 
+         rootAddress === toc.getRootEntry()?.address &&
+         !entry.parent); // Only use depth check if parent not set (temporary state)
+      
+      if (!isDirectChild) {
+        continue;
+      }
+      
       newEntries.push(entry);
     }
 
@@ -45,6 +71,36 @@
 
     toc.expandedMap.set(address, expanded);
     entry.resolveChildren();
+
+    // AI-NOTE: When expanding a chapter, scroll it to the top of the TOC so its children are visible
+    if (expanded) {
+      // Use setTimeout to allow the expansion animation to start and DOM to update
+      setTimeout(() => {
+        // Find the scrollable container (the div with overflow-y-auto in the TOC drawer)
+        const scrollableContainer = document.querySelector('.overflow-y-auto');
+        if (!scrollableContainer) {
+          return;
+        }
+
+        // Find all buttons in the TOC that match the entry title
+        const buttons = scrollableContainer.querySelectorAll('button');
+        for (const button of buttons) {
+          const buttonText = button.textContent?.trim();
+          if (buttonText === entry.title) {
+            // Find the parent container of the dropdown (the SidebarDropdownWrapper)
+            const dropdownContainer = button.closest('[class*="w-full"]');
+            if (dropdownContainer) {
+              // Scroll the chapter to the top of the TOC container
+              dropdownContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
+            }
+            break;
+          }
+        }
+      }, 150);
+    }
   }
 
   function handleSectionClick(address: string) {
@@ -59,11 +115,13 @@
     
     onSectionFocused?.(address);
     
+    // Close the drawer after navigation
+    onClose?.();
+    
     // Check if this is the last entry and trigger loading more events
     const currentEntries = entries;
     const lastEntry = currentEntries[currentEntries.length - 1];
     if (lastEntry && lastEntry.address === address) {
-      console.debug('[TableOfContents] Last entry clicked, triggering load more');
       onLoadMore?.();
     }
   }
@@ -71,6 +129,27 @@
   // Check if an entry is currently visible
   function isEntryVisible(address: string): boolean {
     return currentVisibleSection === address;
+  }
+
+  // Calculate indentation based on depth
+  // Depth 2 = no indent (Beginning, root entry)
+  // Depth 3 = indent level 1 (30041 sections under 30040)
+  // Depth 4+ = more indentation
+  function getIndentClass(depth: number): string {
+    if (depth <= 2) {
+      return "";
+    }
+    // Each level beyond 2 adds 1rem (16px) of padding
+    const indentLevel = depth - 2;
+    // Use standard Tailwind classes: pl-4 (1rem), pl-8 (2rem), pl-12 (3rem), etc.
+    const paddingMap: Record<number, string> = {
+      1: "pl-4",   // 1rem
+      2: "pl-8",   // 2rem
+      3: "pl-12",  // 3rem
+      4: "pl-16",  // 4rem
+      5: "pl-20",  // 5rem
+    };
+    return paddingMap[indentLevel] || `pl-[${indentLevel}rem]`;
   }
 
   // Set up intersection observer to track visible sections
@@ -153,17 +232,62 @@
 <!-- TODO: Figure out how to style indentations. -->
 <!-- TODO: Make group title fonts the same as entry title fonts. -->
 <SidebarGroup>
+  <!-- Beginning entry - scrolls to top of page -->
+  {#if depth === 2}
+    <SidebarItem
+      label="Beginning"
+      href="#"
+      spanClass="px-2 text-ellipsis"
+      class={getIndentClass(2)}
+      onclick={(e) => {
+        e.preventDefault();
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth',
+        });
+        onClose?.();
+      }}
+    >
+      <!-- Beginning entry -->
+    </SidebarItem>
+  {/if}
+  <!-- Root entry (publication header) -->
+  {#if depth === 2}
+    {@const rootEntry = toc.getRootEntry()}
+    {#if rootEntry}
+      {@const isVisible = isEntryVisible(rootEntry.address)}
+      <SidebarItem
+        label={rootEntry.title}
+        href={`#${rootEntry.address}`}
+        spanClass="px-2 text-ellipsis"
+        class={`${getIndentClass(rootEntry.depth)} ${isVisible ? "toc-highlight" : ""} `}
+        onclick={() => {
+          const element = document.getElementById(rootEntry.address);
+          if (element) {
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }
+          onClose?.();
+        }}
+      >
+        <!-- Publication header entry -->
+      </SidebarItem>
+    {/if}
+  {/if}
   {#each entries as entry, index}
     {@const address = entry.address}
     {@const expanded = toc.expandedMap.get(address) ?? false}
     {@const isLeaf = toc.leaves.has(address)}
     {@const isVisible = isEntryVisible(address)}
+    {@const indentClass = getIndentClass(entry.depth)}
     {#if isLeaf}
       <SidebarItem
         label={entry.title}
         href={`#${address}`}
         spanClass="px-2 text-ellipsis"
-        class={`${isVisible ? "toc-highlight" : ""} `}
+        class={`${indentClass} ${isVisible ? "toc-highlight" : ""} `}
         onclick={() => handleSectionClick(address)}
       >
         <!-- Empty for now - could add icons or labels here in the future -->
@@ -172,10 +296,11 @@
       {@const childDepth = depth + 1}
       <SidebarDropdownWrapper
         label={entry.title}
-        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} "
+        btnClass="flex items-center p-2 w-full font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-primary-50 dark:text-white dark:hover:bg-primary-800 {isVisible ? 'toc-highlight' : ''} whitespace-nowrap min-w-fit {indentClass}"
+        class="w-full"
         bind:isOpen={() => expanded, (open) => setEntryExpanded(address, open)}
       >
-        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} />
+        <Self rootAddress={address} depth={childDepth} {toc} {onSectionFocused} {onLoadMore} {onClose} />
       </SidebarDropdownWrapper>
     {/if}
   {/each}

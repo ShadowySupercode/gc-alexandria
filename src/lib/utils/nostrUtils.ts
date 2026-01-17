@@ -611,15 +611,52 @@ export async function signEvent(event: {
 }
 
 /**
+ * Converts a pubkey to a consistent hue value (0-360) for color mapping.
+ * The same pubkey will always produce the same hue.
+ * @param pubkey The pubkey to convert (hex or npub format)
+ * @returns A hue value between 0 and 360
+ */
+export function pubkeyToHue(pubkey: string): number {
+  // Normalize pubkey to hex format
+  let hexPubkey = pubkey;
+
+  try {
+    if (pubkey.startsWith("npub")) {
+      const decoded = nip19.decode(pubkey);
+      if (decoded.type === "npub") {
+        hexPubkey = decoded.data as string;
+      }
+    }
+  } catch {
+    // If decode fails, use the original pubkey
+  }
+
+  // Hash the pubkey using SHA-256
+  const hash = sha256(hexPubkey);
+
+  // Use the first 4 bytes to generate a number
+  const num = (hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3];
+
+  // Map to 0-360 range
+  return Math.abs(num) % 360;
+}
+
+/**
  * Prefixes Nostr addresses (npub, nprofile, nevent, naddr, note, etc.) with "nostr:"
  * if they are not already prefixed and are not part of a hyperlink
  */
 export function prefixNostrAddresses(content: string): string {
+  // Early exit: if content already has double-prefixed addresses, return as-is to prevent further damage
+  if (content.includes("nostr:nostr:")) {
+    return content;
+  }
+  
   // Regex to match Nostr addresses that are not already prefixed with "nostr:"
   // and are not part of a markdown link or HTML link
   // Must be followed by at least 20 alphanumeric characters to be considered an address
+  // Use negative lookbehind to prevent matching if "nostr:" is immediately before
   const nostrAddressPattern =
-    /\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
+    /(?<!nostr:)\b(npub|nprofile|nevent|naddr|note)[a-zA-Z0-9]{20,}\b/g;
 
   return content.replace(nostrAddressPattern, (match, offset) => {
     // Check if this match is part of a markdown link [text](url)
@@ -651,12 +688,23 @@ export function prefixNostrAddresses(content: string): string {
     }
 
     // Check if it's already prefixed with "nostr:"
+    // First check: is "nostr:" immediately before the match (last 6 characters)?
+    const textBeforeMatch = beforeMatch.slice(-6);
+    if (textBeforeMatch === "nostr:") {
+      return match; // Already prefixed with "nostr:", don't add another prefix
+    }
+    // Second check: is there "nostr:" anywhere before with no whitespace between it and the match?
     const beforeNostr = beforeMatch.lastIndexOf("nostr:");
     if (beforeNostr !== -1) {
       const textAfterNostr = beforeMatch.substring(beforeNostr + 6);
-      if (!textAfterNostr.includes(" ")) {
-        return match; // Already prefixed
+      // If there's no whitespace or newline between "nostr:" and the match, it's already prefixed
+      if (!/[\s\n\r\t]/.test(textAfterNostr)) {
+        return match; // Already prefixed, don't add another prefix
       }
+    }
+    // Third check: does the match itself start with "nostr:"? (shouldn't happen, but safety check)
+    if (match.startsWith("nostr:")) {
+      return match; // Already prefixed, don't add another prefix
     }
 
     // Additional check: ensure it's actually a valid Nostr address format

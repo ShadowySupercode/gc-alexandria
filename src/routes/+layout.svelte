@@ -13,6 +13,8 @@
 
   setContext("ndk", data.ndk);
 
+  let contentTop = $state(100); // Default to 100px
+
   // Get standard metadata for OpenGraph tags
   let title = "Library of Alexandria";
   let currentUrl = page.url.href;
@@ -26,6 +28,13 @@
   onMount(() => {
     const rect = document.body.getBoundingClientRect();
     // document.body.style.height = `${rect.height}px`;
+
+    // Measure the actual navbar height to position content correctly
+    const navbar = document.getElementById("navi");
+    if (navbar) {
+      const navbarRect = navbar.getBoundingClientRect();
+      contentTop = navbarRect.bottom;
+    }
 
     // AI-NOTE:  Restore authentication state from localStorage on page load
     // This function automatically restores the user's login state when the page is refreshed,
@@ -183,7 +192,7 @@
 <div class="min-h-screen flex flex-col">
   <ANavbar />
 
-  <div class="flex flex-1 flex-col w-full mt-[100px] self-center">
+  <div class="flex flex-1 flex-col w-full self-center" style="margin-top: {contentTop}px;">
     {@render children()}
   </div>
 

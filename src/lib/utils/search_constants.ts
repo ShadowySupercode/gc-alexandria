@@ -66,6 +66,9 @@ export const SEARCH_LIMITS = {
 
   /** Maximum events to fetch before processing in subscription search */
   SUBSCRIPTION_FETCH_LIMIT: 1000,
+
+  /** Maximum index events to fetch per relay for publication feed */
+  PUBLICATION_FEED_LIMIT: 10000,
 } as const;
 
 // Nostr event kind ranges

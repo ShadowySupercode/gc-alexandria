@@ -27,9 +27,9 @@
 
     <P class="mb-3">
       Alexandria is a reader and writer for <A
-        href="./publication/d/gitcitadel-project-documentation-curated-publications-specification-7-by-stella-v-1"
+        href="./publication/naddr/naddr1qvzqqqrcvgpzplfq3m5v3u5r0q9f255fdeyz8nyac6lagssx8zy4wugxjs8ajf7pqyfhwue69uhkcmmrv9kxsmmnwsarwdehxuq3jamnwvaz7tmxwfjk2mrp0yh8xmmkvf5hgtngdaehgqgmwaehxw309a6xsetrd96xzer9dshxummnw3erztnrdakszxnhwden5te0w35x2en0wfjhxapwdehhxarjxyhxxmmdqyg8wumn8ghj7mn0wd68ytnvv9hxgqgswaehxw309ahx7um5wgh8w6twv5q3wamnwvaz7tmwdaehgu3wwdhhvcnfwshxsmmnwsq3zamnwvaz7tmwdaehgu3jxyhxxmmdqqyxu6mzd9cz6vp3cvtwu9"
         >curated publications</A
-      > (in Asciidoc), wiki pages (Asciidoc), and will eventually also support long-form
+      > (in Asciidoc), wiki pages (Asciidoc), and long-form
       articles (markup). It is produced by the <A
         href="./publication/d/gitcitadel-project-documentation-by-stella-v-1"
         >GitCitadel project team</A

@@ -8,8 +8,12 @@
     <!-- Apply saved theme ASAP to avoid flash -->
     <script>
       try {
-        const t = localStorage.getItem("theme");
-        if (t) document.documentElement.dataset.theme = t;
+        const t = localStorage.getItem("alexandria/theme") || "light";
+        document.documentElement.dataset.theme = t;
+        // Add .dark class for non-light themes
+        if (t !== "light") {
+          document.documentElement.classList.add("dark");
+        }
       } catch (_) {
         /* no-op */
       }

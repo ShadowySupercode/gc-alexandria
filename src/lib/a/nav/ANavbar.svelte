@@ -121,11 +121,10 @@
     </div>
   </NavBrand>
   <div class="flex md:order-2">
-    <Profile />
     <NavHamburger />
   </div>
   <NavUl class="order-1 ml-auto items-center" classes={{ ul: "items-center" }}>
-    <NavLi class="cursor-pointer">
+    <NavLi class="navbar-menu-item">
       Explore<ChevronDownOutline
         class="text-primary-800 ms-2 inline h-6 w-6 dark:text-white"
       />
@@ -134,7 +133,7 @@
       {#snippet children({ item })}
         <a
           href={item.href}
-          class="block h-full rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700"
+          class="block h-full rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-primary-800 transition-colors"
         >
           <div class="font-semibold dark:text-white">{item.name}</div>
           <span class="text-sm font-light text-gray-500 dark:text-gray-400"
@@ -143,6 +142,11 @@
         </a>
       {/snippet}
     </MegaMenu>
-    <DarkMode />
+    <NavLi class="navbar-menu-item">
+      <DarkMode />
+    </NavLi>
+    <NavLi class="navbar-menu-item">
+      <Profile />
+    </NavLi>
   </NavUl>
 </Navbar>

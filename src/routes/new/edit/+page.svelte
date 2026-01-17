@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    Heading,
-    Textarea,
-    Toolbar,
-    ToolbarButton,
-  } from "flowbite-svelte";
+  import { Heading, Textarea, Toolbar, ToolbarButton } from "flowbite-svelte";
   import {
     CodeOutline,
     EyeSolid,
@@ -14,7 +9,7 @@
   import Pharos, { pharosInstance } from "$lib/parser";
   import { goto } from "$app/navigation";
   import { getNdkContext } from "$lib/ndk";
-  
+
   const ndk = getNdkContext();
 
   let someIndexValue = 0;
@@ -72,29 +67,37 @@
           placeholder="Write AsciiDoc content"
           bind:value={editorText}
         >
-          <Toolbar slot="header" embedded>
-            <ToolbarButton name="Preview" onclick={showPreview}>
-              <EyeSolid class="w-6 h-6" />
-            </ToolbarButton>
-            <ToolbarButton name="Review" slot="end" onclick={prepareReview}>
-              <PaperPlaneOutline class="w=6 h-6 rotate-90" />
-            </ToolbarButton>
-          </Toolbar>
+          <!-- MichaelJ 12-04-2025 - This `Toolbar` construct may be invalid with the current version of Flowbite Svelte -->
+          {#snippet header()}
+            <Toolbar embedded>
+              <ToolbarButton name="Preview" onclick={showPreview}>
+                <EyeSolid class="w-6 h-6" />
+              </ToolbarButton>
+              {#snippet end()}
+                <ToolbarButton name="Review" onclick={prepareReview}>
+                  <PaperPlaneOutline class="w=6 h-6 rotate-90" />
+                </ToolbarButton>
+              {/snippet}
+            </Toolbar>
+          {/snippet}
         </Textarea>
       </form>
     {:else}
       <form
         class="border border-gray-400 dark:border-gray-600 rounded-lg flex flex-col space-y-2 h-fit"
       >
+        <!-- MichaelJ 12-04-2025 - This `Toolbar` construct may be invalid with the current version of Flowbite Svelte -->
         <Toolbar
           class="toolbar-leather rounded-b-none bg-gray-200 dark:bg-gray-800"
         >
           <ToolbarButton name="Edit" onclick={hidePreview}>
             <CodeOutline class="w-6 h-6" />
           </ToolbarButton>
-          <ToolbarButton name="Review" slot="end" onclick={prepareReview}>
-            <PaperPlaneOutline class="w=6 h-6 rotate-90" />
-          </ToolbarButton>
+          {#snippet end()}
+            <ToolbarButton name="Review" onclick={prepareReview}>
+              <PaperPlaneOutline class="w=6 h-6 rotate-90" />
+            </ToolbarButton>
+          {/snippet}
         </Toolbar>
         {#if rootIndexId}
           <Preview

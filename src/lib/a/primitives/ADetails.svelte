@@ -57,6 +57,7 @@
     defaultOpen = false,
     forceHide = false,
     class: className = "",
+    children,
   } = $props();
   let open = $derived(defaultOpen);
   $effect(() => {
@@ -98,6 +99,6 @@
   {#if !(tech && !$showTech && forceHide)}<div
       class="px-3 pb-3 pt-1 text-[0.95rem] leading-6"
     >
-      <slot />
+      {@render children()}
     </div>{/if}
 </details>

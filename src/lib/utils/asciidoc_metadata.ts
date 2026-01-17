@@ -2,7 +2,6 @@
  * AsciiDoc Metadata Extraction Service using Asciidoctor
  *
  * Thin wrapper around Asciidoctor's built-in metadata extraction capabilities.
- * Leverages the existing Pharos parser to avoid duplication.
  */
 
 // @ts-ignore
@@ -24,45 +23,36 @@ export interface AsciiDocMetadata {
   publishedBy?: string;
   type?: string;
   autoUpdate?: "yes" | "ask" | "no";
+  customAttributes?: Record<string, string>;
 }
 
 export type SectionMetadata = AsciiDocMetadata;
 
-export interface ParsedAsciiDoc {
-  metadata: AsciiDocMetadata;
-  content: string;
-  sections: Array<{
-    metadata: SectionMetadata;
-    content: string;
-    title: string;
-  }>;
-}
-
 // Shared attribute mapping based on Asciidoctor standard attributes
 const ATTRIBUTE_MAP: Record<string, keyof AsciiDocMetadata> = {
   // Standard Asciidoctor attributes
-  "author": "authors",
-  "description": "summary",
-  "keywords": "tags",
-  "revnumber": "version",
-  "revdate": "publicationDate",
-  "revremark": "edition",
-  "title": "title",
+  author: "authors",
+  description: "summary",
+  keywords: "tags",
+  revnumber: "version",
+  revdate: "publicationDate",
+  revremark: "edition",
+  title: "title",
 
   // Custom attributes for Alexandria
-  "published_by": "publishedBy",
-  "publisher": "publisher",
-  "summary": "summary",
-  "image": "coverImage",
-  "cover": "coverImage",
-  "isbn": "isbn",
-  "source": "source",
-  "type": "type",
+  published_by: "publishedBy",
+  publisher: "publisher",
+  summary: "summary",
+  image: "coverImage",
+  cover: "coverImage",
+  isbn: "isbn",
+  source: "source",
+  type: "type",
   "auto-update": "autoUpdate",
-  "version": "version",
-  "edition": "edition",
-  "published_on": "publicationDate",
-  "date": "publicationDate",
+  version: "version",
+  edition: "edition",
+  published_on: "publicationDate",
+  date: "publicationDate",
   "version-label": "version",
 };
 
@@ -71,6 +61,30 @@ const ATTRIBUTE_MAP: Record<string, keyof AsciiDocMetadata> = {
  */
 function createProcessor() {
   return Processor();
+}
+
+/**
+ * Decodes HTML entities in a string
+ */
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    "&#8217;": "'",
+    "&#8216;": "'",
+    "&#8220;": '"',
+    "&#8221;": '"',
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&apos;": "'",
+  };
+
+  let result = text;
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, "g"), char);
+  }
+  return result;
 }
 
 /**
@@ -125,6 +139,16 @@ function mapAttributesToMetadata(
       } else {
         (metadata as any)[metadataKey] = value;
       }
+    } else if (
+      value &&
+      typeof value === "string" &&
+      !systemAttributes.includes(key)
+    ) {
+      // Handle unknown/custom attributes - but only if they're not system attributes
+      if (!metadata.customAttributes) {
+        metadata.customAttributes = {};
+      }
+      metadata.customAttributes[key] = value;
     }
   }
 }
@@ -237,6 +261,84 @@ function extractSectionAuthors(sectionContent: string): string[] {
   return authors;
 }
 
+// System attributes to filter out when adding custom attributes as tags
+const systemAttributes = [
+  "attribute-undefined",
+  "attribute-missing",
+  "appendix-caption",
+  "appendix-refsig",
+  "caution-caption",
+  "chapter-refsig",
+  "example-caption",
+  "figure-caption",
+  "important-caption",
+  "last-update-label",
+  "manname-title",
+  "note-caption",
+  "part-refsig",
+  "preface-title",
+  "section-refsig",
+  "table-caption",
+  "tip-caption",
+  "toc-title",
+  "untitled-label",
+  "version-label",
+  "warning-caption",
+];
+
+/**
+ * Strips section header and attribute lines from content
+ */
+function stripSectionHeader(sectionContent: string): string {
+  const lines = sectionContent.split(/\r?\n/);
+  let contentStart = 0;
+
+  // Find where the section header ends
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Skip section title line and attribute lines
+    if (
+      !line.match(/^=+\s+/) &&
+      !line.includes("<") &&
+      !line.match(/^.+,\s*.+:\s*.+$/) &&
+      !line.match(/^:[^:]+:\s*.+$/) &&
+      line.trim() !== ""
+    ) {
+      contentStart = i;
+      break;
+    }
+  }
+
+  const processedLines: string[] = [];
+  let lastWasEmpty = false;
+
+  for (let i = contentStart; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip attribute lines within content
+    if (line.match(/^:[^:]+:\s*.+$/)) {
+      continue;
+    }
+
+    // Handle empty lines - don't add more than one consecutive empty line
+    if (line.trim() === "") {
+      if (!lastWasEmpty) {
+        processedLines.push("");
+      }
+      lastWasEmpty = true;
+    } else {
+      processedLines.push(line);
+      lastWasEmpty = false;
+    }
+  }
+
+  // Remove extra blank lines and normalize newlines
+  return processedLines
+    .join("\n")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .trim();
+}
+
 /**
  * Strips document header and attribute lines from content
  */
@@ -244,7 +346,7 @@ function stripDocumentHeader(content: string): string {
   const lines = content.split(/\r?\n/);
   let contentStart = 0;
 
-  // Find where the document header ends
+  // Find the first line that is actual content (not header, author, or attribute)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Skip title line, author line, revision line, and attribute lines
@@ -270,82 +372,69 @@ function stripDocumentHeader(content: string): string {
     return true;
   });
 
-  // Remove extra blank lines and normalize newlines
-  return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
-    /\n\s*\n/g,
-    "\n",
-  ).trim();
-}
+  // Ensure deeper headers (====) have proper newlines around them
+  const processedLines = [];
+  for (let i = 0; i < filteredLines.length; i++) {
+    const line = filteredLines[i];
+    const prevLine = i > 0 ? filteredLines[i - 1] : "";
+    const nextLine = i < filteredLines.length - 1 ? filteredLines[i + 1] : "";
 
-/**
- * Strips section header and attribute lines from content
- */
-function stripSectionHeader(sectionContent: string): string {
-  const lines = sectionContent.split(/\r?\n/);
-  let contentStart = 0;
-
-  // Find where the section header ends
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // Skip section title line, author line, and attribute lines
-    if (
-      !line.match(/^==\s+/) &&
-      !line.includes("<") &&
-      !line.match(/^:[^:]+:\s*.+$/) &&
-      line.trim() !== "" &&
-      !(line.match(/^[A-Za-z\s]+$/) && line.trim() !== "" &&
-        line.trim().split(/\s+/).length <= 2)
-    ) {
-      contentStart = i;
-      break;
+    // If this is a deeper header (====+), ensure it has newlines around it
+    if (line.match(/^====+\s+/)) {
+      // Add newline before if previous line isn't blank
+      if (prevLine && prevLine.trim() !== "") {
+        processedLines.push("");
+      }
+      processedLines.push(line);
+      // Add newline after if next line isn't blank and exists
+      if (nextLine && nextLine.trim() !== "") {
+        processedLines.push("");
+      }
+    } else {
+      processedLines.push(line);
     }
   }
 
-  // Filter out all attribute lines, author lines, and section headers from the content
-  const contentLines = lines.slice(contentStart);
-  const filteredLines = contentLines.filter((line) => {
-    // Skip attribute lines
-    if (line.match(/^:[^:]+:\s*.+$/)) {
-      return false;
-    }
-    // Skip author lines (simple names without email)
-    if (
-      line.match(/^[A-Za-z\s]+$/) &&
-      line.trim() !== "" &&
-      line.trim().split(/\s+/).length <= 2
-    ) {
-      return false;
-    }
-    // Skip section headers
-    if (line.match(/^==\s+/)) {
-      return false;
-    }
-    return true;
-  });
-
   // Remove extra blank lines and normalize newlines
-  return filteredLines.join("\n").replace(/\n\s*\n\s*\n/g, "\n\n").replace(
-    /\n\s*\n/g,
-    "\n",
-  ).trim();
+  return processedLines
+    .join("\n")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .trim();
 }
 
 /**
- * Parses attributes from section content
+ * Parses attributes from section content using simple regex
+ * Converts :tagname: tagvalue -> [tagname, tagvalue]
+ * Converts :tags: comma,separated -> [t, tag1], [t, tag2], etc.
  */
-function parseSectionAttributes(sectionContent: string): Record<string, any> {
-  const attributes: Record<string, any> = {};
-  const lines = sectionContent.split(/\r?\n/);
+export function parseSimpleAttributes(content: string): [string, string][] {
+  const tags: [string, string][] = [];
+  const lines = content.split(/\r?\n/);
 
   for (const line of lines) {
     const match = line.match(/^:([^:]+):\s*(.+)$/);
     if (match) {
       const [, key, value] = match;
-      attributes[key.trim()] = value.trim();
+      const tagName = key.trim();
+      const tagValue = value.trim();
+
+      if (tagName === "tags") {
+        // Special handling for :tags: - split into individual t-tags
+        const tags_list = tagValue
+          .split(",")
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        tags_list.forEach((tag) => {
+          tags.push(["t", tag]);
+        });
+      } else {
+        // Regular attribute -> [tagname, tagvalue]
+        tags.push([tagName, tagValue]);
+      }
     }
   }
 
-  return attributes;
+  return tags;
 }
 
 /**
@@ -365,16 +454,7 @@ export function extractDocumentMetadata(inputContent: string): {
 
   // Extract basic metadata
   const title = document.getTitle();
-  if (title) {
-    // Decode HTML entities in the title
-    metadata.title = title
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#039;/g, "'")
-      .replace(/&nbsp;/g, " ");
-  }
+  if (title) metadata.title = decodeHtmlEntities(title);
 
   // Handle multiple authors - combine header line and attributes
   const authors = extractDocumentAuthors(document.getSource());
@@ -405,15 +485,33 @@ export function extractDocumentMetadata(inputContent: string): {
     metadata.authors = [...new Set(authors)]; // Remove duplicates
   }
 
-  // Extract revision info
+  // Extract revision info (only if it looks like valid revision data)
   const revisionNumber = document.getRevisionNumber();
-  if (revisionNumber) metadata.version = revisionNumber;
+  if (
+    revisionNumber &&
+    revisionNumber !== "Version" &&
+    !revisionNumber.includes("==")
+  ) {
+    metadata.version = revisionNumber;
+  }
 
   const revisionRemark = document.getRevisionRemark();
-  if (revisionRemark) metadata.publishedBy = revisionRemark;
+  if (
+    revisionRemark &&
+    !revisionRemark.includes("[NOTE]") &&
+    !revisionRemark.includes("==")
+  ) {
+    metadata.publishedBy = revisionRemark;
+  }
 
   const revisionDate = document.getRevisionDate();
-  if (revisionDate) metadata.publicationDate = revisionDate;
+  if (
+    revisionDate &&
+    !revisionDate.includes("[NOTE]") &&
+    !revisionDate.includes("==")
+  ) {
+    metadata.publicationDate = revisionDate;
+  }
 
   // Map attributes to metadata (but skip version and publishedBy if we already have them from revision)
   mapAttributesToMetadata(attributes, metadata, true);
@@ -446,22 +544,14 @@ export function extractSectionMetadata(inputSectionContent: string): {
   content: string;
   title: string;
 } {
-  const asciidoctor = createProcessor();
-  const document = asciidoctor.load(`= Temp\n\n${inputSectionContent}`, {
-    standalone: false,
-  }) as Document;
-  const sections = document.getSections();
-
-  if (sections.length === 0) {
-    return { metadata: {}, content: inputSectionContent, title: "" };
+  // Extract title directly from the content using regex for more control
+  const titleMatch = inputSectionContent.match(/^(=+)\s+(.+)$/m);
+  let title = "";
+  if (titleMatch) {
+    title = titleMatch[2].trim();
   }
 
-  const section = sections[0];
-  const title = section.getTitle() || "";
   const metadata: SectionMetadata = { title };
-
-  // Parse attributes from the section content
-  const attributes = parseSectionAttributes(inputSectionContent);
 
   // Extract authors from section content
   const authors = extractSectionAuthors(inputSectionContent);
@@ -482,66 +572,17 @@ export function extractSectionMetadata(inputSectionContent: string): {
     metadata.authors = authors;
   }
 
-  // Map attributes to metadata (sections can have authors, but skip author mapping to avoid duplication)
-  const attributesWithoutAuthor = { ...attributes };
-  delete attributesWithoutAuthor.author;
-  mapAttributesToMetadata(attributesWithoutAuthor, metadata, false);
-
-  // Handle tags and keywords
-  const tags = extractTagsFromAttributes(attributes);
+  // Extract tags using parseSimpleAttributes (which is what's used in generateNostrEvents)
+  const simpleAttrs = parseSimpleAttributes(inputSectionContent);
+  const tags = simpleAttrs
+    .filter((attr) => attr[0] === "t")
+    .map((attr) => attr[1]);
   if (tags.length > 0) {
     metadata.tags = tags;
   }
 
   const content = stripSectionHeader(inputSectionContent);
   return { metadata, content, title };
-}
-
-/**
- * Parses AsciiDoc content into sections with metadata
- */
-export function parseAsciiDocWithMetadata(content: string): ParsedAsciiDoc {
-  const asciidoctor = createProcessor();
-  const document = asciidoctor.load(content, { standalone: false }) as Document;
-  const { metadata: docMetadata } = extractDocumentMetadata(content);
-
-  // Parse the original content to find section attributes
-  const lines = content.split(/\r?\n/);
-  const sectionsWithMetadata: Array<{
-    metadata: SectionMetadata;
-    content: string;
-    title: string;
-  }> = [];
-  let currentSection: string | null = null;
-  let currentSectionContent: string[] = [];
-
-  for (const line of lines) {
-    if (line.match(/^==\s+/)) {
-      // Save previous section if exists
-      if (currentSection) {
-        const sectionContent = currentSectionContent.join("\n");
-        sectionsWithMetadata.push(extractSectionMetadata(sectionContent));
-      }
-
-      // Start new section
-      currentSection = line;
-      currentSectionContent = [line];
-    } else if (currentSection) {
-      currentSectionContent.push(line);
-    }
-  }
-
-  // Save the last section
-  if (currentSection) {
-    const sectionContent = currentSectionContent.join("\n");
-    sectionsWithMetadata.push(extractSectionMetadata(sectionContent));
-  }
-
-  return {
-    metadata: docMetadata,
-    content: document.getSource(),
-    sections: sectionsWithMetadata,
-  };
 }
 
 /**
@@ -570,6 +611,15 @@ export function metadataToTags(
   if (metadata.autoUpdate) tags.push(["auto-update", metadata.autoUpdate]);
   if (metadata.tags?.length) {
     metadata.tags.forEach((tag) => tags.push(["t", tag]));
+  }
+
+  // Add custom attributes as tags, but filter out system attributes
+  if (metadata.customAttributes) {
+    Object.entries(metadata.customAttributes).forEach(([key, value]) => {
+      if (!systemAttributes.includes(key)) {
+        tags.push([key, value]);
+      }
+    });
   }
 
   return tags;
@@ -648,9 +698,10 @@ export function extractSmartMetadata(content: string): {
     // Check if it's a minimal document header (just title, no other metadata)
     const lines = content.split(/\r?\n/);
     const titleLine = lines.find((line) => line.match(/^=\s+/));
-    const hasOtherMetadata = lines.some((line) =>
-      line.includes("<") || // author line
-      line.match(/^.+,\s*.+:\s*.+$/) // revision line
+    const hasOtherMetadata = lines.some(
+      (line) =>
+        line.includes("<") || // author line
+        line.match(/^.+,\s*.+:\s*.+$/), // revision line
     );
 
     if (hasOtherMetadata) {

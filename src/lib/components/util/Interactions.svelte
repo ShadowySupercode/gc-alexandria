@@ -11,10 +11,11 @@
   import { publicationColumnVisibility } from "$lib/stores";
   import { getNdkContext } from "$lib/ndk";
 
-  const {
-    rootId,
-    direction = "row",
-  } = $props<{ rootId: string; event?: NDKEvent; direction?: string }>();
+  const { rootId, direction = "row" } = $props<{
+    rootId: string;
+    event?: NDKEvent;
+    direction?: string;
+  }>();
 
   const ndk = getNdkContext();
 
@@ -90,26 +91,27 @@
   class="InteractiveMenu !hidden flex-{direction} justify-around align-middle text-primary-700 dark:text-gray-300"
 >
   <Button
-    color="none"
+    color="secondary"
     class="flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0"
     onclick={doLike}
-    ><HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span></Button
   >
+    <HeartOutline class="mx-2" size="lg" /><span>{likeCount}</span>
+  </Button>
   <Button
-    color="none"
+    color="secondary"
     class="flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0"
     onclick={doZap}
     ><ZapOutline className="mx-2" /><span>{zapCount}</span></Button
   >
   <Button
-    color="none"
+    color="secondary"
     class="flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0"
     onclick={doHighlight}
     ><FilePenOutline class="mx-2" size="lg" /><span>{highlightCount}</span
     ></Button
   >
   <Button
-    color="none"
+    color="secondary"
     class="flex flex-{direction} shrink-0 md:min-w-11 min-h-11 items-center p-0"
     onclick={showDiscussion}
     ><AnnotationOutline class="mx-2" size="lg" /><span>{commentCount}</span

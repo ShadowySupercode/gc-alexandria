@@ -523,6 +523,32 @@
     }
   }
 
+  /**
+   * Public method to refresh comments (e.g., after creating a new one)
+   */
+  export function refresh() {
+    console.log(`[CommentViewer] Refreshing comments for event:`, event?.id);
+    
+    // Clean up previous subscription
+    if (activeSub) {
+      activeSub.stop();
+      activeSub = null;
+    }
+    
+    // Reset state
+    comments = [];
+    profiles = new Map();
+    nestedReplyIds = new Set();
+    isFetchingNestedReplies = false;
+    retryCount = 0;
+    isFetching = false;
+    
+    // Refetch comments
+    if (event?.id && !isFetching) {
+      fetchComments();
+    }
+  }
+
   // Cleanup on unmount
   onMount(() => {
     return () => {

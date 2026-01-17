@@ -15,6 +15,13 @@
   --brand-primary-1000: #15110d;
 }
 
+/* Dark mode tweaks for default theme - improve contrast for text on dark backgrounds */
+:root.dark {
+  /* Brighten mid-tones for better contrast when used as text */
+  --brand-primary-300: #d4a574;
+  --brand-primary-200: #e0b890;
+}
+
 /* Example alternative theme: ocean */
 :root[data-theme="ocean"] {
   --brand-primary-0: #ecf8ff;
@@ -37,6 +44,8 @@
   /* nudge the mid tones brighter for contrast */
   --brand-primary-400: #7ccdfc;
   --brand-primary-500: #38bdf8;
+  --brand-primary-300: #a5d8f5;
+  --brand-primary-200: #bae6fd;
 }
 
 /* Example alternative theme: forrest */
@@ -61,4 +70,6 @@
   /* nudge the mid tones brighter for contrast */
   --brand-primary-400: #7fc97f;
   --brand-primary-500: #4caf50;
+  --brand-primary-300: #9fda9f;
+  --brand-primary-200: #b8e6b8;
 }

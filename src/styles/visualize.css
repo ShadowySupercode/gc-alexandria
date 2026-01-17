@@ -1,7 +1,7 @@
 @layer components {
-  /* Legend styles - specific to visualization */
+  /* Legend styles - specific to visualization - improved contrast */
   .legend-list {
-    @apply list-disc mt-2 space-y-2 text-gray-800 dark:text-gray-300;
+    @apply list-disc mt-2 space-y-2 text-gray-900 dark:text-gray-200;
   }
 
   .legend-item {
@@ -70,7 +70,7 @@
   }
 
   .network-debug {
-    @apply mt-4 text-sm text-gray-500;
+    @apply mt-4 text-sm text-gray-700 dark:text-gray-300;
   }
 
   /* Zoom controls */
@@ -82,11 +82,11 @@
     @apply bg-white;
   }
 
-  /* Tooltip styles - specific to visualization tooltips */
+  /* Tooltip styles - specific to visualization tooltips - improved contrast */
   .tooltip-close-btn {
     @apply absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700
-      dark:hover:bg-gray-600 rounded-full p-1 text-gray-500 hover:text-gray-700
-      dark:text-gray-400 dark:hover:text-gray-200;
+      dark:hover:bg-gray-600 rounded-full p-1 text-gray-700 hover:text-gray-900
+      dark:text-gray-300 dark:hover:text-gray-100;
   }
 
   .tooltip-content {
@@ -98,12 +98,12 @@
   }
 
   .tooltip-title-link {
-    @apply text-gray-800 hover:text-blue-600 dark:text-gray-200
-      dark:hover:text-blue-400;
+    @apply text-gray-900 hover:text-blue-700 dark:text-gray-100
+      dark:hover:text-blue-300;
   }
 
   .tooltip-metadata {
-    @apply text-gray-600 dark:text-gray-400 text-sm;
+    @apply text-gray-700 dark:text-gray-300 text-sm;
   }
 
   .tooltip-summary {
@@ -117,7 +117,7 @@
   }
 
   .tooltip-help-text {
-    @apply mt-2 text-xs text-gray-500 dark:text-gray-400 italic;
+    @apply mt-2 text-xs text-gray-600 dark:text-gray-300 italic;
   }
 
   /* Star network visualization styles */
