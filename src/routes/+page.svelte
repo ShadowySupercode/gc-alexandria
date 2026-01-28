@@ -5,6 +5,7 @@
 
   let searchQuery = $state("");
   let showOnlyMyPublications = $state(false);
+  let useFullRelaySet = $state(false);
   let eventCount = $state({ displayed: 0, total: 0 });
   let showClearSearchModal = $state(false);
   let pendingCheckboxState = $state(false);
@@ -60,31 +61,47 @@
     />
   </div>
   
-  {#if eventCount.total > 0}
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+  <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+    {#if eventCount.total > 0}
       <span>Showing {eventCount.displayed} of {eventCount.total} events.</span>
-      
-      <!-- AI-NOTE: Show filter checkbox only when user is logged in -->
-      {#if $userStore.signedIn}
-        <div class="flex items-center gap-2">
+    {/if}
+    
+    <div class="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={useFullRelaySet}
+        onclick={(e) => {
+          useFullRelaySet = (e.target as HTMLInputElement).checked;
+        }}
+        id="use-full-relay-set"
+        class="w-4 h-4 text-blue-600 bg-white border-gray-400 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer checked:bg-blue-600 checked:border-blue-600"
+      />
+      <label for="use-full-relay-set" class="text-sm cursor-pointer text-gray-700 dark:text-gray-300">
+        Use full relay set
+      </label>
+    </div>
+    
+    <!-- AI-NOTE: Show filter checkbox only when user is logged in -->
+    {#if $userStore.signedIn}
+      <div class="flex items-center gap-2">
           <input
             type="checkbox"
             bind:checked={showOnlyMyPublications}
             onchange={handleCheckboxChange}
             id="show-my-publications"
-            class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+            class="w-4 h-4 text-blue-600 bg-white border-gray-400 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer checked:bg-blue-600 checked:border-blue-600"
           />
-          <label for="show-my-publications" class="text-sm cursor-pointer text-gray-700 dark:text-gray-300">
-            Show only my publications
-          </label>
-        </div>
-      {/if}
-    </div>
-  {/if}
+        <label for="show-my-publications" class="text-sm cursor-pointer text-gray-700 dark:text-gray-300">
+          Show only my publications
+        </label>
+      </div>
+    {/if}
+  </div>
   
   <PublicationFeed
     {searchQuery}
     {showOnlyMyPublications}
+    useFullRelaySet={useFullRelaySet}
     onEventCountUpdate={handleEventCountUpdate}
   />
 </main>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { indexKind } from "$lib/consts";
+  import { indexKind, secondaryRelays, searchRelays } from "$lib/consts";
   import { SEARCH_LIMITS } from "$lib/utils/search_constants.ts";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
   import { filterValidIndexEvents, debounceAsync } from "$lib/utils";
@@ -12,6 +12,7 @@
   } from "$lib/utils/nostrUtils";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
   import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
+  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
@@ -21,6 +22,7 @@
   const props = $props<{
     searchQuery?: string;
     showOnlyMyPublications?: boolean;
+    useFullRelaySet?: boolean;
     onEventCountUpdate?: (counts: { displayed: number; total: number }) => void;
   }>();
 
@@ -35,12 +37,16 @@
   let hasInitialized = $state(false);
   let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
   let gridContainer: HTMLElement;
+  let topLevelEventCount: number = $state(0);
 
   // Relay management
   let allRelays: string[] = $state([]);
 
   // Event management
   let allIndexEvents: NDKEvent[] = $state([]);
+  let allLabel1985Events: NDKEvent[] = $state([]);
+  let label1985EventMap = $state<Map<string, boolean>>(new Map());
+  let label1985EventIdMap = $state<Map<string, boolean>>(new Map());
 
   // Calculate the number of columns based on window width
   let columnCount = $state(1);
@@ -59,47 +65,61 @@
         columnCount = newColumnCount;
         publicationsToDisplay = newColumnCount * 10;
         
-        // Update the view immediately when column count changes
-        if (allIndexEvents.length > 0) {
-          let source = allIndexEvents;
-          
-          // Apply user filter first
-          source = filterEventsByUser(source);
-          
-          // Then apply search filter if query exists
-          if (props.searchQuery?.trim()) {
-            source = filterEventsBySearch(source);
+          // Update the view immediately when column count changes
+          if (allIndexEvents.length > 0) {
+            let source = allIndexEvents;
+            
+            // Sort by relevance
+            source = sortEventsByRelevance(source);
+            
+            // Apply user filter
+            source = filterEventsByUser(source);
+            
+            // Then apply search filter if query exists
+            if (props.searchQuery?.trim()) {
+              source = filterEventsBySearch(source);
+            }
+            
+            eventsInView = source.slice(0, publicationsToDisplay);
+            endOfFeed = eventsInView.length >= source.length;
           }
-          
-          eventsInView = source.slice(0, publicationsToDisplay);
-          endOfFeed = eventsInView.length >= source.length;
         }
       }
-    }
-  });
+    });
 
   // Initialize relays and fetch events
   // AI-NOTE: This function is called when the component mounts and when relay configuration changes
-  // It ensures that events are fetched from the current set of active relays
+  // For the feed, we use only secondaryRelays + user's personal relays (deduplicated)
+  // Search functionality uses the full relay set via activeInboxRelays/activeOutboxRelays
+  // AI-NOTE: Fetch labels FIRST, then fetch 30040 events and filter by labels
   async function initializeAndFetch() {
     if (!ndk) {
       console.debug('[PublicationFeed] No NDK instance available');
       return;
     }
 
-    // Get relays from active stores
+    // Get user's personal relays from active stores
     const inboxRelays = $activeInboxRelays;
     const outboxRelays = $activeOutboxRelays;
-    const newRelays = [...inboxRelays, ...outboxRelays];
+    const userRelays = [...inboxRelays, ...outboxRelays];
+    
+    // Combine relays based on checkbox state
+    // If useFullRelaySet is true, include searchRelays; otherwise just secondaryRelays
+    const baseRelays = props.useFullRelaySet 
+      ? [...secondaryRelays, ...searchRelays]
+      : secondaryRelays;
+    
+    // Combine base relays with user's personal relays and deduplicate
+    const feedRelays = [...new Set([...baseRelays, ...userRelays])];
 
-    console.debug('[PublicationFeed] Available relays:', {
-      inboxCount: inboxRelays.length,
-      outboxCount: outboxRelays.length,
-      totalCount: newRelays.length,
-      relays: newRelays
+    console.debug('[PublicationFeed] Feed relays (secondary + user):', {
+      secondaryCount: secondaryRelays.length,
+      userRelayCount: userRelays.length,
+      totalCount: feedRelays.length,
+      relays: feedRelays
     });
 
-    if (newRelays.length === 0) {
+    if (feedRelays.length === 0) {
       console.debug('[PublicationFeed] No relays available, waiting...');
       // Set up a retry mechanism when relays become available
       const unsubscribe = activeInboxRelays.subscribe((relays) => {
@@ -117,32 +137,43 @@
 
     // Update allRelays if different
     const currentRelaysString = allRelays.sort().join(',');
-    const newRelaysString = newRelays.sort().join(',');
+    const newRelaysString = feedRelays.sort().join(',');
     
     if (currentRelaysString !== newRelaysString) {
-      allRelays = newRelays;
-      console.debug('[PublicationFeed] Relays updated, fetching events');
+      allRelays = feedRelays;
+      console.debug('[PublicationFeed] Feed relays updated, fetching labels first, then events');
+      
+      // Fetch ALL labels first
+      await fetchAllLabel1985Events();
+      
+      // Then fetch 30040 events (they will be filtered/sorted by the label maps)
       await fetchAllIndexEventsFromRelays();
     }
   }
 
-  // Watch for relay store changes and user authentication state
+  // Watch for relay store changes, user authentication state, and full relay set checkbox
   $effect(() => {
     const inboxRelays = $activeInboxRelays;
     const outboxRelays = $activeOutboxRelays;
-    const newRelays = [...inboxRelays, ...outboxRelays];
+    const userRelays = [...inboxRelays, ...outboxRelays];
+    const useFullRelaySet = props.useFullRelaySet;
+    // Combine relays based on checkbox state
+    const baseRelays = useFullRelaySet 
+      ? [...secondaryRelays, ...searchRelays]
+      : secondaryRelays;
+    const feedRelays = [...new Set([...baseRelays, ...userRelays])];
     const userState = $userStore;
 
-    if (newRelays.length > 0 && !hasInitialized) {
-      console.debug('[PublicationFeed] Relays available, initializing');
+    if (feedRelays.length > 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] Feed relays available, initializing');
       hasInitialized = true;
       if (fallbackTimeout) {
         clearTimeout(fallbackTimeout);
         fallbackTimeout = null;
       }
       setTimeout(() => initializeAndFetch(), 0);
-    } else if (newRelays.length === 0 && !hasInitialized) {
-      console.debug('[PublicationFeed] No relays available, setting up fallback');
+    } else if (feedRelays.length === 0 && !hasInitialized) {
+      console.debug('[PublicationFeed] No feed relays available, setting up fallback');
       if (!fallbackTimeout) {
         fallbackTimeout = setTimeout(() => {
           console.debug('[PublicationFeed] Fallback timeout reached, retrying');
@@ -150,14 +181,14 @@
           initializeAndFetch();
         }, 3000);
       }
-    } else if (hasInitialized && newRelays.length > 0) {
-      // AI-NOTE: Re-fetch events when user authentication state changes or relays are updated
-      // This ensures that when a user logs in and their relays are loaded, we fetch events from those relays
+    } else if (hasInitialized && feedRelays.length > 0) {
+      // AI-NOTE: Re-fetch events when user authentication state changes, relays are updated, or checkbox changes
+      // This ensures that when a user logs in and their relays are loaded, or when the checkbox is toggled, we fetch events from those relays
       const currentRelaysString = allRelays.sort().join(',');
-      const newRelaysString = newRelays.sort().join(',');
+      const newRelaysString = feedRelays.sort().join(',');
       
       if (currentRelaysString !== newRelaysString) {
-        console.debug('[PublicationFeed] Relay configuration changed, re-fetching events');
+        console.debug('[PublicationFeed] Feed relay configuration changed, re-fetching events');
         // Clear cache to force fresh fetch from new relays
         indexEventCache.clear();
         setTimeout(() => initializeAndFetch(), 0);
@@ -190,8 +221,18 @@
         `[PublicationFeed] Using cached index events (${cachedEvents.length} events)`,
       );
       allIndexEvents = cachedEvents;
-      eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
-      endOfFeed = allIndexEvents.length <= publicationsToDisplay;
+      
+      // Labels should already be loaded from initializeAndFetch
+      // Filter to only top-level events first, then sort by relevance
+      const topLevelEvents = filterToTopLevelOnly(allIndexEvents);
+      topLevelEventCount = topLevelEvents.length;
+      const sorted = sortEventsByRelevance(topLevelEvents);
+      let filtered = filterEventsByUser(sorted);
+      if (props.searchQuery?.trim()) {
+        filtered = filterEventsBySearch(filtered);
+      }
+      eventsInView = filtered.slice(0, publicationsToDisplay);
+      endOfFeed = filtered.length <= publicationsToDisplay;
       loading = false;
       return;
     }
@@ -273,21 +314,13 @@
         }
         
         if (newEvents.length > 0) {
-          // Update allIndexEvents with new events
+          // Update allIndexEvents with new events (but don't show them yet - wait for labels)
           allIndexEvents = Array.from(eventMap.values());
-          // Sort by created_at descending
-          allIndexEvents.sort((a, b) => b.created_at! - a.created_at!);
           
           // AI-NOTE: Clear publication search cache when new events are loaded to prevent stale results
           // This ensures searches will re-run with the updated event set
           searchCache.clearType("publication");
-          console.debug(`[PublicationFeed] Cleared publication search cache after loading ${newEvents.length} new events`);
-          
-          // Update the view immediately with new events
-          eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
-          endOfFeed = allIndexEvents.length <= publicationsToDisplay;
-          
-          console.debug(`[PublicationFeed] Updated view with ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length}`);
+          console.debug(`[PublicationFeed] Loaded ${newEvents.length} new events from ${relay}, total: ${allIndexEvents.length} (waiting for labels before displaying)`);
         }
       } catch (err) {
         console.error(`[PublicationFeed] Error fetching from relay ${relay}:`, err);
@@ -309,10 +342,107 @@
     // Cache the fetched events
     indexEventCache.set(allRelays, allIndexEvents);
 
-    // Final update to ensure we have the latest view
-    eventsInView = allIndexEvents.slice(0, publicationsToDisplay);
-    endOfFeed = allIndexEvents.length <= publicationsToDisplay;
+    // Labels should already be loaded from initializeAndFetch
+    // Filter to only top-level events first, then sort by relevance
+    console.debug(`[PublicationFeed] Filtering ${allIndexEvents.length} events to top-level only`);
+    const topLevelEvents = filterToTopLevelOnly(allIndexEvents);
+    topLevelEventCount = topLevelEvents.length;
+    console.debug(`[PublicationFeed] Found ${topLevelEvents.length} top-level events`);
+    
+    // Sort top-level events by relevance (labeled first, then newest)
+    console.debug(`[PublicationFeed] Sorting ${topLevelEvents.length} top-level events using ${allLabel1985Events.length} label events`);
+    const sorted = sortEventsByRelevance(topLevelEvents);
+    console.debug(`[PublicationFeed] After sorting: ${sorted.length} events`);
+    
+    let filtered = filterEventsByUser(sorted);
+    if (props.searchQuery?.trim()) {
+      filtered = filterEventsBySearch(filtered);
+    }
+    
+    console.debug(`[PublicationFeed] Setting eventsInView: ${filtered.length} events, showing first ${publicationsToDisplay}`);
+    eventsInView = filtered.slice(0, publicationsToDisplay);
+    endOfFeed = filtered.length <= publicationsToDisplay;
     loading = false;
+    
+    console.debug(`[PublicationFeed] Display complete. eventsInView.length: ${eventsInView.length}, loading: ${loading}`);
+  }
+
+  // Fetch ALL kind 1985 label events (no filters)
+  // AI-NOTE: Fetch all labels first, then use them to filter/sort 30040 events
+  // This is more efficient than fetching labels per 30040 event
+  async function fetchAllLabel1985Events() {
+    if (!ndk) {
+      return;
+    }
+
+    // Use full relay set for label fetching (not just feed relays)
+    const fullInboxRelays = $activeInboxRelays;
+    const fullOutboxRelays = $activeOutboxRelays;
+    const fullRelaySet = [...fullInboxRelays, ...fullOutboxRelays];
+    
+    if (fullRelaySet.length === 0) {
+      return;
+    }
+
+    console.debug('[PublicationFeed] Fetching ALL kind 1985 label events from full relay set');
+    
+    try {
+      // Create relay set for label fetching
+      const relaySet = NDKRelaySetFromNDK.fromRelayUrls(fullRelaySet, ndk);
+      console.debug(`[PublicationFeed] Created relay set with ${relaySet.relays.size} relays for label fetching`);
+
+      // Fetch ALL kind 1985 events (no filters - we'll filter them later)
+      console.debug('[PublicationFeed] Fetching all kind 1985 label events...');
+      
+      const labelEvents = await Promise.race([
+        ndk.fetchEvents(
+          {
+            kinds: [1985],
+          },
+          {
+            groupable: true,
+            skipVerification: false,
+            skipValidation: false,
+          },
+          relaySet
+        ),
+        new Promise<Set<NDKEvent>>((resolve) => {
+          setTimeout(() => {
+            console.warn(`[PublicationFeed] Label fetch timed out after 30s`);
+            resolve(new Set<NDKEvent>());
+          }, 30000);
+        })
+      ]);
+
+      allLabel1985Events = Array.from(labelEvents);
+      console.debug(`[PublicationFeed] Fetched ${allLabel1985Events.length} total label 1985 events`);
+      
+      // Build maps of which 30040 events have 1985 labels (by address and event ID)
+      label1985EventMap = new Map();
+      label1985EventIdMap = new Map();
+      
+      for (const labelEvent of allLabel1985Events) {
+        // Extract addresses from "a" tags
+        const aTags = getMatchingTags(labelEvent, "a");
+        for (const aTag of aTags) {
+          if (aTag[1]) {
+            label1985EventMap.set(aTag[1], true);
+          }
+        }
+        
+        // Extract event IDs from "e" tags
+        const eTags = getMatchingTags(labelEvent, "e");
+        for (const eTag of eTags) {
+          if (eTag[1]) {
+            label1985EventIdMap.set(eTag[1], true);
+          }
+        }
+      }
+
+      console.debug(`[PublicationFeed] Label maps built: ${label1985EventMap.size} addresses, ${label1985EventIdMap.size} event IDs`);
+    } catch (err) {
+      console.error('[PublicationFeed] Error fetching label 1985 events:', err);
+    }
   }
 
   // Function to convert various Nostr identifiers to npub using the utility function
@@ -368,6 +498,93 @@
     }
   };
 
+
+  // Function to check if an event has a 1985 label
+  const has1985Label = (event: NDKEvent): boolean => {
+    const address = event.tagAddress();
+    const eventId = event.id;
+    const hasLabelByAddress = label1985EventMap.get(address) === true;
+    const hasLabelById = eventId ? label1985EventIdMap.get(eventId) === true : false;
+    return hasLabelByAddress || hasLabelById;
+  };
+
+  // Function to check if an event is top-level (not referenced by other 30040s)
+  const isTopLevel = (event: NDKEvent, referencedAddresses: Set<string>): boolean => {
+    const address = event.tagAddress();
+    return !referencedAddresses.has(address);
+  };
+
+  // Function to filter events to only top-level events
+  const filterToTopLevelOnly = (events: NDKEvent[]): NDKEvent[] => {
+    const referencedAddresses = getReferencedAddresses();
+    const filtered = events.filter(event => {
+      const address = event.tagAddress();
+      if (!address) {
+        return false; // Events without addresses are not top-level
+      }
+      const isTop = !referencedAddresses.has(address);
+      return isTop;
+    });
+    console.debug(`[PublicationFeed] filterToTopLevelOnly: ${events.length} total events -> ${filtered.length} top-level events (${referencedAddresses.size} addresses referenced by other events)`);
+    return filtered;
+  };
+
+  // Build referenced addresses set for top-level check (cached)
+  const getReferencedAddresses = (): Set<string> => {
+    const referencedAddresses = new Set<string>();
+    for (const event of allIndexEvents) {
+      const aTags = getMatchingTags(event, "a");
+      for (const aTag of aTags) {
+        if (aTag[1]) {
+          const parts = aTag[1].split(":");
+          if (parts.length >= 3 && parts[0] === "30040") {
+            referencedAddresses.add(aTag[1]);
+          }
+        }
+      }
+    }
+    return referencedAddresses;
+  };
+
+  // Function to sort events by relevance: labeled events first (newest first), then top-level (newest first), then rest (newest first)
+  const sortEventsByRelevance = (events: NDKEvent[]): NDKEvent[] => {
+    const referencedAddresses = getReferencedAddresses();
+
+    const labeled: NDKEvent[] = [];
+    const topLevel: NDKEvent[] = [];
+    const rest: NDKEvent[] = [];
+
+    for (const event of events) {
+      if (has1985Label(event)) {
+        labeled.push(event);
+      } else if (isTopLevel(event, referencedAddresses)) {
+        topLevel.push(event);
+      } else {
+        rest.push(event);
+      }
+    }
+
+    // Sort each group by created_at descending (newest first)
+    const sortByCreatedAt = (a: NDKEvent, b: NDKEvent) => {
+      const aTime = a.created_at || 0;
+      const bTime = b.created_at || 0;
+      return bTime - aTime;
+    };
+
+    labeled.sort(sortByCreatedAt);
+    topLevel.sort(sortByCreatedAt);
+    rest.sort(sortByCreatedAt);
+
+    console.debug(`[PublicationFeed] Sorted events by relevance: ${labeled.length} labeled, ${topLevel.length} top-level, ${rest.length} rest`);
+
+    // Return in order: labeled, top-level, rest
+    return [...labeled, ...topLevel, ...rest];
+  };
+
+  // Alias for search results (same function)
+  const sortSearchResultsByRelevance = sortEventsByRelevance;
+
+
   // Function to filter events by current user's pubkey
   const filterEventsByUser = (events: NDKEvent[]) => {
     if (!props.showOnlyMyPublications) return events;
@@ -410,6 +627,7 @@
   };
 
   // Function to filter events based on search query
+  // AI-NOTE: Search should work on all 30040s, not just the filtered display set
   const filterEventsBySearch = (events: NDKEvent[]) => {
     if (!props.searchQuery) return events;
     const query = props.searchQuery.trim();
@@ -420,12 +638,16 @@
       events.length,
     );
 
+    // When searching, search through all 30040s
+    const searchSource = allIndexEvents;
+
     // Check cache first for publication search
     const cachedResult = searchCache.get("publication", query);
     if (cachedResult) {
       console.log(
         `[PublicationFeed] Using cached results for publication search: ${query}`,
       );
+      // Cached results are already sorted by relevance
       return cachedResult.events;
     }
 
@@ -433,9 +655,9 @@
     const npub = convertToNpub(query);
     if (npub) {
       console.debug("[PublicationFeed] Query is a Nostr identifier, filtering by npub:", npub);
-      const filtered = filterEventsByNpub(events, npub);
+      let filtered = filterEventsByNpub(searchSource, npub);
       
-      // Cache the filtered results
+      // Cache the filtered results (no sorting needed, source is already sorted)
       const result = {
         events: filtered,
         secondOrder: [],
@@ -454,7 +676,7 @@
     const isNip05Query = isValidNip05Address(query);
     console.debug("[PublicationFeed] Is NIP-05 query:", isNip05Query);
 
-    const filtered = events.filter((event) => {
+    const filtered = searchSource.filter((event) => {
       const title =
         getMatchingTags(event, "title")[0]?.[1]?.toLowerCase() ?? "";
       const authorName =
@@ -495,7 +717,7 @@
       return matches;
     });
 
-    // Cache the filtered results
+    // Cache the filtered results (no sorting needed, source is already sorted)
     const result = {
       events: filtered,
       secondOrder: [],
@@ -513,13 +735,19 @@
 
   // Debounced search function
   const debouncedSearch = debounceAsync(async (query: string) => {
-    console.debug("[PublicationFeed] Search query or user filter changed:", query);
-    let filtered = allIndexEvents;
+    console.debug("[PublicationFeed] Search query or filter changed:", query);
     
-    // Apply user filter first
+    // Filter to top-level events first
+    let filtered = filterToTopLevelOnly(allIndexEvents);
+    topLevelEventCount = filtered.length; // Update top-level count
+    
+    // Sort top-level events by relevance
+    filtered = sortEventsByRelevance(filtered);
+    
+    // Apply user filter
     filtered = filterEventsByUser(filtered);
     
-    // Then apply search filter if query exists
+    // Then apply search filter if query exists (no sorting needed, already sorted)
     if (query && query.trim()) {
       filtered = filterEventsBySearch(filtered);
     }
@@ -544,14 +772,19 @@
       // Check if we have user-specific relays that we haven't fetched from yet
       const inboxRelays = $activeInboxRelays;
       const outboxRelays = $activeOutboxRelays;
-      const newRelays = [...inboxRelays, ...outboxRelays];
+      const userRelays = [...inboxRelays, ...outboxRelays];
+      // Combine relays based on checkbox state
+      const baseRelays = props.useFullRelaySet 
+        ? [...secondaryRelays, ...searchRelays]
+        : secondaryRelays;
+      const feedRelays = [...new Set([...baseRelays, ...userRelays])];
       
-      if (newRelays.length > 0) {
+      if (feedRelays.length > 0) {
         const currentRelaysString = allRelays.sort().join(',');
-        const newRelaysString = newRelays.sort().join(',');
+        const newRelaysString = feedRelays.sort().join(',');
         
         if (currentRelaysString !== newRelaysString) {
-          console.debug('[PublicationFeed] User logged in with new relays, re-fetching events');
+          console.debug('[PublicationFeed] User logged in with new feed relays, re-fetching events');
           // Clear cache to force fresh fetch from user's relays
           indexEventCache.clear();
           setTimeout(() => initializeAndFetch(), 0);
@@ -561,20 +794,24 @@
   });
 
   // AI-NOTE: Watch for changes in the user filter checkbox
+  // Note: Sorting and display happens in fetchAllIndexEventsFromRelays after labels are loaded
+  // This effect only handles filter changes after initial load
   $effect(() => {
-    // Trigger filtering when the user filter checkbox changes
-    // Access both props to ensure the effect runs when either changes
-    const searchQuery = props.searchQuery;
-    const showOnlyMyPublications = props.showOnlyMyPublications;
-    debouncedSearch(searchQuery);
+    // Only trigger if we have events (labels are already loaded from initializeAndFetch)
+    if (allIndexEvents.length > 0 && !loading) {
+      const searchQuery = props.searchQuery;
+      const showOnlyMyPublications = props.showOnlyMyPublications;
+      // Re-sort and filter when filters change (labels are already loaded)
+      debouncedSearch(searchQuery);
+    }
   });
 
-  // Emit event count updates
+  // Emit event count updates (using top-level count as total)
   $effect(() => {
     if (props.onEventCountUpdate) {
       props.onEventCountUpdate({
         displayed: eventsInView.length,
-        total: allIndexEvents.length
+        total: topLevelEventCount
       });
     }
   });
@@ -582,13 +819,18 @@
   async function loadMorePublications() {
     loadingMore = true;
     const current = eventsInView.length;
-    let source = allIndexEvents;
     
-    // Apply user filter first
+    // Filter to top-level events first
+    let source = filterToTopLevelOnly(allIndexEvents);
+    
+    // Sort by relevance
+    source = sortEventsByRelevance(source);
+    
+    // Apply user filter
     source = filterEventsByUser(source);
     
     // Then apply search filter if query exists
-    if (props.searchQuery.trim()) {
+    if (props.searchQuery?.trim()) {
       source = filterEventsBySearch(source);
     }
     
@@ -652,7 +894,10 @@
           if (allIndexEvents.length > 0) {
             let source = allIndexEvents;
             
-            // Apply user filter first
+            // Sort by relevance
+            source = sortEventsByRelevance(source);
+            
+            // Apply user filter
             source = filterEventsByUser(source);
             
             // Then apply search filter if query exists

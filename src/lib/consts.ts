@@ -17,17 +17,15 @@ export const searchRelays = [
   "wss://nostr.wine",
   "wss://relay.damus.io",
   "wss://freelay.sovbit.host",
+  "wss://nostr.sovbit.host",
+  "wss://nostr.wine",
+  "wss://nostr21.com"
 ];
 
 export const secondaryRelays = [
   "wss://theforest.nostr1.com",
   //"wss://theforest.gitcitadel.eu"
-  "wss://thecitadel.nostr1.com",
-  //"wss://thecitadel.gitcitadel.eu",
-  "wss://nostr.land",
-  "wss://nostr.wine",
-  "wss://nostr.sovbit.host",
-  "wss://nostr21.com",
+  "wss://nostr.land"
 ];
 
 export const anonymousRelays = [
