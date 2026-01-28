@@ -721,11 +721,17 @@
     endOfFeed = filtered.length <= publicationsToDisplay;
   }, 300);
 
-  // AI-NOTE: Watch for changes in search query and user filter
+  // AI-NOTE: Watch for changes in search query, user filter, and events
+  // Triggers debounced search when any filter changes or events are loaded
   $effect(() => {
-    // Trigger search when either search query or user filter changes
-    // Also watch for changes in user store to update filter when user logs in/out
-    debouncedSearch(props.searchQuery);
+    // Only trigger if we have events (labels are already loaded from initializeAndFetch)
+    if (allIndexEvents.length > 0 && !loading) {
+      // Read reactive props to track them as dependencies (intentionally accessing them)
+      props.searchQuery;
+      props.showOnlyMyPublications;
+      // Re-sort and filter when filters change (labels are already loaded)
+      debouncedSearch(props.searchQuery);
+    }
   });
 
   // AI-NOTE: Watch for user authentication state changes to re-fetch events when user logs in/out
@@ -758,18 +764,6 @@
     }
   });
 
-  // AI-NOTE: Watch for changes in the user filter checkbox
-  // Note: Sorting and display happens in fetchAllIndexEventsFromRelays after labels are loaded
-  // This effect only handles filter changes after initial load
-  $effect(() => {
-    // Only trigger if we have events (labels are already loaded from initializeAndFetch)
-    if (allIndexEvents.length > 0 && !loading) {
-      const searchQuery = props.searchQuery;
-      const showOnlyMyPublications = props.showOnlyMyPublications;
-      // Re-sort and filter when filters change (labels are already loaded)
-      debouncedSearch(searchQuery);
-    }
-  });
 
   // Emit event count updates (using top-level count as total)
   $effect(() => {
