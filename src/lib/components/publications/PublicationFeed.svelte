@@ -11,13 +11,13 @@
     toNpub,
   } from "$lib/utils/nostrUtils";
   import { WebSocketPool } from "$lib/data_structures/websocket_pool";
-  import NDK, { NDKEvent } from "@nostr-dev-kit/ndk";
-  import { NDKRelaySetFromNDK } from "$lib/utils/nostrUtils";
+  import { NDKEvent } from "@nostr-dev-kit/ndk";
   import { searchCache } from "$lib/utils/searchCache";
   import { indexEventCache } from "$lib/utils/indexEventCache";
   import { isValidNip05Address } from "$lib/utils/search_utility";
   import { userStore } from "$lib/stores/userStore.ts";
   import { nip19 } from "nostr-tools";
+  import { LabelManager } from "./labelManager";
 
   const props = $props<{
     searchQuery?: string;
@@ -44,9 +44,9 @@
 
   // Event management
   let allIndexEvents: NDKEvent[] = $state([]);
-  let allLabel1985Events: NDKEvent[] = $state([]);
-  let label1985EventMap = $state<Map<string, boolean>>(new Map());
-  let label1985EventIdMap = $state<Map<string, boolean>>(new Map());
+
+  // Label management
+  const labelManager = new LabelManager();
 
   // Calculate the number of columns based on window width
   let columnCount = $state(1);
@@ -315,7 +315,8 @@
     console.debug(`[PublicationFeed] Found ${topLevelEvents.length} top-level events`);
     
     // Sort top-level events by relevance (labeled first, then newest)
-    console.debug(`[PublicationFeed] Sorting ${topLevelEvents.length} top-level events using ${allLabel1985Events.length} label events`);
+    const labelStats = labelManager.getStats();
+    console.debug(`[PublicationFeed] Sorting ${topLevelEvents.length} top-level events using ${labelStats.totalLabels} label events`);
     const sorted = sortEventsByRelevance(topLevelEvents);
     console.debug(`[PublicationFeed] After sorting: ${sorted.length} events`);
     
@@ -349,65 +350,11 @@
       return;
     }
 
-    console.debug('[PublicationFeed] Fetching ALL kind 1985 label events from full relay set');
-    
-    try {
-      // Create relay set for label fetching
-      const relaySet = NDKRelaySetFromNDK.fromRelayUrls(fullRelaySet, ndk);
-      console.debug(`[PublicationFeed] Created relay set with ${relaySet.relays.size} relays for label fetching`);
+    console.debug('[PublicationFeed] Fetching labels via LabelManager');
+    await labelManager.fetchLabels(fullRelaySet, ndk);
 
-      // Fetch ALL kind 1985 events (no filters - we'll filter them later)
-      console.debug('[PublicationFeed] Fetching all kind 1985 label events...');
-      
-      const labelEvents = await Promise.race([
-        ndk.fetchEvents(
-          {
-            kinds: [1985],
-          },
-          {
-            groupable: true,
-            skipVerification: false,
-            skipValidation: false,
-          },
-          relaySet
-        ),
-        new Promise<Set<NDKEvent>>((resolve) => {
-          setTimeout(() => {
-            console.warn(`[PublicationFeed] Label fetch timed out after 30s`);
-            resolve(new Set<NDKEvent>());
-          }, 30000);
-        })
-      ]);
-
-      allLabel1985Events = Array.from(labelEvents);
-      console.debug(`[PublicationFeed] Fetched ${allLabel1985Events.length} total label 1985 events`);
-      
-      // Build maps of which 30040 events have 1985 labels (by address and event ID)
-      label1985EventMap = new Map();
-      label1985EventIdMap = new Map();
-      
-      for (const labelEvent of allLabel1985Events) {
-        // Extract addresses from "a" tags
-        const aTags = getMatchingTags(labelEvent, "a");
-        for (const aTag of aTags) {
-          if (aTag[1]) {
-            label1985EventMap.set(aTag[1], true);
-          }
-        }
-        
-        // Extract event IDs from "e" tags
-        const eTags = getMatchingTags(labelEvent, "e");
-        for (const eTag of eTags) {
-          if (eTag[1]) {
-            label1985EventIdMap.set(eTag[1], true);
-          }
-        }
-      }
-
-      console.debug(`[PublicationFeed] Label maps built: ${label1985EventMap.size} addresses, ${label1985EventIdMap.size} event IDs`);
-    } catch (err) {
-      console.error('[PublicationFeed] Error fetching label 1985 events:', err);
-    }
+    const stats = labelManager.getStats();
+    console.debug(`[PublicationFeed] Label stats: ${stats.totalLabels} total, ${stats.addressMappings} addresses, ${stats.eventIdMappings} event IDs`);
   }
 
   // Function to convert various Nostr identifiers to npub using the utility function
@@ -466,11 +413,7 @@
 
   // Function to check if an event has a 1985 label
   const has1985Label = (event: NDKEvent): boolean => {
-    const address = event.tagAddress();
-    const eventId = event.id;
-    const hasLabelByAddress = label1985EventMap.get(address) === true;
-    const hasLabelById = eventId ? label1985EventIdMap.get(eventId) === true : false;
-    return hasLabelByAddress || hasLabelById;
+    return labelManager.has1985Label(event);
   };
 
   // Function to check if an event is top-level (not referenced by other 30040s)
