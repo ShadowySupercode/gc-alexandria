@@ -52,41 +52,6 @@
   let columnCount = $state(1);
   let publicationsToDisplay = $state(10);
 
-  // Update column count and publications when window resizes
-  $effect(() => {
-    if (typeof window !== 'undefined') {
-      const width = window.innerWidth;
-      let newColumnCount = 1;
-      if (width >= 1280) newColumnCount = 4; // xl:grid-cols-4
-      else if (width >= 1024) newColumnCount = 3; // lg:grid-cols-3
-      else if (width >= 768) newColumnCount = 2; // md:grid-cols-2
-      
-      if (columnCount !== newColumnCount) {
-        columnCount = newColumnCount;
-        publicationsToDisplay = newColumnCount * 10;
-        
-          // Update the view immediately when column count changes
-          if (allIndexEvents.length > 0) {
-            let source = allIndexEvents;
-            
-            // Sort by relevance
-            source = sortEventsByRelevance(source);
-            
-            // Apply user filter
-            source = filterEventsByUser(source);
-            
-            // Then apply search filter if query exists
-            if (props.searchQuery?.trim()) {
-              source = filterEventsBySearch(source);
-            }
-            
-            eventsInView = source.slice(0, publicationsToDisplay);
-            endOfFeed = eventsInView.length >= source.length;
-          }
-        }
-      }
-    });
-
   // Initialize relays and fetch events
   // AI-NOTE: This function is called when the component mounts and when relay configuration changes
   // For the feed, we use only secondaryRelays + user's personal relays (deduplicated)
