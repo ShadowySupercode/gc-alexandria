@@ -29,13 +29,11 @@ export class LabelManager {
     console.debug('[LabelManager] Fetching ALL kind 1985 label events from relay set');
 
     try {
-      // Create relay set for label fetching
+      const startTime = Date.now();
       const relaySet = NDKRelaySetFromNDK.fromRelayUrls(relays, ndk);
       console.debug(`[LabelManager] Created relay set with ${relaySet.relays.size} relays for label fetching`);
 
-      // Fetch ALL kind 1985 events (no filters - we'll filter them later)
-      console.debug('[LabelManager] Fetching all kind 1985 label events...');
-
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       const labelEvents = await Promise.race([
         ndk.fetchEvents(
           {
@@ -45,19 +43,25 @@ export class LabelManager {
             groupable: true,
             skipVerification: false,
             skipValidation: false,
+            closeOnEose: true,
           },
           relaySet
-        ),
+        ).then(events => {
+          // Clear timeout on success
+          if (timeoutId !== null) clearTimeout(timeoutId);
+          return events;
+        }),
         new Promise<Set<NDKEvent>>((resolve) => {
-          setTimeout(() => {
-            console.warn(`[LabelManager] Label fetch timed out after 30s`);
+          timeoutId = setTimeout(() => {
+            console.debug('[LabelManager] Label fetch timed out after 30s');
             resolve(new Set<NDKEvent>());
-          }, 30000);
+          }, 30000); // 30s timeout for all relays
         })
       ]);
 
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       this.allLabel1985Events = Array.from(labelEvents);
-      console.debug(`[LabelManager] Fetched ${this.allLabel1985Events.length} total label 1985 events`);
+      console.debug(`[LabelManager] Fetched ${this.allLabel1985Events.length} label events in ${elapsed}s`);
 
       // Build maps of which 30040 events have 1985 labels (by address and event ID)
       this.buildLabelMaps();
