@@ -1,17 +1,48 @@
-version: 39
+version: 43
+properties:
+- name: alex_repo_relpath
+  value: alexandria/gc-alexandria
+  archived: false
 jobs:
-  - name: Github Push
-    steps:
-      - !PushRepository
-        name: gc-alexandria
-        remoteUrl: https://github.com/ShadowySupercode/gc-alexandria
-        passwordSecret: github_access_token
-        force: false
-        condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-    triggers:
-      - !BranchUpdateTrigger {}
-      - !TagCreateTrigger {}
-    retryCondition: never
-    maxRetries: 3
-    retryDelay: 30
-    timeout: 14400
+- name: Github Push
+  steps:
+  - type: PushRepository
+    name: gc-alexandria
+    remoteUrl: https://github.com/ShadowySupercode/gc-alexandria
+    passwordSecret: github_access_token
+    force: false
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    userMatch: anyone
+  - type: TagCreateTrigger
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+
+- name: Container Image
+  steps:
+  - type: CheckoutStep
+    name: code checkout
+    cloneCredential:
+      type: DefaultCredential
+    withLfs: false
+    withSubmodules: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: BuildImageStep
+    name: build & push image
+    dockerfile: Dockerfile
+    output:
+      type: RegistryOutput
+      tags: '@server@/@property:alex_repo_relpath@/alexandria:@tag@'
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: TagCreateTrigger
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
