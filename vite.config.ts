@@ -32,6 +32,11 @@ export default defineConfig({
     },
   },
   build: {
+    // Several core dependencies (notably asciidoctor at ~900 kB minified) are
+    // individually larger than Vite's default 500 kB chunk-size warning
+    // threshold and cannot be split below it. Raise the limit so the build
+    // only warns about genuinely unexpected bundle growth.
+    chunkSizeWarningLimit: 1024,
     rollupOptions: {
       // Removed bech32 from externals since it's needed on client side
     },

@@ -16,7 +16,7 @@ import { NDKRelaySet as NDKRelaySetFromNDK } from "@nostr-dev-kit/ndk";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex } from "@noble/hashes/utils";
-import { wellKnownUrl } from "./search_utility.ts";
+import { wellKnownUrl } from "./search_utils.ts";
 import { VALIDATION } from "./search_constants.ts";
 
 const badgeCheckSvg =
