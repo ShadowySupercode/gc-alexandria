@@ -18,6 +18,7 @@ export const searchRelays = [
   "wss://nostr.wine",
   "wss://relay.damus.io",
   "wss://freelay.sovbit.host",
+  "wss://mercury-relay.imwald.eu/relay"
 ];
 
 export const secondaryRelays = [
