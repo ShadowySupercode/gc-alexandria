@@ -142,9 +142,11 @@
     return getMatchingTags(ev, "deferral")[0]?.[1];
   }
 
-  const profileData = parseProfileContent(event);
-  const summary = showSummary ? getSummary(event) : undefined;
-  const deferralNaddr = showDeferralNaddr ? getDeferralNaddr(event) : undefined;
+  const profileData = $derived(parseProfileContent(event));
+  const summary = $derived(showSummary ? getSummary(event) : undefined);
+  const deferralNaddr = $derived(
+    showDeferralNaddr ? getDeferralNaddr(event) : undefined,
+  );
 
   function clippedContent(content: string): string {
     if (!showContent) {
@@ -174,16 +176,19 @@
     }
   }
 
-  const displayName: string | undefined =
-    profileData?.display_name || profileData?.name;
-  const avatarFallback: string = (displayName || event.pubkey || "?")
-    .slice(0, 1)
-    .toUpperCase();
-  const createdDate: string = event.created_at
-    ? new Date(event.created_at * 1000).toLocaleDateString()
-    : "Unknown date";
+  const displayName: string | undefined = $derived(
+    profileData?.display_name || profileData?.name,
+  );
+  const avatarFallback: string = $derived(
+    (displayName || event.pubkey || "?").slice(0, 1).toUpperCase(),
+  );
+  const createdDate: string = $derived(
+    event.created_at
+      ? new Date(event.created_at * 1000).toLocaleDateString()
+      : "Unknown date",
+  );
 
-  const computedActions =
+  const computedActions = $derived(
     actions && actions.length > 0
       ? actions
       : [
@@ -192,7 +197,8 @@
             onClick: (ev: NDKEvent) => onSelect?.(ev),
             variant: "light" as const,
           },
-        ];
+        ],
+  );
 </script>
 
 <Card

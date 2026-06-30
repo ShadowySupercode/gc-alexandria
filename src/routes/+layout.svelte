@@ -11,6 +11,7 @@
   // Define children prop for Svelte 5
   let { data, children }: LayoutProps = $props();
 
+  // svelte-ignore state_referenced_locally
   setContext("ndk", data.ndk);
 
   let contentTop = $state(100); // Default to 100px

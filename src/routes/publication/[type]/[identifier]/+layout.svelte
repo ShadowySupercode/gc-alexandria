@@ -4,15 +4,18 @@
 
   let { data, children }: LayoutProps = $props();
   
-  // AI-NOTE: Use metadata from server-side load for SEO and social sharing
-  const { metadata } = data;
-  
+  // AI-NOTE: Use metadata from server-side load for SEO and social sharing.
+  // Derived so meta tags update on client-side navigation between publications.
+  const metadata = $derived(data.metadata);
+
   // Type assertion for optional metadata properties
-  const meta = metadata as typeof metadata & { 
-    title?: string; 
-    summary?: string; 
-    image?: string; 
-  };
+  const meta = $derived(
+    metadata as typeof metadata & {
+      title?: string;
+      summary?: string;
+      image?: string;
+    },
+  );
 </script>
 
 <!-- TODO: Provide fallback metadata values to use if the publication is on an auth-to-read relay. -->

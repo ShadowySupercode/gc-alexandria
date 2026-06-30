@@ -62,6 +62,7 @@
   // - Blogs: comments and highlights ON by default
   // - Articles/sections: comments and highlights ON by default
   // - Publication indexes (kind 30040): comments and highlights OFF by default (for undisturbed reading)
+  // svelte-ignore state_referenced_locally
   const isPublicationIndex = publicationType === "publication" && indexEvent.kind === 30040;
   const defaultCommentsVisible = !isPublicationIndex;
   const defaultHighlightsVisible = !isPublicationIndex;

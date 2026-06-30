@@ -19,6 +19,7 @@
   let signInFailed = $state<boolean>(false);
   let errorMessage = $state<string>("");
   let user = $state($userStore);
+  // svelte-ignore state_referenced_locally
   let modalOpen = $state(show);
 
   userStore.subscribe((val) => (user = val));

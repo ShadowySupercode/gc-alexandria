@@ -10,6 +10,7 @@
   import { onMount } from "svelte";
   import { getUserMetadata } from "$lib/utils/nostrUtils";
   import { activeInboxRelays, activeOutboxRelays, getNdkContext } from "$lib/ndk";
+  import QRCode from "qrcode";
 
   const ndk = getNdkContext();
 
@@ -242,7 +243,6 @@
   // Generate QR code
   const generateQrCode = async (text: string): Promise<string> => {
     try {
-      const QRCode = await import("qrcode");
       return await QRCode.toDataURL(text, {
         width: 256,
         margin: 2,
