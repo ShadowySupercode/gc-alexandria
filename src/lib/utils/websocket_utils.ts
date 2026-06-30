@@ -3,6 +3,7 @@ import { error } from "@sveltejs/kit";
 import { naddrDecode, neventDecode } from "../utils.ts";
 import { activeInboxRelays, activeOutboxRelays } from "../ndk.ts";
 import { get } from "svelte/store";
+import { indexEventCache } from "./indexEventCache.ts";
 
 export interface NostrEvent {
   id: string;
@@ -74,6 +75,21 @@ function handleError(
 export async function fetchNostrEvent(
   filter: NostrFilter,
 ): Promise<NostrEvent | null> {
+  // Cache-first. The feed already keeps downloaded index events in
+  // indexEventCache; reuse one instead of re-running relay discovery (which stalls
+  // when relays are unreachable). Falls through to relays on a miss.
+  const cached = indexEventCache.findEvent((event) =>
+    (!filter.ids || filter.ids.includes(event.id)) &&
+    (!filter.authors || filter.authors.includes(event.pubkey)) &&
+    (!filter.kinds || filter.kinds.includes(event.kind ?? -1)) &&
+    (!filter["#d"] ||
+      event.tags.some((tag) => tag[0] === "d" && filter["#d"]!.includes(tag[1])))
+  );
+  if (cached) {
+    console.debug("[fetchNostrEvent] Resolved from index cache; skipping relays.");
+    return cached.rawEvent() as NostrEvent;
+  }
+
   // AI-NOTE: Updated to use active relay stores instead of hardcoded relay URL
   // This ensures the function uses the user's configured relays and can find events
   // across multiple relays rather than being limited to a single hardcoded relay.
