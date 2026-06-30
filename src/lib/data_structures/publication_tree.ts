@@ -1093,7 +1093,7 @@ export class PublicationTree implements AsyncIterable<NDKEvent | null> {
     }
 
     // Zettel kinds are always leaves
-    if ([30041, 30818, 30023].includes(event.kind)) {
+    if ([30041, 30817, 30818, 30023].includes(event.kind)) {
       console.debug(
         `[PublicationTree] Node type for ${event.kind}:${event.pubkey}:${
           event.tags.find((t) => t[0] === "d")?.[1]
