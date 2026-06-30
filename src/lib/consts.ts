@@ -1,8 +1,9 @@
 // AI SHOULD NEVER CHANGE THIS FILE
 
 export const wikiKind = 30818;
+export const specKind = 30817;
 export const indexKind = 30040;
-export const zettelKinds = [30041, 30818, 30023];
+export const zettelKinds = [30041, 30818, 30817, 30023];
 export const repostKinds = [6, 16];
 
 export const communityRelays = [
@@ -26,7 +27,7 @@ export const secondaryRelays = [
   //"wss://thecitadel.gitcitadel.eu",
   "wss://nostr.land",
   "wss://nostr.wine",
-  "wss://nostr.sovbit.host",
+  "wss://relay.sovbit.host",
   "wss://nostr21.com",
 ];
 
