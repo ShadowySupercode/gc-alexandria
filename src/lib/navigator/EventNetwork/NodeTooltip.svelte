@@ -34,7 +34,9 @@
 
   // DOM reference and positioning
   let tooltipElement: HTMLDivElement;
+  // svelte-ignore state_referenced_locally
   let tooltipX = $state(x + 10); // Add offset to avoid cursor overlap
+  // svelte-ignore state_referenced_locally
   let tooltipY = $state(y - 10);
 
   // Maximum content length to display

@@ -22,7 +22,7 @@
     exportEventsFromTree,
   } from "$lib/utils/asciidoc_publication_parser";
   import { getNdkContext } from "$lib/ndk";
-  import Asciidoctor, { Document } from "asciidoctor";
+  import Asciidoctor, { type Document } from "asciidoctor";
   import {
     extractWikiLinks,
     renderWikiLinksToHtml,

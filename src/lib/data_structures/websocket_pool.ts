@@ -36,18 +36,35 @@ export class WebSocketPool {
   #waitingQueue: WebSocketPoolWaitingQueueItem[] = [];
 
   /**
+   * Circuit breaker state: maps a relay URL to the timestamp of its last failed connection
+   * attempt. Used to fail fast for relays that are currently unreachable instead of re-dialing
+   * (and stalling) on every acquire.
+   */
+  #failedUrls: Map<string, number> = new Map();
+  #connectTimeoutMs: number;
+  #failureCooldownMs: number;
+
+  /**
    * Private constructor invoked when the singleton instance is first created.
    * @param idleTimeoutMs - The timeout in milliseconds after which idle connections will be
    * closed. Defaults to 60 seconds.
    * @param maxConnections - The maximum number of simultaneous WebSocket connections. Defaults to
    * 16.
+   * @param connectTimeoutMs - The timeout in milliseconds for establishing a new connection
+   * before it is treated as failed. Defaults to 3 seconds.
+   * @param failureCooldownMs - How long a relay is skipped after a failed connection attempt.
+   * Defaults to 30 seconds.
    */
   private constructor(
     idleTimeoutMs: number = 60000,
     maxConnections: number = 16,
+    connectTimeoutMs: number = 3000,
+    failureCooldownMs: number = 30000,
   ) {
     this.#idleTimeoutMs = idleTimeoutMs;
     this.#maxConnections = maxConnections;
+    this.#connectTimeoutMs = connectTimeoutMs;
+    this.#failureCooldownMs = failureCooldownMs;
   }
 
   /**
@@ -154,6 +171,18 @@ export class WebSocketPool {
         return handle.ws;
       }
 
+      // Circuit breaker. If this relay failed to connect recently, reject immediately
+      // rather than re-dialing and stalling every consumer on the same dead host.
+      const lastFailure = this.#failedUrls.get(normalizedUrl);
+      if (
+        lastFailure != null &&
+        Date.now() - lastFailure < this.#failureCooldownMs
+      ) {
+        throw new Error(
+          `[WebSocketPool] Skipping recently failed relay ${normalizedUrl} (in cooldown).`,
+        );
+      }
+
       if (this.#pool.size >= this.#maxConnections) {
         return new Promise((resolve, reject) => {
           this.#waitingQueue.push({
@@ -240,6 +269,7 @@ export class WebSocketPool {
       }
     }
     this.#pool.clear();
+    this.#failedUrls.clear();
 
     console.debug("[WebSocketPool] Pool drained successfully");
   }
@@ -255,7 +285,26 @@ export class WebSocketPool {
           ws: new WebSocket(url),
           refCount: 1,
         };
+
+        // AI-NOTE: Browsers can take tens of seconds to surface a failed WebSocket connection.
+        // Enforce our own connect timeout so an unreachable relay fails fast and is recorded by
+        // the circuit breaker instead of stalling the caller.
+        const connectTimer = setTimeout(() => {
+          this.#failedUrls.set(url, Date.now());
+          try {
+            handle.ws.close();
+          } catch {
+            // Ignore errors closing a socket that never opened.
+          }
+          this.#removeSocket(handle);
+          reject(
+            new Error(`[WebSocketPool] Connection to ${url} timed out.`),
+          );
+        }, this.#connectTimeoutMs);
+
         handle.ws.onopen = () => {
+          clearTimeout(connectTimer);
+          this.#failedUrls.delete(url);
           this.#pool.set(url, handle);
 
           // Remove the socket from the pool when it is closed. The socket may be closed by
@@ -265,8 +314,9 @@ export class WebSocketPool {
         };
 
         handle.ws.onerror = (event) => {
+          clearTimeout(connectTimer);
+          this.#failedUrls.set(url, Date.now());
           this.#removeSocket(handle);
-          this.#processWaitingQueue();
           reject(
             new Error(
               `[WebSocketPool] WebSocket connection failed for ${url}: ${event.type}`,
@@ -274,6 +324,7 @@ export class WebSocketPool {
           );
         };
       } catch (error) {
+        this.#failedUrls.set(url, Date.now());
         this.#processWaitingQueue();
         reject(error);
       }

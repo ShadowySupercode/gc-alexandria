@@ -54,8 +54,11 @@
     onBlogUpdate?: any;
   }>();
 
+  // svelte-ignore state_referenced_locally
   let currentContent: string = $state($pharosInstance.getContent(rootId));
+  // svelte-ignore state_referenced_locally
   let title: string | undefined = $state($pharosInstance.getIndexTitle(rootId));
+  // svelte-ignore state_referenced_locally
   let orderedChildren: string[] = $state(
     $pharosInstance.getOrderedChildIds(rootId),
   );

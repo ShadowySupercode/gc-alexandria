@@ -1,6 +1,6 @@
 {
   "name": "alexandria",
-  "version": "0.0.2",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -42,6 +42,9 @@
     "plantuml-encoder": "^1.4.0",
     "qrcode": "^1.5.4",
     "tailwindcss": "^4.1.11"
+  },
+  "overrides": {
+    "cookie": "^0.7.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

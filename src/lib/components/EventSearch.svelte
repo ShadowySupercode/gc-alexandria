@@ -65,7 +65,9 @@
   let isResetting = $state(false);
 
   // Track current search type for internal logic
+  // svelte-ignore state_referenced_locally
   let currentSearchType = $state<SearchType | null>(searchType);
+  // svelte-ignore state_referenced_locally
   let currentSearchValue = $state<string | null>(searchValue);
 
   // Sync internal state with props when they change externally

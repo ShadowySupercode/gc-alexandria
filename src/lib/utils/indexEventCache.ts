@@ -47,6 +47,24 @@ class IndexEventCache {
   }
 
   /**
+   * Find the first non-expired cached event matching a predicate, or null.
+   *
+   * @param predicate - Returns true for the desired event.
+   */
+  findEvent(predicate: (event: NDKEvent) => boolean): NDKEvent | null {
+    for (const entry of this.cache.values()) {
+      if (this.isExpired(entry)) {
+        continue;
+      }
+      const match = entry.events.find(predicate);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Store index events in cache
    */
   set(relayUrls: string[], events: NDKEvent[]): void {

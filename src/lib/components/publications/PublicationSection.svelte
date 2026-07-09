@@ -166,18 +166,17 @@
     const event = await leafEvent;
     const content = event?.content ?? "";
 
-    // AI-NOTE: Kind 30023 events contain Markdown content, not AsciiDoc
-    // Use parseAdvancedmarkup for 30023 events, Asciidoctor for 30041/30818 events
+    // Kind 30041 and 30818 events contain AsciiDoc content; all other
+    // zettel kinds (e.g. 30023, 30817) are treated as Markdown.
     let processed: string;
-    if (event?.kind === 30023) {
-      processed = await parseAdvancedmarkup(content);
-    } else {
-      // For 30041 and 30818 events, use Asciidoctor (AsciiDoc)
+    if (event?.kind === 30041 || event?.kind === 30818) {
       const converted = asciidoctor.convert(content);
       processed = await postProcessAdvancedAsciidoctorHtml(
         converted.toString(),
         ndk,
       );
+    } else {
+      processed = await parseAdvancedmarkup(content);
     }
     
     // Remove redundant h1 title from first section if it matches publication title

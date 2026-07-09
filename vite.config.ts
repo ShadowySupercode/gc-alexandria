@@ -32,6 +32,10 @@ export default defineConfig({
     },
   },
   build: {
+    // Raised only because asciidoctor (~900 kB minified) exceeds Vite's
+    // default 500 kB chunk warning threshold and cannot be split smaller.
+    // Remove chunkSizeWarningLimit when asciidoctor is gone someday.
+    chunkSizeWarningLimit: 1024,
     rollupOptions: {
       // Removed bech32 from externals since it's needed on client side
     },

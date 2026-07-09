@@ -100,10 +100,10 @@
   } = $props();
 
   // Derived view-model
-  let displayName = displayNameFrom(npub, profile);
-  let shortNpub = shortenBech32(npub, true);
-  let avatarUrl = profile?.picture ?? "";
-  let nip05 = profile?.nip05 ?? "";
+  let displayName = $derived(displayNameFrom(npub, profile));
+  let shortNpub = $derived(shortenBech32(npub, true));
+  let avatarUrl = $derived(profile?.picture ?? "");
+  let nip05 = $derived(profile?.nip05 ?? "");
 
   // NIP-05 verify
   let computedVerified = $state(false);
@@ -121,21 +121,28 @@
   });
 
   // Sizing map
-  const sizes = {
-    sm: {
-      avatar: "h-6 w-6",
-      gap: "gap-2",
-      name: "text-sm",
-      meta: "text-[11px]",
-    },
-    md: {
-      avatar: "h-8 w-8",
-      gap: "gap-2.5",
-      name: "text-base",
-      meta: "text-xs",
-    },
-    lg: { avatar: "h-10 w-10", gap: "gap-3", name: "text-lg", meta: "text-sm" },
-  }[size];
+  const sizes = $derived(
+    {
+      sm: {
+        avatar: "h-6 w-6",
+        gap: "gap-2",
+        name: "text-sm",
+        meta: "text-[11px]",
+      },
+      md: {
+        avatar: "h-8 w-8",
+        gap: "gap-2.5",
+        name: "text-base",
+        meta: "text-xs",
+      },
+      lg: {
+        avatar: "h-10 w-10",
+        gap: "gap-3",
+        name: "text-lg",
+        meta: "text-sm",
+      },
+    }[size],
+  );
 </script>
 
 {#if href}

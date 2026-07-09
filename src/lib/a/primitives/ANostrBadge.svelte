@@ -54,7 +54,7 @@
   import type { DisplayBadge } from "$lib/nostr/nip58";
 
   let { badge, size = "s" }: { badge: DisplayBadge; size?: "xs" | "s" | "m" | "l" } = $props();
-  const px = { xs: 16, s: 24, m: 32, l: 48 }[size];
+  const px = $derived({ xs: 16, s: 24, m: 32, l: 48 }[size]);
 </script>
 
 <span class="inline-flex items-center" title={badge.title}>

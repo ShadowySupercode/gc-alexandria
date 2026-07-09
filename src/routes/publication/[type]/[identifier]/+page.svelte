@@ -28,24 +28,35 @@
   let toc = $state<TableOfContents | null>(null);
   let initialized = $state(false);
 
+  // AI-NOTE: Tracks the identifier we last attempted to load client-side. Without this guard the
+  // $effect below re-invokes loadEventClientSide every time `loading` toggles back to false,
+  // producing an infinite fetch/404 retry loop when an event genuinely isn't on any relay.
+  let attemptedIdentifier = $state<string | null>(null);
+
   // AI-NOTE: Initialize with server-side data if available
   $effect(() => {
     if (initialized) return; // Prevent re-initialization
-    
+
     if (data.indexEvent && data.ndk) {
       const serverEvent = createNDKEvent(data.ndk, data.indexEvent);
       indexEvent = serverEvent;
       initializePublicationComponents(serverEvent);
       initialized = true;
-    } else if (browser && data.identifierInfo && !loading) {
-      // AI-NOTE: Client-side loading when server-side data is not available
-      loadEventClientSide();
+    } else if (browser && data.identifierInfo) {
+      // AI-NOTE: Client-side loading when server-side data is not available. Only attempt once
+      // per identifier so a not-found result settles into the error state instead of looping.
+      const key = `${data.identifierInfo.type}:${data.identifierInfo.identifier}`;
+      if (attemptedIdentifier !== key) {
+        loadEventClientSide();
+      }
     }
   });
 
   async function loadEventClientSide() {
-    if (!browser || !data.identifierInfo || loading) return;
+    if (!browser || !data.identifierInfo) return;
 
+    attemptedIdentifier =
+      `${data.identifierInfo.type}:${data.identifierInfo.identifier}`;
     loading = true;
     error = null;
 
@@ -81,7 +92,18 @@
       }
     } catch (err) {
       console.error("[Publication] Client-side loading failed:", err);
-      error = err instanceof Error ? err.message : "Failed to load publication";
+      // AI-NOTE: SvelteKit error() throws an HttpError ({ status, body }), not an Error, so
+      // pull the detailed message from the body before falling back.
+      if (
+        err && typeof err === "object" && "body" in err &&
+        err.body && typeof err.body === "object" && "message" in err.body
+      ) {
+        error = String((err.body as { message: unknown }).message);
+      } else if (err instanceof Error) {
+        error = err.message;
+      } else {
+        error = "Failed to load publication";
+      }
     } finally {
       loading = false;
     }
@@ -186,13 +208,13 @@
     />
 {:else if loading}
   <main class="publication">
-    <div class="flex items-center justify-center min-h-screen">
+    <div class="flex items-center justify-center min-h-screen w-full">
       <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>
     </div>
   </main>
 {:else if error}
   <main class="publication">
-    <div class="flex items-center justify-center min-h-screen">
+    <div class="flex items-center justify-center min-h-screen w-full">
       <div class="text-center">
         <p class="text-red-600 dark:text-red-400 mb-4">Failed to load publication</p>
         <p class="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
@@ -209,7 +231,7 @@
   {@const debugInfo = `indexEvent: ${!!indexEvent}, publicationTree: ${!!publicationTree}, toc: ${!!toc}`}
   {@const debugElement = console.debug('[Publication] NOT rendering publication with:', debugInfo)}
   <main class="publication">
-    <div class="flex items-center justify-center min-h-screen">
+    <div class="flex items-center justify-center min-h-screen w-full">
       <p class="text-gray-600 dark:text-gray-400">Loading publication...</p>
     </div>
   </main>
