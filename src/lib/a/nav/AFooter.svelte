@@ -53,7 +53,7 @@
   <FooterCopyright
     href="/events?id=npub1s3ht77dq4zqnya8vjun5jp3p44pr794ru36d0ltxu65chljw8xjqd975wz"
     by="GitCitadel"
-    year={2025}
+    year={2026}
   />
   <FooterLinkGroup
     class="mt-3 flex flex-wrap items-center text-sm text-gray-500 sm:mt-0 dark:text-gray-400"
